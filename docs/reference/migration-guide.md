@@ -10,6 +10,44 @@ verified: 2026-10-17
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.366.0
+
+### framework-core
+
+**One injectable Clock for ctx.tz in handlers and jobs**
+
+New type Clock and TzContextOptions.clock. AppContext.clock feeds ctx.tz.now() in handlers, and JobContext.tz gives jobs the same ctx.tz API (tenant timezone from tenant config, read once per job run, UTC fallback). The testing helper createManualClock(start) returns a clock with set and advance. The tenant-lifecycle job now reads time through ctx.tz.now().
+
+**Migration:** Code that builds a JobContext literal itself (boot seeds, test doubles) adds `tz: createTzContext()`.
+
+**Registrar methods take a single object, positional calls throw at registration**
+
+r.writeHandler, r.queryHandler, r.entity, r.requires and r.hook now take one object. The positional overloads are gone from the types and throw when the feature is defined, with a message that points at the codemod. The throw is removed in the first release after 2026-10-29.
+
+writeHandler (queryHandler is the same shape):
+  before: r.writeHandler("order:archive", schema, handler, { access });
+  after:  r.writeHandler({ name: "order:archive", schema, handler, access });
+
+hook (type picks the handler shape, target is a name, a list or { allOf }):
+  before: r.hook("postSave", "order", handler, { escapeHatch });
+  after:  r.hook({ type: "postSave", target: "order", handler, escapeHatch });
+
+entity and requires:
+  before: r.entity("order", definition, { table: ordersTable });  r.requires("auth", "tenant");
+  after:  r.entity({ name: "order", ...definition, backingTable: ordersTable });  r.requires({ features: ["auth", "tenant"] });
+
+registerEntityCrud is no longer exported from @cosmicdrift/kumiko-framework/engine; call r.crud(name, entity, options) instead. The entity option { table } is now backingTable on the r.entity object and lands in the feature's entityTables, not in its entities. HookDefinition and EntityObjectDefinition are exported from @cosmicdrift/kumiko-types. Hook definitions are checked per type: validation takes no escapeHatch, phase only exists on postSave and postDelete, and { allOf } is not accepted on preSave.
+
+**Migration:** Run `bun kumiko-upgrade --apply`. It rewrites every positional r.writeHandler, r.queryHandler, r.entity, r.requires, r.hook and registerEntityCrud call to the object form. Calls it cannot resolve statically (a spread argument, a registrar that is not typed as FeatureRegistrar) are listed as manual work with file and line; rewrite those by hand.
+
+### inbound-mail-foundation
+
+**InboundMailContext exposes metricsFor to provider plugins**
+
+InboundMailContext gains an optional metricsFor(featureName) returning a MetricsHandle. runProdApp, the worker app and the dev server wire it from the observability meter, so provider plugins can emit their own metrics through the same pipeline.
+
+**Migration:** Code that builds SystemWireDeps itself adds metricsFor (createMetricsForFactory(meter)).
+
 ## 0.365.0
 
 ### @cosmicdrift/kumiko-dev-server

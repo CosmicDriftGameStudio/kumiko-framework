@@ -1,5 +1,44 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.366.0
+
+### Minor Changes
+
+- 22b7f6e: InboundMailContext exposes metricsFor to provider plugins
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: InboundMailContext exposes metricsFor to provider plugins
+  detail: InboundMailContext gains an optional metricsFor(featureName) returning a MetricsHandle. runProdApp, the worker app and the dev server wire it from the observability meter, so provider plugins can emit their own metrics through the same pipeline.
+  migration: Code that builds SystemWireDeps itself adds metricsFor (createMetricsForFactory(meter)).
+  -->
+
+### Patch Changes
+
+- Updated dependencies [09d5344]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [a919906]
+- Updated dependencies [15d76a8]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [8a7d835]
+- Updated dependencies [7053800]
+- Updated dependencies [3d58dea]
+- Updated dependencies [49b3f10]
+- Updated dependencies [5df8e3a]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [7053800]
+  - @cosmicdrift/kumiko-bundled-features@0.366.0
+  - @cosmicdrift/kumiko-framework@0.366.0
+  - @cosmicdrift/kumiko-types@0.366.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.366.0
+  - @cosmicdrift/kumiko-renderer-web@0.366.0
+  - @cosmicdrift/kumiko-headless@0.366.0
+
 ## 0.365.1
 
 ### Patch Changes

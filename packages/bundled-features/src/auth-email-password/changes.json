@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.366.0",
+    "type": "fix",
+    "title": "Removed unused AuthHandlers.inviteCancel constant",
+    "detail": "AuthHandlers.inviteCancel pointed at auth-email-password:write:invite-cancel, a handler that never existed. The constant is removed.",
+    "migration": "If you referenced AuthHandlers.inviteCancel, use tenant:write:cancel-invitation."
+  },
+  {
+    "version": "0.366.0",
+    "type": "fix",
+    "title": "invite-create is no longer exposed to agents",
+    "detail": "The admin invite-create handler is now opted out of the agent tool catalog with agent: { expose: false }, like the other invite handlers, because it mails an accept link to an arbitrary address."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "Magic-link mail expiry and app name use the template locale",

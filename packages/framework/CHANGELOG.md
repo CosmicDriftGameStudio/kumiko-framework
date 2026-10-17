@@ -1,5 +1,95 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.366.0
+
+### Minor Changes
+
+- 22b7f6e: One injectable Clock for ctx.tz in handlers and jobs
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: One injectable Clock for ctx.tz in handlers and jobs
+  detail: New type Clock and TzContextOptions.clock. AppContext.clock feeds ctx.tz.now() in handlers, and JobContext.tz gives jobs the same ctx.tz API (tenant timezone from tenant config, read once per job run, UTC fallback). The testing helper createManualClock(start) returns a clock with set and advance. The tenant-lifecycle job now reads time through ctx.tz.now().
+  migration: Code that builds a JobContext literal itself (boot seeds, test doubles) adds `tz: createTzContext()`.
+  -->
+- 15d76a8: Handler input references work on nested fields and record keys
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Handler input references work on nested fields and record keys
+  detail: The references meta on handler input schemas is now found on fields inside arrays, nested objects and records, and on record keys. The new readHandlerFieldReferences and handlerFieldReferences return each hit with a path such as "channels[].channelKey" or "labels{key}" plus typed path segments. Boot validation checks nested references too and names the path in its error message. readHandlerFieldReference and handlerFieldReference behave as before.
+  -->
+- 8a7d835: Renaming a notification type keeps user preferences and address opt-outs
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Renaming a notification type keeps user preferences and address opt-outs
+  detail: r.notification accepts renamedFrom, a list of former qualified names. Preferences and address opt-outs stored under a former name keep applying to the renamed notification, and a stored choice under the current name wins over one under a former name. New writes via setPreference and the unsubscribe and resubscribe handlers are stored under the current name, resubscribeAddress also lifts opt-outs under former names. Boot fails if an alias is a current notification name, is the wildcard, or is claimed by two notifications.
+  -->
+- 7053800: The registrar takes one object per call: r.writeHandler, r.queryHandler, r.entity, r.requires and r.hook lose their positional forms
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Registrar methods take a single object, positional calls throw at registration
+  detail: |
+    r.writeHandler, r.queryHandler, r.entity, r.requires and r.hook now take one object. The positional overloads are gone from the types and throw when the feature is defined, with a message that points at the codemod. The throw is removed in the first release after 2026-10-29.
+  
+    writeHandler (queryHandler is the same shape):
+      before: r.writeHandler("order:archive", schema, handler, { access });
+      after:  r.writeHandler({ name: "order:archive", schema, handler, access });
+  
+    hook (type picks the handler shape, target is a name, a list or { allOf }):
+      before: r.hook("postSave", "order", handler, { escapeHatch });
+      after:  r.hook({ type: "postSave", target: "order", handler, escapeHatch });
+  
+    entity and requires:
+      before: r.entity("order", definition, { table: ordersTable });  r.requires("auth", "tenant");
+      after:  r.entity({ name: "order", ...definition, backingTable: ordersTable });  r.requires({ features: ["auth", "tenant"] });
+  
+    registerEntityCrud is no longer exported from @cosmicdrift/kumiko-framework/engine; call r.crud(name, entity, options) instead. The entity option { table } is now backingTable on the r.entity object and lands in the feature's entityTables, not in its entities. HookDefinition and EntityObjectDefinition are exported from @cosmicdrift/kumiko-types. Hook definitions are checked per type: validation takes no escapeHatch, phase only exists on postSave and postDelete, and { allOf } is not accepted on preSave.
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites every positional r.writeHandler, r.queryHandler, r.entity, r.requires, r.hook and registerEntityCrud call to the object form. Calls it cannot resolve statically (a spread argument, a registrar that is not typed as FeatureRegistrar) are listed as manual work with file and line; rewrite those by hand.
+  codemod: scripts/codemod/object-form.ts
+  manualAfterCodemod: true
+  -->
+- 5df8e3a: GET /api/schema hides screens and navs of features the tenant has switched off
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: The app schema no longer lists screens, navs and workspaces of features a tenant has switched off
+  detail: A feature declared with r.toggleable() that is off for the caller's tenant (tier engine or feature toggles) used to stay in the nav while all its handlers answered 403 feature_disabled. GET /api/schema now drops its screens, navs, content collections and workspaces for that tenant, and every action, redirect, nav parent and workspace member that pointed at them is removed too. Entities and translations stay. The response is cached per role set and per set of disabled features, so tenants with the same set share one ETag. Without an effectiveFeatures resolver nothing changes.
+  -->
+- 22b7f6e: selectMany supports column projection via SelectOptions.fields
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: selectMany supports column projection via SelectOptions.fields
+  detail: SelectOptions gains fields, a list of entity field names. selectMany then selects only those columns instead of all of them. An empty list or a name that is not a column of the table throws.
+  -->
+- 7053800: kumiko-upgrade prints and returns a stable id for each pending manual step
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-upgrade names each pending manual step by an id
+  detail: Every pending manual step of kumiko-upgrade now has a stable id, derived from the release version and the step title. The text output shows it in brackets and the JSON output carries it as manualId, so a script or an agent can tell steps apart and record which ones it has done.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [22b7f6e]
+- Updated dependencies [8a7d835]
+- Updated dependencies [7053800]
+- Updated dependencies [3d58dea]
+- Updated dependencies [22b7f6e]
+  - @cosmicdrift/kumiko-types@0.366.0
+  - @cosmicdrift/kumiko-http@0.366.0
+
 ## 0.365.1
 
 ### Patch Changes

@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.366.0
+
+### Minor Changes
+
+- 3d58dea: Error boundaries keep a render error from blanking the whole page
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: A throwing screen shows an error card instead of a blank page
+  detail: createKumikoApp wraps the active screen in a boundary that keeps the shell and navigation visible, shows a card with the screen name and a reload action, and resets on route change. A second boundary around the whole app shows a minimal provider-free fallback. Both log the error with console.error. createKumikoApp takes an onError option for telemetry. kumiko-testing/e2e exports boundaryGuardedTest, a plain Playwright test that fails a spec when a boundary caught an error; the seeded test builds on it.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [09d5344]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [a919906]
+- Updated dependencies [15d76a8]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [8a7d835]
+- Updated dependencies [7053800]
+- Updated dependencies [3d58dea]
+- Updated dependencies [5df8e3a]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [7053800]
+  - @cosmicdrift/kumiko-bundled-features@0.366.0
+  - @cosmicdrift/kumiko-framework@0.366.0
+  - @cosmicdrift/kumiko-types@0.366.0
+  - @cosmicdrift/kumiko-dev-server@0.366.0
+
 ## 0.365.1
 
 ### Patch Changes
