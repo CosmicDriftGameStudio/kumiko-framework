@@ -36,14 +36,24 @@ export async function loadSaveFileRefs(args: {
     if (!isFileField(fieldDef)) continue;
     for (const id of fileRefIdsOf(result.changes[fieldName])) ids.add(id);
   }
-  if (ids.size === 0) return new Map();
+  return loadFileRefRows(db, [...ids], user.tenantId);
+}
+
+// One query for the given live fileRefs of one tenant. Each row carries the stream version as
+// `version`: the binding update needs it as expectedVersion, and events without a projection
+// effect (e.g. ingest requests) advance the stream but not the row's version column.
+export async function loadFileRefRows(
+  db: TenantDb,
+  ids: readonly string[],
+  tenantId: SessionUser["tenantId"],
+): Promise<FileRefRows> {
+  // skip: nothing referenced, nothing to load
+  if (ids.length === 0) return new Map();
   const rows = await selectMany<Record<string, unknown>>(db, fileRefsTable, {
     id: { in: [...ids] },
-    tenantId: user.tenantId,
+    tenantId,
     isDeleted: false,
   });
-  // The binding update needs the stream version as expectedVersion: events without a projection
-  // effect (e.g. ingest requests) advance the stream but not the row's version column.
   const streamVersions = await getStreamVersions(
     tenantDbRunner(db),
     rows.map((row) => String(row["id"])),

@@ -238,6 +238,7 @@ const additionalRateLimitsSchema = z.array(
       limit: z.number(),
       windowSeconds: z.number(),
       cost: z.number().optional(),
+      normalize: z.literal("email").optional(),
     })
     .strict(),
 );

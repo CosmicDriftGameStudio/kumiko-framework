@@ -3,7 +3,11 @@ import * as z from "zod";
 import { requiredKeysFromScreen } from "../../i18n/required-surface-keys.js";
 import { validateBoot } from "../boot-validator.js";
 import { defineFeature } from "../define-feature.js";
-import type { DashboardScreenDefinition, DashboardScreenPanel } from "../types/screen.js";
+import type {
+  DashboardScreenDefinition,
+  DashboardScreenPanel,
+  DashboardValueFormat,
+} from "../types/screen.js";
 
 const STAT_PANEL = {
   kind: "stat",
@@ -624,6 +628,12 @@ describe("validateBoot — dashboard timeRange, scope and new panel fields", () 
     expect(() => validateBoot([feature])).toThrow(/valueFormat/);
   });
 
+  test("rejects a valueFormat whose kind is not currency", () => {
+    const valueFormat = { kind: "percent", currency: "EUR" } as unknown as DashboardValueFormat;
+    const feature = dashboardFeature([{ ...STAT_PANEL, valueFormat }]);
+    expect(() => validateBoot([feature])).toThrow(/valueFormat\.kind "percent" must be "currency"/);
+  });
+
   test("rejects an invalid valueFormat on a stat-group child", () => {
     const feature = dashboardFeature([
       {
@@ -910,11 +920,20 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
         ...AREA,
         dateFormat: "day",
         initialWindow: "from-today",
+        brush: true,
         markerLegend: "legend",
         markerKinds: { payoff: { tone: "positive", label: "demo:dashboard:marker:payoff" } },
       },
     ]);
     expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("accepts initialWindow from-today with ranges and rejects it without ranges or brush", () => {
+    expect(() =>
+      validateBoot([gatedFeature([{ ...AREA, initialWindow: "from-today", ranges: RANGES }])]),
+    ).not.toThrow();
+    const feature = gatedFeature([{ ...AREA, initialWindow: "from-today" }]);
+    expect(() => validateBoot([feature])).toThrow(/"from-today" needs ranges or brush/);
   });
 
   test.each([

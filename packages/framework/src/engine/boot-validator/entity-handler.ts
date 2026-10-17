@@ -9,9 +9,12 @@ import type {
   EmbeddedFieldDef,
   EntityDefinition,
   FeatureDefinition,
+  FieldAccess,
+  FieldCondition,
   FieldDefinition,
   MultiSelectFieldDef,
   QueryHandlerDef,
+  RateLimitPer,
 } from "../types/index.js";
 import { isSelectOptionTone } from "./select-option-tone.js";
 
@@ -256,6 +259,8 @@ export function validatePerCommandTransaction(
   }
 }
 
+const IP_SCOPED_RATE_LIMIT_PER: readonly RateLimitPer[] = ["ip", "ip+handler"];
+
 export function validateTenantlessAnonymous(
   featureName: string,
   handlerName: string,
@@ -277,6 +282,12 @@ export function validateTenantlessAnonymous(
     throw new Error(
       `${where} without a rateLimit — a handler reachable on hosts that resolve no tenant ` +
         `needs a real upper bound (rateLimit: { per: "ip", ... }); { disabled: true } does not count.`,
+    );
+  }
+  if (!IP_SCOPED_RATE_LIMIT_PER.includes(handler.rateLimit.per)) {
+    throw new Error(
+      `${where} with rateLimit.per "${handler.rateLimit.per}" — every anonymous visitor shares the same ` +
+        `tenant/user bucket, so one caller could exhaust it for all. Use ${IP_SCOPED_RATE_LIMIT_PER.map((per) => `"${per}"`).join(" or ")}.`,
     );
   }
 }
@@ -1012,6 +1023,13 @@ export function validateEntitySelectAvailabilityQuery(
   }
 }
 
+function conditionComparisonValues(when: Exclude<FieldCondition, boolean>): readonly unknown[] {
+  if ("eq" in when) return [when.eq];
+  if ("ne" in when) return [when.ne];
+  if ("in" in when) return when.in;
+  return when.notIn;
+}
+
 export function validateEntitySelectConditionalOptions(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
@@ -1058,6 +1076,17 @@ export function validateEntitySelectConditionalOptions(feature: FeatureDefinitio
           throw new Error(
             `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity. Use an existing field of the entity in when.field.`,
           );
+        }
+        const conditionFieldDef = entity.fields[conditionField];
+        if (conditionFieldDef?.type === "select" || conditionFieldDef?.type === "multiSelect") {
+          const conditionOptions: readonly string[] = conditionFieldDef.options;
+          for (const value of conditionComparisonValues(rule.when)) {
+            if (typeof value !== "string" || !conditionOptions.includes(value)) {
+              throw new Error(
+                `${where} has ${ruleLabel}.when value "${String(value)}" which is not an option of "${conditionField}" (${conditionOptions.join(", ")}).`,
+              );
+            }
+          }
         }
       });
     }
@@ -1330,22 +1359,34 @@ export function validateDerivedFieldCollisions(feature: FeatureDefinition): void
 // searchable field and `filterReadFields` only strips the response afterwards.
 // A role that cannot read the field could still guess its value from match
 // counts, so the combination is rejected until the index can filter per role.
+function isUnrestrictedReadAccess(access: FieldAccess | undefined): boolean {
+  const readAccess = access?.read;
+  if (readAccess === undefined) return true;
+  return Array.isArray(readAccess) ? readAccess.length === 0 : Object.keys(readAccess).length === 0;
+}
+
+function throwSearchableRestricted(subject: string, entityName: string): never {
+  throw new Error(
+    `${subject} on entity "${entityName}" cannot be searchable with a restricted ` +
+      "access.read — the search index is not filtered per role, so search matches would leak " +
+      'the value to roles that cannot read it. Drop `searchable`/`find: "fuzzy"` or `access.read`.',
+  );
+}
+
 export function validateSearchableFieldReadAccess(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      if (field.type !== "text") continue;
-      if (!field.searchable) continue;
-      const readAccess = field.access?.read;
-      if (readAccess === undefined) continue;
-      const isUnrestricted = Array.isArray(readAccess)
-        ? readAccess.length === 0
-        : Object.keys(readAccess).length === 0;
-      if (isUnrestricted) continue;
-      throw new Error(
-        `Field "${fieldName}" on entity "${entityName}" cannot be searchable with a restricted ` +
-          "access.read — the search index is not filtered per role, so search matches would leak " +
-          'the value to roles that cannot read it. Drop `searchable`/`find: "fuzzy"` or `access.read`.',
-      );
+      if (field.type === "text" && field.searchable && !isUnrestrictedReadAccess(field.access)) {
+        throwSearchableRestricted(`Field "${fieldName}"`, entityName);
+      }
+      if (field.type !== "embedded") continue;
+      for (const [subName, subField] of Object.entries(field.schema)) {
+        if (subField.searchable !== true) continue;
+        if (isUnrestrictedReadAccess(field.access) && isUnrestrictedReadAccess(subField.access)) {
+          continue;
+        }
+        throwSearchableRestricted(`Field "${fieldName}.${subName}"`, entityName);
+      }
     }
   }
 }

@@ -19,6 +19,7 @@ import type {
   NavTarget,
 } from "@cosmicdrift/kumiko-renderer";
 import {
+  AppFeaturesProvider,
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
@@ -205,6 +206,80 @@ describe("KumikoScreen / projectionDetail", () => {
     );
 
     expect(await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"))).toBeTruthy();
+  });
+
+  describe("record not found: back button", () => {
+    const missingDispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["query"],
+    });
+    const listScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      listScreenId: "session-list",
+    };
+    const callerScreen = {
+      id: "account-detail",
+      type: "projectionDetail",
+      query: "sessions:query:account:detail",
+      idParam: "id",
+      layout: { sections: [{ title: "Account", fields: ["name"] }] },
+    } satisfies ProjectionDetailScreenDefinition;
+    const backSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [listScreen, callerScreen],
+    };
+
+    function renderMissing(
+      searchParams: Record<string, string>,
+      screens: FeatureSchema["screens"] = backSchema.screens,
+    ): { navigated: NavTarget[]; searchParamUpdates: unknown[] } {
+      const navigated: NavTarget[] = [];
+      const searchParamUpdates: unknown[] = [];
+      const nav: NavApi = {
+        route: { screenId: "session-detail" },
+        navigate: (target) => navigated.push(target),
+        replace: () => undefined,
+        hrefFor: () => "",
+        searchParams,
+        setSearchParams: (updates) => searchParamUpdates.push(updates),
+      };
+      const withScreens: FeatureSchema = { ...backSchema, screens };
+      render(
+        <NavProvider value={nav}>
+          <DispatcherProvider dispatcher={missingDispatcher}>
+            <AppFeaturesProvider features={[withScreens]}>
+              <KumikoScreen
+                schema={withScreens}
+                qn="sessions:screen:session-detail"
+                entityId="sess-missing"
+              />
+            </AppFeaturesProvider>
+          </DispatcherProvider>
+        </NavProvider>,
+      );
+      return { navigated, searchParamUpdates };
+    }
+
+    test("with returnTo it navigates back to the caller instead of the list", async () => {
+      const { navigated } = renderMissing({ returnTo: "account-detail/acc-1" });
+      fireEvent.click(await waitFor(() => screen.getByTestId("kumiko-screen-record-missing-back")));
+      expect(navigated).toEqual([{ screenId: "account-detail", entityId: "acc-1" }]);
+    });
+
+    test("with returnTo and no list screen it still offers the back button", async () => {
+      const { navigated } = renderMissing({ returnTo: "account-detail/acc-1" }, [
+        detailScreen,
+        callerScreen,
+      ]);
+      fireEvent.click(await waitFor(() => screen.getByTestId("kumiko-screen-record-missing-back")));
+      expect(navigated).toEqual([{ screenId: "account-detail", entityId: "acc-1" }]);
+    });
+
+    test("without returnTo it navigates to the listScreenId screen", async () => {
+      const { navigated } = renderMissing({});
+      fireEvent.click(await waitFor(() => screen.getByTestId("kumiko-screen-record-missing-back")));
+      expect(navigated).toEqual([{ screenId: "session-list" }]);
+    });
   });
 
   // A projectionDetail has no write path, so there's nothing for a "Cancel"

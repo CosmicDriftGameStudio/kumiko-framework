@@ -79,16 +79,22 @@ function declarationLines(
   return lines.map((text) => ({ text }));
 }
 
+/** The receipt carries enum fields only: free text from an anonymous caller
+ *  must not be echoed to an arbitrary address. */
+export type ReceiptDeclaration = Pick<
+  TerminationDeclaration,
+  "declarationType" | "terminationKind"
+>;
+
 export type TerminationReceiptArgs = {
   readonly locale: ConsentLocale;
   readonly requestId: string;
   readonly receivedAtIso: string;
-  readonly declaration: TerminationDeclaration;
+  readonly declaration: ReceiptDeclaration;
   readonly operatorEmail: string;
 };
 
-/** Built from the declarant's own input only: the content must not depend on
- *  whether (or how) the declaration matched a contract. */
+/** The content must not depend on whether (or how) the declaration matched a contract. */
 export function terminationReceiptVariables(
   args: TerminationReceiptArgs,
 ): TerminationReceiptVariables {

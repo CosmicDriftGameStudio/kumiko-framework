@@ -730,6 +730,11 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
   readonly _userId?: string | undefined;
   readonly _handlerType?: string | undefined;
+  /** Keyed digest for handler-owned rate-limit keys, so Redis never holds a
+   *  plaintext or plainly hashed identifier. Scoped to the running handler:
+   *  the same input yields a different digest per handler and never matches a
+   *  dispatcher payload-bucket digest. Absent when the app wires no digest key. */
+  readonly rateLimitDigest?: (value: string) => string;
   // Trash query opt-in (soft-delete). When true, the auto entity-list handler
   // asks the executor to include soft-deleted rows; a custom query handler can
   // read it to branch its own logic. Set by the dispatcher from the query
@@ -1364,9 +1369,13 @@ export type RateLimitOption = {
 
 // Bucket keyed by a string field of the parsed write payload (e.g. the
 // recipient address of a mail-triggering handler). The value is normalized
-// (trim + lowercase) and HMAC-hashed into the key, so Redis never holds it
-// in plaintext.
+// (trim + lowercase, plus `normalize` below) and HMAC-hashed into the key, so
+// Redis never holds it in plaintext. The key is scoped to the caller's tenant.
 export type RateLimitPayloadBucket = { readonly payloadField: string };
+
+// "email": also strips a `+tag` suffix from the local part, so plus-addressed
+// variants of one mailbox (`a+1@x`, `a+2@x`) share a bucket.
+export type PayloadBucketNormalization = "email";
 
 // Extra limit that only complements `rateLimit` (never replaces the IP
 // bucket of an anonymous handler). Enforced after schema validation,
@@ -1376,6 +1385,7 @@ export type PayloadRateLimitOption = {
   readonly limit: number;
   readonly windowSeconds: number;
   readonly cost?: number;
+  readonly normalize?: PayloadBucketNormalization;
 };
 
 export type RateLimitDisabled = { readonly disabled: true; readonly reason: string };

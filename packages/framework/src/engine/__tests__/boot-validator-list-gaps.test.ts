@@ -4,6 +4,7 @@ import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.j
 import { validateBoot } from "../boot-validator.js";
 import { defineFeature } from "../define-feature.js";
 import { createEntity, createTextField } from "../factories.js";
+import type { ScreenDefinition } from "../types/screen.js";
 
 function bootMessage(feature: Parameters<typeof validateBoot>[0][number]): string {
   try {
@@ -123,6 +124,116 @@ describe("validateBoot — list emptyState", () => {
 
   test("an emptyState action whose id resolves a default icon passes the icon check", () => {
     expect(bootMessage(listWithEmptyAction("create"))).toBe("");
+  });
+});
+
+describe("validateBoot — emptyState action targets", () => {
+  type EmptyStateAction = NonNullable<
+    NonNullable<Extract<ScreenDefinition, { type: "entityList" }>["emptyState"]>["action"]
+  >;
+
+  function listWithEmptyAction(action: EmptyStateAction) {
+    return defineFeature("shop", (r) => {
+      r.entity(
+        "order",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      registerHandlers(r, ["sync"]);
+      r.screen({
+        id: "order-list",
+        type: "entityList",
+        entity: "order",
+        columns: ["name"],
+        emptyState: { title: "shop.empty.title", action },
+      });
+    });
+  }
+
+  function relatedListWithEmptyAction(action: EmptyStateAction) {
+    return defineFeature("shop", (r) => {
+      registerHandlers(r, ["sync"]);
+      r.queryHandler("order:payments", z.object({}), async () => ({ rows: [] }), {
+        access: ADMIN_ACCESS,
+      });
+      r.screen({
+        id: "order-detail",
+        type: "projectionDetail",
+        query: "shop:query:order:detail",
+        layout: {
+          sections: [
+            {
+              kind: "relatedList",
+              title: "Payments",
+              query: "shop:query:order:payments",
+              columns: ["amount"],
+              emptyState: { title: "shop.empty.title", action },
+            },
+          ],
+        },
+      });
+    });
+  }
+
+  const unknownHandler: EmptyStateAction = {
+    kind: "writeHandler",
+    id: "create",
+    label: "x",
+    handler: "shop:write:ghost",
+  };
+  const unknownNavigate: EmptyStateAction = {
+    kind: "navigate",
+    id: "create",
+    label: "x",
+    screen: "ghost-screen",
+  };
+
+  test("an entityList emptyState action with an unregistered handler throws", () => {
+    expect(bootMessage(listWithEmptyAction(unknownHandler))).toMatch(
+      /emptyState action "create" handler "shop:write:ghost" is not a registered write-handler/,
+    );
+  });
+
+  test("an entityList emptyState action navigating to an unknown screen throws", () => {
+    expect(bootMessage(listWithEmptyAction(unknownNavigate))).toMatch(
+      /emptyState action "create" navigate-target "ghost-screen" does not resolve/,
+    );
+  });
+
+  test("an emptyState navigate action with params throws", () => {
+    const action: EmptyStateAction = {
+      kind: "navigate",
+      id: "create",
+      label: "x",
+      screen: "order-list",
+      params: { pick: ["name"] },
+    };
+    expect(bootMessage(listWithEmptyAction(action))).toMatch(
+      /emptyState action "create" sets params/,
+    );
+  });
+
+  test("a registered handler on an entityList emptyState action boots", () => {
+    const action: EmptyStateAction = {
+      kind: "writeHandler",
+      id: "create",
+      label: "x",
+      handler: "shop:write:sync",
+    };
+    expect(bootMessage(listWithEmptyAction(action))).toBe("");
+  });
+
+  test("a relatedList emptyState action with an unregistered handler throws", () => {
+    expect(bootMessage(relatedListWithEmptyAction(unknownHandler))).toMatch(
+      /emptyState action "create" handler "shop:write:ghost" is not a registered write-handler/,
+    );
+  });
+
+  test("a relatedList emptyState action navigating to an unknown screen throws", () => {
+    expect(bootMessage(relatedListWithEmptyAction(unknownNavigate))).toMatch(
+      /emptyState action "create" navigate-target "ghost-screen" does not resolve/,
+    );
   });
 });
 

@@ -1,6 +1,7 @@
 export { sanitizePdfAttachmentFileName } from "../shared/index.js";
 export { hashUnsubscribeAddress } from "./address-opt-out.js";
 export {
+  DELIVERY_ENVELOPE_DATA_KEYS,
   type EmailAttachmentRef,
   emailAttachmentRefSchema,
   type FileAttachmentRef,
@@ -12,6 +13,7 @@ export {
   type RenderedPdfAttachmentRef,
   renderedPdfAttachmentRefSchema,
   toAttachmentRef,
+  withoutDeliveryEnvelopeKeys,
 } from "./attachment-ref.js";
 export {
   type AttemptLogRetentionOptions,

@@ -396,7 +396,10 @@ export function isLegalLinkSet(
 
 /** Consumer-protection consent gate (§ 312j / § 356 BGB style). When set,
  *  `start-plan-checkout` and `create-checkout-session` require a `consent`
- *  payload and record it as an event before the buyer reaches the provider. */
+ *  payload and record it as an event before the buyer reaches the provider.
+ *  Every provider used with `create-checkout-session` must implement
+ *  `retrievePrices`: the live price is part of the consent record, and a
+ *  provider without it fails the checkout with an InternalError. */
 export type ConsumerProtectionOptions = {
   /** Slug of the template-resolver `text-block` holding the terms text; its
    *  content hash is stored with every recorded consent. */
@@ -411,7 +414,9 @@ export type ConsumerProtectionOptions = {
   readonly terminationScope?: TerminationScope;
   /** Names the item of a one-off payment (mode "payment") for the consent record
    *  and the confirmation mail; the label key is resolved through the registry
-   *  i18n, so it must be qualified with the registering feature. */
+   *  i18n, so it must be qualified with the registering feature. The label key
+   *  is 1-200 characters, string params at most 100; a violation fails the
+   *  checkout with an InternalError before the provider session is created. */
   readonly oneOffItemLabel?: (
     ctx: HandlerContext,
     priceId: string,

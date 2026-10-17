@@ -1,52 +1,56 @@
 import { PDFDocument, type PDFFont, type PDFPage, rgb, StandardFonts } from "pdf-lib";
 import * as z from "zod";
 import { RendererError } from "../renderer-foundation/index.js";
+import type { PdfPageFormat } from "../template-resolver/index.js";
 
-export const pdfTableDocumentSchema = z.object({
-  title: z.string(),
-  subtitle: z.string().optional(),
-  meta: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
-  columns: z
-    .array(
-      z.object({
-        header: z.string(),
-        weight: z.number().positive().optional(),
-        align: z.enum(["left", "right"]).optional(),
-      }),
-    )
-    .min(1),
-  rows: z.array(z.array(z.string())),
-  emptyText: z.string().optional(),
-  footerText: z.string().optional(),
-  pageLabel: z.string().optional(),
-});
+// Upper bounds keep a hostile or runaway payload from exhausting memory and CPU in layout.
+const PDF_TABLE_MAX_ROWS = 10_000;
+const PDF_TABLE_MAX_COLUMNS = 30;
+const PDF_TABLE_MAX_CELL_LENGTH = 5_000;
 
-export type PdfTableColumn = {
-  readonly header: string;
-  readonly weight?: number;
-  readonly align?: "left" | "right";
-};
+const pdfTableColumnSchema = z
+  .object({
+    header: z.string(),
+    weight: z.number().positive().optional(),
+    align: z.enum(["left", "right"]).optional(),
+  })
+  .readonly();
 
-export type PdfTableDocument = {
-  readonly title: string;
-  readonly subtitle?: string;
-  readonly meta?: readonly { readonly label: string; readonly value: string }[];
-  readonly columns: readonly PdfTableColumn[];
-  readonly rows: readonly (readonly string[])[];
-  readonly emptyText?: string;
-  readonly footerText?: string;
-  /** Template with `{page}` and `{pages}`; default `"{page} / {pages}"`. */
-  readonly pageLabel?: string;
-};
+export const pdfTableDocumentSchema = z
+  .object({
+    title: z.string(),
+    subtitle: z.string().optional(),
+    meta: z
+      .array(z.object({ label: z.string(), value: z.string() }).readonly())
+      .readonly()
+      .optional(),
+    columns: z.array(pdfTableColumnSchema).min(1).max(PDF_TABLE_MAX_COLUMNS).readonly(),
+    rows: z
+      .array(z.array(z.string().max(PDF_TABLE_MAX_CELL_LENGTH)).readonly())
+      .max(PDF_TABLE_MAX_ROWS)
+      .readonly(),
+    emptyText: z.string().optional(),
+    footerText: z.string().optional(),
+    // Template with `{page}` and `{pages}`; default `"{page} / {pages}"`.
+    pageLabel: z.string().optional(),
+  })
+  .readonly();
+
+export type PdfTableColumn = z.infer<typeof pdfTableColumnSchema>;
+export type PdfTableDocument = z.infer<typeof pdfTableDocumentSchema>;
+
+const marginMmSchema = z
+  .object({
+    top: z.number().nonnegative().optional(),
+    right: z.number().nonnegative().optional(),
+    bottom: z.number().nonnegative().optional(),
+    left: z.number().nonnegative().optional(),
+  })
+  .readonly();
 
 export type PdfTableOptions = {
-  readonly format?: "A4" | "Letter";
-  readonly marginMm?: {
-    readonly top?: number;
-    readonly right?: number;
-    readonly bottom?: number;
-    readonly left?: number;
-  };
+  readonly format?: PdfPageFormat;
+  readonly marginMm?: z.input<typeof marginMmSchema>;
 };
 
 export type PdfTableResult = { readonly pdfBytes: Uint8Array; readonly pageCount: number };
@@ -55,7 +59,7 @@ const POINTS_PER_MM = 72 / 25.4;
 const PAGE_SIZE_POINTS = {
   A4: { width: 595.28, height: 841.89 },
   Letter: { width: 612, height: 792 },
-} as const;
+} as const satisfies Record<PdfPageFormat, { readonly width: number; readonly height: number }>;
 const DEFAULT_MARGIN_MM = { top: 18, right: 15, bottom: 18, left: 15 } as const;
 
 const TITLE_SIZE = 16;
@@ -66,6 +70,7 @@ const LINE_HEIGHT_FACTOR = 1.3;
 const CELL_PADDING_X = 4;
 const CELL_PADDING_Y = 3;
 const FOOTER_RESERVE = 16;
+const MIN_COLUMN_WIDTH = 20;
 const META_LABEL_GAP = 10;
 const BLOCK_GAP = 10;
 const REPLACEMENT_CHAR = "?";
@@ -86,7 +91,7 @@ function createEncodableText(font: PDFFont): (text: string) => string {
   const supported = new Set(font.getCharacterSet());
   return (text) => {
     let result = "";
-    for (const char of text.replace(/\t/g, " ")) {
+    for (const char of text.replace(/\r\n?/g, "\n").replace(/\t/g, " ")) {
       const codePoint = char.codePointAt(0) ?? 0;
       result += codePoint === 0x0a || supported.has(codePoint) ? char : REPLACEMENT_CHAR;
     }
@@ -157,30 +162,43 @@ function assertRowShape(doc: PdfTableDocument): void {
   });
 }
 
-export async function renderTablePdf(
-  doc: PdfTableDocument,
-  options?: PdfTableOptions,
-): Promise<PdfTableResult> {
-  if (doc.columns.length === 0) {
-    throw new RendererError("table needs at least one column", "invalid_payload");
-  }
-  assertRowShape(doc);
-
-  const pdf = await PDFDocument.create({ updateMetadata: false });
-  const fonts: Fonts = {
-    regular: await pdf.embedFont(StandardFonts.Helvetica),
-    bold: await pdf.embedFont(StandardFonts.HelveticaBold),
+type TableLayout = {
+  readonly pageSize: { readonly width: number; readonly height: number };
+  readonly margin: {
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+    readonly left: number;
   };
-  const clean = createEncodableText(fonts.regular);
+  readonly contentWidth: number;
+  readonly contentBottom: number;
+  readonly columnWidths: readonly number[];
+  readonly bodyLineHeight: number;
+  readonly headerLines: readonly (readonly string[])[];
+  readonly headerHeight: number;
+};
 
+function resolveTableLayout(
+  doc: PdfTableDocument,
+  options: PdfTableOptions | undefined,
+  fonts: Fonts,
+  clean: (text: string) => string,
+): TableLayout {
+  const marginMm = marginMmSchema.safeParse(options?.marginMm ?? {});
+  if (!marginMm.success) {
+    throw new RendererError("margins must be non-negative numbers", "invalid_payload");
+  }
   const pageSize = PAGE_SIZE_POINTS[options?.format ?? "A4"];
   const margin = {
-    top: (options?.marginMm?.top ?? DEFAULT_MARGIN_MM.top) * POINTS_PER_MM,
-    right: (options?.marginMm?.right ?? DEFAULT_MARGIN_MM.right) * POINTS_PER_MM,
-    bottom: (options?.marginMm?.bottom ?? DEFAULT_MARGIN_MM.bottom) * POINTS_PER_MM,
-    left: (options?.marginMm?.left ?? DEFAULT_MARGIN_MM.left) * POINTS_PER_MM,
+    top: (marginMm.data.top ?? DEFAULT_MARGIN_MM.top) * POINTS_PER_MM,
+    right: (marginMm.data.right ?? DEFAULT_MARGIN_MM.right) * POINTS_PER_MM,
+    bottom: (marginMm.data.bottom ?? DEFAULT_MARGIN_MM.bottom) * POINTS_PER_MM,
+    left: (marginMm.data.left ?? DEFAULT_MARGIN_MM.left) * POINTS_PER_MM,
   };
   const contentWidth = pageSize.width - margin.left - margin.right;
+  if (contentWidth < MIN_COLUMN_WIDTH * doc.columns.length) {
+    throw new RendererError("margins leave no room for table columns", "invalid_payload");
+  }
   const contentBottom = margin.bottom + FOOTER_RESERVE;
   const columnWidths = resolveColumnWidths(doc.columns, contentWidth);
   const bodyLineHeight = lineHeightFor(BODY_SIZE);
@@ -200,6 +218,48 @@ export async function renderTablePdf(
   );
   const headerHeight =
     Math.max(...headerLines.map((lines) => lines.length)) * bodyLineHeight + 2 * CELL_PADDING_Y;
+  // A header this tall would leave every continuation page without room for a row.
+  if (rowSpaceOnEmptyPage - headerHeight < bodyLineHeight + 2 * CELL_PADDING_Y) {
+    throw new RendererError("table header leaves no room for rows", "invalid_payload");
+  }
+  return {
+    pageSize,
+    margin,
+    contentWidth,
+    contentBottom,
+    columnWidths,
+    bodyLineHeight,
+    headerLines,
+    headerHeight,
+  };
+}
+
+export async function renderTablePdf(
+  doc: PdfTableDocument,
+  options?: PdfTableOptions,
+): Promise<PdfTableResult> {
+  if (doc.columns.length === 0) {
+    throw new RendererError("table needs at least one column", "invalid_payload");
+  }
+  assertRowShape(doc);
+
+  const pdf = await PDFDocument.create({ updateMetadata: false });
+  const fonts: Fonts = {
+    regular: await pdf.embedFont(StandardFonts.Helvetica),
+    bold: await pdf.embedFont(StandardFonts.HelveticaBold),
+  };
+  const clean = createEncodableText(fonts.regular);
+
+  const {
+    pageSize,
+    margin,
+    contentWidth,
+    contentBottom,
+    columnWidths,
+    bodyLineHeight,
+    headerLines,
+    headerHeight,
+  } = resolveTableLayout(doc, options, fonts, clean);
 
   let page: PDFPage = pdf.addPage([pageSize.width, pageSize.height]);
   let cursorY = pageSize.height - margin.top;
@@ -227,29 +287,50 @@ export async function renderTablePdf(
     });
   }
 
+  function startBlankPage(): void {
+    page = pdf.addPage([pageSize.width, pageSize.height]);
+    cursorY = pageSize.height - margin.top;
+  }
+
+  function ensureRoom(height: number): void {
+    if (cursorY - height < contentBottom) startBlankPage();
+  }
+
+  // Line by line, so a block taller than one page continues on the next.
+  function flowLines(
+    lines: readonly string[],
+    font: PDFFont,
+    size: number,
+    left: number,
+    width: number,
+    color = TEXT_COLOR,
+  ): void {
+    const lineHeight = lineHeightFor(size);
+    for (const line of lines) {
+      ensureRoom(lineHeight);
+      drawLines([line], font, size, left, width, cursorY, "left", color);
+      cursorY -= lineHeight;
+    }
+  }
+
   function drawIntroBlock(): void {
-    const titleLines = wrapText(clean(doc.title), fonts.bold, TITLE_SIZE, contentWidth);
-    drawLines(titleLines, fonts.bold, TITLE_SIZE, margin.left, contentWidth, cursorY, "left");
-    cursorY -= titleLines.length * lineHeightFor(TITLE_SIZE);
+    flowLines(
+      wrapText(clean(doc.title), fonts.bold, TITLE_SIZE, contentWidth),
+      fonts.bold,
+      TITLE_SIZE,
+      margin.left,
+      contentWidth,
+    );
 
     if (doc.subtitle !== undefined) {
-      const subtitleLines = wrapText(
-        clean(doc.subtitle),
-        fonts.regular,
-        SUBTITLE_SIZE,
-        contentWidth,
-      );
-      drawLines(
-        subtitleLines,
+      flowLines(
+        wrapText(clean(doc.subtitle), fonts.regular, SUBTITLE_SIZE, contentWidth),
         fonts.regular,
         SUBTITLE_SIZE,
         margin.left,
         contentWidth,
-        cursorY,
-        "left",
         MUTED_COLOR,
       );
-      cursorY -= subtitleLines.length * lineHeightFor(SUBTITLE_SIZE);
     }
 
     const meta = doc.meta ?? [];
@@ -266,6 +347,7 @@ export async function renderTablePdf(
           BODY_SIZE,
           contentWidth - labelWidth,
         );
+        ensureRoom(bodyLineHeight);
         drawLines(
           [labels[index] ?? ""],
           fonts.bold,
@@ -275,16 +357,13 @@ export async function renderTablePdf(
           cursorY,
           "left",
         );
-        drawLines(
+        flowLines(
           valueLines,
           fonts.regular,
           BODY_SIZE,
           margin.left + labelWidth,
           contentWidth - labelWidth,
-          cursorY,
-          "left",
         );
-        cursorY -= valueLines.length * bodyLineHeight;
       });
     }
     cursorY -= BLOCK_GAP;
@@ -372,6 +451,7 @@ export async function renderTablePdf(
   }
 
   drawIntroBlock();
+  ensureRoom(headerHeight + bodyLineHeight + 2 * CELL_PADDING_Y);
   drawTableHeader();
 
   if (doc.rows.length === 0 && doc.emptyText !== undefined) {

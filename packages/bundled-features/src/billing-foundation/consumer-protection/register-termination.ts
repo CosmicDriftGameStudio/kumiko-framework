@@ -52,9 +52,19 @@ export function registerContractTermination(
   // request: matched and unmatched requests then do the same work and the
   // response time does not tell whether the email belongs to a customer.
   // The tenant comes from the stored trigger event (the job's system user).
+  // Every declaration appends to the same subscription stream, so parallel runs
+  // and a declaration arriving mid-run hit version conflicts. Sequential runs
+  // rule out the first; a retry re-reads the stream and the requestId check in
+  // record-contract-termination keeps it from recording twice.
   r.job(
     "cancel-on-public-termination-declared",
-    { trigger: { on: CONTRACT_TERMINATION_DECLARED_EVENT_QN }, runIn: "worker" },
+    {
+      trigger: { on: CONTRACT_TERMINATION_DECLARED_EVENT_QN },
+      runIn: "worker",
+      concurrency: "sequential",
+      retries: 3,
+      backoff: "exponential",
+    },
     async (payload, ctx) => {
       const declared = contractTerminationDeclaredPayloadSchema.safeParse(payload);
       // skip: trigger event carries no usable declaration

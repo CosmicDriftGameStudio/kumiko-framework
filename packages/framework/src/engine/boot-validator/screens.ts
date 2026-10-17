@@ -221,6 +221,7 @@ function validateRowActionNavigateParams(
   screenEntity: string | undefined,
   action: RowAction,
   target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
+  actionLabel: "rowAction" | "emptyState action" = "rowAction",
 ): void {
   // skip: not a navigate-with-params action — nothing to validate here.
   if (action.kind !== "navigate" || action.params === undefined) return;
@@ -237,7 +238,7 @@ function validateRowActionNavigateParams(
     const filter = target.screen.filter;
     if (filter === undefined) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" sets ` +
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
           `params on navigate-target ${targetDescriptor} (dashboard) — target dashboard declares no ` +
           `filter — params would be a no-op. Remove the params extractor, or add a \`filter\` to the ` +
           `target dashboard so it has somewhere to read the value from.`,
@@ -246,7 +247,7 @@ function validateRowActionNavigateParams(
     const extractedKeys = rowFieldExtractorKeys(action.params);
     if (!extractedKeys.includes(filter.id)) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" sets ` +
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
           `params [${extractedKeys.join(", ")}] on navigate-target ${targetDescriptor} (dashboard) whose ` +
           `filter id is "${filter.id}" — none of the extracted keys match, so the filter would stay ` +
           `unset. Fix the params extractor to produce a "${filter.id}" key, or remove it.`,
@@ -268,7 +269,7 @@ function validateRowActionNavigateParams(
     const targetDescriptor =
       action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" ` +
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `sets params on navigate-target ${targetDescriptor} which ${reason} — only actionForm, ` +
         `secretMint and entityEdit-create targets read URL search params as initial values. Remove ` +
         `the params extractor or retarget to an actionForm / secretMint / cross-entity ` +
@@ -282,7 +283,7 @@ function validateRowActionNavigateParams(
     formTarget.submitPrefilled === true
   ) {
     validateDrawerPrefillKeys(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}"`,
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}"`,
       "navigate-target",
       action.screen ?? `entity "${action.entity}"`,
       formTarget,
@@ -576,7 +577,7 @@ function validateDrawerTargetAction(
   featureName: string,
   screenId: string,
   screenKind: string,
-  actionLabel: "toolbarAction" | "rowAction" | "action",
+  actionLabel: "toolbarAction" | "rowAction" | "emptyState action" | "action",
   action: {
     readonly id: string;
     readonly screen: string;
@@ -619,7 +620,7 @@ function validateDrawerTargetAction(
   );
 }
 
-function validateDrawerPrefillKeys(
+export function validateDrawerPrefillKeys(
   where: string,
   targetLabel: "drawer-target" | "navigate-target",
   targetScreenId: string,
@@ -915,6 +916,11 @@ function validateFormSelectOptions(
       }
       if (fdef.options.length > 0) {
         throw new Error(`${where} declares both options and optionsQuery — pick one`);
+      }
+      if (fdef.optionsAvailabilityQuery !== undefined) {
+        throw new Error(
+          `${where} declares both optionsQuery and optionsAvailabilityQuery — availability only applies to static options`,
+        );
       }
       validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
     } else if (fdef.optionsAvailabilityQuery !== undefined) {
@@ -1536,6 +1542,74 @@ function validateRelatedListSection(args: RelatedListSectionValidation): void {
   }
 }
 
+type ListActionTargetContext = NavigateTargetLookups & {
+  readonly featureName: string;
+  readonly screenId: string;
+  readonly screenType: NavigateSourceScreenType;
+  readonly screenEntity: string | undefined;
+  readonly where: string;
+  readonly screens: FeatureDefinition["screens"];
+  readonly allWriteHandlerQns: ReadonlySet<string>;
+};
+
+// An empty list has no row, so params resolve against an empty record.
+function rejectEmptyStateActionParams(
+  ctx: ListActionTargetContext,
+  actionLabel: "rowAction" | "emptyState action",
+  action: RowAction,
+): void {
+  const params = action.kind === "navigate" || action.kind === "drawer" ? action.params : undefined;
+  if (params !== undefined) {
+    throw new Error(
+      `[Feature ${ctx.featureName}] ${ctx.where} ${actionLabel} "${action.id}" sets params — an empty list ` +
+        `has no row to read them from, so they would resolve against an empty record. Remove the params.`,
+    );
+  }
+}
+
+// Target checks shared by list/related-list rowActions and emptyState.action:
+// navigate target + params, drawer target, write-handler registration.
+function validateListActionTargets(
+  ctx: ListActionTargetContext,
+  actionLabel: "rowAction" | "emptyState action",
+  action: RowAction,
+): void {
+  const { featureName, screenId, screenType } = ctx;
+  rejectRedirectOnListRowAction(featureName, screenId, screenType, action);
+  if (actionLabel === "emptyState action") rejectEmptyStateActionParams(ctx, actionLabel, action);
+  if (action.kind === "navigate") {
+    const target = resolveRowActionNavigateTarget(
+      featureName,
+      screenId,
+      screenType,
+      actionLabel,
+      action,
+      ctx.allScreenQns,
+      ctx.navTargetShortIds,
+      ctx.screensByShortId,
+      ctx.detailForScreens,
+    );
+    validateRowActionNavigateParams(
+      featureName,
+      screenId,
+      screenType,
+      ctx.screenEntity,
+      action,
+      target,
+      actionLabel,
+    );
+  } else if (action.kind === "drawer") {
+    validateDrawerTargetAction(featureName, screenId, screenType, actionLabel, action, ctx.screens);
+  } else if (!ctx.allWriteHandlerQns.has(action.handler)) {
+    throw new Error(
+      `[Feature ${featureName}] ${ctx.where} ` +
+        `${actionLabel} "${action.id}" handler "${action.handler}" ` +
+        `is not a registered write-handler. Check the QN spelling (expected ` +
+        `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+    );
+  }
+}
+
 function validateRelatedListRowActions(
   args: RelatedListSectionValidation,
   rowActions: NonNullable<EditRelatedListSection["rowActions"]>,
@@ -1554,30 +1628,23 @@ function validateRelatedListRowActions(
     detailForScreens,
   } = args;
   for (const action of rowActions) {
-    rejectRedirectOnListRowAction(featureName, screenId, screenType, action);
-    if (action.kind === "navigate") {
-      const target = resolveRowActionNavigateTarget(
+    validateListActionTargets(
+      {
         featureName,
         screenId,
         screenType,
-        "rowAction",
-        action,
+        screenEntity: undefined,
+        where,
+        screens,
+        allWriteHandlerQns,
         allScreenQns,
         navTargetShortIds,
         screensByShortId,
         detailForScreens,
-      );
-      validateRowActionNavigateParams(featureName, screenId, screenType, undefined, action, target);
-    } else if (action.kind === "drawer") {
-      validateDrawerTargetAction(featureName, screenId, screenType, "rowAction", action, screens);
-    } else if (!allWriteHandlerQns.has(action.handler)) {
-      throw new Error(
-        `[Feature ${featureName}] ${where} ` +
-          `rowAction "${action.id}" handler "${action.handler}" ` +
-          `is not a registered write-handler. Check the QN spelling (expected ` +
-          `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
-      );
-    }
+      },
+      "rowAction",
+      action,
+    );
   }
   // section.rowClick (legacy, navigate-only) and a rowActions entry
   // marked rowClick:true both claim the row-body click — same
@@ -1742,13 +1809,19 @@ export function validateScreens(
         "emptyState action",
         screen.emptyState.action,
       );
-      validateNavigateActionTab(
-        feature.name,
-        screenId,
-        screen.type,
+      validateListActionTargets(
+        {
+          featureName: feature.name,
+          screenId,
+          screenType: screen.type,
+          screenEntity: undefined,
+          where: `Screen "${screenId}" (${screen.type})`,
+          screens: feature.screens,
+          allWriteHandlerQns,
+          ...navigateLookups,
+        },
         "emptyState action",
         screen.emptyState.action,
-        navigateLookups,
       );
     }
     // Output of buildAppSchema, which overwrites it — an authored value would be a silent no-op.
@@ -2102,13 +2175,19 @@ export function validateScreens(
             `section "${sectionLabel}" emptyState action`,
             section.emptyState.action,
           );
-          validateNavigateActionTab(
-            feature.name,
-            screenId,
-            "projectionDetail",
-            `section "${sectionLabel}" emptyState action`,
+          validateListActionTargets(
+            {
+              featureName: feature.name,
+              screenId,
+              screenType: "projectionDetail",
+              screenEntity: undefined,
+              where: `Screen "${screenId}" (projectionDetail) section "${sectionLabel}"`,
+              screens: feature.screens,
+              allWriteHandlerQns,
+              ...navigateLookups,
+            },
+            "emptyState action",
             section.emptyState.action,
-            navigateLookups,
           );
         }
         if (isExtensionEditSection(section)) {
@@ -3165,6 +3244,14 @@ function validateDashboardStatGroupPanel(
   }
 }
 
+function validateFromTodayWindowReach(where: string, panel: DashboardChartPanel): void {
+  if (panel.initialWindow === "from-today" && panel.ranges === undefined && panel.brush !== true) {
+    throw new Error(
+      `${where}.initialWindow "from-today" needs ranges or brush, otherwise data before today is unreachable.`,
+    );
+  }
+}
+
 function validateDashboardChartDisplay(
   featureName: string,
   screenId: string,
@@ -3193,6 +3280,7 @@ function validateDashboardChartDisplay(
   if (nonBooleanProp !== undefined) {
     throw new Error(`${where} has a non-boolean ${nonBooleanProp}. Use true or false.`);
   }
+  validateFromTodayWindowReach(where, panel);
   for (const [key, color] of Object.entries(panel.seriesColors ?? {})) {
     if (typeof color !== "string" || color.trim() === "") {
       throw new Error(`${where} seriesColors["${key}"] must be a non-empty CSS color.`);
@@ -3303,6 +3391,9 @@ function validateDashboardValueFormat(
   // skip: valueFormat is optional, nothing to validate without it
   if (valueFormat === undefined) return;
   const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panelId}" valueFormat`;
+  if (valueFormat.kind !== "currency") {
+    throw new Error(`${where}.kind "${String(valueFormat.kind)}" must be "currency".`);
+  }
   if (!CURRENCY_CODE_RE.test(valueFormat.currency)) {
     throw new Error(
       `${where}.currency "${String(valueFormat.currency)}" must be a 3-letter uppercase ISO currency code.`,

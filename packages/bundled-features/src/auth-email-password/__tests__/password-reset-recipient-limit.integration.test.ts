@@ -29,14 +29,19 @@ import { createUserFeature } from "../../user/feature.js";
 import { UserHandlers } from "../../user/index.js";
 import { userEntity } from "../../user/schema/user.js";
 import { AuthHandlers } from "../constants.js";
+import {
+  AUTH_EMAIL_RATE_LIMIT_MAX_REQUESTS,
+  AUTH_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
+} from "../email-rate-limits.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const emailTransport = createInMemoryTransport();
-const MAILS_PER_ADDRESS = 5;
+const MAILS_PER_ADDRESS = AUTH_EMAIL_RATE_LIMIT_MAX_REQUESTS;
 const REQUESTS = MAILS_PER_ADDRESS + 1;
 
 let stack: TestStack;
+let nowMs = 1_700_000_000_000;
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
@@ -75,6 +80,7 @@ beforeAll(async () => {
       },
     },
     trustedProxyHops: 1,
+    rateLimitNowMs: () => nowMs,
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
@@ -91,7 +97,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-test("six reset requests for one address from six IPs all answer 200 but mail at most five", async () => {
+test("reset requests for one address from rotating IPs all answer 200 but mail at most the cap, and the address is usable again after the short window", async () => {
   const email = "flooded-reset@example.com";
   const created = await stack.http.writeOk<{ id: string }>(
     UserHandlers.create,
@@ -120,4 +126,16 @@ test("six reset requests for one address from six IPs all answer 200 but mail at
   }
 
   expect(emailTransport.sent.filter((mail) => mail.to === email)).toHaveLength(MAILS_PER_ADDRESS);
+
+  nowMs += AUTH_EMAIL_RATE_LIMIT_WINDOW_SECONDS * 1000;
+  const afterWindow = await stack.http.raw(
+    "POST",
+    "/api/auth/request-password-reset",
+    { email },
+    { "x-forwarded-for": "10.84.1.1" },
+  );
+  expect(afterWindow.status).toBe(200);
+  expect(emailTransport.sent.filter((mail) => mail.to === email)).toHaveLength(
+    MAILS_PER_ADDRESS + 1,
+  );
 });

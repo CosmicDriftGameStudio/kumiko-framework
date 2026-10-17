@@ -47,6 +47,21 @@ describe("validateHandlerAccess — tenantlessAnonymous", () => {
     expect(() => validateHandlerAccess(feature)).toThrow();
   });
 
+  test("a rateLimit scoped to ip+handler boots", () => {
+    const feature = featureWith({
+      rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 60 },
+    });
+    expect(() => validateHandlerAccess(feature)).not.toThrow();
+  });
+
+  test.each(["tenant", "user", "tenant+handler", "user+handler"] as const)(
+    "a rateLimit scoped per %s is rejected",
+    (per) => {
+      const feature = featureWith({ rateLimit: { per, limit: 5, windowSeconds: 60 } });
+      expect(() => validateHandlerAccess(feature)).toThrow(/"ip" or "ip\+handler"/);
+    },
+  );
+
   test("a disabled rateLimit does not count", () => {
     const feature = featureWith({ rateLimit: { disabled: true, reason: "no limit please" } });
     expect(() => validateHandlerAccess(feature)).toThrow(/without a rateLimit/);

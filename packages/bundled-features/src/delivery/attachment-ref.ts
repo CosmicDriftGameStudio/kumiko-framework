@@ -14,6 +14,27 @@ export const MAX_EMAIL_ATTACHMENTS = 20;
 
 export const MAX_RENDERED_PDF_VARIABLES_BYTES = 64_000;
 
+// Channel-data keys that steer delivery itself (envelope, headers, attachments);
+// they are not document variables and must not be copied into attached PDF refs.
+export const DELIVERY_ENVELOPE_DATA_KEYS = [
+  "attachments",
+  "from",
+  "fromName",
+  "replyTo",
+  "headers",
+  "unsubscribeUrl",
+] as const;
+
+const DELIVERY_ENVELOPE_DATA_KEY_SET: ReadonlySet<string> = new Set(DELIVERY_ENVELOPE_DATA_KEYS);
+
+export function withoutDeliveryEnvelopeKeys(
+  variables: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  return Object.fromEntries(
+    Object.entries(variables).filter(([key]) => !DELIVERY_ENVELOPE_DATA_KEY_SET.has(key)),
+  );
+}
+
 const MAX_ID_LENGTH = 64;
 
 const fileRefIdSchema = z.string().min(1).max(MAX_ID_LENGTH);

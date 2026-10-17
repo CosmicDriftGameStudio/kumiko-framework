@@ -25,6 +25,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared/index.js";
+import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.js";
 import type { AuthMailLocale } from "../email-templates.js";
 import { resolveHandlerMailLocale } from "../magic-link-mail.js";
 import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.js";
@@ -79,7 +80,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
     schema: SignupRequestSchema,
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
-    additionalRateLimits: [{ per: { payloadField: "email" }, limit: 3, windowSeconds: 86400 }],
+    additionalRateLimits: AUTH_EMAIL_PAYLOAD_RATE_LIMITS,
     description:
       "Starts magic-link self-registration by mailing a fresh activation link to an address and invalidating any link still outstanding for it; the answer looks the same whether or not the address is already registered.",
     escapeHatch: { reason: HANDOVER_GRANT_VERIFY_REASON, grants: ["unsafeRaw"] },

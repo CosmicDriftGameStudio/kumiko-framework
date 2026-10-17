@@ -35,6 +35,7 @@ import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from
 import { CONSENT_LOCALES, FALLBACK_CONSENT_LOCALE } from "./consent-locale.js";
 import { notifyOperator } from "./termination-notify.js";
 import type { OperatorNoticeReason } from "./termination-texts.js";
+import { isWithinWithdrawalPeriod } from "./withdrawal-period.js";
 
 const REQUESTED_CANCEL_TIMINGS = [
   SubscriptionCancelTimings.periodEnd,
@@ -74,6 +75,8 @@ export type RecordContractTerminationResult = {
     OperatorNoticeReason,
     "provider_cannot_cancel" | "provider_error" | "no_active_subscription"
   > | null;
+  /** An account withdrawal arrived after the period: cancelled at period end instead. */
+  readonly withdrawalPeriodExpired: boolean;
 };
 
 export const recordUnmatchedContractTerminationSchema = z
@@ -210,14 +213,19 @@ export function createRecordContractTerminationHandler(
             effectiveAtIso: alreadyRecorded.effectiveAtIso,
             providerCancel: alreadyRecorded.providerCancel,
             noticeReason: null,
+            withdrawalPeriodExpired: false,
           } satisfies RecordContractTerminationResult,
         };
       }
 
+      const withdrawalPeriodExpired =
+        payload.declarationType === "withdrawal" &&
+        payload.when === SubscriptionCancelTimings.immediately &&
+        !isWithinWithdrawalPeriod(stream.events, options.now());
       const { providerCancel, effectiveAtIso, noticeReason } = await cancelAtProvider(
         ctx,
         tenantId,
-        payload.when,
+        withdrawalPeriodExpired ? SubscriptionCancelTimings.periodEnd : payload.when,
         receivedAtIso,
       );
 
@@ -260,6 +268,7 @@ export function createRecordContractTerminationHandler(
           effectiveAtIso,
           providerCancel,
           noticeReason,
+          withdrawalPeriodExpired,
         } satisfies RecordContractTerminationResult,
       };
     },

@@ -8,6 +8,8 @@ import { jobRunsTable } from "../job-run-table.js";
 
 const KMS_POOL_CONCURRENCY = 4;
 const DEFAULT_PAGE_SIZE = 50;
+// The offset cursor re-reads everything up to the page end, so the page size bounds that read.
+const MAX_LIST_LIMIT = 200;
 
 const jobRunStatusSchema = z.enum(["queued", "running", "completed", "failed"]);
 
@@ -68,7 +70,7 @@ export const listQuery = defineQueryHandler({
       .optional(),
     sort: z.enum(["jobName", "status", "startedAt", "duration"]).optional(),
     sortDirection: z.enum(["asc", "desc"]).optional(),
-    limit: z.number().int().min(1).optional(),
+    limit: z.number().int().min(1).max(MAX_LIST_LIMIT).optional(),
     cursor: z.string().optional(),
     totalCount: z.boolean().optional(),
   }),

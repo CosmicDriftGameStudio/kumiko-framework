@@ -2,6 +2,7 @@ import {
   MAX_EMAIL_ATTACHMENTS,
   MAX_RENDERED_PDF_VARIABLES_BYTES,
   sanitizePdfAttachmentFileName,
+  withoutDeliveryEnvelopeKeys,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   type FileAttachmentRef,
@@ -19,8 +20,9 @@ export function buildRenderedPdfAttachments(args: {
   readonly locale: string;
   readonly renderFileName: (pattern: string) => string;
 }): readonly RenderedPdfAttachmentRef[] {
-  const { slug, links, variables, locale, renderFileName } = args;
+  const { slug, links, locale, renderFileName } = args;
   if (links.length === 0) return [];
+  const variables = withoutDeliveryEnvelopeKeys(args.variables);
   if (Buffer.byteLength(JSON.stringify(variables)) > MAX_RENDERED_PDF_VARIABLES_BYTES) {
     throw new RendererError(
       `renderer-mail-html: the variables of mail "${slug}" exceed ${MAX_RENDERED_PDF_VARIABLES_BYTES} bytes as JSON, too large to hand to the attached PDF`,
@@ -52,4 +54,19 @@ export function combineMailAttachments(
     );
   }
   return attachments;
+}
+
+// A tenant override carries its own links only; what the overridden system mail attaches
+// must not silently vanish. Attachments are slot-less here, so an own attachment with the
+// same file name replaces the inherited one.
+export function mergeInheritedAttachments<T>(
+  own: readonly T[],
+  inherited: readonly T[],
+  fileNameOf: (attachment: T) => string,
+): readonly T[] {
+  const ownNames = new Set(own.map((attachment) => fileNameOf(attachment).toLowerCase()));
+  return [
+    ...inherited.filter((attachment) => !ownNames.has(fileNameOf(attachment).toLowerCase())),
+    ...own,
+  ];
 }

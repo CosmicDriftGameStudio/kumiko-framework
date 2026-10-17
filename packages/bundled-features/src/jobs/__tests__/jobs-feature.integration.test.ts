@@ -257,6 +257,19 @@ describe("scenario 3: jobs.list filters", () => {
     expect(res.status).toBe(400);
   });
 
+  test("a limit above the maximum is rejected, the maximum itself is accepted", async () => {
+    const tooMany = await req("POST", "/api/query", systemAdmin, {
+      type: JobQueries.list,
+      payload: { limit: 201 },
+    });
+    expect(tooMany.status).toBe(400);
+    const atMax = await req("POST", "/api/query", systemAdmin, {
+      type: JobQueries.list,
+      payload: { limit: 200 },
+    });
+    expect(atMax.status).toBe(200);
+  });
+
   test("a malformed cursor is rejected", async () => {
     const res = await req("POST", "/api/query", systemAdmin, {
       type: JobQueries.list,

@@ -38,5 +38,5 @@ export const DEFAULT_SUBMIT_RATE_LIMIT: RateLimitOption = {
 };
 
 export const DEFAULT_SUBMIT_EMAIL_RATE_LIMITS: readonly PayloadRateLimitOption[] = [
-  { per: { payloadField: "email" }, limit: 3, windowSeconds: 24 * 60 * 60 },
+  { per: { payloadField: "email" }, limit: 3, windowSeconds: 24 * 60 * 60, normalize: "email" },
 ];

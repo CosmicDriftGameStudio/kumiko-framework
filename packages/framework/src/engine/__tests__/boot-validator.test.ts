@@ -178,6 +178,43 @@ describe("boot-validator", () => {
     ).toThrow(/secret.*cannot be searchable with a restricted access\.read/i);
   });
 
+  function embeddedSearchableFeature(
+    subField: Record<string, unknown>,
+    parent: Record<string, unknown> = {},
+  ) {
+    return defineFeature("memos", (r) => {
+      r.entity(
+        "memo",
+        createEntity({
+          table: "Memos",
+          fields: {
+            note: {
+              type: "embedded",
+              schema: { body: { type: "text", searchable: true, ...subField } },
+              ...parent,
+            } as never, // @cast-boundary test builds embedded variants dynamically
+          },
+        }),
+      );
+    });
+  }
+
+  test("rejects a searchable embedded sub-field with a restricted access.read", () => {
+    expect(() =>
+      validateBoot([embeddedSearchableFeature({ access: { read: ["Admin"] } })]),
+    ).toThrow(/note\.body.*cannot be searchable with a restricted access\.read/i);
+  });
+
+  test("rejects a searchable embedded sub-field under a parent with a restricted access.read", () => {
+    expect(() =>
+      validateBoot([embeddedSearchableFeature({}, { access: { read: ["Admin"] } })]),
+    ).toThrow(/note\.body.*cannot be searchable with a restricted access\.read/i);
+  });
+
+  test("allows a searchable embedded sub-field without restricted access.read", () => {
+    expect(() => validateBoot([embeddedSearchableFeature({})])).not.toThrow();
+  });
+
   test("allows a searchable field without access.read or with an empty one", () => {
     expect(() => validateBoot(searchableFeatureWith({ searchable: true }))).not.toThrow();
     expect(() =>
@@ -5804,6 +5841,101 @@ describe("boot-validator", () => {
           }),
         ]),
       ).not.toThrow();
+    });
+
+    describe("sources that do not run validateRowActionNavigateParams", () => {
+      function featureWithDetailSource(
+        source: "metric" | "relatedListToolbar",
+        params: RowFieldExtractor | undefined,
+      ) {
+        return defineFeature("shop", (r) => {
+          r.queryHandler("order:detail", z.object({}), async () => ({ total: 1 }), {
+            access: { roles: ["Admin"] },
+          });
+          r.queryHandler("order:items", z.object({}), async () => ({ rows: [] }), {
+            access: { roles: ["Admin"] },
+          });
+          r.writeHandler(
+            "rotate",
+            z.object({ id: z.string() }),
+            async () => ({ isSuccess: true as const, data: null }),
+            { access: { roles: ["Admin"] } },
+          );
+          r.screen({
+            id: "order-detail",
+            type: "projectionDetail",
+            query: "shop:query:order:detail",
+            ...(source === "metric" && {
+              metrics: [
+                {
+                  field: "total",
+                  label: "shop:screen:order-detail.metric:total",
+                  navigate: { screen: "rotate-form", ...(params && { params }) },
+                },
+              ],
+            }),
+            layout: {
+              sections:
+                source === "metric"
+                  ? [{ title: "s", fields: ["total"] }]
+                  : [
+                      {
+                        kind: "relatedList",
+                        title: "Items",
+                        query: "shop:query:order:items",
+                        columns: ["name"],
+                        parentParam: "orderId",
+                        toolbarActions: [
+                          {
+                            kind: "navigate",
+                            id: "rotate",
+                            label: "actions.rotate",
+                            screen: "rotate-form",
+                            ...(params && { params }),
+                          },
+                        ],
+                      },
+                    ],
+            },
+          });
+          r.screen({
+            id: "rotate-form",
+            type: "secretMint",
+            handler: "shop:write:rotate",
+            submitPrefilled: true,
+            fields: {
+              id: { type: "text", required: true },
+              secret: { type: "text", sensitive: true },
+            } as never,
+            layout: {
+              sections: [{ fields: [{ field: "id", visible: false }, "secret"] }],
+            } as never,
+            reveal: { fields: [{ field: "token", label: "shop:screen:rotate-form.field:token" }] },
+          });
+        });
+      }
+
+      test("a metric navigate with a sensitive param key → throw", () => {
+        expect(() =>
+          validateBoot([featureWithDetailSource("metric", { pick: ["id", "secret"] })]),
+        ).toThrow(
+          /params prefills "secret", which navigate-target "rotate-form" marks as sensitive/,
+        );
+      });
+
+      test("a metric navigate with a covering param boots", () => {
+        expect(() =>
+          validateBoot([featureWithDetailSource("metric", { pick: ["id"] })]),
+        ).not.toThrow();
+      });
+
+      test("a relatedList toolbarAction without params prefills its implicit parent param → throw when undeclared", () => {
+        expect(() =>
+          validateBoot([featureWithDetailSource("relatedListToolbar", undefined)]),
+        ).toThrow(
+          /params prefills "orderId", which navigate-target "rotate-form" does not declare as a field/,
+        );
+      });
     });
 
     test("submitPrefilled absent → none of the new checks fire", () => {

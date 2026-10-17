@@ -302,7 +302,6 @@ function ScreenVisibilityGate({
 }): ReactNode {
   const { Banner, PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
-  const t = useTranslation();
   const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
   const verdict = evalVisibleWhen(visibleWhen, result);
   if (verdict === "visible") return children;
@@ -322,11 +321,19 @@ function ScreenVisibilityGate({
       {fallback !== undefined ? (
         <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />
       ) : (
-        <Banner padded variant="info" testId="kumiko-screen-unavailable">
-          {t("kumiko.screen.unavailable")}
-        </Banner>
+        <ScreenUnavailableBanner />
       )}
     </>
+  );
+}
+
+function ScreenUnavailableBanner(): ReactNode {
+  const { Banner } = usePrimitives();
+  const t = useTranslation();
+  return (
+    <Banner padded variant="info" testId="kumiko-screen-unavailable">
+      {t("kumiko.screen.unavailable")}
+    </Banner>
   );
 }
 
@@ -340,14 +347,9 @@ function FallbackScreen({
   readonly translate?: Translate;
 }): ReactNode {
   const target = useEmbeddedScreen(featureName, fallback);
-  const { Banner, Text } = usePrimitives();
-  if (target === undefined) {
-    return (
-      <Banner padded variant="error" testId="kumiko-screen-not-found">
-        Screen not found: <Text variant="code">{fallback}</Text>
-      </Banner>
-    );
-  }
+  // Also undefined when the user lacks access to the fallback screen, which is
+  // not a framework error.
+  if (target === undefined) return <ScreenUnavailableBanner />;
   return <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
 }
 
@@ -932,7 +934,10 @@ function isRepresentableAtScale(value: number, scale: number): boolean {
   return Math.abs(scaled - Math.round(scaled)) <= tolerance;
 }
 
-function isIsoInstant(value: string): boolean {
+// Server schema (`z.iso.datetime()`) accepts only a `Z` suffix, while
+// Temporal.Instant.from also takes numeric offsets.
+function isUtcIsoInstant(value: string): boolean {
+  if (!value.endsWith("Z")) return false;
   try {
     Temporal.Instant.from(value);
     return true;
@@ -943,6 +948,21 @@ function isIsoInstant(value: string): boolean {
 
 const EMBEDDED_LIST_PREFILL_ROW_LIMIT = 500;
 
+// The server schema (`z.string().date()`) rejects calendar-invalid days like 2020-02-31.
+function isValidIsoDate(value: string): boolean {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  try {
+    Temporal.PlainDate.from(value, { overflow: "reject" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isDecimalWithinSafeRange(value: number, scale: number | undefined): boolean {
+  return scale === undefined || Math.abs(value) <= Number.MAX_SAFE_INTEGER / 10 ** scale;
+}
+
 function coerceEmbeddedCell(value: unknown, cell: EmbeddedCellShape): unknown {
   switch (cell.type) {
     case "number":
@@ -950,13 +970,15 @@ function coerceEmbeddedCell(value: unknown, cell: EmbeddedCellShape): unknown {
     case "decimal":
       return typeof value === "number" &&
         Number.isFinite(value) &&
-        (cell.scale === undefined || isRepresentableAtScale(value, cell.scale))
+        (cell.scale === undefined ||
+          (isRepresentableAtScale(value, cell.scale) &&
+            isDecimalWithinSafeRange(value, cell.scale)))
         ? value
         : undefined;
     case "date":
-      return typeof value === "string" && ISO_DATE_PATTERN.test(value) ? value : undefined;
+      return typeof value === "string" && isValidIsoDate(value) ? value : undefined;
     case "timestamp":
-      return typeof value === "string" && isIsoInstant(value) ? value : undefined;
+      return typeof value === "string" && isUtcIsoInstant(value) ? value : undefined;
     case "money":
       // Row cells are signed minor units; the currency lives on the head, so a
       // top-level `{amount, currency}` in major units would land 100x off.
@@ -1055,6 +1077,7 @@ function coercePrefillString(
   moneyCurrencyOverrides: Readonly<Record<string, string>> | undefined,
 ): unknown {
   if (shape.type === "number") {
+    if (raw.trim() === "") return fallback;
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : fallback;
   }
@@ -3721,8 +3744,13 @@ function ProjectionDetailBody({
     return (
       <RecordNotFoundState
         translate={effectiveTranslate}
-        {...(backListScreen !== undefined && {
-          onBack: () => nav.navigate({ screenId: lastSegment(backListScreen) }),
+        {...((returnTarget !== undefined || backListScreen !== undefined) && {
+          onBack: () =>
+            navigateToReturnOr(nav, returnTarget, () => {
+              if (backListScreen !== undefined) {
+                nav.navigate({ screenId: lastSegment(backListScreen) });
+              }
+            }),
         })}
       />
     );
