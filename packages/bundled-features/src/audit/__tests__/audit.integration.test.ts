@@ -11,6 +11,7 @@ import {
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { runSeedWritesAt, SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   resetEventStore,
@@ -21,6 +22,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { buildDateRangePayload, resolveDateRangeFacets } from "@cosmicdrift/kumiko-renderer";
 import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
@@ -92,6 +94,20 @@ async function createWidget(user: SessionUser, name: string, color?: string): Pr
     user,
   );
   return res.id;
+}
+
+// Seed mode is scoped to the back-dated write so the other tests run without it.
+async function createWidgetAt(createdAt: string, name: string): Promise<string> {
+  const previousSeedMode = process.env[SEED_MODE_ENV];
+  process.env[SEED_MODE_ENV] = "1";
+  try {
+    return await runSeedWritesAt(getTemporal().Instant.from(createdAt), () =>
+      createWidget(admin, name),
+    );
+  } finally {
+    if (previousSeedMode === undefined) delete process.env[SEED_MODE_ENV];
+    else process.env[SEED_MODE_ENV] = previousSeedMode;
+  }
 }
 
 type AuditRow = {
@@ -223,33 +239,15 @@ describe("audit: list query", () => {
   });
 
   test("filter by from/to date range (inclusive bounds, outside-range rows excluded)", async () => {
-    // Stamp created_at after writes — wall-clock setTimeout anchors race with
-    // ms-precision DB timestamps under load (#1548). Fixed Instant grid keeps
-    // from/to assertions deterministic.
-    await createWidget(admin, "before-window");
-    await createWidget(admin, "in-window-1");
-    await createWidget(admin, "in-window-2");
-    await createWidget(admin, "after-window");
-
-    const listed = await stack.http.queryOk<AuditResponse>(AuditQueries.list, {}, admin);
-    const byName = new Map(
-      listed.rows
-        .filter((r) => r.type === "widget.created")
-        .map((r) => [(r.payload as { name?: string }).name ?? "", r.id]),
-    );
-    const stamps: ReadonlyArray<readonly [string, string]> = [
+    // Back-dated at write time on a fixed Instant grid — wall-clock setTimeout
+    // anchors race with ms-precision DB timestamps under load (#1548).
+    for (const [name, createdAt] of [
       ["before-window", "2020-06-01T12:00:00Z"],
       ["in-window-1", "2020-06-01T12:00:10Z"],
       ["in-window-2", "2020-06-01T12:00:20Z"],
       ["after-window", "2020-06-01T12:00:30Z"],
-    ];
-    for (const [name, createdAt] of stamps) {
-      const id = byName.get(name);
-      if (!id) throw new Error(`missing event for ${name}`);
-      await asRawClient(stack.db).unsafe(
-        `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
-        [createdAt, id],
-      );
+    ] as const) {
+      await createWidgetAt(createdAt, name);
     }
 
     const tFrom = "2020-06-01T12:00:10Z";
@@ -294,29 +292,10 @@ describe("audit: list query", () => {
     const specs = resolveDateRangeFacets(screen.facets, (key) => key);
     expect(specs).toHaveLength(1);
 
-    await createWidget(admin, "late-on-the-14th");
-    await createWidget(admin, "just-after-midnight");
-
-    const listed = await stack.http.queryOk<AuditResponse>(AuditQueries.list, {}, admin);
-    const byName = new Map(
-      listed.rows
-        .filter((r) => r.type === "widget.created")
-        .map((r) => [(r.payload as { name?: string }).name ?? "", r.id]),
-    );
     // 23:59 and 00:00 Europe/Vienna, expressed as the UTC instants the
     // event store stores.
-    const stamps: ReadonlyArray<readonly [string, string]> = [
-      ["late-on-the-14th", "2020-06-14T21:59:00Z"],
-      ["just-after-midnight", "2020-06-14T22:00:00Z"],
-    ];
-    for (const [name, createdAt] of stamps) {
-      const id = byName.get(name);
-      if (!id) throw new Error(`missing event for ${name}`);
-      await asRawClient(stack.db).unsafe(
-        `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
-        [createdAt, id],
-      );
-    }
+    await createWidgetAt("2020-06-14T21:59:00Z", "late-on-the-14th");
+    await createWidgetAt("2020-06-14T22:00:00Z", "just-after-midnight");
 
     const bounds = buildDateRangePayload(
       specs,
@@ -336,25 +315,8 @@ describe("audit: list query", () => {
     if (screen?.type !== "projectionList") throw new Error("expected a projectionList screen");
     const specs = resolveDateRangeFacets(screen.facets, (key) => key);
 
-    await createWidget(admin, "old");
-    await createWidget(admin, "recent");
-    const listed = await stack.http.queryOk<AuditResponse>(AuditQueries.list, {}, admin);
-    const byName = new Map(
-      listed.rows
-        .filter((r) => r.type === "widget.created")
-        .map((r) => [(r.payload as { name?: string }).name ?? "", r.id]),
-    );
-    for (const [name, createdAt] of [
-      ["old", "2020-06-01T12:00:00Z"],
-      ["recent", "2020-06-20T12:00:00Z"],
-    ] as const) {
-      const id = byName.get(name);
-      if (!id) throw new Error(`missing event for ${name}`);
-      await asRawClient(stack.db).unsafe(
-        `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
-        [createdAt, id],
-      );
-    }
+    await createWidgetAt("2020-06-01T12:00:00Z", "old");
+    await createWidgetAt("2020-06-20T12:00:00Z", "recent");
 
     const bounds = buildDateRangePayload(
       specs,
