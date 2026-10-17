@@ -9,6 +9,7 @@ import type {
   AppContext,
   ConfigAccessor,
   ConfigAccessorFactory,
+  JobDefinition,
   NotifyFactory,
   Registry,
   TenantId,
@@ -1602,6 +1603,37 @@ describe("boot gates", () => {
     expect(() => createRegistry([runOnBootGate])).toThrow(/bootGate with runOnBoot/);
   });
 
+  test("maxPerTenant rejects a non-positive limit, a bad deferMs and defer combined with bootGate", () => {
+    const registryFor = (
+      maxPerTenant: JobDefinition["maxPerTenant"],
+      extra: { readonly bootGate?: boolean } = {},
+    ) =>
+      createRegistry([
+        defineFeature("badcap", (r) => {
+          r.job("check", { trigger: { manual: true }, maxPerTenant, ...extra }, async () => {
+            gateLog.push("never");
+          });
+        }),
+      ]);
+
+    for (const badLimit of [0, -1, 1.5]) {
+      expect(() => registryFor(badLimit)).toThrow(/maxPerTenant limit must be a positive integer/);
+      expect(() => registryFor({ limit: badLimit, onLimit: "defer" })).toThrow(
+        /maxPerTenant limit must be a positive integer/,
+      );
+    }
+    for (const badDeferMs of [0, -5, 1.5]) {
+      expect(() => registryFor({ limit: 1, onLimit: "defer", deferMs: badDeferMs })).toThrow(
+        /maxPerTenant\.deferMs must be a positive integer/,
+      );
+    }
+    expect(() => registryFor({ limit: 1, onLimit: "defer" }, { bootGate: true })).toThrow(
+      /bootGate with maxPerTenant onLimit "defer"/,
+    );
+    expect(() => registryFor({ limit: 1, onLimit: "skip" }, { bootGate: true })).not.toThrow();
+    expect(() => registryFor(2)).not.toThrow();
+  });
+
   test("object-form backoff.delayMs must be a positive integer", () => {
     for (const badDelayMs of [0, -5, 1.5]) {
       const feature = defineFeature("badbackoff", (r) => {
@@ -1667,5 +1699,102 @@ describe("runner lifecycle: immediate stop (fw#1805)", () => {
       process.off("unhandledRejection", onUnhandled);
     }
     expect(unhandled).toEqual([]);
+  });
+});
+
+describe("maxPerTenant defer", () => {
+  const TENANT_BUSY = "defer-tenant-busy";
+  const TENANT_OTHER = "defer-tenant-other";
+  const LIMIT = 2;
+
+  test("defers excess jobs without dropping them, consuming attempts or reporting failures", async () => {
+    const running = new Map<string, number>();
+    const peakRunning = new Map<string, number>();
+    const startedTenants: string[] = [];
+    const completedTenants: string[] = [];
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+
+    const deferFeature = defineFeature("deferfx", (r) => {
+      r.job(
+        "capped",
+        {
+          trigger: { manual: true },
+          maxPerTenant: { limit: LIMIT, onLimit: "defer", deferMs: 50 },
+          retries: 0,
+        },
+        async (_payload, ctx) => {
+          const tenant = String(ctx.systemUser.tenantId);
+          const now = (running.get(tenant) ?? 0) + 1;
+          running.set(tenant, now);
+          peakRunning.set(tenant, Math.max(peakRunning.get(tenant) ?? 0, now));
+          startedTenants.push(tenant);
+          await gate;
+          running.set(tenant, (running.get(tenant) ?? 1) - 1);
+          completedTenants.push(tenant);
+        },
+      );
+    });
+
+    const runStarts: string[] = [];
+    const runFailures: string[] = [];
+    const queueNamePrefix = `kumiko-test-defer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runner = createJobRunner({
+      registry: createRegistry([deferFeature]),
+      context: {},
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      onJobStart: (_jobName, jobId) => {
+        runStarts.push(jobId);
+      },
+      onJobFailed: (_jobName, jobId) => {
+        runFailures.push(jobId);
+      },
+    });
+    const rawQueue = new Queue(`${queueNamePrefix}-worker`, {
+      connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+    });
+    rawQueue.on("error", () => {});
+
+    const countStarted = (tenant: string) => startedTenants.filter((t) => t === tenant).length;
+
+    try {
+      await runner.start();
+      const dispatched: string[] = [];
+      for (const tenant of [TENANT_BUSY, TENANT_BUSY, TENANT_BUSY, TENANT_BUSY, TENANT_OTHER]) {
+        dispatched.push(await runner.dispatch("deferfx:job:capped", { _tenantId: tenant }));
+      }
+      expect(dispatched.filter((result) => result.startsWith("skipped"))).toEqual([]);
+
+      // The other tenant's job runs while the busy tenant's two slots are held.
+      await waitFor(() => {
+        expect(countStarted(TENANT_BUSY)).toBe(LIMIT);
+        expect(countStarted(TENANT_OTHER)).toBe(1);
+      });
+      expect(await runner.countPendingJobs()).toBe(5);
+
+      releaseGate();
+      await waitFor(() => {
+        expect(completedTenants).toHaveLength(5);
+      });
+
+      expect(peakRunning.get(TENANT_BUSY)).toBeLessThanOrEqual(LIMIT);
+      expect(countStarted(TENANT_BUSY)).toBe(4);
+      expect(runFailures).toEqual([]);
+      // One run record per job: a deferred pickup leaves no run behind.
+      expect(runStarts).toHaveLength(5);
+      expect(new Set(runStarts).size).toBe(5);
+      const completedJobs = await rawQueue.getJobs(["completed"]);
+      expect(completedJobs).toHaveLength(5);
+      expect(completedJobs.map((job) => job.attemptsMade)).toEqual([1, 1, 1, 1, 1]);
+    } finally {
+      releaseGate();
+      await runner.stop();
+      await rawQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${queueNamePrefix}-worker:*`);
+    }
   });
 });

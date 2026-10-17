@@ -2,7 +2,7 @@
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
+import { DelayedError, type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.js";
 import type { DbConnection, DbRow } from "../db/connection.js";
@@ -54,6 +54,7 @@ import {
 } from "../pipeline/write-origin.js";
 import { bridgeStub } from "../testing/handler-context.js";
 import { cronRepeatOptions } from "./cron-repeat-options.js";
+import { resolveMaxPerTenant } from "./max-per-tenant.js";
 
 // Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
 // (a security-relevant escape hatch that must fail the run closed), a
@@ -244,6 +245,9 @@ export type JobMeta = {
   // job definition can be enqueued at different urgencies (e.g. delivery maps
   // critical/normal/low onto it).
   priority?: number | undefined;
+  // BullMQ dedups an add() whose id already exists, so a stable id makes
+  // at-least-once enqueuers (event consumers) idempotent.
+  jobId?: string | undefined;
   // Set by the runner on onJobStart for jobs with `tenantVisibleRun`.
   tenantVisibleRun?: { readonly tenantId: string; readonly subject: string | null } | undefined;
 };
@@ -442,6 +446,9 @@ export type JobRunnerOptions = {
 // Leading underscore matches the existing internal-meta convention
 // (_triggeredById, _tenantId, _payload).
 const TRACE_CONTEXT_KEY = "_traceContext";
+const DEFER_COUNT_KEY = "_deferCount";
+const DEFER_DELAY_CAP_MS = 30_000;
+const DEFER_BACKOFF_MAX_DOUBLINGS = 5;
 
 function readTraceContext(data: Record<string, unknown>): SerializedTraceContext | undefined {
   const raw = data[TRACE_CONTEXT_KEY];
@@ -797,21 +804,29 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // lane (jobDef.runIn is static), but walking both is cheap and avoids
   // a subtle bug if someone ever reassigns a job to a different lane
   // between deploys while old queue contents are still draining.
+  // `activeOnly` + `self` serve the defer check, which runs inside the job being
+  // counted: it must not see waiting jobs or itself, and only counts jobs that
+  // became active before it. Without that order, workers that fetch a burst of
+  // jobs together all see each other as active and all defer, again and again.
   async function isOverPerTenantLimit(
     jobName: string,
     tenantId: string,
     max: number,
+    scope: {
+      readonly activeOnly?: boolean;
+      readonly self?: { readonly id: string | undefined; readonly processedOn: number | undefined };
+    } = {},
   ): Promise<boolean> {
     const results = await Promise.all([
       queues.api.getActive(),
-      queues.api.getWaiting(),
       queues.worker.getActive(),
-      queues.worker.getWaiting(),
+      ...(scope.activeOnly ? [] : [queues.api.getWaiting(), queues.worker.getWaiting()]),
     ]);
     let count = 0;
     for (const list of results) {
       for (const j of list) {
         if (j.name !== jobName) continue;
+        if (scope.self && !isActiveBefore(j, scope.self)) continue;
         const t = (j.data as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
         if (t === tenantId) {
           count += 1;
@@ -820,6 +835,27 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       }
     }
     return false;
+  }
+
+  function isActiveBefore(
+    other: { readonly id?: string | undefined; readonly processedOn?: number | undefined },
+    self: { readonly id: string | undefined; readonly processedOn: number | undefined },
+  ): boolean {
+    if (other.id === self.id) return false;
+    if (self.processedOn === undefined) return true;
+    const otherProcessedOn = other.processedOn ?? 0;
+    if (otherProcessedOn !== self.processedOn) return otherProcessedOn < self.processedOn;
+    return (other.id ?? "") < (self.id ?? "");
+  }
+
+  // Growing delay bounds Redis and worker load while one tenant has a large
+  // backlog: every deferred job would otherwise be re-checked every deferMs.
+  function deferDelayMs(deferMs: number, deferCount: number): number {
+    const grown = Math.min(
+      deferMs * 2 ** Math.min(deferCount, DEFER_BACKOFF_MAX_DOUBLINGS),
+      DEFER_DELAY_CAP_MS,
+    );
+    return grown + Math.floor(Math.random() * deferMs);
   }
 
   // Structural instead of BullMQ's `Job` so boot gates can invoke the same
@@ -832,6 +868,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     readonly attemptsMade: number;
     /** False for inline invocations (boot gates): nothing retries a throw. */
     readonly retryable?: boolean;
+    readonly processedOn?: number | undefined;
+    moveToDelayed?(timestamp: number, token?: string): Promise<void>;
+    updateData?(data: Record<string, unknown>): Promise<void>;
   };
 
   // Only err.message, never payload or the logs array: job payloads can carry PII.
@@ -930,7 +969,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     }
   }
 
-  async function handleJob(bullJob: JobInvocation): Promise<void> {
+  async function handleJob(bullJob: JobInvocation, token?: string): Promise<void> {
     const rawName = bullJob.name;
 
     // Handle perTenant dispatch jobs — fan out to one job per tenant. The
@@ -1016,6 +1055,31 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       });
       await reportPreRunFailure(jobName, bullJob, err);
       throw err;
+    }
+
+    // maxPerTenant defer: checked before anything is recorded for this run, so a
+    // deferred pickup leaves no span, run-log entry or failure trace and does not
+    // consume an attempt (moveToDelayed + DelayedError, not a retry).
+    const maxPerTenant = resolveMaxPerTenant(jobDef);
+    const deferTenantId = bullJob.data["_tenantId"];
+    if (
+      maxPerTenant?.onLimit === "defer" &&
+      typeof deferTenantId === "string" &&
+      token !== undefined &&
+      bullJob.moveToDelayed &&
+      (await isOverPerTenantLimit(jobName, deferTenantId, maxPerTenant.limit, {
+        activeOnly: true,
+        self: { id: bullJob.id, processedOn: bullJob.processedOn },
+      }))
+    ) {
+      const priorDeferCount = bullJob.data[DEFER_COUNT_KEY];
+      const deferCount = typeof priorDeferCount === "number" ? priorDeferCount : 0;
+      await bullJob.updateData?.({ ...bullJob.data, [DEFER_COUNT_KEY]: deferCount + 1 });
+      await bullJob.moveToDelayed(
+        Date.now() + deferDelayMs(maxPerTenant.deferMs, deferCount),
+        token,
+      );
+      throw new DelayedError();
     }
 
     // Sequential gate: try to claim the per-name lock. If another worker
@@ -1575,13 +1639,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       }
 
       const consumerQueue = queues[consumerLane];
-      worker = new Worker(queueNameFor(queueNamePrefix, consumerLane), handleJob, {
-        connection: redisOpts,
-        concurrency: 5,
-        // Not consuming until the boot gates passed: a job already queued from a
-        // previous run must not execute against an unmet boot precondition.
-        autorun: false,
-      });
+      worker = new Worker(
+        queueNameFor(queueNamePrefix, consumerLane),
+        (job, token) => handleJob(job, token),
+        {
+          connection: redisOpts,
+          concurrency: 5,
+          // Not consuming until the boot gates passed: a job already queued from a
+          // previous run must not execute against an unmet boot precondition.
+          autorun: false,
+        },
+      );
       worker.on("error", (err) => {
         const log = stopping ? errorLogger.debug : errorLogger.error;
         log("worker redis connection error", { error: err.message });
@@ -1762,11 +1830,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // against; without it the guard is inactive (system jobs, ambient
       // dispatch). Fan-out children of perTenant jobs land here on their
       // recursive queue.add and DO carry _tenantId.
-      if (jobDef.maxPerTenant !== undefined) {
+      const maxPerTenant = resolveMaxPerTenant(jobDef);
+      if (maxPerTenant?.onLimit === "skip") {
         const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
         if (
           tenantId !== undefined &&
-          (await isOverPerTenantLimit(jobName, tenantId, jobDef.maxPerTenant))
+          (await isOverPerTenantLimit(jobName, tenantId, maxPerTenant.limit))
         ) {
           return "skipped:max-per-tenant";
         }
@@ -1810,6 +1879,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       Object.assign(bullOpts, buildRetryBullOpts(jobDef));
       if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
       if (meta?.priority !== undefined) bullOpts["priority"] = meta.priority;
+      if (meta?.jobId !== undefined) bullOpts["jobId"] = meta.jobId;
 
       // Pack meta into job data with _ prefix
       const data: Record<string, unknown> = { ...payload };
@@ -1869,8 +1939,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
         // Same maxPerTenant guard as dispatch — events that fan into many
         // jobs must respect the per-tenant cap or the limit is one-sided.
-        if (jobDef.maxPerTenant !== undefined && user?.tenantId !== undefined) {
-          if (await isOverPerTenantLimit(name, String(user.tenantId), jobDef.maxPerTenant)) {
+        const maxPerTenant = resolveMaxPerTenant(jobDef);
+        if (maxPerTenant?.onLimit === "skip" && user?.tenantId !== undefined) {
+          if (await isOverPerTenantLimit(name, String(user.tenantId), maxPerTenant.limit)) {
             continue;
           }
         }

@@ -67,6 +67,11 @@ export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pip
 export { createLifecycleHooks } from "./lifecycle-pipeline.js";
 export type { MspRebuildDeps } from "./msp-rebuild.js";
 export { rebuildMultiStreamProjection } from "./msp-rebuild.js";
+export type {
+  MultiStreamApplyContext,
+  MultiStreamApplyContextDeps,
+} from "./multi-stream-apply-context.js";
+export { createMultiStreamApplyContext } from "./multi-stream-apply-context.js";
 export { assertNotifyTargetsOwnTenant, createDeferringNotify } from "./notify-scope.js";
 export type { ProjectionProgress, RebuildResult } from "./projection-rebuild.js";
 export {

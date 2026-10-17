@@ -21,6 +21,7 @@ import {
   stepsPipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createMultiStreamApplyContext } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestUser,
   resetEventStore,
@@ -31,6 +32,8 @@ import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testin
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { createSecretsFeature } from "../../secrets/index.js";
+import { DELIVER_RETRIES, STEP_DISPATCHER_FEATURE } from "../constants.js";
+import { deliverDispatchRequest } from "../deliver-dispatch-request.js";
 import {
   createStepDispatcherFeature,
   type MailDispatchResult,
@@ -101,6 +104,7 @@ async function eventsOfType(type: string): Promise<EventRow[]> {
 
 async function drain(): Promise<void> {
   await stack.eventDispatcher?.runOnce();
+  await stack.drainJobs();
 }
 
 async function requestedRow(): Promise<EventRow> {
@@ -123,6 +127,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createStepDispatcherFeature(), createSecretsFeature(), probeFeature],
     systemHooks: [],
+    jobs: { consumerLane: "worker" },
   });
 });
 
@@ -195,7 +200,22 @@ describe("step-dispatcher payload crypto-shredding", () => {
       warnings.push(args);
     };
     try {
-      await drain();
+      // The final attempt is driven directly: a mail failure is retried, and
+      // walking the job's real backoff would cost seconds per run.
+      await deliverDispatchRequest({
+        aggregateId: requested.aggregateId,
+        tenantId: admin.tenantId,
+        attempt: DELIVER_RETRIES + 1,
+        finalAttempt: true,
+        applyContextFor: (userId) =>
+          createMultiStreamApplyContext({
+            registry: stack.registry,
+            db: stack.db,
+            tenantId: admin.tenantId,
+            userId,
+            callerFeature: STEP_DISPATCHER_FEATURE,
+          }),
+      });
     } finally {
       console.warn = originalWarn;
     }
@@ -302,10 +322,10 @@ describe("step-dispatcher payload crypto-shredding", () => {
     expect([...sentKeys].sort()).toEqual([...requestedIds].sort());
   });
 
-  test("webhook.send: a redelivery after a failed erase repeats the erase, not the send", async () => {
+  test("webhook.send: a retry after a failed erase repeats the erase, not the send", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
-    // The first eraseKey fails after the outcome is appended, so the projection
-    // throws and the next run delivers the same request again.
+    // The first eraseKey fails after the outcome is appended, so the job fails
+    // and its retry finds the outcome and only erases again.
     const realEraseKey = kms.eraseKey.bind(kms);
     let eraseCalls = 0;
     kms.eraseKey = async (...args: Parameters<typeof realEraseKey>) => {
@@ -320,11 +340,6 @@ describe("step-dispatcher payload crypto-shredding", () => {
         { url: "https://hooks.example/hook", token: "t" },
         admin,
       );
-      // runOnce does not rethrow projection failures: the injected erase failure
-      // is proven by the erase attempt having happened with the key still alive.
-      await drain();
-      expect(eraseCalls).toBe(1);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
       await drain();
       expect(eraseCalls).toBe(2);
     } finally {

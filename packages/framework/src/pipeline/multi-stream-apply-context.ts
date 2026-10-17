@@ -35,6 +35,7 @@ export type MultiStreamApplyContextDeps = {
   readonly derivatives?: DerivativesContext;
   // Same SecretsContext the outer AppContext carries, mirrors `files`.
   readonly secrets?: SecretsContext;
+  readonly jobs?: MultiStreamApplyContext["jobs"];
 };
 
 export function createMultiStreamApplyContext(
@@ -45,6 +46,7 @@ export function createMultiStreamApplyContext(
     ...(deps.files ? { files: deps.files } : {}),
     ...(deps.derivatives ? { derivatives: deps.derivatives } : {}),
     ...(deps.secrets ? { secrets: deps.secrets } : {}),
+    ...(deps.jobs ? { jobs: deps.jobs } : {}),
     appendEvent: (async (args: AppendEventArgs) => {
       await appendDomainEventCore(
         {

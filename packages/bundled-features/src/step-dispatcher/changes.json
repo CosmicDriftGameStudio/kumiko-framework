@@ -21,7 +21,7 @@
     "version": "0.346.0",
     "type": "fix",
     "title": "Webhook requests time out after 10 seconds instead of blocking the dispatcher",
-    "detail": "Webhook requests time out after 10 seconds\nA hanging receiver now ends as `step.dispatch-failed` and no longer stalls the step-dispatcher for every tenant."
+    "detail": "Webhook requests time out after 10 seconds\nA hanging receiver now ends as `step.dispatch-failed` after the timeout instead of waiting indefinitely. Until the step-dispatcher delivered through jobs, the shared consumer still processed requests one at a time, so a slow receiver of one tenant delayed the others."
   },
   {
     "version": "0.346.0",

@@ -50,4 +50,14 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
   // webhook auth), audited via the read's own auditCtx. Present when the
   // app booted with the secrets feature; undefined otherwise.
   readonly secrets?: SecretsContext;
+  // Enqueue a job. Present when the app has a job runner; undefined otherwise.
+  // Enqueue only, and an MSP apply is redelivered at-least-once: pass a stable
+  // `jobId` so a redelivery does not enqueue a second run.
+  readonly jobs?: {
+    dispatch(
+      jobName: string,
+      payload: Record<string, unknown>,
+      options?: { readonly jobId?: string },
+    ): Promise<void>;
+  };
 };

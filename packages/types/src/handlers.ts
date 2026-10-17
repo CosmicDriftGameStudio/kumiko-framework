@@ -332,6 +332,12 @@ export type JobRunnerRef = {
     user?: SessionUser,
     triggerEvent?: JobTriggerEvent,
   ): Promise<void>;
+  // Present on the concrete runner; optional so handleEvent-only doubles still fit.
+  dispatch?(
+    jobName: string,
+    payload: Record<string, unknown>,
+    meta?: { readonly priority?: number; readonly jobId?: string },
+  ): Promise<unknown>;
 };
 
 // Minimal interface a JobRunner attaches via attachDispatcher() to reach the

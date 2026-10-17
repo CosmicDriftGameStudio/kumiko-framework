@@ -313,9 +313,32 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
       { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets, idempotencyKey: IDEMPOTENCY_KEY },
     );
 
-    expect(result).toEqual({ ok: false, error: "invalid url" });
+    expect(result).toEqual({ ok: false, error: "invalid url", retryable: false });
     expect(get).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    { status: 500, retryable: true },
+    { status: 503, retryable: true },
+    { status: 408, retryable: true },
+    { status: 429, retryable: true },
+    { status: 400, retryable: false },
+    { status: 404, retryable: false },
+    { status: 301, retryable: false },
+  ])("HTTP $status is classified retryable=$retryable", async ({ status, retryable }) => {
+    process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "webhook-receiver.internal";
+    setWebhookFetch(fetchMock as unknown as typeof fetch);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status }));
+
+    const result = await performWebhookDispatch(
+      { url: "http://webhook-receiver.internal/hook", method: "POST", headers: {} },
+      noSecretsDeps,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.retryable).toBe(retryable);
   });
 
   test("a failing request never echoes the request url into the delivery error", async () => {
@@ -334,7 +357,11 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
       },
     );
 
-    expect(result).toEqual({ ok: false, error: "webhook request failed (TypeError)" });
+    expect(result).toEqual({
+      ok: false,
+      error: "webhook request failed (TypeError)",
+      retryable: true,
+    });
   });
 });
 
@@ -422,7 +449,11 @@ describe("performWebhookDispatch — request timeout", () => {
       { ...noSecretsDeps, requestTimeoutMs: 20 },
     );
 
-    expect(result).toEqual({ ok: false, error: "webhook request failed (TimeoutError)" });
+    expect(result).toEqual({
+      ok: false,
+      error: "webhook request failed (TimeoutError)",
+      retryable: true,
+    });
   });
 
   test("a body that stalls after the headers neither delays the result nor keeps the connection open", async () => {
