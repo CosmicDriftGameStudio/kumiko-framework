@@ -1,5 +1,363 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.364.0
+
+### Minor Changes
+
+- e9b032f: Write handlers can run external calls before the transaction
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Write handlers can declare a beforeTransaction phase, and file bytes can be uploaded before the transaction
+  detail: defineWriteHandler accepts beforeTransaction(event, ctx), which the dispatcher runs after the pre-handler gates and any reserveBeforeTransaction and before the transaction opens, so a slow external call holds no pool connection. Its data reaches the handler as event.prepared; a failure result or throw rejects the write, and its release runs whenever the transaction does not commit. ctx.write, appendEvent, notify and the other write surfaces throw inside the phase, and a handler with the phase cannot run as a nested ctx.write. uploadFileBytesBeforeTransaction writes the bytes in that phase and createFileRefFromUploadedBytes creates the fileRef row in the handler; the release keeps the bytes when the row exists. Original files whose row never committed stay in storage, no job sweeps them.
+  -->
+- 6b1567e: CapExceededError carries resetAt and retryAfterSeconds, API sets Retry-After
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: breaking
+  title: CapExceededError carries resetAt and retryAfterSeconds, API sets Retry-After
+  migration: |
+    Periodic caps no longer need RateLimitError({ windowSeconds: 0, ... }). Where you catch CapExceededError from enforceCap and rethrow it as RateLimitError, drop the catch and let CapExceededError pass: the response stays 429 with a correct Retry-After, error.code becomes cap_exceeded instead of rate_limited, and error.details carries resetAt and retryAfterSeconds. Keep a feature-specific message with enforceCap({ ..., i18nKey }) and pass a period end other than the calendar month with periodEndIso (e.g. a budget's resetsAtIso). Clients matching on rate_limited for these caps must also accept cap_exceeded. Any KumikoError with retryAfterSeconds (including RateLimitError thrown in a handler) now gets a Retry-After header from /api/write, /api/batch and /api/query.
+  -->
+- dfb2523: Agent guide and generated indexes ship in the framework package
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Agent guide and generated indexes ship in the framework package
+  detail: The framework package now contains AGENTS.md plus an agents/ directory with generated feature, widget and example indexes, built from feature-manifest.json, the renderer-web exports and samples/recipes. The new agent-docs-drift guard in kumiko check fails when the committed files differ from the generator output. New apps get an AGENTS.md and a CLAUDE.md that point at the packaged guide.
+  -->
+- 8fb6aa6: Handler field references support business keys and array fields
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Handler field references support business keys and array fields
+  migration: |
+    handlerFieldReference(schema, field) now returns { entity, by, multiple } instead of the entity string. Replace reference with reference.entity; skip or handle fields where by is set (value is a business key, not an id) or multiple is true (value is an array).
+  -->
+- f1b4367: Writes without an open transaction run as their own command
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Writes without an open transaction run as their own command; ctx.db writes there throw
+  detail: Write handlers accept transaction "perCommand". Such a handler runs without a transaction of its own, so every ctx.write and ctx.writeAs it issues runs as its own top-level command with its own transaction, gates and afterCommit hooks. A perCommand handler cannot run as a nested ctx.write, cannot be part of a multi-command batch (422 per_command_handler_in_batch) and cannot combine with beforeTransaction or reserveBeforeTransaction (boot error). ctx.write and ctx.writeAs from stream handlers and top-level query handlers now take the same route, so afterCommit hooks of the called write, which never fired before, fire now. ctx.db writes (entity executor, insertOne, updateMany, deleteMany, db.global() writes) and event appends (appendEvent, unsafeAppendEvent, tryAppendEvent, fetchForWriting, archiveStream, restoreStream, snapshotAggregate) throw in stream handlers, top-level query handlers, perCommand handlers and in beforeTransaction and reserveBeforeTransaction. ctx.dbOutsideTransaction and ctx.outsideTransaction stay available, and ctx.db.unsafeRaw stays open as the audited escape hatch.
+  migration: Stream and query code that writes through ctx.db or an executor bound to ctx.db calls a write handler through ctx.write or ctx.writeAs instead, or writes deliberately through ctx.dbOutsideTransaction. Check code that relied on afterCommit hooks of a write called from a stream or query handler not firing. bookCapUsage from a stream or query handler needs outsideTransaction true or a command. runInOwnTransaction(ctx.db, ...) stays locked in these contexts; runInOwnTransaction(ctx.dbOutsideTransaction, ...) is the way to a deliberate own transaction. Measured consumers: one stream handler (AI agent turn: conversation, activity and tool-call records through an executor on ctx.db, plus cap booking) and one query handler (AI text run: cap booking on ctx.db, log via ctx.write). No other consumer app has stream or query writes. The beforeTransaction/reserveBeforeTransaction lock affects no released code.
+  -->
+- b5a6395: templateVariable.richText declares a notification variable that carries sanitized HTML
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: templateVariable.richText for notification variables that carry formatted HTML
+  detail: Notification variables are escaped, so a value holding HTML (for example a document written in a rich text editor) showed up as literal tags in the mail. A variable declared with templateVariable.richText({ required }) is run through the document sanitizer at render time and inserted as HTML; bold, italic, lists and safe links stay, script, event handlers and javascript links are not emitted as markup. If the sanitizer rejects a value, it is rendered as escaped text and a warning with the violation codes is logged. All other variable types stay escaped.
+  -->
+
+### Patch Changes
+
+- 8e81d73: A throwing command in a batch without a database connection releases its cap reservation
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A throwing command in a batch without a database connection releases its cap reservation
+  detail: The sequential fallback of dispatchBatch (no DB connection) did not release the reserved capacity when a command threw instead of returning a failure result. It now releases the reservation before rethrowing.
+  -->
+- cfbffba: Boot-validator and guard messages say how to fix the problem
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot-validator and guard messages name the fix
+  detail: Boot-validator and guard messages that only described the problem now also say what to do about it. The German configEdit and retention messages are in English. Validation and guard behavior is unchanged.
+  -->
+- 15039ce: Bootstrap idempotency for encrypted config and demoted invitations
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Bootstrap reruns no longer rewrite encrypted config or restore dropped global roles
+  detail: Declarative bootstrap compares encrypted and piiEncrypted config keys by their decrypted value, so a matching rerun writes nothing, and re-issues an invitation whose stored global roles are no longer in the plan. makeDispatchWriteAs is exported from the framework api.
+  -->
+- 8e81d73: CacheSyncBus.publish accepts remoteOnly to skip local listeners
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: CacheSyncBus.publish takes { remoteOnly } to skip same-process listeners
+  detail: `publish(topic, message, { remoteOnly: true })` delivers only to other processes. Use it when the publisher has already applied the change locally and a local fanout would trigger a redundant reload.
+  -->
+- 2b255c2: Published changelog no longer names paths in private repositories
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: changes.json no longer ships paths into private repositories
+  detail: Older changelog entries named file paths and a docs path of private repositories. They now name only the repository. The changelog guard rejects a `<private-repo>/<path>` reference or a github.com link into a private repository.
+  -->
+- 8e81d73: Config key validators get a db scoped to the tenant being written
+  
+  <!-- kumiko-changes
+  feature: config
+  type: fix
+  title: Config key validate() receives a db scoped to the written tenant
+  detail: A SystemAdmin writing a config value for another tenant previously handed the validator a system-mode db that could read every tenant. `ConfigValidateContext.db` is now a `TenantDb` locked to the tenant the value is written for. The validator runs inside the write transaction, so a slow query there should set its own timeout.
+  -->
+- 8be3807: coerceRow takes a raw driver row and returns the caller's row type
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: coerceRow no longer claims the raw driver row already has the converted shape
+  detail: coerceRow now accepts a Record<string, unknown> driver row and returns the explicitly requested row type, with the single cast at that boundary. The raw event-consumer, pending-event and projection-rebuild queries return untyped rows instead of a caller-chosen generic. The eventMigrations JSDoc and the expand/contract guide now state that pii and encrypted fields reach transforms as field-bound ciphertext and must not be renamed or derived from.
+  -->
+- 8e81d73: collectTableMetas rejects two features registering the same table name
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: collectTableMetas rejects two features registering the same table name
+  detail: Two entities or storeTables with the same table name produced duplicate metas that only failed later in `schema generate` with a message about a hand-added meta. collectTableMetas now throws at the first registration with both origins, so setupTestStack fails the same way. The duplicate-name error of the migration generator no longer assumes a hand-added meta.
+  -->
+- 15039ce: System-cron escape hatch audits are deduplicated per target and repeat daily
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: System-cron escape hatch audits are deduplicated per target and repeat daily
+  detail: The per-process dedup of declared system-cron hatches keyed only on handler, kind and tenant, so a run writing several global tables was audited for the first table only, and a worker running longer than the audit retention left no event. The key now includes the target and the process audits again after 24 hours.
+  -->
+- fd5009a: Entity detail cache hits with an ownership clause use one statement
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A detail() cache hit with an ownership predicate costs one database statement
+  detail: The ownership re-check and the live stream-version read for a cached detail row now run as a single query, so a cache hit is no more expensive than a cache miss for entities with SQL ownership rules.
+  -->
+- fd5009a: Login and logout expire leftover __Host- session cookies when the names resolve unprefixed
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A later cookieDomain or secureCookies:false no longer leaves stale __Host- auth and csrf cookies behind
+  detail: expireLegacySessionCookieVariants covers both directions. With unprefixed names and secure cookies, setAuthCookies and clearSessionCookies now also expire __Host-kumiko_auth and __Host-kumiko_csrf as Secure, Path=/, host-only. Before, the browser kept sending the stale __Host-kumiko_csrf in X-CSRF-Token and every write failed with csrf_token_mismatch until it expired.
+  -->
+- 8e81d73: Expired fileRef purge no longer stalls on rows that keep failing
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Expired fileRef purge no longer stalls on rows that keep failing
+  detail: The soft-delete cleanup always selected the oldest 500 expired fileRefs, so 500 permanently failing rows (unsafe key, missing list permission) blocked every newer expired fileRef of that tenant. A run now walks the expired rows page by page along (deletedAt, id) and ends on an empty page; failed rows are retried on the next run.
+  -->
+- 15039ce: Extra routes outside /api get the request body cap for every entry
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Extra routes outside /api get the request body cap for every entry
+  detail: extraRoutes with entry anonymous or user outside /api now run behind the maxRequestBytes body limit like signature routes already did, so an unauthenticated caller can no longer stream an oversized body into a public form or callback route.
+  -->
+- 8e81d73: FileContext.refFromFileRef reads files whose fileRef moved to another tenant
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: FileContext.refFromFileRef reads files whose fileRef moved to another tenant
+  detail: A tenant handover moves the fileRef row but not the bytes, so the storageKey keeps the previous tenant's prefix and the tenant-bound `ctx.files.ref(key)` rejected it. FileContext gains `refFromFileRef({ storageKey })` for keys read from a fileRef row the caller has already tenant-checked: it skips the tenant-prefix check and still rejects unsafe keys. The variant route and ctx.derivatives.variant use it, so variants of handed-over files render again. `ref(key)` keeps the prefix check for freely supplied keys.
+  -->
+- 8e81d73: A save with file fields loads its fileRef rows once
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A save with file fields loads its fileRef rows once
+  detail: The tenant check and the pending-upload binding of a save each read every named fileRef row inside the write transaction. They now share one query over the ids, restricted to the writer's tenant and live rows. Values that are not UUIDs are still skipped.
+  -->
+- 7482ee2: Termination receipt limit no longer keys Redis by an unkeyed email hash
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: The termination receipt rate limit keys Redis with a keyed, handler-bound digest instead of an unkeyed SHA-256 of the email
+  detail: HandlerContext gains an optional rateLimitDigest(value), an HMAC bound to the running handler, so a handler can build rate-limit keys without plaintext identifiers and cannot reproduce the dispatcher's payload-bucket digests. normalizePayloadBucketValue is exported from the pipeline entry point. The receipt limit reuses it, and withholds the receipt mail (the declaration is still recorded) when no digest is wired. Payload-bucket normalization now applies Unicode NFKC first, so fullwidth lookalikes share a bucket. Existing receipt buckets restart empty; they expire after the 24 hour window.
+  -->
+- 8e81d73: An empty jsonText match list no longer returns every row
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: An empty jsonText match list no longer returns every row
+  detail: A where filter `{ jsonText: [] }` on a jsonb column used to add no condition, so the query returned all rows. It now matches no rows, like `in: []`. A `null` or non-object entry in the list throws the descriptive jsonText error instead of a bare TypeError.
+  -->
+- 5a39305: ListFacetSpec docs state that reference facets are exempt from the declared-column rule
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Facet field docs name the reference exception
+  detail: The docs of projectionList.facets and relatedList.facets said every facet field must be a declared column. A facet of type "reference" is exempt: it filters by id through the bound query's filters and needs a registered entity instead. Behavior is unchanged.
+  -->
+- 8e81d73: list() reads rows and stream versions in one statement
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: list() reads rows and stream versions in one statement
+  detail: The entity list read the rows first and the stream versions in a second statement, so a concurrent write could pair old row data with a newer version, and an update built on that version would pass the optimistic lock. The stream version is now a correlated subquery of the list statement, the same way detail() reads it.
+  -->
+- fd5009a: Meilisearch adapter re-applies the default index config when it gained fields
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Existing tenant indexes pick up searchable fields added to the registry default
+  detail: The lazy default configuration now also applies to an index whose stored searchable, filterable and sortable attributes are a strict subset of the current default (an older default after a deploy added fields). Indexes holding any attribute outside the current default are treated as an explicit configure() and stay untouched, as before.
+  -->
+- fd5009a: Read paths decrypt file-reference fields again so legacy PII ciphertext does not leak
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: decryptForRead and eager-loaded refs decrypt file, image, files and images fields that hold legacy ciphertext
+  detail: Only the encrypt side skips file-reference fields. The decrypt side uses collectPiiSubjectFields again and passes plaintext through unchanged, so rows written by the old backfill, which encrypted the file uuid, are read as plaintext instead of failing with pii_ciphertext_leak.
+  -->
+- 15039ce: Cascade deletes honour the record-lock exemptions and ignore soft-deleted children
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cascade deletes honour the record-lock exemptions and ignore soft-deleted children
+  detail: The cascade hook blocked a parent delete on a locked child even when the executor delete had skipped the lock guard (unsafeSkipLockGuard, a framework system write with a writePurpose, forget). DeleteContext now carries lockGuardBypassed and the hook follows it. Soft-deleted children no longer count as locked.
+  -->
+- 22f40e1: Reservation contexts reject transaction-bound writes
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: reserveBeforeTransaction contexts now reject writes that would escape the transaction
+  detail: The context passed to reserveBeforeTransaction now throws on ctx.write, writeAs, event appends, scheduleAfterCommit, notify and jobRunner, like the beforeTransaction phase does. dbOutsideTransaction, outsideTransaction and forTenant stay available because reservations deliberately write outside the transaction.
+  -->
+- 5a2bea5: Restore re-encrypts PII in the restored event's previous snapshot
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Restore no longer writes plaintext PII from pre-KMS rows into the event log
+  detail: Restore now decrypts the soft-deleted row and re-encrypts it like delete before storing previous, so rows written before the subject KMS was configured no longer leak plaintext personal fields into the restored event. Restoring such a row for an erased subject now fails like delete.
+  -->
+- 7482ee2: bindReferencedFiles loads file refs in bulk and skips refs it must not bind
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: bindReferencedFiles binds only refs of the record's tenant in one bulk load
+  detail: File refs for a page are loaded with a single query restricted to the writer's tenant and live rows; system-owned refs are not bound to records.
+  -->
+- 7482ee2: Boot validator rejects more invalid screen and handler declarations
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot validator covers option, prefill, emptyState, anonymous rate-limit and searchable-access gaps
+  detail: Rejects optionsQuery combined with optionsAvailabilityQuery, invalid dashboard valueFormat kinds, from-today panels without ranges or brush, params on emptyState navigate/drawer, unknown submitPrefilled keys, per-user rate limits on tenantless anonymous handlers, unknown conditional select option values, and searchable fields (including embedded sub-fields) the reader cannot access.
+  -->
+- 7482ee2: Dispatch routes validate requestId and every batch command up front
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Malformed requestId or batch command shapes return 400 instead of failing later
+  detail: The dispatch and batch routes parse requestId and each command before dispatching, returning a validation error for malformed shapes, and the JSON body reader no longer relies on a type assertion.
+  -->
+- 7482ee2: Payload rate limits can normalize emails and auth requests use a 15-minute window
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Email payload buckets ignore plus-tags and case; auth requests are capped at 3 per 15 minutes
+  detail: additionalRateLimits accepts normalize: email, which lowercases and strips the plus-tag before hashing, and bucket keys are scoped by tenant and handler. Signup and token requests (reset, unlock, verification) and the waitlist default use it with a 3-request, 900-second window.
+  -->
+- 7482ee2: files and images fields enforce maxCount in the write schema
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: files/images maxCount is validated on write
+  detail: The generated write schema applies .max(maxCount) to files and images fields, so payloads with more ids than allowed are rejected with a validation error.
+  -->
+- 7482ee2: Feature AST rendering drops an empty writeRoles list on secrets
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: render/parse roundtrip keeps secrets valid when writeRoles is empty
+  detail: renderSecret and renderSecretNamespace omit writeRoles when the list is empty so the rendered source parses back to the same definition.
+  -->
+- 15039ce: A stale auth cookie on the SSE stream ends the web session with a session-ended frame
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A stale auth cookie on the SSE stream ends the web session with a session-ended frame
+  detail: With anonymousAccess, a stale or revoked auth cookie downgrades /api/sse to an anonymous 200, so the web client never noticed the session end and live updates stopped silently. The stream now opens with a session-ended frame carrying the rejection code and expires the auth cookies; the renderer-web live-events client calls onSessionEnded once for it.
+  -->
+- fd5009a: Tenant job run state is keyed by tenant, job name and BullMQ job id
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Tenant-visible job runs no longer collide across tenants, jobs and lanes
+  detail: store_tenant_job_runs was unique on bull_job_id alone, but BullMQ ids count per queue, so a job on the api lane and one on the worker lane (or two tenants after a Redis reset) shared an id and overwrote each other's row. The unique index now covers (tenant_id, job_name, bull_job_id), every write filters by all three, and an enqueue replaces a finished row left over under the same key. onJobDropped now receives { tenantId } as a third argument.
+  migration: |
+    Run `kumiko-schema generate` in your app to add the migration that creates store_tenant_job_runs_tenant_job_bull_job_id_unique and drops store_tenant_job_runs_bull_job_id_unique (generated as a commented DROP INDEX; uncomment it). A custom onJobDropped callback passed to the job runner now gets a third argument { tenantId }.
+  -->
+- 55f003d: Test isolation for the search payload warn spy and the mail editor placeholder rail
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unit tests no longer leak a console.warn spy into later files
+  detail: The search payload precedence tests spy on console.warn per test and restore it, so later files in the same --no-isolate worker start with the real console.warn. The mail editor missing-language test waits for the placeholder rail instead of reading it before the validate query settled.
+  -->
+- fd5009a: transaction() on a transaction handle throws a clear InternalError
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Calling transaction() on a tx or savepoint handle fails with an InternalError
+  detail: `RawClient.begin` is now typed optional, and `transaction()` checks it like `runInNewTransaction` does, so a nested call raises an InternalError ("runner has no begin()") instead of a TypeError. The migrate runner requires `begin` on its client and rejects handles without it before running any SQL.
+  -->
+- 8e81d73: Workflow failure logs show the original error
+  
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: fix
+  title: Workflow run-failed and retry logs carry the original cause
+  detail: The ops log used to print the generic `workflow step N failed` wrapper. It now prints the underlying error, while the persisted event still carries the error class only.
+  -->
+- Updated dependencies [e9b032f]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [7482ee2]
+- Updated dependencies [5a39305]
+- Updated dependencies [f1b4367]
+- Updated dependencies [15039ce]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-http@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes

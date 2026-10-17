@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Render requests retry only network errors, 502 and 503, and the timeout covers the body",
+    "detail": "A 500 or 504 from puppeteer-service is a final RendererError with code other instead of being retried up to maxRetries times, and a client timeout abort is final too, so a failing or slow render no longer starts parallel renders on the service. The request timer now runs until the response body is read, so a service that stalls after the headers cannot block the caller forever."
+  },
+  {
+    "version": "0.364.0",
+    "type": "breaking",
+    "title": "renderAndStorePdf is removed; render in beforeTransaction with renderPdfBeforeTransaction and store with storeRenderedPdf",
+    "detail": "renderAndStorePdf called the print service inside the write transaction and held a pool connection for the whole render. renderPdfBeforeTransaction(ctx, { slug, locale, variables, attachTo? }) now renders and uploads the PDF before the transaction opens, and storeRenderedPdf(ctx, event.prepared) writes the fileRef and rendered-pdf rows inside it. RenderAndStorePdfArgs is renamed RenderPdfArgs.",
+    "migration": "Move the render into the handler's beforeTransaction phase and store in the handler: defineWriteHandler({ name, schema, access, beforeTransaction: (event, ctx) => renderPdfBeforeTransaction(ctx, { slug: \"invoice\", locale: \"de\", variables }), handler: (event, ctx) => storeRenderedPdf(ctx, event.prepared) }). The result of storeRenderedPdf has the same shape as the old renderAndStorePdf result (StoredRenderedPdf). Rename the RenderAndStorePdfArgs type to RenderPdfArgs. A handler with a beforeTransaction phase cannot be called through a nested ctx.write; call it as a top-level command."
+  },
+  {
     "version": "0.363.0",
     "type": "breaking",
     "title": "renders document-pdf from templates, adds renderAndStorePdf, the rendered-pdf entity and puppeteer-status",

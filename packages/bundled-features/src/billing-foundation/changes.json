@@ -1,5 +1,41 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Stale subscription created events are ignored and manual-grant skips are logged",
+    "detail": "A created event for a subscription that is no longer current no longer replaces the active one while the current row blocks checkout, and the tier sync logs its own code when a manual grant keeps the tier."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Contract confirmation mail renders the terms' Markdown as formatting",
+    "detail": "The terms rows of the contract confirmation mail were plain text, so `**Right to cancel.**` reached the buyer with its asterisks (0.363.0) or lost its emphasis. Each row of `termsParagraphs` is now a richText value: bold, italic and http(s)/mailto/tel links render as HTML, headings become bold rows. Author HTML and images in the terms stay escaped text, and links outside those schemes stay \"label (url)\". Tenant overrides of the template keep working, the variable name and row structure are unchanged."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Terms in the contract confirmation mail no longer show raw Markdown",
+    "detail": "The terms Markdown is reduced to plain text rows: bold and italic markers are dropped, links become \"label (url)\", list items get their own row, and single line breaks inside a paragraph become spaces."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "The termination receipt rate limit keys Redis with a keyed, handler-bound digest instead of an unkeyed SHA-256 of the email",
+    "detail": "HandlerContext gains an optional rateLimitDigest(value), an HMAC bound to the running handler, so a handler can build rate-limit keys without plaintext identifiers and cannot reproduce the dispatcher's payload-bucket digests. normalizePayloadBucketValue is exported from the pipeline entry point. The receipt limit reuses it, and withholds the receipt mail (the declaration is still recorded) when no digest is wired. Payload-bucket normalization now applies Unicode NFKC first, so fullwidth lookalikes share a bucket. Existing receipt buckets restart empty; they expire after the 24 hour window."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Checkout validates the one-off order label and price lookup",
+    "detail": "An invalid oneOffItemLabel or a provider without retrievePrices fails with a configuration error before the provider is called."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Contract termination downgrades late withdrawals and caps receipt mails",
+    "detail": "A withdrawal declared after the 14-day period ends at period end (operator notice withdrawal_period_expired); the declaration is always accepted, receipt mails are capped at 3 per recipient per day and carry only enum fields, request id and time; purchaser roles come from the catalog."
+  },
+  {
     "version": "0.363.0",
     "type": "breaking",
     "title": "Contract confirmation and termination mails use template variables",

@@ -1,5 +1,72 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.364.0
+
+### Minor Changes
+
+- 68078ee: Spanish text for discarding a template draft
+  
+  Adds templateResolver.errors.noDraft.
+  
+  <!-- kumiko-changes
+  feature: locale-es
+  type: improvement
+  title: Spanish text for discarding a template draft
+  -->
+
+### Patch Changes
+
+- 8be3807: Stripe customer portal reports an unknown customer as a business error
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: A stale Stripe customer id no longer turns the customer portal into a 500
+  detail: createPortalSession now maps Stripe's "No such customer" rejection (account switch, customer deleted in the dashboard) to an UnprocessableError with the i18n key billing-foundation.errors.providerCustomerUnknown, translated in German and Spanish, instead of letting the raw Stripe error surface as a server error.
+  -->
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-framework@0.364.0
+
 ## 0.363.0
 
 ### Patch Changes

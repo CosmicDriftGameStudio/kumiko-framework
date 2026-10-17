@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Editors and overview show an open draft beside the active version",
+    "detail": "The editor header shows the served version (Active vN) next to the open draft (Draft vM), fed by the active field of find-by-id and layout-source; the template overview shows the draftVersion badge under the status of an active row."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Document designer editors follow the approved board",
+    "detail": "Mail-layout templates accept appearance meta (width, font, outer background, accent line, button style) that the mail renderer applies, and the layout-source query returns it. The layout editor uses the shared editor shell with one paper and one shared toolbar (`DocumentContentEditor` gains `toolbarHost`). Mail and PDF editors share frame, info bar, rails and footer.\nThe unused `sender` key of mail template meta is gone from the editor; stored rows that still carry it are read without it, so they stay editable.\nInvalid template meta now reports per-field messages (`templateResolver.errors.template.meta.<field>.required|invalid`) instead of the parser text; the editors show them at the field. The `tenant-overrides` query additionally returns one row per customising tenant (name, status, version, changed at/by) and, with `diffTenantId`, the diff to the system version. A language without a version shows an empty state in the mail editor instead of a disabled editor.\nThe `compileDocumentBody` option `resourceImageMaxWidthPx` caps resource images in mails (180 px). The `send-test` command takes `prefixSubject` (default true) to skip the `[TEST]` subject prefix, the template preview returns `mailLayout` (slug, scope, version of the layout used), and `RenderedMail` carries the layout ref."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "PDF editor keeps unset margins unset, frees old PDF previews, and shows reset and diff errors",
+    "detail": "Setting one margin no longer stores the other three as 15 mm, so the layout's header and footer margins still apply to them. The PDF preview no longer re-renders pages or stacks text layers on re-render and destroys the previous document. A failed reset to the system version shows an error banner in the PDF and mail editors, and a failing diff query shows an error state with retry instead of loading forever. The canvas reserves the footer margin like the renderer. Page formats, orientations and default margins now come from template-resolver (new exports PDF_ORIENTATIONS, PDF_DEFAULT_MARGIN_MM, PDF_HEADER_MARGIN_MM, PDF_FOOTER_MARGIN_MM, PdfOrientation)."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Layout editor shows the real number of mails or PDFs using a layout",
+    "detail": "The editor asks the overview for the users of one layout (kind and layoutSlug filter) and takes the count from total, so a tenant with more than 200 templates no longer sees a too low usage number."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "Mail templates open in a mail editor with preview and test mail",

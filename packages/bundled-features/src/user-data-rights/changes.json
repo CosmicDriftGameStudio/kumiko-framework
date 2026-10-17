@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Regression tests prove that forget also shreds the previous email in user.updated events",
+    "detail": "No runtime change. Integration tests with a configured subject KMS show that after an email change followed by forget, the old and new email in user.updated changes and previous decrypt only to the erased sentinel and the subject key is gone. Without a configured KMS, event payloads stay plaintext by design."
+  },
+  {
     "version": "0.363.0",
     "type": "breaking",
     "title": "GDPR default mails are r.notification declarations, render*Email is gone",

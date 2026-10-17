@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "resolveUserDisplayNames no longer swallows decrypt errors",
+    "detail": "A misconfigured or unavailable KMS made the delivery log silently show addresses or ids instead of names. Decrypt errors now propagate like in the member directory; users that are missing or have no display name are still left out."
+  },
+  {
     "version": "0.361.0",
     "type": "improvement",
     "title": "user:me returns effectiveTimeZone, SessionProvider provides the current user",

@@ -1,5 +1,73 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "PDF collections show Page break instead of Button, and placeholder links no longer insert {{name}} text",
+    "detail": "The content editor for a `document-pdf` collection now offers the PDF block set (including Page break) instead of the mail set, chosen from the collection's kind. A link to a placeholder href such as `{{invoice.url}}` without a selection now links a variable node instead of inserting the placeholder as plain text."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Document sanitizer rejects prototype-style placeholder hrefs",
+    "detail": "`{{__proto__}}` and `{{constructor.prototype}}` are no longer accepted as link or button placeholder hrefs; only valid reference names pass."
+  },
+  {
+    "version": "0.364.0",
+    "type": "breaking",
+    "title": "DocumentRepeatRow is removed, use DocumentTableRow",
+    "detail": "Removed the DocumentRepeatRow alias",
+    "migration": "Replace `DocumentRepeatRow` with `DocumentTableRow` (identical shape)."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "export-bundle for a system template with resources returns a validation error outside the system tenant",
+    "detail": "A TenantAdmin, or a SystemAdmin outside the system tenant, exporting a system template that links resource files now gets the `system_resources_need_system_tenant` validation error, the same code import-bundle-system uses, instead of a NotFound for the resource file."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "send-test logs failed test mails with error class and tenant",
+    "detail": "A transport that throws or reports not sent is logged with the error class/code and tenant id (no address, no provider body) and still answers `template_test_mail_failed`."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "copy-locale ignores archived tenant sources and duplicates linked files of system sources; export-bundle refuses locales with differing format",
+    "detail": "copy-locale no longer copies from an archived tenant template, and copying a system template duplicates its linked resource files into the target tenant. export-bundle rejects a bundle whose locales differ in content format or variable schema with `bundleLocalesDiffer`."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Template preview counts encoding overhead and reports missing attachments",
+    "detail": "The mail size estimate counts base64 size plus a fixed per-part overhead, an attachment whose file reference is missing fails the resources_resolved check, and the document draft scope is derived once per request."
+  },
+  {
+    "version": "0.364.0",
+    "type": "breaking",
+    "title": "A draft no longer replaces the active template",
+    "detail": "Saving a draft (upsert-tenant default, copy-locale, import-bundle with status draft) over an active template stores it beside the active version in the new column draft instead of overwriting content, meta and status; resolveTemplate, resolveLayout, preview without content and sends keep using the active version. publish and publish-system promote an open draft (the publish gate checks the draft) and record activeVersion and activeSince; the new handlers discard-draft and discard-draft-system drop it and refuse with no_draft when none is open. find-by-id and layout-source return the working version (the open draft with status draft, else the stored one) plus active { version, since }, null when nothing is served. overview keeps status and version of the served version and adds draftVersion and activeSince. A draft over a row that is not active (new, draft or archived) behaves as before. A tenant never sees system draft content: find-by-id, layout-source, overview, copy-locale and diff-to-system apply a system draft only for a SystemAdmin and hide system rows that were never served; list leaves those rows out too. Version numbers shown for an active row are the served version (activeVersion): resolveTemplate / resolveLayout results, tenant-overrides rows and the override diff no longer show the save counter that drafts raise.",
+    "migration": "Run kumiko schema generate and apply the migration before deploying: it adds the nullable columns draft, active_version and active_since to read_template_resources. No rebuild needed."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "template-resolver:query:overview accepts layoutSlug to list only the mails and PDFs using that layout",
+    "detail": "The optional layoutSlug payload field keeps only documents whose layout slug matches; total counts the filtered rows. Without it the response is unchanged."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Layout usage follows the effective template per notification and locale",
+    "detail": "Mail layout usage counts a notification only when it declares a template and resolves the effective row per notification and locale, so tenant overrides are reflected."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "templateVariable.richText for notification variables that carry formatted HTML",
+    "detail": "Notification variables are escaped, so a value holding HTML (for example a document written in a rich text editor) showed up as literal tags in the mail. A variable declared with templateVariable.richText({ required }) is run through the document sanitizer at render time and inserted as HTML; bold, italic, lists and safe links stay, script, event handlers and javascript links are not emitted as markup. If the sanitizer rejects a value, it is rendered as escaped text and a warning with the violation codes is logged. All other variable types stay escaped."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "Overview and layout-source queries for the template designer",

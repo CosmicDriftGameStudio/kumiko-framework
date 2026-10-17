@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A failed final delivery attempt frees the idempotency key",
+    "detail": "A soft send failure and any error thrown on the final render or send attempt release the idempotency key, so the caller's retry is not dropped as a duplicate."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A mail without a readable inline image is sent without it",
+    "detail": "An inline image whose bytes could not be read (for example a system template logo while the job context has no provider resolver) failed the whole mail send. The attachment reader now logs a warning with the fileRef id and skips the image."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Delivery exports the envelope-key filter for mail variables",
+    "detail": "withoutDeliveryEnvelopeKeys strips reserved delivery keys from template variables."
+  },
+  {
     "version": "0.363.0",
     "type": "breaking",
     "title": "NotificationRenderer and RendererInput removed, immediate notify renders with the tenant config",

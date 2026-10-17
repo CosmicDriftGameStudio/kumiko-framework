@@ -1,5 +1,497 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.364.0
+
+### Minor Changes
+
+- 6b1567e: CapExceededError carries resetAt and retryAfterSeconds, API sets Retry-After
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: breaking
+  title: CapExceededError carries resetAt and retryAfterSeconds, API sets Retry-After
+  migration: |
+    Periodic caps no longer need RateLimitError({ windowSeconds: 0, ... }). Where you catch CapExceededError from enforceCap and rethrow it as RateLimitError, drop the catch and let CapExceededError pass: the response stays 429 with a correct Retry-After, error.code becomes cap_exceeded instead of rate_limited, and error.details carries resetAt and retryAfterSeconds. Keep a feature-specific message with enforceCap({ ..., i18nKey }) and pass a period end other than the calendar month with periodEndIso (e.g. a budget's resetsAtIso). Clients matching on rate_limited for these caps must also accept cap_exceeded. Any KumikoError with retryAfterSeconds (including RateLimitError thrown in a handler) now gets a Retry-After header from /api/write, /api/batch and /api/query.
+  -->
+- c181b3f: Document designer editors follow the approved board
+  
+  Mail-layout templates accept appearance meta (width, font, outer background, accent line, button style) that the mail renderer applies, and the layout-source query returns it. The layout editor uses the shared editor shell with one paper and one shared toolbar (`DocumentContentEditor` gains `toolbarHost`). Mail and PDF editors share frame, info bar, rails and footer.
+  
+  The unused `sender` key of mail template meta is gone from the editor; stored rows that still carry it are read without it, so they stay editable.
+  
+  Invalid template meta now reports per-field messages (`templateResolver.errors.template.meta.<field>.required|invalid`) instead of the parser text; the editors show them at the field. The `tenant-overrides` query additionally returns one row per customising tenant (name, status, version, changed at/by) and, with `diffTenantId`, the diff to the system version. A language without a version shows an empty state in the mail editor instead of a disabled editor.
+  
+  The `compileDocumentBody` option `resourceImageMaxWidthPx` caps resource images in mails (180 px). The `send-test` command takes `prefixSubject` (default true) to skip the `[TEST]` subject prefix, the template preview returns `mailLayout` (slug, scope, version of the layout used), and `RenderedMail` carries the layout ref.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Document designer editors follow the approved board
+  -->
+- 8e81d73: Removed the DocumentRepeatRow alias
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: DocumentRepeatRow is removed, use DocumentTableRow
+  migration: |
+    Replace `DocumentRepeatRow` with `DocumentTableRow` (identical shape).
+  -->
+- 8e81d73: SecretsContext.withRunner binds secret reads and writes to a transaction
+  
+  <!-- kumiko-changes
+  feature: secrets
+  type: improvement
+  title: SecretsContext.withRunner(tx) runs secret access on a given transaction
+  detail: The OAuth refresh now reads and writes the refresh token on its advisory-lock transaction, so a refresh holds one pool connection instead of two and parallel refreshes cannot starve the pool. Custom SecretsContext implementations need a `withRunner` method.
+  -->
+- 68078ee: A draft no longer replaces the active template
+  
+  Saving a draft over an active template now stores it beside the active version (new column draft) instead of overwriting it; publish promotes the draft, the new handlers discard-draft and discard-draft-system throw it away. find-by-id and layout-source return the working version (open draft, else the stored one) with active { version, since }; overview rows gain draftVersion and activeSince. The resolver keeps serving the active version.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: A draft no longer replaces the active template
+  detail: Saving a draft (upsert-tenant default, copy-locale, import-bundle with status draft) over an active template stores it beside the active version in the new column draft instead of overwriting content, meta and status; resolveTemplate, resolveLayout, preview without content and sends keep using the active version. publish and publish-system promote an open draft (the publish gate checks the draft) and record activeVersion and activeSince; the new handlers discard-draft and discard-draft-system drop it and refuse with no_draft when none is open. find-by-id and layout-source return the working version (the open draft with status draft, else the stored one) plus active { version, since }, null when nothing is served. overview keeps status and version of the served version and adds draftVersion and activeSince. A draft over a row that is not active (new, draft or archived) behaves as before. A tenant never sees system draft content: find-by-id, layout-source, overview, copy-locale and diff-to-system apply a system draft only for a SystemAdmin and hide system rows that were never served; list leaves those rows out too. Version numbers shown for an active row are the served version (activeVersion): resolveTemplate / resolveLayout results, tenant-overrides rows and the override diff no longer show the save counter that drafts raise.
+  migration: |
+    Run kumiko schema generate and apply the migration before deploying: it adds the nullable columns draft, active_version and active_since to read_template_resources. No rebuild needed.
+  -->
+- b5a6395: templateVariable.richText declares a notification variable that carries sanitized HTML
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: templateVariable.richText for notification variables that carry formatted HTML
+  detail: Notification variables are escaped, so a value holding HTML (for example a document written in a rich text editor) showed up as literal tags in the mail. A variable declared with templateVariable.richText({ required }) is run through the document sanitizer at render time and inserted as HTML; bold, italic, lists and safe links stay, script, event handlers and javascript links are not emitted as markup. If the sanitizer rejects a value, it is rendered as escaped text and a warning with the violation codes is logged. All other variable types stay escaped.
+  -->
+
+### Patch Changes
+
+- 15039ce: Audit list pagination
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Audit list pages by id unless sorted by type
+  detail: An explicit createdAt sort pages in id order so keyset pagination no longer skips rows.
+  -->
+- 8e81d73: Auth gate falls back to the built-in login when the loginUrl builder fails
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: A loginUrl builder that throws no longer crashes the app tree
+  detail: The auth gate resolves the login redirect once per location change and, when the builder returns an invalid URL or throws, logs the error and shows the built-in login screen instead of throwing during render.
+  -->
+- a0dcd31: Migration recipe for apps that rendered auth mails with the render*Email helpers removed in 0.363.0
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: How to send an auth mail after the render*Email helpers were removed in 0.363.0
+  detail: No runtime change. The 0.363.0 breaking entry lists renderActivationEmail, renderResetPasswordEmail, renderUnlockAccountEmail, renderVerifyEmail and renderInviteEmail as removed but does not say how app code that rendered one of these mails itself now sends it. This entry adds that recipe.
+  migration: |
+    App code that rendered an auth mail itself and passed the result as `data`, for example `notify("auth-email-password:signup-activation", { route: { email }, data: renderActivationEmail({ url, expiresAt, locale, appName }), priority: "critical" })`, breaks twice since 0.363.0: the helper is gone and the notification type is now `auth-email-password:notify:signup-activation`. The stored template renders subject and body; the app only passes template variables.
+    For a signup activation link, call `issueSignupActivation({ redis, notify: ctx.notify, email, appUrl, appName, locale, timeZone, tokenTtlMinutes, onTokenStored })` from `@cosmicdrift/kumiko-bundled-features/auth-email-password` (only redis, notify, email and appUrl are required). It drops any live signup token for the email, stores a new one under the keys signup-confirm reads and sends the mail. `appUrl` is the bare activation page; a function `(locale) => url` picks the page per locale.
+    If the app stores the token itself and only needs the mail, call `ctx.notify(AuthMailNotificationTypes.signupActivation, { route: { email }, data: { appName, actionUrl, validFor, validUntil }, locale, priority: "critical" })`. `AuthMailNotificationTypes` comes from `@cosmicdrift/kumiko-bundled-features/auth-email-password`. All four variables are required strings: ctx.notify checks them against the declared template variables and throws an InternalError on a missing or invalid one, which fails the write. `actionUrl` is the page URL with `token=<encodeURIComponent(token)>` appended as a query parameter and must be an http, https or mailto URL. `validFor` and `validUntil` come from `tokenMailExpiry({ expiresAt, issuedAt, timeZone }, locale)` in `@cosmicdrift/kumiko-bundled-features/auth-email-password/email-templates`. Only send a `locale` that has a template for the type, because the renderer has no locale fallback and a locale without a template sends nothing: use `resolveMailLocale(locale)` when `hasMailTranslationKey(resolveMailLocale(locale), "auth.mail.activation.subject")` is true (both from `@cosmicdrift/kumiko-framework/i18n`), otherwise `"en"`. The other mails use the subject keys `auth.mail.reset.subject`, `auth.mail.unlock.subject`, `auth.mail.verify.subject` and `auth.mail.invite.subject`.
+    The other auth mails work the same way with `AuthMailNotificationTypes.passwordReset`, `.accountUnlock`, `.emailVerification` and `.invite`; the invite mail also needs a `role` variable.
+  -->
+- fd5009a: seedAdminGuarded no longer appends a user:updated event on every boot
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: seedAdminGuarded rewrites the admin email only when its blind index is missing or stale
+  detail: rewriteSeededUserEmail returns early when the stored email blind index already matches the expected value, so repeated boots no longer re-encrypt the email and grow the user event stream. The row version is now checked with a type guard instead of a cast.
+  -->
+- 15039ce: Billing stale created events
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Stale subscription created events are ignored and manual-grant skips are logged
+  detail: A created event for a subscription that is no longer current no longer replaces the active one while the current row blocks checkout, and the tier sync logs its own code when a manual grant keeps the tier.
+  -->
+- 15039ce: Bootstrap idempotency for encrypted config and demoted invitations
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Bootstrap reruns no longer rewrite encrypted config or restore dropped global roles
+  detail: Declarative bootstrap compares encrypted and piiEncrypted config keys by their decrypted value, so a matching rerun writes nothing, and re-issues an invitation whose stored global roles are no longer in the plan. makeDispatchWriteAs is exported from the framework api.
+  -->
+- 15039ce: Destroy hooks always process a chunk
+  
+  <!-- kumiko-changes
+  feature: files-tenant-data
+  type: fix
+  title: Tenant destroy hooks make progress even when the deadline already passed
+  detail: The chunked migration takes a minBatches option and the file destroy hooks process one chunk per tick, so a slow list call no longer makes every run time out empty.
+  -->
+- 8e81d73: Config key validators get a db scoped to the tenant being written
+  
+  <!-- kumiko-changes
+  feature: config
+  type: fix
+  title: Config key validate() receives a db scoped to the written tenant
+  detail: A SystemAdmin writing a config value for another tenant previously handed the validator a system-mode db that could read every tenant. `ConfigValidateContext.db` is now a `TenantDb` locked to the tenant the value is written for. The validator runs inside the write transaction, so a slow query there should set its own timeout.
+  -->
+- 92a9c52: The contract confirmation mail shows Markdown in the terms as formatting instead of literal markers
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Contract confirmation mail renders the terms' Markdown as formatting
+  detail: The terms rows of the contract confirmation mail were plain text, so `**Right to cancel.**` reached the buyer with its asterisks (0.363.0) or lost its emphasis. Each row of `termsParagraphs` is now a richText value: bold, italic and http(s)/mailto/tel links render as HTML, headings become bold rows. Author HTML and images in the terms stay escaped text, and links outside those schemes stay "label (url)". Tenant overrides of the template keep working, the variable name and row structure are unchanged.
+  -->
+- fd5009a: Contract confirmation mail renders the terms as plain text
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Terms in the contract confirmation mail no longer show raw Markdown
+  detail: The terms Markdown is reduced to plain text rows: bold and italic markers are dropped, links become "label (url)", list items get their own row, and single line breaks inside a paragraph become spaces.
+  -->
+- 15039ce: Delivery idempotency key release
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: A failed final delivery attempt frees the idempotency key
+  detail: A soft send failure and any error thrown on the final render or send attempt release the idempotency key, so the caller's retry is not dropped as a duplicate.
+  -->
+- 8e81d73: resolveUserDisplayNames no longer swallows decrypt errors
+  
+  <!-- kumiko-changes
+  feature: user
+  type: fix
+  title: resolveUserDisplayNames no longer swallows decrypt errors
+  detail: A misconfigured or unavailable KMS made the delivery log silently show addresses or ids instead of names. Decrypt errors now propagate like in the member directory; users that are missing or have no display name are still left out.
+  -->
+- 8e81d73: PDF editor saves only the margins that are set; preview and error handling fixes
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: PDF editor keeps unset margins unset, frees old PDF previews, and shows reset and diff errors
+  detail: Setting one margin no longer stores the other three as 15 mm, so the layout's header and footer margins still apply to them. The PDF preview no longer re-renders pages or stacks text layers on re-render and destroys the previous document. A failed reset to the system version shows an error banner in the PDF and mail editors, and a failing diff query shows an error state with retry instead of loading forever. The canvas reserves the footer margin like the renderer. Page formats, orientations and default margins now come from template-resolver (new exports PDF_ORIENTATIONS, PDF_DEFAULT_MARGIN_MM, PDF_HEADER_MARGIN_MM, PDF_FOOTER_MARGIN_MM, PdfOrientation).
+  -->
+- fd5009a: Document editor offers the PDF block set in document-pdf collections and keeps placeholder links out of the text
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: PDF collections show Page break instead of Button, and placeholder links no longer insert {{name}} text
+  detail: The content editor for a `document-pdf` collection now offers the PDF block set (including Page break) instead of the mail set, chosen from the collection's kind. A link to a placeholder href such as `{{invoice.url}}` without a selection now links a variable node instead of inserting the placeholder as plain text.
+  -->
+- 8e81d73: Document placeholder links only accept valid reference names
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Document sanitizer rejects prototype-style placeholder hrefs
+  detail: `{{__proto__}}` and `{{constructor.prototype}}` are no longer accepted as link or button placeholder hrefs; only valid reference names pass.
+  -->
+- fd5009a: Exporting a system template with resources outside the system tenant reports why
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: export-bundle for a system template with resources returns a validation error outside the system tenant
+  detail: A TenantAdmin, or a SystemAdmin outside the system tenant, exporting a system template that links resource files now gets the `system_resources_need_system_tenant` validation error, the same code import-bundle-system uses, instead of a NotFound for the resource file.
+  -->
+- 8e81d73: readFileRefContent reads handed-over files; fileContextForTenant takes the context tenant
+  
+  <!-- kumiko-changes
+  feature: file-foundation
+  type: fix
+  title: readFileRefContent reads handed-over files; fileContextForTenant takes the context tenant
+  detail: readFileRefContent, readTemplateResource and the public variant query read bytes through FileContext.refFromFileRef, so a fileRef moved by a tenant handover is readable again. fileContextForTenant gains a `contextTenantId` argument: without a provider resolver it returns undefined for any other tenant instead of the context's files, which are bound to a different key space.
+  -->
+- b13c0d4: Regression tests: Art. 17 forget shreds PII in user.updated previous payloads
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Regression tests prove that forget also shreds the previous email in user.updated events
+  detail: No runtime change. Integration tests with a configured subject KMS show that after an email change followed by forget, the old and new email in user.updated changes and previous decrypt only to the erased sentinel and the subject key is gone. Without a configured KMS, event payloads stay plaintext by design.
+  -->
+- fd5009a: forget-subject closes the user's login before the derived-data sweep and commits it independently
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-subject keeps the user status flip and PAT revocation when the sweep fails
+  detail: The user is set to Deleted and its personal access tokens are revoked right after the key erase, in their own transaction on the outside-transaction db. A failing blind-index or search sweep still makes the handler throw so the cleanup can be retried, but it no longer rolls the login door back. Without an outside-transaction db the previous in-transaction savepoint path is used. A failure while closing the login door of an existing user now fails the forget (retry is safe) instead of passing silently; subjects without a user row are skipped.
+  -->
+- 8fb6aa6: Handler field references support business keys and array fields
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Handler field references support business keys and array fields
+  migration: |
+    handlerFieldReference(schema, field) now returns { entity, by, multiple } instead of the entity string. Replace reference with reference.entity; skip or handle fields where by is set (value is a business key, not an id) or multiple is true (value is an array).
+  -->
+- 7482ee2: Termination receipt limit no longer keys Redis by an unkeyed email hash
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: The termination receipt rate limit keys Redis with a keyed, handler-bound digest instead of an unkeyed SHA-256 of the email
+  detail: HandlerContext gains an optional rateLimitDigest(value), an HMAC bound to the running handler, so a handler can build rate-limit keys without plaintext identifiers and cannot reproduce the dispatcher's payload-bucket digests. normalizePayloadBucketValue is exported from the pipeline entry point. The receipt limit reuses it, and withholds the receipt mail (the declaration is still recorded) when no digest is wired. Payload-bucket normalization now applies Unicode NFKC first, so fullwidth lookalikes share a bucket. Existing receipt buckets restart empty; they expire after the 24 hour window.
+  -->
+- 8e81d73: One undecryptable mail account no longer stops polling of all others
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Watch supervisor skips and logs accounts whose address does not decrypt
+  detail: Previously a single such account made the whole account snapshot throw.
+  -->
+- fd5009a: Ledger schedule sourceRef unique index: check for duplicates before upgrading
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: fix
+  title: Document the duplicate check required before the (tenant_id, source_ref) unique index
+  detail: The unique index on read_ledger_schedules (tenant_id, source_ref) is created in place and fails on existing duplicate pairs, and a projection rebuild over duplicate events fails the same way. Replay handling for duplicate events is not part of this change.
+  migration: |
+    Before upgrading, check each database for duplicates and clean them up: SELECT tenant_id, source_ref, count(*) FROM read_ledger_schedules WHERE source_ref IS NOT NULL GROUP BY 1, 2 HAVING count(*) > 1; Any row returned makes the unique index migration abort.
+  -->
+- 8e81d73: A mail without a readable inline image is sent without it
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: A mail without a readable inline image is sent without it
+  detail: An inline image whose bytes could not be read (for example a system template logo while the job context has no provider resolver) failed the whole mail send. The attachment reader now logs a warning with the fileRef id and skips the image.
+  -->
+- 7482ee2: PDF table documents reject oversized input
+  
+  <!-- kumiko-changes
+  feature: renderer-pdf
+  type: fix
+  title: renderTablePdf rejects tables above 10000 rows, 30 columns or 5000 characters per cell
+  detail: The table document schema now caps rows at 10000, columns at 30 and each cell string at 5000 characters. Larger input fails with invalid_payload instead of exhausting memory during layout.
+  -->
+- 7482ee2: Payload rate limits can normalize emails and auth requests use a 15-minute window
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Email payload buckets ignore plus-tags and case; auth requests are capped at 3 per 15 minutes
+  detail: additionalRateLimits accepts normalize: email, which lowercases and strips the plus-tag before hashing, and bucket keys are scoped by tenant and handler. Signup and token requests (reset, unlock, verification) and the waitlist default use it with a 3-request, 900-second window.
+  -->
+- 7482ee2: Checkout validates the one-off order label and price lookup
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Checkout validates the one-off order label and price lookup
+  detail: An invalid oneOffItemLabel or a provider without retrievePrices fails with a configuration error before the provider is called.
+  -->
+- 7482ee2: Contract termination downgrades late withdrawals and caps receipt mails
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Contract termination downgrades late withdrawals and caps receipt mails
+  detail: A withdrawal declared after the 14-day period ends at period end (operator notice withdrawal_period_expired); the declaration is always accepted, receipt mails are capped at 3 per recipient per day and carry only enum fields, request id and time; purchaser roles come from the catalog.
+  -->
+- 7482ee2: Delivery exports the envelope-key filter for mail variables
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Delivery exports the envelope-key filter for mail variables
+  detail: withoutDeliveryEnvelopeKeys strips reserved delivery keys from template variables.
+  -->
+- 7482ee2: jobs list query caps the page size at 200
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: jobs list query caps the page size at 200
+  detail: limit above 200 is rejected with a validation error.
+  -->
+- 7482ee2: render-table-pdf validates input and paginates its intro
+  
+  <!-- kumiko-changes
+  feature: renderer-pdf
+  type: fix
+  title: render-table-pdf validates input and paginates its intro
+  detail: Table documents reject negative margins and unusable column widths, normalize CRLF and paginate the intro text and the first header row.
+  -->
+- baf641a: Fix: `change-password` and `logout` no longer return 403 for members whose only role is a custom app role or `TenantAdmin`
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Password change and logout work for members with only an app role or TenantAdmin
+  detail: Both handlers required User, Admin or SystemAdmin and answered 403 access_denied for invited members holding a single custom role. They are now open to every signed-in user, like the other self-service handlers; anonymous callers are still rejected.
+  -->
+- 8e81d73: Template test mail failures are logged
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: send-test logs failed test mails with error class and tenant
+  detail: A transport that throws or reports not sent is logged with the error class/code and tenant id (no address, no provider body) and still answers `template_test_mail_failed`.
+  -->
+- 92a9c52: Mail template body helpers are importable from `./shared/mail-template-body`
+  
+  <!-- kumiko-changes
+  feature: shared
+  type: improvement
+  title: Mail template body helpers exported as `./shared/mail-template-body`
+  detail: Apps that register their own notification templates can build the body with the same helpers the framework uses: `mailParagraph`, `mailHeading`, `mailRepeatedRows`, `mailTextWithSlotsHtml`, plus the new `mailButton`, `mailParagraphWithLink` and `mailSubject`. The subpath only depends on kumiko-headless and is safe on the server. Apps that copied these helpers can import them instead.
+  -->
+- 8e81d73: Stale-run sweep keeps queued runs for the retention window
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Stale-run sweep uses the job-run retention window for queued runs
+  detail: The sweep now only fails queued runs that are older than the configured retention days instead of every queued run past the stale cutoff, so freshly queued runs of a long backlog are no longer failed.
+  -->
+- 8be3807: Stripe customer portal reports an unknown customer as a business error
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: A stale Stripe customer id no longer turns the customer portal into a 500
+  detail: createPortalSession now maps Stripe's "No such customer" rejection (account switch, customer deleted in the dashboard) to an UnprocessableError with the i18n key billing-foundation.errors.providerCustomerUnknown, translated in German and Spanish, instead of letting the raw Stripe error surface as a server error.
+  -->
+- 8e81d73: copy-locale and export-bundle handle system sources and mixed formats
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: copy-locale ignores archived tenant sources and duplicates linked files of system sources; export-bundle refuses locales with differing format
+  detail: copy-locale no longer copies from an archived tenant template, and copying a system template duplicates its linked resource files into the target tenant. export-bundle rejects a bundle whose locales differ in content format or variable schema with `bundleLocalesDiffer`.
+  -->
+- 15039ce: Template preview size budget and draft scope
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Template preview counts encoding overhead and reports missing attachments
+  detail: The mail size estimate counts base64 size plus a fixed per-part overhead, an attachment whose file reference is missing fails the resources_resolved check, and the document draft scope is derived once per request.
+  -->
+- 15039ce: The layout editor counts the users of a layout on the server instead of from a page of 200 templates
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: template-resolver:query:overview accepts layoutSlug to list only the mails and PDFs using that layout
+  detail: The optional layoutSlug payload field keeps only documents whose layout slug matches; total counts the filtered rows. Without it the response is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Layout editor shows the real number of mails or PDFs using a layout
+  detail: The editor asks the overview for the users of one layout (kind and layoutSlug filter) and takes the count from total, so a tenant with more than 200 templates no longer sees a too low usage number.
+  -->
+- 15039ce: Template layout usage uses effective rows
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Layout usage follows the effective template per notification and locale
+  detail: Mail layout usage counts a notification only when it declares a template and resolves the effective row per notification and locale, so tenant overrides are reflected.
+  -->
+- fd5009a: Tenant job run state is keyed by tenant, job name and BullMQ job id
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Tenant-visible job runs no longer collide across tenants, jobs and lanes
+  detail: store_tenant_job_runs was unique on bull_job_id alone, but BullMQ ids count per queue, so a job on the api lane and one on the worker lane (or two tenants after a Redis reset) shared an id and overwrote each other's row. The unique index now covers (tenant_id, job_name, bull_job_id), every write filters by all three, and an enqueue replaces a finished row left over under the same key. onJobDropped now receives { tenantId } as a third argument.
+  migration: |
+    Run `kumiko-schema generate` in your app to add the migration that creates store_tenant_job_runs_tenant_job_bull_job_id_unique and drops store_tenant_job_runs_bull_job_id_unique (generated as a commented DROP INDEX; uncomment it). A custom onJobDropped callback passed to the job runner now gets a third argument { tenantId }.
+  -->
+- 8e81d73: Tier assignment changes no longer reload the publishing process twice and stale reloads cannot overwrite a resync
+  
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: fix
+  title: Tier cache: stale single reload cannot overwrite a newer full resync
+  detail: A single-tenant reload that started before a full resync and resolved after it could restore an outdated tier. The resync now advances the per-tenant ticket for deleted and adopted tenants too, and assignment changes are published remote-only.
+  -->
+- 8e81d73: update-tenant-field exposes the type field
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: fix
+  title: update-tenant-field no longer hides `type` from the handler schema
+  detail: The `type` field is part of the documented payload; the 422 check against changing the stored type remains the protection.
+  -->
+- 8e81d73: Workflow failure logs show the original error
+  
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: fix
+  title: Workflow run-failed and retry logs carry the original cause
+  detail: The ops log used to print the generic `workflow step N failed` wrapper. It now prints the underlying error, while the persisted event still carries the error class only.
+  -->
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [8be3807]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-renderer@0.364.0
+  - @cosmicdrift/kumiko-renderer-web@0.364.0
+  - @cosmicdrift/kumiko-headless@0.364.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes

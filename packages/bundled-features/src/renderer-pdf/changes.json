@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "renderTablePdf rejects tables above 10000 rows, 30 columns or 5000 characters per cell",
+    "detail": "The table document schema now caps rows at 10000, columns at 30 and each cell string at 5000 characters. Larger input fails with invalid_payload instead of exhausting memory during layout."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "render-table-pdf validates input and paginates its intro",
+    "detail": "Table documents reject negative margins and unusable column widths, normalize CRLF and paginate the intro text and the first header row."
+  },
+  {
     "version": "0.360.0",
     "type": "improvement",
     "title": "Pure-JS PDF renderer for table documents",

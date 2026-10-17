@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Structured mail layouts show the mail body",
+    "detail": "The structured layout frame wraps the body in mj-text instead of mj-raw. With mj-raw the body HTML sat directly in the column table, browsers moved it into the column wrapper with font-size 0, and every mail on a tenant layout had an invisible body."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Mail renderer keeps wall-clock dates and system attachments",
+    "detail": "The date helper keeps the calendar date of offset datetimes, tenant overrides of system mails keep inherited attachments, markdown templates use the system layout and delivery envelope keys are not exposed as variables."
+  },
+  {
     "version": "0.363.0",
     "type": "breaking",
     "title": "Documents format dates and numbers by the template locale, dates in the long style",

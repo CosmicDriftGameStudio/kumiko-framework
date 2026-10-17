@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Config key validate() receives a db scoped to the written tenant",
+    "detail": "A SystemAdmin writing a config value for another tenant previously handed the validator a system-mode db that could read every tenant. `ConfigValidateContext.db` is now a `TenantDb` locked to the tenant the value is written for. The validator runs inside the write transaction, so a slow query there should set its own timeout."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "config keys can declare an async write validator that rejects with a KumikoError",

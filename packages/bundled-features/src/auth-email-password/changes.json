@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A loginUrl builder that throws no longer crashes the app tree",
+    "detail": "The auth gate resolves the login redirect once per location change and, when the builder returns an invalid URL or throws, logs the error and shows the built-in login screen instead of throwing during render."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "How to send an auth mail after the render*Email helpers were removed in 0.363.0",
+    "detail": "No runtime change. The 0.363.0 breaking entry lists renderActivationEmail, renderResetPasswordEmail, renderUnlockAccountEmail, renderVerifyEmail and renderInviteEmail as removed but does not say how app code that rendered one of these mails itself now sends it. This entry adds that recipe.",
+    "migration": "App code that rendered an auth mail itself and passed the result as `data`, for example `notify(\"auth-email-password:signup-activation\", { route: { email }, data: renderActivationEmail({ url, expiresAt, locale, appName }), priority: \"critical\" })`, breaks twice since 0.363.0: the helper is gone and the notification type is now `auth-email-password:notify:signup-activation`. The stored template renders subject and body; the app only passes template variables.\nFor a signup activation link, call `issueSignupActivation({ redis, notify: ctx.notify, email, appUrl, appName, locale, timeZone, tokenTtlMinutes, onTokenStored })` from `@cosmicdrift/kumiko-bundled-features/auth-email-password` (only redis, notify, email and appUrl are required). It drops any live signup token for the email, stores a new one under the keys signup-confirm reads and sends the mail. `appUrl` is the bare activation page; a function `(locale) => url` picks the page per locale.\nIf the app stores the token itself and only needs the mail, call `ctx.notify(AuthMailNotificationTypes.signupActivation, { route: { email }, data: { appName, actionUrl, validFor, validUntil }, locale, priority: \"critical\" })`. `AuthMailNotificationTypes` comes from `@cosmicdrift/kumiko-bundled-features/auth-email-password`. All four variables are required strings: ctx.notify checks them against the declared template variables and throws an InternalError on a missing or invalid one, which fails the write. `actionUrl` is the page URL with `token=<encodeURIComponent(token)>` appended as a query parameter and must be an http, https or mailto URL. `validFor` and `validUntil` come from `tokenMailExpiry({ expiresAt, issuedAt, timeZone }, locale)` in `@cosmicdrift/kumiko-bundled-features/auth-email-password/email-templates`. Only send a `locale` that has a template for the type, because the renderer has no locale fallback and a locale without a template sends nothing: use `resolveMailLocale(locale)` when `hasMailTranslationKey(resolveMailLocale(locale), \"auth.mail.activation.subject\")` is true (both from `@cosmicdrift/kumiko-framework/i18n`), otherwise `\"en\"`. The other mails use the subject keys `auth.mail.reset.subject`, `auth.mail.unlock.subject`, `auth.mail.verify.subject` and `auth.mail.invite.subject`.\nThe other auth mails work the same way with `AuthMailNotificationTypes.passwordReset`, `.accountUnlock`, `.emailVerification` and `.invite`; the invite mail also needs a `role` variable."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "seedAdminGuarded rewrites the admin email only when its blind index is missing or stale",
+    "detail": "rewriteSeededUserEmail returns early when the stored email blind index already matches the expected value, so repeated boots no longer re-encrypt the email and grow the user event stream. The row version is now checked with a type guard instead of a cast."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Bootstrap reruns no longer rewrite encrypted config or restore dropped global roles",
+    "detail": "Declarative bootstrap compares encrypted and piiEncrypted config keys by their decrypted value, so a matching rerun writes nothing, and re-issues an invitation whose stored global roles are no longer in the plan. makeDispatchWriteAs is exported from the framework api."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Email payload buckets ignore plus-tags and case; auth requests are capped at 3 per 15 minutes",
+    "detail": "additionalRateLimits accepts normalize: email, which lowercases and strips the plus-tag before hashing, and bucket keys are scoped by tenant and handler. Signup and token requests (reset, unlock, verification) and the waitlist default use it with a 3-request, 900-second window."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Password change and logout work for members with only an app role or TenantAdmin",
+    "detail": "Both handlers required User, Admin or SystemAdmin and answered 403 access_denied for invited members holding a single custom role. They are now open to every signed-in user, like the other self-service handlers; anonymous callers are still rejected."
+  },
+  {
     "version": "0.363.0",
     "type": "breaking",
     "title": "AuthMailContent is removed",

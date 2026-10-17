@@ -1,5 +1,79 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.364.0
+
+### Patch Changes
+
+- 15039ce: A screen gated by visibleWhen stays mounted when a live refetch of the gate query fails
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A failed refetch of a visibleWhen gate no longer unmounts a screen that is already showing
+  detail: ScreenVisibilityGate used to fail closed on every error, so one failed live refetch (SSE reconnect, a short 5xx) removed the content and reset unsaved form input. Only the first evaluation fails closed now; after the content was shown, an error keeps it mounted as long as the last good data still matches the condition. The dashboard panel retry path is unchanged.
+  -->
+- 15039ce: Multi-select options held at mount stay visible but fixed when unavailable; stored currency codes and mixed arrays render sensibly
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A held multiSelect value that optionsAvailabilityQuery marks unavailable stays listed but cannot be removed
+  detail: The keep-listed set is taken from the values present when the field mounted, not from the live value. In the checkbox grid the entry is rendered disabled and select-all/deselect-all leave it as is; in the combobox a removal is merged back into the value. Previously unchecking such a role hid it for good while the write path kept it, so the form reported a removal that never happened. A stored lower-case currency code such as usd is normalised to upper case instead of falling back to the field currency, and array values with a non-string element keep their string entries instead of being treated as empty.
+  -->
+- 7482ee2: Screen fallback access, projectionDetail back navigation and stricter prefill
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Screen fallback access, projectionDetail back navigation and stricter prefill
+  detail: A visibleWhen fallback screen the user may not access now shows the standard unavailable notice instead of a "Screen not found" error. The not-found state of a projectionDetail honours returnTo for its back button. Embedded-list prefill rejects calendar-invalid dates, timestamps with numeric offsets and decimals beyond the safe range, and an empty number param keeps the field default instead of becoming 0.
+  -->
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-headless@0.364.0
+
 ## 0.363.0
 
 ### Patch Changes

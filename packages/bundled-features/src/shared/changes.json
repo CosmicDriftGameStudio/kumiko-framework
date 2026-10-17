@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Mail template body helpers exported as `./shared/mail-template-body`",
+    "detail": "Apps that register their own notification templates can build the body with the same helpers the framework uses: `mailParagraph`, `mailHeading`, `mailRepeatedRows`, `mailTextWithSlotsHtml`, plus the new `mailButton`, `mailParagraphWithLink` and `mailSubject`. The subpath only depends on kumiko-headless and is safe on the server. Apps that copied these helpers can import them instead."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Row-bound grant redemption logs a failing anchor lookup instead of swallowing it silently",

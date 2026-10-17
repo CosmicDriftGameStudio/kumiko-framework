@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Spanish text for discarding a template draft",
+    "detail": "Adds templateResolver.errors.noDraft."
+  },
+  {
     "version": "0.361.0",
     "type": "improvement",
     "title": "Spanish string for locked records",

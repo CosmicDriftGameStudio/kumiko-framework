@@ -1,5 +1,134 @@
 # @cosmicdrift/kumiko-renderer-puppeteer-client
 
+## 0.364.0
+
+### Minor Changes
+
+- e9b032f: renderAndStorePdf is replaced by renderPdfBeforeTransaction and storeRenderedPdf
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: breaking
+  title: renderAndStorePdf is removed; render in beforeTransaction with renderPdfBeforeTransaction and store with storeRenderedPdf
+  detail: renderAndStorePdf called the print service inside the write transaction and held a pool connection for the whole render. renderPdfBeforeTransaction(ctx, { slug, locale, variables, attachTo? }) now renders and uploads the PDF before the transaction opens, and storeRenderedPdf(ctx, event.prepared) writes the fileRef and rendered-pdf rows inside it. RenderAndStorePdfArgs is renamed RenderPdfArgs.
+  migration: Move the render into the handler's beforeTransaction phase and store in the handler: defineWriteHandler({ name, schema, access, beforeTransaction: (event, ctx) => renderPdfBeforeTransaction(ctx, { slug: "invoice", locale: "de", variables }), handler: (event, ctx) => storeRenderedPdf(ctx, event.prepared) }). The result of storeRenderedPdf has the same shape as the old renderAndStorePdf result (StoredRenderedPdf). Rename the RenderAndStorePdfArgs type to RenderPdfArgs. A handler with a beforeTransaction phase cannot be called through a nested ctx.write; call it as a top-level command.
+  -->
+
+### Patch Changes
+
+- 8e81d73: PDF editor saves only the margins that are set; preview and error handling fixes
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: PDF editor keeps unset margins unset, frees old PDF previews, and shows reset and diff errors
+  detail: Setting one margin no longer stores the other three as 15 mm, so the layout's header and footer margins still apply to them. The PDF preview no longer re-renders pages or stacks text layers on re-render and destroys the previous document. A failed reset to the system version shows an error banner in the PDF and mail editors, and a failing diff query shows an error state with retry instead of loading forever. The canvas reserves the footer margin like the renderer. Page formats, orientations and default margins now come from template-resolver (new exports PDF_ORIENTATIONS, PDF_DEFAULT_MARGIN_MM, PDF_HEADER_MARGIN_MM, PDF_FOOTER_MARGIN_MM, PdfOrientation).
+  -->
+- 15039ce: Render requests retry only network errors, 502 and 503, and the timeout covers the body
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: fix
+  title: Render requests retry only network errors, 502 and 503, and the timeout covers the body
+  detail: A 500 or 504 from puppeteer-service is a final RendererError with code other instead of being retried up to maxRetries times, and a client timeout abort is final too, so a failing or slow render no longer starts parallel renders on the service. The request timer now runs until the response body is read, so a service that stalls after the headers cannot block the caller forever.
+  -->
+- 15039ce: Template preview size budget and draft scope
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Template preview counts encoding overhead and reports missing attachments
+  detail: The mail size estimate counts base64 size plus a fixed per-part overhead, an attachment whose file reference is missing fails the resources_resolved check, and the document draft scope is derived once per request.
+  -->
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [a0dcd31]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [15039ce]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8be3807]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [c181b3f]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [b13c0d4]
+- Updated dependencies [fd5009a]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [7482ee2]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [c181b3f]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [baf641a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [68078ee]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-bundled-features@0.364.0
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes
