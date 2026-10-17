@@ -93,7 +93,11 @@ type StubRequest = {
     readonly printBackground?: boolean;
     readonly headerTemplate?: string;
     readonly footerTemplate?: string;
-    readonly marginMm?: { readonly top: number };
+    readonly marginMm?: {
+      readonly top: number;
+      readonly bottom: number;
+      readonly left: number;
+    };
   };
 };
 
@@ -639,6 +643,19 @@ describe("preview-pdf", () => {
     expect(options.landscape).toBeUndefined();
     expect(options.printBackground).toBe(true);
     expect(options.displayHeaderFooter).toBe(true);
+  });
+
+  test("a partly set margin keeps the layout header and footer fallbacks for the other sides", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({ meta: { layoutSlug: "letterhead", margins: { left: 12 } } }),
+      adminTenantA,
+    );
+
+    const { options } = onlyStubRequest();
+    expect(options.marginMm?.left).toBe(12);
+    expect(options.marginMm?.top).toBe(30);
+    expect(options.marginMm?.bottom).toBe(20);
   });
 
   test("data-align reaches the printed html with its print css", async () => {

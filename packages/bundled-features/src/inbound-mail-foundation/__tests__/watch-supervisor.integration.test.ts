@@ -6,7 +6,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  encryptPiiJsonValueForSubject,
+  InMemoryKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
@@ -17,7 +22,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetPiiSubjectKmsForTests,
+  updateRows,
+  waitFor,
+} from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -172,6 +181,51 @@ describe("watch-supervisor — poll reconciliation", () => {
 
     const rows = await selectMany(db, inboundMessagesProjectionTable, { accountId });
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("watch-supervisor — undecryptable account", () => {
+  test("an account whose address does not decrypt is logged and skipped; others still poll", async () => {
+    const brokenAccountId = await connectSharedAccount(adminFor(4131));
+    const healthyAccountId = await connectSharedAccount(adminFor(4132));
+    const kms = configuredPiiSubjectKms();
+    if (!kms) throw new Error("pii kms not configured");
+    // A JSON-typed ciphertext decrypts to a number, not text.
+    const numericAddress = await encryptPiiJsonValueForSubject(
+      kms,
+      { kind: "tenant", tenantId: testTenantId(4131) },
+      42,
+      { requestId: "watch-supervisor-test" },
+      "address",
+    );
+    await updateRows(
+      db,
+      mailAccountsProjectionTable,
+      { address: numericAddress },
+      { id: brokenAccountId },
+    );
+    await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-1" }));
+    const lines: string[] = [];
+    const supervisor = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: ({ handlerQn, payload, tenantId }) =>
+        stack.dispatcher.write(
+          handlerQn,
+          payload,
+          createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+        ),
+      pollIntervalMs: 60_000,
+      log: (line) => lines.push(line),
+    });
+
+    await supervisor.pollOnce();
+
+    const rows = await selectMany(db, inboundMessagesProjectionTable, {
+      accountId: healthyAccountId,
+    });
+    expect(rows).toHaveLength(1);
+    expect(lines.some((line) => line.includes(brokenAccountId))).toBe(true);
   });
 });
 

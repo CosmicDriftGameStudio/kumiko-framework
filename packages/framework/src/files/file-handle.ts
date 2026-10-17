@@ -13,7 +13,7 @@
 
 import type { FileContext, FileHandle } from "@cosmicdrift/kumiko-types/file-handle-types";
 import { isDerivativeSuffix } from "../derivatives/variant-key.js";
-import type { FileStorageProvider } from "./types.js";
+import { assertSafeStorageKey, type FileStorageProvider } from "./types.js";
 
 export type { FileContext, FileHandle };
 
@@ -68,6 +68,13 @@ export function createFileContext(
         throw new Error(`FileContext.ref: key must start with "${tenantId}/"`);
       }
       return createFileHandle(key, getProvider);
+    },
+    /** Validates only the storage key shape (assertSafeStorageKey), no tenant prefix: keys
+     *  may outlive a tenant handover. The caller must ensure the fileRef row came from a
+     *  tenant-filtered read. */
+    refFromFileRef: (row) => {
+      assertSafeStorageKey(row.storageKey);
+      return createFileHandle(row.storageKey, getProvider);
     },
     list: async (prefix) => {
       if (tenantId !== undefined && !prefix.startsWith(`${tenantId}/`)) {

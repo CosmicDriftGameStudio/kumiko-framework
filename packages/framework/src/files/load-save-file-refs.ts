@@ -1,0 +1,59 @@
+import { selectMany } from "../db/query.js";
+import type { TenantDb } from "../db/tenant-db.js";
+import { tenantDbRunner } from "../db/tenant-db-runner.js";
+import {
+  isFileField,
+  type Registry,
+  type SaveContext,
+  type SessionUser,
+} from "../engine/types/index.js";
+import { getStreamVersions } from "../event-store/event-store.js";
+import { fileRefIdsOf } from "./bind-pending-file-refs.js";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
+import { fileRefsTable } from "./file-ref-table.js";
+
+export type FileRefRows = ReadonlyMap<string, Readonly<Record<string, unknown>>>;
+
+// One query for every fileRef a save names, restricted to the writer's own tenant and live
+// rows: the tenant check and the pending-upload binding both work from this map instead of
+// reading each row again inside the write transaction.
+export async function loadSaveFileRefs(args: {
+  readonly registry: Registry;
+  readonly result: SaveContext;
+  readonly user: SessionUser;
+  readonly db: TenantDb;
+}): Promise<FileRefRows> {
+  const { registry, result, user, db } = args;
+  const entity =
+    result.entityName === undefined ? undefined : registry.getEntity(result.entityName);
+  // skip: saves of unregistered or unnamed aggregates declare no file fields
+  if (entity === undefined) return new Map();
+  // skip: without the files feature the file_refs table is not part of the schema
+  if (registry.getEntity(FILE_REF_ENTITY_NAME) === undefined) return new Map();
+
+  const ids = new Set<string>();
+  for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
+    if (!isFileField(fieldDef)) continue;
+    for (const id of fileRefIdsOf(result.changes[fieldName])) ids.add(id);
+  }
+  if (ids.size === 0) return new Map();
+  const rows = await selectMany<Record<string, unknown>>(db, fileRefsTable, {
+    id: { in: [...ids] },
+    tenantId: user.tenantId,
+    isDeleted: false,
+  });
+  // The binding update needs the stream version as expectedVersion: events without a projection
+  // effect (e.g. ingest requests) advance the stream but not the row's version column.
+  const streamVersions = await getStreamVersions(
+    tenantDbRunner(db),
+    rows.map((row) => String(row["id"])),
+    db.tenantId,
+  );
+  return new Map(
+    rows.map((row) => {
+      const id = String(row["id"]);
+      const streamVersion = streamVersions.get(id);
+      return [id, streamVersion === undefined ? row : { ...row, version: streamVersion }];
+    }),
+  );
+}

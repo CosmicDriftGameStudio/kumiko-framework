@@ -12,7 +12,7 @@ import {
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type { EntityDefinition, EntityId, SessionUser } from "../engine/types/index.js";
 import { UnprocessableError } from "../errors/index.js";
-import { getStreamVersion, getStreamVersions } from "../event-store/index.js";
+import { getStreamVersion } from "../event-store/index.js";
 import type { SearchAdapter } from "../search/types.js";
 import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta.js";
 import { rehydrateCompoundTypes } from "./compound-types.js";
@@ -504,6 +504,7 @@ function referenceTargetTable(name: string, entity: EntityDefinition): Table {
 // Projected alongside the row when a reference sort is active, so the keyset
 // cursor carries the label that was ordered by instead of the FK's UUID.
 const SORT_LABEL_ALIAS = "__kumiko_sort_label";
+const STREAM_VERSION_ALIAS = "__streamVersion";
 
 // fw#2741 — resolve a `sortable: true` reference field's label inline for
 // ORDER BY. A correlated scalar subquery, not a join: the result set keeps one
@@ -852,17 +853,31 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const whereClauseSqlText = whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
       // Project the resolved label too, so the keyset cursor below carries the
       // value that was ordered by rather than the FK column's UUID.
-      const selectList =
+      const sortLabelProjection =
         referenceSortExpr !== undefined && sortSql !== undefined
-          ? `*, ${sortSql} AS "${SORT_LABEL_ALIAS}"`
-          : "*";
+          ? `, ${sortSql} AS "${SORT_LABEL_ALIAS}"`
+          : "";
+      // Stream version in the same statement as the rows: a separate read could pair a
+      // post-write version with a pre-write row, and update({version}) would then pass
+      // the optimistic lock against a state the client never saw (see loadDetailSnapshot).
+      params.push(streamTenantFor(user));
+      const streamVersionProjection =
+        `, (SELECT MAX("version") FROM "kumiko_events" ` +
+        `WHERE "aggregate_id" = "${tableName}"."id" AND "tenant_id" = $${params.length}) ` +
+        `AS "${STREAM_VERSION_ALIAS}"`;
+      const selectList = `*${sortLabelProjection}${streamVersionProjection}`;
       const listSql = `SELECT ${selectList} FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQueryRead<Record<string, unknown>>(runner, listSql, params);
       const lastSortLabel = rawRows[rawRows.length - 1]?.[SORT_LABEL_ALIAS];
+      // Aliases are query artifacts, not columns of this entity — strip them before
+      // coercion so they never reach the caller or the entity cache.
+      const streamVersions = rawRows.map((r) => {
+        const v = r[STREAM_VERSION_ALIAS];
+        delete r[STREAM_VERSION_ALIAS];
+        return typeof v === "number" ? v : 0;
+      });
       if (referenceSortExpr !== undefined) {
-        // The alias is a sort artifact, not a column of this entity — strip it
-        // before coercion so it never reaches the caller or the entity cache.
         for (const row of rawRows) delete row[SORT_LABEL_ALIAS];
       }
       // Per-row read-side rehydrate + snake→camel coercion for driver-agnostic field names.
@@ -882,17 +897,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // Stream version is authoritative (see detail()): ctx.appendEvent bumps the
       // stream without touching row.version, so the raw row version would hand
       // clients a stale optimistic-lock base. Rows without events keep theirs.
-      const streamVersions =
-        decryptedRows.length > 0
-          ? await getStreamVersions(
-              runner,
-              decryptedRows.map((r) => String(r["id"])),
-              streamTenantFor(user),
-            )
-          : new Map<string, number>();
-      const rows = decryptedRows.map((r) =>
-        withStreamVersion(r, streamVersions.get(String(r["id"])) ?? 0),
-      );
+      const rows = decryptedRows.map((r, i) => withStreamVersion(r, streamVersions[i] ?? 0));
 
       // Cache the still-encrypted raw rows (read-row version): same at-rest guarantee as
       // detail()'s encryptForStorage round-trip, without a re-encrypt; detail() rejects

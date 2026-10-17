@@ -32,6 +32,14 @@ import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.js";
 //   <script>try{var s=localStorage.getItem("kumiko:theme");
 //     if(s==="dark"||(s==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))
 //     document.documentElement.classList.add("dark")}catch(e){}</script>
+//
+// The script runs before the stylesheet, so it cannot read the
+// --kumiko-default-color-scheme variable. An app with AppTheme.defaultColorScheme
+// copies that value in as a literal fallback ("dark" or "auto" here):
+//
+//   <script>try{var s=localStorage.getItem("kumiko:theme")||"dark";
+//     if(s==="dark"||(s==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))
+//     document.documentElement.classList.add("dark")}catch(e){}</script>
 
 const themeTick = createStore(0);
 
@@ -57,11 +65,15 @@ function resolveMode(preference: ThemePreference): ThemeMode {
   return preference;
 }
 
-function readDefaultPreference(): ThemePreference {
+function readDeclaredDefaultPreference(): ThemePreference | undefined {
   const declared = getComputedStyle(document.documentElement)
     .getPropertyValue(DEFAULT_COLOR_SCHEME_VARIABLE)
     .trim();
-  return isThemePreference(declared) ? declared : readCurrentMode();
+  return isThemePreference(declared) ? declared : undefined;
+}
+
+function readDefaultPreference(): ThemePreference {
+  return readDeclaredDefaultPreference() ?? readCurrentMode();
 }
 
 function readStoredPreference(): ThemePreference | undefined {
@@ -122,10 +134,8 @@ export function applyStoredThemeMode(): void {
     return;
   }
   // Without a stored choice only an app-declared default changes the HTML state.
-  const declared = getComputedStyle(document.documentElement)
-    .getPropertyValue(DEFAULT_COLOR_SCHEME_VARIABLE)
-    .trim();
-  if (isThemePreference(declared)) applyPreference(declared);
+  const declared = readDeclaredDefaultPreference();
+  if (declared !== undefined) applyPreference(declared);
 }
 
 let storedModeApplied = false;

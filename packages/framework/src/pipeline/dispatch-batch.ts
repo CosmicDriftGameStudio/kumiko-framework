@@ -93,6 +93,33 @@ async function runReservedCommand(
   return res;
 }
 
+// Sequential fallback without an outer transaction. A failure result and a throw both end the
+// batch, so both give the reserved capacity back.
+async function runCommandsWithoutTransaction(
+  scope: ReservedCommandScope,
+  commands: readonly BatchCommand[],
+  results: WriteResult[],
+): Promise<{ readonly index: number; readonly error: WriteErrorInfo } | undefined> {
+  try {
+    for (let i = 0; i < commands.length; i++) {
+      const cmd = commands[i];
+      if (!cmd) continue;
+      const res = await runReservedCommand(scope, cmd, i, undefined);
+      results.push(res);
+      if (!res.isSuccess) {
+        // No tx means no rollback — but we still drop afterCommit hooks,
+        // matching the semantic "failure = side-effects don't fire".
+        await scope.reservations.releaseAll();
+        return { index: i, error: res.error };
+      }
+    }
+  } catch (e) {
+    await scope.reservations.releaseAll();
+    throw e;
+  }
+  return undefined;
+}
+
 // Core batch logic extracted so write() and command() can reuse it
 // (a single write = batch of one, running in its own transaction).
 export async function runBatch(
@@ -131,21 +158,6 @@ function perCommandBatchRejection(
     failedIndex: index,
     results: [],
   };
-}
-
-async function runCommandsWithoutTransaction(
-  scope: ReservedCommandScope,
-  commands: readonly BatchCommand[],
-  results: WriteResult[],
-): Promise<{ index: number; error: WriteErrorInfo } | undefined> {
-  for (let i = 0; i < commands.length; i++) {
-    const cmd = commands[i];
-    if (!cmd) continue;
-    const res = await runReservedCommand(scope, cmd, i, undefined);
-    results.push(res);
-    if (!res.isSuccess) return { index: i, error: res.error };
-  }
-  return undefined;
 }
 
 async function checkBatchIdempotency(
@@ -296,19 +308,16 @@ async function runBatchBody(
     // there is no transaction to open. Fall back to
     // sequential execution — useful for unit tests that don't touch the DB.
     // Each command runs independently; a failure stops the batch.
-    const failure = await runCommandsWithoutTransaction(
+    const failed = await runCommandsWithoutTransaction(
       { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks },
       commands,
       results,
     );
-    if (failure) {
-      // No tx means no rollback — but we still drop afterCommit hooks,
-      // matching the semantic "failure = side-effects don't fire".
-      await reservations.releaseAll();
+    if (failed) {
       return finalize({
         isSuccess: false,
-        error: failure.error,
-        failedIndex: failure.index,
+        error: failed.error,
+        failedIndex: failed.index,
         results,
       });
     }
@@ -339,6 +348,7 @@ async function runBatchBody(
     });
   } catch (e) {
     // Rollback or failed COMMIT: the transaction is over, so the reserved capacity goes back.
+    // The release is outcome-safe: it only gives back a reservation row the handler tx did not delete.
     await reservations.releaseAll();
     if (e instanceof BatchRollback) {
       // Thrown inside the callback, so the tx rolled back. A 4xx is

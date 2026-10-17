@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -398,6 +398,24 @@ describe("oauth refresh — concurrency", () => {
     expect(calls.length).toBeGreaterThanOrEqual(1);
     const lastOutput = `${calls.at(-1)?.refreshToken}+r`;
     expect(await storedRefreshToken(account)).toBeOneOf([lastOutput, "rt-reconnected"]);
+  });
+});
+
+describe("oauth refresh — secret access on the lock transaction", () => {
+  test("secret writes through withRunner join the transaction and roll back with it", async () => {
+    const account = await connectOAuthAccount(4720, "rt-committed");
+    const key = inboundCredentialSecretKey(account.id);
+
+    await expect(
+      transaction(db, async (tx) => {
+        const txSecrets = secrets.withRunner(tx);
+        await txSecrets.set(account.tenantId, key, "rt-rolled-back");
+        expect((await txSecrets.get(account.tenantId, key))?.reveal()).toBe("rt-rolled-back");
+        throw new Error("abort lock transaction");
+      }),
+    ).rejects.toThrow("abort lock transaction");
+
+    expect(await storedRefreshToken(account)).toBe("rt-committed");
   });
 });
 

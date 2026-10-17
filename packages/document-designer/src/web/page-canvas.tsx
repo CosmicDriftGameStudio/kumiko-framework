@@ -3,7 +3,9 @@ import {
   DocumentContentEditor,
   type DocumentEditorHandle,
   type DocumentResourcePreview,
+  PDF_DEFAULT_MARGIN_MM,
   PDF_DOCUMENT_BLOCKS,
+  PDF_FOOTER_MARGIN_MM,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { cn } from "@cosmicdrift/kumiko-renderer-web";
@@ -13,7 +15,6 @@ import { MARGIN_SIDES, type PdfMetaDraft } from "./pdf-meta.js";
 import type { LayoutRegionsHtml } from "./types.js";
 
 const MM_TO_PX = 96 / 25.4;
-const DEFAULT_MARGIN_MM = 15;
 
 // Page width in CSS px at 96 dpi as a cap; the page shrinks with a narrow column instead of scrolling sideways.
 const PAGE_WIDTH_CLASSES: Readonly<Record<string, string>> = {
@@ -98,6 +99,8 @@ export function PageCanvas(props: PageCanvasProps): ReactNode {
   // The letterhead band sits in the top margin, so the content starts right below it.
   const showLetterhead =
     showRegions && props.regions !== null && props.regions.header.trim() !== "";
+  // Same fallback as the PDF renderer: a footer region reserves a taller bottom margin (the header band replaces the top margin on the canvas).
+  const hasFooter = showRegions && props.regions !== null && props.regions.footer.trim() !== "";
   const fromLayout = t("documentDesigner.canvas.fromLayout", { layout: props.layoutName });
   const regionCaption = (region: "header" | "signature" | "footer"): string =>
     `${t(`documentDesigner.editor.region.${region}`)} · ${fromLayout}`;
@@ -107,11 +110,13 @@ export function PageCanvas(props: PageCanvasProps): ReactNode {
     (element: HTMLDivElement | null) => {
       if (element === null) return;
       for (const side of MARGIN_SIDES) {
-        const mm = meta.margins[side] === "" ? DEFAULT_MARGIN_MM : meta.margins[side];
+        const fallbackMm =
+          side === "bottom" && hasFooter ? PDF_FOOTER_MARGIN_MM : PDF_DEFAULT_MARGIN_MM;
+        const mm = meta.margins[side] === "" ? fallbackMm : meta.margins[side];
         element.style.setProperty(`--page-margin-${side}`, `${Math.round(mm * MM_TO_PX)}px`);
       }
     },
-    [meta.margins],
+    [meta.margins, hasFooter],
   );
 
   const renderPaper = (editable: ReactNode): ReactNode => (

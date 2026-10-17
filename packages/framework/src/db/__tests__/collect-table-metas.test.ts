@@ -7,9 +7,9 @@ import { defineUnmanagedTable } from "../entity-table-meta.js";
 import { asEntityTableMeta } from "../query.js";
 import { buildBaseColumns, buildEntityTable } from "../table-builder.js";
 
-function exampleEntity() {
+function exampleEntity(tableName = "read_units") {
   return createEntity({
-    table: "read_units",
+    table: tableName,
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
 }
@@ -94,7 +94,7 @@ describe("collectTableMetas (#255)", () => {
       });
     });
     const b = defineFeature("feat-b", (r) => {
-      r.entity("thing", exampleEntity());
+      r.entity("thing", exampleEntity("read_things"));
       r.projection({
         name: "conflict-b",
         source: "thing",
@@ -184,5 +184,23 @@ describe("collectTableMetas — r.entity backing table (#347)", () => {
       r.entity("widget", rich, { table: backing });
     });
     expect(() => collectTableMetas([feature])).toThrow(/missing column "extra"/);
+  });
+
+  test("throws naming both origins when two features register the same storeTable name", () => {
+    const sharedTable = () =>
+      defineUnmanagedTable({
+        tableName: "shared_cache",
+        columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true }],
+      });
+    const featureA = defineFeature("alpha", (r) => {
+      r.storeTable(sharedTable(), { reason: "test fixture" });
+    });
+    const featureB = defineFeature("beta", (r) => {
+      r.storeTable(sharedTable(), { reason: "test fixture" });
+    });
+
+    expect(() => collectTableMetas([featureA, featureB])).toThrow(
+      /table "shared_cache" is registered by storeTable "shared_cache" \(beta\) and storeTable "shared_cache" \(alpha\)/,
+    );
   });
 });

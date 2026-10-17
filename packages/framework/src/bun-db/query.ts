@@ -694,8 +694,14 @@ function buildWhereClause(
           throw new Error(`where: jsonText requires a jsonb column, "${col}" is ${pgType}`);
         }
         const matches = isJsonTextMatchList(value.jsonText) ? value.jsonText : [value.jsonText];
+        if (matches.length === 0) {
+          conditions.push("FALSE");
+          continue;
+        }
         for (const match of matches) {
           if (
+            match === null ||
+            typeof match !== "object" ||
             !Array.isArray(match.keys) ||
             match.keys.length === 0 ||
             !match.keys.every((k) => typeof k === "string") ||

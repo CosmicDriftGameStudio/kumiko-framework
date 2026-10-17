@@ -46,7 +46,6 @@ export function createUpdateTenantFieldHandler(
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
     description:
       "Replaces a tenant-owned custom-field definition with a complete new spec; serializedField.type may be omitted, in which case the stored type applies, and a different type is refused. Use it to relabel or re-constrain an existing field rather than to create or remove one.",
-    excludedFields: ["type"],
     handler: async (event, ctx) => {
       const payload = event.payload as UpdateFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;

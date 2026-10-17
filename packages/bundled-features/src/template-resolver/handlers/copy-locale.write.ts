@@ -17,7 +17,7 @@ import { CONTENT_FORMATS } from "../constants.js";
 import { parseLinkedResourceEntries } from "../linked-resources.js";
 import { TemplateResolverErrors } from "../qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { attachTemplateResources } from "../template-resources.js";
+import { attachTemplateResources, duplicateLinkedResourceFiles } from "../template-resources.js";
 import { resolveTemplateVariables } from "../template-validation.js";
 import { targetExistsIssue } from "./bundle-import.js";
 import { kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
@@ -50,7 +50,8 @@ async function findCopySource(
     kind,
     locale,
   });
-  if (own || scope === "system") return own;
+  // An archived tenant row is not an active source: the system default applies instead.
+  if (scope === "system" || (own && own.status !== "archived")) return own;
   return fetchOne<TemplateResourceRow>(readDb, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug,
@@ -127,16 +128,25 @@ export const copyLocaleWrite = defineWriteHandler({
       },
     });
     if (!written.isSuccess) return written;
-    // A system source carries no files of its own: its resource keys are known to the tenant row anyway.
-    if (source.tenantId === tenantId) {
-      const attached = await attachTemplateResources(ctx, {
-        user: event.user,
-        tenantId,
-        templateId: written.data.id,
-        resources: parseLinkedResourceEntries(source.linkedResources),
-      });
-      if (!attached.isSuccess) return attached;
-    }
+    const sourceResources = parseLinkedResourceEntries(source.linkedResources);
+    // A system source's files belong to the system tenant: the tenant gets its own copies so
+    // previews, exports and the tenant's override keep working independent of the system row.
+    const resources =
+      source.tenantId === tenantId
+        ? { isSuccess: true as const, data: sourceResources }
+        : await duplicateLinkedResourceFiles(ctx, {
+            user: event.user,
+            tenantId,
+            resources: sourceResources,
+          });
+    if (!resources.isSuccess) return resources;
+    const attached = await attachTemplateResources(ctx, {
+      user: event.user,
+      tenantId,
+      templateId: written.data.id,
+      resources: resources.data,
+    });
+    if (!attached.isSuccess) return attached;
     return written;
   },
 });

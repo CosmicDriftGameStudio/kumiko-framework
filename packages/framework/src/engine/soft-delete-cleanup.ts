@@ -97,7 +97,7 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     // these separately, once, with a fixed grace period.
     if (isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
     const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff }, tenantId };
-    await purgeExpiredRows(db, proj.source, proj.table, where, ctx);
+    await purgeExpiredRows(db, proj.source, proj.table, where, cutoff, ctx);
   }
 };
 
@@ -108,11 +108,19 @@ async function purgeExpiredRows(
   source: string,
   table: Parameters<typeof deleteMany>[1],
   where: WhereObject,
+  cutoff: Temporal.Instant,
   ctx: Pick<JobContext, "files" | "log">,
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
     // The row is the only record of the storageKey, so its bytes go first.
-    await purgeExpiredFileRefsWithBytes({ db, table, where, files: ctx.files, log: ctx.log });
+    await purgeExpiredFileRefsWithBytes({
+      db,
+      table,
+      where,
+      expiredBefore: cutoff,
+      files: ctx.files,
+      log: ctx.log,
+    });
   } else {
     await deleteMany(db, table, where);
   }

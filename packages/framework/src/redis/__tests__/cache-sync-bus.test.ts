@@ -63,6 +63,15 @@ describe("local cache sync bus", () => {
     expect(other).toEqual([]);
   });
 
+  test("remoteOnly skips local subscribers", () => {
+    const bus = createLocalCacheSyncBus();
+    const seen: unknown[] = [];
+    bus.subscribe("a", (message) => seen.push(message));
+    bus.publish("a", 1, { remoteOnly: true });
+    bus.publish("a", 2);
+    expect(seen).toEqual([2]);
+  });
+
   test("unsubscribe stops delivery", () => {
     const bus = createLocalCacheSyncBus();
     const seen: unknown[] = [];
@@ -87,6 +96,21 @@ describe("cache sync bus over a pub/sub signal", () => {
     busA.publish("t", { tenantId: "x" });
 
     expect(onA).toEqual([{ tenantId: "x" }]);
+    expect(onB).toEqual([{ tenantId: "x" }]);
+  });
+
+  test("remoteOnly reaches other processes but not local subscribers", () => {
+    const hub = createHub();
+    const busA = createCacheSyncBusOverSignal(hub.create(), { channel: CHANNEL, originId: "a" });
+    const busB = createCacheSyncBusOverSignal(hub.create(), { channel: CHANNEL, originId: "b" });
+    const onA: unknown[] = [];
+    const onB: unknown[] = [];
+    busA.subscribe("t", (message) => onA.push(message));
+    busB.subscribe("t", (message) => onB.push(message));
+
+    busA.publish("t", { tenantId: "x" }, { remoteOnly: true });
+
+    expect(onA).toEqual([]);
     expect(onB).toEqual([{ tenantId: "x" }]);
   });
 

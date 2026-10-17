@@ -382,6 +382,17 @@ describe("where jsonText", () => {
       await expect(
         selectMany(db, table, { payload: { jsonText: { keys: [], eq: "x" } } }),
       ).rejects.toThrow(/jsonText/);
+      await expect(selectMany(db, table, { payload: { jsonText: [null] } })).rejects.toThrow(
+        /jsonText on column "payload" needs/,
+      );
+    });
+  });
+
+  test("empty match list matches no rows, like an empty IN list", async () => {
+    await withTables([{ columns: docCols }], async ({ db, metas }) => {
+      const table = only(metas);
+      await seedDocs(db, table, randomUUID());
+      expect(await labelsFor(db, table, { jsonText: [] })).toEqual([]);
     });
   });
 

@@ -236,6 +236,7 @@ const patternFeature = defineFeature("patterned", (r) => {
   });
 });
 
+const tenantsSeenByValidator: string[][] = [];
 const validatorCalls: Array<{ value: string; ctx: Omit<ConfigValidateContext, "db"> }> = [];
 const validatedFeature = defineFeature("validated", (r) => {
   r.requires("config");
@@ -254,6 +255,14 @@ const validatedFeature = defineFeature("validated", (r) => {
               details: { key: "endpoint" },
             });
           }
+        },
+      }),
+      probe: createTenantConfig("text", {
+        default: "",
+        write: access.roles("Admin"),
+        validate: async (_value, { db: validatorDb }) => {
+          const rows = await validatorDb.selectMany<{ tenantId: string }>(configValuesTable);
+          tenantsSeenByValidator.push([...new Set(rows.map((row) => row.tenantId))]);
         },
       }),
       fresh: createTenantConfig("text", {
@@ -1872,6 +1881,34 @@ describe("key validate (async write gate)", () => {
         ctx: { key: ENDPOINT, scope: "tenant", tenantId: admin.tenantId, userId: null },
       },
     ]);
+  });
+
+  test("validator db only sees rows of the tenant the value is written for", async () => {
+    const otherAdmin = createTestUser({
+      id: 99,
+      roles: ["Admin"],
+      tenantId: "00000000-0000-4000-8000-0000000000aa",
+    });
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: ENDPOINT, value: "https://other-tenant.example.com" },
+      otherAdmin,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: ENDPOINT, value: "https://own-tenant.example.com" },
+      admin,
+    );
+    tenantsSeenByValidator.length = 0;
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: "validated:config:probe", value: "x" },
+      admin,
+    );
+    // Tenant-mode reads include the shared system rows by design; the point is no other tenant.
+    expect(tenantsSeenByValidator).toHaveLength(1);
+    expect(tenantsSeenByValidator[0]).toContain(admin.tenantId);
+    expect(tenantsSeenByValidator[0]).not.toContain(otherAdmin.tenantId);
   });
 
   test("a non-Kumiko error from the validator fails the write without persisting", async () => {

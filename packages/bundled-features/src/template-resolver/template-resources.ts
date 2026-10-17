@@ -6,7 +6,8 @@ import type {
   WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFileRefFromBytes, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { fileContextForTenant } from "../file-foundation/index.js";
 import { requireForTenant } from "../shared/index.js";
 import { executor } from "./handlers/shared.js";
 import type { LinkedResourceEntry } from "./linked-resources.js";
@@ -35,11 +36,50 @@ export async function readTemplateResource(
     id: fileRefId,
     isDeleted: false,
   });
-  // ctx.files only reaches the caller's own key space.
-  if (!row?.storageKey.startsWith(`${ctx.user.tenantId}/`)) return null;
-  const handle = ctx.files.ref(row.storageKey);
+  if (!row) return null;
+  const handle = ctx.files.refFromFileRef(row);
   if (!(await handle.exists())) return null;
   return { fileName: row.fileName, contentType: row.mimeType, bytes: await handle.read() };
+}
+
+// Gives the target tenant its own copy of every file behind the entries, so a template that was
+// copied from the system default keeps working once the tenant exports it or measures its
+// attachments. Rendered-PDF links carry no file and pass through. An entry whose source file is
+// gone is left out: it could not be resolved at render time either.
+export async function duplicateLinkedResourceFiles(
+  ctx: HandlerContext,
+  args: {
+    readonly user: SessionUser;
+    readonly tenantId: TenantId;
+    readonly resources: Readonly<Record<string, LinkedResourceEntry>>;
+  },
+): Promise<WriteResult<Record<string, LinkedResourceEntry>>> {
+  const { user, tenantId } = args;
+  const { db } = requireForTenant(ctx, tenantId);
+  const copies: Record<string, LinkedResourceEntry> = {};
+  for (const [key, entry] of Object.entries(args.resources)) {
+    if (typeof entry !== "string" && entry.kind === "rendered-pdf") {
+      copies[key] = entry;
+      continue;
+    }
+    const sourceFileRefId = typeof entry === "string" ? entry : entry.fileRefId;
+    const file = await readTemplateResource(ctx, sourceFileRefId);
+    // skip: the source file is gone, there is nothing to copy
+    if (file === null) continue;
+    const created = await createFileRefFromBytes(
+      {
+        db,
+        files: fileContextForTenant(ctx, ctx.user.tenantId, tenantId),
+        registry: ctx.registry,
+        user: { ...user, tenantId },
+      },
+      { fileName: file.fileName, mimeType: file.contentType, data: file.bytes },
+    );
+    if (!created.isSuccess) return created;
+    copies[key] =
+      typeof entry === "string" ? created.data.id : { ...entry, fileRefId: created.data.id };
+  }
+  return { isSuccess: true, data: copies };
 }
 
 // Replaces the whole key map of one row with files that are already stored (bundle import,

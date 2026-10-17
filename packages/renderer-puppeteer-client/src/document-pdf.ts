@@ -23,6 +23,9 @@ import {
   createTemplateResolverApi,
   DEFAULT_MAIL_LAYOUT_SLUG,
   type LayoutRegions,
+  PDF_DEFAULT_MARGIN_MM,
+  PDF_FOOTER_MARGIN_MM,
+  PDF_HEADER_MARGIN_MM,
   type PdfTemplateMeta,
   prepareDocumentForPrint,
   readLayoutRegions,
@@ -57,9 +60,6 @@ export type DocumentPdfRequest = {
 
 const LINE_BREAKS = /[\r\n]+/g;
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
-const DEFAULT_MARGIN_MM = 15;
-const HEADER_MARGIN_MM = 30;
-const FOOTER_MARGIN_MM = 20;
 const PREVIEW_PAGE_NUMBER = "1";
 const EMPTY_CHROMIUM_REGION = "<span></span>";
 const PAGE_NUMBER_HTML = '<span class="pageNumber"></span>';
@@ -254,16 +254,16 @@ function resolveOptions(
   hasHeader: boolean,
   hasFooter: boolean,
 ): { readonly options: PdfOptions; readonly left: number; readonly right: number } {
-  const left = meta?.margins?.left ?? DEFAULT_MARGIN_MM;
-  const right = meta?.margins?.right ?? DEFAULT_MARGIN_MM;
+  const left = meta?.margins?.left ?? PDF_DEFAULT_MARGIN_MM;
+  const right = meta?.margins?.right ?? PDF_DEFAULT_MARGIN_MM;
   const options: PdfOptions = {
     format: meta?.pageFormat ?? "A4",
     printBackground: meta?.printBackground ?? true,
     ...(meta?.orientation === "landscape" && { landscape: true }),
     marginMm: {
-      top: meta?.margins?.top ?? (hasHeader ? HEADER_MARGIN_MM : DEFAULT_MARGIN_MM),
+      top: meta?.margins?.top ?? (hasHeader ? PDF_HEADER_MARGIN_MM : PDF_DEFAULT_MARGIN_MM),
       right,
-      bottom: meta?.margins?.bottom ?? (hasFooter ? FOOTER_MARGIN_MM : DEFAULT_MARGIN_MM),
+      bottom: meta?.margins?.bottom ?? (hasFooter ? PDF_FOOTER_MARGIN_MM : PDF_DEFAULT_MARGIN_MM),
       left,
     },
   };

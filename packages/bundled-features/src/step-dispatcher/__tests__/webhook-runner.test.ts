@@ -43,6 +43,9 @@ function fakeSecrets(value: string | undefined) {
     has: async () => value !== undefined,
     set: async () => {},
     delete: async () => true,
+    withRunner: () => {
+      throw new Error("withRunner is not used by this test");
+    },
   };
   return { secrets, get };
 }
@@ -255,6 +258,9 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
       has: async () => true,
       set: async () => {},
       delete: async () => true,
+      withRunner: () => {
+        throw new Error("withRunner is not used by this test");
+      },
     };
 
     const result = await performWebhookDispatch(

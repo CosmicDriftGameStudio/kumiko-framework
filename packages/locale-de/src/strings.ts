@@ -1150,6 +1150,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Diese Datei ist kein unterstütztes Bild. Erlaubt sind PNG, JPEG, WebP und GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Ressourcendateien von Systemvorlagen lassen sich nur von einem Benutzer des System-Mandanten importieren oder exportieren.",
+  "templateResolver.errors.template.bundleLocalesDiffer":
+    "Die Sprachen dieser Vorlage unterscheiden sich in Inhaltsformat oder Variablen und lassen sich nicht als ein Bundle exportieren.",
   "templateResolver.errors.collection.kindNotAllowed":
     "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
   "templateResolver.errors.noSystemTemplate":

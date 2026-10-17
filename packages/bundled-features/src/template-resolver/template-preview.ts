@@ -378,7 +378,8 @@ async function renderDocumentPreview(
         registry: ctx.registry,
         tenantId: user.tenantId,
         ...(ctx.config !== undefined && { config: ctx.config }),
-        filesForTenant: (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
+        filesForTenant: (fileTenantId) =>
+          fileContextForTenant(ctx, ctx.user.tenantId, fileTenantId),
       },
     );
   } catch (e) {
@@ -535,7 +536,7 @@ async function renderMailPreview(
     rendered.html,
     inline,
     createEmailAttachmentReader(ctx.db, ctx.registry, user.tenantId, ctx.config, (tenantId) =>
-      fileContextForTenant(ctx, tenantId),
+      fileContextForTenant(ctx, ctx.user.tenantId, tenantId),
     ),
   );
   const resolvedCids = new Set(inline.map((ref) => ref.cid));

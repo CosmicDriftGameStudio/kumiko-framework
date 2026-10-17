@@ -23,6 +23,7 @@ function makeRawSecretsContext(): SecretsContext {
     has: mock(),
     set: mock(),
     delete: mock(),
+    withRunner: mock(),
   };
 }
 
