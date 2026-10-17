@@ -35,6 +35,7 @@ import {
   patchFileInstanceofForBunTest,
   resetPiiSubjectKmsForTests,
 } from "../../testing/index.js";
+import { zipWithEntries } from "../../testing/zip-fixture.js";
 import { createFilesFeature } from "../feature.js";
 import { fileRefsTable } from "../file-ref-table.js";
 import type { FileRoutesOptions } from "../file-routes.js";
@@ -284,14 +285,7 @@ describe("file validation", () => {
     0xe1,
     ...Array(20).fill(0),
   ]);
-  const docxBytes = new Uint8Array([
-    0x50,
-    0x4b,
-    0x03,
-    0x04,
-    ...Array(20).fill(0),
-    ...new TextEncoder().encode("word/document.xml"),
-  ]);
+  const docxBytes = zipWithEntries("word/document.xml");
 
   test("validateFile accepts a .doc/.docx upload on extension/mimeType alone", () => {
     expect(
@@ -756,14 +750,7 @@ describe("doc/docx upload is content-verified against magic bytes", () => {
     0xe1,
     ...Array(20).fill(0),
   ]);
-  const docxBytes = new Uint8Array([
-    0x50,
-    0x4b,
-    0x03,
-    0x04,
-    ...Array(20).fill(0),
-    ...new TextEncoder().encode("word/document.xml"),
-  ]);
+  const docxBytes = zipWithEntries("word/document.xml");
 
   test("a real .doc upload succeeds", async () => {
     const res = await uploadFile(adminUser, "report.doc", docBytes, "application/msword");
@@ -817,14 +804,7 @@ describe("content_mismatch is enforced by filename extension for every signature
     0xe1,
     ...Array(20).fill(0),
   ]);
-  const docxBytes = new Uint8Array([
-    0x50,
-    0x4b,
-    0x03,
-    0x04,
-    ...Array(20).fill(0),
-    ...new TextEncoder().encode("word/document.xml"),
-  ]);
+  const docxBytes = zipWithEntries("word/document.xml");
 
   test("PDF bytes uploaded as x.jpg against an accept: [png, jpg] field are rejected with content_mismatch", async () => {
     const res = await uploadFile(adminUser, "x.jpg", pdfBytes, "image/jpeg", {

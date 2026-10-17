@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db.js";
@@ -245,6 +253,27 @@ describe("runSchemaCli — validate (static CI gate, no DB)", () => {
     expect(code).toBe(1);
     expect(cap.err.join("\n")).toContain('"in_app_messages" 2 times');
     expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
+  });
+
+  test("generate with a table listed twice leaves an existing snapshot and migrations untouched", async () => {
+    // Module cache: a rewritten schema.ts at the same path would not reload, so seed the
+    // existing migrations from a separate healthy app dir.
+    const healthyCwd = freshAppCwd();
+    writeSchemaFile(healthyCwd, "tbl_a");
+    await runSchemaCli(["generate", "init"], healthyCwd, captureOut().out);
+    const migrationsDir = join(appCwd, "kumiko/migrations");
+    cpSync(join(healthyCwd, "kumiko/migrations"), migrationsDir, { recursive: true });
+    const snapshotBefore = readFileSync(join(migrationsDir, ".snapshot.json"), "utf8");
+    const filesBefore = readdirSync(migrationsDir).sort();
+
+    writeDuplicateTableSchemaFile(appCwd, "in_app_messages");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "foo"], appCwd, cap.out);
+
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain('"in_app_messages" 2 times');
+    expect(readFileSync(join(migrationsDir, ".snapshot.json"), "utf8")).toBe(snapshotBefore);
+    expect(readdirSync(migrationsDir).sort()).toEqual(filesBefore);
   });
 
   test("missing schema.ts exits 1", async () => {

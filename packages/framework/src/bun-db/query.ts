@@ -351,14 +351,8 @@ function quoteIdent(name: string): string {
 // Symmetric on write: Temporal.Instant doesn't bind directly into postgres-js
 // params — convert to ISO string when the column pgType is timestamptz.
 
-function toStringTagOf(v: unknown): unknown {
-  return typeof v === "object" && v !== null && Symbol.toStringTag in v
-    ? v[Symbol.toStringTag]
-    : undefined;
-}
-
 function isTemporalInstant(v: unknown): v is Temporal.Instant {
-  return toStringTagOf(v) === "Temporal.Instant";
+  return propertyOf(v, Symbol.toStringTag) === "Temporal.Instant";
 }
 
 // Postgres bigint → JS: safe integers become `number` (matches createBigIntField /
@@ -403,11 +397,11 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
 }
 
 function isTemporalPlainDate(v: unknown): v is Temporal.PlainDate {
-  return toStringTagOf(v) === "Temporal.PlainDate";
+  return propertyOf(v, Symbol.toStringTag) === "Temporal.PlainDate";
 }
 
 function isTemporalPlainDateTimeLike(v: unknown): v is { toPlainDate(): Temporal.PlainDate } {
-  const tag = toStringTagOf(v);
+  const tag = propertyOf(v, Symbol.toStringTag);
   return (
     (tag === "Temporal.PlainDateTime" || tag === "Temporal.ZonedDateTime") &&
     typeof v === "object" &&

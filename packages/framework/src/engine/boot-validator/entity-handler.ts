@@ -1260,6 +1260,11 @@ export function validateLockedWhen(feature: FeatureDefinition): void {
         `${where} is personal or encrypted — the lock condition is evaluated on the stored value, which is ciphertext. Use a plaintext field.`,
       );
     }
+    if (field.access?.read !== undefined) {
+      throw new Error(
+        `${where} has a read restriction — roles that cannot read it get records without it, and the client would show every record as locked. Drop field access.read or use another field.`,
+      );
+    }
     if (!LOCKABLE_FIELD_TYPES.has(field.type)) {
       throw new Error(
         `${where} has type "${field.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,

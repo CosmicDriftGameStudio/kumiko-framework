@@ -7,6 +7,7 @@ import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.j
 import {
   findUnavailableSelectOptions,
   isRecordLocked,
+  isUnchangedValue,
   type UnavailableSelectOption,
 } from "../engine/screen-helpers.js";
 import type { EntityId, SessionUser, TenantId } from "../engine/types/index.js";
@@ -78,20 +79,6 @@ async function projectEntityEvent(
 // behavior-preserving relocation, not a redesign: every closure below is
 // unchanged from the original, just relocated behind an explicit
 // ExecutorContext instead of capturing the factory's local scope directly.
-
-// updateOptions.skipUnchanged (#464) — opt-in: a resubmitted-but-identical
-// key is dropped before encryption so pii/encrypted fields don't get a fresh
-// AEAD ciphertext (new nonce) for no real change, and the event's `changes`
-// don't carry a phantom diff. Opt-in, not the executor's default, because
-// direct executor.update() callers rely on the current behavior to FORCE a
-// re-encrypt of an unchanged plaintext — KEK-rotation (auth-mfa reencrypt.job)
-// and the user-data-rights #494 backfill both resubmit the current value on
-// purpose to land a fresh event/ciphertext. Only the generic entity update
-// handler (entity-handlers.ts) sets this flag; those two call their own
-// executor directly and never see it.
-function isUnchangedValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
 
 function selectOptionNotAvailableFailure(entries: readonly UnavailableSelectOption[]) {
   const [first] = entries;
@@ -592,9 +579,15 @@ export function createWriteVerbs(
       const lockedUpdate = recordLockedFailure(previous, payload.id, user, updateOptions);
       if (lockedUpdate) return lockedUpdate;
 
-      const unavailableOnUpdate = selectOptionNotAvailableFailure(
-        findUnavailableSelectOptions(entity.fields, mergedNew, previous),
-      );
+      // Statutory retention/erasure writes may change a condition field (e.g. null a PII
+      // reference) and must not be blocked by the select rule — same exemption as the lock.
+      const isStatutorySystemWrite =
+        updateOptions?.writePurpose !== undefined && isFrameworkSystemUser(user);
+      const unavailableOnUpdate = isStatutorySystemWrite
+        ? undefined
+        : selectOptionNotAvailableFailure(
+            findUnavailableSelectOptions(entity.fields, mergedNew, previous),
+          );
       if (unavailableOnUpdate) return unavailableOnUpdate;
 
       const streamTenant = streamTenantFor(user, streamTenantId);
@@ -639,6 +632,9 @@ export function createWriteVerbs(
         // Compound-Types Auto-Convert (alle in einem Pass).
         // subjectSource: partial changes may carry a pii field without its
         // ownerField — the merged row still names the subject.
+        // skipUnchanged (#464) is opt-in: an identical resubmitted key is dropped before
+        // encryption so pii/encrypted fields get no fresh ciphertext for no real change.
+        // Direct callers (KEK rotation, #494 backfill) rely on the default to force a re-encrypt.
         const submittedChanges = updateOptions?.skipUnchanged
           ? Object.fromEntries(
               Object.entries(changes).filter(

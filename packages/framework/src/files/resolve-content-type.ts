@@ -17,6 +17,43 @@ const UNAMBIGUOUS_SNIFFED_TYPES: ReadonlySet<string> = new Set([
 const ZIP_SIGNATURE = [0x50, 0x4b, 0x03, 0x04];
 const XML_PROBE_BYTES = 512;
 
+// Root elements of markup that starts with `<` but is not a document the XML
+// ingest providers should receive: HTML (documents and fragments), SVG.
+const NON_XML_ROOT_ELEMENTS: ReadonlySet<string> = new Set([
+  "html",
+  "head",
+  "body",
+  "script",
+  "style",
+  "meta",
+  "link",
+  "title",
+  "svg",
+  "div",
+  "span",
+  "p",
+  "a",
+  "img",
+  "br",
+  "hr",
+  "table",
+  "ul",
+  "ol",
+  "li",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "section",
+  "article",
+  "font",
+  "center",
+]);
+
+const ROOT_ELEMENT_PATTERN = /^<(?:[A-Za-z_][\w.-]*:)?([A-Za-z_][\w.-]*)/;
+
 const EXTENSION_FALLBACK: Readonly<Record<string, string>> = {
   xml: "application/xml",
   pdf: "application/pdf",
@@ -48,15 +85,16 @@ function hasPrefix(bytes: Uint8Array, prefix: readonly number[]): boolean {
 }
 
 // Textual start only: a NUL in the probe means binary (or UTF-16, which is
-// deliberately not detected). HTML also starts with `<` and must not be
-// relabelled as XML.
+// deliberately not detected). Without an XML declaration the root element
+// decides: HTML/SVG roots (also namespace-prefixed) are not relabelled as XML.
 function looksLikeXml(bytes: Uint8Array): boolean {
   const probe = bytes.subarray(0, XML_PROBE_BYTES);
   if (probe.includes(0)) return false;
   const text = new TextDecoder().decode(probe).replace(/^﻿/, "").trimStart();
   if (text.startsWith("<?xml")) return true;
-  if (!/^<[A-Za-z_]/.test(text)) return false;
-  return !/^<(html|head|body|script)\b/i.test(text);
+  const root = ROOT_ELEMENT_PATTERN.exec(text)?.[1];
+  if (root === undefined) return false;
+  return !NON_XML_ROOT_ELEMENTS.has(root.toLowerCase());
 }
 
 function extensionOf(filename: string): string {

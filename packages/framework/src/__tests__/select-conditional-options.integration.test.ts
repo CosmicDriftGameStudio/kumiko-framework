@@ -3,11 +3,16 @@
 // update against the merged row.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import * as z from "zod";
+import { createEventStoreExecutor, WritePurposes } from "../db/event-store-executor.js";
+import { buildEntityTable } from "../db/table-builder.js";
 import {
   createEntity,
   createSelectField,
+  createSystemUser,
   createTextField,
   defineEntityCreateHandler,
+  defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
 } from "../engine/index.js";
@@ -31,13 +36,36 @@ const monitorEntity = createEntity({
   },
 });
 
+const monitorTable = buildEntityTable("monitor", monitorEntity);
+
 const monitoring = defineFeature("monitoring", (r) => {
   r.entity("monitor", monitorEntity);
+  const executor = createEventStoreExecutor(monitorTable, monitorEntity, {
+    entityName: "monitor",
+  });
+  r.writeHandler(
+    "monitor:system-set-kind",
+    z.object({ id: z.uuid(), kind: z.enum(["http", "heartbeat"]), withPurpose: z.boolean() }),
+    async (event, ctx) =>
+      executor.update(
+        { id: event.payload.id, changes: { kind: event.payload.kind } },
+        createSystemUser(event.user.tenantId),
+        ctx.db,
+        {
+          skipOptimisticLock: true,
+          ...(event.payload.withPurpose && { writePurpose: WritePurposes.erasure }),
+        },
+      ),
+    { access: { roles: ["Admin"] } },
+  );
   r.writeHandler(
     defineEntityCreateHandler("monitor", monitorEntity, { access: { roles: ["Admin"] } }),
   );
   r.writeHandler(
     defineEntityUpdateHandler("monitor", monitorEntity, { access: { roles: ["Admin"] } }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("monitor", monitorEntity, { access: { roles: ["Admin"] } }),
   );
 });
 
@@ -108,5 +136,30 @@ describe("SelectFieldDef.conditionalOptions — server enforcement", () => {
       { id: row.id, changes: { name: "renamed" }, version: 1 },
       admin,
     );
+  });
+
+  test("a framework system write with a writePurpose may leave an option unavailable", async () => {
+    const row = await createMonitor({ kind: "heartbeat", interval: "3600" });
+    await stack.http.writeOk(
+      "monitoring:write:monitor:system-set-kind",
+      { id: row.id, kind: "http", withPurpose: true },
+      admin,
+    );
+    const stored = await stack.http.queryOk<{ kind: string }>(
+      "monitoring:query:monitor:detail",
+      { id: row.id },
+      admin,
+    );
+    expect(stored.kind).toBe("http");
+  });
+
+  test("a system write without a writePurpose is still checked", async () => {
+    const row = await createMonitor({ kind: "heartbeat", interval: "3600" });
+    const err = await stack.http.writeErr(
+      "monitoring:write:monitor:system-set-kind",
+      { id: row.id, kind: "http", withPurpose: false },
+      admin,
+    );
+    expect(err.httpStatus).toBe(422);
   });
 });

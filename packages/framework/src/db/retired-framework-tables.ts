@@ -27,13 +27,29 @@ export const retiredFrameworkTables: readonly RetiredFrameworkTable[] = [
 
 type TableLifecycleState = "created" | "commented-drop" | "dropped";
 
-const IDENT = `"?([^"\\s(;,.]+)"?`;
+// Optional schema prefix is skipped; only the table name is captured.
+const IDENT = `(?:"?[^"\\s(;,.]+"?\\.)?"?([^"\\s(;,.]+)"?`;
 const CREATE_TABLE_RE = new RegExp(`^CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?${IDENT}`, "i");
-const DROP_TABLE_RE = new RegExp(`^DROP TABLE\\s+(?:IF EXISTS\\s+)?${IDENT}`, "i");
+// DROP TABLE accepts a comma list; the list is split and each entry parsed with IDENT.
+const DROP_TABLE_LIST_RE = /^DROP TABLE\s+(?:IF EXISTS\s+)?([^;]+)/i;
+const IDENT_ONLY_RE = new RegExp(`^\\s*${IDENT}`);
+const RENAME_TABLE_RE = new RegExp(
+  `^ALTER TABLE\\s+(?:IF EXISTS\\s+)?(?:ONLY\\s+)?${IDENT}\\s+RENAME TO\\s+${IDENT}`,
+  "i",
+);
 const COMMENTED_DROP_TABLE_RE = new RegExp(
   `^--\\s*DESTRUCTIVE:\\s*DROP TABLE\\s+(?:IF EXISTS\\s+)?${IDENT}`,
   "i",
 );
+
+function droppedTableNames(line: string): readonly string[] {
+  const list = DROP_TABLE_LIST_RE.exec(line)?.[1];
+  if (list === undefined) return [];
+  return list
+    .split(",")
+    .map((entry) => IDENT_ONLY_RE.exec(entry)?.[1])
+    .filter((name): name is string => name !== undefined);
+}
 
 // Last known state per table across all migrations, in order — so a
 // DROP followed by a re-CREATE (managed-projection recreate) counts as
@@ -54,8 +70,13 @@ function scanTableLifecycle(sqlTexts: readonly string[]): ReadonlyMap<string, Ta
         states.set(created, "created");
         continue;
       }
-      const dropped = DROP_TABLE_RE.exec(line)?.[1];
-      if (dropped !== undefined) states.set(dropped, "dropped");
+      const renamed = RENAME_TABLE_RE.exec(line);
+      if (renamed?.[1] !== undefined && renamed[2] !== undefined) {
+        states.set(renamed[1], "dropped");
+        states.set(renamed[2], "created");
+        continue;
+      }
+      for (const dropped of droppedTableNames(line)) states.set(dropped, "dropped");
     }
   }
   return states;

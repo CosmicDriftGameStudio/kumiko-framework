@@ -1,4 +1,5 @@
 import type { TenantId } from "../engine/types/identifiers.js";
+import { readZipEntryNames } from "./zip-entry-names.js";
 
 // Lives here (not in file-ref-entity.ts) so engine code can name the entity without importing
 // a module that calls createEntity at load time.
@@ -140,12 +141,9 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
 // part is resolved via _rels/.rels and may be named e.g. word/document2.xml.
 const DOCX_PART_PREFIX = "word/";
 
-function containsAscii(bytes: Uint8Array, ascii: string): boolean {
-  const first = ascii.charCodeAt(0);
-  for (let i = bytes.indexOf(first); i !== -1; i = bytes.indexOf(first, i + 1)) {
-    if (startsWithAscii(bytes, ascii, i)) return true;
-  }
-  return false;
+function hasDocxPart(zipBytes: Uint8Array): boolean {
+  const names = readZipEntryNames(zipBytes);
+  return names?.some((name) => name.startsWith(DOCX_PART_PREFIX)) ?? false;
 }
 
 function startsWithBytes(bytes: Uint8Array, signature: readonly number[]): boolean {
@@ -282,7 +280,7 @@ export function validateFileContent(
   if (signatureMimeTypes.length === 0) return { kind: "ok" };
   const sniffed = sniffMimeType(content);
   // sniffMimeType only sees the ZIP container; any .xlsx/.pptx/.zip shares it.
-  if (sniffed === DOCX_MIME_TYPE && !containsAscii(content, DOCX_PART_PREFIX)) {
+  if (sniffed === DOCX_MIME_TYPE && !hasDocxPart(content)) {
     return {
       kind: "rejected",
       error: `content_mismatch: ".${ext}" upload bytes are a ZIP archive without ${DOCX_PART_PREFIX} entries, not a docx`,

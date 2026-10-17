@@ -231,16 +231,19 @@ async function fillDerivedRowIdTable(
   projectionName: string,
   aggregateType: string,
   rowIdOf: ProjectionRowIdOf,
+  batchSize: number,
 ): Promise<void> {
   let cursor: EventKeyRow | undefined;
   for (;;) {
     const page: readonly EventKeyRow[] = await raw.unsafe<EventKeyRow>(
-      `SELECT DISTINCT "tenant_id"::text AS tenant_id, "aggregate_id"::text AS aggregate_id
+      // Selecting the uuid columns (no text alias) keeps ORDER BY and the keyset
+      // comparison on the same type; text ordering is collation-dependent.
+      `SELECT DISTINCT "tenant_id", "aggregate_id"
          FROM "kumiko_events"
         WHERE "aggregate_type" = $1
           ${cursor ? `AND ("tenant_id", "aggregate_id") > ($2::uuid, $3::uuid)` : ""}
         ORDER BY "tenant_id", "aggregate_id"
-        LIMIT ${DERIVED_ROW_ID_BATCH_SIZE}`,
+        LIMIT ${batchSize}`,
       cursor ? [aggregateType, cursor.tenant_id, cursor.aggregate_id] : [aggregateType],
     );
     // skip: keyset exhausted — every source event of this type has been mapped
@@ -267,7 +270,7 @@ async function fillDerivedRowIdTable(
       [derivedIds],
     );
     // skip: a short page is the last one
-    if (page.length < DERIVED_ROW_ID_BATCH_SIZE) return;
+    if (page.length < batchSize) return;
     cursor = page[page.length - 1];
   }
 }
@@ -278,6 +281,7 @@ export async function assertNoUnreachableLiveRows(
   tableName: string,
   aggregateTypes: readonly string[],
   derivedRowIds: Readonly<Record<string, ProjectionRowIdOf>> = {},
+  derivedRowIdBatchSize: number = DERIVED_ROW_ID_BATCH_SIZE,
 ): Promise<void> {
   // skip: no source streams → no events could back any row anyway; a rebuild
   // of a subscription-less projection swaps an empty shadow (handled upstream).
@@ -296,7 +300,13 @@ export async function assertNoUnreachableLiveRows(
       const rowIdOf = derivedRowIds[aggregateType];
       // skip: filtered by derivedTypes above, narrows the Record lookup for the compiler
       if (rowIdOf === undefined) continue;
-      await fillDerivedRowIdTable(raw, projectionName, aggregateType, rowIdOf);
+      await fillDerivedRowIdTable(
+        raw,
+        projectionName,
+        aggregateType,
+        rowIdOf,
+        derivedRowIdBatchSize,
+      );
     }
   }
   const unbackedClauses: string[] = [];

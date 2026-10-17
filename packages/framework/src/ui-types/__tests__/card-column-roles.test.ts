@@ -60,6 +60,24 @@ describe("cardColumnRoles", () => {
     expect(roles.meta.map((c) => c.field)).toEqual(["logo", "doc"]);
   });
 
+  test("an image column hidden on narrow is not the preview and not the title", () => {
+    const roles = cardColumnRoles([
+      { field: "banner", fileDisplay: { kind: "image" }, hideOnNarrow: true },
+      { field: "photo", fileDisplay: { kind: "image" } },
+      { field: "name" },
+    ]);
+    expect(roles.image?.field).toBe("photo");
+    expect(roles.title?.field).toBe("name");
+    expect(roles.meta).toEqual([]);
+
+    const onlyHidden = cardColumnRoles([
+      { field: "banner", fileDisplay: { kind: "image" }, hideOnNarrow: true },
+      { field: "name" },
+    ]);
+    expect(onlyHidden.image).toBeUndefined();
+    expect(onlyHidden.title?.field).toBe("name");
+  });
+
   test("cardFileDisplayKind: a format renderer wins over the field type", () => {
     expect(cardFileDisplayKind("image", undefined)).toBe("image");
     expect(cardFileDisplayKind("files", undefined)).toBe("file");
