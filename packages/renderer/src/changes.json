@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A failed refetch of a visibleWhen gate no longer unmounts a screen that is already showing",
+    "detail": "ScreenVisibilityGate used to fail closed on every error, so one failed live refetch (SSE reconnect, a short 5xx) removed the content and reset unsaved form input. Only the first evaluation fails closed now; after the content was shown, an error keeps it mounted as long as the last good data still matches the condition. The dashboard panel retry path is unchanged."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A held multiSelect value that optionsAvailabilityQuery marks unavailable stays listed but cannot be removed",
+    "detail": "The keep-listed set is taken from the values present when the field mounted, not from the live value. In the checkbox grid the entry is rendered disabled and select-all/deselect-all leave it as is; in the combobox a removal is merged back into the value. Previously unchecking such a role hid it for good while the write path kept it, so the form reported a removal that never happened. A stored lower-case currency code such as usd is normalised to upper case instead of falling back to the field currency, and array values with a non-string element keep their string entries instead of being treated as empty."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Screen fallback access, projectionDetail back navigation and stricter prefill",
+    "detail": "A visibleWhen fallback screen the user may not access now shows the standard unavailable notice instead of a \"Screen not found\" error. The not-found state of a projectionDetail honours returnTo for its back button. Embedded-list prefill rejects calendar-invalid dates, timestamps with numeric offsets and decimals beyond the safe range, and an empty number param keeps the field default instead of becoming 0."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "propertyOf type guard and fewer unchecked casts in the UI packages",

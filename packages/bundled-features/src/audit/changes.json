@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Audit list pages by id unless sorted by type",
+    "detail": "An explicit createdAt sort pages in id order so keyset pagination no longer skips rows."
+  },
+  {
     "version": "0.361.0",
     "type": "fix",
     "title": "Audit log works under an active subject KMS",

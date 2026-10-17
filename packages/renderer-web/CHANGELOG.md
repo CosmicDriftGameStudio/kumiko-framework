@@ -1,5 +1,92 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.364.0
+
+### Patch Changes
+
+- 15039ce: filterAppSchemaNavsByAllowlist keeps allowed children of a filtered-out parent at the top level
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Allowed navs whose parent is not on the sidebar allowlist surface at the top level again
+  detail: filterAppSchemaNavsByAllowlist removes the parent reference of an allowed nav whose parent exists but is not allowlisted, unless a reparent override moves it. Before, such a nav and all its descendants vanished from the sidebar without a warning, contradicting the documented top-level behaviour.
+  -->
+- 8be3807: List boolean cells, row-click and hover tooltips, and the phone pinned footer behave consistently
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Boolean list cells announce Yes/No, hidden row clicks stay inert, tooltips follow the value, pinned footer picks the explicit primary
+  detail: Columns of type boolean without a renderer now render the accessible check mark with a Yes/No screen-reader label. The table branch evaluates the hidden rowClick action once per row. Meta-cell tooltips are refreshed on every hover and only set when the text is clipped. On phones the pinned footer prefers an explicitly marked primary action over a later submit button, moves a Back action without a determinable accessible name into the overflow, and shows the unsaved-changes badge on the primary button while the overflow trigger is not visible.
+  -->
+- 15039ce: A stale auth cookie on the SSE stream ends the web session with a session-ended frame
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A stale auth cookie on the SSE stream ends the web session with a session-ended frame
+  detail: With anonymousAccess, a stale or revoked auth cookie downgrades /api/sse to an anonymous 200, so the web client never noticed the session end and live updates stopped silently. The stream now opens with a session-ended frame carrying the rejection code and expires the auth cookies; the renderer-web live-events client calls onSessionEnded once for it.
+  -->
+- fd5009a: Stacked-area x-axis ticks align to month and day starts in the user's time zone
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: StackedAreaChart axis ticks use the user's time zone instead of UTC
+  detail: stackedAreaAxisTicks takes a timeZone and computes month and day starts there; StackedAreaChart takes a matching timeZone prop (default UTC) and the dashboard panel passes the resolver's zone. In zones west of UTC the January tick no longer reads December and day ticks no longer show the previous day.
+  -->
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-renderer@0.364.0
+  - @cosmicdrift/kumiko-headless@0.364.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.364.0
+
 ## 0.363.0
 
 ### Patch Changes

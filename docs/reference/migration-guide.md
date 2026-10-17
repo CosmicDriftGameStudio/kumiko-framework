@@ -10,6 +10,48 @@ verified: 2026-10-17
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.364.0
+
+### @cosmicdrift/kumiko-renderer-puppeteer-client
+
+**renderAndStorePdf is removed; render in beforeTransaction with renderPdfBeforeTransaction and store with storeRenderedPdf**
+
+renderAndStorePdf called the print service inside the write transaction and held a pool connection for the whole render. renderPdfBeforeTransaction(ctx, { slug, locale, variables, attachTo? }) now renders and uploads the PDF before the transaction opens, and storeRenderedPdf(ctx, event.prepared) writes the fileRef and rendered-pdf rows inside it. RenderAndStorePdfArgs is renamed RenderPdfArgs.
+
+**Migration:** Move the render into the handler's beforeTransaction phase and store in the handler: defineWriteHandler({ name, schema, access, beforeTransaction: (event, ctx) => renderPdfBeforeTransaction(ctx, { slug: "invoice", locale: "de", variables }), handler: (event, ctx) => storeRenderedPdf(ctx, event.prepared) }). The result of storeRenderedPdf has the same shape as the old renderAndStorePdf result (StoredRenderedPdf). Rename the RenderAndStorePdfArgs type to RenderPdfArgs. A handler with a beforeTransaction phase cannot be called through a nested ctx.write; call it as a top-level command.
+
+### cap-counter
+
+**CapExceededError carries resetAt and retryAfterSeconds, API sets Retry-After**
+
+**Migration:** Periodic caps no longer need RateLimitError({ windowSeconds: 0, ... }). Where you catch CapExceededError from enforceCap and rethrow it as RateLimitError, drop the catch and let CapExceededError pass: the response stays 429 with a correct Retry-After, error.code becomes cap_exceeded instead of rate_limited, and error.details carries resetAt and retryAfterSeconds. Keep a feature-specific message with enforceCap({ ..., i18nKey }) and pass a period end other than the calendar month with periodEndIso (e.g. a budget's resetsAtIso). Clients matching on rate_limited for these caps must also accept cap_exceeded. Any KumikoError with retryAfterSeconds (including RateLimitError thrown in a handler) now gets a Retry-After header from /api/write, /api/batch and /api/query.
+
+### framework-core
+
+**Handler field references support business keys and array fields**
+
+**Migration:** handlerFieldReference(schema, field) now returns { entity, by, multiple } instead of the entity string. Replace reference with reference.entity; skip or handle fields where by is set (value is a business key, not an id) or multiple is true (value is an array).
+
+**Writes without an open transaction run as their own command; ctx.db writes there throw**
+
+Write handlers accept transaction "perCommand". Such a handler runs without a transaction of its own, so every ctx.write and ctx.writeAs it issues runs as its own top-level command with its own transaction, gates and afterCommit hooks. A perCommand handler cannot run as a nested ctx.write, cannot be part of a multi-command batch (422 per_command_handler_in_batch) and cannot combine with beforeTransaction or reserveBeforeTransaction (boot error). ctx.write and ctx.writeAs from stream handlers and top-level query handlers now take the same route, so afterCommit hooks of the called write, which never fired before, fire now. ctx.db writes (entity executor, insertOne, updateMany, deleteMany, db.global() writes) and event appends (appendEvent, unsafeAppendEvent, tryAppendEvent, fetchForWriting, archiveStream, restoreStream, snapshotAggregate) throw in stream handlers, top-level query handlers, perCommand handlers and in beforeTransaction and reserveBeforeTransaction. ctx.dbOutsideTransaction and ctx.outsideTransaction stay available, and ctx.db.unsafeRaw stays open as the audited escape hatch.
+
+**Migration:** Stream and query code that writes through ctx.db or an executor bound to ctx.db calls a write handler through ctx.write or ctx.writeAs instead, or writes deliberately through ctx.dbOutsideTransaction. Check code that relied on afterCommit hooks of a write called from a stream or query handler not firing. bookCapUsage from a stream or query handler needs outsideTransaction true or a command. runInOwnTransaction(ctx.db, ...) stays locked in these contexts; runInOwnTransaction(ctx.dbOutsideTransaction, ...) is the way to a deliberate own transaction. Measured consumers: one stream handler (AI agent turn: conversation, activity and tool-call records through an executor on ctx.db, plus cap booking) and one query handler (AI text run: cap booking on ctx.db, log via ctx.write). No other consumer app has stream or query writes. The beforeTransaction/reserveBeforeTransaction lock affects no released code.
+
+### template-resolver
+
+**DocumentRepeatRow is removed, use DocumentTableRow**
+
+Removed the DocumentRepeatRow alias
+
+**Migration:** Replace `DocumentRepeatRow` with `DocumentTableRow` (identical shape).
+
+**A draft no longer replaces the active template**
+
+Saving a draft (upsert-tenant default, copy-locale, import-bundle with status draft) over an active template stores it beside the active version in the new column draft instead of overwriting content, meta and status; resolveTemplate, resolveLayout, preview without content and sends keep using the active version. publish and publish-system promote an open draft (the publish gate checks the draft) and record activeVersion and activeSince; the new handlers discard-draft and discard-draft-system drop it and refuse with no_draft when none is open. find-by-id and layout-source return the working version (the open draft with status draft, else the stored one) plus active { version, since }, null when nothing is served. overview keeps status and version of the served version and adds draftVersion and activeSince. A draft over a row that is not active (new, draft or archived) behaves as before. A tenant never sees system draft content: find-by-id, layout-source, overview, copy-locale and diff-to-system apply a system draft only for a SystemAdmin and hide system rows that were never served; list leaves those rows out too. Version numbers shown for an active row are the served version (activeVersion): resolveTemplate / resolveLayout results, tenant-overrides rows and the override diff no longer show the save counter that drafts raise.
+
+**Migration:** Run kumiko schema generate and apply the migration before deploying: it adds the nullable columns draft, active_version and active_since to read_template_resources. No rebuild needed.
+
 ## 0.363.0
 
 ### @cosmicdrift/kumiko-renderer-mail-html

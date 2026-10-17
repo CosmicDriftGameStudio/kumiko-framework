@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Workflow run-failed and retry logs carry the original cause",
+    "detail": "The ops log used to print the generic `workflow step N failed` wrapper. It now prints the underlying error, while the persisted event still carries the error class only."
+  },
+  {
     "version": "0.353.0",
     "type": "fix",
     "title": "workflow.run-failed carries the real stepIndex when a run suspends in an unsupported step"

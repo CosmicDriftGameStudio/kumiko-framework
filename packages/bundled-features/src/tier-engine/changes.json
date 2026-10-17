@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Tier cache: stale single reload cannot overwrite a newer full resync",
+    "detail": "A single-tenant reload that started before a full resync and resolved after it could restore an outdated tier. The resync now advances the per-tenant ticket for deleted and adopted tenants too, and assignment changes are published remote-only."
+  },
+  {
     "version": "0.354.0",
     "type": "fix",
     "title": "tier-engine:write:set-tenant-tier resolves agent risk high"

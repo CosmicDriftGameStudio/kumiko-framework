@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Tenant destroy hooks make progress even when the deadline already passed",
+    "detail": "The chunked migration takes a minBatches option and the file destroy hooks process one chunk per tick, so a slow list call no longer makes every run time out empty."
+  },
+  {
     "version": "0.354.0",
     "type": "fix",
     "title": "The orphan-derivative sweep keeps derivatives whose original still exists in storage"

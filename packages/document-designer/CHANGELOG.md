@@ -1,5 +1,165 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.364.0
+
+### Minor Changes
+
+- 68078ee: Editors and overview show an open draft beside the active version
+  
+  The editor header shows the served version (Active vN) next to the open draft (Draft vM), fed by the active field of find-by-id and layout-source; the template overview shows the draftVersion badge under the status of an active row.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Editors and overview show an open draft beside the active version
+  -->
+- c181b3f: Document designer editors follow the approved board
+  
+  Mail-layout templates accept appearance meta (width, font, outer background, accent line, button style) that the mail renderer applies, and the layout-source query returns it. The layout editor uses the shared editor shell with one paper and one shared toolbar (`DocumentContentEditor` gains `toolbarHost`). Mail and PDF editors share frame, info bar, rails and footer.
+  
+  The unused `sender` key of mail template meta is gone from the editor; stored rows that still carry it are read without it, so they stay editable.
+  
+  Invalid template meta now reports per-field messages (`templateResolver.errors.template.meta.<field>.required|invalid`) instead of the parser text; the editors show them at the field. The `tenant-overrides` query additionally returns one row per customising tenant (name, status, version, changed at/by) and, with `diffTenantId`, the diff to the system version. A language without a version shows an empty state in the mail editor instead of a disabled editor.
+  
+  The `compileDocumentBody` option `resourceImageMaxWidthPx` caps resource images in mails (180 px). The `send-test` command takes `prefixSubject` (default true) to skip the `[TEST]` subject prefix, the template preview returns `mailLayout` (slug, scope, version of the layout used), and `RenderedMail` carries the layout ref.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Document designer editors follow the approved board
+  -->
+
+### Patch Changes
+
+- 8e81d73: PDF editor saves only the margins that are set; preview and error handling fixes
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: PDF editor keeps unset margins unset, frees old PDF previews, and shows reset and diff errors
+  detail: Setting one margin no longer stores the other three as 15 mm, so the layout's header and footer margins still apply to them. The PDF preview no longer re-renders pages or stacks text layers on re-render and destroys the previous document. A failed reset to the system version shows an error banner in the PDF and mail editors, and a failing diff query shows an error state with retry instead of loading forever. The canvas reserves the footer margin like the renderer. Page formats, orientations and default margins now come from template-resolver (new exports PDF_ORIENTATIONS, PDF_DEFAULT_MARGIN_MM, PDF_HEADER_MARGIN_MM, PDF_FOOTER_MARGIN_MM, PdfOrientation).
+  -->
+- 15039ce: The layout editor counts the users of a layout on the server instead of from a page of 200 templates
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: template-resolver:query:overview accepts layoutSlug to list only the mails and PDFs using that layout
+  detail: The optional layoutSlug payload field keeps only documents whose layout slug matches; total counts the filtered rows. Without it the response is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Layout editor shows the real number of mails or PDFs using a layout
+  detail: The editor asks the overview for the users of one layout (kind and layoutSlug filter) and takes the count from total, so a tenant with more than 200 templates no longer sees a too low usage number.
+  -->
+- 55f003d: Test isolation for the search payload warn spy and the mail editor placeholder rail
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unit tests no longer leak a console.warn spy into later files
+  detail: The search payload precedence tests spy on console.warn per test and restore it, so later files in the same --no-isolate worker start with the real console.warn. The mail editor missing-language test waits for the placeholder rail instead of reading it before the validate query settled.
+  -->
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [a0dcd31]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [15039ce]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8be3807]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [c181b3f]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [b13c0d4]
+- Updated dependencies [fd5009a]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [7482ee2]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [e9b032f]
+- Updated dependencies [15039ce]
+- Updated dependencies [8be3807]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [baf641a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [68078ee]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-bundled-features@0.364.0
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.364.0
+  - @cosmicdrift/kumiko-renderer@0.364.0
+  - @cosmicdrift/kumiko-renderer-web@0.364.0
+  - @cosmicdrift/kumiko-headless@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes

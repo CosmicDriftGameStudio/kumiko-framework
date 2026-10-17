@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "runDevApp resolves the masterKey provider before boot validation",
+    "detail": "runDevApp validated encrypted fields before building the boot cipher, so an app that supplies masterKey and has no KUMIKO_SECRETS_MASTER_KEY_V1 in the environment booted in production but failed locally with no usable master key. The provider now reaches validateBoot like in runProdApp and runWorkerApp."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "composeRendererStack includes renderer-mail-html",
