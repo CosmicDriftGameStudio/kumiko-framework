@@ -128,6 +128,21 @@ describe("createPersonalAccessTokensFeature — listScreen option", () => {
     expect(listScreenOf(custom).slots).toEqual(slots);
     expect(custom.screens[PAT_MINT_SCREEN_ID]?.description).toBeUndefined();
   });
+
+  test("a wider listScreen object cannot override agent exposure or access", () => {
+    const wider = {
+      description: "app.pat.description",
+      agent: { expose: true },
+      access: { roles: ["Guest"] },
+    };
+    const screen = listScreenOf(
+      createPersonalAccessTokensFeature({ scopes: {}, listScreen: wider }),
+    );
+    const plain = listScreenOf(createPersonalAccessTokensFeature({ scopes: {} }));
+    expect(screen.description).toBe("app.pat.description");
+    expect(screen.agent).toEqual({ expose: false });
+    expect(screen.access).toEqual(plain.access);
+  });
 });
 
 describe("patGrantOptions (fw#2548 Teil B)", () => {

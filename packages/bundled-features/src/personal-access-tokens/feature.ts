@@ -183,7 +183,15 @@ export function createPersonalAccessTokensFeature(
     // places `patListScreen` via r.nav in its logged-in settings area.
     const lockedFallback =
       options.lockedFallbackScreen === undefined ? {} : { fallback: options.lockedFallbackScreen };
-    r.screen({ ...patListScreen, ...options.listScreen, ...lockedFallback });
+    // Copy the two fields explicitly: a wider object passed as a variable
+    // escapes the Pick check and would override agent/access otherwise.
+    const { description, slots } = options.listScreen ?? {};
+    r.screen({
+      ...patListScreen,
+      ...(description === undefined ? {} : { description }),
+      ...(slots === undefined ? {} : { slots }),
+      ...lockedFallback,
+    });
     r.screen({ ...createPatMintScreen(scopes), ...lockedFallback });
     r.translations({ keys: { ...PAT_FEATURE_I18N, ...patScopeOptionTranslations(scopes) } });
 
