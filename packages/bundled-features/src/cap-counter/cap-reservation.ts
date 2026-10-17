@@ -45,6 +45,9 @@ type CapReservationRow = {
   readonly expiresAt: Temporal.Instant;
   readonly createdAt: Temporal.Instant;
   readonly settledAt: Temporal.Instant | null;
+  // Units consume already turned into booked ones; the counter holds them on top of amount.
+  readonly consumedAmount: number;
+  readonly releasedAt: Temporal.Instant | null;
 };
 
 const NOTHING_TO_RELEASE: WriteResult = { isSuccess: true, data: {} };
@@ -69,6 +72,8 @@ async function insertReservationRow(
     expiresAt: now.add({ minutes: CAP_RESERVATION_TTL_MINUTES }),
     createdAt: now,
     settledAt: null,
+    consumedAmount: 0,
+    releasedAt: null,
   });
 }
 
@@ -197,6 +202,7 @@ async function confirmCapReservation(
     id,
     tenantId: confirm.tenantId,
     settledAt: null,
+    releasedAt: null,
   });
 }
 
@@ -249,19 +255,34 @@ async function giveBackReservation(
   });
   if (!row) return NOTHING_TO_RELEASE;
   const claimed = await claimReservationRow(txDb, user, row);
-  if (!claimed) return NOTHING_TO_RELEASE;
+  if (!claimed || claimed.releasedAt !== null) return NOTHING_TO_RELEASE;
   const given =
     claimed.kind === "rolling"
       ? await giveBackRolling(txDb, user, claimed)
       : await giveBackCalendar(txDb, user, claimed);
   if (!given.isSuccess) return given;
-  await txDb.deleteMany(capReservationsTable, ownRow);
+  // Only consumed units need remembering: a later settle or consume must not count them twice.
+  if (claimed.kind === "rolling" || claimed.consumedAmount === 0) {
+    await txDb.deleteMany(capReservationsTable, ownRow);
+    return given;
+  }
+  const now = Temporal.Now.instant();
+  await txDb.updateMany(
+    capReservationsTable,
+    {
+      amount: 0,
+      releasedAt: now,
+      expiresAt: now.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES }),
+    },
+    ownRow,
+  );
   return given;
 }
 
-// Waits for a confirm still holding the row; undefined means that confirm, a settle or another
-// release won (Postgres re-checks settled_at after the lock wait). The returned row is read after
-// the lock wait, so its amount already includes a concurrent consume.
+// Waits for a confirm still holding the row; undefined means that confirm or a settle won (Postgres
+// re-checks settled_at after the lock wait). A released row is claimed too: callers branch on
+// releasedAt. The returned row is read after the lock wait, so it already includes a concurrent
+// consume.
 async function claimReservationRow(
   txDb: TenantDb,
   user: SessionUser,
@@ -294,9 +315,6 @@ export type SettleCalendarCapOptions = {
   readonly periodStartIso: string;
   // Total used, including units already consumed through a handle.
   readonly actualAmount: number;
-  // The amount the reservation was made for; defaults to the row's remaining amount, which is only
-  // right while nothing was consumed.
-  readonly reservedAmount?: number;
 };
 
 export class CapSettleBelowConsumedError extends UnprocessableError {
@@ -345,12 +363,20 @@ async function settleInTransaction(
   });
   const claimed = open && (await claimReservationRow(txDb, user, open));
   if (claimed) {
-    const reserved = options.reservedAmount ?? claimed.amount;
-    const consumed = reserved - claimed.amount;
-    if (options.actualAmount < consumed) {
-      throw new CapSettleBelowConsumedError(options.capName, consumed, options.actualAmount);
+    if (options.actualAmount < claimed.consumedAmount) {
+      throw new CapSettleBelowConsumedError(
+        options.capName,
+        claimed.consumedAmount,
+        options.actualAmount,
+      );
     }
-    const booked = await bookCalendarDelta(txDb, user, options, options.actualAmount - reserved);
+    const alreadyBooked = claimed.amount + claimed.consumedAmount;
+    const booked = await bookCalendarDelta(
+      txDb,
+      user,
+      options,
+      options.actualAmount - alreadyBooked,
+    );
     if (!booked.isSuccess) return booked;
     const now = Temporal.Now.instant();
     await txDb.updateMany(
@@ -376,6 +402,8 @@ async function settleInTransaction(
     expiresAt: now.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES }),
     createdAt: now,
     settledAt: now,
+    consumedAmount: 0,
+    releasedAt: null,
   });
   return bookCalendarDelta(txDb, user, options, options.actualAmount);
 }
@@ -428,6 +456,63 @@ export class CapReservationOverConsumedError extends UnprocessableError {
   }
 }
 
+async function consumeClaimedRow(
+  txDb: TenantDb,
+  user: SessionUser,
+  claimed: CapReservationRow,
+  options: ConsumeCalendarCapOptions,
+): Promise<WriteResult> {
+  const ownRow = { id: claimed.id, tenantId: user.tenantId };
+  if (claimed.releasedAt !== null) {
+    // The reserved rest was given back, so each unit is booked on top of what is still counted.
+    const booked = await bookCalendarDelta(txDb, user, options, options.units);
+    if (!booked.isSuccess) return booked;
+    await txDb.updateMany(
+      capReservationsTable,
+      { consumedAmount: claimed.consumedAmount + options.units },
+      ownRow,
+    );
+    return booked;
+  }
+  if (options.units > claimed.amount) {
+    throw new CapReservationOverConsumedError(options.capName, claimed.amount, options.units);
+  }
+  await txDb.updateMany(
+    capReservationsTable,
+    {
+      amount: claimed.amount - options.units,
+      consumedAmount: claimed.consumedAmount + options.units,
+    },
+    ownRow,
+  );
+  return NOTHING_TO_RELEASE;
+}
+
+// Row already expired away: the units are booked directly and a released tombstone remembers them
+// so a later settle subtracts them. A parallel consume inserting first fails this insert.
+async function consumeWithoutRow(
+  txDb: TenantDb,
+  user: SessionUser,
+  id: string,
+  options: ConsumeCalendarCapOptions,
+): Promise<WriteResult> {
+  const now = Temporal.Now.instant();
+  await txDb.insertOne(capReservationsTable, {
+    id,
+    tenantId: user.tenantId,
+    capName: options.capName,
+    kind: "calendar",
+    periodStartIso: options.periodStartIso,
+    amount: 0,
+    expiresAt: now.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES }),
+    createdAt: now,
+    settledAt: null,
+    consumedAmount: options.units,
+    releasedAt: now,
+  });
+  return bookCalendarDelta(txDb, user, options, options.units);
+}
+
 async function consumeInTransaction(
   txDb: TenantDb,
   user: SessionUser,
@@ -445,22 +530,15 @@ async function consumeInTransaction(
     );
   }
   const claimed = open && (await claimReservationRow(txDb, user, open));
-  if (claimed) {
-    if (options.units > claimed.amount) {
-      throw new CapReservationOverConsumedError(options.capName, claimed.amount, options.units);
-    }
-    await txDb.updateMany(capReservationsTable, { amount: claimed.amount - options.units }, ownRow);
-    return NOTHING_TO_RELEASE;
-  }
+  if (claimed) return consumeClaimedRow(txDb, user, claimed, options);
   if (await txDb.fetchOne<CapReservationRow>(capReservationsTable, ownRow)) {
     throw new CapReservationSettledError(options.capName);
   }
-  // Row swept after its TTL: the reserved rest was given back, so each unit is booked directly.
-  return bookCalendarDelta(txDb, user, options, options.units);
+  return consumeWithoutRow(txDb, user, id, options);
 }
 
 // Turns reserved units into booked ones without touching the counter; the row keeps the unconsumed
-// rest so a release gives back exactly that.
+// rest so a release gives back exactly that. After a release or sweep the units are booked directly.
 export async function consumeCalendarCapReservation(
   ctx: CapCounterContext,
   id: string,
@@ -472,13 +550,16 @@ export async function consumeCalendarCapReservation(
   }
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
   const consumed = await retryCounterWriteOnVersionConflict(() =>
-    runInOwnTransaction(writeDb, (txDb) => consumeInTransaction(txDb, user, id, options)),
+    retryOnceOnTombstoneRace(() =>
+      runInOwnTransaction(writeDb, (txDb) => consumeInTransaction(txDb, user, id, options)),
+    ),
   );
   if (!consumed.isSuccess) throw reraiseAsKumikoError(consumed.error);
 }
 
 // A failed release leaves its row behind; giving it back once the TTL passed bounds how long that
-// capacity stays counted. Expired settled tombstones are only deleted: their amount stays booked.
+// capacity stays counted. Expired settled and released tombstones are only deleted: what they
+// stand for stays booked.
 export async function releaseExpiredCapReservations(
   ctx: CapCounterContext,
   capName: string,
@@ -494,9 +575,14 @@ export async function releaseExpiredCapReservations(
     ...expiredWhere,
     settledAt: { ne: null },
   });
+  await writeDb.deleteMany(capReservationsTable, {
+    ...expiredWhere,
+    releasedAt: { ne: null },
+  });
   const expired = await writeDb.selectMany<Pick<CapReservationRow, "id">>(capReservationsTable, {
     ...expiredWhere,
     settledAt: null,
+    releasedAt: null,
   });
   for (const { id } of expired) {
     try {

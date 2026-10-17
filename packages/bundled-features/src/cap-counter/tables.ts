@@ -13,9 +13,12 @@ const CAP_RESERVATIONS_TENANT_CAP_EXPIRES_INDEX =
   "store_cap_reservations_tenant_id_cap_name_expires_at_idx";
 
 // One row per capacity that was booked before a handler transaction and is not settled yet. The
-// handler transaction deletes it on its own commit (confirm); a release or the TTL sweep deletes it
-// together with the counter decrement. A settle keeps the row as a tombstone (settled_at set) until
-// its shortened TTL passes, so a repeated settle or a late release finds it and does nothing.
+// handler transaction deletes it on its own commit (confirm). While a calendar row is open the
+// counter holds amount + consumed_amount for it. A release or the TTL sweep gives back amount and
+// keeps the row as a released tombstone (released_at set, amount 0, consumed_amount still booked)
+// until its shortened TTL passes, so a later consume or settle accounts for the consumed units.
+// A settle keeps the row as a settled tombstone (settled_at set) the same way, so a repeated settle
+// or a late release finds it and does nothing.
 // Unmanaged: the rows are a coordination aid, not state with an event history.
 export const capReservationsTable = pgTable(
   "store_cap_reservations",
@@ -30,6 +33,8 @@ export const capReservationsTable = pgTable(
     expiresAt: instant("expires_at").notNull(),
     createdAt: instant("created_at").notNull(),
     settledAt: instant("settled_at"),
+    consumedAmount: integer("consumed_amount").notNull().default(0),
+    releasedAt: instant("released_at"),
   },
   (t) => [index(CAP_RESERVATIONS_TENANT_CAP_EXPIRES_INDEX).on(t.tenantId, t.capName, t.expiresAt)],
 );
@@ -52,5 +57,7 @@ export const capReservationsTableMeta: EntityTableMeta = defineUnmanagedTable({
     { name: "expires_at", pgType: "timestamptz", notNull: true },
     { name: "created_at", pgType: "timestamptz", notNull: true },
     { name: "settled_at", pgType: "timestamptz", notNull: false },
+    { name: "consumed_amount", pgType: "integer", notNull: true, defaultSql: "0" },
+    { name: "released_at", pgType: "timestamptz", notNull: false },
   ],
 });
