@@ -3,12 +3,10 @@
 // nach drizzle-removal. Erstellt parallel zum legacy `db/connection.ts`
 // — apps migrieren schritt-für-schritt, alte Datei weg sobald 0 Konsumenten.
 //
-// **postgres-js** bleibt als kleiner Peer NUR für LISTEN/NOTIFY in
-// event-dispatcher.ts. Bun.sql 1.2.20 hat kein listen() (PR oven-sh/bun#25511
-// pending). Nach Landung des Bun-LISTEN-Supports: peer raus.
+// LISTEN for the event dispatcher uses Bun.SQL's listen() on its own
+// dedicated connection, outside the pool's idleTimeout.
 
 import type { PgListenClient } from "@cosmicdrift/kumiko-types/db-connection";
-import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse.js";
 
 export type { PgListenClient };
@@ -47,22 +45,11 @@ export function createBunDbConnection(
   }
   const db = new Bun.SQL(url, bunOpts);
 
-  // LISTEN-only peer — minimal pool (1 connection reicht), eigener idle/
-  // connect-timeout falls gesetzt. Wenn das wegfällt, läuft event-dispatcher
-  // auf polling-only ohne LISTEN-Wakeup.
-  const pgOpts: Parameters<typeof postgres>[1] = { max: 1 };
-  if (options.idleTimeoutSeconds !== undefined) pgOpts.idle_timeout = options.idleTimeoutSeconds;
-  if (options.connectTimeoutSeconds !== undefined) {
-    pgOpts.connect_timeout = options.connectTimeoutSeconds;
-  }
-  const listenClient = postgres(url, pgOpts);
-
   return {
     db,
-    listenClient,
+    listenClient: db,
     close: async () => {
       await db.end();
-      await listenClient.end();
     },
   };
 }

@@ -7,6 +7,8 @@
 //
 // Default: postgres-js. Set DB_PROVIDER=bun für Bun.SQL (experimentell).
 
+import type { PgListenClient } from "@cosmicdrift/kumiko-types/db-connection";
+
 export type DbConnectionOptions = {
   readonly maxConnections?: number;
   readonly idleTimeoutSeconds?: number;
@@ -19,18 +21,17 @@ export type DbConnectionOptions = {
 // close() must always bound how long shutdown waits.
 export const DEFAULT_DB_CLOSE_TIMEOUT_SECONDS = 5;
 
-// Connection-Handle: db für Queries, client für Legacy-Zugriff (LISTEN/NOTIFY-Peer
-// bei Bun.SQL), close für Pool-Shutdown.
+// Connection handle: db for queries, client as the raw driver client (also used
+// for LISTEN/NOTIFY), close for pool shutdown.
 export type DbPoolHandle = {
   /** Provider Connection — Calls gehen über asRawClient() oder direkt. */
   // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection — postgres-js | Bun.SQL
   readonly db: any;
-  /** Legacy postgres-js Client (für LISTEN peer) */
-  // biome-ignore lint/suspicious/noExplicitAny: postgres-js client
+  /** Raw driver client (postgres-js or Bun.SQL) */
+  // biome-ignore lint/suspicious/noExplicitAny: cross-provider client — postgres-js | Bun.SQL
   readonly client: any;
-  /** Optionaler Bun.SQL LISTEN peer */
-  // biome-ignore lint/suspicious/noExplicitAny: postgres-js LISTEN peer
-  readonly listenClient?: any;
+  /** LISTEN-capable client; Bun.SQL serves it from its own dedicated connection */
+  readonly listenClient?: PgListenClient;
   /** Pool schliessen */
   close: () => Promise<void>;
 };

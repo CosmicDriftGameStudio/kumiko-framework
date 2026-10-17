@@ -1,4 +1,4 @@
-import type { DbTx, PgClient } from "../db/connection.js";
+import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.js";
 import { extractPgError } from "../db/pg-error.js";
 import {
   recordConsumerPassFailure,
@@ -210,12 +210,12 @@ export type EventDispatcherOptions = {
   // consumer has delivery="per-instance"; createEventDispatcher throws on
   // boot if the invariant is violated, avoiding a later runtime surprise.
   readonly instanceId?: string;
-  // Optional raw postgres.js client for LISTEN/NOTIFY-based wake-up
+  // Optional LISTEN-capable client (postgres-js or Bun.SQL) for wake-up
   // (Sprint E.4). When present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL
   // and fires runOnce on each NOTIFY — delivery latency becomes TCP-round-
   // trip instead of pollIntervalMs. The polling timer remains active as a
   // safety net (missed NOTIFYs from crashes, subscription drops).
-  readonly pgClient?: PgClient;
+  readonly pgClient?: PgListenClient;
 };
 
 const DEFAULT_BATCH_SIZE = 200;
@@ -347,7 +347,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // to EVENTS_PUBSUB_CHANNEL; cleared by .stop(). The timer remains active
   // even with LISTEN attached — it's a cheap safety net against missed
   // NOTIFYs (subscription drop, crash mid-commit).
-  let pgUnlisten: (() => Promise<void>) | null = null;
+  let pgSubscription: PgListenSubscription | null = null;
 
   // Bounds how many consumer turns hold a DB transaction at once. Each turn's
   // db.begin() checks out one pool connection, plus any writes the handler
@@ -804,7 +804,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // succeeds (onlisten callback). It drops to 0 on the initial connect
       // failure, on stop() and when the idle pre-check detects a DB outage.
       // An outage shorter than one poll tick is not detected; the gauge then
-      // stays at 1 until postgres.js's delayed re-LISTEN lands.
+      // stays at 1 until the driver's delayed re-LISTEN lands.
       emitEventDispatcherListenConnected(meter, false);
       if (options.pgClient) {
         try {
@@ -812,10 +812,11 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
             EVENTS_PUBSUB_CHANNEL,
             runBackgroundPass,
             () => {
-              // Fires on initial connect and again when postgres.js's own
+              // Fires on initial connect and again when the driver's own
               // re-LISTEN lands after a drop; during an outage that re-LISTEN
-              // waits in its connection backoff (measured 10-30s after the DB
-              // returns), polling covers delivery meanwhile. Never unlisten()
+              // waits in its connection backoff (postgres-js: measured 10-30s
+              // after the DB returns, Bun.SQL: up to 32s), polling covers
+              // delivery meanwhile. Never unlisten()
               // + listen() by hand: that leaves duplicate listeners.
               // ponytail: no own LISTEN reconnect, the backoff gap is polled;
               // add a dedicated LISTEN connection if prod wires a pgClient
@@ -824,7 +825,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
               emitEventDispatcherListenConnected(meter, true);
             },
           );
-          pgUnlisten = sub.unlisten;
+          pgSubscription = sub;
         } catch (e) {
           emitEventDispatcherListenConnected(meter, false);
           const msg = e instanceof Error ? e.message : String(e);
@@ -843,12 +844,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         timer = null;
       }
 
-      if (pgUnlisten) {
-        await pgUnlisten().catch(() => {
+      if (pgSubscription) {
+        // Called on the subscription: Bun.SQL's unlisten is a prototype method.
+        await pgSubscription.unlisten().catch(() => {
           // skip: unlisten failure only matters during shutdown — the
           // subscription is being torn down anyway.
         });
-        pgUnlisten = null;
+        pgSubscription = null;
         listenSubscribed = false;
         emitEventDispatcherListenConnected(meter, false);
       }

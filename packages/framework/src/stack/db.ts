@@ -2,7 +2,7 @@
 // Provider-agnostic via createConnection (DB_PROVIDER env).
 // postgres-js = default. DB_PROVIDER=bun = Bun.SQL (experimentell).
 
-import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
+import type { DbConnection, PgListenClient } from "@cosmicdrift/kumiko-types/db-connection";
 import { createConnection } from "../db/api.js";
 import { DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX } from "../db/connection.js";
 import { createDatabase, databaseExists, dropDatabaseIfExists } from "../db/queries/test-stack.js";
@@ -22,7 +22,7 @@ function requireEnv(name: string): string {
 export type TestDb = {
   db: DbConnection;
   outsideTransactionDb: DbConnection;
-  client: unknown;
+  client: PgListenClient;
   dbName: string;
   cleanup: () => Promise<void>;
 };

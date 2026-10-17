@@ -4,10 +4,9 @@
 // 0A000 "cached plan must not change result type". prepare:false is no fix,
 // it changes how jsonb params are bound.
 //
-// The event dispatcher needs listen(channel, fn, onlisten) plus unlisten, which
-// Bun.SQL.listen lacks, hence the postgres-js LISTEN peer.
+// LISTEN runs on Bun.SQL's own dedicated connection, which is exempt from the
+// pool's idleTimeout and maxLifetime and re-LISTENs after a drop.
 
-import postgres from "postgres";
 import {
   type DbConnectionOptions,
   type DbPoolHandle,
@@ -22,21 +21,13 @@ export function createBunConnection(url: string, options: DbConnectionOptions = 
     bunOpts.connectionTimeout = options.connectTimeoutSeconds;
   const db = new Bun.SQL(url, bunOpts);
 
-  // LISTEN peer — 1 connection reicht für NOTIFY-Wakeups
-  const pgOpts: Parameters<typeof postgres>[1] = { max: 1 };
-  if (options.idleTimeoutSeconds !== undefined) pgOpts.idle_timeout = options.idleTimeoutSeconds;
-  if (options.connectTimeoutSeconds !== undefined)
-    pgOpts.connect_timeout = options.connectTimeoutSeconds;
-  const listenClient = postgres(url, pgOpts);
-
   const closeTimeout = options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS;
   return {
     db,
-    client: listenClient,
-    listenClient,
+    client: db,
+    listenClient: db,
     close: async () => {
       await db.end({ timeout: closeTimeout });
-      await listenClient.end({ timeout: closeTimeout });
     },
   };
 }

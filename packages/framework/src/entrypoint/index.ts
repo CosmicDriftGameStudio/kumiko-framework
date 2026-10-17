@@ -47,7 +47,7 @@ import type { JwtHelper, JwtKeyring } from "../api/jwt.js";
 import type { KumikoServer, ServerOptions } from "../api/server.js";
 import { buildServer, withFileProviderResolver } from "../api/server.js";
 import type { SseBroker } from "../api/sse-broker.js";
-import type { PgClient } from "../db/connection.js";
+import type { PgClient, PgListenClient } from "../db/connection.js";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
 import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types/index.js";
 import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner.js";
@@ -562,7 +562,6 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   };
 }
 
-// Keep PgClient imported so TS sees the import as used when callers take
-// our re-exported ServerOptions.eventDispatcher type (which references it).
-// Pure re-export of the concrete type is enough to anchor it.
-export type { PgClient };
+// Re-exported so callers of ServerOptions.eventDispatcher can name the
+// LISTEN client type it references.
+export type { PgClient, PgListenClient };

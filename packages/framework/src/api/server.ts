@@ -1,7 +1,7 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles.js";
-import type { DbConnection, PgClient } from "../db/connection.js";
+import type { DbConnection, PgListenClient } from "../db/connection.js";
 import { createProjectingTenantDb } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
 import { buildAppSchema } from "../engine/build-app-schema.js";
@@ -205,13 +205,12 @@ export type ServerOptions = {
       jobTrigger?: boolean;
       accessInvalidation?: boolean;
     };
-    // Raw postgres.js client for LISTEN/NOTIFY wake-up (Sprint E.4). When
+    // LISTEN-capable client (postgres-js or Bun.SQL) for NOTIFY wake-up. When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
     // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
     // stays on as a safety net. Typically wired from
-    // `createDbConnection(url).client` so both Drizzle-queries and the
-    // dispatcher share the same underlying postgres.js pool.
-    pgClient?: PgClient;
+    // `createConnection(url).client`.
+    pgClient?: PgListenClient;
   };
   // Observability: tracer + meter used for auto-instrumentation across
   // HTTP, dispatcher, pipeline, DB. Omitted => NoopProvider (zero overhead,
