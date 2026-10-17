@@ -80,7 +80,8 @@ test("mail-editor-chrome-rail", async ({ page }) => {
   const preview = page.frameLocator('[data-testid="mail-preview-iframe"]');
   await expect(preview.getByText("Neue Rechnung")).toBeVisible();
   await expect(preview.getByText("weil Sie Kunde bei uns sind")).toBeVisible();
-  // The unsaved draft keeps the page busy, so networkidle never settles; the asserted preview text is the ready signal.
+  // The dev server's live-reload stream (/_reload) stays open, so networkidle does not come back once the
+  // preview frame attaches here; the asserted preview text is the ready signal.
   await page.evaluate(() => document.fonts.ready);
   await captureScreenshot(page, "mail-editor-chrome-preview");
 });

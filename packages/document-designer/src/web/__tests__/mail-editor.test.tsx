@@ -353,7 +353,7 @@ describe("MailEditor", () => {
     });
   });
 
-  test("header chip, tone and footer note are edited in the rail and saved with the meta", async () => {
+  test("the rail keeps the stored header chip and footer note, and a changed tone is previewed and saved", async () => {
     const calls: Call[] = [];
     renderEditor(
       fakeDispatcher("draft", calls, validation, preview, {
