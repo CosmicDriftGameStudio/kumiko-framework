@@ -34,14 +34,11 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipEntity } from "../../tenant/membership-table.js";
 import { createUserFeature, userEntity } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { runForgetCleanup } from "../run-forget-cleanup.js";
-import {
-  createForgetSeeders,
-  nowInstant,
-  READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers.js";
+import { createForgetSeeders, nowInstant } from "./forget-test-helpers.js";
 
 const FORGET_USER = "eeeeeeee-eeee-4eee-8eee-000000000001";
 const TENANT_A = "00000000-0000-4000-8000-0000000000e1";
@@ -65,7 +62,7 @@ function baseFeatures(): NonNullable<Parameters<typeof setupTestStack>[0]["featu
 async function bootBaseTables(stack: TestStack): Promise<void> {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-  await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 }
 
 describe("escape-hatch declaration :: declared hook gets a real unfiltered DbRunner", () => {

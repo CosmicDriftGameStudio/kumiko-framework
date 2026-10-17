@@ -28,6 +28,8 @@ import {
 import {
   createTenantFeature,
   tenantInvitationEntity,
+  tenantMembershipEntity,
+  tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   createUserFeature,
@@ -89,23 +91,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, todoEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   // PR #177 hat fileRef zu einem Standard-ES-Entity gemacht (softDelete:
   // true). Die handgepflegte CREATE TABLE-Variante hätte die Spalten
   // is_deleted/deleted_at/deleted_by_id/version/modified_at/modified_by_id
@@ -138,14 +124,11 @@ async function seedAlice(): Promise<void> {
     roles: '["Member"]',
     status: USER_STATUS.Active,
   });
-  await asRawClient(stack.db).unsafe(
-    `
-    INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-    VALUES ($1, $2, '["Member"]')
-    ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `,
-    [tenantId, alice.id],
-  );
+  await seedRow(stack.db, tenantMembershipsTable, {
+    tenantId: tenantId,
+    userId: alice.id,
+    roles: '["Member"]',
+  });
 }
 
 describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {

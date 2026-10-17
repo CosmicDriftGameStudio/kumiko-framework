@@ -39,6 +39,7 @@ import {
 import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { createFilesFeature } from "../../files/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { tenantMembershipEntity } from "../../tenant/membership-table.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
@@ -49,7 +50,6 @@ import {
   createTestFileProviderFeature,
   type ForgetSeeders,
   nowInstant,
-  READ_TENANT_MEMBERSHIPS_DDL,
 } from "./forget-test-helpers.js";
 
 const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider";
@@ -117,7 +117,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, userSessionEntity);
   await unsafeCreateEntityTable(db, tenantRetentionOverrideEntity);
   await unsafePushTables(db, { fileRefsTable, configValuesTable });
-  await asRawClient(db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
+  await unsafeCreateEntityTable(db, tenantMembershipEntity);
 });
 
 afterAll(async () => {

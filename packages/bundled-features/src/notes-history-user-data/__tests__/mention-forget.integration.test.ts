@@ -56,6 +56,7 @@ import {
 } from "../../notes-history/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
 import { decryptStoredPii } from "../../shared/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
@@ -136,26 +137,9 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, invoiceEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { fileRefsTable });
-  // tenant-membership table (from the tenant feature) manually created — same
-  // minimal setup as run-forget-cleanup.integration.test.ts, no tenant feature
-  // mounted here.
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  // No tenant feature is mounted here, so the membership table the forget
+  // cleanup iterates is created from its entity.
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   await asRawClient(stack.db).unsafe(
     `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)
      ON CONFLICT (id) DO NOTHING`,
@@ -205,11 +189,11 @@ async function seedForgottenSubject(): Promise<void> {
     status: USER_STATUS.DeletionRequested,
     gracePeriodEnd: pastInstant(),
   });
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-     VALUES ($1, $2, '["Member"]') ON CONFLICT (user_id, tenant_id) DO NOTHING`,
-    [author.tenantId, SUBJECT_S],
-  );
+  await seedRow(stack.db, tenantMembershipsTable, {
+    tenantId: author.tenantId,
+    userId: SUBJECT_S,
+    roles: '["Member"]',
+  });
 }
 
 async function seedContactRetentionOverride(

@@ -30,9 +30,10 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipEntity } from "../../tenant/membership-table.js";
 import { createUserFeature, userEntity } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
-import { createForgetSeeders, READ_TENANT_MEMBERSHIPS_DDL } from "./forget-test-helpers.js";
+import { createForgetSeeders } from "./forget-test-helpers.js";
 
 const FORGET_USER = "ffffffff-ffff-4fff-8fff-000000000001";
 const TENANT_A = "00000000-0000-4000-8000-0000000000f9";
@@ -76,7 +77,7 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
     });
     await unsafeCreateEntityTable(stack.db, userEntity);
     await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-    await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
+    await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
     await asRawClient(stack.db).unsafe(`
       CREATE TABLE IF NOT EXISTS test_audited_entity (
         id UUID PRIMARY KEY,

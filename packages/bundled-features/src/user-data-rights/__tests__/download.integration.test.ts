@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -28,6 +28,7 @@ import {
 import {
   createTestEnvelopeCipher,
   resetTestTables,
+  seedRow,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -45,7 +46,7 @@ import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipsTable } from "../../tenant/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { runExportJobs } from "../run-export-jobs.js";
@@ -142,23 +143,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {
@@ -589,14 +574,11 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
       roles: ["Member"],
     });
     // Membership in Tenant B persisten damit auth-stack User akzeptiert
-    await asRawClient(stack.db).unsafe(
-      `
-      INSERT INTO read_tenant_memberships (tenant_id, user_id)
-      VALUES ($1, $2)
-      ON CONFLICT (user_id, tenant_id) DO NOTHING
-    `,
-      [tenantB, String(aliceUser.id)],
-    );
+    await seedRow(stack.db, tenantMembershipsTable, {
+      tenantId: tenantB,
+      userId: String(aliceUser.id),
+      roles: "[]",
+    });
 
     const result = await stack.http.queryOk<{ url: string }>(
       "user-data-rights:query:download-by-job",
@@ -625,14 +607,11 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
       tenantId: tenantB,
       roles: ["Member"],
     });
-    await asRawClient(stack.db).unsafe(
-      `
-      INSERT INTO read_tenant_memberships (tenant_id, user_id)
-      VALUES ($1, $2)
-      ON CONFLICT (user_id, tenant_id) DO NOTHING
-    `,
-      [tenantB, String(aliceUser.id)],
-    );
+    await seedRow(stack.db, tenantMembershipsTable, {
+      tenantId: tenantB,
+      userId: String(aliceUser.id),
+      roles: "[]",
+    });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-job",

@@ -55,14 +55,11 @@ import {
   tenantRetentionOverrideTable,
 } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipEntity } from "../../tenant/membership-table.js";
 import { createUserFeature, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { runForgetCleanup } from "../run-forget-cleanup.js";
-import {
-  createForgetSeeders,
-  nowInstant,
-  READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers.js";
+import { createForgetSeeders, nowInstant } from "./forget-test-helpers.js";
 
 const POLICY_FOR = "data-retention:query:policy-for";
 const CREATE_INVOICE = "test-invoice:write:create";
@@ -162,7 +159,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, invoiceEntity, "invoice");
-  await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {

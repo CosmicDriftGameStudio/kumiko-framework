@@ -31,6 +31,7 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { runForgetCleanup } from "../run-forget-cleanup.js";
@@ -98,17 +99,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, noteEntity);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      roles JSONB NOT NULL DEFAULT '[]',
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {
@@ -131,10 +122,11 @@ test("fw#1611: search purge finds + removes a row's doc even when a delete-hook 
     gracePeriodEnd: now.subtract({ hours: 1 }).toString(),
   });
 
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO read_tenant_memberships (tenant_id, user_id, roles) VALUES ($1, $2, '["Member"]')`,
-    [TENANT_A, ALICE_ID],
-  );
+  await seedRow(stack.db, tenantMembershipsTable, {
+    tenantId: TENANT_A,
+    userId: ALICE_ID,
+    roles: '["Member"]',
+  });
 
   await seedRow(stack.db, noteTable, {
     id: NOTE_ID,
