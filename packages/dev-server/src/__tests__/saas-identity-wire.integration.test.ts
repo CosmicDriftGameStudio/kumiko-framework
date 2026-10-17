@@ -54,19 +54,19 @@ import { userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
   deleteRows,
   updateRows,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
 import { composeIdentityStack, composeOpsStack, composeRendererStack } from "../compose-stacks.js";
 

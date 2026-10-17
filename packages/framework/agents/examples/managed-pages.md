@@ -180,13 +180,13 @@ import { BRANDING_QN, pageEntity } from "@cosmicdrift/kumiko-bundled-features/ma
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { configFeature, managedPagesCssFeature, managedPagesFeature } from "../feature";
 
 // Branding writes are tenant-scoped — the admin's tenantId must equal the

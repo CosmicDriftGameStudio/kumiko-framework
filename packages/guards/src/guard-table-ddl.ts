@@ -17,7 +17,8 @@
  *   - packages/framework/src/event-store/**          ES meta tables
  *   - packages/framework/src/pipeline/event-consumer-state.ts
  *   - packages/framework/src/pipeline/projection-state.ts
- *   - packages/framework/src/stack/**                test-stack helpers, pushEntityProjectionTables, helper definitions
+ *   - packages/framework/src/db/table-push.ts       the DDL helpers themselves
+ *   - packages/testing/src/stack/**                  test-stack helpers, pushEntityProjectionTables, helper definitions
  *   - **\/__tests__/**                               test setup
  *   - **\/drizzle/**                                 drizzle-kit configuration
  *   - **\/bin/migrate.ts                             app-owned migrate CLI
@@ -45,7 +46,8 @@ export const ALLOWLIST_PATTERNS: ReadonlyArray<RegExp> = [
   /\/packages\/framework\/src\/event-store\//,
   /\/packages\/framework\/src\/pipeline\/event-consumer-state\.ts$/,
   /\/packages\/framework\/src\/pipeline\/projection-state\.ts$/,
-  /\/packages\/framework\/src\/stack\//,
+  /\/packages\/framework\/src\/db\/table-push\.ts$/,
+  /\/packages\/testing\/src\/stack\//,
   /\/__tests__\//,
   /\/drizzle\//,
   /\/bin\/migrate\.ts$/,

@@ -10,6 +10,7 @@
 // guard leaves them alone — proven by the "direct column-write" test below.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient, insertOne, selectMany } from "../../db/query.js";
 import {
@@ -22,7 +23,7 @@ import { createRegistry } from "../../engine/registry.js";
 import { archiveStream, createArchivedStreamsTable } from "../../event-store/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
 import { createProjectionStateTable } from "../../pipeline/projection-state.js";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";

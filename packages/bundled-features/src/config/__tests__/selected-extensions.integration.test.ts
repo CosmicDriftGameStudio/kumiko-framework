@@ -6,14 +6,13 @@ import {
   defineFeature,
   selectablePluginIds,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers, ConfigQueries } from "../constants.js";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
 import { createConfigResolver } from "../resolver.js";

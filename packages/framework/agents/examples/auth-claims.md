@@ -43,7 +43,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "b
 import type { AuthClaimsContext } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature, readClaim } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveAuthClaims } from "@cosmicdrift/kumiko-framework/pipeline";
-import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   type BetaFlagStore,
   fakeSession,

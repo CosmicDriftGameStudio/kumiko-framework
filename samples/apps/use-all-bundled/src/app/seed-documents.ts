@@ -9,7 +9,7 @@ import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/t
 import { seedSystemTemplate } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { BETA_TENANT_ID, DEV_TENANT_ID, INVOICE_TEMPLATE_SLUG } from "./auth-constants";
 
 type Stack = Parameters<SeedFn>[0];

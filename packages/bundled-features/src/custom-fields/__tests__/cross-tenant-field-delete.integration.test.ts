@@ -20,14 +20,12 @@ import {
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
-  testUserId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { fieldDefinitionEntity } from "../entity.js";
 import { createCustomFieldsFeature } from "../feature.js";

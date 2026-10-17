@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
+import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
 import type { BoundApi } from "../seed-types";
-import { E2E_TIMEOUT_MS } from "./timeouts";
 
 export async function waitForProjection<T>(
   read: () => Promise<T>,

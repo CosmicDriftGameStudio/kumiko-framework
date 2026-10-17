@@ -53,7 +53,7 @@ import {
   normalizeListColumn,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
 

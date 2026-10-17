@@ -17,6 +17,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, insertOne, selectMany } from "../../db/query.js";
@@ -30,7 +35,6 @@ import {
 } from "../../engine/index.js";
 import { VersionConflictError } from "../../errors/index.js";
 import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
-import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack/index.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createSeedMigrationContext } from "../context.js";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema.js";

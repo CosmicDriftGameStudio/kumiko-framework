@@ -11,7 +11,7 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
 
 let stack: TestStack;

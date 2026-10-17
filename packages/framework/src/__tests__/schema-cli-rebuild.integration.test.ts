@@ -10,6 +10,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { integer, table as pgTable, uuid } from "../db/dialect.js";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
 import { writeRebuildMarker } from "../db/index.js";
@@ -20,13 +26,7 @@ import { createEntity, createTextField, defineApply, defineFeature } from "../en
 import type { ProjectionDefinition } from "../engine/types/index.js";
 import { createProjectionStateTable } from "../pipeline/index.js";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../stack/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../time/polyfill.js";
 
 const itemEntity = createEntity({

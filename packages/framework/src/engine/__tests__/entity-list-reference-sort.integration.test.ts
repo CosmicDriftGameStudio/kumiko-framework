@@ -4,14 +4,14 @@
 // entity name for a cross-feature reference).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { seedRows } from "../../testing/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import { defineEntityListHandler } from "../entity-handlers.js";
 import { createEntity, createTextField } from "../factories.js";

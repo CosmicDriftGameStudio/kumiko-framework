@@ -229,7 +229,7 @@ describe("cache sync bus resync", () => {
     signal.reconnect();
     signal.reconnect();
     expect(fired).toBe(1);
-    const { waitFor } = await import("../../testing/wait-for.js");
+    const { waitFor } = await import("@cosmicdrift/kumiko-testing/helpers");
     await waitFor(async () => fired === 2);
     await bus.close();
   });

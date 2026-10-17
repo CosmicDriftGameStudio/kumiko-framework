@@ -23,7 +23,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { hashPassword } from "../shared/index.js";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding.js";

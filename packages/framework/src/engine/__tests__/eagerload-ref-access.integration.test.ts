@@ -4,12 +4,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
 import { createEntity, createTextField } from "../factories.js";
 import { defineFeature } from "../index.js";
 import type { EntityDefinition, SessionUser } from "../types/index.js";

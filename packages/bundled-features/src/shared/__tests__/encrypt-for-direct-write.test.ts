@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { encryptForDirectWrite } from "../encrypt-for-direct-write.js";
 
 // Row-subject (`personal: { of: "id" }`) keys are derived from the entity

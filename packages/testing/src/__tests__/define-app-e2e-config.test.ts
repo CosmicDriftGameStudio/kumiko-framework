@@ -8,7 +8,6 @@ import {
 } from "@cosmicdrift/kumiko-dev-server";
 import { TRUSTED_PROXY_HOPS_ENV as FRAMEWORK_TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
 import { SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
-import { REAL_PROVIDERS_ENV } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   E2E_WORKERS_ENV,
   PLAYWRIGHT_DEMO_ENV,
@@ -23,7 +22,8 @@ import {
   type E2eProject,
   resolveE2eWorkers,
 } from "../e2e/define-app-e2e-config";
-import { E2E_TIMEOUT_MS } from "../e2e/timeouts";
+import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
+import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.js";
 
 const TOUCHED_ENV = [
   SEED_TOKEN_ENV,

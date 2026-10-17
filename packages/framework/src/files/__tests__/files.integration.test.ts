@@ -2,6 +2,20 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  buildMultipartBody,
+  expectErrorIncludes,
+  patchFileInstanceofForBunTest,
+  resetPiiSubjectKmsForTests,
+  zipWithEntries,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createRequestHelper,
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
 import type { JwtHelper } from "../../api/jwt.js";
 import { buildServer } from "../../api/server.js";
@@ -20,22 +34,8 @@ import {
   type SessionUser,
 } from "../../engine/index.js";
 import { loadAggregate } from "../../event-store/index.js";
-import {
-  createRequestHelper,
-  createTestDb,
-  createTestUser,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack/index.js";
-import {
-  buildMultipartBody,
-  expectErrorIncludes,
-  patchFileInstanceofForBunTest,
-  resetPiiSubjectKmsForTests,
-} from "../../testing/index.js";
-import { zipWithEntries } from "../../testing/zip-fixture.js";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
+
 import { createFilesFeature } from "../feature.js";
 import { fileRefsTable } from "../file-ref-table.js";
 import type { FileRoutesOptions } from "../file-routes.js";

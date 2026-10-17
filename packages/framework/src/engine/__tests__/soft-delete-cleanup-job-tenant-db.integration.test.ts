@@ -1,16 +1,16 @@
 // fw#2914 — soft-delete cleanup runs through the real job runner with ctx.db as a
 // tenant-filtered TenantDb: a run purges only its own tenant's expired rows.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query.js";
-import { selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { asRawClient } from "../../bun-db/query.js";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import {
   createEntity,
   createTextField,

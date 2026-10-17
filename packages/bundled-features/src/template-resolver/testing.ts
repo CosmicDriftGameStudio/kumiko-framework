@@ -3,7 +3,7 @@
 // No bun:test here — callers register cases with their own test runner.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import type { ResolveRequest, TemplateResource } from "./api.js";
 import { TemplateNotFoundError } from "./api.js";
 import {

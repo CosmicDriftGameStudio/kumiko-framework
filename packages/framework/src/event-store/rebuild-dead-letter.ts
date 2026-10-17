@@ -16,7 +16,7 @@
 import type { DbConnection, DbRunner } from "../db/connection.js";
 import { bigint, index, jsonb, table as pgTable, text, timestamp, uuid } from "../db/dialect.js";
 import { tableExists } from "../db/schema-inspection.js";
-import { unsafePushTables } from "../stack/index.js";
+import { unsafePushTables } from "../db/table-push.js";
 import type { StoredEvent } from "./event-store.js";
 
 export const rebuildDeadLetterTable = pgTable(

@@ -34,13 +34,7 @@ import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-fram
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createMetricsForFactory } from "@cosmicdrift/kumiko-framework/observability";
-import {
-  pushEntityProjectionTables,
-  setupTestStack,
-  type TestStack,
-  type TestStackOptions,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   type PageHeadResolver,
   type PageHeadSystemQuery,
@@ -70,6 +64,12 @@ import {
   stripNoRouteMatchHeader,
   tryHonoFirst,
 } from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
+import {
+  pushEntityProjectionTables,
+  setupTestStack,
+  type TestStack,
+  type TestStackOptions,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { isPersistentDevDb } from "./is-persistent-dev-db.js";
 

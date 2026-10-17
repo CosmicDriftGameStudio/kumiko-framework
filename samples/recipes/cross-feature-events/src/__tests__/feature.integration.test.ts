@@ -13,13 +13,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { capturedEvents, orderEntity, pubsubOrderFeature } from "../feature";
 
 let stack: TestStack;

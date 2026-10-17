@@ -45,8 +45,8 @@ import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { Redis } from "ioredis";
 import postgres from "postgres";

@@ -13,7 +13,7 @@ import {
 } from "../db/dialect.js";
 import { alterTableAddColumn } from "../db/queries/ddl.js";
 import { tableExists } from "../db/schema-inspection.js";
-import { unsafePushTables } from "../stack/index.js";
+import { unsafePushTables } from "../db/table-push.js";
 
 // Reserved sentinel used in the instance_id column for consumers whose
 // delivery is "shared" — i.e. one cursor across all dispatcher instances

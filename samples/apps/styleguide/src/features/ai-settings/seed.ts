@@ -1,7 +1,7 @@
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
 import { ANTHROPIC_CONNECTION_ID, OPENROUTER_CONNECTION_ID } from "./catalog";
 import { connectionEntity } from "./feature";

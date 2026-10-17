@@ -10,12 +10,8 @@ import {
   createInMemoryFileProvider,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
 import * as z from "zod";
 import { createConfigFeature } from "../../config/index.js";

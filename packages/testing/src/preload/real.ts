@@ -1,4 +1,4 @@
-import { requireRealProviders } from "@cosmicdrift/kumiko-framework/testing";
+import { requireRealProviders } from "../helpers/real-providers.js";
 import "./schema-env-defaults";
 import "./service-env-defaults";
 

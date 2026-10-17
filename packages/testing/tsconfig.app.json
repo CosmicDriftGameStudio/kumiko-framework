@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist/app",
+    "rootDir": ".",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "./src/index.ts",
+    "./src/seed-*.ts",
+    "./src/setup-app-test-stack.ts",
+    "./src/scaffold.ts",
+    "./src/e2e",
+    "./src/__tests__",
+    "./src/stack/__tests__",
+    "./src/helpers/__tests__",
+    "./bin/__tests__"
+  ],
+  "references": [
+    { "path": "./tsconfig.json" },
+    { "path": "../framework" },
+    { "path": "../bundled-features" },
+    { "path": "../dev-server" }
+  ]
+}

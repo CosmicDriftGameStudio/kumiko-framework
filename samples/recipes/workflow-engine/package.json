@@ -5,5 +5,8 @@
   "scripts": {
     "test": "bun test",
     "test:run": "bun test"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
   }
 }

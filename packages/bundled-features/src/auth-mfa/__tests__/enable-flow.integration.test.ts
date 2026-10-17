@@ -1,17 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher, expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  createTestEnvelopeCipher,
-  expectErrorIncludes,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";

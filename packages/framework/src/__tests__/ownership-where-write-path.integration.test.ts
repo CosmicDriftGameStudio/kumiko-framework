@@ -10,6 +10,12 @@
 // instead of a 500.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../db/query.js";
 import {
   createEntity,
@@ -19,15 +25,7 @@ import {
   defineFeature,
 } from "../engine/index.js";
 import type { OwnershipRule, SessionUser, WhereRule } from "../engine/types/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
-import { expectErrorIncludes } from "../testing/index.js";
+import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.js";
 
 const ownerWhereRule: WhereRule = {
   kind: "where",

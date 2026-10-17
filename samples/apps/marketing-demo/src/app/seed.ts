@@ -9,7 +9,7 @@
 // nur Logik: Random-Generator, Datums-Helper, der eigentliche Seed.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { countAssetsForTenant, countTicketsForTenant } from "../db/queries/seed-counts";
 import { ASSET_STATUSES } from "../features/assets/schema";

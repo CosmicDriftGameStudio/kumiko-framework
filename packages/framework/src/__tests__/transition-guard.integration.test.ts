@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
+import { expectErrorIncludes, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
 import { buildEntityTable } from "../db/table-builder.js";
@@ -10,13 +15,7 @@ import {
   createTextField,
   defineFeature,
 } from "../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
-import { expectErrorIncludes } from "../testing/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 
 // Two entities, both with a field named `status`, but different transitions.
 // Before the fix, the dispatcher cached the transition map by `fieldName`

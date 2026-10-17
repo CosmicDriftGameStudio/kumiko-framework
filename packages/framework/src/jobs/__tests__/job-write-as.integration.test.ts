@@ -9,6 +9,8 @@
 // to the actor rather than to SYSTEM.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { ROLES } from "../../auth/roles.js";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
@@ -26,8 +28,6 @@ import { createWorkerEntrypoint } from "../../entrypoint/index.js";
 import { createArchivedStreamsTable } from "../../event-store/index.js";
 import { flushEscapeHatchAudits } from "../../observability/index.js";
 import { createEventConsumerStateTable } from "../../pipeline/index.js";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
 import { createJobRunner } from "../job-runner.js";
 
 const ADMIN_USER_ID = "11111111-1111-4111-8111-111111111111";

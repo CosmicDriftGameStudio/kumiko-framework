@@ -9,7 +9,7 @@
 // bei jedem Restart neu geseeded sonst.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
 const STATUSES = ["draft", "active", "blocked", "done"] as const;
 

@@ -15,6 +15,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   assertNotificationVariables,
+  bridgeStub,
   createSystemUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
@@ -24,7 +25,6 @@ import {
   createEscapeHatchReporter,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { fileContextFromResolver } from "../file-foundation/index.js";

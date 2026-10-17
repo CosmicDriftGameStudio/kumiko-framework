@@ -24,6 +24,9 @@
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*"
   },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",

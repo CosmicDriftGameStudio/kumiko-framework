@@ -31,20 +31,20 @@ import {
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   expectSuccess,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { configValueEntity, createConfigFeature } from "../../config/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";

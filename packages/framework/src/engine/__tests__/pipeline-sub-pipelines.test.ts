@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "bun:test";
 import * as z from "zod";
-import { TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineWriteHandler } from "../define-handler.js";
 import { stepsPipeline } from "../pipeline.js";
 import { buildBranchStep } from "../steps/branch.js";

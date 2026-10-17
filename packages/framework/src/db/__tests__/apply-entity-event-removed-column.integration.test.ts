@@ -3,15 +3,15 @@
 // rebuild must drop the unknown column instead of failing the whole rebuild.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { append } from "../../event-store/index.js";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { append } from "../../event-store/index.js";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { asRawClient } from "../query.js";
 import { buildEntityTable } from "../table-builder.js";

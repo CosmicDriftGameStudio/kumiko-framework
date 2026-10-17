@@ -7,16 +7,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
 import * as z from "zod";
 import { createConfigFeature } from "../../config/index.js";

@@ -1,6 +1,6 @@
 // @runtime tooling
-import { REAL_PROVIDERS_ENV } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import { BUNFIG_FILES, renderBunfigFiles, TEST_TIMEOUT_MS } from "./bunfig";
+import { REAL_PROVIDERS_ENV } from "./helpers/real-providers.js";
 
 export type ScaffoldTestSetup = {
   readonly files: Readonly<Record<string, string>>;
@@ -140,8 +140,8 @@ function renderUnitTest(): string {
 function renderIntegrationTest(): string {
   return [
     'import { afterAll, beforeAll, describe, expect, test } from "bun:test";',
-    'import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";',
     'import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";',
+    'import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";',
     'import { tasksFeature } from "../features/tasks";',
     "",
     `const TASK_CREATE = ${JSON.stringify(TASK_CREATE)};`,

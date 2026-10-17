@@ -4,7 +4,7 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverApi, TemplateNotFoundError } from "../api.js";
 import { createTemplateResolverFeature } from "../feature.js";
 import { templateResourceEntity } from "../table.js";

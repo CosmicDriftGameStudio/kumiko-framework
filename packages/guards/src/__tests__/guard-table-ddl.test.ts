@@ -18,9 +18,9 @@ describe("Table-DDL Guard", () => {
     expect(findings[0]?.symbol).toBe("unsafePushTables");
   });
 
-  test("allows unsafeCreateEntityTable() inside packages/framework/src/stack/", () => {
+  test("allows unsafeCreateEntityTable() inside packages/testing/src/stack/", () => {
     const sf = fileAt(
-      "packages/framework/src/stack/seed.ts",
+      "packages/testing/src/stack/seed.ts",
       'import { unsafeCreateEntityTable } from "./ddl";\nexport const run = () => unsafeCreateEntityTable();',
     );
     expect(collectFindings(sf, process.cwd())).toHaveLength(0);

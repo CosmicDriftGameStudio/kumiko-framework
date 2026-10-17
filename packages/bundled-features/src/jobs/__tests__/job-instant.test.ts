@@ -4,7 +4,7 @@
 // globalThis.Temporal.
 
 import { describe, expect, test } from "bun:test";
-import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
+import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { parseJobInstant } from "../job-instant.js";
 
 describe("parseJobInstant — kumiko-framework#1525: no ambient Temporal global", () => {

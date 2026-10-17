@@ -9,14 +9,14 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createInMemoryTransport } from "../../channel-email/types.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { configValuesTable } from "../../config/table.js";

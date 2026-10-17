@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import type { TableColumns } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -16,12 +21,7 @@ import {
 } from "../../engine/index.js";
 import { UnprocessableError, writeFailure } from "../../errors/index.js";
 import { RedisKeys } from "../../pipeline/redis-keys.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({

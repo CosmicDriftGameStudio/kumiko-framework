@@ -9,13 +9,14 @@ import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-fr
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
-import { type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   seedRow,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { AuthHandlers } from "../../auth-email-password/index.js";
 import { tenantInvitationsTable } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";

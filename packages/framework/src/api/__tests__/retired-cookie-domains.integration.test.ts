@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import type { AuthRoutesConfig } from "../auth-routes.js";
 import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 

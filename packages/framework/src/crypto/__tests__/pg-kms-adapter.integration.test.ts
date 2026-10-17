@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
+import { createTestDb } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
-import { createTestDb } from "../../stack/db.js";
 import { type KmsContext, type SubjectId, subjectIdToKey } from "../kms-adapter.js";
 import { resolveKmsWiring } from "../kms-wiring.js";
 import { PgKmsAdapter } from "../pg-kms-adapter.js";

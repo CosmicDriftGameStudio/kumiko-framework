@@ -2,8 +2,8 @@
 // the server's rate-limit resolver before the handler (and guards) run.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { defineFeature } from "../../engine/index.js";
-import { setupTestStack, type TestStack } from "../../stack/index.js";
 
 let handlerCalls = 0;
 

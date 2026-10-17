@@ -8,7 +8,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";

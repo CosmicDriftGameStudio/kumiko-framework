@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature } from "../../tenant/index.js";

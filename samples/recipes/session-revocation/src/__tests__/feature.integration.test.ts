@@ -35,15 +35,14 @@ import {
   userEntity,
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
 import { createSessionCallbacks, createSessionsFeature } from "../feature";
 

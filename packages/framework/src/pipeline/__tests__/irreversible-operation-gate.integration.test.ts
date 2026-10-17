@@ -4,14 +4,15 @@
 // Real HTTP calls + setupTestStack — never createTestDispatcher.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import type { Registry } from "../../engine/types/index.js";
 import { resolveAgentExposure } from "../../engine/types/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const admin = TestUsers.admin;
 const NONEXISTENT_ID = "00000000-0000-4000-8000-00000000dead";

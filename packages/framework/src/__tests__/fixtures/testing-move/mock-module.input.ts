@@ -1,0 +1,4 @@
+import { mock } from "bun:test";
+
+mock.module("@cosmicdrift/kumiko-framework/testing/real-providers", () => ({ isRealProviderRun: () => true }));
+mock.module("@cosmicdrift/kumiko-framework/crypto", () => ({}));

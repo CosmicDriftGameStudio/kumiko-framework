@@ -11,12 +11,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createJobsFeature } from "../feature.js";
 import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../handlers/retention-cleanup.job.js";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";

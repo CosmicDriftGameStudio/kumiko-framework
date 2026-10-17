@@ -7,7 +7,8 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { selectMany } from "../../bun-db/index.js";
 import { buildEntityTable } from "../../db/index.js";
 import {
@@ -19,13 +20,7 @@ import {
 } from "../../engine/index.js";
 import { createFilesFeature, createInMemoryFileProvider } from "../../files/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import {
-  createTestUser,
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "../../stack/index.js";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
 import { configurePiiSubjectKms } from "../pii-field-encryption.js";
 

@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { tenantDbRunner } from "../../db/tenant-db-runner.js";
 import { createRegistry, defineFeature, type Registry } from "../../engine/index.js";
-import { createTestRedis, type TestRedis, testTenantId } from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import { createJobRunner, type JobRunner } from "../job-runner.js";
 
 // r.systemScope() is feature-level (define-feature.ts), not per-job — so two

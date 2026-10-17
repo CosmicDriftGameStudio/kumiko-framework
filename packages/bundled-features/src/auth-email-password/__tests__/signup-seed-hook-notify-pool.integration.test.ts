@@ -5,13 +5,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature, HookPhases, type NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { createChannelInAppFeature } from "../../channel-in-app/feature.js";
 import { inAppMessagesTable } from "../../channel-in-app/tables.js";

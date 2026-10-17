@@ -2,7 +2,12 @@
 // plaintext in derived search index, purged on subject erase.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
@@ -21,12 +26,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { purgeSearchDocumentsForSubject } from "../purge-subject.js";
 
 const contactEntity = createEntity({

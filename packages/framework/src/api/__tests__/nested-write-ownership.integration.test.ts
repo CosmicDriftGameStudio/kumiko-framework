@@ -8,6 +8,11 @@
 // setupTestStack + stack.http.write — never createTestDispatcher.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { executeRawQuery } from "../../db/queries/raw-sql.js";
@@ -20,13 +25,7 @@ import {
   from,
   SYSTEM_TENANT_ID,
 } from "../../engine/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 
 // project2/task2: same-tenant ownership scenario (b/c). ownerId is an
 // ownership-bound field — checkWriteFieldOwnership evaluates it.

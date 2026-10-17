@@ -1,4 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../../db/query.js";
@@ -14,12 +19,7 @@ import {
 } from "../../engine/index.js";
 import type { HandlerContext } from "../../engine/types/index.js";
 import { UnprocessableError, writeFailure } from "../../errors/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
 // the inner via ctx.queryAs / ctx.writeAs. We verify:

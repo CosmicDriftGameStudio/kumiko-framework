@@ -4,8 +4,8 @@
 // onlisten again (the dispatcher's listen_connected gauge hangs off that).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
-import { waitFor } from "../../testing/index.js";
+import { testDatabaseUrl, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+
 import { createBunConnection } from "../bun-provider.js";
 import type { DbPoolHandle, PgListenSubscription } from "../connection.js";
 import { asRawClient } from "../query.js";

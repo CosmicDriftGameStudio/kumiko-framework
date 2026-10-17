@@ -2,7 +2,7 @@ import type { AnyDb } from "../query.js";
 import { asRawClient } from "../query.js";
 import { quoteTableIdent } from "./table-ops.js";
 
-// Generic DDL helpers used on the prod-boot path (stack/table-helpers.ts's
+// Generic DDL helpers used on the prod-boot path (db/table-push.ts's
 // unsafePushTables, event-consumer-state.ts's multi-instance backfill) —
 // split out of queries/test-stack.ts so a prod-boot import doesn't point at
 // a module named for test-only concerns (truncate/create/drop-database).

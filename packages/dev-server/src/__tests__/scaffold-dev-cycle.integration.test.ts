@@ -18,12 +18,12 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import {
   pushEntityProjectionTables,
   setupTestStack,
   type TestStack,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 
 const baseEntity = createEntity({
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },

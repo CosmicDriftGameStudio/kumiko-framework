@@ -30,7 +30,7 @@ describe("classifyByPath — test-runtime patterns", () => {
   });
 
   test("matches testing/ directory anywhere in the path", () => {
-    expect(classifyByPath("packages/framework/src/testing/helpers.ts")).toBe("test");
+    expect(classifyByPath("packages/testing/src/helpers/helpers.ts")).toBe("test");
   });
 
   test("matches a file literally named testing.ts", () => {

@@ -1,4 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   InMemoryKmsAdapter,
   PII_CIPHERTEXT_PREFIX,
@@ -10,14 +16,7 @@ import type { EntityId } from "../../engine/types/index.js";
 import { FrameworkReasons } from "../../errors/index.js";
 import { append, loadEventsAfterVersion } from "../../event-store/index.js";
 import type { EntityCache } from "../../pipeline/entity-cache.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { createTestEnvelopeCipher } from "../../testing/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import { applyEntityEvent } from "../apply-entity-event.js";
 import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption.js";
 import { createEventStoreExecutor, WritePurposes } from "../event-store-executor.js";

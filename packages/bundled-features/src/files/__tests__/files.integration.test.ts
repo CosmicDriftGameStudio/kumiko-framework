@@ -9,7 +9,7 @@
 
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 
 // Native dialect exposes column metadata on the `columns` array (EntityTableMeta)
 // and on the Symbol.for("kumiko:schema:Columns") map (compat shape). Tests use the

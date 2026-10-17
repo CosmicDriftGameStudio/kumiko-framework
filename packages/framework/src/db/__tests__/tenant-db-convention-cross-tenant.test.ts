@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { EscapeHatchKind } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { InternalError } from "../../errors/index.js";
-import { testTenantId } from "../../stack/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import type { DbRunner } from "../connection.js";
 import * as dbIndex from "../index.js";
 import {

@@ -7,17 +7,15 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
-  createTestUser,
   type TestDb,
   type TestRedis,
-  TestUsers,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { sleep } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
 import { JobHandlers, JobQueries } from "../constants.js";
 import { createJobsFeature } from "../feature.js";

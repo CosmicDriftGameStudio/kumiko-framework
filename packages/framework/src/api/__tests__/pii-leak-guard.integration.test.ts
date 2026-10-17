@@ -4,7 +4,8 @@
 // KMS is configured — a leaked ciphertext can outlive the KMS config (#2467).
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import {
   configuredPiiSubjectKms,
@@ -13,7 +14,7 @@ import {
 } from "../../crypto/index.js";
 import { defineFeature } from "../../engine/define-feature.js";
 import { defineQueryHandler } from "../../engine/define-handler.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const CIPHERTEXT =
   "kumiko-pii:v2:user:6b2f4a0e-1c9d-4f3a-9d2e-00000000000a:8e2Rkjj+wwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";

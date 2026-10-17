@@ -81,15 +81,15 @@ import {
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
   type TestDb,
   type TestRedis,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createMailTriageFeature, triageInbox } from "../feature";
 
 const JWT = "inbound-mail-triage-secret-minimum-32-chars!";

@@ -9,12 +9,12 @@ import {
   createInMemoryFileProvider,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { patchFileInstanceofForBunTest } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { patchFileInstanceofForBunTest } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.js";
 import { parseLinkedResourceEntries } from "../linked-resources.js";
 import { seedSystemTemplateBundle } from "../seeding.js";

@@ -6,12 +6,12 @@
 // Test rennt jetzt beim CI mit, damit die Regression nicht wiederkommt.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { itemsFeature } from "../features/items/feature";
 import { itemEntity } from "../features/items/schema";
 

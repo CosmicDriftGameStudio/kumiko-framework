@@ -13,16 +13,16 @@ import {
   type TenantId,
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
-  createTestUser,
   setupTestStack,
   type TestDb,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import type { TierMap } from "../compose-app.js";
 import { tierAssignmentEntity } from "../entity.js";

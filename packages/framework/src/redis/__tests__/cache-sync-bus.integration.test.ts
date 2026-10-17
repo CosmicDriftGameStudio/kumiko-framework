@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { Redis } from "ioredis";
-import { createTestRedis, type TestRedis } from "../../stack/redis.js";
-import { waitFor } from "../../testing/wait-for.js";
 import { createRedisCacheSyncBus } from "../cache-sync-bus.js";
 
 // Real Redis: two buses stand in for two pods, and CLIENT KILL severs the

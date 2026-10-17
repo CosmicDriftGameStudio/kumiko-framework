@@ -9,18 +9,17 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import { createConfigFeature } from "../../config/index.js";

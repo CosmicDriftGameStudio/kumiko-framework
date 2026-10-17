@@ -5,17 +5,17 @@
 // so the cached path is reached through a handler that passes ctx.entityCache.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { seedRows } from "../../testing/index.js";
+import { createTestUser } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import { createEntity, createTextField } from "../factories.js";
 import type { EntityDefinition } from "../types/index.js";

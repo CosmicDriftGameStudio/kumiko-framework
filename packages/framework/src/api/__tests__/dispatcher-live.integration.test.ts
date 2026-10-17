@@ -1,18 +1,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { generateToken } from "../../api/tokens.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId } from "../../utils/index.js";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.

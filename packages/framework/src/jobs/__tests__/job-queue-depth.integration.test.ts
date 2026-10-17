@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import type { AppContext, Registry } from "../../engine/types/index.js";
 import { createPrometheusMeter, registerStandardMetrics } from "../../observability/index.js";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
-import { sleep } from "../../testing/index.js";
 import { createJobRunner } from "../job-runner.js";
 
 let testRedis: TestRedis;

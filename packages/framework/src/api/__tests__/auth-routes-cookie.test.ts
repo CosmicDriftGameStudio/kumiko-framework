@@ -6,12 +6,12 @@
 // auth-cookie sample integration test.
 
 import { describe, expect, test } from "bun:test";
+import { getSetCookieRaw, getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import type { SessionUser } from "../../engine/types/index.js";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { TestUsers } from "../../stack/index.js";
-import { getSetCookieRaw, getSetCookies } from "../../testing/http-cookies.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { PUBLIC_API_PATHS } from "../api-constants.js";
 import { authMiddleware } from "../auth-middleware.js";
 import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes.js";

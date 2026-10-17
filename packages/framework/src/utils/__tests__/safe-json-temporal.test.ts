@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { withoutAmbientTemporal } from "../../testing/without-ambient-temporal.js";
 import { stringifyJson } from "../safe-json.js";
 
 describe("stringifyJson — Temporal.Instant without ambient Temporal", () => {

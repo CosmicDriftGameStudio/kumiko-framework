@@ -31,20 +31,19 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
 import { createMeilisearchAdapter } from "@cosmicdrift/kumiko-framework/search/meilisearch";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/index.js";

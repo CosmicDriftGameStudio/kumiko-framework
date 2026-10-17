@@ -1,16 +1,15 @@
-// Projection-Rebuild Performance — NOT a perf gate, a "not-broken" gate.
+// Projection-Rebuild volume — deterministic, no wall-clock threshold.
 //
-// Asserts the current rebuildProjection() pipeline (registry + state-table
-// + status-lifecycle wrapper) still moves bulk events at a sane rate. The
-// real performance number is what we observe in isolation: 14–15k events/s
-// on this hardware. The threshold below is intentionally loose because
-// vitest runs integration suites in parallel — other files hammer the same
-// Postgres at the same time, and an I/O-bound rebuild shares bandwidth.
-//
-// Threshold: 1500 events/s (median of 3 rebuilds). Catches ~3× regressions;
-// cdgs-runner under Docker-PG typically lands ~2–4k, isolated dev ~14k.
+// Replays 10k seeded events through the real rebuildProjection() pipeline
+// (registry + state table + status-lifecycle wrapper) and asserts exact
+// counts: events consumed, apply calls per event type, the resulting
+// counter row, and the number of batch reads. A rebuild that drops, repeats
+// or re-batches events fails here regardless of how fast the host is.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
+import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import postgres from "postgres";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
 import { asRawClient } from "../../db/query.js";
@@ -22,9 +21,10 @@ import {
 } from "../../engine/index.js";
 import type { ProjectionDefinition } from "../../engine/types/index.js";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers, unsafePushTables } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId as uuid } from "../../utils/index.js";
+import { REBUILD_BATCH_SIZE } from "../projection-rebuild.js";
 
 // Counter projection: every task.created bumps a counter, every
 // task.updated is a no-op. Enough to exercise the apply path —
@@ -35,21 +35,22 @@ const taskCountTable = pgTable("read_perf_rebuild_task_count", {
   count: integer("count").notNull().default(0),
 });
 
+const applyCalls = { created: 0, updated: 0 };
+
 const taskCountProjection: ProjectionDefinition = {
   name: "task-count",
   source: "task",
   table: taskCountTable,
   apply: {
     "task.created": async (event, tx) => {
+      applyCalls.created++;
       await asRawClient(tx).unsafe(
         `INSERT INTO "read_perf_rebuild_task_count" (tenant_id, count) VALUES ($1, 1) ON CONFLICT (tenant_id) DO UPDATE SET count = read_perf_rebuild_task_count.count + 1`,
         [event.tenantId],
       );
     },
     "task.updated": async (_event, _tx) => {
-      // No-op apply — measuring event-iteration overhead, not per-event
-      // DB roundtrips. 10k events/s with one row-update per event would
-      // be an I/O-bound test, not a rebuild-throughput test.
+      applyCalls.updated++;
     },
   },
 };
@@ -66,6 +67,8 @@ const feature = defineFeature("perfrebuild", (r) => {
 
 const admin = TestUsers.admin;
 let testDb: BunTestDb;
+let observedDb: ReturnType<typeof postgres>;
+const batchReadLimits: unknown[] = [];
 const registry = createRegistry([feature]);
 const qualifiedProjectionName = "perfrebuild:projection:task-count";
 
@@ -74,11 +77,24 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { perf_rebuild_task_count: taskCountTable });
+  // postgres-js reports every statement through `debug`; the rebuild runs on this
+  // connection so its batch SELECTs can be counted without a production hook.
+  observedDb = postgres(testDatabaseUrl().replace(/\/[^/]+$/, `/${testDb.dbName}`), {
+    max: 2,
+    debug: (_connection, query, parameters) => {
+      if (isRebuildBatchRead(query)) batchReadLimits.push(parameters[3]);
+    },
+  });
 });
 
 afterAll(async () => {
+  await observedDb.end({ timeout: 5 });
   await testDb.cleanup();
 });
+
+function isRebuildBatchRead(query: string): boolean {
+  return query.includes('FROM "kumiko_events" e') && query.includes("LIMIT $4");
+}
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
@@ -120,33 +136,37 @@ async function seedEvents(count: number, depth: number): Promise<void> {
   }
 }
 
-describe("rebuildProjection performance — Gate A", () => {
-  test("rebuild rate >= 1.5k events/sec (median of 3 runs, 10000 events)", async () => {
+describe("rebuildProjection volume", () => {
+  test("replays 10000 events exactly once and reads them in batches", async () => {
     await seedEvents(2000, 5);
+    applyCalls.created = 0;
+    applyCalls.updated = 0;
+    batchReadLimits.length = 0;
+    let shadowBuilds = 0;
 
-    const rates: number[] = [];
-    for (let run = 0; run < 3; run++) {
-      await asRawClient(testDb.db).unsafe(
-        `TRUNCATE read_perf_rebuild_task_count, kumiko_projections RESTART IDENTITY CASCADE`,
-      );
+    const result = await rebuildProjection(qualifiedProjectionName, {
+      db: observedDb,
+      registry,
+      __test_onBuildShadowTable: () => {
+        shadowBuilds++;
+      },
+    });
 
-      const start = performance.now();
-      const result = await rebuildProjection(qualifiedProjectionName, {
-        db: testDb.db,
-        registry,
-      });
-      const durationMs = performance.now() - start;
+    expect(result.eventsProcessed).toBe(10_000);
+    expect(result.eventsSkipped).toBe(0);
+    expect(applyCalls).toEqual({ created: 2000, updated: 8000 });
+    expect(shadowBuilds).toBe(1);
 
-      expect(result.eventsProcessed).toBe(10_000);
-      rates.push(result.eventsProcessed / (durationMs / 1000));
-    }
-
-    rates.sort((a, b) => a - b);
-    const median = rates[Math.floor(rates.length / 2)] ?? 0;
-    console.log(
-      `  Rebuild median: ${Math.round(median)} events/s (samples: ${rates.map((r) => Math.round(r)).join(", ")})`,
+    const rows = await asRawClient(testDb.db).unsafe(
+      `SELECT count FROM read_perf_rebuild_task_count WHERE tenant_id = $1`,
+      [admin.tenantId],
     );
+    expect(rows).toEqual([{ count: 2000 }]);
 
-    expect(median).toBeGreaterThanOrEqual(1_500);
+    // Each batch SELECT carries the same LIMIT. 10000 events fill ceil(10000 / REBUILD_BATCH_SIZE)
+    // batches. +2: the unlocked drain ends on one short probe read, and the fenced final drain
+    // after the cutover fence issues one more.
+    expect(new Set(batchReadLimits)).toEqual(new Set([REBUILD_BATCH_SIZE]));
+    expect(batchReadLimits).toHaveLength(Math.ceil(10_000 / REBUILD_BATCH_SIZE) + 2);
   });
 });

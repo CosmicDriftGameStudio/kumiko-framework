@@ -18,18 +18,16 @@ import {
   append,
   eventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { createConfigFeature } from "../../config/feature.js";
 import { hashPassword } from "../../shared/index.js";

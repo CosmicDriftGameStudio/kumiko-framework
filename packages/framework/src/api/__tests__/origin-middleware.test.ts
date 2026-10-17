@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { authMiddleware } from "../auth-middleware.js";
 import { createJwtHelper } from "../jwt.js";
 import {

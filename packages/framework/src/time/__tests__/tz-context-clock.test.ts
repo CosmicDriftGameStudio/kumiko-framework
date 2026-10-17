@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { createManualClock } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createManualClock } from "../../testing/manual-clock.js";
 import { ensureTemporalPolyfill } from "../polyfill.js";
 import { createTzContext } from "../tz-context.js";
 

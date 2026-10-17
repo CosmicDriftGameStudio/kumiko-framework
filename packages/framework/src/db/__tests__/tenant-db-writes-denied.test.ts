@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { InternalError } from "../../errors/index.js";
-import { testTenantId } from "../../stack/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import type { DbRunner } from "../connection.js";
 import { defineUnmanagedTable } from "../entity-table-meta.js";
 import {

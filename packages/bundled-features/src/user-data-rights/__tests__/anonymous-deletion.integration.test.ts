@@ -10,15 +10,13 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
-  testUserId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

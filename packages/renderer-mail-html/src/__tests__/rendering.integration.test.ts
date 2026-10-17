@@ -32,14 +32,9 @@ import {
   type TenantId,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createTestUser,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { DEFAULT_MAIL_LAYOUT_MJML } from "../default-layout";
 import { createRendererMailHtmlFeature } from "../feature";

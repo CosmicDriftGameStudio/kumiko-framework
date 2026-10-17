@@ -13,11 +13,12 @@
 // event-triggered workflow hits in production.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { DbConnection, DbTx } from "../../db/connection.js";
 import { asRawClient, insertOne } from "../../db/query.js";
 import type { AppContext } from "../../engine/types/index.js";
 import { append, eventsTable } from "../../event-store/index.js";
-import { createTestDb, type TestDb, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import {
   createEventConsumerStateTable,
   SHARED_INSTANCE_SENTINEL,

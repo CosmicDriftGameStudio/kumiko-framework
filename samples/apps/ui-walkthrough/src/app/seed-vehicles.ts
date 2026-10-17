@@ -1,5 +1,5 @@
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { countRowsForTenant } from "../db/queries/row-counts";
 
 const OCTAVIA_DESCRIPTION = [

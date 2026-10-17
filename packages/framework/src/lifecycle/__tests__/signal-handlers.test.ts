@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { waitFor } from "../../testing/index.js";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createLifecycle } from "../lifecycle.js";
 import { attachSignalHandlers } from "../signal-handlers.js";
 import { createTestLifecycle } from "./create-test-lifecycle.js";

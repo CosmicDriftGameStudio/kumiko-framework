@@ -10,15 +10,15 @@ import {
   type MetricEvent,
   RecordingMeter,
 } from "@cosmicdrift/kumiko-framework/observability";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import {
   drainEventConsumers,
   resetEventStore,
   setupTestStack,
   type TestStack,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { createTenantFeature } from "../../tenant/index.js";

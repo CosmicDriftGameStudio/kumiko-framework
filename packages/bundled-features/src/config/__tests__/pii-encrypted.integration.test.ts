@@ -19,14 +19,13 @@ import {
   createUserConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers, ConfigQueries } from "../constants.js";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
 import { createConfigResolver } from "../resolver.js";

@@ -74,9 +74,6 @@
     "packages/framework/src/schema-cli.ts": 1,
     "packages/framework/src/search/reindex-entity.ts": 1,
     "packages/framework/src/secrets/leak-guard.ts": 1,
-    "packages/framework/src/stack/request-helper.ts": 1,
-    "packages/framework/src/stack/test-stack.ts": 1,
-    "packages/framework/src/testing/e2e-generator.ts": 3,
     "packages/headless/src/apex/index.ts": 1,
     "packages/headless/src/format/index.ts": 1,
     "packages/headless/src/view-model/edit.ts": 1,
@@ -84,6 +81,9 @@
     "packages/server-runtime/src/boot/worker-boot-core.ts": 1,
     "packages/server-runtime/src/build-prod-bundle.ts": 1,
     "packages/server-runtime/src/run-prod-app-static-files.ts": 1,
-    "packages/server-runtime/src/run-prod-app.ts": 1
+    "packages/server-runtime/src/run-prod-app.ts": 1,
+    "packages/testing/src/helpers/e2e-generator.ts": 3,
+    "packages/testing/src/stack/request-helper.ts": 1,
+    "packages/testing/src/stack/test-stack.ts": 1
   }
 }

@@ -7,15 +7,13 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";

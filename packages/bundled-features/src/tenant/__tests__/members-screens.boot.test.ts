@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createConfigFeature } from "../../config/feature.js";
 import {

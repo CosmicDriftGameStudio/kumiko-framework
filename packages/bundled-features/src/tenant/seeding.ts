@@ -48,7 +48,7 @@ import {
   createDeferringNotify,
   createLifecycleHooks,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { assertAssignableMembershipRoles } from "./membership-roles.js";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.js";
 import { tenantEntity, tenantTable } from "./schema/tenant.js";

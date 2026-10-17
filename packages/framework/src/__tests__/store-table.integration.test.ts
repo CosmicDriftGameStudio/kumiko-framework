@@ -4,11 +4,15 @@
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { defineUnmanagedTable } from "../db/entity-table-meta.js";
 import { asRawClient, insertOne, selectMany } from "../db/query.js";
 import { defineFeature } from "../engine/index.js";
-import { setupTestStack, type TestStack, unsafePushTables } from "../stack/index.js";
 
 // External-system payload cache — the textbook r.storeTable() use case:
 // write-only by an integration handler, read-only by a query, never

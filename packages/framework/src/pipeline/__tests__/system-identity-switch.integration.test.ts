@@ -2,6 +2,11 @@
 // r.systemScope() or { escapeHatch }. Real HTTP calls + setupTestStack — never createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { selectMany } from "../../db/index.js";
@@ -16,13 +21,7 @@ import {
   stepsPipeline,
 } from "../../engine/index.js";
 import type { HandlerContext, SessionUser } from "../../engine/types/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
 
 const user = TestUsers.user;
 const otherUserNoRole: SessionUser = createTestUser({

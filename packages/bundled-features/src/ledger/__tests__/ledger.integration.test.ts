@@ -12,13 +12,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants.js";
 import { accountEntity, scheduleEntity, transactionEntity } from "../entity.js";
 import { createLedgerFeature } from "../feature.js";

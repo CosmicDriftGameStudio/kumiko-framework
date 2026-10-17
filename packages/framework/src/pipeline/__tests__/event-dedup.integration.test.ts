@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { defineFeature, type SaveContext } from "../../engine/index.js";
+import { sharedItemEntity, sharedItemTable } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestRedis,
   setupTestStack,
   type TestRedis,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedItemEntity, sharedItemTable } from "../../testing/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { defineFeature, type SaveContext } from "../../engine/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createEventDedup } from "../event-dedup.js";
 
 // --- Feature ---

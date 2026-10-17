@@ -17,7 +17,7 @@ import {
   ensureIdempotencyKeyIndex,
   ensureMembershipPayloadTenantIndex,
 } from "../db/queries/event-store.js";
-import { unsafePushTables } from "../stack/index.js";
+import { unsafePushTables } from "../db/table-push.js";
 import { createArchivedStreamsTable } from "./archive.js";
 import { createSnapshotsTable } from "./snapshot.js";
 import type { EventMetadata } from "./types.js";

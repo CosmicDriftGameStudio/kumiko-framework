@@ -1,6 +1,6 @@
 // Reine Konstanten — kein Framework-Import, damit der E2E-Login-Helper
 // (Playwright-Worker) sie lesen kann, ohne die vitest-Importchain aus
-// `@cosmicdrift/kumiko-framework/testing` mitzuziehen (kollidiert mit
+// `@cosmicdrift/kumiko-testing/helpers` mitzuziehen (kollidiert mit
 // Playwrights expect über Object.prototype-Symbole).
 
 export const ADMIN_EMAIL = "admin@kumiko.dev";

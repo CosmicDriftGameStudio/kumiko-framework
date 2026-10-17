@@ -18,18 +18,18 @@ import {
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import {
+  createTestEnvelopeCipher,
+  getSetCookieValue,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  createTestEnvelopeCipher,
-  getSetCookieValue,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { ConfigHandlers } from "../../config/constants.js";
 import { createConfigFeature } from "../../config/index.js";

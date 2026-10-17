@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createS3ProviderFromEnv } from "../env-helper.js";
 
 // Runs against the S3-compatible container from docker-compose (MINIO_* env),

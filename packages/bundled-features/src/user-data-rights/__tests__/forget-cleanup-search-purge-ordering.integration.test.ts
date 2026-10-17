@@ -18,13 +18,13 @@ import {
   SYSTEM_TENANT_ID,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import {
   createDataRetentionFeature,

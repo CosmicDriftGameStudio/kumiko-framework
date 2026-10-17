@@ -8,14 +8,12 @@ import {
   createTenantDb,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
 import { tenantRetentionOverrideTable } from "../schema/tenant-retention-override.js";
 

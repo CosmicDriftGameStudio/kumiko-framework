@@ -9,8 +9,9 @@ import {
   type SubjectId,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { buildAgentManifest } from "../agent-manifest.js";
 import { buildToolCatalog, toolNameForQn } from "../tool-catalog.js";

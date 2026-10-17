@@ -5,7 +5,7 @@ import {
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { testTenantId } from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { ANONYMOUS_USER_ID, SYSTEM_ACTOR_ID, SYSTEM_ACTOR_IDS } from "../constants.js";
 
 describe("audit constants", () => {

@@ -3,7 +3,7 @@
 // `e2e/_helpers/login.ts` gelesen.
 //
 // Warum getrennt: e2e-Specs laufen im Playwright-Worker, der nichts aus
-// `@cosmicdrift/kumiko-framework/testing` (zieht `vitest`) oder
+// `@cosmicdrift/kumiko-testing/helpers` (zieht `vitest`) oder
 // `@cosmicdrift/kumiko-bundled-features/.../testing` (zieht das ebenfalls) ertragen
 // kann — Vitest's expect redefined Object.prototype-Symbole und kollidiert
 // mit Playwrights expect. Diese Datei bleibt importchain-leer und ist die

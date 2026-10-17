@@ -20,15 +20,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,

@@ -9,14 +9,10 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveObservabilityWiring } from "@cosmicdrift/kumiko-framework/observability";
-import {
-  createTestDb,
-  type TestDb,
-  type TestStack,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
 import { setupAppTestStack } from "../index";
+import { createTestDb, type TestDb, type TestStack } from "../stack/index.js";
 import { noteFeature } from "./note-feature";
 
 const NOTES_TABLE = "public.read_testing_notes";

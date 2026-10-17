@@ -6,9 +6,10 @@
 // schema" bug the anonymous-401 test exists to catch.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createEntity, defineFeature } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { Routes } from "../api-constants.js";
 import { AUTH_COOKIE_BASE } from "../session-cookies.js";
 

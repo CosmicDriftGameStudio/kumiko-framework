@@ -15,17 +15,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher, expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  createTestEnvelopeCipher,
-  expectErrorIncludes,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { ConfigHandlers, ConfigQueries } from "../constants.js";
 import {

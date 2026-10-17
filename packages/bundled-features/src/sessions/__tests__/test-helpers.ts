@@ -11,7 +11,8 @@
 import { expect } from "bun:test";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
 import { hashPassword } from "../../shared/index.js";
 import { seedTenantMembership } from "../../tenant/seeding.js";

@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, test } from "bun:test";
 import type { DbRunner } from "../../db/connection.js";
 import { createTenantDb } from "../../db/tenant-db.js";
-import { testTenantId } from "../../stack/test-users.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import {
   access,
   createSystemConfig,

@@ -6,7 +6,7 @@
 // actual delete path lives in __tests__/cleanup.integration.test.ts.
 
 import { describe, expect, test } from "bun:test";
-import { testTenantId } from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { StaleDraftRow } from "../../db/queries/cleanup.js";
 import { groupStaleDraftIdsByTenant } from "../cleanup.job.js";

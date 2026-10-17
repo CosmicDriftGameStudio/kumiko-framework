@@ -18,19 +18,17 @@ import {
   createInMemoryFileProvider,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
   expectErrorIncludes,
   patchFileInstanceofForBunTest,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
 import { createTemplateResolverFeature } from "../feature.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";

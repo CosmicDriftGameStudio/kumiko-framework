@@ -76,7 +76,7 @@ const ALLOWLIST = [
   // it's defaults/audit stamps working together with the DB layer.
   /packages\/framework\/src\/engine\/(types|registry|config-helpers|create-app|define-feature|state-machine|access|field-access|boot-validator|qualified-name)\.ts$/,
   // Testing helpers
-  /packages\/framework\/src\/testing\//,
+  /packages\/testing\/src\/helpers\//,
   // Search adapter internals
   /packages\/framework\/src\/search\//,
   // File storage (coming in Gap-04)

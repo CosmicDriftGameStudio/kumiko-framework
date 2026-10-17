@@ -1,14 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { insertMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/feature.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { DELIVERY_LOG_SCREEN_ID, DeliveryHandlers, DeliveryQueries } from "../constants.js";

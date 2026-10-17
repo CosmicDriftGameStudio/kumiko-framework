@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   decryptPiiFieldValues,
   encryptPiiFieldValues,
@@ -7,8 +8,7 @@ import {
   type KmsContext,
 } from "../../crypto/index.js";
 import { createEntity, createFileField, createTextField } from "../../engine/index.js";
-import { createTestUser, testUserId } from "../../stack/test-users.js";
-import { createTestEnvelopeCipher } from "../../testing/index.js";
+import { createTestUser, testUserId } from "../../seeding/seed-users.js";
 import { buildExecutorContext, type Table } from "../event-store-executor-context.js";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");

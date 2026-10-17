@@ -10,13 +10,9 @@ import {
   stepsPipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createSecretsFeature } from "../../secrets/index.js";
 import { DELIVER_MAX_PER_TENANT } from "../constants.js";

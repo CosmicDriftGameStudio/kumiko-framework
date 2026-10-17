@@ -2,15 +2,21 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "outDir": "./dist",
+    "outDir": "./dist/core",
     "rootDir": ".",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx"
   },
-  "include": ["./src", "./bin"],
-  "references": [
-    { "path": "../framework" },
-    { "path": "../bundled-features" },
-    { "path": "../dev-server" }
-  ]
+  "include": [
+    "./src/stack",
+    "./src/helpers",
+    "./src/preload",
+    "./src/bunfig.ts",
+    "./src/e2e-timeouts.ts",
+    "./src/integration-runner.ts",
+    "./src/provider-env-keys.ts",
+    "./bin"
+  ],
+  "exclude": ["./src/**/__tests__/**", "./bin/__tests__/**"],
+  "references": [{ "path": "../framework" }, { "path": "../types" }]
 }

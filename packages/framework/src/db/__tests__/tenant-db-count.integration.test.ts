@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { createEntity, createTextField } from "../../engine/index.js";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import type { TableColumns } from "../dialect.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb } from "../tenant-db.js";

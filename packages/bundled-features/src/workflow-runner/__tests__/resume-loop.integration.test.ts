@@ -30,6 +30,7 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  bridgeStub,
   createSystemUser,
   defineFeature,
   defineWorkflow,
@@ -45,9 +46,9 @@ import {
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { DUE_RUNS_BATCH_SIZE, selectDueWorkflowRunPending } from "../db/queries/due-runs.js";
 import { registerEventTrigger } from "../event-trigger.js";

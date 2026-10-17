@@ -15,17 +15,17 @@ import {
   EXT_USER_DATA,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createTestEnvelopeCipher,
   resetEntityFieldEncryptionCacheForTests,
   seedRow,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";

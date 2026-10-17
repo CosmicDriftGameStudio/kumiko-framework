@@ -5,15 +5,15 @@ import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { createConfigFeature } from "../../config/index.js";

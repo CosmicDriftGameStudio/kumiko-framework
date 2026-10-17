@@ -52,9 +52,9 @@ across regenerations by `kumiko-testing bunfig`.
 
 Tests that call a real external provider (LLM, mail, payment) are named
 `*.real.test.ts` (Bun) or `*.real.spec.ts` (Playwright) and start with
-`requireRealProviders()` from `@cosmicdrift/kumiko-framework/testing` (Bun)
+`requireRealProviders()` from `@cosmicdrift/kumiko-testing/helpers` (Bun)
 or `@cosmicdrift/kumiko-testing/e2e` (Playwright specs and configs, which load
-under Node and must not import the framework's `./testing` barrel). Three
+under Node and must not import the `./helpers` barrel). Three
 reasons they are walled off from the default run:
 
 - **Cost.** A real LLM or payment call has a price; the default suite runs on

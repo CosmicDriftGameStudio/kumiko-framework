@@ -2,8 +2,8 @@
 // the global IP limit itself: an unauthenticated flood may not reach JWT verify.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { defineFeature } from "../../engine/index.js";
-import { setupTestStack, type TestStack } from "../../stack/index.js";
 
 const privateRouteFeature = defineFeature("session-only-rl", (r) => {
   r.httpRoute({

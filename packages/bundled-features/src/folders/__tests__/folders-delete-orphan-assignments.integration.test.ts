@@ -11,12 +11,12 @@ import {
   defineFeature,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { FoldersHandlers } from "../constants.js";
 import { folderAssignmentEntity, folderEntity } from "../entity.js";
 import { createFoldersFeature } from "../feature.js";

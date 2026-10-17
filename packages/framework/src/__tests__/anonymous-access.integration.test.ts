@@ -7,6 +7,11 @@
 // Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import type { AnonymousAccessConfig } from "../api/auth-middleware.js";
 import { AUTH_COOKIE_BASE } from "../api/session-cookies.js";
@@ -20,12 +25,7 @@ import {
   defineFeature,
   type TenantId,
 } from "../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;

@@ -14,13 +14,13 @@
 // hand-rolled test handler.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query.js";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { asRawClient } from "../../db/query.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import { createEntity, createTextField } from "../factories.js";
 

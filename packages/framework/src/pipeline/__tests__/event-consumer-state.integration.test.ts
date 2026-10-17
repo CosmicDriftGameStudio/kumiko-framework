@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestDb, type TestDb } from "../../stack/index.js";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { createEventConsumerStateTable } from "../event-consumer-state.js";
 
 // #1362: two dispatcher instances booting concurrently against the same DB

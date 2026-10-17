@@ -6,12 +6,12 @@
 // auth-mfa's own handler and is covered there, not here.
 
 import { describe, expect, test } from "bun:test";
+import { getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import { InternalError, UnprocessableError } from "../../errors/index.js";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { TestUsers, testTenantId } from "../../stack/index.js";
-import { getSetCookies } from "../../testing/http-cookies.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import { PUBLIC_API_PATHS } from "../api-constants.js";
 import { authMiddleware } from "../auth-middleware.js";
 import {

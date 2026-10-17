@@ -3,7 +3,12 @@
 // (fw#3091) — see assertNoBlindIndexLoss in db/queries/shadow-swap.ts.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   computeBlindIndex,
   configureBlindIndexKey,
@@ -20,12 +25,7 @@ import {
   defineFeature,
 } from "../../engine/index.js";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const TEST_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);

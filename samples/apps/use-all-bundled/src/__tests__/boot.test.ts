@@ -18,8 +18,8 @@ import {
   enumerateFeatureTableSources,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { ENTITY_METAS } from "../../kumiko/schema";
 import { devAppOptions } from "../app/dev-app-options";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";

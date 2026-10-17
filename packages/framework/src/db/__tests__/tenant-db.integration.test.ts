@@ -1,15 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import { table as pgTable, serial, type TableColumns, text, timestamp } from "../dialect.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb } from "../tenant-db.js";

@@ -23,13 +23,13 @@
 // here with a longer-pipeline handler variant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import * as z from "zod";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import { defineWriteHandler } from "../define-handler.js";
 import { createEntity, createNumberField, createTextField } from "../factories.js";

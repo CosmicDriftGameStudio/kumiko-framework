@@ -17,7 +17,7 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createLegalPagesFeature, runLegalPagesBootCheck } from "../feature.js";
 import { renderMarkdownToHtml, wrapInLayout } from "../markdown.js";
 

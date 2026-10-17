@@ -4,16 +4,15 @@
 // Routing is per-entity (createEntity flag), NOT inherited from r.systemScope().
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.js";
-import { eventsTable } from "../../event-store/index.js";
 import {
   createTestDb,
   type TestDb,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.js";
+import { eventsTable } from "../../event-store/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { selectMany } from "../query.js";
 import { buildEntityTable } from "../table-builder.js";

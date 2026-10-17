@@ -43,18 +43,18 @@ import {
   rebuildMultiStreamProjection,
   rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import {
   resetPiiSubjectKmsForTests,
   waitFor,
   zipWithEntries,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";

@@ -17,14 +17,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { currencyEntity, currencyTable } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";
 import { tenantCurrencyEntity } from "../entities/tenant-currency";

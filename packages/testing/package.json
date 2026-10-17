@@ -22,6 +22,22 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./stack": {
+      "types": "./src/stack/index.ts",
+      "default": "./src/stack/index.ts"
+    },
+    "./helpers": {
+      "types": "./src/helpers/index.ts",
+      "default": "./src/helpers/index.ts"
+    },
+    "./helpers/real-providers": {
+      "types": "./src/helpers/real-providers.ts",
+      "default": "./src/helpers/real-providers.ts"
+    },
+    "./helpers/e2e-generator": {
+      "types": "./src/helpers/e2e-generator.ts",
+      "default": "./src/helpers/e2e-generator.ts"
+    },
     "./bunfig": {
       "types": "./src/bunfig.ts",
       "default": "./src/bunfig.ts"
@@ -79,19 +95,25 @@
     "kumiko-testing": "./bin/kumiko-testing.ts"
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-    "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
+    "@cosmicdrift/kumiko-bundled-features": ">=0.366.0 <1.0.0",
+    "@cosmicdrift/kumiko-dev-server": ">=0.366.0 <1.0.0",
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2"
   },
   "peerDependenciesMeta": {
+    "@cosmicdrift/kumiko-bundled-features": {
+      "optional": true
+    },
+    "@cosmicdrift/kumiko-dev-server": {
+      "optional": true
+    },
     "@happy-dom/global-registrator": {
       "optional": true
     },
@@ -106,10 +128,13 @@
     }
   },
   "devDependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2"
+    "@testing-library/react": "^16.3.2",
+    "ts-morph": "^28.0.0"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

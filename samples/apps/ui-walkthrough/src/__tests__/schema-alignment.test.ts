@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot as validateBootRaw } from "@cosmicdrift/kumiko-framework/engine";
-import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { ENTITY_METAS, FEATURES } from "../../kumiko/schema";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {

@@ -3,9 +3,10 @@
 // feature_disabled, so the nav entry would lead nowhere.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createEntity, defineFeature } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
-import { createTestUser, setupTestStack, type TestStack } from "../../stack/index.js";
+import { createTestUser } from "../../seeding/seed-users.js";
 import { Routes } from "../api-constants.js";
 
 const SCHEMA_PATH = `/api${Routes.schema}`;

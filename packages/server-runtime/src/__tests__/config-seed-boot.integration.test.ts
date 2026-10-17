@@ -28,12 +28,12 @@ import {
   createTenantSeed,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { applyBootSeeds } from "../boot/apply-boot-seeds.js";
 
 const bootSeedsFeature = defineFeature("boot-seeds-test", (r) => {

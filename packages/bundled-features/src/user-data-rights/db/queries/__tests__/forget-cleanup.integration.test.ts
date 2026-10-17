@@ -4,13 +4,13 @@
 // pipeline; this is the narrow seam for the ambient-global regression).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../../../user/index.js";
 import { selectUsersDueForForgetCleanup } from "../forget-cleanup.js";
 

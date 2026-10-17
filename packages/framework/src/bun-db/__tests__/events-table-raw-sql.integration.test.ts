@@ -2,10 +2,10 @@
 // (selectMany with jsonText, aggregateWhere with orderByKeys). Events are
 // seeded through the event store's own appendRaw, never by direct INSERT.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantId } from "../../engine/types/index.js";
 import { appendRaw } from "../../event-store/admin-api.js";
 import { eventsTable } from "../../event-store/events-schema.js";
-import { createTestDb, type TestDb } from "../../stack/index.js";
 import { generateId } from "../../utils/index.js";
 import { aggregateWhere, asRawClient, selectMany } from "../query.js";
 

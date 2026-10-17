@@ -122,13 +122,12 @@ import {
   notesHistoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { taskEntity, taskFeature } from "../feature";
 import { type NotesClient, notesFlow } from "../usage";
 

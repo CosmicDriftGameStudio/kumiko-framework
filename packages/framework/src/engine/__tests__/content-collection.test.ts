@@ -3,7 +3,7 @@
 // provider instead of the app repeating navId + kind.
 
 import { describe, expect, test } from "bun:test";
-import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { validateBoot as validateBootRaw } from "../boot-validator.js";
 import { buildAppSchema } from "../build-app-schema.js";
 import { defineFeature } from "../define-feature.js";

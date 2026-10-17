@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { zipWithEntries } from "../../testing/zip-fixture.js";
+import { zipWithEntries } from "@cosmicdrift/kumiko-testing/helpers";
 import { validateFileContent } from "../types.js";
 
 describe("validateFileContent docx part check", () => {

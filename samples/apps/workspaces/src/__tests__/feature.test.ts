@@ -14,7 +14,7 @@ import {
   defineFeature,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { demoFeature } from "../features/demo";
 import { driverFeature } from "../features/demo-driver";
 

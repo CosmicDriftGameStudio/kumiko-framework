@@ -21,13 +21,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { configValuesTable } from "../../config/index.js";
 import { TenantHandlers, tenantMembershipsTable, tenantTable } from "../../tenant/index.js";
 import { userTable } from "../../user/index.js";

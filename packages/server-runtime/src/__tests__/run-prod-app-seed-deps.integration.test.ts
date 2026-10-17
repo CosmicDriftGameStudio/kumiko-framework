@@ -24,7 +24,7 @@ import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
 

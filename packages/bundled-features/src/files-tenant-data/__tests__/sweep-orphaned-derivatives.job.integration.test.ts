@@ -10,6 +10,7 @@ import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { bridgeStub } from "@cosmicdrift/kumiko-framework/engine";
 import {
   buildStorageKey,
   createInMemoryFileProvider,
@@ -17,18 +18,14 @@ import {
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  bridgeStub,
-  createTestEnvelopeCipher,
-  resetTestTables,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";

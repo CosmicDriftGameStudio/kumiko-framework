@@ -5,6 +5,12 @@
 // verb entirely, and restore()'s two precondition failures.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient, selectMany, transaction } from "../../db/query.js";
 import { createEntity, createTextField } from "../../engine/index.js";
 import { from } from "../../engine/ownership.js";
@@ -12,15 +18,7 @@ import { createSystemUser } from "../../engine/system-user.js";
 import type { EntityId } from "../../engine/types/index.js";
 import { append } from "../../event-store/index.js";
 import type { EntityCache } from "../../pipeline/entity-cache.js";
-import {
-  createTestDb,
-  createTestUser,
-  type TestDb,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { createTestEnvelopeCipher } from "../../testing/index.js";
+import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import {
   configureEntityFieldEncryption,
   resetEntityFieldEncryptionCacheForTests,
