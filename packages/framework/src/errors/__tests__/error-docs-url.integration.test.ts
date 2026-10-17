@@ -1,4 +1,4 @@
-// An app's own error reason carries a docsUrl on the wire only when errorDocs covers it.
+// An app's own error reason links to the app docs on the wire when errorDocs covers it, else to the framework code page.
 import { afterAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../engine/define-feature.js";
@@ -29,12 +29,12 @@ describe("errorDocs over HTTP", () => {
     for (const stack of stacks) await stack.cleanup();
   });
 
-  test("app reason without errorDocs: body has no docsUrl", async () => {
+  test("app reason without errorDocs: body links to the code page", async () => {
     const stack = await setupTestStack({ features: [feature] });
     stacks.push(stack);
     const body = await failingWrite(stack);
     expect(body.error.details?.reason).toBe(APP_REASON);
-    expect(body.error.docsUrl).toBeUndefined();
+    expect(body.error.docsUrl).toBe("https://docs.kumiko.rocks/errors/unprocessable");
   });
 
   test("app reason covered by errorDocs: body links to the app docs", async () => {
