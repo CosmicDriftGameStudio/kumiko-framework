@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { handlerFieldLabelKey, handlerTitleKey } from "../../i18n/required-surface-keys.js";
-import { handlerFieldReference, readHandlerFieldReference } from "../handler-field-references.js";
+import {
+  handlerFieldReference,
+  handlerFieldReferences,
+  readHandlerFieldReference,
+  readHandlerFieldReferences,
+} from "../handler-field-references.js";
 
 describe("handler i18n key helpers", () => {
   test("title and field label keys extend the handler QN", () => {
@@ -118,5 +123,96 @@ describe("handlerFieldReference", () => {
       expect(readHandlerFieldReference(schema, field).kind).toBe("invalid");
     }
     expect(readHandlerFieldReference(schema, "missing").kind).toBe("none");
+  });
+});
+
+describe("readHandlerFieldReferences (nested)", () => {
+  const channelRef = { references: { entity: "channel", by: "key" } };
+  const channelReference = { entity: "channel", by: "key", multiple: false };
+
+  test("top-level fields keep their plain path", () => {
+    const schema = z.object({ customerId: z.string().meta({ references: "customer" }) });
+    expect(handlerFieldReferences(schema)).toEqual([
+      {
+        path: "customerId",
+        segments: [{ kind: "field", name: "customerId" }],
+        reference: { entity: "customer", by: undefined, multiple: false },
+      },
+    ]);
+  });
+
+  test("finds a field inside an array of objects", () => {
+    const schema = z.object({
+      channels: z.array(z.object({ channelKey: z.string().meta(channelRef) })),
+    });
+    expect(handlerFieldReferences(schema)).toEqual([
+      {
+        path: "channels[].channelKey",
+        segments: [
+          { kind: "field", name: "channels" },
+          { kind: "element" },
+          { kind: "field", name: "channelKey" },
+        ],
+        reference: channelReference,
+      },
+    ]);
+  });
+
+  test("walks through optional and nullable wrappers outside and inside", () => {
+    const schema = z.object({
+      channels: z
+        .array(z.object({ channelKey: z.string().meta(channelRef).optional() }).nullable())
+        .optional(),
+      nested: z.object({ key: z.string().optional().meta(channelRef) }).optional(),
+    });
+    expect(handlerFieldReferences(schema).map((entry) => entry.path)).toEqual([
+      "channels[].channelKey",
+      "nested.key",
+    ]);
+  });
+
+  test("a leaf array field is multiple while the path stays at the field", () => {
+    const schema = z.object({
+      rows: z.array(z.object({ keys: z.array(z.string()).meta(channelRef) })),
+    });
+    expect(handlerFieldReferences(schema)).toMatchObject([
+      { path: "rows[].keys", reference: { multiple: true } },
+    ]);
+  });
+
+  test("reads references on record keys and on fields in record values", () => {
+    const schema = z.object({
+      labels: z.record(z.string().meta(channelRef), z.string()),
+      byLocale: z.record(z.string(), z.object({ channelKey: z.string().meta(channelRef) })),
+    });
+    const entries = handlerFieldReferences(schema);
+    expect(entries.map((entry) => entry.path)).toEqual(["labels{key}", "byLocale{}.channelKey"]);
+    expect(entries[0]?.segments).toEqual([
+      { kind: "field", name: "labels" },
+      { kind: "recordKey" },
+    ]);
+    expect(entries[1]?.segments).toEqual([
+      { kind: "field", name: "byLocale" },
+      { kind: "recordValue" },
+      { kind: "field", name: "channelKey" },
+    ]);
+  });
+
+  test("keeps invalid meta of a nested field as an invalid reading", () => {
+    const schema = z.object({
+      channels: z.array(z.object({ channelKey: z.string().meta({ references: 42 }) })),
+    });
+    expect(readHandlerFieldReferences(schema)).toMatchObject([
+      { path: "channels[].channelKey", reading: { kind: "invalid", raw: 42 } },
+    ]);
+    expect(handlerFieldReferences(schema)).toEqual([]);
+  });
+
+  test("returns nothing for non-object schemas and stops at z.lazy", () => {
+    expect(readHandlerFieldReferences(z.string())).toEqual([]);
+    const schema = z.object({
+      later: z.lazy(() => z.object({ key: z.string().meta(channelRef) })),
+    });
+    expect(readHandlerFieldReferences(schema)).toEqual([]);
   });
 });

@@ -1,7 +1,6 @@
-import { readHandlerFieldReference } from "../handler-field-references.js";
+import { readHandlerFieldReferences } from "../handler-field-references.js";
 import { parseRefTarget } from "../parse-ref-target.js";
 import type { FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types/index.js";
-import { getZodObjectShape } from "./zod-shape.js";
 
 function validateHandlerGroup(
   feature: FeatureDefinition,
@@ -10,12 +9,8 @@ function validateHandlerGroup(
   handlerNoun: string,
 ): void {
   for (const [handlerName, def] of Object.entries(handlers)) {
-    const shape = getZodObjectShape(def.schema);
-    if (shape === undefined) continue;
-    for (const fieldName of Object.keys(shape)) {
-      const where = `Input field "${fieldName}" of ${handlerNoun} "${handlerName}"`;
-      const reading = readHandlerFieldReference(def.schema, fieldName);
-      if (reading.kind === "none") continue;
+    for (const { path, reading } of readHandlerFieldReferences(def.schema)) {
+      const where = `Input field "${path}" of ${handlerNoun} "${handlerName}"`;
       if (reading.kind === "invalid") {
         throw new Error(
           `[Feature ${feature.name}] ${where} has an invalid meta references value ${JSON.stringify(reading.raw)}. ` +
