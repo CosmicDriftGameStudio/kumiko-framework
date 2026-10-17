@@ -392,6 +392,10 @@ async function settleInTransaction(
   }
   // Row swept or released: its amount was given back, so the full actual amount is booked and a
   // tombstone makes a repeated settle a no-op. A parallel settle inserting first fails this insert.
+  // Booking first: a lost counter race returns a result instead of throwing, so the transaction
+  // commits and a tombstone written before it would turn the retry into a no-op.
+  const booked = await bookCalendarDelta(txDb, user, options, options.actualAmount);
+  if (!booked.isSuccess) return booked;
   const now = Temporal.Now.instant();
   await txDb.insertOne(capReservationsTable, {
     ...ownRow,
@@ -405,7 +409,7 @@ async function settleInTransaction(
     consumedAmount: 0,
     releasedAt: null,
   });
-  return bookCalendarDelta(txDb, user, options, options.actualAmount);
+  return booked;
 }
 
 // The failed tombstone insert aborts the whole attempt, so nothing was booked; the repeat sees the
@@ -496,6 +500,9 @@ async function consumeWithoutRow(
   id: string,
   options: ConsumeCalendarCapOptions,
 ): Promise<WriteResult> {
+  // Booking first, for the same reason as settle's missing-row path.
+  const booked = await bookCalendarDelta(txDb, user, options, options.units);
+  if (!booked.isSuccess) return booked;
   const now = Temporal.Now.instant();
   await txDb.insertOne(capReservationsTable, {
     id,
@@ -510,7 +517,7 @@ async function consumeWithoutRow(
     consumedAmount: options.units,
     releasedAt: now,
   });
-  return bookCalendarDelta(txDb, user, options, options.units);
+  return booked;
 }
 
 async function consumeInTransaction(
