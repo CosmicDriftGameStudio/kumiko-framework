@@ -95,6 +95,9 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.errors.redirectOriginNotAllowed": {
     en: "This redirect URL is not allowed for this app.",
   },
+  "billing-foundation.errors.providerCustomerUnknown": {
+    en: "The billing account for this subscription no longer exists. Subscribe again to continue.",
+  },
   "billing-foundation.errors.providerHasNoPriceCatalog": {
     en: "This provider has no known prices configured.",
   },

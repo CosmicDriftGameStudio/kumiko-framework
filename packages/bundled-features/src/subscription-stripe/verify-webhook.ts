@@ -54,7 +54,9 @@ import type { StripeWebhookRuntime } from "./runtime.js";
 
 const log = createFallbackLogger("subscription-stripe");
 
-export function isResourceMissingStripeError(error: unknown): boolean {
+export function isResourceMissingStripeError(
+  error: unknown,
+): error is Stripe.errors.StripeInvalidRequestError {
   return (
     error instanceof Stripe.errors.StripeInvalidRequestError && error.code === "resource_missing"
   );

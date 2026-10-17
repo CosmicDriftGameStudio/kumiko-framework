@@ -16,17 +16,17 @@ export async function markProjectionRebuilding(db: AnyDb, projectionName: string
 // strictly newer than `afterId`, ascending. Each call is a fresh SELECT, so
 // under READ COMMITTED it sees events committed by concurrent writers since the
 // previous batch — that is what lets the rebuild drain the tail to ~0 lag.
-export async function selectEventsForProjectionRebuildBatch<TRow = Record<string, unknown>>(
+export async function selectEventsForProjectionRebuildBatch(
   db: AnyDb,
   aggregateTypes: readonly string[],
   eventTypes: readonly string[],
   afterId: bigint,
   limit: number,
-): Promise<ReadonlyArray<TRow>> {
+): Promise<ReadonlyArray<Record<string, unknown>>> {
   // Archived streams don't replay (Marten-aligned): their aggregates are
   // frozen ops-tombstones — replaying them would resurrect rows (or, for
   // stranded duplicate-aggregates like fw#832, collide on unique indexes).
-  return unsafeReadRetrying<TRow>(
+  return unsafeReadRetrying<Record<string, unknown>>(
     db,
     `SELECT * FROM "kumiko_events" e
      WHERE e."aggregate_type" = ANY($1::text[])

@@ -58,6 +58,12 @@ terms, not in table terms.
      `eventVersion: 2` plus `eventMigrations: [{ fromVersion: 1, toVersion: 2,
      transform }]` on `r.entity`; the transform receives a row-shaped field
      record (possibly partial) and is applied to `changes` and `previous` too.
+     `pii` and `encrypted` fields reach the transform as the stored ciphertext
+     envelope, which is bound to the field name: keep them under the same key
+     and never rename them or derive new values from them. A renamed or
+     computed value cannot be decrypted afterwards, and the failure only
+     shows on rebuild or aggregate load with real data. Renaming a
+     `pii`/`encrypted` field needs a real `update()` backfill instead.
    - **Backfill via real writes**: if the value can't be derived from what's
      already on the event, issue actual `update()` calls for existing rows
      so the field lands via a real `<entity>.updated` event — never write

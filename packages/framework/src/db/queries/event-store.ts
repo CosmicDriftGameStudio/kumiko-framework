@@ -369,12 +369,12 @@ export type PendingIdRange = { readonly from: bigint; readonly to: bigint };
 // consumer is still watching as pending gaps (ids invisible on an earlier
 // turn that may have become visible since). Raw SQL — the typed builder's
 // WhereObject is an AND of fields, it can't express this OR.
-export async function selectPendingAndNewEventRows<TRow = Record<string, unknown>>(
+export async function selectPendingAndNewEventRows(
   db: AnyDb,
   cursor: bigint,
   pendingRanges: readonly PendingIdRange[],
   batchSize: number,
-): Promise<ReadonlyArray<TRow>> {
+): Promise<ReadonlyArray<Record<string, unknown>>> {
   if (pendingRanges.length === 0) {
     return unsafeReadRetrying(
       db,

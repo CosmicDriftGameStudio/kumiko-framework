@@ -8,7 +8,11 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { DispatcherProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
+import {
+  DispatcherProvider,
+  FOOTER_ACTION_ROLE_PROP,
+  RenderEdit,
+} from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { BareFormProvider, defaultPrimitives } from "../primitives/index.js";
@@ -524,5 +528,78 @@ describe("DefaultForm pinned footer below sm", () => {
     renderNarrow(undefined, false);
     expect(screen.queryByTestId("f-overflow")).toBeNull();
     expect(screen.getByRole("button", { name: "Speichern" })).toBeTruthy();
+  });
+
+  test("a lone primary action with unsaved changes shows the badge and an accessible status", () => {
+    renderNarrow(2, false);
+    expect(screen.queryByTestId("f-overflow")).toBeNull();
+    expect(screen.getByTestId("f-primary-badge")).toBeTruthy();
+    const primary = screen.getByTestId("f-primary-badge").closest("button") as HTMLElement;
+    expect(primary.textContent).toContain("Speichern");
+    expect(primary.querySelector(".sr-only")?.textContent).toContain("2");
+  });
+
+  test("a clean lone primary action has no badge", () => {
+    renderNarrow(0, false);
+    expect(screen.queryByTestId("f-primary-badge")).toBeNull();
+  });
+
+  test("an explicit primary marker wins over a later submit button", () => {
+    setViewportWidth(390);
+    render(
+      <Form
+        onSubmit={() => {}}
+        fillHeight
+        stickyActions
+        actions={
+          <>
+            <Button {...{ [FOOTER_ACTION_ROLE_PROP]: "primary" as const }}>Weiter</Button>
+            <Button type="submit">Speichern und schließen</Button>
+          </>
+        }
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+    expect(screen.getByRole("button", { name: "Weiter" }).className).toContain("flex-1");
+    expect(screen.getByRole("button", { name: "Speichern und schließen" }).className).not.toContain(
+      "flex-1",
+    );
+  });
+
+  function narrowFormWithBack(back: ReactNode) {
+    setViewportWidth(390);
+    render(
+      <Form
+        onSubmit={() => {}}
+        fillHeight
+        stickyActions
+        actions={
+          <>
+            <Button {...{ [FOOTER_ACTION_ROLE_PROP]: "back" as const }}>{back}</Button>
+            <Button type="submit">Speichern</Button>
+          </>
+        }
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+  }
+
+  test("Back with a string label collapses to a named icon button", () => {
+    narrowFormWithBack("Zurück");
+    const back = screen.getByRole("button", { name: "Zurück" });
+    expect(back.textContent).toBe("");
+    expect(back.getAttribute("aria-label")).toBe("Zurück");
+  });
+
+  test("Back without a determinable name stays a regular action in the overflow", () => {
+    narrowFormWithBack(<span>Zurück</span>);
+    const back = screen.getByText("Zurück").closest("button") as HTMLElement;
+    expect(back.getAttribute("aria-label")).toBeNull();
+    expect(back.textContent).toBe("Zurück");
+    expect(screen.getByTestId("f-overflow")).toBeTruthy();
   });
 });

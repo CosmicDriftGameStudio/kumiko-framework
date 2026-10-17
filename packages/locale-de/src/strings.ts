@@ -346,6 +346,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Jeder Tarif braucht ein eigenes Stripe-Produkt. Bitte den Support kontaktieren.",
   "billing-foundation.errors.priceUnavailable":
     "Der Preis dieses Tarifs ist vorübergehend nicht verfügbar.",
+  "billing-foundation.errors.providerCustomerUnknown":
+    "Das Abrechnungskonto dieses Abos existiert nicht mehr. Bitte schließe das Abo erneut ab.",
   "billing-foundation.errors.providerHasNoPriceCatalog":
     "Für diesen Anbieter sind keine Preise konfiguriert.",
   "billing-foundation.errors.providerMismatch":

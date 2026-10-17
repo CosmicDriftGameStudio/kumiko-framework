@@ -19,12 +19,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
-  configureBlindIndexKey,
   configurePiiSubjectKms,
-  decryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -42,7 +39,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
-  resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
@@ -69,6 +65,12 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 import { createUserDataRightsFeature } from "../feature.js";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 import { runForgetCleanup } from "../run-forget-cleanup.js";
+import {
+  decryptEmail,
+  emailsIn,
+  expectEmailsShredded,
+  setupSubjectKmsForTest,
+} from "./forget-shredding-test-helpers.js";
 
 let stack: TestStack;
 
@@ -1153,20 +1155,11 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
   const OLD_EMAIL = "alice.old-address@example.com";
   const NEW_EMAIL = "alice.new-address@example.com";
   const DISPLAY_NAME = "Alice Previous Shred";
-  const kmsRequest = { requestId: "forget-previous-shred-check" };
 
-  let kms: InMemoryKmsAdapter;
+  const getKms = setupSubjectKmsForTest();
 
   beforeEach(async () => {
     await resetTestTables(stack.db, [eventsTable]);
-    kms = new InMemoryKmsAdapter();
-    configurePiiSubjectKms(kms);
-    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
-  });
-
-  afterEach(() => {
-    resetPiiSubjectKmsForTests();
-    resetBlindIndexKeyForTests();
   });
 
   async function loadUserUpdatedPayloads(userId: string): Promise<Record<string, unknown>[]> {
@@ -1176,18 +1169,6 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
       { aggregateId: userId },
     );
     return events.filter((event) => event.type === "user.updated").map((event) => event.payload);
-  }
-
-  function emailsIn(payloads: readonly Record<string, unknown>[], key: "changes" | "previous") {
-    return payloads.flatMap((payload) => {
-      const email = (payload[key] as Record<string, unknown> | undefined)?.["email"];
-      return typeof email === "string" ? [email] : [];
-    });
-  }
-
-  async function decryptEmail(email: string): Promise<unknown> {
-    const out = await decryptPiiFieldValues({ email }, ["email"], kms, kmsRequest);
-    return out["email"];
   }
 
   test("previous.email of an earlier email change is unreadable after the forget run", async () => {
@@ -1208,8 +1189,10 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
     // Positive control: before the erase the key still opens the history.
     const beforeForget = emailsIn(await loadUserUpdatedPayloads(userId), "previous");
     expect(beforeForget).toHaveLength(1);
-    expect(isPiiCiphertext(beforeForget[0])).toBe(true);
-    expect(await decryptEmail(beforeForget[0] ?? "")).toBe(OLD_EMAIL);
+    const [earlierEmail] = beforeForget;
+    if (earlierEmail === undefined) throw new Error("expected one previous email");
+    expect(isPiiCiphertext(earlierEmail)).toBe(true);
+    expect(await decryptEmail(getKms(), earlierEmail)).toBe(OLD_EMAIL);
 
     await updateUserLifecycle(stack.db, userId, {
       status: USER_STATUS.DeletionRequested,
@@ -1223,7 +1206,6 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
     );
 
     expect((await fetchUser(userId))?.status).toBe(USER_STATUS.Deleted);
-    await expect(kms.getKey({ kind: "user", userId })).rejects.toThrow("Subject key erased");
 
     const events = await selectMany(stack.db, eventsTable, { aggregateId: userId });
     const serialized = JSON.stringify(events, (_key, value) =>
@@ -1237,9 +1219,6 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
     const emails = [...emailsIn(payloads, "changes"), ...emailsIn(payloads, "previous")];
     // Email change `previous`, lifecycle update `previous` and anonymization `changes` are ciphertexts.
     expect(emails.filter((email) => isPiiCiphertext(email)).length).toBeGreaterThanOrEqual(3);
-    for (const email of emails) {
-      expect(isPiiCiphertext(email) || email === PII_ERASED_SENTINEL).toBe(true);
-      expect(await decryptEmail(email)).toBe(PII_ERASED_SENTINEL);
-    }
+    await expectEmailsShredded(emails, getKms(), userId);
   });
 });

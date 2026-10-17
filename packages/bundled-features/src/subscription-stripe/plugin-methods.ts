@@ -109,12 +109,10 @@ export function mapAppLocaleToStripeLocale(
   return knownLocales.find((known) => known === language) ?? "auto";
 }
 
-function isUnknownCustomerStripeError(error: unknown): boolean {
-  return (
-    isResourceMissingStripeError(error) &&
-    error instanceof Stripe.errors.StripeInvalidRequestError &&
-    error.param === "customer"
-  );
+function isUnknownCustomerStripeError(
+  error: unknown,
+): error is Stripe.errors.StripeInvalidRequestError {
+  return isResourceMissingStripeError(error) && error.param === "customer";
 }
 
 export function createStripeCheckoutSession(
@@ -203,11 +201,21 @@ export type StripePortalOptions = Parameters<
 export function createStripePortalSession(runtime: StripeCtxRuntime) {
   return async (ctx: HandlerContext, options: StripePortalOptions): Promise<{ url: string }> => {
     const stripe = await runtime.clientForCtx(ctx);
-    const session = await stripe.billingPortal.sessions.create({
-      customer: options.providerCustomerId,
-      return_url: options.returnUrl,
-    });
-    return { url: session.url };
+    try {
+      const session = await stripe.billingPortal.sessions.create({
+        customer: options.providerCustomerId,
+        return_url: options.returnUrl,
+      });
+      return { url: session.url };
+    } catch (error) {
+      // A portal needs an existing customer, so unlike checkout there is no retry without one.
+      if (!isUnknownCustomerStripeError(error)) throw error;
+      throw new UnprocessableError("provider_customer_unknown", {
+        i18nKey: "billing-foundation.errors.providerCustomerUnknown",
+        message: `subscription-stripe: Stripe does not know customer "${options.providerCustomerId}" (account switch or customer deleted).`,
+        cause: error,
+      });
+    }
   };
 }
 

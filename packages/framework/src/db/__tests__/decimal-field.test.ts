@@ -56,11 +56,11 @@ describe("decimal field — read codec (pg numeric string → JS number)", () =>
   });
 
   test("null passes through untouched", () => {
-    expect(coerceRow({ rate: null }, info).rate).toBeNull();
+    expect(coerceRow({ rate: null }, info)["rate"]).toBeNull();
   });
 
   test("already-number values are left as-is", () => {
-    expect(coerceRow({ interest: 2.5 }, info).interest).toBe(2.5);
+    expect(coerceRow({ interest: 2.5 }, info)["interest"]).toBe(2.5);
   });
 });
 
