@@ -21,7 +21,9 @@ import {
   type PreparedTemplateFile,
   prepareTemplateAttachmentBeforeTransaction,
   prepareTemplateResourceBeforeTransaction,
+  type Release,
   readTemplateResourceMaxBytes,
+  releaseAll,
 } from "../store-template-resource.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import type { TemplateBundle } from "../template-bundle.js";
@@ -96,15 +98,6 @@ async function collectBundleIssues(
 }
 
 export type PreparedBundleResources = ReadonlyMap<string, PreparedTemplateFile>;
-
-type Release = () => Promise<void>;
-
-// Tries every release, so one failing delete does not strand the other uploads; the first rejection is rethrown.
-async function releaseAll(releases: readonly Release[]): Promise<void> {
-  const settled = await Promise.allSettled(releases.map((release) => release()));
-  const rejected = settled.find((outcome) => outcome.status === "rejected");
-  if (rejected?.status === "rejected") throw rejected.reason;
-}
 
 function checkBundleAttachments(bundle: TemplateBundle): WriteResult<null> {
   const attachmentCount =

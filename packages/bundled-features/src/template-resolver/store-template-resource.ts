@@ -37,6 +37,7 @@ import {
 import { TemplateResolverErrors } from "./qualified-names.js";
 import { normalizeResourceImage } from "./resource-image.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
+import { readTemplateResource } from "./template-resources.js";
 
 export async function readTemplateResourceMaxBytes(
   config: ConfigAccessor | undefined,
@@ -253,6 +254,85 @@ export async function prepareTemplateResourceBeforeTransaction(args: {
     },
     ...(uploaded.release && { release: uploaded.release }),
   };
+}
+
+export type Release = () => Promise<void>;
+
+// Tries every release, so one failing delete does not strand the other uploads; the first rejection is rethrown.
+export async function releaseAll(releases: readonly Release[]): Promise<void> {
+  const settled = await Promise.allSettled(releases.map((release) => release()));
+  const rejected = settled.find((outcome) => outcome.status === "rejected");
+  if (rejected?.status === "rejected") throw rejected.reason;
+}
+
+// `upload` is absent for a rendered-PDF link, which carries no file.
+export type PreparedLinkedResourceCopy = {
+  readonly key: string;
+  readonly entry: LinkedResourceEntry;
+  readonly upload?: UploadedFileBytes;
+};
+
+// beforeTransaction half: copies the file behind every entry into the target tenant's storage, so a
+// template copied from the system default keeps working once the tenant exports it or measures its
+// attachments. An entry whose source file is gone is left out: it could not be resolved at render
+// time either. A failed or throwing upload releases the ones before it.
+export async function prepareLinkedResourceCopiesBeforeTransaction(args: {
+  readonly ctx: HandlerContext;
+  readonly user: SessionUser;
+  readonly tenantId: TenantId;
+  readonly resources: Readonly<Record<string, LinkedResourceEntry>>;
+}): Promise<BeforeTransactionResult<readonly PreparedLinkedResourceCopy[]>> {
+  const { ctx, user, tenantId, resources } = args;
+  const copies: PreparedLinkedResourceCopy[] = [];
+  const releases: Release[] = [];
+  try {
+    for (const [key, entry] of Object.entries(resources)) {
+      if (typeof entry !== "string" && entry.kind === "rendered-pdf") {
+        copies.push({ key, entry });
+        continue;
+      }
+      const file = await readTemplateResource(
+        ctx,
+        typeof entry === "string" ? entry : entry.fileRefId,
+      );
+      if (file === null) continue;
+      const uploaded = await uploadToTenant(
+        { ctx, user, tenantId },
+        { fileName: file.fileName, mimeType: file.contentType, data: file.bytes },
+      );
+      if (!uploaded.isSuccess) {
+        await releaseAll(releases);
+        return uploaded;
+      }
+      if (uploaded.release) releases.push(uploaded.release);
+      copies.push({ key, entry, upload: uploaded.data });
+    }
+  } catch (cause) {
+    await releaseAll(releases);
+    throw cause;
+  }
+  return { isSuccess: true, data: copies, release: () => releaseAll(releases) };
+}
+
+// Transaction half: creates the target tenant's fileRef rows and returns the entries pointing at them.
+export async function createLinkedResourceCopies(
+  scope: TenantScope,
+  prepared: readonly PreparedLinkedResourceCopy[],
+): Promise<WriteResult<Record<string, LinkedResourceEntry>>> {
+  const linked: Record<string, LinkedResourceEntry> = {};
+  for (const { key, entry, upload } of prepared) {
+    if (typeof entry !== "string" && entry.kind === "rendered-pdf") {
+      linked[key] = entry;
+      continue;
+    }
+    // skip: a file entry without a copy must not carry the source tenant's fileRefId over
+    if (upload === undefined) continue;
+    const created = await createFileRefFromPrepared(scope, upload);
+    if (!created.isSuccess) return created;
+    linked[key] =
+      typeof entry === "string" ? created.data.id : { ...entry, fileRefId: created.data.id };
+  }
+  return { isSuccess: true, data: linked };
 }
 
 // Transaction half: creates the fileRef row for the prepared upload and, with templateId + key,

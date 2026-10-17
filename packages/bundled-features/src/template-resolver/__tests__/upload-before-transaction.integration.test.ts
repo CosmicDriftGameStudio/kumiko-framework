@@ -1,4 +1,4 @@
-// resource-upload, import-bundle and import-bundle-system move all storage I/O in front of the
+// resource-upload, import-bundle, import-bundle-system and copy-locale move all storage I/O in front of the
 // transaction: the source is read and the binaries are written in the beforeTransaction phase, the
 // transaction only creates fileRef rows and links them, and the phase's release removes the
 // binaries when the transaction does not commit. Real stack, real HTTP calls.
@@ -6,7 +6,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { executeRawQuery, table as pgTable, uuid } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  defineWriteHandler,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileRefFromBytes,
   createFilesFeature,
@@ -264,6 +268,75 @@ async function fileRefCount(): Promise<number> {
   return (await selectMany(stack.db, fileRefsTable)).length;
 }
 
+type SystemTemplateFiles = {
+  readonly slug: string;
+  readonly imageFileRefId: string;
+  readonly attachmentFileRefId: string;
+};
+
+// A system-default mail template with a linked image and a file attachment; copy-locale has to
+// give the copying tenant its own files for both.
+async function createSystemTemplateWithFiles(slug: string): Promise<SystemTemplateFiles> {
+  const created = await stack.http.writeOk<{ id: string }>(
+    TemplateResolverHandlers.upsertSystem,
+    {
+      slug,
+      kind: "mail",
+      meta: { subject: "Hello" },
+      locale: "de",
+      content: "<p>Hello</p>",
+      contentFormat: "html",
+      variableSchema: {},
+    },
+    systemAdmin,
+  );
+  const image = await stack.http.writeOk<{ fileRefId: string }>(
+    TemplateResolverHandlers.resourceUpload,
+    {
+      sourceFileRefId: await uploadPng(systemAdmin),
+      templateId: created.id,
+      key: "logo",
+      tenantIdOverride: SYSTEM_TENANT_ID,
+    },
+    systemAdmin,
+  );
+  const attachment = await stack.http.writeOk<{ fileRefId: string }>(
+    TemplateResolverHandlers.resourceUpload,
+    {
+      sourceFileRefId: await uploadSource(systemAdmin, PDF_BYTES, {
+        name: "offer.pdf",
+        type: "application/pdf",
+      }),
+      templateId: created.id,
+      key: "offer",
+      purpose: "attachment",
+      fileName: "offer.pdf",
+      tenantIdOverride: SYSTEM_TENANT_ID,
+    },
+    systemAdmin,
+  );
+  return { slug, imageFileRefId: image.fileRefId, attachmentFileRefId: attachment.fileRefId };
+}
+
+const copyLocalePayload = (slug: string) => ({
+  slug,
+  kind: "mail" as const,
+  fromLocale: "de",
+  toLocale: "en",
+});
+
+type StoredFile = { readonly tenantId: string; readonly storageKey: string };
+
+async function storedFileOf(fileRefId: string): Promise<StoredFile> {
+  const [row] = await selectMany<StoredFile>(stack.db, fileRefsTable, { id: fileRefId });
+  if (row === undefined) throw new Error(`fileRef ${fileRefId} not found`);
+  return row;
+}
+
+async function storedBytesOf(fileRefId: string): Promise<Buffer> {
+  return Buffer.from(await baseProvider.read((await storedFileOf(fileRefId)).storageKey));
+}
+
 function mailBundle(slug: string) {
   return {
     slug,
@@ -330,7 +403,84 @@ describe("storage I/O runs without an open transaction", () => {
   });
 });
 
+describe("copy-locale from the system default", () => {
+  test("reads the source files and writes the copies with no transaction open", async () => {
+    const files = await createSystemTemplateWithFiles("copy-no-tx");
+    idleInTransactionAtStorageCall.length = 0;
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+
+    expect(idleInTransactionAtStorageCall.length).toBe(4);
+    expectNoTransactionOpenDuringStorageCalls();
+
+    const linked = (await linkedResourcesOf(copied.id, tenantAAdmin)) as {
+      logo: string;
+      offer: { kind: string; fileRefId: string; fileName: string };
+    };
+    expect(linked.logo).not.toBe(files.imageFileRefId);
+    expect(linked.offer).toMatchObject({ kind: "file", fileName: "offer.pdf" });
+    expect(linked.offer.fileRefId).not.toBe(files.attachmentFileRefId);
+    expect(
+      (await storedBytesOf(linked.logo)).equals(await storedBytesOf(files.imageFileRefId)),
+    ).toBe(true);
+    expect((await storedBytesOf(linked.offer.fileRefId)).equals(Buffer.from(PDF_BYTES))).toBe(true);
+  });
+
+  test("the copies land in the copying tenant's storage and fileRef rows", async () => {
+    const files = await createSystemTemplateWithFiles("copy-tenant-scope");
+    const keysBefore = new Set(provider.keys());
+    const systemFileRefsBefore = await selectMany(stack.db, fileRefsTable, {
+      tenantId: SYSTEM_TENANT_ID,
+    });
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+
+    const linked = (await linkedResourcesOf(copied.id, tenantAAdmin)) as {
+      logo: string;
+      offer: { fileRefId: string };
+    };
+    for (const fileRefId of [linked.logo, linked.offer.fileRefId]) {
+      const stored = await storedFileOf(fileRefId);
+      expect(stored.tenantId).toBe(tenantAAdmin.tenantId);
+      expect(stored.storageKey.startsWith(`${tenantAAdmin.tenantId}/`)).toBe(true);
+    }
+    const newKeys = provider.keys().filter((key) => !keysBefore.has(key));
+    expect(newKeys).toHaveLength(2);
+    expect(newKeys.every((key) => key.startsWith(`${tenantAAdmin.tenantId}/`))).toBe(true);
+    expect(await selectMany(stack.db, fileRefsTable, { tenantId: SYSTEM_TENANT_ID })).toHaveLength(
+      systemFileRefsBefore.length,
+    );
+  });
+});
+
 describe("a failure before the transaction stores nothing", () => {
+  test("copy-locale onto an existing locale without overwrite uploads nothing", async () => {
+    const files = await createSystemTemplateWithFiles("copy-target-exists");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+    const before = await snapshot();
+
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+
+    expect(JSON.stringify(err.details)).toContain("target_exists");
+    await expectUnchanged(before);
+  });
+
   test("an SVG source leaves no binary and no fileRef row", async () => {
     const templateId = await createMailTemplate(tenantAAdmin, "svg-nothing");
     const sourceFileRefId = await uploadSource(
@@ -488,6 +638,30 @@ describe("a failure inside the transaction releases the uploaded binaries", () =
       await selectMany(stack.db, templateResourcesTable, {
         tenantId: tenantAAdmin.tenantId,
         slug: "release-bundle",
+      }),
+    ).toHaveLength(0);
+  });
+});
+
+describe("a failure inside the transaction releases the copied binaries", () => {
+  test("copy-locale: a failing row write leaves no binary, no fileRef row and no template", async () => {
+    const files = await createSystemTemplateWithFiles("copy-release");
+    const before = await snapshot();
+
+    failTemplateSaveInTransaction = true;
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+    failTemplateSaveInTransaction = false;
+
+    expect(err.httpStatus).toBe(500);
+    await expectUnchanged(before);
+    expect(
+      await selectMany(stack.db, templateResourcesTable, {
+        tenantId: tenantAAdmin.tenantId,
+        slug: files.slug,
       }),
     ).toHaveLength(0);
   });
