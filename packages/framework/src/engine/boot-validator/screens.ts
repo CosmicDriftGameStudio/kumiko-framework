@@ -14,6 +14,7 @@ import {
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isListFilterAllowed } from "../../db/entity-field-encryption.js";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
 import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.js";
 import { isEncryptedAtRest } from "../config-helpers.js";
@@ -2697,6 +2698,14 @@ export function validateScreens(
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter references unknown ` +
               `field "${filterField}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+          );
+        }
+        if (!isListFilterAllowed(entityDef, filterField, screen.filter)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter references field ` +
+              `"${filterField}" which is encrypted, personal or secret, so the list handler rejects ` +
+              `this filter at runtime. Only op "eq" works on a personal field with find: "exact" or ` +
+              `"fuzzy"; otherwise drop the filter or filter on another field.`,
           );
         }
         const fieldDef = entityDef.fields[filterField];

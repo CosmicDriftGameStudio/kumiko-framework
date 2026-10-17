@@ -11,13 +11,18 @@ import {
 } from "../engine/ownership.js";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type { EntityDefinition, EntityId, SessionUser } from "../engine/types/index.js";
-import { UnprocessableError } from "../errors/index.js";
+import { UnprocessableError, ValidationError } from "../errors/index.js";
 import { getStreamVersion } from "../event-store/index.js";
 import type { SearchAdapter } from "../search/types.js";
 import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta.js";
 import { rehydrateCompoundTypes } from "./compound-types.js";
 import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.js";
-import { hasSearchablePlaintext, isSensitiveLabelField } from "./entity-field-encryption.js";
+import {
+  hasSearchablePlaintext,
+  isListFilterAllowed,
+  isListSortAllowed,
+  isSensitiveLabelField,
+} from "./entity-field-encryption.js";
 import type { EventStoreExecutor } from "./event-store-executor.js";
 import {
   buildFilterWhere,
@@ -734,8 +739,13 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         // tenant filter that follows.
         whereSql.push(`(${orParts.join(" OR ")})`);
       }
+      // A column sort must not 400 (the renderer sends one per header click), and the order of
+      // ciphertext carries no meaning for the user while leaking the order of the plaintext.
       const sortCandidate =
-        payload.sort && table[payload.sort] && fieldReadClause(payload.sort).kind === "pass"
+        payload.sort &&
+        table[payload.sort] &&
+        fieldReadClause(payload.sort).kind === "pass" &&
+        isListSortAllowed(entity, payload.sort)
           ? payload.sort
           : undefined;
       const sortDescending = payload.sortDirection === "desc";
@@ -809,6 +819,22 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           // through it — an unsatisfiable filter beats an error, which would
           // itself confirm the field exists (field-access.ts strips silently)
           return;
+        }
+        if (!isListFilterAllowed(entity, f.field, f)) {
+          throw new ValidationError({
+            fields: [
+              {
+                path: `filter.${f.field}`,
+                code: "field_not_filterable",
+                i18nKey: "errors.validation.invalid_value",
+                params: {
+                  field: f.field,
+                  op: f.op,
+                  hint: "Encrypted, personal and secret fields cannot be filtered; only equality on a field with find: exact or fuzzy.",
+                },
+              },
+            ],
+          });
         }
         if (readClause.kind === "sql") {
           const shifted = shiftParams(
