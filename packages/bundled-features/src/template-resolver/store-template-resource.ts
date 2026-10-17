@@ -15,7 +15,7 @@ import {
 import { createFileRefFromBytes } from "@cosmicdrift/kumiko-framework/files";
 import { fileContextForTenant } from "../file-foundation/index.js";
 import type { FileAttachmentRef } from "../renderer-foundation/index.js";
-import { requireForTenant } from "../shared/index.js";
+import { extensionForResourceContentType, requireForTenant } from "../shared/index.js";
 import { ACTIVE_TEMPLATE_STATUS, SYSTEM_TENANT_ID } from "./constants.js";
 import {
   DEFAULT_RESOURCE_MAX_BYTES,
@@ -32,13 +32,6 @@ import {
 import { TemplateResolverErrors } from "./qualified-names.js";
 import { normalizeResourceImage } from "./resource-image.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
-
-const EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/gif": "gif",
-  "image/webp": "webp",
-};
 
 export async function readTemplateResourceMaxBytes(
   config: ConfigAccessor | undefined,
@@ -188,7 +181,7 @@ export async function storeTemplateResource(args: {
     },
     {
       // Neutral name: the source's file name may be personal data.
-      fileName: `${key ?? "resource"}.${EXTENSION_BY_CONTENT_TYPE[image.contentType] ?? "bin"}`,
+      fileName: `${key ?? "resource"}.${extensionForResourceContentType(image.contentType) ?? "bin"}`,
       mimeType: image.contentType,
       data: image.data,
     },

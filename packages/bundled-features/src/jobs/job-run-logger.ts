@@ -341,13 +341,16 @@ async function recordTenantRunOutcome(
       TENANT_JOB_RUN_LOCK_NAMESPACE,
       JSON.stringify([key.tenantId, key.jobName, key.subject]),
     );
+    // Read under the lock: the run that finishes last in lock order must also carry the
+    // latest finishedAt, otherwise a stale timestamp makes it the row that gets pruned.
+    const finishedAt = Temporal.Now.instant();
     await upsertOnConflict(
       tx,
       tenantJobRunsTable,
-      { ...key, bullJobId, status: result, finishedAt: now, updatedAt: now },
+      { ...key, bullJobId, status: result, finishedAt, updatedAt: finishedAt },
       {
         conflictKeys: [...TENANT_RUN_CONFLICT_KEYS],
-        update: { status: result, finishedAt: now, updatedAt: now },
+        update: { status: result, finishedAt, updatedAt: finishedAt },
       },
     );
     await deleteMany(tx, tenantJobRunsTable, {

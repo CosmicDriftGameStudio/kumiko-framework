@@ -30,6 +30,13 @@ describe("validateTemplatePlaceholders", () => {
     expect(result.unknown).toEqual(["gone", "nope"]);
   });
 
+  test("a dotted path under a declared variable or list item field is unknown", () => {
+    const result = validate(
+      '<span data-variable="total.amount"></span><a href="{{name.first}}">x</a><table><tr data-each="lines"><td><span data-variable="label.sub"></span></td></tr></table>',
+    );
+    expect(result.unknown).toEqual(["label.sub", "name.first", "total.amount"]);
+  });
+
   test("a resource key without an uploaded file is a separate warning, not an unknown", () => {
     const result = validate('<img data-resource="other"><img data-resource="logo">');
     expect(result.unknown).toEqual([]);

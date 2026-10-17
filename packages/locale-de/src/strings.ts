@@ -593,8 +593,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.intro":
     "dein angeforderter Datenexport für {app} ist fertig. Lade ihn über den folgenden Link herunter:",
   "gdpr.mail.exportReady.subject": "{app} — Dein Datenexport ist bereit",
-  "gdpr.mail.fallbackUrl":
-    "Falls der Button nicht funktioniert, kopiere diesen Link in den Browser:",
   "gdpr.mail.greeting": "Hallo,",
   "jobs.detail.field.duration": "Dauer in ms",
   "jobs.detail.field.error": "Fehler",

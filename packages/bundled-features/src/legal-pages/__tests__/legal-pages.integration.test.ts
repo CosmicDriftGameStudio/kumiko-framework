@@ -62,7 +62,7 @@ beforeAll(async () => {
     slug: "imprint",
     locale: "en",
     title: "Imprint",
-    content: "## Provider\n\n**Alex Morgan**\n\nLeipzig, Germany",
+    content: "## Provider\n\n**Alex Morgan**\n\nMusterstadt, Germany",
   });
 });
 
@@ -100,7 +100,7 @@ describe("legal-pages :: GET /legal/imprint (EN)", () => {
     expect(res.status).toBe(200);
     const body = await res.text();
     expect(body).toContain('lang="en"');
-    expect(body).toContain("Leipzig");
+    expect(body).toContain("Musterstadt");
   });
 });
 

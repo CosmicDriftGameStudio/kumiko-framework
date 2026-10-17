@@ -1,8 +1,9 @@
 // delivery:query:log recipientLabel: display name, else decrypted address, else
-// recipientId. Real stack, real HTTP; rows seeded straight into the projection table.
+// recipientId. Real stack, real HTTP; rows are written through the attempt-event writer, so the
+// address is masked, encrypted under the PII KMS and projected exactly as in production.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createTestUser,
   setupTestStack,
@@ -11,12 +12,14 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config/feature.js";
 import { configValuesTable } from "../../config/table.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { seedUser } from "../../user/seeding.js";
+import { logAttempt } from "../attempt-log.js";
 import { DeliveryQueries } from "../constants.js";
 import { createDeliveryFeature } from "../feature.js";
 import { deliveryAttemptsTable } from "../tables.js";
@@ -37,17 +40,16 @@ async function attempt(
   recipientId: string | null,
   recipientAddress: string | null,
 ): Promise<void> {
-  await insertMany(stack.db, deliveryAttemptsTable, [
-    {
-      id: crypto.randomUUID(),
-      tenantId,
-      notificationType,
-      channel: "email",
-      recipientId,
-      recipientAddress,
-      status: "sent",
-    },
-  ]);
+  await logAttempt(stack.db, stack.registry, {
+    tenantId,
+    notificationType,
+    channel: "email",
+    recipientId,
+    recipientAddress,
+    status: "sent",
+    error: null,
+    priority: "normal",
+  });
 }
 
 async function labelsByType(stack: TestStack): Promise<Record<string, LabelRow>> {
@@ -64,6 +66,7 @@ describe("delivery:query:log recipientLabel with the user feature", () => {
   let userId: string;
 
   beforeAll(async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
     stack = await setupTestStack({
       features: [
         createConfigFeature(),
@@ -88,6 +91,7 @@ describe("delivery:query:log recipientLabel with the user feature", () => {
 
   afterAll(async () => {
     await stack.cleanup();
+    resetPiiSubjectKmsForTests();
   });
 
   test("a known user shows the display name, also when the address is present", async () => {
@@ -98,7 +102,7 @@ describe("delivery:query:log recipientLabel with the user feature", () => {
 
   test("a direct address without recipientId shows the address", async () => {
     const rows = await labelsByType(stack);
-    expect(rows["label:direct"]?.recipientLabel).toBe("direct@example.com");
+    expect(rows["label:direct"]?.recipientLabel).toBe("d***@example.com");
   });
 
   test("an unknown recipientId falls back to the id, a non-uuid id does not break the page", async () => {
@@ -112,6 +116,7 @@ describe("delivery:query:log recipientLabel without the user feature", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
     stack = await setupTestStack({
       features: [createConfigFeature(), createTenantFeature(), createDeliveryFeature()],
     });
@@ -122,11 +127,12 @@ describe("delivery:query:log recipientLabel without the user feature", () => {
 
   afterAll(async () => {
     await stack.cleanup();
+    resetPiiSubjectKmsForTests();
   });
 
   test("falls back to the address, then the id, without error", async () => {
     const rows = await labelsByType(stack);
-    expect(rows["label:with-address"]?.recipientLabel).toBe("someone@example.com");
+    expect(rows["label:with-address"]?.recipientLabel).toBe("s***@example.com");
     expect(rows["label:id-only"]?.recipientLabel).toBe(UNKNOWN_USER_ID);
   });
 });

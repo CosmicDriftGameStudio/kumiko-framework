@@ -568,7 +568,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.intro":
     "your requested data export for {app} is ready. Download it using the link below:",
   "gdpr.mail.exportReady.subject": "{app} — Your data export is ready",
-  "gdpr.mail.fallbackUrl": "If the button doesn't work, copy this link into your browser:",
   "gdpr.mail.greeting": "Hi,",
   "jobs.detail.field.duration": "Duration (ms)",
   "jobs.detail.field.error": "Error",

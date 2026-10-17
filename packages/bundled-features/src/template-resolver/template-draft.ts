@@ -57,7 +57,7 @@ export type ActiveInfo = { readonly version: number; readonly since: Temporal.In
 export type WorkingRow = TemplateResourceRow & { readonly active: ActiveInfo | null };
 
 // A SystemAdmin edits system rows, so for them those rows count as their own.
-function isSystemAdmin(user: { readonly roles: readonly string[] }): boolean {
+export function isSystemAdmin(user: { readonly roles: readonly string[] }): boolean {
   return user.roles.includes("SystemAdmin");
 }
 

@@ -8,7 +8,8 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests, updateRows } from "@cosmicdrift/kumiko-framework/testing";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
@@ -16,7 +17,7 @@ import {
 } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import { seedTenant } from "../../tenant/seeding.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
@@ -308,5 +309,55 @@ describe("cap-overview list sort", () => {
       sysAdmin,
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe("cap-overview tenant names under an active PII KMS", () => {
+  const TENANT_DESTROYED = testTenantId(9004);
+  const sysAdmin = createTestUser({ id: 90019, tenantId: TENANT_A, roles: ["SystemAdmin"] });
+
+  test("tenant-options returns plaintext names sorted by name", async () => {
+    const result = await stack.http.queryOk<{
+      rows: readonly { value: string; label: string }[];
+    }>(CapOverviewQueries.tenantOptions, {}, sysAdmin);
+
+    expect(result.rows.map((row) => row.label)).toEqual(["Tenant A", "Tenant B", "Tenant C"]);
+    expect(result.rows.find((row) => row.value === TENANT_B)?.label).toBe("Tenant B");
+  });
+
+  test("tenant-caps-list shows plaintext names and searches on them", async () => {
+    const result = await stack.http.queryOk<{
+      rows: readonly { tenantId: string; name: string }[];
+    }>(CapOverviewQueries.tenantCapsList, { search: "tenant b" }, sysAdmin);
+
+    expect(result.rows.map((row) => [row.tenantId, row.name])).toEqual([[TENANT_B, "Tenant B"]]);
+  });
+
+  test("a destroyed tenant is left out of the picker and the list", async () => {
+    await seedTenant(db, {
+      id: TENANT_DESTROYED,
+      key: `cap-overview-d-${TENANT_DESTROYED}`,
+      name: "Tenant Destroyed",
+    });
+    await updateRows(
+      db,
+      tenantTable,
+      { status: "destroyed", destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z") },
+      { id: TENANT_DESTROYED },
+    );
+
+    const options = await stack.http.queryOk<{ rows: readonly { value: string }[] }>(
+      CapOverviewQueries.tenantOptions,
+      {},
+      sysAdmin,
+    );
+    const list = await stack.http.queryOk<{ rows: readonly { tenantId: string }[] }>(
+      CapOverviewQueries.tenantCapsList,
+      {},
+      sysAdmin,
+    );
+
+    expect(options.rows.map((row) => row.value)).not.toContain(TENANT_DESTROYED);
+    expect(list.rows.map((row) => row.tenantId)).not.toContain(TENANT_DESTROYED);
   });
 });

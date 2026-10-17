@@ -54,11 +54,17 @@ function isControlCharacter(char: string): boolean {
   return code <= 0x1f || code === 0x7f;
 }
 
+// Mail clients often show only the display name: an embedded address ("<", ">", "@") would
+// pass for a foreign sender on the platform's own SPF/DKIM-signed domain.
+function isUnsafeDisplayNameCharacter(char: string): boolean {
+  return isControlCharacter(char) || char === "<" || char === ">" || char === "@";
+}
+
 // Control characters in a display name would let a caller inject headers.
 function sanitizedDisplayName(name: string | undefined): string | undefined {
   const cleaned = name
     ?.split("")
-    .map((char) => (isControlCharacter(char) ? " " : char))
+    .map((char) => (isUnsafeDisplayNameCharacter(char) ? " " : char))
     .join("")
     .trim();
   return cleaned === undefined || cleaned === "" ? undefined : cleaned;

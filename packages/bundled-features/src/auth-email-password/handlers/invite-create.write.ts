@@ -51,7 +51,7 @@ import {
   unassignableMembershipRoleError,
 } from "../../tenant/membership-roles.js";
 // kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import { GLOBAL_ROLE_OPTIONS } from "../../user/constants.js";
+import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/constants.js";
 // kumiko-lint-ignore cross-feature-import invitee lookup by email reads the user row
 import { userTable } from "../../user/schema/user.js";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
@@ -60,8 +60,6 @@ import { inviteAlreadyAccepted } from "../errors.js";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.js";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 import { AuthMailNotificationTypes } from "../mail-notifications.js";
-
-type GlobalRole = (typeof GLOBAL_ROLE_OPTIONS)[number];
 
 const InviteCreateSchema = z.object({
   email: z.email(),

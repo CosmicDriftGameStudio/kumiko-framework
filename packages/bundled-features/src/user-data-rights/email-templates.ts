@@ -36,7 +36,6 @@ export const GDPR_MAIL_EN: Readonly<Record<string, string>> = {
   "gdpr.mail.deletionExecuted.subject": "{app} — Your account has been deleted",
   "gdpr.mail.deletionExecuted.intro":
     "your {app} account and the associated personal data were deleted on {when}. This action is permanent.",
-  "gdpr.mail.fallbackUrl": "If the button doesn't work, copy this link into your browser:",
 };
 
 registerMailTranslations("en", GDPR_MAIL_EN);

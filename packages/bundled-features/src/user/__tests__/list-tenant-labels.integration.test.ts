@@ -3,15 +3,21 @@
 // failing join must not be swallowed into an empty column.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { executeRawQuery } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
+import { configValuesTable } from "../../config/table.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.js";
+import { seedTenantMembership } from "../../tenant/seeding.js";
 import { UserHandlers, UserQueries } from "../constants.js";
 import { createUserFeature } from "../feature.js";
 import { userEntity } from "../schema/user.js";
@@ -103,5 +109,49 @@ describe("user:list with the tenant feature", () => {
     const res = await stack.http.query(UserQueries.detail, { id }, systemAdmin);
 
     expect(res.status).toBeGreaterThanOrEqual(500);
+  });
+});
+
+describe("user:list tenants column under an active PII KMS", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [createUserFeature(), createConfigFeature(), createTenantFeature()],
+    });
+    await unsafeCreateEntityTable(stack.db, userEntity);
+    await unsafeCreateEntityTable(stack.db, tenantEntity);
+    await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("joins the plaintext tenant names, sorted", async () => {
+    const userId = await seedUser(stack);
+    for (const [key, name] of [
+      ["label-zulu", "Zulu Works"],
+      ["label-alpha", "Alpha Holding"],
+    ] as const) {
+      const { id: tenantId } = await stack.http.writeOk<{ id: string }>(
+        TenantHandlers.create,
+        { key, name },
+        systemAdmin,
+      );
+      await seedTenantMembership(stack.db, { userId, tenantId, roles: ["User"] });
+    }
+
+    const result = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      UserQueries.list,
+      {},
+      systemAdmin,
+    );
+
+    expect(result.rows.find((row) => row["id"] === userId)?.["tenants"]).toBe(
+      "Alpha Holding (User), Zulu Works (User)",
+    );
   });
 });

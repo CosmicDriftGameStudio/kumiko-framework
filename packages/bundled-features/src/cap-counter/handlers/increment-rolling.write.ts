@@ -40,6 +40,8 @@ export const rollingIncrementedSchema = incrementRollingSchema;
 /** Payload of the event that gives a reserved rolling amount back. */
 export const rollingReleasedSchema = incrementRollingSchema.extend({
   amount: z.number().int().positive(),
+  /** When the released increment was booked; absent on events written before it was recorded. */
+  incrementedAt: z.string().optional(),
 });
 
 // Rolling-Increment-Handler — append-only. Race-frei: zwei parallele

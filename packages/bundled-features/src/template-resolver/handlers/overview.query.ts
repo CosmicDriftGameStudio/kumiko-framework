@@ -52,6 +52,8 @@ export type OverviewResponse = {
   readonly rows: readonly OverviewRow[];
   readonly nextCursor: null;
   readonly total: number;
+  /** True when the tenant has more template rows than the overview reads; rows and total are then incomplete. */
+  readonly truncated: boolean;
 };
 
 const SORT_FIELDS = ["title", "slug", "kind", "origin", "status", "modifiedAt"] as const;
@@ -285,12 +287,19 @@ export const overviewQuery = defineQueryHandler({
     "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
   handler: async (query, ctx) => {
     const payload = query.payload;
-    const rows = await selectMany<TemplateResourceRow>(
+    const fetchedRows = await selectMany<TemplateResourceRow>(
       ctx.db,
       templateResourcesTable,
       { kind: { in: [...OVERVIEW_KINDS] } },
-      { limit: OVERVIEW_ROW_LIMIT },
+      { orderBy: { col: "id", direction: "asc" }, limit: OVERVIEW_ROW_LIMIT + 1 },
     );
+    const truncated = fetchedRows.length > OVERVIEW_ROW_LIMIT;
+    const rows = truncated ? fetchedRows.slice(0, OVERVIEW_ROW_LIMIT) : fetchedRows;
+    if (truncated) {
+      ctx.log?.warn("template overview: row limit reached, result is incomplete", {
+        limit: OVERVIEW_ROW_LIMIT,
+      });
+    }
 
     const visibleRows = rows.filter((row) => !isHiddenSystemDraft(query.user, row));
     const { drafts, layoutSlugByDocument } = buildDrafts(
@@ -318,6 +327,7 @@ export const overviewQuery = defineQueryHandler({
       rows: filtered.slice(offset, offset + payload.limit),
       nextCursor: null,
       total: filtered.length,
+      truncated,
     } satisfies OverviewResponse;
   },
 });

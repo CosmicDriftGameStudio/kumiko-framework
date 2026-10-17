@@ -128,12 +128,10 @@ function isKnownName(
 ): Resolution {
   const { variables } = scope;
   const root = rootName(name);
-  if (Object.hasOwn(itemFields, name) || Object.hasOwn(itemFields, root)) {
-    return { known: true, used: "" };
-  }
+  // Declared variables and item fields are scalars: a dotted path under one never renders a value.
+  if (Object.hasOwn(itemFields, name)) return { known: true, used: "" };
   if (scope.systemPlaceholders.has(root)) return { known: true, used: "" };
   if (Object.hasOwn(variables, name)) return { known: true, used: name };
-  if (Object.hasOwn(variables, root)) return { known: true, used: root };
   return { known: false, used: "" };
 }
 
@@ -179,7 +177,7 @@ function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
 
 const HANDLEBARS_EXPRESSION = /\{\{([^{}]*)\}\}/g;
 
-// Meta text supports only plain `{{name}}` / `{{name.field}}`; every other
+// Meta text supports only plain `{{name}}` references; every other
 // Handlebars construct is reported as unknown so it can never reach the compiler.
 function scanMetaPlaceholders(text: string, scope: PlaceholderScope): void {
   const leftover = text.replace(HANDLEBARS_EXPRESSION, (_match, inner: string) => {

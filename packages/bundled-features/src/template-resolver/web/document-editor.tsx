@@ -21,13 +21,14 @@ export function DocumentContentEditor(props: DocumentEditorProps): ReactNode {
   const editorProps = props.blocks === undefined ? { ...props, blocks: contextBlocks } : props;
   return (
     <Suspense
+      // Read-only without chips: a textarea would insert {{name}} text and plaintext into a document body.
       fallback={
         <TextareaContentEditor
           id={props.id}
           value={props.value}
           onChange={props.onChange}
-          variables={props.variables}
-          readOnly={props.readOnly}
+          variables={[]}
+          readOnly
         />
       }
     >

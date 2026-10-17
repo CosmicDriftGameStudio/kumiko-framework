@@ -91,6 +91,27 @@ describe("template-resolver :: bundle", () => {
     expect(second).toEqual(first);
   });
 
+  test("a bundle with more than 50 locales is rejected before anything is written", async () => {
+    const letters = "abcdefghijklmnopqrstuvwxyz";
+    const locales = Object.fromEntries(
+      [...letters].flatMap((first) =>
+        [...letters.slice(0, 2)].map((second) => [`${first}${second}`, { body: "<p>x</p>" }]),
+      ),
+    );
+    expect(Object.keys(locales)).toHaveLength(52);
+
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.importBundle,
+      {
+        bundle: { slug: "too-many-locales", kind: "document-pdf", contentFormat: "html", locales },
+      },
+      tenantA,
+    );
+
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err.details)).toContain("bundle.locales");
+  });
+
   test("an existing locale blocks a second import unless overwrite is set", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.importBundle,

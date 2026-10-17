@@ -64,10 +64,11 @@ describe("createSmtpTransport — fromName", () => {
     expect(headerLines("From")).toEqual(["From: Verwaltung <verwaltung@haus.test>"]);
   });
 
-  test("a double quote in the name is escaped inside a quoted display name, the address stays the configured one", async () => {
+  test("an address embedded in the name is neutralised, the address stays the configured one", async () => {
     const transport = createSmtpTransport({ host: "localhost", from: "noreply@x.test" });
     await transport.send({ ...mail, fromName: 'Evil" <attacker@y.test>' });
-    expect(headerLines("From")).toEqual(['From: "Evil\\" <attacker@y.test>" <noreply@x.test>']);
+    expect(headerLines("From")).toEqual(['From: "Evil\\"  attacker y.test" <noreply@x.test>']);
+    expect(headerBlock()).not.toContain("attacker@y.test");
   });
 
   test("CR/LF in the name cannot add a Bcc or any other header", async () => {

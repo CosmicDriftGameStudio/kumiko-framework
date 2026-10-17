@@ -181,6 +181,29 @@ describe("PlaceholderLineEditor", () => {
     );
   });
 
+  test("a late systemVariables change recolors the chips", async () => {
+    const renderEditor = (systemVariables: readonly string[]) => (
+      <Providers>
+        <PlaceholderLineEditor
+          id="subject"
+          aria-label="Subject"
+          value="Hi {{late}}"
+          onChange={() => {}}
+          systemVariables={systemVariables}
+        />
+      </Providers>
+    );
+    const { rerender } = render(renderEditor([]));
+    const before = (await screen.findByText("late")).className;
+
+    rerender(renderEditor(["late"]));
+
+    await waitFor(() =>
+      expect((screen.getByText("late") as HTMLElement).className).not.toBe(before),
+    );
+    expect((screen.getByText("late") as HTMLElement).className).toContain("bg-muted");
+  });
+
   test("Enter does not add a line", async () => {
     render(<LineEditor initial="Hello" />);
     const box = await screen.findByRole("textbox", { name: "Subject" });

@@ -4,6 +4,7 @@
 // is then skipped with a warning instead of failing the whole mail.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileContext,
@@ -43,10 +44,14 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function uploadLogo(): Promise<string> {
+async function uploadLogo(
+  bytes: Uint8Array = PNG_BYTES,
+  fileName = "logo.png",
+  mimeType = "image/png",
+): Promise<string> {
   const token = await stack.jwt.sign(uploader);
   const formData = new FormData();
-  formData.append("file", new File([Buffer.from(PNG_BYTES)], "logo.png", { type: "image/png" }));
+  formData.append("file", new File([Buffer.from(bytes)], fileName, { type: mimeType }));
   const { body, contentType } = await buildMultipartBody(formData);
   const res = await stack.app.request("/api/files", {
     method: "POST",
@@ -102,5 +107,66 @@ describe("inline attachments without a provider resolver", () => {
     );
 
     expect(read?.content).toEqual(PNG_BYTES);
+  });
+});
+
+// A caller of notify() picks the fileRefId, so its files must stay inside the sending tenant;
+// only refs the renderer took from a template may reach the system tenant.
+function readerReachingEveryTenant() {
+  return createEmailAttachmentReader(stack.db, stack.registry, jobTenantId, undefined, (tenantId) =>
+    createFileContext(() => Promise.resolve(provider), tenantId as TenantId),
+  );
+}
+
+describe("file attachment origin", () => {
+  test("a system tenant file is unreadable for a message-origin ref, default and explicit", async () => {
+    const fileRefId = await uploadLogo();
+    await moveFileRowTo(fileRefId, SYSTEM_TENANT_ID);
+    const read = readerReachingEveryTenant();
+    const ref = { kind: "file" as const, fileRefId, fileName: "logo.png" };
+
+    const withDefaultOrigin = await read(ref);
+    const withMessageOrigin = await read(ref, "message");
+
+    expect(withDefaultOrigin).toBeNull();
+    expect(withMessageOrigin).toBeNull();
+  });
+
+  test("a system tenant file is readable for a template-origin ref", async () => {
+    const fileRefId = await uploadLogo();
+    await moveFileRowTo(fileRefId, SYSTEM_TENANT_ID);
+
+    const read = await readerReachingEveryTenant()(
+      { kind: "file", fileRefId, fileName: "logo.png" },
+      "template",
+    );
+
+    expect(read?.content).toEqual(PNG_BYTES);
+  });
+
+  test("a file of the sending tenant is readable for a message-origin ref", async () => {
+    const fileRefId = await uploadLogo();
+
+    const read = await readerReachingEveryTenant()(
+      { kind: "file", fileRefId, fileName: "logo.png" },
+      "message",
+    );
+
+    expect(read?.content).toEqual(PNG_BYTES);
+  });
+
+  test("an inline ref pointing at a non-image is dropped", async () => {
+    const fileRefId = await uploadLogo(
+      new TextEncoder().encode("plain text"),
+      "note.txt",
+      "text/plain",
+    );
+
+    const read = await readerReachingEveryTenant()(
+      { kind: "inline", cid: "logo", fileRefId },
+      "template",
+    );
+
+    expect(read).toBeNull();
   });
 });
