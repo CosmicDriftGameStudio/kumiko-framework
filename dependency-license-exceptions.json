@@ -13,7 +13,7 @@
       "package": "slick",
       "version": "*",
       "license": "MIT http://mootools.net/license.txt",
-      "reason": "Transitive Dep via juice (CSS-Inliner in renderer-mail-html). Das npm-Lizenzfeld nutzt das veraltete Vor-SPDX-Format 'MIT <url>'; tatsaechlich Standard-MIT (LICENSE-Datei im Package). Gleiche Exception wie in solon.",
+      "reason": "Transitive Dep via juice (CSS-Inliner in renderer-mail-html). Das npm-Lizenzfeld nutzt das veraltete Vor-SPDX-Format 'MIT <url>'; deklariert ist MIT, die verlinkte MooTools-Lizenz ist MIT; das Package enthaelt keine LICENSE-Datei. Gleiche Exception wie in solon.",
       "reviewedBy": "Marc, 2026-10-15",
       "expires": "2027-10-15"
     },
