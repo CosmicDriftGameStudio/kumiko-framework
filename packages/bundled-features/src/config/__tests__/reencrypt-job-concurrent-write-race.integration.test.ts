@@ -71,7 +71,7 @@ const keyDef = createSystemConfig("text", {
 });
 
 const rotFeature = defineFeature("kek-rot-race", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({ keys: { "race-pass": keyDef } });
 });
 

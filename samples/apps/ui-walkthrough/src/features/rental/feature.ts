@@ -71,10 +71,10 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.crud("leasePosition", leasePositionEntity, { write: open, read: open });
   r.crud("leaseParty", leasePartyEntity, { write: open, read: open });
 
-  r.queryHandler(
-    "lease:akte",
-    idPayloadSchema,
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "lease:akte",
+    schema: idPayloadSchema,
+    handler: async (query, ctx) => {
       const row = await leaseExecutor.detail({ id: query.payload.id }, query.user, ctx.db);
       if (!row) return failNotFound("lease", query.payload.id);
       const lease = parseLeaseRow(row);
@@ -104,13 +104,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
         positionCount: await countChildren(positionExecutor),
       };
     },
-    open,
-  );
+    ...open,
+  });
 
-  r.queryHandler(
-    "lease:positions",
-    idPayloadSchema,
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "lease:positions",
+    schema: idPayloadSchema,
+    handler: async (query, ctx) => {
       const page = await positionExecutor.list(
         { filter: { field: "lease", op: "eq", value: query.payload.id }, limit: 100 },
         query.user,
@@ -132,13 +132,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
         }),
       };
     },
-    open,
-  );
+    ...open,
+  });
 
-  r.queryHandler(
-    "lease:kennzahlen",
-    z.object({}),
-    async () => ({
+  r.queryHandler({
+    name: "lease:kennzahlen",
+    schema: z.object({}),
+    handler: async () => ({
       debt: "123.456 €",
       debtSub: "nach 10 Jahren",
       debtDelta: "15 %",
@@ -146,13 +146,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
       rent: "48.200 €",
       rentSub: "319 Verträge",
     }),
-    open,
-  );
+    ...open,
+  });
 
-  r.writeHandler(
-    "lease:terminate",
-    idPayloadSchema,
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "lease:terminate",
+    schema: idPayloadSchema,
+    handler: async (event, ctx) =>
       leaseExecutor.update(
         {
           id: event.payload.id,
@@ -165,13 +165,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
         ctx.db,
         { skipOptimisticLock: true },
       ),
-    open,
-  );
+    ...open,
+  });
 
-  r.writeHandler(
-    "lease:record-positions",
-    recordPositionsPayloadSchema,
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "lease:record-positions",
+    schema: recordPositionsPayloadSchema,
+    handler: async (event, ctx) => {
       let created: Awaited<ReturnType<typeof positionExecutor.create>> | undefined;
       const unitLabels = new Map<string, string | null | undefined>();
       for (const unitId of new Set(event.payload.items.map((item) => item.unit))) {
@@ -189,13 +189,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
       }
       return created ?? failNotFound("leasePosition", event.payload.lease);
     },
-    open,
-  );
+    ...open,
+  });
 
-  r.writeHandler(
-    "rent:adjust",
-    rentAdjustPayloadSchema,
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "rent:adjust",
+    schema: rentAdjustPayloadSchema,
+    handler: async (event, ctx) => {
       const { positionId, wirksamAb, neuerBetrag } = event.payload;
       const current = await positionExecutor.detail({ id: positionId }, event.user, ctx.db);
       if (!current) return failNotFound("leasePosition", positionId);
@@ -229,8 +229,8 @@ export const rentalFeature = defineFeature("rental", (r) => {
         { skipOptimisticLock: true },
       );
     },
-    open,
-  );
+    ...open,
+  });
 
   r.screen(leaseListScreen);
   r.screen(leaseListShortScreen);

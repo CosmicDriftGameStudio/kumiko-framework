@@ -43,7 +43,7 @@ const paypalLikePlugin: SubscriptionProviderPlugin = {
 // `resolvedPlugin` — lets each scenario control verify()'s throw/return
 // behavior without touching the wired extraRoute.
 const mockProviderFeature = defineFeature("test-mock-webhook-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   r.useExtension("subscriptionProvider", "stripe", stripeLikePlugin);
   r.useExtension("subscriptionProvider", "paypal", paypalLikePlugin);
 });

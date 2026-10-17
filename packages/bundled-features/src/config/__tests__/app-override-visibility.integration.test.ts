@@ -42,7 +42,7 @@ const FAKE_ENV = {
 };
 
 const appcfgFeature = defineFeature("appcfg", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   return r.config({
     keys: {
       // Transparent inheritance + ENV-bridged: a tenant sees the platform's

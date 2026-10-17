@@ -80,7 +80,7 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
       recommended: true,
     });
     r.systemScope();
-    r.requires("config");
+    r.requires({ features: ["config"] });
     r.extendsRegistrar(EXT_ASSIGNABLE_ROLE, {});
     // The elevation guards read the registry, the screens only these options: a role the
     // server accepts but the screen omits is silently stripped on the next member-roles save.
@@ -92,9 +92,9 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
         );
       }
     });
-    r.entity("tenant", tenantEntity);
-    r.entity("tenant-membership", tenantMembershipEntity);
-    r.entity("tenant-invitation", tenantInvitationEntity);
+    r.entity({ name: "tenant", ...tenantEntity });
+    r.entity({ name: "tenant-membership", ...tenantMembershipEntity });
+    r.entity({ name: "tenant-invitation", ...tenantInvitationEntity });
 
     r.config({
       keys: {

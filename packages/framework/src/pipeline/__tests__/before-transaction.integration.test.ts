@@ -52,7 +52,7 @@ const titlePayload = z.object({ title: z.string(), failInHandler: z.boolean().op
 const forTenantPayload = z.object({ targetTenant: z.number(), write: z.boolean() });
 
 const beforeTxFeature = defineFeature(FEATURE, (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
 
   r.writeHandler(
     defineWriteHandler({

@@ -25,27 +25,29 @@ import { createAuditFeature } from "../feature.js";
 const UNSAFE_RAW_REASON = "fw#2861 bundled-features integration test — declared unsafeRaw write";
 
 const probeFeature = defineFeature("escape-hatch-audit-sink-probe", (r) => {
-  r.writeHandler(
-    "unsafe-raw-write",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "unsafe-raw-write",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       ctx.db.unsafeRaw();
       return { isSuccess: true as const, data: { ok: true } };
     },
-    { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
-  );
+    access: { roles: ["User"] },
+    escapeHatch: { reason: UNSAFE_RAW_REASON },
+  });
 });
 
 const failingProbeFeature = defineFeature("escape-hatch-audit-failing-probe", (r) => {
-  r.writeHandler(
-    "unsafe-raw-then-fail",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "unsafe-raw-then-fail",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       ctx.db.unsafeRaw();
       return writeFailure(new UnprocessableError("handler_rejected"));
     },
-    { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
-  );
+    access: { roles: ["User"] },
+    escapeHatch: { reason: UNSAFE_RAW_REASON },
+  });
 });
 
 let stack: TestStack;

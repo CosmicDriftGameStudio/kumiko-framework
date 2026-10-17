@@ -35,12 +35,12 @@ function featureWithDetail(
   withEdit = false,
 ) {
   return defineFeature("shop", (r) => {
-    r.entity(
-      "order",
-      createEntity({
+    r.entity({
+      name: "order",
+      ...createEntity({
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
+    });
     registerHandlers(r, ["activate"]);
     if (withEdit) {
       r.screen({
@@ -96,12 +96,12 @@ describe("validateBoot — projectionDetail primaryAction", () => {
 describe("validateBoot — list emptyState", () => {
   function listWithEmptyAction(actionId: string) {
     return defineFeature("shop", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       registerHandlers(r, ["sync"]);
       r.screen({
         id: "order-list",
@@ -134,12 +134,12 @@ describe("validateBoot — emptyState action targets", () => {
 
   function listWithEmptyAction(action: EmptyStateAction) {
     return defineFeature("shop", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       registerHandlers(r, ["sync"]);
       r.screen({
         id: "order-list",
@@ -154,7 +154,10 @@ describe("validateBoot — emptyState action targets", () => {
   function relatedListWithEmptyAction(action: EmptyStateAction) {
     return defineFeature("shop", (r) => {
       registerHandlers(r, ["sync"]);
-      r.queryHandler("order:payments", z.object({}), async () => ({ rows: [] }), {
+      r.queryHandler({
+        name: "order:payments",
+        schema: z.object({}),
+        handler: async () => ({ rows: [] }),
         access: ADMIN_ACCESS,
       });
       r.screen({

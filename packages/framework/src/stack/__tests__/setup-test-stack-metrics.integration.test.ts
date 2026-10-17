@@ -8,12 +8,12 @@ import { TestUsers } from "../test-users.js";
 const METRICS_TOKEN = "setup-test-stack-metrics-token-minimum-32-chars!!";
 
 const pingFeature = defineFeature("stmetrics", (r) => {
-  r.writeHandler(
-    "ping",
-    z.object({}),
-    async () => ({ isSuccess: true as const, data: { ok: true } }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: { ok: true } }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 let stack: TestStack | undefined;

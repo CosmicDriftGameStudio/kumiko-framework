@@ -27,7 +27,7 @@ import { seedTenant, seedTenantMembership } from "../seeding.js";
 
 // Declares one role with the default (Admin) and one raised to TenantAdmin.
 const appFeature = defineFeature("assignable-roles-app", (r) => {
-  r.requires("tenant");
+  r.requires({ features: ["tenant"] });
   r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
   r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
 });

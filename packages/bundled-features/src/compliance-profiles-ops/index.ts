@@ -23,8 +23,8 @@ export const complianceProfilesOpsFeature = defineFeature("compliance-profiles-o
     recommended: false,
   });
   r.systemScope();
-  r.requires("compliance-profiles");
-  r.requires("tenant");
+  r.requires({ features: ["compliance-profiles"] });
+  r.requires({ features: ["tenant"] });
 
   const queries = {
     tenantsMissingProfile: r.queryHandler(tenantsMissingProfileQuery),

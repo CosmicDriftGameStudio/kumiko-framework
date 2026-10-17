@@ -18,10 +18,16 @@ function throwRateLimited(): never {
 }
 
 const probeFeature = defineFeature("retryprobe", (r) => {
-  r.writeHandler("limited", z.object({}), async () => throwRateLimited(), {
+  r.writeHandler({
+    name: "limited",
+    schema: z.object({}),
+    handler: async () => throwRateLimited(),
     access: { roles: ["Admin"] },
   });
-  r.queryHandler("limited", z.object({}), async () => throwRateLimited(), {
+  r.queryHandler({
+    name: "limited",
+    schema: z.object({}),
+    handler: async () => throwRateLimited(),
     access: { roles: ["Admin"] },
   });
 });

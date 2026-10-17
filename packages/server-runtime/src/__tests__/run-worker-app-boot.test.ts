@@ -180,15 +180,15 @@ describe("runWorkerApp boot-mode", () => {
 
   test("kmsSlots: a master key that exists only as ciphertext reaches the boot probe", async () => {
     const encryptedFeature = defineFeature("worker-kms-probe", (r) => {
-      r.entity(
-        "note",
-        createEntity({
+      r.entity({
+        name: "note",
+        ...createEntity({
           table: "worker_kms_probe_note",
           fields: {
             body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
           },
         }),
-      );
+      });
     });
     const originalFetch = globalThis.fetch;
     const originalLog = console.log;
@@ -227,15 +227,15 @@ describe("runWorkerApp boot-mode", () => {
 
   test("masterKey: an app-supplied provider satisfies encrypted fields without any env KEK", async () => {
     const encryptedFeature = defineFeature("worker-master-key-probe", (r) => {
-      r.entity(
-        "note",
-        createEntity({
+      r.entity({
+        name: "note",
+        ...createEntity({
           table: "worker_master_key_probe_note",
           fields: {
             body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
           },
         }),
-      );
+      });
     });
     const logs: string[] = [];
     const originalLog = console.log;

@@ -63,10 +63,10 @@ export const demoFeature = defineFeature("styleguide", (r) => {
   // triggers shouldRenderActionsIconOnly) and need their own write handlers.
   const { executor: itemExecutor } = createEntityExecutor("item", demoEntity);
 
-  r.writeHandler(
-    "item:archive",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "item:archive",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       // Admin-style status flip from a list row: last-writer-wins is fine,
       // same as the tenant enable/disable toggle this mirrors.
       itemExecutor.update(
@@ -75,13 +75,13 @@ export const demoFeature = defineFeature("styleguide", (r) => {
         ctx.db,
         { skipOptimisticLock: true },
       ),
-    { access: open.access },
-  );
+    access: open.access,
+  });
 
-  r.writeHandler(
-    "item:publish",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "item:publish",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       itemExecutor.update(
         {
           id: event.payload.id,
@@ -91,13 +91,13 @@ export const demoFeature = defineFeature("styleguide", (r) => {
         ctx.db,
         { skipOptimisticLock: true },
       ),
-    { access: open.access },
-  );
+    access: open.access,
+  });
 
-  r.writeHandler(
-    "item:duplicate",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:duplicate",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       const source = await itemExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!source) return failNotFound("item", event.payload.id);
       return itemExecutor.create(
@@ -115,8 +115,8 @@ export const demoFeature = defineFeature("styleguide", (r) => {
         ctx.db,
       );
     },
-    { access: open.access },
-  );
+    access: open.access,
+  });
 
   r.screen({
     id: "item-edit",

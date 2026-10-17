@@ -55,8 +55,8 @@ const leaseEntity = createEntity({
 const openRead = { access: { openToAll: { reason: "test handler callable by any test user" } } };
 
 const feature = defineFeature("elref", (r) => {
-  r.entity("property", propertyEntity);
-  r.entity("lease", leaseEntity);
+  r.entity({ name: "property", ...propertyEntity });
+  r.entity({ name: "lease", ...leaseEntity });
   r.crud("property", propertyEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
   r.crud("lease", leaseEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
 });

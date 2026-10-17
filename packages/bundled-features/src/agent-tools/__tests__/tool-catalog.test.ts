@@ -44,36 +44,49 @@ function buildCatalogTestFeature() {
       read: { access: { roles: ["Admin", "Reader"] } },
       verbs: { create: false, update: false },
     });
-    r.writeHandler(
-      "widget:create",
-      z.object({ name: z.string(), status: z.enum(["open", "closed"]).optional() }),
-      async () => ({ isSuccess: true as const, data: { id: "w1", version: 1 } }),
-      { access: { roles: ["Admin"] }, description: "Create a widget." },
-    );
-    r.writeHandler(
-      "widget:update",
-      z.object({ id: z.string(), version: z.number(), changes: z.record(z.string(), z.unknown()) }),
-      async () => ({ isSuccess: true as const, data: { id: "w1", version: 2 } }),
-      { access: { roles: ["Admin"] }, description: "Update a widget." },
-    );
+    r.writeHandler({
+      name: "widget:create",
+      schema: z.object({ name: z.string(), status: z.enum(["open", "closed"]).optional() }),
+      handler: async () => ({ isSuccess: true as const, data: { id: "w1", version: 1 } }),
+      access: { roles: ["Admin"] },
+      description: "Create a widget.",
+    });
+    r.writeHandler({
+      name: "widget:update",
+      schema: z.object({
+        id: z.string(),
+        version: z.number(),
+        changes: z.record(z.string(), z.unknown()),
+      }),
+      handler: async () => ({ isSuccess: true as const, data: { id: "w1", version: 2 } }),
+      access: { roles: ["Admin"] },
+      description: "Update a widget.",
+    });
 
     // Entity with no mounted handlers — the "skip when nothing callable" case.
-    r.entity("orphan", orphanEntity);
+    r.entity({ name: "orphan", ...orphanEntity });
 
-    r.writeHandler(
-      "widget:approve",
-      z.object({ id: z.string(), version: z.number(), note: z.string() }),
-      async () => ({ isSuccess: true as const, data: { id: "w1", version: 2 } }),
-      { access: { roles: ["Admin"] }, description: "Approve a widget." },
-    );
+    r.writeHandler({
+      name: "widget:approve",
+      schema: z.object({ id: z.string(), version: z.number(), note: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: { id: "w1", version: 2 } }),
+      access: { roles: ["Admin"] },
+      description: "Approve a widget.",
+    });
 
     // No entity mapping (bare name, not a CRUD verb) — exercises the detailQn-less write path.
-    r.writeHandler("ping", z.object({}), async () => ({ isSuccess: true as const, data: {} }), {
+    r.writeHandler({
+      name: "ping",
+      schema: z.object({}),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
       access: { roles: ["Admin"] },
       description: "Ping the service.",
     });
 
-    r.queryHandler("widget:summary", z.object({ id: z.string() }), async () => ({ count: 0 }), {
+    r.queryHandler({
+      name: "widget:summary",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({ count: 0 }),
       access: { roles: ["Admin"] },
       description: "Widget summary stats.",
     });
@@ -82,18 +95,20 @@ function buildCatalogTestFeature() {
     // non-identifier characters collapses to a single "_", so a single vs. a double
     // hyphen both normalize to "..._approve_x". QN segments can't contain "_" themselves
     // (registry validation), so the collision has to come from hyphen-collapsing instead.
-    r.writeHandler(
-      "widget:approve--x",
-      z.object({ id: z.string() }),
-      async () => ({ isSuccess: true as const, data: {} }),
-      { access: { roles: ["Admin"] }, description: "Approve X (double hyphen)." },
-    );
-    r.writeHandler(
-      "widget:approve-x",
-      z.object({ id: z.string() }),
-      async () => ({ isSuccess: true as const, data: {} }),
-      { access: { roles: ["Admin"] }, description: "Approve X." },
-    );
+    r.writeHandler({
+      name: "widget:approve--x",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin"] },
+      description: "Approve X (double hyphen).",
+    });
+    r.writeHandler({
+      name: "widget:approve-x",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin"] },
+      description: "Approve X.",
+    });
 
     r.screen({
       id: "widget-detail",
@@ -387,19 +402,21 @@ describe("buildToolCatalog — client tools", () => {
 
   test("open_form drops the handler->screen mapping of an opted-out screen but keeps the handler tool", () => {
     const optOutFeature = defineFeature("optout-form-test", (r) => {
-      r.entity("gadget", widgetEntity);
-      r.writeHandler(
-        "gadget:create",
-        z.object({ name: z.string() }),
-        async () => ({ isSuccess: true as const, data: { id: "g1", version: 1 } }),
-        { access: { roles: ["Admin"] }, description: "Create a gadget." },
-      );
-      r.writeHandler(
-        "gadget:rename",
-        z.object({ id: z.string(), name: z.string() }),
-        async () => ({ isSuccess: true as const, data: { id: "g1", version: 2 } }),
-        { access: { roles: ["Admin"] }, description: "Rename a gadget." },
-      );
+      r.entity({ name: "gadget", ...widgetEntity });
+      r.writeHandler({
+        name: "gadget:create",
+        schema: z.object({ name: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: { id: "g1", version: 1 } }),
+        access: { roles: ["Admin"] },
+        description: "Create a gadget.",
+      });
+      r.writeHandler({
+        name: "gadget:rename",
+        schema: z.object({ id: z.string(), name: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: { id: "g1", version: 2 } }),
+        access: { roles: ["Admin"] },
+        description: "Rename a gadget.",
+      });
       r.screen({
         id: "gadget-edit",
         type: "entityEdit",

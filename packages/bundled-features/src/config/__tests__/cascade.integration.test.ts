@@ -33,7 +33,7 @@ let resolver: ConfigResolver;
 const tenantAdmin = createTestUser({ id: 2 });
 
 const cascadeFeature = defineFeature("cascade-test", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   r.config({
     keys: {

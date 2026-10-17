@@ -28,7 +28,7 @@ export function makeProbeFeature(opts: {
     table: opts.table,
   });
   return defineFeature(opts.name, (r) => {
-    r.entity("widget", probeEntity);
+    r.entity({ name: "widget", ...probeEntity });
     opts.extraSetup?.(r);
     r.queryHandler({
       name: "ping",

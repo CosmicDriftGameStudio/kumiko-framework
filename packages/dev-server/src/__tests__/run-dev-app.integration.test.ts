@@ -43,12 +43,12 @@ import { runDevApp } from "../run-dev-app.js";
 
 function validFeature() {
   return defineFeature("shop", (r) => {
-    r.entity(
-      "product",
-      createEntity({
+    r.entity({
+      name: "product",
+      ...createEntity({
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
+    });
   });
 }
 
@@ -138,15 +138,15 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
 describe("runDevApp — masterKey satisfies the encrypted-field boot gate", () => {
   function encryptedFeature() {
     return defineFeature("dev-master-key-probe", (r) => {
-      r.entity(
-        "note",
-        createEntity({
+      r.entity({
+        name: "note",
+        ...createEntity({
           table: "dev_master_key_probe_note",
           fields: {
             body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
           },
         }),
-      );
+      });
     });
   }
 

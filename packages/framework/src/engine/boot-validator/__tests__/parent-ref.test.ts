@@ -51,7 +51,7 @@ describe("validateParentRefs", () => {
   test("accepts a parentRef whose fields exist and whose list/detail are convention handlers", () => {
     const entity = joinEntity(validRef);
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", entity);
+      r.entity({ name: "join", ...entity });
       r.queryHandler(
         defineEntityListHandler("join", entity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -68,7 +68,7 @@ describe("validateParentRefs", () => {
 
   test("an entity with no parentRef is not checked at all", () => {
     const feature = defineFeature("plain", (r) => {
-      r.entity("host", hostEntity);
+      r.entity({ name: "host", ...hostEntity });
       r.queryHandler({
         name: "host:list",
         schema: z.object({}),
@@ -81,32 +81,32 @@ describe("validateParentRefs", () => {
 
   test("rejects an entityTypeField that is not a declared field", () => {
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", joinEntity({ ...validRef, entityTypeField: "nope" }));
+      r.entity({ name: "join", ...joinEntity({ ...validRef, entityTypeField: "nope" }) });
     });
     expect(() => validate(feature)).toThrow(/entityTypeField references "nope"/);
   });
 
   test("rejects an entityIdField that is not a declared field", () => {
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", joinEntity({ ...validRef, entityIdField: "nope" }));
+      r.entity({ name: "join", ...joinEntity({ ...validRef, entityIdField: "nope" }) });
     });
     expect(() => validate(feature)).toThrow(/entityIdField references "nope"/);
   });
 
   test("rejects an allowedTypes entry that names no registered entity", () => {
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", joinEntity({ ...validRef, allowedTypes: ["ghost"] }));
+      r.entity({ name: "join", ...joinEntity({ ...validRef, allowedTypes: ["ghost"] }) });
     });
     expect(() => validate(feature)).toThrow(/names "ghost"/);
   });
 
   test("accepts an allowedTypes entry registered by another feature", () => {
     const hosts = defineFeature("hosts", (r) => {
-      r.entity("host", hostEntity);
+      r.entity({ name: "host", ...hostEntity });
     });
     const entity = joinEntity({ ...validRef, allowedTypes: ["host"] });
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", entity);
+      r.entity({ name: "join", ...entity });
       r.queryHandler(
         defineEntityListHandler("join", entity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -118,17 +118,17 @@ describe("validateParentRefs", () => {
 
   test("rejects an allowedTypes host that is itself a join row — no recursive gating", () => {
     const others = defineFeature("others", (r) => {
-      r.entity("other", joinEntity(validRef));
+      r.entity({ name: "other", ...joinEntity(validRef) });
     });
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", joinEntity({ ...validRef, allowedTypes: ["other"] }));
+      r.entity({ name: "join", ...joinEntity({ ...validRef, allowedTypes: ["other"] }) });
     });
     expect(() => validate(feature, [others])).toThrow(/itself declares a parentRef/);
   });
 
   test("rejects a hand-written list handler, which would bypass the read gate", () => {
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", joinEntity(validRef));
+      r.entity({ name: "join", ...joinEntity(validRef) });
       r.queryHandler({
         name: "join:list",
         schema: z.object({}),
@@ -141,7 +141,7 @@ describe("validateParentRefs", () => {
 
   test("rejects a hand-written detail handler too", () => {
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", joinEntity(validRef));
+      r.entity({ name: "join", ...joinEntity(validRef) });
       r.queryHandler({
         name: "join:detail",
         schema: z.object({ id: z.uuid() }),
@@ -154,7 +154,7 @@ describe("validateParentRefs", () => {
 
   test("registering no list/detail handler at all is allowed", () => {
     const feature = defineFeature("joins", (r) => {
-      r.entity("join", joinEntity(validRef));
+      r.entity({ name: "join", ...joinEntity(validRef) });
     });
     expect(() => validate(feature)).not.toThrow();
   });

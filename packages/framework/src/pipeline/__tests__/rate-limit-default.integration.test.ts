@@ -47,30 +47,31 @@ function fakeResolver(): {
 const rlDefaultFeature = defineFeature("rl-default", (r) => {
   r.systemScope();
 
-  r.writeHandler("explicit", z.object({}), async () => ({ isSuccess: true as const, data: {} }), {
+  r.writeHandler({
+    name: "explicit",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "tenant", limit: 2, windowSeconds: 60 },
   });
 
-  r.writeHandler(
-    "implicit-default",
-    z.object({}),
-    async () => ({ isSuccess: true as const, data: {} }),
-    {
-      access: { roles: ["Admin"] },
-    },
-  );
+  r.writeHandler({
+    name: "implicit-default",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "as-system-probe",
-    z.object({}),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "as-system-probe",
+    schema: z.object({}),
+    handler: async (event, ctx) => {
       const sysUser = createSystemUser(event.user.tenantId);
       const res = await ctx.writeAs(sysUser, "rl-default:write:implicit-default", {});
       return { isSuccess: true as const, data: res };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

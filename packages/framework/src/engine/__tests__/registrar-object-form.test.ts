@@ -13,7 +13,7 @@ import { defineFeature } from "../index.js";
 describe("registrar Object-Form — runtime parity with positional form", () => {
   test("requires: array-unwrap ({ features }) matches variadic-string form", () => {
     const positional = defineFeature("a", (r) => {
-      r.requires("auth", "tenant");
+      r.requires({ features: ["auth", "tenant"] });
     });
     const objectForm = defineFeature("b", (r) => {
       r.requires({ features: ["auth", "tenant"] });
@@ -44,7 +44,7 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
   test("entity: split-name ({ name, ...fields }) matches (name, definition) form", () => {
     const definition = { fields: { title: { type: "text" as const, required: true } } };
     const positional = defineFeature("a", (r) => {
-      r.entity("item", definition);
+      r.entity({ name: "item", ...definition });
     });
     const objectForm = defineFeature("b", (r) => {
       r.entity({ name: "item", ...definition });
@@ -125,11 +125,11 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
   test("relation: two-field ({ entity, name, ...def }) matches (entity, name, definition) form", () => {
     const definition = { type: "belongsTo" as const, target: "user", foreignKey: "supplierId" };
     const positional = defineFeature("a", (r) => {
-      r.entity("item", { fields: {} });
+      r.entity({ name: "item", fields: {} });
       r.relation("item", "supplier", definition);
     });
     const objectForm = defineFeature("b", (r) => {
-      r.entity("item", { fields: {} });
+      r.entity({ name: "item", fields: {} });
       r.relation({ entity: "item", name: "supplier", ...definition });
     });
     expect(objectForm.relations).toEqual(positional.relations);

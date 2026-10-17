@@ -107,7 +107,7 @@ const invoiceDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
 };
 
 const testInvoiceFeature: FeatureDefinition = defineFeature("test-invoice", (r) => {
-  r.entity("invoice", invoiceEntity);
+  r.entity({ name: "invoice", ...invoiceEntity });
   const handlers = {
     create: r.writeHandler({
       name: "create",

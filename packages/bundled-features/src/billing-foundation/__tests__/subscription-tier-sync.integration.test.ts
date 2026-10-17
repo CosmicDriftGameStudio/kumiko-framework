@@ -55,7 +55,7 @@ const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
 
 function mockProviderFeature() {
   return defineFeature("test-mock-tier-sync-provider", (r) => {
-    r.requires("billing-foundation");
+    r.requires({ features: ["billing-foundation"] });
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent,
     };

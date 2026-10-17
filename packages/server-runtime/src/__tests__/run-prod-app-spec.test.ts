@@ -131,7 +131,9 @@ describe("resolveDerivedMaxRequestBodySize", () => {
     const entity = createEntity({
       fields: { attachment: createFileField({ maxSize: "50mb" }) },
     });
-    const feature = defineFeature("attachments", (r) => r.entity("attachment", entity));
+    const feature = defineFeature("attachments", (r) =>
+      r.entity({ name: "attachment", ...entity }),
+    );
     const registry = createRegistry([feature, createFilesFeature()]);
     expect(resolveDerivedMaxRequestBodySize(registry)).toBeGreaterThanOrEqual(50 * 1024 * 1024);
   });

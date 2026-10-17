@@ -84,7 +84,7 @@ export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   // In-Memory-Transport hat keine Config (nichts zu konfigurieren) und
   // kein Secret. Der einzige hard-require ist mail-foundation, das den
   // extension-point "mailTransport" definiert.
-  r.requires("mail-foundation");
+  r.requires({ features: ["mail-foundation"] });
 
   const plugin: MailTransportPlugin = {
     build: async (_ctx: MailTransportContext, tenantId: string): Promise<EmailTransport> => {

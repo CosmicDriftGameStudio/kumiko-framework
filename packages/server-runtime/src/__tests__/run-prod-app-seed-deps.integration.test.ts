@@ -39,7 +39,7 @@ const seededNoteEntity = createEntity({
 });
 
 const seedProbeFeature = defineFeature("seed-probe", (r) => {
-  r.entity("note", seededNoteEntity);
+  r.entity({ name: "note", ...seededNoteEntity });
   r.writeHandler(
     defineEntityCreateHandler("note", seededNoteEntity, {
       access: { roles: ["SystemAdmin", "User"] },

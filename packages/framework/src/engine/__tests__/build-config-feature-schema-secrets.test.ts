@@ -15,12 +15,12 @@ import type { ScreenDefinition, SecretsEditScreenDefinition } from "../types/scr
 // irrelevant to derivation and stay out of this test.
 function secretsFeature(roles: readonly string[] = ["TenantAdmin", "Admin", "SystemAdmin"]) {
   return defineFeature("secrets", (r) => {
-    r.writeHandler(
-      "set",
-      z.object({ key: z.string(), value: z.string() }),
-      async () => ({ isSuccess: true, data: null }),
-      { access: { roles: [...roles] } },
-    );
+    r.writeHandler({
+      name: "set",
+      schema: z.object({ key: z.string(), value: z.string() }),
+      handler: async () => ({ isSuccess: true, data: null }),
+      access: { roles: [...roles] },
+    });
   });
 }
 
@@ -160,12 +160,12 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
   test("audience nav union keeps a granted openToAll's own reason, not the generic ALL_ROLE reason", () => {
     const customReason = "billing key rotation is safe for any signed-in tenant member";
     const secretsOpenToAll = defineFeature("secrets", (r) => {
-      r.writeHandler(
-        "set",
-        z.object({ key: z.string(), value: z.string() }),
-        async () => ({ isSuccess: true, data: null }),
-        { access: { openToAll: { reason: customReason } } },
-      );
+      r.writeHandler({
+        name: "set",
+        schema: z.object({ key: z.string(), value: z.string() }),
+        handler: async () => ({ isSuccess: true, data: null }),
+        access: { openToAll: { reason: customReason } },
+      });
     });
     const billing = defineFeature("billing", (r) => {
       r.config({
@@ -182,13 +182,12 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("audience nav union ignores a malformed openToAll — falls back to the role union", () => {
     const secretsMalformedOpenToAll = defineFeature("secrets", (r) => {
-      r.writeHandler(
-        "set",
-        z.object({ key: z.string(), value: z.string() }),
-        async () => ({ isSuccess: true, data: null }),
-        // @cast-boundary test — simulates JSON/Designer input that doesn't match the static union
-        { access: { openToAll: {} } as unknown as AccessRule },
-      );
+      r.writeHandler({
+        name: "set",
+        schema: z.object({ key: z.string(), value: z.string() }),
+        handler: async () => ({ isSuccess: true, data: null }),
+        access: { openToAll: {} } as unknown as AccessRule,
+      });
     });
     const billing = defineFeature("billing", (r) => {
       r.config({

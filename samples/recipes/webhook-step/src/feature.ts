@@ -33,7 +33,7 @@ const incidentExecutor = createEventStoreExecutor(incidentTable, incidentEntity,
 const INCIDENT_HOOK_URL = "https://hooks.example/incident";
 
 export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
-  r.entity("incident", incidentEntity);
+  r.entity({ name: "incident", ...incidentEntity });
   r.requires.step("webhook.send");
   r.requires.step("mail.send");
   r.requires.step("callFeature");

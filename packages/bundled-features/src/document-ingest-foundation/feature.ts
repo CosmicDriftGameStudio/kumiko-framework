@@ -132,9 +132,9 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
   });
   // tenant-lifecycle hosts EXT_TENANT_DATA — documentExtract.pages is
   // tenant-subject ciphertext and needs the destroy hook below.
-  r.requires("config", "tenant-lifecycle");
+  r.requires({ features: ["config", "tenant-lifecycle"] });
 
-  r.entity("documentExtract", documentExtractEntity);
+  r.entity({ name: "documentExtract", ...documentExtractEntity });
   r.useExtension(EXT_TENANT_DATA, "documentExtract", {
     destroy: documentExtractTenantDestroyHook,
   });

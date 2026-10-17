@@ -58,7 +58,7 @@ test("defineCreateWithTenantDefaults throws on an unknown locale field", () => {
 
 describe("without tenant-settings mount", () => {
   const invoiceFeature = defineFeature("invoice", (r) => {
-    r.entity("invoice", invoiceEntity);
+    r.entity({ name: "invoice", ...invoiceEntity });
     r.writeHandler(
       defineCreateWithTenantDefaults("invoice", invoiceEntity, {
         access: ACCESS,
@@ -109,7 +109,7 @@ describe("caller-supplied id (#2922)", () => {
     },
   });
   const noteFeature = defineFeature("note", (r) => {
-    r.entity("note", noteEntity);
+    r.entity({ name: "note", ...noteEntity });
     r.writeHandler(defineCreateWithTenantDefaults("note", noteEntity, { access: ACCESS }));
   });
 

@@ -61,8 +61,8 @@ const ADMIN_ONLY = { access: { roles: ["Admin"] } } as const;
 const READERS = { access: { roles: ["Admin", "User"] } } as const;
 
 const uploadFeature = defineFeature("uploadcheck", (r) => {
-  r.entity("dossier", dossierEntity);
-  r.entity("owned", ownedEntity);
+  r.entity({ name: "dossier", ...dossierEntity });
+  r.entity({ name: "owned", ...ownedEntity });
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ADMIN_ONLY));
   r.writeHandler(defineEntityUpdateHandler("dossier", dossierEntity, ADMIN_ONLY));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, READERS));

@@ -39,50 +39,50 @@ const notifyFactory: NotifyFactory = (_user, _tenantId, _jobs, deliveryDb) => as
 const openToAll = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
 const notifyFeature = defineFeature("nfy", (r) => {
-  const thing = r.entity("thing", thingEntity);
+  const thing = r.entity({ name: "thing", ...thingEntity });
 
-  r.writeHandler(
-    "thing:create",
-    z.object({ label: z.string() }),
-    async (event, ctx) => thingCrud.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "thing:create",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => thingCrud.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "probe:notify",
-    z.object({}),
-    async (_query, ctx) => {
+  r.queryHandler({
+    name: "probe:notify",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
       await ctx.notify?.("nfy-probe", { route: { email: "probe@example.com" } });
       return { notified: true };
     },
-    { access: openToAll },
-  );
+    access: openToAll,
+  });
 
-  r.queryHandler(
-    "probe:schedule",
-    z.object({}),
-    async (_query, ctx) => ({ scheduleType: typeof ctx.scheduleAfterCommit }),
-    { access: openToAll },
-  );
+  r.queryHandler({
+    name: "probe:schedule",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ({ scheduleType: typeof ctx.scheduleAfterCommit }),
+    access: openToAll,
+  });
 
-  r.writeHandler(
-    "bridge:notify",
-    z.object({ rollBack: z.boolean() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "bridge:notify",
+    schema: z.object({ rollBack: z.boolean() }),
+    handler: async (event, ctx) => {
       await ctx.query("nfy:query:probe:notify", {});
       const probe = await ctx.query("nfy:query:probe:schedule", {});
       queryBridgeScheduleType = z.object({ scheduleType: z.string() }).parse(probe).scheduleType;
       if (event.payload.rollBack) throw new Error("outer write fails after the bridged notify");
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Callers like announce-secret-change run inline when there is no commit sink to schedule on.
-  r.writeHandler(
-    "effect:run",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "effect:run",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       const effect = async () => {
         effectLog.push("effect-ran");
       };
@@ -90,14 +90,18 @@ const notifyFeature = defineFeature("nfy", (r) => {
       else await effect();
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.hook("postSave", { allOf: thing }, async (_result, ctx) => {
-    // Hooks are typed against AppContext; the runtime object is the full HandlerContext. @cast-boundary
-    const handlerCtx = ctx as unknown as HandlerContext;
-    hookScheduleType = typeof handlerCtx.scheduleAfterCommit;
-    await handlerCtx.write("nfy:write:effect:run", {});
+  r.hook({
+    type: "postSave",
+    target: { allOf: thing },
+    handler: async (_result, ctx) => {
+      // Hooks are typed against AppContext; the runtime object is the full HandlerContext. @cast-boundary
+      const handlerCtx = ctx as unknown as HandlerContext;
+      hookScheduleType = typeof handlerCtx.scheduleAfterCommit;
+      await handlerCtx.write("nfy:write:effect:run", {});
+    },
   });
 });
 

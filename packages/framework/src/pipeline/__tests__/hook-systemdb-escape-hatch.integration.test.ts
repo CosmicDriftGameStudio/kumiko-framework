@@ -59,7 +59,7 @@ const thingEntity = createEntity({
 // mirrors tenant/feature.ts (r.systemScope() + entity + create handler).
 const featureA = defineFeature("hooksys3198-a", (r) => {
   r.systemScope();
-  r.entity("thing", thingEntity);
+  r.entity({ name: "thing", ...thingEntity });
   r.writeHandler(defineEntityCreateHandler("thing", thingEntity, { access: { roles: ["Admin"] } }));
 });
 
@@ -83,10 +83,10 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
     reason: "integration test — cross-tenant audit row written from a hook's own escapeHatch",
   });
 
-  r.hook(
-    "postSave",
-    { allOf: "thing" },
-    async (result, ctx) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: "thing" },
+    handler: async (result, ctx) => {
       const mode = modeOf(result);
       if (mode !== "escapeHatch-unsafe-raw" && mode !== "escapeHatch-ack-unsafe-raw") return;
       if (!ctx.systemDb) return;
@@ -97,14 +97,13 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
       const otherTenantDb = createTenantDb(rawDb, OTHER_TENANT_ID, "system");
       await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
     },
-    { escapeHatch: { reason: HOOK_ESCAPE_HATCH_REASON } },
-    // phase defaults to afterCommit
-  );
+    escapeHatch: { reason: HOOK_ESCAPE_HATCH_REASON },
+  });
 
-  r.hook(
-    "postSave",
-    { allOf: "thing" },
-    async (result, ctx) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: "thing" },
+    handler: async (result, ctx) => {
       const mode = modeOf(result);
       if (!ctx.systemDb) return;
       if (mode === "no-escapeHatch-unsafe-raw") {
@@ -123,8 +122,8 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
         });
       }
     },
-    { phase: HookPhases.inTransaction },
-  );
+    phase: HookPhases.inTransaction,
+  });
 });
 
 function recordingSink(events: EscapeHatchUseEvent[]) {

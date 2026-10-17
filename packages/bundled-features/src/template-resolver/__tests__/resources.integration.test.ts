@@ -45,7 +45,7 @@ const noteEntity = createEntity({
 });
 
 const noteFeature = defineFeature("resource-test-notes", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {
       access: { roles: ["TenantAdmin", "SystemAdmin"] },

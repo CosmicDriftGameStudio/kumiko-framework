@@ -117,14 +117,14 @@ export const galleryProviderFeature: FeatureDefinition = defineFeature(
   "gallery-mock-provider",
   (r) => {
     r.describe("E2E-only mock subscription provider for the consent/termination gallery.");
-    r.requires("billing-foundation");
+    r.requires({ features: ["billing-foundation"] });
     r.useExtension("subscriptionProvider", GALLERY_PROVIDER, galleryProviderPlugin);
   },
 );
 
 export const galleryScreensFeature: FeatureDefinition = defineFeature("gallery-screens", (r) => {
   r.describe("E2E-only nav entry for the billing plans screen plus plan labels.");
-  r.requires("billing-foundation", "admin-shell");
+  r.requires({ features: ["billing-foundation", "admin-shell"] });
   r.nav({
     id: "billing",
     label: "gallery:nav.billing",

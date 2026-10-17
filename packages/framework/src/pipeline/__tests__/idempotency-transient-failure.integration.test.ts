@@ -36,16 +36,16 @@ let batchTransientCallCount = 0;
 let commitFailureCallCount = 0;
 
 const transientFailureFeature = defineFeature("idempotencytransient", (r) => {
-  r.entity("probe", probeEntity);
-  r.entity("batchItem", batchItemEntity);
+  r.entity({ name: "probe", ...probeEntity });
+  r.entity({ name: "batchItem", ...batchItemEntity });
 
   // Inserts via ctx.db, then throws on its first invocation only — the
   // insert lands inside the (later rolled-back) transaction, so a retry
   // must not see a leftover row from the failed attempt.
-  r.writeHandler(
-    "probe:create-transient-once",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "probe:create-transient-once",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       transientCallCount++;
       const crud = createEventStoreExecutor(probeTable, probeEntity, { entityName: "probe" });
       const created = await crud.create(event.payload, event.user, ctx.db);
@@ -54,48 +54,48 @@ const transientFailureFeature = defineFeature("idempotencytransient", (r) => {
       }
       return created;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "probe:create-always-rejected",
-    z.object({ label: z.string() }),
-    async () => {
+  r.writeHandler({
+    name: "probe:create-always-rejected",
+    schema: z.object({ label: z.string() }),
+    handler: async () => {
       unprocessableCallCount++;
       return writeFailure(new UnprocessableError("always_rejected"));
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // The handler itself succeeds; a deferred constraint trigger (created in
   // beforeAll) rejects the row only when COMMIT runs.
-  r.writeHandler(
-    "probe:create-commit-fails",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "probe:create-commit-fails",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       commitFailureCallCount++;
       const crud = createEventStoreExecutor(probeTable, probeEntity, { entityName: "probe" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "batch-item:create",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "batch-item:create",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(batchItemTable, batchItemEntity, {
         entityName: "batchItem",
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "probe:create-batch-transient-once",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "probe:create-batch-transient-once",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       batchTransientCallCount++;
       const crud = createEventStoreExecutor(probeTable, probeEntity, { entityName: "probe" });
       const created = await crud.create(event.payload, event.user, ctx.db);
@@ -104,8 +104,8 @@ const transientFailureFeature = defineFeature("idempotencytransient", (r) => {
       }
       return created;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

@@ -21,17 +21,17 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     piiFields: "none",
   });
 
-  r.writeHandler(
-    "start",
-    z.object({ value: z.string() }),
-    async () => ({ isSuccess: true as const, data: {} }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "start",
+    schema: z.object({ value: z.string() }),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "emit-relayed",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "emit-relayed",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: crypto.randomUUID(),
         aggregateType: "draintestchain",
@@ -40,8 +40,8 @@ const chainFeature = defineFeature("draintestchain", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: [SYSTEM_ROLE] } },
-  );
+    access: { roles: [SYSTEM_ROLE] },
+  });
 
   r.job(
     "job-a",

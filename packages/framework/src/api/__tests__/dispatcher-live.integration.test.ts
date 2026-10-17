@@ -33,26 +33,26 @@ const itemEntity = createEntity({
 const itemTable = buildEntityTable("item", itemEntity);
 
 const itemFeature = defineFeature("dlive", (r) => {
-  r.entity("item", itemEntity);
+  r.entity({ name: "item", ...itemEntity });
 
-  r.writeHandler(
-    "item:create",
-    z.object({ name: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "item:list",
-    z.object({}).optional(),
-    async (_event, ctx) => {
+  r.queryHandler({
+    name: "item:list",
+    schema: z.object({}).optional(),
+    handler: async (_event, ctx) => {
       return selectMany(ctx.db, itemTable);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   r.streamHandler(
     "item:tail",

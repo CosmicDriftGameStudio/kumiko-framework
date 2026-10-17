@@ -161,16 +161,16 @@ const stayMemoEntity: EntityDefinition = createEntity({
 });
 
 const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
-  r.entity("run", runEntity);
-  r.entity("photo", photoEntity);
-  r.entity("note", noteEntity);
-  r.entity("bundle", bundleEntity);
-  r.entity("campaign", campaignEntity);
-  r.entity("channelText", channelTextEntity);
-  r.entity("linkA", linkAEntity);
-  r.entity("linkB", linkBEntity);
-  r.entity("memo", memoEntity);
-  r.entity("stayMemo", stayMemoEntity);
+  r.entity({ name: "run", ...runEntity });
+  r.entity({ name: "photo", ...photoEntity });
+  r.entity({ name: "note", ...noteEntity });
+  r.entity({ name: "bundle", ...bundleEntity });
+  r.entity({ name: "campaign", ...campaignEntity });
+  r.entity({ name: "channelText", ...channelTextEntity });
+  r.entity({ name: "linkA", ...linkAEntity });
+  r.entity({ name: "linkB", ...linkBEntity });
+  r.entity({ name: "memo", ...memoEntity });
+  r.entity({ name: "stayMemo", ...stayMemoEntity });
 });
 
 // kumiko-framework#3088 fix: a `reference` field's `entity` may carry a
@@ -191,7 +191,7 @@ const prefixedChildEntity: EntityDefinition = createEntity({
 });
 
 const handoverPrefixedChildFeature = defineFeature("handover-fixtures-prefixed-child", (r) => {
-  r.entity("prefixedChild", prefixedChildEntity);
+  r.entity({ name: "prefixedChild", ...prefixedChildEntity });
 });
 
 const prefixedGrandchildEntity: EntityDefinition = createEntity({
@@ -211,7 +211,7 @@ const prefixedGrandchildEntity: EntityDefinition = createEntity({
 const handoverPrefixedGrandchildFeature = defineFeature(
   "handover-fixtures-prefixed-grandchild",
   (r) => {
-    r.entity("prefixedGrandchild", prefixedGrandchildEntity);
+    r.entity({ name: "prefixedGrandchild", ...prefixedGrandchildEntity });
   },
 );
 

@@ -23,11 +23,14 @@ const noop: PostQueryHookFn = async ({ rows }) => ({ rows });
 describe("postQuery hook registration", () => {
   test("r.hook('postQuery', handlerQn, fn) lands in handler-keyed lifecycleHooks map", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.queryHandler("thing:list", z.object({}), async () => [], {
+      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.queryHandler({
+        name: "thing:list",
+        schema: z.object({}),
+        handler: async () => [],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postQuery", "thing:list", noop);
+      r.hook({ type: "postQuery", target: "thing:list", handler: noop });
     });
 
     // feature.hooks.postQuery is keyed by raw handler-name (qualification
@@ -39,8 +42,8 @@ describe("postQuery hook registration", () => {
 
   test("r.hook('postQuery', { allOf: entity }, fn) lands in entity-keyed entityHooks map", () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.hook("postQuery", { allOf: thing }, noop);
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.hook({ type: "postQuery", target: { allOf: thing }, handler: noop });
     });
 
     const entry = feature.entityHooks?.postQuery?.["thing"];
@@ -53,9 +56,9 @@ describe("postQuery hook registration", () => {
     const hookB: PostQueryHookFn = async ({ rows }) => ({ rows });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.hook("postQuery", { allOf: thing }, hookA);
-      r.hook("postQuery", { allOf: thing }, hookB);
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.hook({ type: "postQuery", target: { allOf: thing }, handler: hookA });
+      r.hook({ type: "postQuery", target: { allOf: thing }, handler: hookB });
     });
 
     expect(feature.entityHooks?.postQuery?.["thing"]).toHaveLength(2);
@@ -71,11 +74,14 @@ describe("Registry getters", () => {
     };
 
     const feature = defineFeature("test", (r) => {
-      r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.queryHandler("thing:list", z.object({}), async () => [], {
+      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.queryHandler({
+        name: "thing:list",
+        schema: z.object({}),
+        handler: async () => [],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postQuery", "thing:list", fn);
+      r.hook({ type: "postQuery", target: "thing:list", handler: fn });
     });
 
     const registry = createRegistry([feature]);
@@ -97,8 +103,8 @@ describe("Registry getters", () => {
     };
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.hook("postQuery", { allOf: thing }, fn);
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.hook({ type: "postQuery", target: { allOf: thing }, handler: fn });
     });
 
     const registry = createRegistry([feature]);
@@ -111,7 +117,7 @@ describe("Registry getters", () => {
 
   test("getPostQueryHooks empty for unknown target", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("thing", createEntity({ table: "things", fields: {} }));
+      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
     });
 
     const registry = createRegistry([feature]);
@@ -127,8 +133,8 @@ describe("Hook function semantics", () => {
     });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.hook("postQuery", { allOf: thing }, enrich);
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.hook({ type: "postQuery", target: { allOf: thing }, handler: enrich });
     });
 
     const registry = createRegistry([feature]);

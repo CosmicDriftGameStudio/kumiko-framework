@@ -36,7 +36,7 @@ const noteEntity = createEntity({
 });
 
 const permalinkFeature = defineFeature("permalink-fixture", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   const access = { roles: ["TenantAdmin"] } as const;
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }));
   r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }));

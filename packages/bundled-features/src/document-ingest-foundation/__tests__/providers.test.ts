@@ -30,7 +30,7 @@ function makeProviderFeature(name: string, options: DocumentIngestProviderOption
     // requires() only matters to validateBoot's cross-feature checks — the
     // direct resolveDocumentIngestProviders/validateDocumentIngestProviderWiring
     // tests below never look at it.
-    r.requires("document-ingest-foundation");
+    r.requires({ features: ["document-ingest-foundation"] });
     r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, name, options);
   });
 }

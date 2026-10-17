@@ -51,8 +51,8 @@ const userOwnedEntity = createEntity({
 });
 
 const c9Feature = defineFeature("c9-retention-kms-fixtures", (r) => {
-  r.entity("c9-record-owned", recordOwnedEntity);
-  r.entity("c9-user-owned", userOwnedEntity);
+  r.entity({ name: "c9-record-owned", ...recordOwnedEntity });
+  r.entity({ name: "c9-user-owned", ...userOwnedEntity });
 });
 
 let stack: TestStack;

@@ -50,36 +50,36 @@ const orderEntity = createEntity({
 const orderTable = buildEntityTable("order", orderEntity);
 
 const shopFeature = defineFeature("anonshop", (r) => {
-  r.entity("product", productEntity);
-  r.entity("order", orderEntity);
+  r.entity({ name: "product", ...productEntity });
+  r.entity({ name: "order", ...orderEntity });
 
   // Public listing — anonymous + authenticated customers see it.
-  r.queryHandler(
-    "product:list",
-    z.object({}),
-    async (_event, ctx) => {
+  r.queryHandler({
+    name: "product:list",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       const rows = await selectMany(ctx.db, productTable);
       return rows;
     },
-    { access: { roles: ["anonymous", "User", "Admin"] } },
-  );
+    access: { roles: ["anonymous", "User", "Admin"] },
+  });
 
   // Authenticated-only listing — confirms openToAll still rejects anonymous.
-  r.queryHandler(
-    "product:list-auth-only",
-    z.object({}),
-    async (_event, ctx) => {
+  r.queryHandler({
+    name: "product:list-auth-only",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       const rows = await selectMany(ctx.db, productTable);
       return rows;
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   // Anonymous can place a guest order.
-  r.writeHandler(
-    "order:guest-checkout",
-    z.object({ productName: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:guest-checkout",
+    schema: z.object({ productName: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" });
       return crud.create(
         { productName: event.payload.productName, placedBy: event.user.id },
@@ -87,21 +87,21 @@ const shopFeature = defineFeature("anonshop", (r) => {
         ctx.db,
       );
     },
-    { access: { roles: ["anonymous", "User"] } },
-  );
+    access: { roles: ["anonymous", "User"] },
+  });
 
   // Admin-only — confirms role-gated handlers still reject anonymous.
-  r.writeHandler(
-    "product:create",
-    z.object({ name: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "product:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(productTable, productEntity, {
         entityName: "product",
       });
       return crud.create({ name: event.payload.name }, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 // Reads the first SSE chunk and closes the stream; the stream otherwise never ends.

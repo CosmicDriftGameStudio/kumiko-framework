@@ -60,7 +60,7 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     });
 
     const consumer = defineFeature("test-files-consumer", (r) => {
-      r.requires("files", "test-user-data-provider");
+      r.requires({ features: ["files", "test-user-data-provider"] });
       r.useExtension(EXT_USER_DATA, "fileRef", {
         // Stub-Hooks: in Sprint 2 werden diese die echte Forget-/Export-
         // Logik tragen. Hier reicht: useExtension findet die fileRef-
@@ -85,7 +85,7 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     });
 
     const consumer = defineFeature("test-broken-consumer", (r) => {
-      r.requires("test-user-data-provider-2");
+      r.requires({ features: ["test-user-data-provider-2"] });
       // GHOSTLY: useExtension auf "ghostEntity" gibt es nirgends.
       r.useExtension(EXT_USER_DATA, "ghostEntity", { export: async () => null });
     });

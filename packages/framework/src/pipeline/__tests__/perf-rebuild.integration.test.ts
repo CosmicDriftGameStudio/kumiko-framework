@@ -60,7 +60,7 @@ const taskEntity = createEntity({
 });
 
 const feature = defineFeature("perfrebuild", (r) => {
-  r.entity("task", taskEntity);
+  r.entity({ name: "task", ...taskEntity });
   r.projection(taskCountProjection);
 });
 

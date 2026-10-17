@@ -63,7 +63,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
-    r.requires("tenant", "compliance-profiles");
+    r.requires({ features: ["tenant", "compliance-profiles"] });
     r.optionalRequires("sessions");
     r.usesApi("compliance.forTenant");
 

@@ -47,11 +47,11 @@ export function createProductFeature(): FeatureDefinition {
   return defineFeature("product", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity("product", productEntity);
-    r.writeHandler(
-      "product:create",
-      z.object({ name: z.string().min(1).max(100) }),
-      async (event, ctx) => {
+    r.entity({ name: "product", ...productEntity });
+    r.writeHandler({
+      name: "product:create",
+      schema: z.object({ name: z.string().min(1).max(100) }),
+      handler: async (event, ctx) => {
         if (!ctx.systemDb) {
           throw new InternalError({
             message: "product:create requires ctx.systemDb — is r.systemScope() still set?",
@@ -62,8 +62,8 @@ export function createProductFeature(): FeatureDefinition {
         );
         return productCrud.create(event.payload, event.user, db);
       },
-      { access: { roles: ["SystemAdmin"] } },
-    );
+      access: { roles: ["SystemAdmin"] },
+    });
   });
 }
 
@@ -92,20 +92,28 @@ export function createProductAuditFeature(): FeatureDefinition {
   return defineFeature("product-audit", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity("product-audit", productAuditEntity);
+    r.entity({ name: "product-audit", ...productAuditEntity });
 
-    r.hook("postSave", { allOf: "product" }, async (result, ctx) => {
-      if (result.kind !== "save" || !result.isNew) return;
-      if (!ctx.systemDb) return;
-      const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
-      if (!name) return;
-      const db = ctx.systemDb.acknowledgeCrossTenant(
-        "audit sink is system-wide, mirrors the system-wide product catalog",
-      );
-      // Cross-feature audit sink is itself an r.entity projection — write it via
-      // the executor (system actor, no human caller) so the row is event-backed
-      // and survives a rebuild, not a direct method-form insert.
-      await productAuditCrud.create({ productName: name }, createSystemUser(SYSTEM_TENANT_ID), db);
+    r.hook({
+      type: "postSave",
+      target: { allOf: "product" },
+      handler: async (result, ctx) => {
+        if (result.kind !== "save" || !result.isNew) return;
+        if (!ctx.systemDb) return;
+        const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
+        if (!name) return;
+        const db = ctx.systemDb.acknowledgeCrossTenant(
+          "audit sink is system-wide, mirrors the system-wide product catalog",
+        );
+        // Cross-feature audit sink is itself an r.entity projection — write it via
+        // the executor (system actor, no human caller) so the row is event-backed
+        // and survives a rebuild, not a direct method-form insert.
+        await productAuditCrud.create(
+          { productName: name },
+          createSystemUser(SYSTEM_TENANT_ID),
+          db,
+        );
+      },
     });
   });
 }

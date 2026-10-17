@@ -41,10 +41,10 @@ export function createUserProfileFeature(options?: UserProfileFeatureOptions): F
       category: "identity",
       recommended: true,
     });
-    r.requires("user");
-    r.requires("auth-email-password");
-    r.requires("user-data-rights");
-    r.requires("user-data-rights-defaults");
+    r.requires({ features: ["user"] });
+    r.requires({ features: ["auth-email-password"] });
+    r.requires({ features: ["user-data-rights"] });
+    r.requires({ features: ["user-data-rights-defaults"] });
 
     const handlers = allowEmailChange ? { changeEmail: r.writeHandler(changeEmailWrite) } : {};
 

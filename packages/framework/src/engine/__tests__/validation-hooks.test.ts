@@ -6,17 +6,21 @@ import { runValidation } from "../validation.js";
 describe("validation hooks", () => {
   test("r.hook registers validation hook", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.hook("validation", "user:create", (data) => {
-        const errors: ValidationError[] = [];
-        if (!data["email"]) errors.push({ field: "email", error: "required" });
-        return errors.length > 0 ? errors : null;
+      });
+      r.hook({
+        type: "validation",
+        target: "user:create",
+        handler: (data) => {
+          const errors: ValidationError[] = [];
+          if (!data["email"]) errors.push({ field: "email", error: "required" });
+          return errors.length > 0 ? errors : null;
+        },
       });
     });
 
@@ -26,7 +30,7 @@ describe("validation hooks", () => {
 
   test("runValidation returns null when valid", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("validation", "user:create", () => null);
+      r.hook({ type: "validation", target: "user:create", handler: () => null });
     });
 
     const registry = createRegistry([feature]);
@@ -36,9 +40,13 @@ describe("validation hooks", () => {
 
   test("runValidation returns errors when invalid", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("validation", "user:create", (data) => {
-        if (!data["email"]) return [{ field: "email", error: "required" }];
-        return null;
+      r.hook({
+        type: "validation",
+        target: "user:create",
+        handler: (data) => {
+          if (!data["email"]) return [{ field: "email", error: "required" }];
+          return null;
+        },
       });
     });
 
@@ -49,15 +57,23 @@ describe("validation hooks", () => {
 
   test("runValidation scoped to feature", () => {
     const f1 = defineFeature("a", (r) => {
-      r.hook("validation", "task:create", (data) => {
-        if (!data["name"]) return [{ field: "name", error: "required" }];
-        return null;
+      r.hook({
+        type: "validation",
+        target: "task:create",
+        handler: (data) => {
+          if (!data["name"]) return [{ field: "name", error: "required" }];
+          return null;
+        },
       });
     });
     const f2 = defineFeature("b", (r) => {
-      r.hook("validation", "task:create", (data) => {
-        if (!data["age"]) return [{ field: "age", error: "required" }];
-        return null;
+      r.hook({
+        type: "validation",
+        target: "task:create",
+        handler: (data) => {
+          if (!data["age"]) return [{ field: "age", error: "required" }];
+          return null;
+        },
       });
     });
 

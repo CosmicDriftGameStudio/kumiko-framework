@@ -9,7 +9,8 @@ import { createRegistry } from "../registry.js";
 describe("buildAppSchema — select optionsAvailabilityQuery", () => {
   test("an entity select field keeps its options and availability query in the client schema", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity("subscription", {
+      r.entity({
+        name: "subscription",
         fields: {
           plan: {
             type: "select",

@@ -70,18 +70,22 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     });
     r.systemScope();
     // delivery-log's tenantId column has refEntity: "tenant:tenant" (boot-checked).
-    r.requires("tenant");
+    r.requires({ features: ["tenant"] });
     // Backing table: the (tenant,user,type,channel) uniqueIndex lives only on
     // the physical table, not on the entity fields, so the generator would
     // otherwise omit it → duplicate preference rows on concurrent upserts.
-    r.entity("notification-preference", notificationPreferenceEntity, {
-      table: notificationPreferencesTable,
+    r.entity({
+      name: "notification-preference",
+      ...notificationPreferenceEntity,
+      backingTable: notificationPreferencesTable,
     });
     // Same ride-along reason as notification-preference above: the
     // (tenant,addressHash,type,channel) uniqueIndex lives only on the
     // physical table.
-    r.entity("notification-address-opt-out", notificationAddressOptOutEntity, {
-      table: notificationAddressOptOutsTable,
+    r.entity({
+      name: "notification-address-opt-out",
+      ...notificationAddressOptOutEntity,
+      backingTable: notificationAddressOptOutsTable,
     });
     r.storeTable(deliveryAttemptsTableMeta, {
       reason: "read_side.delivery_attempt_log",

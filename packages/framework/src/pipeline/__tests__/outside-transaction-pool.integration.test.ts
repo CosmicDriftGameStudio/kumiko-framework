@@ -41,13 +41,13 @@ function createBarrier(parties: number): () => Promise<void> {
 let waitForAllWrites = createBarrier(CONCURRENT_WRITES);
 
 const poolFeature = defineFeature("outsidepool", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   const crud = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
-  r.writeHandler(
-    "note:via-db-outside-transaction",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "note:via-db-outside-transaction",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       await crud.create({ label: `${event.payload.label}-inside` }, event.user, ctx.db);
       await waitForAllWrites();
       if (!ctx.dbOutsideTransaction) throw new Error("ctx.dbOutsideTransaction missing");
@@ -57,13 +57,13 @@ const poolFeature = defineFeature("outsidepool", (r) => {
         ctx.dbOutsideTransaction,
       );
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "note:via-outside-transaction",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "note:via-outside-transaction",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       await crud.create({ label: `${event.payload.label}-inside` }, event.user, ctx.db);
       await waitForAllWrites();
       if (!ctx.outsideTransaction) throw new Error("ctx.outsideTransaction missing");
@@ -71,8 +71,8 @@ const poolFeature = defineFeature("outsidepool", (r) => {
         crud.create({ label: `${event.payload.label}-outside` }, event.user, txDb),
       );
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

@@ -42,17 +42,17 @@ const TEST_DB_URL = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 seeded");
 
 const seedFilesProbeFeature = defineFeature("seed-files-probe", (r) => {
-  r.writeHandler(
-    "store",
-    z.object({}),
-    (_event, ctx) =>
+  r.writeHandler({
+    name: "store",
+    schema: z.object({}),
+    handler: (_event, ctx) =>
       createFileRefFromBytes(ctx, {
         fileName: "seeded.pdf",
         mimeType: "application/pdf",
         data: PDF_BYTES,
       }),
-    { access: { roles: ["SystemAdmin"] } },
-  );
+    access: { roles: ["SystemAdmin"] },
+  });
 });
 
 let handle: ProdAppHandle | undefined;

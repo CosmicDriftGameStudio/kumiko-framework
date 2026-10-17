@@ -37,8 +37,8 @@ import { readinessFeature } from "../feature.js";
 // Probe-feature: one required + one optional config key, one required +
 // one optional secret — the rollup must list exactly the required gaps.
 const probeFeature = defineFeature("readiness-probe", (r) => {
-  r.requires("config");
-  r.requires("secrets");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
 
   r.config({
     keys: {
@@ -79,7 +79,7 @@ const probeFeature = defineFeature("readiness-probe", (r) => {
 // register under the point. The smtp-ish one carries required key + secret —
 // they must count ONLY while "smtp" is the selected provider.
 const probeMailFoundation = defineFeature("probe-mail-foundation", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.extendsRegistrar("probeMailTransport", { onRegister: () => undefined });
   const configKeys = r.config({
     keys: {
@@ -94,8 +94,8 @@ const probeMailFoundation = defineFeature("probe-mail-foundation", (r) => {
 });
 
 const probeSmtpProvider = defineFeature("probe-smtp", (r) => {
-  r.requires("config");
-  r.requires("secrets");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
   r.useExtension("probeMailTransport", "smtp");
   r.config({
     keys: {

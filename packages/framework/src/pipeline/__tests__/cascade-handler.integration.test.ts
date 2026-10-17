@@ -119,14 +119,14 @@ beforeAll(async () => {
   memberTable = buildEntityTable("member", memberEntity);
 
   const feature = defineFeature("cascade", (r) => {
-    r.entity("department", departmentEntity);
-    r.entity("user", userEntity);
-    r.entity("session", sessionEntity);
-    r.entity("group", groupEntity);
-    r.entity("user-group-restrict", userGroupRestrictEntity);
-    r.entity("user-group-cascade", userGroupCascadeEntity);
-    r.entity("team", teamEntity);
-    r.entity("member", memberEntity);
+    r.entity({ name: "department", ...departmentEntity });
+    r.entity({ name: "user", ...userEntity });
+    r.entity({ name: "session", ...sessionEntity });
+    r.entity({ name: "group", ...groupEntity });
+    r.entity({ name: "user-group-restrict", ...userGroupRestrictEntity });
+    r.entity({ name: "user-group-cascade", ...userGroupCascadeEntity });
+    r.entity({ name: "team", ...teamEntity });
+    r.entity({ name: "member", ...memberEntity });
 
     r.relation("department", "users", {
       type: "hasMany",

@@ -19,12 +19,12 @@ const retryRuns: [number, boolean][] = [];
 const singleRuns: [number, boolean][] = [];
 
 const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
-  r.writeHandler(
-    "trigger-retry",
-    z.object({}),
-    async () => ({ isSuccess: true as const, data: {} }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "trigger-retry",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job(
     "retry",
     { trigger: { on: "attemptfixture:write:trigger-retry" }, retries: 2 },
@@ -34,12 +34,12 @@ const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
     },
   );
 
-  r.writeHandler(
-    "trigger-single",
-    z.object({}),
-    async () => ({ isSuccess: true as const, data: {} }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "trigger-single",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job(
     "single",
     { trigger: { on: "attemptfixture:write:trigger-single" } },

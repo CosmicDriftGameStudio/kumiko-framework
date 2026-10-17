@@ -36,14 +36,14 @@ const admin = TestUsers.admin;
 // driven through the same ctx.unsafeAppendEvent + event-dispatcher path
 // runner.ts and event-trigger.ts use in production.
 const testEventsFeature = defineFeature("wr-pending-test", (r) => {
-  r.writeHandler(
-    "emit",
-    z.object({
+  r.writeHandler({
+    name: "emit",
+    schema: z.object({
       runId: z.string(),
       type: z.string(),
       payload: z.unknown(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
@@ -52,8 +52,8 @@ const testEventsFeature = defineFeature("wr-pending-test", (r) => {
       });
       return { isSuccess: true, data: {} };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 async function emitAndDeliver(

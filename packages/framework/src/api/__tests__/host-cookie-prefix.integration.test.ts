@@ -15,27 +15,28 @@ const PREFIXED_AUTH = `${HOST_COOKIE_PREFIX}${AUTH_COOKIE_BASE}`;
 const PREFIXED_CSRF = `${HOST_COOKIE_PREFIX}${CSRF_COOKIE_BASE}`;
 
 const hostCookieFeature = defineFeature("hostcookie", (r) => {
-  r.writeHandler(
-    "login",
-    z.object({ email: z.string(), password: z.string() }),
-    async () => ({
+  r.writeHandler({
+    name: "login",
+    schema: z.object({ email: z.string(), password: z.string() }),
+    handler: async () => ({
       isSuccess: true as const,
       data: { kind: "auth-session", session: TestUsers.user },
     }),
-    {
-      access: { roles: ["anonymous"] },
-      rateLimit: { per: "ip", limit: 1000, windowSeconds: 60 },
-    },
-  );
-  r.writeHandler("ping", z.object({}), async () => ({ isSuccess: true as const, data: {} }), {
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip", limit: 1000, windowSeconds: 60 },
+  });
+  r.writeHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
     access: { roles: ["User"] },
   });
-  r.writeHandler(
-    "whoami",
-    z.object({}),
-    async (event) => ({ isSuccess: true as const, data: { roles: event.user.roles } }),
-    { access: { roles: ["anonymous", "User"] } },
-  );
+  r.writeHandler({
+    name: "whoami",
+    schema: z.object({}),
+    handler: async (event) => ({ isSuccess: true as const, data: { roles: event.user.roles } }),
+    access: { roles: ["anonymous", "User"] },
+  });
 });
 
 const ANONYMOUS_TENANT_ID = "00000000-0000-4000-8000-0000000000a1" as TenantId;

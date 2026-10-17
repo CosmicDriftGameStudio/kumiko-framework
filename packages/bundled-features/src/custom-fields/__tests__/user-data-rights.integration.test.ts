@@ -108,8 +108,8 @@ const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
 };
 
 const propertyFeature = defineFeature("property-t15c", (r) => {
-  r.entity("property", propertyEntity);
-  r.requires("custom-fields");
+  r.entity({ name: "property", ...propertyEntity });
+  r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
   wireCustomFieldsUserDataRightsFor(r, {
     entityName: "property",

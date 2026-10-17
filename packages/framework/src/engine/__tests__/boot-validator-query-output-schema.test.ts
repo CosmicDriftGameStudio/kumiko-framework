@@ -21,7 +21,10 @@ const pagedSchema = z.object({ rows: z.array(rowSchema), nextCursor: z.string().
 describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionList column not in the paged query's row shape throws", () => {
     const feature = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: pagedSchema,
       });
@@ -40,7 +43,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("projectionList column present in the row shape does not throw", () => {
     const feature = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: pagedSchema,
       });
@@ -57,7 +63,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   function featureWithColumn(column: { field: string; label: string; virtual?: boolean }) {
     return defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: pagedSchema,
       });
@@ -99,7 +108,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
       nextCursor: z.string().nullable(),
     });
     const feature = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: looseRowPaged,
       });
@@ -116,7 +128,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("projectionList without a declared outputSchema skips the column check entirely", () => {
     const feature = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -132,7 +147,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("projectionList outputSchema that isn't a ZodObject (e.g. a union) skips the column check", () => {
     const feature = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.union([pagedSchema, z.null()]),
       });
@@ -149,11 +167,17 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("relatedList column not in the query's row shape throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ description: z.string() }),
       });
-      r.queryHandler("rent:payments", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "rent:payments",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({
           rows: z.array(z.object({ amount: z.number() })),
@@ -183,22 +207,23 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("relatedList toolbarAction visible.field not in the projectionDetail's own outputSchema throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1", status: "active" }), {
+      r.queryHandler({
+        name: "lease:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1", status: "active" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), status: z.string() }),
       });
-      r.queryHandler(
-        "lease:positions",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        {
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          outputSchema: z.object({
-            rows: z.array(z.object({ id: z.string() })),
-            nextCursor: z.string().nullable(),
-          }),
-        },
-      );
+      r.queryHandler({
+        name: "lease:positions",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: z.object({
+          rows: z.array(z.object({ id: z.string() })),
+          nextCursor: z.string().nullable(),
+        }),
+      });
       r.screen({
         id: "lease-detail",
         type: "projectionDetail",
@@ -231,22 +256,23 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("relatedList toolbarAction navigate params source field not in the projectionDetail's own outputSchema throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1" }), {
+      r.queryHandler({
+        name: "lease:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string() }),
       });
-      r.queryHandler(
-        "lease:positions",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        {
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          outputSchema: z.object({
-            rows: z.array(z.object({ id: z.string() })),
-            nextCursor: z.string().nullable(),
-          }),
-        },
-      );
+      r.queryHandler({
+        name: "lease:positions",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: z.object({
+          rows: z.array(z.object({ id: z.string() })),
+          nextCursor: z.string().nullable(),
+        }),
+      });
       r.screen({
         id: "lease-detail",
         type: "projectionDetail",
@@ -279,22 +305,23 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("relatedList toolbarAction visible/params present in the projectionDetail's own outputSchema does not throw", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1", status: "active" }), {
+      r.queryHandler({
+        name: "lease:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1", status: "active" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), status: z.string() }),
       });
-      r.queryHandler(
-        "lease:positions",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        {
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          outputSchema: z.object({
-            rows: z.array(z.object({ id: z.string() })),
-            nextCursor: z.string().nullable(),
-          }),
-        },
-      );
+      r.queryHandler({
+        name: "lease:positions",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: z.object({
+          rows: z.array(z.object({ id: z.string() })),
+          nextCursor: z.string().nullable(),
+        }),
+      });
       r.screen({
         id: "lease-detail",
         type: "projectionDetail",
@@ -326,7 +353,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("projectionDetail header.title referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
+      r.queryHandler({
+        name: "tenant:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1", name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), name: z.string() }),
       });
@@ -346,7 +376,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   describe("projectionDetail recordTitleField", () => {
     function featureWithRecordTitleField(recordTitleField: string, withHeader = false) {
       return defineFeature("app", (r) => {
-        r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
+        r.queryHandler({
+          name: "tenant:detail",
+          schema: z.object({}),
+          handler: async () => ({ id: "1", name: "x" }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({ id: z.string(), name: z.string() }),
         });
@@ -385,13 +418,16 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
       readonly subtitleHref?: string;
     }) {
       return defineFeature("app", (r) => {
-        r.entity(
-          "unit",
-          createEntity({
+        r.entity({
+          name: "unit",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler("unit:detail", z.object({}), async () => ({ id: "1" }), {
+        });
+        r.queryHandler({
+          name: "unit:detail",
+          schema: z.object({}),
+          handler: async () => ({ id: "1" }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -401,20 +437,18 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
           query: "app:query:unit:detail",
           layout: { sections: [{ fields: ["id"] }] },
         });
-        r.queryHandler(
-          "tenant:detail",
-          z.object({}),
-          async () => ({ id: "1", name: "x", unitName: "u", unitId: "2" }),
-          {
-            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-            outputSchema: z.object({
-              id: z.string(),
-              name: z.string(),
-              unitName: z.string(),
-              unitId: z.string(),
-            }),
-          },
-        );
+        r.queryHandler({
+          name: "tenant:detail",
+          schema: z.object({}),
+          handler: async () => ({ id: "1", name: "x", unitName: "u", unitId: "2" }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          outputSchema: z.object({
+            id: z.string(),
+            name: z.string(),
+            unitName: z.string(),
+            unitId: z.string(),
+          }),
+        });
         r.screen({
           id: "tenant-detail",
           type: "projectionDetail",
@@ -500,7 +534,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("projectionDetail header.status referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
+      r.queryHandler({
+        name: "tenant:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1", name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), name: z.string() }),
       });
@@ -517,7 +554,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("projectionDetail metrics referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", balance: 0 }), {
+      r.queryHandler({
+        name: "tenant:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1", balance: 0 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), balance: z.number() }),
       });
@@ -546,19 +586,17 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("projectionDetail header + metrics all present in the outputSchema does not throw", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler(
-        "tenant:detail",
-        z.object({}),
-        async () => ({ id: "1", name: "x", balance: 0 }),
-        {
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          outputSchema: z.object({
-            id: z.string(),
-            name: z.string(),
-            balance: z.number(),
-          }),
-        },
-      );
+      r.queryHandler({
+        name: "tenant:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1", name: "x", balance: 0 }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: z.object({
+          id: z.string(),
+          name: z.string(),
+          balance: z.number(),
+        }),
+      });
       r.screen({
         id: "tenant-detail",
         type: "projectionDetail",
@@ -577,7 +615,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("dashboard stat panel valueField referencing an unknown field throws", () => {
     const feature = defineFeature("demo", (r) => {
-      r.queryHandler("open-count", z.object({}), async () => ({ value: "0" }), {
+      r.queryHandler({
+        name: "open-count",
+        schema: z.object({}),
+        handler: async () => ({ value: "0" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ value: z.string() }),
       });
@@ -605,7 +646,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("dashboard stat-group child deltaField referencing an unknown field throws", () => {
     const feature = defineFeature("demo", (r) => {
-      r.queryHandler("net-worth", z.object({}), async () => ({ value: "0" }), {
+      r.queryHandler({
+        name: "net-worth",
+        schema: z.object({}),
+        handler: async () => ({ value: "0" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ value: z.string() }),
       });
@@ -644,7 +688,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("dashboard list panel column not in the query's row shape throws", () => {
     const feature = defineFeature("demo", (r) => {
-      r.queryHandler("next-events", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "next-events",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({
           rows: z.array(z.object({ title: z.string() })),
@@ -772,7 +819,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("plain (non-paged) query handler declaring the row shape instead of the envelope throws at the projectionList usage", () => {
     const feature = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: rowSchema,
       });
@@ -791,7 +841,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
   test("plain query handler with a row-shape outputSchema is fine when no list surface uses it", () => {
     const feature = defineFeature("catalog", (r) => {
-      r.queryHandler("items:get", z.object({}), async () => ({ id: "1", name: "x" }), {
+      r.queryHandler({
+        name: "items:get",
+        schema: z.object({}),
+        handler: async () => ({ id: "1", name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: rowSchema,
       });
@@ -802,7 +855,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   describe("projectionDetail layout section fields", () => {
     function featureWithSectionFields(fields: readonly string[]) {
       return defineFeature("app", (r) => {
-        r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
+        r.queryHandler({
+          name: "tenant:detail",
+          schema: z.object({}),
+          handler: async () => ({ id: "1", name: "x" }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({ id: z.string(), name: z.string() }),
         });
@@ -827,7 +883,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
     function featureWithCountField(countField: string) {
       return defineFeature("app", (r) => {
-        r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", openCount: 2 }), {
+        r.queryHandler({
+          name: "tenant:detail",
+          schema: z.object({}),
+          handler: async () => ({ id: "1", openCount: 2 }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({ id: z.string(), openCount: z.number() }),
         });

@@ -50,7 +50,7 @@ function entity(opts: {
 
 function validate(entities: Readonly<Record<string, EntityDefinition>>): void {
   const feature = defineFeature("graph", (r) => {
-    for (const [name, def] of Object.entries(entities)) r.entity(name, def);
+    for (const [name, def] of Object.entries(entities)) r.entity({ name, ...def });
   });
   const featureMap: ReadonlyMap<string, FeatureDefinition> = new Map([[feature.name, feature]]);
   validateTransferGraph(feature, featureMap);

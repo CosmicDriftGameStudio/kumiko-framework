@@ -38,70 +38,74 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
     reason: "fw#2861 integration test — cross-tenant store table for db.global()",
   });
 
-  r.queryHandler(
-    "whoami",
-    z.object({}),
-    async (query) => ({ id: query.user.id, tenantId: query.user.tenantId }),
-    { access: { roles: ["system", "User"] } },
-  );
+  r.queryHandler({
+    name: "whoami",
+    schema: z.object({}),
+    handler: async (query) => ({ id: query.user.id, tenantId: query.user.tenantId }),
+    access: { roles: ["system", "User"] },
+  });
 
-  r.writeHandler(
-    "unsafe-raw-write",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "unsafe-raw-write",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       const runner = ctx.db.unsafeRaw();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { isSuccess: true as const, data: { one: rows[0]?.one } };
     },
-    { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
-  );
+    access: { roles: ["User"] },
+    escapeHatch: { reason: UNSAFE_RAW_REASON },
+  });
 
-  r.writeHandler(
-    "global-write",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "global-write",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       const row = await ctx.db.global(globalStoreTable).insertOne<{ id: string }>({
         note: "hi",
       });
       return { isSuccess: true as const, data: row };
     },
-    { access: { roles: ["User"] }, escapeHatch: { reason: GLOBAL_WRITE_REASON } },
-  );
+    access: { roles: ["User"] },
+    escapeHatch: { reason: GLOBAL_WRITE_REASON },
+  });
 
-  r.writeHandler(
-    "identity-switch-write",
-    z.object({}),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "identity-switch-write",
+    schema: z.object({}),
+    handler: async (event, ctx) =>
       ctx
         .queryAs(createSystemUser(event.user.tenantId), "escape-hatch-audit-probe:query:whoami", {})
         .then((data) => ({ isSuccess: true as const, data })),
-    { access: { roles: ["User"] }, escapeHatch: { reason: IDENTITY_SWITCH_REASON } },
-  );
+    access: { roles: ["User"] },
+    escapeHatch: { reason: IDENTITY_SWITCH_REASON },
+  });
 
-  r.writeHandler(
-    "identity-switch-self-write",
-    z.object({}),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "identity-switch-self-write",
+    schema: z.object({}),
+    handler: async (event, ctx) =>
       ctx
         .queryAs(event.user, "escape-hatch-audit-probe:query:whoami", {})
         .then((data) => ({ isSuccess: true as const, data })),
-    { access: { roles: ["User"] }, escapeHatch: { reason: IDENTITY_SWITCH_REASON } },
-  );
+    access: { roles: ["User"] },
+    escapeHatch: { reason: IDENTITY_SWITCH_REASON },
+  });
 });
 
 const systemScopeProbeFeature = defineFeature("escape-hatch-audit-probe-system", (r) => {
   r.systemScope();
 
-  r.queryHandler(
-    "acknowledge-cross-tenant-query",
-    z.object({}),
-    async (_query, ctx) => {
+  r.queryHandler({
+    name: "acknowledge-cross-tenant-query",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
       if (!ctx.systemDb) throw new Error("expected ctx.systemDb on a systemScope() handler");
       const db = ctx.systemDb.acknowledgeCrossTenant(ACKNOWLEDGE_REASON);
       return { tenantId: db.tenantId };
     },
-    { access: { roles: ["User"] } },
-  );
+    access: { roles: ["User"] },
+  });
 });
 
 const user = createTestUser({

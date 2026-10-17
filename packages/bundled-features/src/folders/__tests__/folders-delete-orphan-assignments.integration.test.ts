@@ -50,7 +50,7 @@ const docEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("folders-orphan-test-fixtures", (r) => {
-  r.entity("doc", docEntity);
+  r.entity({ name: "doc", ...docEntity });
 });
 
 const userA = createTestUser({ id: 80, roles: ["TenantMember"], claims: { team: "team-a" } });

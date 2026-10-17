@@ -22,10 +22,10 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
   r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, { onRegister: () => {} });
   r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
 
-  r.writeHandler(
-    "make-variant",
-    z.object({ fileRefId: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "make-variant",
+    schema: z.object({ fileRefId: z.string() }),
+    handler: async (event, ctx) => {
       if (!ctx.derivatives) {
         return writeFailure(
           new InternalError({ message: "no ctx.derivatives on write-handler ctx" }),
@@ -38,16 +38,16 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
       );
       return { isSuccess: true as const, data: result };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   // Catches the error INSIDE the handler (not via HTTP serialization) so the
   // test can assert `instanceof` on the concrete error class — the wire
   // response only carries the serialized WireErrorInfo, which loses that.
-  r.writeHandler(
-    "probe-typed-error",
-    z.object({ fileRefId: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "probe-typed-error",
+    schema: z.object({ fileRefId: z.string() }),
+    handler: async (event, ctx) => {
       if (!ctx.derivatives) {
         return writeFailure(
           new InternalError({ message: "no ctx.derivatives on write-handler ctx" }),
@@ -69,8 +69,8 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
         };
       }
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (payload, ctx) => {
     const fileRefId = (payload as { fileRefId: string }).fileRefId;

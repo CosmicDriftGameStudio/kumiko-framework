@@ -23,18 +23,18 @@ const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }
 // Ein Job-Body, mehrere Trigger — der DRY-Fall den r.job multi-trigger
 // adressiert.
 const orderFeature = defineFeature("multi", (r) => {
-  r.writeHandler(
-    "order:open",
-    z.object({ id: z.string() }),
-    async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
-  r.writeHandler(
-    "order:cancel",
-    z.object({ id: z.string() }),
-    async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "order:open",
+    schema: z.object({ id: z.string() }),
+    handler: async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+  r.writeHandler({
+    name: "order:cancel",
+    schema: z.object({ id: z.string() }),
+    handler: async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job(
     "fanout",
     {

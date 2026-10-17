@@ -75,9 +75,9 @@ describe("validateBoot — PII annotations", () => {
 
   test("pii: true passes on text field", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({
               personal: "self",
@@ -85,16 +85,16 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("tenantOwned: true passes on text field", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "branding",
-        createEntity({
+      r.entity({
+        name: "branding",
+        ...createEntity({
           fields: {
             brandColor: createTextField({
               personal: "tenant",
@@ -102,16 +102,16 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("userOwned with valid ownerField on reference passes", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({
               personal: "self",
@@ -119,11 +119,11 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
       stubListHandler(r, "user");
-      r.entity(
-        "comment",
-        createEntity({
+      r.entity({
+        name: "comment",
+        ...createEntity({
           fields: {
             body: createLongTextField({
               personal: { of: "authorId", whenAbsent: "tenant" },
@@ -132,16 +132,16 @@ describe("validateBoot — PII annotations", () => {
             authorId: { type: "reference", entity: "user" },
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("multiple subject annotations on same field throw", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             confused: rawField({
               ...unannotatedText,
@@ -150,30 +150,30 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(/multiple subject-key annotations/);
   });
 
   test("naked sensitive (no pii/encrypted) throws — event log needs ciphertext-at-rest (#967)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "vault",
-        createEntity({
+      r.entity({
+        name: "vault",
+        ...createEntity({
           fields: {
             apiToken: { ...unannotatedText, sensitive: true },
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(/sensitive: true.*without ciphertext-at-rest/);
   });
 
   test("sensitive with pii subject annotation passes", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "vault",
-        createEntity({
+      r.entity({
+        name: "vault",
+        ...createEntity({
           fields: {
             apiToken: createTextField({
               personal: "self",
@@ -181,7 +181,7 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
@@ -192,14 +192,14 @@ describe("validateBoot — PII annotations", () => {
     ).toString("base64");
     try {
       const feature = defineFeature("test", (r) => {
-        r.entity(
-          "vault",
-          createEntity({
+        r.entity({
+          name: "vault",
+          ...createEntity({
             fields: {
               apiToken: { ...unannotatedText, sensitive: true, encrypted: true },
             },
           }),
-        );
+        });
       });
       expect(() => validateBoot([feature])).not.toThrow();
     } finally {
@@ -209,9 +209,9 @@ describe("validateBoot — PII annotations", () => {
 
   test("userOwned.ownerField pointing to non-existent field throws", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "comment",
-        createEntity({
+      r.entity({
+        name: "comment",
+        ...createEntity({
           fields: {
             body: createLongTextField({
               personal: { of: "ghostField" },
@@ -219,7 +219,7 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(
       /personal\.of "ghostField" but no such field exists/,
@@ -228,9 +228,9 @@ describe("validateBoot — PII annotations", () => {
 
   test("userOwned.ownerField on a text field passes (ES userId-by-convention)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "comment",
-        createEntity({
+      r.entity({
+        name: "comment",
+        ...createEntity({
           fields: {
             body: createLongTextField({
               personal: { of: "authorId", whenAbsent: "tenant" },
@@ -239,7 +239,7 @@ describe("validateBoot — PII annotations", () => {
             authorId: { ...unannotatedText },
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
@@ -247,9 +247,9 @@ describe("validateBoot — PII annotations", () => {
   describe("nullable owner needs whenAbsent (fw#3654)", () => {
     function commentFeature(withWhenAbsent: boolean, ownerRequired: boolean) {
       return defineFeature("test", (r) => {
-        r.entity(
-          "comment",
-          createEntity({
+        r.entity({
+          name: "comment",
+          ...createEntity({
             fields: {
               body: withWhenAbsent
                 ? createLongTextField({
@@ -260,7 +260,7 @@ describe("validateBoot — PII annotations", () => {
               authorId: { ...unannotatedText, ...(ownerRequired && { required: true }) },
             },
           }),
-        );
+        });
       });
     }
 
@@ -284,9 +284,9 @@ describe("validateBoot — PII annotations", () => {
         find: "none",
       });
       const feature = defineFeature("test", (r) => {
-        r.entity(
-          "comment",
-          createEntity({
+        r.entity({
+          name: "comment",
+          ...createEntity({
             fields: {
               body: {
                 ...resolved,
@@ -296,7 +296,7 @@ describe("validateBoot — PII annotations", () => {
               authorId: { ...unannotatedText },
             },
           }),
-        );
+        });
       });
       expect(() => validateBoot([feature])).toThrow(/only support whenAbsent: "tenant"/);
     });
@@ -304,9 +304,9 @@ describe("validateBoot — PII annotations", () => {
 
   test("userOwned.ownerField pointing to a non-id-capable field throws", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "comment",
-        createEntity({
+      r.entity({
+        name: "comment",
+        ...createEntity({
           fields: {
             body: createLongTextField({
               personal: { of: "isPublic" },
@@ -315,7 +315,7 @@ describe("validateBoot — PII annotations", () => {
             isPublic: { type: "boolean" },
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(
       /must be a reference or text \(userId\) field, got type "boolean"/,
@@ -324,11 +324,11 @@ describe("validateBoot — PII annotations", () => {
 
   test("userOwned.ownerField referencing non-user entity warns", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("employee", createEntity({ fields: { name: { ...unannotatedText } } }));
+      r.entity({ name: "employee", ...createEntity({ fields: { name: { ...unannotatedText } } }) });
       stubListHandler(r, "employee");
-      r.entity(
-        "personalNote",
-        createEntity({
+      r.entity({
+        name: "personalNote",
+        ...createEntity({
           fields: {
             body: createLongTextField({
               personal: { of: "employeeId", whenAbsent: "tenant" },
@@ -337,7 +337,7 @@ describe("validateBoot — PII annotations", () => {
             employeeId: { type: "reference", entity: "employee" },
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -348,14 +348,14 @@ describe("validateBoot — PII annotations", () => {
 
   test("PII-name heuristic warns when email field has no pii annotation", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             email: { ...unannotatedText },
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -366,14 +366,14 @@ describe("validateBoot — PII annotations", () => {
 
   test("user-content-name heuristic warns when body field has no userOwned annotation", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             body: { ...unannotatedLongText },
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -384,14 +384,14 @@ describe("validateBoot — PII annotations", () => {
 
   test("user-reference-name heuristic warns when authorId field has no subjectRef annotation", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             authorId: { ...unannotatedText },
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -402,16 +402,16 @@ describe("validateBoot — PII annotations", () => {
 
   test("subjectRef: true on authorId field silences user-reference-name heuristic warning", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             authorId: createTextField({
               personal: "ref",
             }),
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -430,18 +430,18 @@ describe("validateBoot — PII annotations", () => {
 
   function defineCommentFeatureWithBodyOwnedBy(ownerFieldName: "authorId" | "ownerId") {
     return defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({ personal: "self", find: "none" }),
           },
         }),
-      );
+      });
       stubListHandler(r, "user");
-      r.entity(
-        "comment",
-        createEntity({
+      r.entity({
+        name: "comment",
+        ...createEntity({
           fields: {
             body: createLongTextField({
               personal: { of: ownerFieldName, whenAbsent: "tenant" },
@@ -451,7 +451,7 @@ describe("validateBoot — PII annotations", () => {
             ownerId: { type: "reference", entity: "user" },
           },
         }),
-      );
+      });
     });
   }
 
@@ -472,9 +472,9 @@ describe("validateBoot — PII annotations", () => {
 
   test("allowPlaintext marker silences PII-name heuristic warning", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "company",
-        createEntity({
+      r.entity({
+        name: "company",
+        ...createEntity({
           fields: {
             name: createTextField({
               personal: false,
@@ -482,7 +482,7 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -500,7 +500,7 @@ describe("validateBoot — PII annotations", () => {
     const bootWithField = (field: FieldDefinition) =>
       validateBoot([
         defineFeature("test", (r) => {
-          r.entity("item", createEntity({ fields: { title: field } }));
+          r.entity({ name: "item", ...createEntity({ fields: { title: field } }) });
         }),
       ]);
 
@@ -523,7 +523,7 @@ describe("validateBoot — PII annotations", () => {
       validateBoot(
         [
           defineFeature("test", (r) => {
-            r.entity("statement", createEntity({ fields: { pdfFile: field } }));
+            r.entity({ name: "statement", ...createEntity({ fields: { pdfFile: field } }) });
           }),
         ],
         { env: { FILE_STORAGE_PROVIDER: "local" } },
@@ -552,9 +552,9 @@ describe("validateBoot — PII annotations", () => {
 
   test("pii: true on email field silences PII-name heuristic warning", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({
               personal: "self",
@@ -562,7 +562,7 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -575,25 +575,25 @@ describe("validateBoot — PII annotations", () => {
 
   test("pii: true on number field passes (z.B. salary, kontostand)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "payslip",
-        createEntity({
+      r.entity({
+        name: "payslip",
+        ...createEntity({
           fields: {
             grossAmount: createNumberField({
               personal: "self",
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("pii: true on select field passes (z.B. gender, marital status)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "profile",
-        createEntity({
+      r.entity({
+        name: "profile",
+        ...createEntity({
           fields: {
             gender: createSelectField({
               options: ["male", "female", "diverse", "prefer-not-to-say"] as const,
@@ -601,16 +601,16 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("pii: true on multiSelect field passes (z.B. dietary restrictions)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "profile",
-        createEntity({
+      r.entity({
+        name: "profile",
+        ...createEntity({
           fields: {
             dietaryRestrictions: createMultiSelectField({
               options: ["vegan", "vegetarian", "halal", "kosher", "gluten-free"] as const,
@@ -618,80 +618,80 @@ describe("validateBoot — PII annotations", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("pii: true on date field passes (z.B. dateOfBirth)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "profile",
-        createEntity({
+      r.entity({
+        name: "profile",
+        ...createEntity({
           fields: {
             dateOfBirth: createDateField({
               personal: "self",
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("pii: true on timestamp field passes (z.B. lastLoginAt)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "session",
-        createEntity({
+      r.entity({
+        name: "session",
+        ...createEntity({
           fields: {
             lastLoginAt: createTimestampField({
               personal: "self",
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("pii: true on tz field passes (Standort verraet Person)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "profile",
-        createEntity({
+      r.entity({
+        name: "profile",
+        ...createEntity({
           fields: {
             homeTz: createTzField({
               personal: "self",
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("pii: true on locatedTimestamp field passes (z.B. employee shift)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "shift",
-        createEntity({
+      r.entity({
+        name: "shift",
+        ...createEntity({
           fields: {
             startsAt: createLocatedTimestampField({
               personal: "self",
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("pii: true on embedded field passes (z.B. customerAddress)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: {
             customerAddress: createEmbeddedField(
               {
@@ -705,7 +705,7 @@ describe("validateBoot — PII annotations", () => {
             ),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
@@ -718,30 +718,30 @@ describe("validateBoot — PII annotations", () => {
     // simuliert programmatisch konstruierte FieldDefs — Validator soll
     // das stillschweigend tolerieren (kein Error, kein false-Warning).
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             isPublic: { ...createBooleanField(), pii: true } as ReturnType<
               typeof createBooleanField
             >,
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test('"name" alone is NOT in PII direct hints (too broad — product.name, tenant.name)', () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: {
             name: { ...unannotatedText },
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -752,14 +752,14 @@ describe("validateBoot — PII annotations", () => {
 
   test("displayName / firstName / lastName / fullName remain in PII hints", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "person",
-        createEntity({
+      r.entity({
+        name: "person",
+        ...createEntity({
           fields: {
             displayName: { ...unannotatedText },
           },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -782,45 +782,45 @@ describe("validateBoot — retention", () => {
 
   test("retention with hardDelete + valid reference field passes", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "session",
-        createEntity({
+      r.entity({
+        name: "session",
+        ...createEntity({
           fields: {
             lastSeenAt: { type: "timestamp" },
           },
           retention: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("retention.reference pointing to framework createdAt passes", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "auditEvent",
-        createEntity({
+      r.entity({
+        name: "auditEvent",
+        ...createEntity({
           fields: {
             note: { ...unannotatedText },
           },
           retention: { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("retention.reference pointing to non-existent field throws", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             note: { ...unannotatedText },
           },
           retention: { keepFor: "30d", strategy: "hardDelete", reference: "ghostField" },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(
       /retention\.reference "ghostField" does not exist/,
@@ -829,9 +829,9 @@ describe("validateBoot — retention", () => {
 
   test("blockDelete without any anonymize-fields warns", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           fields: {
             invoiceNumber: createTextField({
               personal: false,
@@ -844,7 +844,7 @@ describe("validateBoot — retention", () => {
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -859,9 +859,9 @@ describe("validateBoot — retention", () => {
 
   test("blockDelete without any subject-annotated field stays silent (#1622)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "lease",
-        createEntity({
+      r.entity({
+        name: "lease",
+        ...createEntity({
           fields: {
             reference: createTextField({
               personal: false,
@@ -870,7 +870,7 @@ describe("validateBoot — retention", () => {
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -881,9 +881,9 @@ describe("validateBoot — retention", () => {
 
   test("blockDelete with only a subjectRef-only field does not warn about EXT_USER_DATA delete hook (#2338)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "lease",
-        createEntity({
+      r.entity({
+        name: "lease",
+        ...createEntity({
           fields: {
             authorId: createTextField({
               personal: "ref",
@@ -891,7 +891,7 @@ describe("validateBoot — retention", () => {
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const anonymizeWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -915,16 +915,16 @@ describe("validateBoot — retention", () => {
     "blockDelete warns when subjectRef coexists with anonymizable %s field (#2336)",
     (_label, personal) => {
       const feature = defineFeature("test", (r) => {
-        r.entity(
-          "lease",
-          createEntity({
+        r.entity({
+          name: "lease",
+          ...createEntity({
             fields: {
               authorId: createTextField({ personal: "ref" }),
               subjectField: createTextField(personal),
             },
             retention: { keepFor: "10y", strategy: "blockDelete" },
           }),
-        );
+        });
       });
       validateBoot([feature]);
       const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -936,9 +936,9 @@ describe("validateBoot — retention", () => {
 
   test('retention.keepFor with invalid format "30days" warns', () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           fields: {
             note: createTextField({
               personal: false,
@@ -947,7 +947,7 @@ describe("validateBoot — retention", () => {
           },
           retention: { keepFor: "30days", strategy: "hardDelete" },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -960,9 +960,9 @@ describe("validateBoot — retention", () => {
     const validFormats = ["30d", "10y", "6m", "1w", "24h"];
     for (const keepFor of validFormats) {
       const feature = defineFeature("test", (r) => {
-        r.entity(
-          "thing",
-          createEntity({
+        r.entity({
+          name: "thing",
+          ...createEntity({
             fields: {
               note: createTextField({
                 personal: false,
@@ -971,7 +971,7 @@ describe("validateBoot — retention", () => {
             },
             retention: { keepFor, strategy: "hardDelete" },
           }),
-        );
+        });
       });
       validateBoot([feature]);
     }
@@ -983,9 +983,9 @@ describe("validateBoot — retention", () => {
 
   test("blockDelete with at least one anonymize-field is silent", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           fields: {
             invoiceNumber: createTextField({
               personal: false,
@@ -999,7 +999,7 @@ describe("validateBoot — retention", () => {
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
-      );
+      });
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -1012,9 +1012,9 @@ describe("validateBoot — retention", () => {
 describe("validateBoot — lookupable / blind-index (#818)", () => {
   test("lookupable on subject-annotated text field passes", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({
               personal: "self",
@@ -1022,16 +1022,16 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("lookupable without subject annotation throws", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           fields: {
             slug: rawField({
               ...unannotatedText,
@@ -1039,16 +1039,16 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(/find:.*without a subject annotation/);
   });
 
   test("lookupable on non-text field throws", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "person",
-        createEntity({
+      r.entity({
+        name: "person",
+        ...createEntity({
           fields: {
             bio: rawLongTextField({
               ...createLongTextField({
@@ -1060,16 +1060,16 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
             ownerId: { ...unannotatedText, required: true },
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(/only apply to text fields/);
   });
 
   test("searchable combined with a subject annotation passes (#1610)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             displayName: createTextField({
               personal: "self",
@@ -1077,16 +1077,16 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("sortable combined with a subject annotation throws", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({
               personal: "self",
@@ -1095,16 +1095,16 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(/sortable/);
   });
 
   test("searchable combined with sensitive throws (#1610)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             passwordHash: rawField({
               ...unannotatedText,
@@ -1114,7 +1114,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(/sensitive.*searchable/);
   });
@@ -1124,7 +1124,7 @@ describe("validateBoot — writeOnly fields", () => {
   const bootWith = (field: TextFieldDef | LongTextFieldDef | Record<string, unknown>) =>
     validateBoot([
       defineFeature("test", (r) => {
-        r.entity("conn", createEntity({ fields: { apiKey: field as TextFieldDef } }));
+        r.entity({ name: "conn", ...createEntity({ fields: { apiKey: field as TextFieldDef } }) });
       }),
     ]);
 

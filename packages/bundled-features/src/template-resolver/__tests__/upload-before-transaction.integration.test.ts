@@ -94,7 +94,7 @@ const bundlePayload = z.object({ bundle: z.unknown() });
 const access = { roles: ["TenantAdmin"] };
 
 const fixtureFeature = defineFeature(FIXTURE, (r) => {
-  r.requires("template-resolver");
+  r.requires({ features: ["template-resolver"] });
 
   // An inline projection runs in the write transaction: failing it rolls back after the upload.
   const failInTransaction = async () => {
@@ -165,7 +165,7 @@ const fixtureFeature = defineFeature(FIXTURE, (r) => {
 // writeAs needs an identity-switch grant; r.systemScope() on a separate feature keeps the grant
 // away from the handlers above.
 const switchFeature = defineFeature(SWITCH_FIXTURE, (r) => {
-  r.requires("template-resolver");
+  r.requires({ features: ["template-resolver"] });
   r.systemScope();
 
   r.writeHandler(

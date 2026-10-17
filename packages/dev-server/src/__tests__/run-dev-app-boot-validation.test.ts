@@ -12,12 +12,12 @@ import { runDevApp } from "../run-dev-app.js";
 
 function unresolvableNavFeature() {
   return defineFeature("shop", (r) => {
-    r.entity(
-      "product",
-      createEntity({
+    r.entity({
+      name: "product",
+      ...createEntity({
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
+    });
     r.screen({
       id: "product-list",
       type: "entityList",
@@ -31,10 +31,10 @@ function unresolvableNavFeature() {
 
 function fileFieldFeature() {
   return defineFeature("docs", (r) => {
-    r.entity(
-      "doc",
-      createEntity({ table: "dev_boot_docs", fields: { contract: { type: "file" } } }),
-    );
+    r.entity({
+      name: "doc",
+      ...createEntity({ table: "dev_boot_docs", fields: { contract: { type: "file" } } }),
+    });
   });
 }
 

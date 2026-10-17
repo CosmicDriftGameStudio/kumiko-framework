@@ -54,15 +54,15 @@ let stack: TestStack;
 const admin = TestUsers.admin;
 
 const tryAppendFeature = defineFeature("tae", (r) => {
-  r.entity("taeMarker", markerEntity);
+  r.entity({ name: "taeMarker", ...markerEntity });
   const appended = r.defineEvent("appended", z.object({ note: z.string() }), {
     piiFields: "none",
   });
 
-  r.writeHandler(
-    "doc:try-append",
-    z.object({ aggregateId: z.uuid(), note: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "doc:try-append",
+    schema: z.object({ aggregateId: z.uuid(), note: z.string() }),
+    handler: async (event, ctx) => {
       const result = await ctx.tryAppendEvent({
         aggregateId: event.payload.aggregateId,
         aggregateType: TAE_AGGREGATE_TYPE,
@@ -86,8 +86,8 @@ const tryAppendFeature = defineFeature("tae", (r) => {
         },
       };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 beforeAll(async () => {

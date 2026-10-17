@@ -28,7 +28,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 let deliveryCount = 0;
 
 const listenFeature = defineFeature("listen", (r) => {
-  r.entity("widget", sharedWidgetEntity);
+  r.entity({ name: "widget", ...sharedWidgetEntity });
 
   r.multiStreamProjection({
     name: "latency-probe",

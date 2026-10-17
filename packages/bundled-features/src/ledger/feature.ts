@@ -54,9 +54,9 @@ function registerLedger(
 
   if (toggleable !== undefined) r.toggleable(toggleable);
 
-  r.entity("account", accountEntity);
-  r.entity("transaction", transactionEntity);
-  r.entity("schedule", scheduleEntity);
+  r.entity({ name: "account", ...accountEntity });
+  r.entity({ name: "transaction", ...transactionEntity });
+  r.entity({ name: "schedule", ...scheduleEntity });
 
   // Chart of accounts — plain CRUD, no custom logic. No delete in v1: removing an
   // account that has postings would orphan them; a posting-aware guard lands with
@@ -126,8 +126,8 @@ function registerLedger(
         "Changes a recurring booking template's description, accounts, amount, interval or date window; use it when a standing order's terms change, already confirmed periods stay booked as they were.",
     }),
   );
-  r.hook("preSave", "schedule:create", requireScheduleSubjectPair);
-  r.hook("preSave", "schedule:update", requireScheduleSubjectPair);
+  r.hook({ type: "preSave", target: "schedule:create", handler: requireScheduleSubjectPair });
+  r.hook({ type: "preSave", target: "schedule:update", handler: requireScheduleSubjectPair });
   r.writeHandler(createConfirmSchedulePeriodHandler(access));
   r.queryHandler(
     defineEntityListHandler("schedule", scheduleEntity, {

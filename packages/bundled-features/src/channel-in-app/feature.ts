@@ -17,7 +17,7 @@ export function createChannelInAppFeature(): FeatureDefinition {
       category: "notifications",
       recommended: false,
     });
-    r.requires("delivery");
+    r.requires({ features: ["delivery"] });
 
     r.storeTable(inAppMessagesTableMeta, {
       reason: "read_side.in_app_messages",

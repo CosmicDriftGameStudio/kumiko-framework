@@ -22,7 +22,7 @@ const emailChannel = createEmailChannel({
 const NOTIFICATION_TYPE = "email-text-probe:notify:text-part";
 
 const emailTextProbeFeature = defineFeature("email-text-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.notification("text-part", {
     variables: { actionUrl: templateVariable.link({ required: true }) },
     template: {

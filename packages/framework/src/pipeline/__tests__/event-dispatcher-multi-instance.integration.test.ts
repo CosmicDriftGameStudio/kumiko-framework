@@ -52,7 +52,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 // test-stack would then auto-wire a subscriber we don't want in the
 // multi-instance setup).
 const multiFeature = defineFeature("multi", (r) => {
-  r.entity("widget", sharedWidgetEntity);
+  r.entity({ name: "widget", ...sharedWidgetEntity });
 });
 
 const admin = TestUsers.admin;

@@ -44,7 +44,7 @@ function createCountingProvider(name: string): CountingProvider {
   const store = createInMemoryFileProvider();
   let buildCount = 0;
   const feature = defineFeature(`test-file-provider-${name}`, (r) => {
-    r.requires("file-foundation");
+    r.requires({ features: ["file-foundation"] });
     r.useExtension("fileProvider", name, {
       build: async () => {
         buildCount += 1;

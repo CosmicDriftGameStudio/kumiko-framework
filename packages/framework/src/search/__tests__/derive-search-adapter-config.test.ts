@@ -15,13 +15,13 @@ describe("deriveSearchAdapterConfig", () => {
 
   test("returns undefined when no entity has a searchable field", () => {
     const feature = defineFeature("plain", (r) => {
-      r.entity(
-        "note",
-        createEntity({
+      r.entity({
+        name: "note",
+        ...createEntity({
           table: "notes",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
     });
 
     expect(deriveSearchAdapterConfig(createRegistry([feature]))).toBeUndefined();
@@ -29,19 +29,19 @@ describe("deriveSearchAdapterConfig", () => {
 
   test("unions searchable fields across entities, deduplicated, in first-occurrence order", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "customers",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
             email: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "orders",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -52,7 +52,7 @@ describe("deriveSearchAdapterConfig", () => {
             ),
           },
         }),
-      );
+      });
     });
 
     const config = deriveSearchAdapterConfig(createRegistry([feature]));

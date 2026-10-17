@@ -23,35 +23,35 @@ const ledgerEntity = createEntity({
 const ledgerTable = buildEntityTable("ledger-entry", ledgerEntity);
 
 const ledgerFeature = defineFeature("restoremoney", (r) => {
-  r.entity("ledger-entry", ledgerEntity);
+  r.entity({ name: "ledger-entry", ...ledgerEntity });
   const executor = createEventStoreExecutor(ledgerTable, ledgerEntity, {
     entityName: "ledger-entry",
   });
 
-  r.writeHandler(
-    "entry:create",
-    z.object({ grossTotal: z.object({ amount: z.number(), currency: z.string() }) }),
-    async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
-  r.writeHandler(
-    "entry:delete",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => executor.delete({ id: event.payload.id }, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
-  r.writeHandler(
-    "entry:restore",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => executor.restore({ id: event.payload.id }, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
-  r.queryHandler(
-    "entry:events",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => ctx.loadAggregate(query.payload.id),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "entry:create",
+    schema: z.object({ grossTotal: z.object({ amount: z.number(), currency: z.string() }) }),
+    handler: async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
+  r.writeHandler({
+    name: "entry:delete",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => executor.delete({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
+  r.writeHandler({
+    name: "entry:restore",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => executor.restore({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
+  r.queryHandler({
+    name: "entry:events",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => ctx.loadAggregate(query.payload.id),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 type StoredEventView = { readonly type: string; readonly payload: Record<string, unknown> };

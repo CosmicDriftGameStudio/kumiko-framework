@@ -17,7 +17,7 @@ export function createChannelEmailFeature(options: EmailChannelOptions): Feature
       category: "notifications",
       recommended: false,
     });
-    r.requires("delivery");
+    r.requires({ features: ["delivery"] });
 
     r.translations({ keys: { "delivery.channel.email": { en: "Email" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, EMAIL_CHANNEL_NAME, {

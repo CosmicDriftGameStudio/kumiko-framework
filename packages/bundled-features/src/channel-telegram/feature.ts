@@ -19,8 +19,8 @@ export function createChannelTelegramFeature(
       category: "notifications",
       recommended: false,
     });
-    r.requires("delivery");
-    r.requires("secrets");
+    r.requires({ features: ["delivery"] });
+    r.requires({ features: ["secrets"] });
 
     const botToken = r.secret("botToken", {
       label: { en: "Telegram bot token" },

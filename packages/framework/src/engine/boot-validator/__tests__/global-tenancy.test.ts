@@ -24,7 +24,7 @@ describe("validateGlobalTenancyEntities", () => {
       fields: { name: textField() },
     });
     const feature = defineFeature("fw2858-global-no-stream", (r) => {
-      r.entity("fw2858GlobalNoStream", entity);
+      r.entity({ name: "fw2858GlobalNoStream", ...entity });
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).toThrow(/systemStream/);
@@ -38,7 +38,7 @@ describe("validateGlobalTenancyEntities", () => {
       fields: { name: textField() },
     });
     const feature = defineFeature("fw2860-global-no-scope", (r) => {
-      r.entity("fw2860GlobalNoScope", entity);
+      r.entity({ name: "fw2860GlobalNoScope", ...entity });
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).toThrow(/systemScope/);
@@ -53,7 +53,7 @@ describe("validateGlobalTenancyEntities", () => {
     });
     const feature = defineFeature("fw2858-global-with-stream", (r) => {
       r.systemScope();
-      r.entity("fw2858GlobalWithStream", entity);
+      r.entity({ name: "fw2858GlobalWithStream", ...entity });
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).not.toThrow();
@@ -65,7 +65,7 @@ describe("validateGlobalTenancyEntities", () => {
       fields: { name: textField() },
     });
     const feature = defineFeature("fw2858-tenant-entity", (r) => {
-      r.entity("fw2858TenantEntity", entity);
+      r.entity({ name: "fw2858TenantEntity", ...entity });
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).not.toThrow();

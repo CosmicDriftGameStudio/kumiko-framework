@@ -85,9 +85,9 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
     category: "notifications",
     recommended: false,
   });
-  r.requires("config");
-  r.requires("secrets");
-  r.requires("mail-foundation");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
+  r.requires({ features: ["mail-foundation"] });
   r.envSchema(mailTransportSmtpEnvSchema);
 
   // Provider-secret. Sensitive: redact-helper for admin-UI display.

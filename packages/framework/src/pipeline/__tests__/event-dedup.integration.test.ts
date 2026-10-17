@@ -18,42 +18,50 @@ import { createEventDedup } from "../event-dedup.js";
 const postSaveLog: SaveContext[] = [];
 
 const dedupFeature = defineFeature("dedup", (r) => {
-  r.entity("item", sharedItemEntity);
+  r.entity({ name: "item", ...sharedItemEntity });
 
-  r.writeHandler(
-    "item:create",
-    z.object({ name: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({ name: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(sharedItemTable, sharedItemEntity, {
         entityName: "item",
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "item:update",
-    z.object({
+  r.writeHandler({
+    name: "item:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(sharedItemTable, sharedItemEntity, {
         entityName: "item",
       });
       return crud.update(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
-
-  r.hook("postSave", "item:create", async (result) => {
-    postSaveLog.push(result);
+    access: { roles: ["Admin"] },
   });
 
-  r.hook("postSave", "item:update", async (result) => {
-    postSaveLog.push(result);
+  r.hook({
+    type: "postSave",
+    target: "item:create",
+    handler: async (result) => {
+      postSaveLog.push(result);
+    },
+  });
+
+  r.hook({
+    type: "postSave",
+    target: "item:update",
+    handler: async (result) => {
+      postSaveLog.push(result);
+    },
   });
 });
 

@@ -43,8 +43,8 @@ const hostFields = {
 const creditEntity = createEntity({ table: CREDIT_TABLE, fields: hostFields });
 const noteEntity = createEntity({ table: NOTE_TABLE, fields: hostFields });
 const hostFixturesFeature = defineFeature("tags-test-host-fixtures", (r) => {
-  r.entity("credit", creditEntity);
-  r.entity("note", noteEntity);
+  r.entity({ name: "credit", ...creditEntity });
+  r.entity({ name: "note", ...noteEntity });
 });
 
 // The parent entity's ids are uuid-shaped, but the readable labels below carry

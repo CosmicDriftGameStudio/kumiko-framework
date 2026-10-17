@@ -8,7 +8,10 @@ import { projectAppSchemaForRoles } from "../project-app-schema-for-roles.js";
 import { createRegistry } from "../registry.js";
 
 const catalog = defineFeature("catalog", (r) => {
-  r.queryHandler("model-options", z.object({}), async () => ({ rows: [] }), {
+  r.queryHandler({
+    name: "model-options",
+    schema: z.object({}),
+    handler: async () => ({ rows: [] }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });

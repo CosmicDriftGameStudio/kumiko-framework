@@ -12,15 +12,15 @@ const clock = createManualClock(Temporal.Instant.from("2031-02-03T04:05:06Z"));
 const jobSeenNow: string[] = [];
 
 const clockFeature = defineFeature("clockprobe", (r) => {
-  r.writeHandler(
-    "read-now",
-    z.object({}),
-    async (_event, ctx) => ({
+  r.writeHandler({
+    name: "read-now",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ({
       isSuccess: true as const,
       data: { now: ctx.tz.now().toString(), today: ctx.tz.today("UTC").toString() },
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job("record-now", { trigger: { manual: true }, runIn: "worker" }, async (_payload, ctx) => {
     jobSeenNow.push(ctx.tz.now().toString());
   });

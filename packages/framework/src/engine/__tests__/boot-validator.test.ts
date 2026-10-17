@@ -22,7 +22,6 @@ import {
   createTextField,
   defineFeature,
   from,
-  registerEntityCrud,
 } from "../index.js";
 import type { RowFieldExtractor } from "../types/screen.js";
 
@@ -50,13 +49,13 @@ function stubListHandler(
 describe("boot-validator", () => {
   function noteFeatureWithColumn(columnName: string, options?: { readonly softDelete?: boolean }) {
     return defineFeature("notes", (r) => {
-      r.entity(
-        "note",
-        createEntity({
+      r.entity({
+        name: "note",
+        ...createEntity({
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           softDelete: options?.softDelete,
         }),
-      );
+      });
       r.screen({
         id: "note-list",
         type: "entityList",
@@ -69,13 +68,13 @@ describe("boot-validator", () => {
   test("passes for valid features with no issues", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "user",
-          createEntity({
+        r.entity({
+          name: "user",
+          ...createEntity({
             table: "Users",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -86,10 +85,10 @@ describe("boot-validator", () => {
   test("detects circular requires: A → B → A", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.requires("b");
+        r.requires({ features: ["b"] });
       }),
       defineFeature("b", (r) => {
-        r.requires("a");
+        r.requires({ features: ["a"] });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/circular dependency.*a.*b/i);
@@ -98,13 +97,13 @@ describe("boot-validator", () => {
   test("detects circular requires: A → B → C → A", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.requires("b");
+        r.requires({ features: ["b"] });
       }),
       defineFeature("b", (r) => {
-        r.requires("c");
+        r.requires({ features: ["c"] });
       }),
       defineFeature("c", (r) => {
-        r.requires("a");
+        r.requires({ features: ["a"] });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/circular dependency/i);
@@ -114,13 +113,13 @@ describe("boot-validator", () => {
     const features = [
       defineFeature("d", () => {}),
       defineFeature("b", (r) => {
-        r.requires("d");
+        r.requires({ features: ["d"] });
       }),
       defineFeature("c", (r) => {
-        r.requires("d");
+        r.requires({ features: ["d"] });
       }),
       defineFeature("a", (r) => {
-        r.requires("b", "c");
+        r.requires({ features: ["b", "c"] });
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -131,15 +130,15 @@ describe("boot-validator", () => {
   test("rejects encrypted + searchable field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "secret",
-          createEntity({
+        r.entity({
+          name: "secret",
+          ...createEntity({
             table: "Secrets",
             fields: {
               apiKey: { type: "text", encrypted: true, searchable: true },
             },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(
@@ -154,9 +153,9 @@ describe("boot-validator", () => {
   ): ReturnType<typeof defineFeature>[] {
     return [
       defineFeature("a", (r) => {
-        r.entity(
-          "memo",
-          createEntity({
+        r.entity({
+          name: "memo",
+          ...createEntity({
             table: "Memos",
             fields: {
               secret: {
@@ -167,7 +166,7 @@ describe("boot-validator", () => {
               } as never, // @cast-boundary test builds field variants dynamically
             },
           }),
-        );
+        });
       }),
     ];
   }
@@ -183,9 +182,9 @@ describe("boot-validator", () => {
     parent: Record<string, unknown> = {},
   ) {
     return defineFeature("memos", (r) => {
-      r.entity(
-        "memo",
-        createEntity({
+      r.entity({
+        name: "memo",
+        ...createEntity({
           table: "Memos",
           fields: {
             note: {
@@ -195,7 +194,7 @@ describe("boot-validator", () => {
             } as never, // @cast-boundary test builds embedded variants dynamically
           },
         }),
-      );
+      });
     });
   }
 
@@ -231,15 +230,15 @@ describe("boot-validator", () => {
   test("rejects encrypted + sortable field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "secret",
-          createEntity({
+        r.entity({
+          name: "secret",
+          ...createEntity({
             table: "Secrets",
             fields: {
               token: { type: "text", encrypted: true, sortable: true },
             },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/token.*cannot be both encrypted and sortable/i);
@@ -252,15 +251,15 @@ describe("boot-validator", () => {
     try {
       const features = [
         defineFeature("a", (r) => {
-          r.entity(
-            "secret",
-            createEntity({
+          r.entity({
+            name: "secret",
+            ...createEntity({
               table: "Secrets",
               fields: {
                 apiKey: { type: "text", encrypted: true },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -274,15 +273,15 @@ describe("boot-validator", () => {
     try {
       const features = [
         defineFeature("a", (r) => {
-          r.entity(
-            "secret",
-            createEntity({
+          r.entity({
+            name: "secret",
+            ...createEntity({
               table: "Secrets",
               fields: {
                 apiKey: { type: "text", encrypted: true },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/master key/i);
@@ -295,15 +294,15 @@ describe("boot-validator", () => {
     delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "secret",
-          createEntity({
+        r.entity({
+          name: "secret",
+          ...createEntity({
             table: "Secrets",
             fields: {
               apiKey: { type: "text", encrypted: true },
             },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/master key/i);
@@ -312,13 +311,13 @@ describe("boot-validator", () => {
   describe("entityFieldCipher option", () => {
     const encryptedFeatures = [
       defineFeature("a", (r) => {
-        r.entity(
-          "secret",
-          createEntity({
+        r.entity({
+          name: "secret",
+          ...createEntity({
             table: "Secrets",
             fields: { apiKey: { type: "text", encrypted: true } },
           }),
-        );
+        });
       }),
     ];
 
@@ -348,15 +347,15 @@ describe("boot-validator", () => {
     delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "doc",
-          createEntity({
+        r.entity({
+          name: "doc",
+          ...createEntity({
             table: "Docs",
             fields: {
               body: { type: "longText", encrypted: true },
             },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/master key/i);
@@ -370,15 +369,15 @@ describe("boot-validator", () => {
     try {
       const features = [
         defineFeature("a", (r) => {
-          r.entity(
-            "doc",
-            createEntity({
+          r.entity({
+            name: "doc",
+            ...createEntity({
               table: "Docs",
               fields: {
                 secret: { type: "text", encrypted: true, filterable: true },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/secret.*encrypted and filterable/i);
@@ -394,16 +393,16 @@ describe("boot-validator", () => {
     try {
       const features = [
         defineFeature("a", (r) => {
-          r.entity(
-            "doc",
-            createEntity({
+          r.entity({
+            name: "doc",
+            ...createEntity({
               table: "Docs",
               fields: {
                 secret: { type: "text", encrypted: true },
               },
               indexes: [{ columns: ["secret"], unique: true }],
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/secret.*encrypted.*unique index/i);
@@ -422,9 +421,9 @@ describe("boot-validator", () => {
     // sortable=false.
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "doc",
-          createEntity({
+        r.entity({
+          name: "doc",
+          ...createEntity({
             table: "Docs",
             fields: {
               body: { type: "longText" },
@@ -432,7 +431,7 @@ describe("boot-validator", () => {
             },
             indexes: [{ columns: ["title", "body"] }],
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/body.*longText.*cannot be indexed/i);
@@ -445,7 +444,7 @@ describe("boot-validator", () => {
       r.extendsRegistrar("tags", { onRegister: () => {} });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("tags", "vehicle");
       // Missing: r.requires("tags")
     });
@@ -458,8 +457,8 @@ describe("boot-validator", () => {
       r.extendsRegistrar("tags", { onRegister: () => {} });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.requires("tags");
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.requires({ features: ["tags"] });
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("tags", "vehicle");
     });
 
@@ -472,7 +471,7 @@ describe("boot-validator", () => {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.optionalRequires("tags");
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("tags", "vehicle");
     });
 
@@ -487,7 +486,7 @@ describe("boot-validator", () => {
     // tests above only exercise providerFeature !== feature.name.
     const self = defineFeature("tier-stub", (r) => {
       r.extendsRegistrar("tenantTierResolver", { onRegister: () => {} });
-      r.entity("dummy", createEntity({ table: "Dummies", fields: {} }));
+      r.entity({ name: "dummy", ...createEntity({ table: "Dummies", fields: {} }) });
       r.useExtension("tenantTierResolver", "dummy", { build: async () => () => new Set() });
     });
     expect(() => validateBoot([self])).not.toThrow();
@@ -499,13 +498,13 @@ describe("boot-validator", () => {
     delete process.env["FILE_STORAGE_PROVIDER"];
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "doc",
-          createEntity({
+        r.entity({
+          name: "doc",
+          ...createEntity({
             table: "Docs",
             fields: { contract: { type: "file" } },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/FILE_STORAGE_PROVIDER.*required/i);
@@ -516,13 +515,13 @@ describe("boot-validator", () => {
     try {
       const features = [
         defineFeature("a", (r) => {
-          r.entity(
-            "doc",
-            createEntity({
+          r.entity({
+            name: "doc",
+            ...createEntity({
               table: "Docs",
               fields: { photo: { type: "image" } },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -535,7 +534,10 @@ describe("boot-validator", () => {
     delete process.env["FILE_STORAGE_PROVIDER"];
     const features = [
       defineFeature("a", (r) => {
-        r.entity("doc", createEntity({ table: "Docs", fields: { photo: { type: "image" } } }));
+        r.entity({
+          name: "doc",
+          ...createEntity({ table: "Docs", fields: { photo: { type: "image" } } }),
+        });
       }),
     ];
     const fixtured = withBootValidatorFixture(features);
@@ -552,13 +554,13 @@ describe("boot-validator", () => {
   test("throws when extendSchema column conflicts with existing field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "item",
-          createEntity({
+        r.entity({
+          name: "item",
+          ...createEntity({
             table: "Items",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.extendsRegistrar("custom", {
           extendSchema: () => ({ name: { type: "text" as const } }),
         });
@@ -574,16 +576,16 @@ describe("boot-validator", () => {
   test("throws when a derivedFields key conflicts with a stored field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "item",
-          createEntity({
+        r.entity({
+          name: "item",
+          ...createEntity({
             table: "Items",
             fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
             derivedFields: {
               status: createDerivedField({ valueType: "text", derive: () => "computed" }),
             },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(
@@ -594,16 +596,16 @@ describe("boot-validator", () => {
   test("passes when derivedFields keys don't conflict with stored fields", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "item",
-          createEntity({
+        r.entity({
+          name: "item",
+          ...createEntity({
             table: "Items",
             fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
             derivedFields: {
               statusLabel: createDerivedField({ valueType: "text", derive: () => "computed" }),
             },
           }),
-        );
+        });
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -636,7 +638,7 @@ describe("boot-validator", () => {
         });
       }),
       defineFeature("invoicing", (r) => {
-        r.requires("payments");
+        r.requires({ features: ["payments"] });
         r.readsConfig("payments.gateway");
       }),
     ];
@@ -646,13 +648,13 @@ describe("boot-validator", () => {
   test("passes when extendSchema adds non-conflicting column", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity(
-          "item",
-          createEntity({
+        r.entity({
+          name: "item",
+          ...createEntity({
             table: "Items",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.extendsRegistrar("custom", {
           extendSchema: () => ({ extra: { type: "text" as const } }),
         });
@@ -666,22 +668,22 @@ describe("boot-validator", () => {
   test("accepts bare CRUD write handler when feature name matches entity", () => {
     const features = [
       defineFeature("credit", (r) => {
-        r.entity(
-          "credit",
-          createEntity({
+        r.entity({
+          name: "credit",
+          ...createEntity({
             table: "Credits",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.writeHandler(
-          "create",
-          z.object({ name: z.string() }),
-          async () => ({
+        });
+        r.writeHandler({
+          name: "create",
+          schema: z.object({ name: z.string() }),
+          handler: async () => ({
             isSuccess: true as const,
             data: { id: "1" },
           }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -697,23 +699,23 @@ describe("boot-validator", () => {
       });
     });
     const consumer = defineFeature("money-horse", (r) => {
-      r.requires("cap-ext");
-      r.entity(
-        "credit",
-        createEntity({
+      r.requires({ features: ["cap-ext"] });
+      r.entity({
+        name: "credit",
+        ...createEntity({
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "doSomething",
-        z.object({}),
-        async () => ({
+      });
+      r.writeHandler({
+        name: "doSomething",
+        schema: z.object({}),
+        handler: async () => ({
           isSuccess: true as const,
           data: {},
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.useExtension("credit-cap", "credit");
     });
     expect(() => validateBoot([ext, consumer])).toThrow(
@@ -729,10 +731,14 @@ describe("boot-validator", () => {
     expect(() =>
       defineFeature("a", (r) => {
         // @ts-expect-error options.access is required since fw#2855.
-        r.writeHandler("createThing", z.object({ name: z.string() }), async () => ({
-          isSuccess: true as const,
-          data: {},
-        }));
+        r.writeHandler({
+          name: "createThing",
+          schema: z.object({ name: z.string() }),
+          handler: async () => ({
+            isSuccess: true as const,
+            data: {},
+          }),
+        });
       }),
     ).toThrow(/requires schema \+ handler \+ options\.access/);
   });
@@ -741,7 +747,7 @@ describe("boot-validator", () => {
     expect(() =>
       defineFeature("a", (r) => {
         // @ts-expect-error options.access is required since fw#2855.
-        r.queryHandler("list", z.object({}), async () => []);
+        r.queryHandler({ name: "list", schema: z.object({}), handler: async () => [] });
       }),
     ).toThrow(/requires schema \+ handler \+ options\.access/);
   });
@@ -757,7 +763,7 @@ describe("boot-validator", () => {
     // registration time (was: caught at boot-validator level).
     expect(() =>
       defineFeature("phase0", (r) => {
-        registerEntityCrud(r, "widget", widgetEntity);
+        r.crud("widget", widgetEntity);
       }),
     ).toThrow(/no access rule resolved/i);
   });
@@ -765,7 +771,10 @@ describe("boot-validator", () => {
   test("accepts role-based access rule", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.queryHandler("list", z.object({}), async () => [], {
+        r.queryHandler({
+          name: "list",
+          schema: z.object({}),
+          handler: async () => [],
           access: { roles: ["Admin"] },
         });
       }),
@@ -776,7 +785,10 @@ describe("boot-validator", () => {
   test("accepts openToAll access rule", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.queryHandler("list", z.object({}), async () => [], {
+        r.queryHandler({
+          name: "list",
+          schema: z.object({}),
+          handler: async () => [],
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
       }),
@@ -789,7 +801,10 @@ describe("boot-validator", () => {
     try {
       const features = [
         defineFeature("a", (r) => {
-          r.queryHandler("list", z.object({}), async () => [], {
+          r.queryHandler({
+            name: "list",
+            schema: z.object({}),
+            handler: async () => [],
             access: { roles: ["OnlyHereRole"] },
           });
         }),
@@ -814,7 +829,10 @@ describe("boot-validator", () => {
     try {
       const features = [
         defineFeature("b", (r) => {
-          r.queryHandler("list", z.object({}), async () => [], {
+          r.queryHandler({
+            name: "list",
+            schema: z.object({}),
+            handler: async () => [],
             access: { roles: ["OnlyThereRole"] },
           });
         }),
@@ -898,7 +916,10 @@ describe("boot-validator", () => {
     test("throws for an anonymous handler without rateLimit", () => {
       const features = [
         defineFeature("a", (r) => {
-          r.writeHandler("request", mailSchema, handlerResult, {
+          r.writeHandler({
+            name: "request",
+            schema: mailSchema,
+            handler: handlerResult,
             access: { roles: ["anonymous"] },
             additionalRateLimits: emailBucket,
           });
@@ -910,7 +931,10 @@ describe("boot-validator", () => {
     test("throws for an anonymous handler with a disabled rateLimit", () => {
       const features = [
         defineFeature("a", (r) => {
-          r.writeHandler("request", mailSchema, handlerResult, {
+          r.writeHandler({
+            name: "request",
+            schema: mailSchema,
+            handler: handlerResult,
             access: { roles: ["anonymous"] },
             rateLimit: { disabled: true, reason: "test" },
             additionalRateLimits: emailBucket,
@@ -923,7 +947,10 @@ describe("boot-validator", () => {
     test("throws for an anonymous handler with a user-bucketed rateLimit", () => {
       const features = [
         defineFeature("a", (r) => {
-          r.writeHandler("request", mailSchema, handlerResult, {
+          r.writeHandler({
+            name: "request",
+            schema: mailSchema,
+            handler: handlerResult,
             access: { roles: ["anonymous"] },
             rateLimit: { per: "tenant", limit: 10, windowSeconds: 60 },
             additionalRateLimits: emailBucket,
@@ -936,7 +963,10 @@ describe("boot-validator", () => {
     test("throws when payloadField is not in the schema", () => {
       const features = [
         defineFeature("a", (r) => {
-          r.writeHandler("request", mailSchema, handlerResult, {
+          r.writeHandler({
+            name: "request",
+            schema: mailSchema,
+            handler: handlerResult,
             access: { roles: ["anonymous"] },
             rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
             additionalRateLimits: [{ per: { payloadField: "emial" }, limit: 3, windowSeconds: 60 }],
@@ -949,7 +979,10 @@ describe("boot-validator", () => {
     test("throws for an empty array and for non-positive limits", () => {
       const withLimits = (additionalRateLimits: typeof emailBucket) => [
         defineFeature("a", (r) => {
-          r.writeHandler("request", mailSchema, handlerResult, {
+          r.writeHandler({
+            name: "request",
+            schema: mailSchema,
+            handler: handlerResult,
             access: { roles: ["anonymous"] },
             rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
             additionalRateLimits,
@@ -965,7 +998,10 @@ describe("boot-validator", () => {
     test("accepts an anonymous handler with an ip-keyed rateLimit and a schema field", () => {
       const features = [
         defineFeature("a", (r) => {
-          r.writeHandler("request", mailSchema, handlerResult, {
+          r.writeHandler({
+            name: "request",
+            schema: mailSchema,
+            handler: handlerResult,
             access: { roles: ["anonymous"] },
             rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
             additionalRateLimits: emailBucket,
@@ -1197,9 +1233,9 @@ describe("boot-validator", () => {
           r.claimKey("teamId", { type: "string" });
         }),
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -1212,7 +1248,7 @@ describe("boot-validator", () => {
                 read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1221,9 +1257,9 @@ describe("boot-validator", () => {
     test("detects claim-QN that no feature declared", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -1237,7 +1273,7 @@ describe("boot-validator", () => {
                 read: { TeamMember: from("claim:teams:teamId") },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -1251,9 +1287,9 @@ describe("boot-validator", () => {
           r.claimKey("teamId", { type: "string" });
         }),
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -1269,7 +1305,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -1283,9 +1319,9 @@ describe("boot-validator", () => {
           r.claimKey("teamId", { type: "string" });
         }),
         defineFeature("contracts", (r) => {
-          r.entity(
-            "contract",
-            createEntity({
+          r.entity({
+            name: "contract",
+            ...createEntity({
               table: "contracts",
               fields: {
                 teamId: createTextField({
@@ -1303,7 +1339,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1312,9 +1348,9 @@ describe("boot-validator", () => {
     test("detects unknown claim on field-level rule", () => {
       const features = [
         defineFeature("contracts", (r) => {
-          r.entity(
-            "contract",
-            createEntity({
+          r.entity({
+            name: "contract",
+            ...createEntity({
               table: "contracts",
               fields: {
                 teamId: createTextField({
@@ -1332,7 +1368,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -1343,16 +1379,16 @@ describe("boot-validator", () => {
     test("user-ref rule with valid column passes", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: { assigneeId: createTextField({ personal: false, reason: "test_fixture" }) },
               access: {
                 read: { Driver: from("user:id", "assigneeId") },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1361,9 +1397,9 @@ describe("boot-validator", () => {
     test("'all' rule and { where } rule bypass validation (no ref to check)", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: { assigneeId: createTextField({ personal: false, reason: "test_fixture" }) },
               access: {
@@ -1376,7 +1412,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1385,9 +1421,9 @@ describe("boot-validator", () => {
     test("fw#2639: a where-rule with an unqualified column inside a subquery fails boot", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 entityId: createTextField({
@@ -1408,7 +1444,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/unqualified/i);
@@ -1417,9 +1453,9 @@ describe("boot-validator", () => {
     test("fw#2639: the same where-rule, correctly qualified, passes boot", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 entityId: createTextField({
@@ -1440,7 +1476,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1452,9 +1488,9 @@ describe("boot-validator", () => {
           r.claimKey("teamId", { type: "string" });
         }),
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {},
               access: {
@@ -1464,7 +1500,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1487,9 +1523,9 @@ describe("boot-validator", () => {
           });
         }),
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -1502,7 +1538,7 @@ describe("boot-validator", () => {
                 read: { Admi: "all" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -1521,9 +1557,9 @@ describe("boot-validator", () => {
           });
         }),
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 secret: createTextField({
@@ -1533,7 +1569,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -1552,9 +1588,9 @@ describe("boot-validator", () => {
           });
         }),
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -1567,7 +1603,7 @@ describe("boot-validator", () => {
                 read: { Admin: "all", TeamMember: "all" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1580,9 +1616,9 @@ describe("boot-validator", () => {
       // for the canValidateRoles gate.
       const features = [
         defineFeature("orders", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -1595,7 +1631,7 @@ describe("boot-validator", () => {
                 read: { AnyRole: "all" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1657,14 +1693,14 @@ describe("boot-validator", () => {
     test("accepts multiSelect with non-empty options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b", "c"] as const }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1673,9 +1709,9 @@ describe("boot-validator", () => {
     test("rejects multiSelect with empty options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 // Cast over the empty-array hole — the factory's generic
                 // `as const` widens to `readonly never[]` for `[]`, which
@@ -1684,7 +1720,7 @@ describe("boot-validator", () => {
                 tags: createMultiSelectField({ options: [] as readonly string[] }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/empty options/);
@@ -1693,9 +1729,9 @@ describe("boot-validator", () => {
     test("rejects default value not in options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -1704,7 +1740,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/not a valid option/);
@@ -1713,9 +1749,9 @@ describe("boot-validator", () => {
     test("accepts default that is a subset of options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b", "c"] as const,
@@ -1723,7 +1759,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1732,9 +1768,9 @@ describe("boot-validator", () => {
     test("accepts display: checkboxes with columns and maxRows", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b", "c"] as const,
@@ -1744,7 +1780,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1753,9 +1789,9 @@ describe("boot-validator", () => {
     test.each([0, 5])("rejects display: checkboxes with columns %p outside 1-4", (columns) => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -1765,7 +1801,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -1776,14 +1812,14 @@ describe("boot-validator", () => {
     test("rejects columns without display: checkboxes", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b"] as const, columns: 2 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/columns.*display.*checkboxes/);
@@ -1792,9 +1828,9 @@ describe("boot-validator", () => {
     test("rejects columns when display is explicitly dropdown", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -1803,7 +1839,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/columns.*display.*checkboxes/);
@@ -1812,14 +1848,14 @@ describe("boot-validator", () => {
     test("rejects maxRows without display: checkboxes", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b"] as const, maxRows: 3 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/maxRows.*display.*checkboxes/);
@@ -1828,9 +1864,9 @@ describe("boot-validator", () => {
     test("rejects maxRows below 1", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -1839,7 +1875,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/invalid maxRows/);
@@ -1848,9 +1884,9 @@ describe("boot-validator", () => {
     test("rejects non-integer maxRows", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity(
-            "profile",
-            createEntity({
+          r.entity({
+            name: "profile",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -1859,7 +1895,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/invalid maxRows/);
@@ -1872,9 +1908,9 @@ describe("boot-validator", () => {
       try {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity(
-              "person",
-              createEntity({
+            r.entity({
+              name: "person",
+              ...createEntity({
                 fields: {
                   avatar: createImageField({
                     variants: {
@@ -1883,7 +1919,7 @@ describe("boot-validator", () => {
                   }),
                 },
               }),
-            );
+            });
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();
@@ -1897,14 +1933,14 @@ describe("boot-validator", () => {
       try {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity(
-              "person",
-              createEntity({
+            r.entity({
+              name: "person",
+              ...createEntity({
                 fields: {
                   avatar: createImageField({ variants: { web: { format: "webp" } } }),
                 },
               }),
-            );
+            });
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();
@@ -1916,9 +1952,9 @@ describe("boot-validator", () => {
     test("rejects a variant setting both `size` and `maxEdge`", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({
                   variants: {
@@ -1927,7 +1963,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/both/);
@@ -1936,14 +1972,14 @@ describe("boot-validator", () => {
     test("rejects a variant name containing a slash", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({ variants: { "a/b": { maxEdge: 200 } } }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/must match/);
@@ -1952,14 +1988,14 @@ describe("boot-validator", () => {
     test("rejects maxEdge: 0", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({ variants: { thumb: { maxEdge: 0 } } }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/maxEdge/);
@@ -1968,14 +2004,14 @@ describe("boot-validator", () => {
     test("rejects quality: 101", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({ variants: { thumb: { maxEdge: 200, quality: 101 } } }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/quality/);
@@ -1984,14 +2020,14 @@ describe("boot-validator", () => {
     test("the same validation applies to `images` (multi) fields", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 gallery: createImagesField({ variants: { "a/b": { maxEdge: 200 } } }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/must match/);
@@ -2000,16 +2036,16 @@ describe("boot-validator", () => {
     test("rejects size beyond the max variant edge", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({
                   variants: { huge: { size: { width: 100000, height: 100000 } } },
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/size/);
@@ -2018,14 +2054,14 @@ describe("boot-validator", () => {
     test("rejects maxEdge beyond the max variant edge", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({ variants: { huge: { maxEdge: 100000 } } }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/maxEdge/);
@@ -2034,14 +2070,14 @@ describe("boot-validator", () => {
     test("rejects a negative blur", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({ variants: { thumb: { maxEdge: 200, blur: -5 } } }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/blur/);
@@ -2050,16 +2086,16 @@ describe("boot-validator", () => {
     test("rejects a blur far beyond the renderer's supported sigma", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({
                   variants: { thumb: { maxEdge: 200, blur: 100000 } },
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/blur/);
@@ -2070,14 +2106,14 @@ describe("boot-validator", () => {
       try {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity(
-              "person",
-              createEntity({
+            r.entity({
+              name: "person",
+              ...createEntity({
                 fields: {
                   avatar: createImageField({ variants: { thumb: { maxEdge: 200, blur: 8 } } }),
                 },
               }),
-            );
+            });
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();
@@ -2089,9 +2125,9 @@ describe("boot-validator", () => {
     test("rejects a blurRegion that overflows the unit square", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity(
-            "person",
-            createEntity({
+          r.entity({
+            name: "person",
+            ...createEntity({
               fields: {
                 avatar: createImageField({
                   variants: {
@@ -2103,7 +2139,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/blurRegions/);
@@ -2114,9 +2150,9 @@ describe("boot-validator", () => {
       try {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity(
-              "person",
-              createEntity({
+            r.entity({
+              name: "person",
+              ...createEntity({
                 fields: {
                   avatar: createImageField({
                     variants: {
@@ -2128,7 +2164,7 @@ describe("boot-validator", () => {
                   }),
                 },
               }),
-            );
+            });
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();
@@ -2147,12 +2183,12 @@ describe("boot-validator", () => {
   describe("entityList column renderer form", () => {
     function shopFeature(renderer: unknown) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -2315,12 +2351,12 @@ describe("boot-validator", () => {
   describe("entityList virtual labeled column", () => {
     function noteFeature(column: unknown) {
       return defineFeature("notes", (r) => {
-        r.entity(
-          "note",
-          createEntity({
+        r.entity({
+          name: "note",
+          ...createEntity({
             fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "note-list",
           type: "entityList",
@@ -2453,9 +2489,9 @@ describe("boot-validator", () => {
       }>,
     ) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: {
               name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
               // Bewusst NICHT sortable: bestätigt dass Validator das
@@ -2464,7 +2500,7 @@ describe("boot-validator", () => {
               description: createTextField({ personal: false, reason: "test_fixture" }),
             },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -2528,7 +2564,7 @@ describe("boot-validator", () => {
       },
     ) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: fields as never }));
+        r.entity({ name: "product", ...createEntity({ fields: fields as never }) });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -2689,7 +2725,10 @@ describe("boot-validator", () => {
           });
         }
         if (override.extraDetailScreens?.length) {
-          r.queryHandler("order:detail", z.object({}), async () => [], {
+          r.queryHandler({
+            name: "order:detail",
+            schema: z.object({}),
+            handler: async () => [],
             access: { roles: ["Admin"] },
           });
         }
@@ -3498,12 +3537,12 @@ describe("boot-validator", () => {
   describe("entityEdit extension section", () => {
     function makeFeature(component: unknown) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -3542,15 +3581,15 @@ describe("boot-validator", () => {
       mode?: "single" | "wizard",
     ) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: {
               name: createTextField({ personal: false, reason: "test_fixture" }),
               sku: createTextField({ personal: false, reason: "test_fixture" }),
             },
           }),
-        );
+        });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -3607,15 +3646,15 @@ describe("boot-validator", () => {
       extraScreens: readonly string[] = [],
     ) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: {
               name: createTextField({ personal: false, reason: "test_fixture" }),
               sku: createTextField({ personal: false, reason: "test_fixture" }),
             },
           }),
-        );
+        });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -3705,14 +3744,14 @@ describe("boot-validator", () => {
     test("embedded field, entity-level required: true → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
             }),
-          );
+          });
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -3729,14 +3768,14 @@ describe("boot-validator", () => {
     test("embedded field, entity-level required: true, screen-spec required: false override → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
             }),
-          );
+          });
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -3751,14 +3790,14 @@ describe("boot-validator", () => {
     test("embedded field, entity-level required: true, screen-spec readOnly: true → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
             }),
-          );
+          });
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -3773,15 +3812,15 @@ describe("boot-validator", () => {
     test("embedded field, entity-level required: true, dynamic screen-spec required condition → kein Throw (not statically resolvable)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 kind: createTextField({ personal: false, reason: "test_fixture" }),
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
             }),
-          );
+          });
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -3800,7 +3839,7 @@ describe("boot-validator", () => {
     test("jsonb field, screen-spec required: true override → Throw (JsonbFieldDef has no entity-level required)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("order", createEntity({ fields: { data: createJsonbField() } }));
+          r.entity({ name: "order", ...createEntity({ fields: { data: createJsonbField() } }) });
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -3817,12 +3856,12 @@ describe("boot-validator", () => {
     test("files and images field, screen-spec required: true → kein Throw (FileListField widget)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: { attachments: createFilesField(), gallery: createImagesField() },
             }),
-          );
+          });
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -3851,14 +3890,14 @@ describe("boot-validator", () => {
     test("multiSelect field, entity-level required: true → kein Throw (has a combobox widget since #1925)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "product",
-            createEntity({
+          r.entity({
+            name: "product",
+            ...createEntity({
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b"] as const, required: true }),
               },
             }),
-          );
+          });
           r.screen({
             id: "product-edit",
             type: "entityEdit",
@@ -3873,14 +3912,14 @@ describe("boot-validator", () => {
     test("embedded LIST field (multiple: true), entity-level required: true → kein Throw (has an EmbeddedListField grid widget since #1838)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "invoice",
-            createEntity({
+          r.entity({
+            name: "invoice",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedListField({ note: { type: "text" } }, { required: true }),
               },
             }),
-          );
+          });
           r.screen({
             id: "invoice-edit",
             type: "entityEdit",
@@ -3898,21 +3937,21 @@ describe("boot-validator", () => {
     test("reference auf bestehende Entity → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "customer",
-            createEntity({
+          r.entity({
+            name: "customer",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "customer");
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "customer", labelField: "name" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -3921,14 +3960,14 @@ describe("boot-validator", () => {
     test("reference auf unknown Entity → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "ghost-entity" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -3939,20 +3978,20 @@ describe("boot-validator", () => {
     test("reference labelField auf unknown Field → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "customer",
-            createEntity({
+          r.entity({
+            name: "customer",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
-          r.entity(
-            "order",
-            createEntity({
+          });
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "customer", labelField: "ghost-field" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -3963,21 +4002,21 @@ describe("boot-validator", () => {
     test("reference labelField=id ist immer ok (PK)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "customer",
-            createEntity({
+          r.entity({
+            name: "customer",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "customer");
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "customer", labelField: "id" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -3986,15 +4025,15 @@ describe("boot-validator", () => {
     test("self-reference (entity → entity) → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "category",
-            createEntity({
+          r.entity({
+            name: "category",
+            ...createEntity({
               fields: {
                 name: createTextField({ personal: false, reason: "test_fixture" }),
                 parentId: { type: "reference", entity: "category", labelField: "name" },
               },
             }),
-          );
+          });
           stubListHandler(r, "category");
         }),
       ];
@@ -4004,16 +4043,16 @@ describe("boot-validator", () => {
     test("reference mit multiple: true → kein Throw (Tier 2.7e-Multi)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "tag",
-            createEntity({
+          r.entity({
+            name: "tag",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "tag");
-          r.entity(
-            "post",
-            createEntity({
+          r.entity({
+            name: "post",
+            ...createEntity({
               fields: {
                 title: createTextField({ personal: false, reason: "test_fixture" }),
                 tagIds: {
@@ -4024,7 +4063,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -4034,23 +4073,23 @@ describe("boot-validator", () => {
     test("cross-feature reference (feature:entity) → kein Throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity(
-            "user",
-            createEntity({
+          r.entity({
+            name: "user",
+            ...createEntity({
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "user");
         }),
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "users:user", labelField: "email" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -4059,23 +4098,23 @@ describe("boot-validator", () => {
     test("Audit-Fix #2: cross-feature reference ohne list-handler → Throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity(
-            "user",
-            createEntity({
+          r.entity({
+            name: "user",
+            ...createEntity({
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           // KEINE stubListHandler — das ist der Punkt des Tests
         }),
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "users:user" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4086,14 +4125,14 @@ describe("boot-validator", () => {
     test("cross-feature reference auf unknown feature → Throw mit klarer Message", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "ghost-feature:user" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4104,22 +4143,22 @@ describe("boot-validator", () => {
     test("cross-feature reference auf unknown entity → Throw mit feature-context", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity(
-            "user",
-            createEntity({
+          r.entity({
+            name: "user",
+            ...createEntity({
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
         }),
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "users:ghost-entity" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4130,17 +4169,17 @@ describe("boot-validator", () => {
     test("cross-feature labelField auf unknown Field → Throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity(
-            "user",
-            createEntity({
+          r.entity({
+            name: "user",
+            ...createEntity({
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
         }),
         defineFeature("shop", (r) => {
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: {
                   type: "reference",
@@ -4149,7 +4188,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4166,16 +4205,16 @@ describe("boot-validator", () => {
     test("reference sub-field targeting an unknown entity → Throw with the parent.child field path", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "invoice",
-            createEntity({
+          r.entity({
+            name: "invoice",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedListField({
                   productId: { type: "reference", entity: "ghost-entity" },
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4186,23 +4225,23 @@ describe("boot-validator", () => {
     test("reference sub-field with a valid target + registered list-handler → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "product",
-            createEntity({
+          r.entity({
+            name: "product",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "product");
-          r.entity(
-            "invoice",
-            createEntity({
+          r.entity({
+            name: "invoice",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedListField({
                   productId: { type: "reference", entity: "product", labelField: "name" },
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -4211,23 +4250,23 @@ describe("boot-validator", () => {
     test("reference sub-field with a valid target but no registered list-handler → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "product",
-            createEntity({
+          r.entity({
+            name: "product",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           // KEIN stubListHandler — das ist der Punkt des Tests
-          r.entity(
-            "invoice",
-            createEntity({
+          r.entity({
+            name: "invoice",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedListField({
                   productId: { type: "reference", entity: "product" },
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4238,12 +4277,12 @@ describe("boot-validator", () => {
     test("reference optionsQuery naming a registered handler → kein Throw (fw#2780)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "customer",
-            createEntity({
+          r.entity({
+            name: "customer",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "customer");
           r.queryHandler({
             name: "customer:options",
@@ -4251,9 +4290,9 @@ describe("boot-validator", () => {
             handler: async () => ({ rows: [] }) as never,
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: {
                   type: "reference",
@@ -4262,7 +4301,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -4271,16 +4310,16 @@ describe("boot-validator", () => {
     test("reference optionsQuery auf unregistrierten Handler → Throw (fw#2780)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "customer",
-            createEntity({
+          r.entity({
+            name: "customer",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "customer");
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: {
                   type: "reference",
@@ -4289,7 +4328,7 @@ describe("boot-validator", () => {
                 },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4300,21 +4339,21 @@ describe("boot-validator", () => {
     test("leerer optionsQuery → Throw (fw#2780)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "customer",
-            createEntity({
+          r.entity({
+            name: "customer",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "customer");
-          r.entity(
-            "order",
-            createEntity({
+          r.entity({
+            name: "order",
+            ...createEntity({
               fields: {
                 customerId: { type: "reference", entity: "customer", optionsQuery: "" },
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/has an empty optionsQuery/);
@@ -4323,16 +4362,16 @@ describe("boot-validator", () => {
     test("reference sub-field optionsQuery auf unregistrierten Handler → Throw mit parent.child-Pfad (fw#2780)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "product",
-            createEntity({
+          r.entity({
+            name: "product",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "product");
-          r.entity(
-            "invoice",
-            createEntity({
+          r.entity({
+            name: "invoice",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedListField({
                   productId: {
@@ -4343,7 +4382,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4354,16 +4393,16 @@ describe("boot-validator", () => {
     test("reference sub-field labelField referencing an unknown field → Throw with the parent.child field path", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity(
-            "product",
-            createEntity({
+          r.entity({
+            name: "product",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           stubListHandler(r, "product");
-          r.entity(
-            "invoice",
-            createEntity({
+          r.entity({
+            name: "invoice",
+            ...createEntity({
               fields: {
                 lines: createEmbeddedListField({
                   productId: {
@@ -4374,7 +4413,7 @@ describe("boot-validator", () => {
                 }),
               },
             }),
-          );
+          });
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -4387,12 +4426,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction kind=navigate (Tier 2.7e-1)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4432,12 +4471,12 @@ describe("boot-validator", () => {
       // Custom-Editor der Consumer-App (anderes Feature). Runtime löst die bare
       // id app-weit auf → der Validator muss das erlauben.
       const list = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4460,12 +4499,12 @@ describe("boot-validator", () => {
       // open with no entity context at runtime. The validator must catch it
       // at boot instead.
       const list = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4477,12 +4516,12 @@ describe("boot-validator", () => {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity(
-          "invoice",
-          createEntity({
+        r.entity({
+          name: "invoice",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -4497,15 +4536,15 @@ describe("boot-validator", () => {
 
     test("cross-feature navigate to an entityEdit screen WITH entityId → kein Throw", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: {
               name: createTextField({ personal: false, reason: "test_fixture" }),
               invoiceId: createTextField({ personal: false, reason: "test_fixture" }),
             },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4523,12 +4562,12 @@ describe("boot-validator", () => {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity(
-          "invoice",
-          createEntity({
+        r.entity({
+          name: "invoice",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -4541,12 +4580,12 @@ describe("boot-validator", () => {
 
     test("same-feature navigate to entityEdit WITHOUT entityId → kein Throw (same-feature fallback applies)", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4571,12 +4610,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction kind=navigate entity-target (fw#2228)", () => {
     test("entity-target resolving via detailFor → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4596,12 +4635,12 @@ describe("boot-validator", () => {
 
     test("entity-target with no detailFor screen anywhere → Throw mit klarer Message", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4617,12 +4656,12 @@ describe("boot-validator", () => {
 
     test("both screen and entity set → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4652,12 +4691,12 @@ describe("boot-validator", () => {
 
     test("neither screen nor entity set → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4676,12 +4715,12 @@ describe("boot-validator", () => {
       // detailFor resolution — the owning feature's list navigates to a
       // detail screen a consumer app registers for the entity.
       const list = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4708,12 +4747,12 @@ describe("boot-validator", () => {
       // row["id"]), so the same-feature-fallback gap that check guards
       // against doesn't exist here.
       const list = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4723,12 +4762,12 @@ describe("boot-validator", () => {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity(
-          "invoice",
-          createEntity({
+        r.entity({
+          name: "invoice",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -4745,13 +4784,16 @@ describe("boot-validator", () => {
       // guaranteed "id" field, unlike entityList rows — an entity-target
       // there must name the field to read the id from.
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        });
+        r.queryHandler({
+          name: "products",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -4775,13 +4817,16 @@ describe("boot-validator", () => {
 
     test("projectionList rowAction entity-target with explicit entityId → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        });
+        r.queryHandler({
+          name: "products",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -4811,12 +4856,12 @@ describe("boot-validator", () => {
 
     test("projectionDetail action entity-target without explicit entityId → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -4866,12 +4911,12 @@ describe("boot-validator", () => {
 
     test('entityEdit.actions drawer-target unknown → throw with actionLabel "action"', () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -4889,18 +4934,18 @@ describe("boot-validator", () => {
 
     test("entityEdit.actions drawer-target → registered actionForm → no throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.writeHandler(
-          "add-note",
-          z.object({ note: z.string() }),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        });
+        r.writeHandler({
+          name: "add-note",
+          schema: z.object({ note: z.string() }),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -5034,15 +5079,18 @@ describe("boot-validator", () => {
 
     test("projectionDetail relatedList defaultSort.field sortable → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.queryHandler("order-detail", z.object({}), async () => ({ id: "o1" }), {
+        r.queryHandler({
+          name: "order-detail",
+          schema: z.object({}),
+          handler: async () => ({ id: "o1" }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.queryHandler(
-          "order-positions",
-          z.object({}),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "order-positions",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -5093,12 +5141,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction rowClick", () => {
     function makeFeature(rowClickCount: number) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
         r.screen({
           id: "product-list",
@@ -5131,12 +5179,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction kind=writeHandler handler-QN", () => {
     function makeFeature(handlerQn: string, register: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5145,14 +5193,12 @@ describe("boot-validator", () => {
           rowActions: [{ id: "delete", label: "actions.delete", handler: handlerQn }],
         });
         if (register) {
-          r.writeHandler(
-            "delete",
-            z.object({}),
-            async () => ({ isSuccess: true as const, data: null }),
-            {
-              access: { roles: ["Admin"] },
-            },
-          );
+          r.writeHandler({
+            name: "delete",
+            schema: z.object({}),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
         }
       });
     }
@@ -5177,12 +5223,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction payload pick (Tier 2.7e-3)", () => {
     function makeFeature(pick: readonly string[]) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5197,14 +5243,12 @@ describe("boot-validator", () => {
             },
           ],
         });
-        r.writeHandler(
-          "archive",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          {
-            access: { roles: ["Admin"] },
-          },
-        );
+        r.writeHandler({
+          name: "archive",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
       });
     }
 
@@ -5236,13 +5280,13 @@ describe("boot-validator", () => {
       softDelete?: boolean;
     }) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             softDelete: opts.softDelete ?? false,
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5259,14 +5303,12 @@ describe("boot-validator", () => {
             },
           ],
         });
-        r.writeHandler(
-          "archive",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          {
-            access: { roles: ["Admin"] },
-          },
-        );
+        r.writeHandler({
+          name: "archive",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
       });
     }
 
@@ -5315,12 +5357,12 @@ describe("boot-validator", () => {
   describe("entityList toolbarAction navigate (Tier 2.7e-2)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5348,12 +5390,12 @@ describe("boot-validator", () => {
 
     test("navigate-target → screen in ANOTHER feature → kein Throw (cross-feature)", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5374,12 +5416,12 @@ describe("boot-validator", () => {
   describe("entityList toolbarAction writeHandler handler-QN (Tier 2.7e-2)", () => {
     function makeFeature(handlerQn: string, register: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5390,14 +5432,12 @@ describe("boot-validator", () => {
           ],
         });
         if (register) {
-          r.writeHandler(
-            "sync",
-            z.object({}),
-            async () => ({ isSuccess: true as const, data: null }),
-            {
-              access: { roles: ["Admin"] },
-            },
-          );
+          r.writeHandler({
+            name: "sync",
+            schema: z.object({}),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
         }
       });
     }
@@ -5421,12 +5461,12 @@ describe("boot-validator", () => {
     }) {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5446,12 +5486,12 @@ describe("boot-validator", () => {
           return;
         }
         if (opts.targetType === "actionForm") {
-          r.writeHandler(
-            "restock",
-            z.object({ qty: z.number() }),
-            async () => ({ isSuccess: true as const, data: null }),
-            { access: { roles: ["Admin"] } },
-          );
+          r.writeHandler({
+            name: "restock",
+            schema: z.object({ qty: z.number() }),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
           r.screen({
             id: targetId,
             type: "actionForm",
@@ -5483,12 +5523,12 @@ describe("boot-validator", () => {
 
     test("drawer-target → actionForm in ANOTHER feature → throw (drawer resolves same-feature only)", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5500,12 +5540,12 @@ describe("boot-validator", () => {
         });
       });
       const consumer = defineFeature("app", (r) => {
-        r.writeHandler(
-          "restock",
-          z.object({ qty: z.number() }),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        r.writeHandler({
+          name: "restock",
+          schema: z.object({ qty: z.number() }),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "restock-form",
           type: "actionForm",
@@ -5528,12 +5568,12 @@ describe("boot-validator", () => {
     }) {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -5553,12 +5593,12 @@ describe("boot-validator", () => {
           return;
         }
         if (opts.targetType === "actionForm") {
-          r.writeHandler(
-            "restock",
-            z.object({ qty: z.number() }),
-            async () => ({ isSuccess: true as const, data: null }),
-            { access: { roles: ["Admin"] } },
-          );
+          r.writeHandler({
+            name: "restock",
+            schema: z.object({ qty: z.number() }),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
           r.screen({
             id: targetId,
             type: "actionForm",
@@ -5603,15 +5643,18 @@ describe("boot-validator", () => {
     }) {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
-        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        r.queryHandler({
+          name: "products",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.writeHandler(
-          "restock",
-          z.object({ qty: z.number() }),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        r.writeHandler({
+          name: "restock",
+          schema: z.object({ qty: z.number() }),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "product-projection",
           type: "projectionList",
@@ -5718,15 +5761,18 @@ describe("boot-validator", () => {
       const targetType = opts.targetType ?? "secretMint";
       const params = opts.params === undefined ? { pick: ["id"] } : opts.params;
       return defineFeature("shop", (r) => {
-        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        r.queryHandler({
+          name: "products",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.writeHandler(
-          "rotate",
-          z.object({ id: z.string() }),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        r.writeHandler({
+          name: "rotate",
+          schema: z.object({ id: z.string() }),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "product-projection",
           type: "projectionList",
@@ -5849,18 +5895,24 @@ describe("boot-validator", () => {
         params: RowFieldExtractor | undefined,
       ) {
         return defineFeature("shop", (r) => {
-          r.queryHandler("order:detail", z.object({}), async () => ({ total: 1 }), {
+          r.queryHandler({
+            name: "order:detail",
+            schema: z.object({}),
+            handler: async () => ({ total: 1 }),
             access: { roles: ["Admin"] },
           });
-          r.queryHandler("order:items", z.object({}), async () => ({ rows: [] }), {
+          r.queryHandler({
+            name: "order:items",
+            schema: z.object({}),
+            handler: async () => ({ rows: [] }),
             access: { roles: ["Admin"] },
           });
-          r.writeHandler(
-            "rotate",
-            z.object({ id: z.string() }),
-            async () => ({ isSuccess: true as const, data: null }),
-            { access: { roles: ["Admin"] } },
-          );
+          r.writeHandler({
+            name: "rotate",
+            schema: z.object({ id: z.string() }),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
           r.screen({
             id: "order-detail",
             type: "projectionDetail",
@@ -5945,12 +5997,12 @@ describe("boot-validator", () => {
 
     test("submitPrefilled on an entityEdit screen (untyped schema) → throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -5974,7 +6026,7 @@ describe("boot-validator", () => {
   describe("entityList defaultSort: alle sortable-Field-Types", () => {
     function buildFeature(fieldName: string, fields: Record<string, unknown>) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: fields as never }));
+        r.entity({ name: "product", ...createEntity({ fields: fields as never }) });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -6052,12 +6104,12 @@ describe("boot-validator", () => {
     test('screen.id mit "." → defineFeature throws (kebab-case)', () => {
       expect(() =>
         defineFeature("shop", (r) => {
-          r.entity(
-            "product",
-            createEntity({
+          r.entity({
+            name: "product",
+            ...createEntity({
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
-          );
+          });
           r.screen({
             id: "product.list",
             type: "entityList",
@@ -6070,12 +6122,12 @@ describe("boot-validator", () => {
 
     test("screen.id im kebab-case → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
+        r.entity({
+          name: "product",
+          ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({ id: "product-list", type: "entityList", entity: "product", columns: ["name"] });
       });
       expect(() => validateBoot([feature])).not.toThrow();
@@ -6107,12 +6159,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a dashboard screen without a filter → Throw (params would be a no-op)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -6128,7 +6180,10 @@ describe("boot-validator — config key backing × scope", () => {
           },
         ],
       });
-      r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
+      r.queryHandler({
+        name: "count",
+        schema: z.object({}),
+        handler: async () => ({ total: 0 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -6152,12 +6207,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a dashboard screen with a matching filter → no throw (useFilterParams reads it, fw#1708 follow-up)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -6173,7 +6228,10 @@ describe("boot-validator — config key backing × scope", () => {
           },
         ],
       });
-      r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
+      r.queryHandler({
+        name: "count",
+        schema: z.object({}),
+        handler: async () => ({ total: 0 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -6201,12 +6259,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a dashboard screen whose filter id doesn't match any extracted key → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -6222,7 +6280,10 @@ describe("boot-validator — config key backing × scope", () => {
           },
         ],
       });
-      r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
+      r.queryHandler({
+        name: "count",
+        schema: z.object({}),
+        handler: async () => ({ total: 0 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -6252,18 +6313,18 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a cross-entity entityList screen → no throw (list screens read URL search params for filter-prefill, fw#1708)", () => {
     const feature = defineFeature("housing", (r) => {
-      r.entity(
-        "unit",
-        createEntity({
+      r.entity({
+        name: "unit",
+        ...createEntity({
           fields: { id: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "contract",
-        createEntity({
+      });
+      r.entity({
+        name: "contract",
+        ...createEntity({
           fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -6291,12 +6352,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a custom screen → no throw (author owns the component, may read searchParams itself)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -6326,12 +6387,12 @@ describe("boot-validator — config key backing × scope", () => {
     // runNavigate() auto-fills row["id"], landing in EntityEditUpdateBody,
     // which never reads searchParams. Params would silently no-op.
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -6361,18 +6422,18 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params + explicit entityId targeting an entityEdit screen → Throw (forced update mode)", () => {
     const feature = defineFeature("housing", (r) => {
-      r.entity(
-        "unit",
-        createEntity({
+      r.entity({
+        name: "unit",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "contract",
-        createEntity({
+      });
+      r.entity({
+        name: "contract",
+        ...createEntity({
           fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -6405,12 +6466,12 @@ describe("boot-validator — config key backing × scope", () => {
   // extended to projectionList rowActions (#1680 covered entityList only).
   test("projectionList rowAction: navigate with params to an entityEdit target + explicit entityId → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "product-projection",
         type: "projectionList",
@@ -6441,13 +6502,16 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("projectionList rowAction: navigate with params to an entityEdit-create target (no entityId) → no throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      });
+      r.queryHandler({
+        name: "products",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -6481,18 +6545,18 @@ describe("boot-validator — config key backing × scope", () => {
     // renderer's same-entity row["id"] fallback does NOT fire, so this stays
     // in create mode and EntityEditCreateBody reads the params.
     const feature = defineFeature("housing", (r) => {
-      r.entity(
-        "unit",
-        createEntity({
+      r.entity({
+        name: "unit",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "contract",
-        createEntity({
+      });
+      r.entity({
+        name: "contract",
+        ...createEntity({
           fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -6520,18 +6584,18 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting an actionForm screen → no throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "create",
-        z.object({ name: z.string() }),
-        async () => ({ isSuccess: true as const, data: { id: "1" } }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      });
+      r.writeHandler({
+        name: "create",
+        schema: z.object({ name: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: { id: "1" } }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "product-list",
         type: "entityList",

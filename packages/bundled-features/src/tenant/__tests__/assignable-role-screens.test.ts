@@ -23,7 +23,7 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
 
   test("a declaration the tenant screens were not given fails the boot", () => {
     const app = defineFeature("assignable-boot-unwired-app", (r) => {
-      r.requires("tenant");
+      r.requires({ features: ["tenant"] });
       r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
     });
     expect(() =>
@@ -33,7 +33,7 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
 
   test("a screen option with a different assignableFrom fails the boot", () => {
     const app = defineFeature("assignable-boot-mismatch-app", (r) => {
-      r.requires("tenant");
+      r.requires({ features: ["tenant"] });
       r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager", { assignableFrom: "TenantAdmin" });
     });
     const tenant = createTenantFeature({
@@ -64,11 +64,11 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
 
   test("conflicting declarations across features fail the boot", () => {
     const other = defineFeature("assignable-boot-other", (r) => {
-      r.requires("tenant");
+      r.requires({ features: ["tenant"] });
       r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager", { assignableFrom: "TenantAdmin" });
     });
     const app = defineFeature("assignable-boot-app", (r) => {
-      r.requires("tenant");
+      r.requires({ features: ["tenant"] });
       r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
     });
     expect(() =>
@@ -84,7 +84,7 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
 });
 
 const appFeature = defineFeature("assignable-screens-app", (r) => {
-  r.requires("tenant");
+  r.requires({ features: ["tenant"] });
   r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
   r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
 });

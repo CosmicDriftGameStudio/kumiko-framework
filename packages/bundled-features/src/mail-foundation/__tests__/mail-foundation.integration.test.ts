@@ -57,8 +57,8 @@ import { createTransportForTenant, mailFoundationFeature } from "../feature.js";
 
 const TEST_HANDLER_QN = "mail-test:write:build-transport";
 const testProbeFeature = defineFeature("mail-test", (r) => {
-  r.requires("config");
-  r.requires("secrets");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
   r.writeHandler(
     defineWriteHandler({
       name: "build-transport",

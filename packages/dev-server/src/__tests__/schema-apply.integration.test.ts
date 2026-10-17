@@ -151,7 +151,7 @@ describe("runSchemaApply", () => {
       },
     };
     const feature = defineFeature("applyfailtest", (r) => {
-      r.entity("apply-fail-item", failItemEntity);
+      r.entity({ name: "apply-fail-item", ...failItemEntity });
       r.projection(failCountsProjection);
     });
 

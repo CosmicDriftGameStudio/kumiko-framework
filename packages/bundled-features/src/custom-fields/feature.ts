@@ -123,7 +123,7 @@ function registerCustomFields(
     category: "data",
     recommended: false,
   });
-  r.entity("field-definition", fieldDefinitionEntity);
+  r.entity({ name: "field-definition", ...fieldDefinitionEntity });
 
   // Event-types — qualified als "custom-fields:event:<short-name>".
   // Returned EventDefs liefern .name als compile-time literal-typed string,

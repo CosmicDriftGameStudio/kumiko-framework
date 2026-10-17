@@ -187,7 +187,7 @@ describe("tenant-lifecycle :: request / cancel / 410 gate", () => {
 
 function createPoisonTenantDataFeature() {
   return defineFeature("test-poison-tenant-data", (r) => {
-    r.requires("tenant-lifecycle");
+    r.requires({ features: ["tenant-lifecycle"] });
     r.useExtension(EXT_TENANT_DATA, "poison-pill", {
       destroy: async () => {
         throw new Error("poison-pill");
@@ -408,7 +408,7 @@ const deadlinesSeenByHook: number[] = [];
 
 function createSelectivePoisonTenantDataFeature() {
   return defineFeature("test-selective-poison-tenant-data", (r) => {
-    r.requires("tenant-lifecycle");
+    r.requires({ features: ["tenant-lifecycle"] });
     // EXT_EXTERNAL_RESOURCE — the pipeline's FIRST stage — so the poison
     // fires on the very first sweep tick instead of several stages in.
     r.useExtension(EXT_EXTERNAL_RESOURCE, "selective-poison-pill", {
@@ -712,7 +712,7 @@ describe("tenant-lifecycle :: resumable stages (done:false continuation)", () =>
   const seenDeadlines: Array<number | undefined> = [];
 
   const resumableFeature = defineFeature("test-resumable-tenant-data", (r) => {
-    r.requires("tenant-lifecycle");
+    r.requires({ features: ["tenant-lifecycle"] });
     r.useExtension(EXT_TENANT_DATA, "resumable", {
       destroy: async (hookCtx: TenantDataHookCtx) => {
         hookCalls++;
@@ -822,7 +822,7 @@ describe("tenant-lifecycle :: stage tick without progress", () => {
   let hookCalls = 0;
 
   const stuckFeature = defineFeature("test-stuck-tenant-data", (r) => {
-    r.requires("tenant-lifecycle");
+    r.requires({ features: ["tenant-lifecycle"] });
     r.useExtension(EXT_TENANT_DATA, "stuck", {
       destroy: async () => {
         hookCalls++;

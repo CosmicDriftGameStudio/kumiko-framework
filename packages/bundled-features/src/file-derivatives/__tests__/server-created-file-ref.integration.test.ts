@@ -27,11 +27,11 @@ const tenantId = testTenantId(1);
 const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
 
 const generatorFeature = defineFeature("server-created-file-ref-fixture", (r) => {
-  r.requires("file-derivatives");
-  r.writeHandler(
-    "generate-and-thumb",
-    z.object({ width: z.number().int().positive(), height: z.number().int().positive() }),
-    async (event, ctx) => {
+  r.requires({ features: ["file-derivatives"] });
+  r.writeHandler({
+    name: "generate-and-thumb",
+    schema: z.object({ width: z.number().int().positive(), height: z.number().int().positive() }),
+    handler: async (event, ctx) => {
       if (!ctx.derivatives) {
         return writeFailure(new InternalError({ message: "ctx.derivatives missing" }));
       }
@@ -61,8 +61,8 @@ const generatorFeature = defineFeature("server-created-file-ref-fixture", (r) =>
         data: { fileRefId: created.data.id, variantKey: variant.storageKey },
       };
     },
-    { access: { openToAll: { reason: "test fixture: any signed-in user may generate" } } },
-  );
+    access: { openToAll: { reason: "test fixture: any signed-in user may generate" } },
+  });
 });
 
 let stack: TestStack;

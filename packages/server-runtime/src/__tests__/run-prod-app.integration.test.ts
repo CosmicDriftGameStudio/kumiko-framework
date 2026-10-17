@@ -88,7 +88,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("prod-probe", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
   // Anonymous query — covers the "anonymousAccess flows from runProdApp
   // through createApiEntrypoint to the auth-middleware" wiring that
   // earlier silently dropped the option in the entrypoint layer.
@@ -1439,13 +1439,13 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
 
 describe("hard PII boot gate (#818 step 2)", () => {
   const gatePiiFeature = defineFeature("gate-pii", (r) => {
-    r.entity(
-      "gate-person",
-      createEntity({
+    r.entity({
+      name: "gate-person",
+      ...createEntity({
         table: "read_gate_persons",
         fields: { email: createTextField({ required: true, personal: "self", find: "none" }) },
       }),
-    );
+    });
   });
 
   test("PII entities without a kms abort the boot", async () => {

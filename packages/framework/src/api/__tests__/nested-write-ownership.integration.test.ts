@@ -74,8 +74,8 @@ const task3Entity = createEntity({
 const task3Table = buildEntityTable("task3", task3Entity);
 
 const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
-  r.entity("project2", project2Entity);
-  r.entity("task2", task2Entity);
+  r.entity({ name: "project2", ...project2Entity });
+  r.entity({ name: "task2", ...task2Entity });
   r.relation("project2", "tasks", {
     type: "hasMany",
     target: "task2",
@@ -83,8 +83,8 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
     nestedWrite: true,
   });
 
-  r.entity("project3", project3Entity);
-  r.entity("task3", task3Entity);
+  r.entity({ name: "project3", ...project3Entity });
+  r.entity({ name: "task3", ...task3Entity });
   r.relation("project3", "tasks", {
     type: "hasMany",
     target: "task3",
@@ -96,14 +96,14 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
   // scoped fetchOne), simulating a handler that doesn't strictly insert a
   // fresh row every time — only the "found" branch skips the executor.
   // No escapeHatch needed — the lookup stays within the caller's own tenant.
-  r.writeHandler(
-    "project2:create",
-    z.object({
+  r.writeHandler({
+    name: "project2:create",
+    schema: z.object({
       name: z.string().min(1),
       ownerId: z.string().uuid().optional(),
       returnPartialRow: z.boolean().optional(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const existing = await ctx.db.fetchOne(project2Table, { name: event.payload.name });
       if (existing) {
         // A projection without the ownership-bound field.
@@ -123,27 +123,27 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
         ctx.db,
       );
     },
-    { access: { roles: ["Admin", "User"] } },
-  );
+    access: { roles: ["Admin", "User"] },
+  });
 
-  r.writeHandler(
-    "task2:create",
-    z.object({ projectId: z.string().uuid(), title: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "task2:create",
+    schema: z.object({ projectId: z.string().uuid(), title: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(task2Table, task2Entity, { entityName: "task2" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin", "User"] } },
-  );
+    access: { roles: ["Admin", "User"] },
+  });
 
   // Custom find-or-create for the cross-tenant scenario: an unfiltered raw
   // lookup by name (declared escapeHatch) simulates a handler bug that finds
   // a same-named row belonging to a DIFFERENT tenant and hands it back
   // instead of inserting a fresh, tenant-scoped row.
-  r.writeHandler(
-    "project3:create",
-    z.object({ name: z.string().min(1), omitTenantId: z.boolean().optional() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "project3:create",
+    schema: z.object({ name: z.string().min(1), omitTenantId: z.boolean().optional() }),
+    handler: async (event, ctx) => {
       const runner = ctx.db.unsafeRaw();
       const rows = await executeRawQuery<{
         id: string;
@@ -169,21 +169,19 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
       });
       return crud.create({ name: event.payload.name }, event.user, ctx.db);
     },
-    {
-      access: { roles: ["Admin", "User"] },
-      escapeHatch: { reason: "fw#2861 test fixture — simulate cross-tenant find-or-create bug" },
-    },
-  );
+    access: { roles: ["Admin", "User"] },
+    escapeHatch: { reason: "fw#2861 test fixture — simulate cross-tenant find-or-create bug" },
+  });
 
-  r.writeHandler(
-    "task3:create",
-    z.object({ projectId: z.string().uuid(), title: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "task3:create",
+    schema: z.object({ projectId: z.string().uuid(), title: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(task3Table, task3Entity, { entityName: "task3" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin", "User"] } },
-  );
+    access: { roles: ["Admin", "User"] },
+  });
 });
 
 let stack: TestStack;

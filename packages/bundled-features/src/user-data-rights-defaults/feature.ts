@@ -68,7 +68,7 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
-    r.requires("user", "files", "user-data-rights");
+    r.requires({ features: ["user", "files", "user-data-rights"] });
     // Optional sources: hooks are registered unconditionally but each one
     // no-ops at runtime when its source feature isn't mounted (see
     // hooks/feature-mounted.ts) — the export runner has no per-hook

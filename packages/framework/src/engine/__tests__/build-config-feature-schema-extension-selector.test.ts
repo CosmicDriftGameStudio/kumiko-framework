@@ -19,12 +19,12 @@ const TENANT_ADMIN_WRITE = access.roles("TenantAdmin", "Admin");
 
 function secretsFeature() {
   return defineFeature("secrets", (r) => {
-    r.writeHandler(
-      "set",
-      z.object({ key: z.string(), value: z.string() }),
-      async () => ({ isSuccess: true, data: null }),
-      { access: { roles: ["TenantAdmin", "Admin", "SystemAdmin"] } },
-    );
+    r.writeHandler({
+      name: "set",
+      schema: z.object({ key: z.string(), value: z.string() }),
+      handler: async () => ({ isSuccess: true, data: null }),
+      access: { roles: ["TenantAdmin", "Admin", "SystemAdmin"] },
+    });
   });
 }
 
@@ -52,7 +52,7 @@ function mailFoundation(extra?: (r: Parameters<Parameters<typeof defineFeature>[
 }
 
 const smtp = defineFeature("mail-smtp", (r) => {
-  r.requires("mail-foundation");
+  r.requires({ features: ["mail-foundation"] });
   r.useExtension("mailTransport", "smtp");
   r.config({
     keys: {
@@ -72,7 +72,7 @@ const smtp = defineFeature("mail-smtp", (r) => {
 });
 
 const inmemory = defineFeature("mail-inmemory", (r) => {
-  r.requires("mail-foundation");
+  r.requires({ features: ["mail-foundation"] });
   r.useExtension("mailTransport", "inmemory");
   r.config({
     keys: {

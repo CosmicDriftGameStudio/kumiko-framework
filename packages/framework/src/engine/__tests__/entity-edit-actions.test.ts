@@ -18,7 +18,7 @@ function rentEntity() {
 describe("validateBoot — entityEdit actions", () => {
   test("navigate action with rowClick: true throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity("rent", rentEntity());
+      r.entity({ name: "rent", ...rentEntity() });
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -35,7 +35,7 @@ describe("validateBoot — entityEdit actions", () => {
 
   test("writeHandler action referencing an unregistered handler throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity("rent", rentEntity());
+      r.entity({ name: "rent", ...rentEntity() });
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -56,13 +56,13 @@ describe("validateBoot — entityEdit actions", () => {
 
   test("valid navigate + writeHandler actions boot cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity("rent", rentEntity());
-      r.writeHandler(
-        "archive",
-        z.object({ id: z.string() }),
-        async () => ({ isSuccess: true as const, data: {} }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.entity({ name: "rent", ...rentEntity() });
+      r.writeHandler({
+        name: "archive",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "rent-edit",
         type: "entityEdit",

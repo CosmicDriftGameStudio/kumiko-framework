@@ -60,10 +60,10 @@ function createRaceGate(expected: number, timeoutMs = 2_000) {
 let raceGate: ReturnType<typeof createRaceGate> | null = null;
 
 const grantDemoFeature = defineFeature("grantdemo", (r) => {
-  r.writeHandler(
-    "enrich",
-    z.object({ token: z.string().min(1), note: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "enrich",
+    schema: z.object({ token: z.string().min(1), note: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const db = ctx.db.unsafeRaw();
       const redeemed = await redeemRowBoundGrant({
         token: event.payload.token,
@@ -90,15 +90,13 @@ const grantDemoFeature = defineFeature("grantdemo", (r) => {
       if (!redeemed.ok) return writeFailure(new UnprocessableError("invalid_or_expired_grant"));
       return { isSuccess: true as const, data: { id: redeemed.subject } };
     },
-    {
-      access: { roles: ["anonymous"] },
-      escapeHatch: {
-        reason:
-          "the row is written by an anonymous grant holder through raw SQL, so the write " +
-          "cannot go through the entity write map of a tenant-scoped user",
-      },
+    access: { roles: ["anonymous"] },
+    escapeHatch: {
+      reason:
+        "the row is written by an anonymous grant holder through raw SQL, so the write " +
+        "cannot go through the entity write map of a tenant-scoped user",
     },
-  );
+  });
 });
 
 let stack: TestStack;

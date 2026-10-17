@@ -48,7 +48,7 @@ const widgetEntity = createEntity({
 const widgetTable = buildEntityTable("widget", widgetEntity);
 
 const widgetFeature = defineFeature("reindex-job-test", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
 });
 
 let stack: TestStack;

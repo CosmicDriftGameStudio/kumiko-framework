@@ -23,12 +23,12 @@ function gapsBetween(starts: readonly number[]): number[] {
 }
 
 const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
-  r.writeHandler(
-    "trigger-exponential-default",
-    z.object({}),
-    async () => ({ isSuccess: true as const, data: {} }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "trigger-exponential-default",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   // AC: retries: 3, backoff: "exponential" — fails once, succeeds on retry 2.
   // Default base delay is 1000ms, so the single retry gap must be >= 1000ms.
   r.job(
@@ -44,12 +44,12 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     },
   );
 
-  r.writeHandler(
-    "trigger-exponential-custom",
-    z.object({}),
-    async () => ({ isSuccess: true as const, data: {} }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "trigger-exponential-custom",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   // Per-job configurable + growing: delayMs 50 → gaps 50, 100, 200ms.
   r.job(
     "exponential-custom",
@@ -65,12 +65,12 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     },
   );
 
-  r.writeHandler(
-    "trigger-fixed-custom",
-    z.object({}),
-    async () => ({ isSuccess: true as const, data: {} }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "trigger-fixed-custom",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job(
     "fixed-custom",
     {

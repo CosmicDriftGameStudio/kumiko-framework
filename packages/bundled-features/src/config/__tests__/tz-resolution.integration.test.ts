@@ -19,7 +19,7 @@ import { createConfigResolver } from "../resolver.js";
 import { configValuesTable } from "../table.js";
 
 const tenantFeature = defineFeature("tenant", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       timezone: createTenantConfig("select", {
@@ -32,28 +32,28 @@ const tenantFeature = defineFeature("tenant", (r) => {
 });
 
 const probeFeature = defineFeature("probe", (r) => {
-  r.requires("tenant");
+  r.requires({ features: ["tenant"] });
   // Sets the tenant timezone, lets a nested write resolve ctx.tz inside the same
   // still-open transaction, then fails so everything rolls back.
-  r.writeHandler(
-    "set-tz-then-fail",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "set-tz-then-fail",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       await ctx.write("config:write:set", { key: "tenant:config:timezone", value: "Asia/Tokyo" });
       await ctx.write("probe:write:read-tz", {});
       return writeFailure(new UnprocessableError("rolled_back_on_purpose"));
     },
-    { access: { roles: ["Admin"] } },
-  );
-  r.writeHandler(
-    "read-tz",
-    z.object({}),
-    async (_event, ctx) => ({
+    access: { roles: ["Admin"] },
+  });
+  r.writeHandler({
+    name: "read-tz",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ({
       isSuccess: true,
       data: { tenant: ctx.tz.tenant, user: ctx.tz.user },
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 const rolledBackTenantId = testTenantId(77);

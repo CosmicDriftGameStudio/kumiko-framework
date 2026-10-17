@@ -41,7 +41,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 const feature = defineFeature("dboutage", (r) => {
-  r.entity("widget", sharedWidgetEntity);
+  r.entity({ name: "widget", ...sharedWidgetEntity });
 });
 
 const admin = TestUsers.admin;

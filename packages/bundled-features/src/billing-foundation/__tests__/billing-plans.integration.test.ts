@@ -91,7 +91,7 @@ const switchCalls: Array<{
 const portalCalls: Array<{ providerCustomerId: string; returnUrl: string }> = [];
 
 const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     priceToTier: PRICE_TO_TIER,
@@ -137,7 +137,7 @@ const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => 
 // providerMismatch conflict. Deliberately minimal: no priceToTier, so it
 // never becomes the catalog's ambiguous default.
 const mockOtherProviderFeature = defineFeature("test-mock-other-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
   };

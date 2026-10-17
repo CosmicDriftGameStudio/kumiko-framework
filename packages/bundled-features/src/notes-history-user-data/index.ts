@@ -23,7 +23,7 @@ export const notesHistoryUserDataFeature = defineFeature("notes-history-user-dat
   // is OPTIONAL: if it's mounted toggleable(default=false), a hard r.requires
   // would throw an "effectively disabled" boot warning even though the
   // note-entry entity exists and the hooks work fine.
-  r.requires("user-data-rights");
+  r.requires({ features: ["user-data-rights"] });
   r.optionalRequires("notes-history");
   r.useExtension(EXT_USER_DATA, "note-entry", {
     export: noteEntryExportHook,

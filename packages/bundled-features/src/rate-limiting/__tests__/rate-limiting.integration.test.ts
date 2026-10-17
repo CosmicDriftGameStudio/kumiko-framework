@@ -22,7 +22,10 @@ const admin = TestUsers.admin;
 // Helper handler with a tight rate limit so we can drain the bucket
 // fast enough for the status query to observe a non-trivial state.
 const probeFeature = defineFeature("rl-probe", (r) => {
-  r.queryHandler("ping", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "user", limit: 5, windowSeconds: 60 },
   });

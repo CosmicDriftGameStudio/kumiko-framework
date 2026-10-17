@@ -23,7 +23,7 @@ describe("pushEntityProjectionTables — persistent dev DB column sync", () => {
       },
     });
     const v1 = defineFeature("colsync-nullable", (r) => {
-      r.entity("widget", widgetV1);
+      r.entity({ name: "widget", ...widgetV1 });
     });
     // Owns the actual DROP DATABASE on cleanup.
     const firstBoot = await setupTestStack({ features: [v1], dbName });
@@ -38,7 +38,7 @@ describe("pushEntityProjectionTables — persistent dev DB column sync", () => {
         },
       });
       const v2 = defineFeature("colsync-nullable", (r) => {
-        r.entity("widget", widgetV2);
+        r.entity({ name: "widget", ...widgetV2 });
         r.writeHandler(
           defineEntityCreateHandler("widget", widgetV2, { access: { roles: ["Admin"] } }),
         );
@@ -63,31 +63,31 @@ describe("pushEntityProjectionTables — persistent dev DB column sync", () => {
   test("a required field with no default added after the first boot fails with a clear, actionable error", async () => {
     const dbName = freshDbName("colsync_required");
     const v1 = defineFeature("colsync-required", (r) => {
-      r.entity(
-        "gadget",
-        createEntity({
+      r.entity({
+        name: "gadget",
+        ...createEntity({
           table: "colsync_required_gadgets",
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture", required: true }),
           },
         }),
-      );
+      });
     });
     const firstBoot = await setupTestStack({ features: [v1], dbName });
     try {
       await pushEntityProjectionTables(firstBoot, firstBoot.registry);
 
       const v2 = defineFeature("colsync-required", (r) => {
-        r.entity(
-          "gadget",
-          createEntity({
+        r.entity({
+          name: "gadget",
+          ...createEntity({
             table: "colsync_required_gadgets",
             fields: {
               name: createTextField({ personal: false, reason: "test_fixture", required: true }),
               serial: createTextField({ personal: false, reason: "test_fixture", required: true }),
             },
           }),
-        );
+        });
       });
       const secondBoot = await setupTestStack({ features: [v2], dbName, persistentDb: true });
       try {
@@ -111,7 +111,7 @@ describe("pushEntityProjectionTables — persistent dev DB column sync", () => {
       name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     };
     const v1 = defineFeature("colsync-unique", (r) => {
-      r.entity("widget", createEntity({ table: "colsync_unique_widgets", fields }));
+      r.entity({ name: "widget", ...createEntity({ table: "colsync_unique_widgets", fields }) });
     });
     const firstBoot = await setupTestStack({ features: [v1], dbName });
     try {
@@ -126,7 +126,7 @@ describe("pushEntityProjectionTables — persistent dev DB column sync", () => {
         indexes: [{ columns: ["code"], unique: true }],
       });
       const v2 = defineFeature("colsync-unique", (r) => {
-        r.entity("widget", widgetV2);
+        r.entity({ name: "widget", ...widgetV2 });
         r.writeHandler(
           defineEntityCreateHandler("widget", widgetV2, { access: { roles: ["Admin"] } }),
         );

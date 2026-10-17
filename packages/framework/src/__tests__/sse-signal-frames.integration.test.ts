@@ -36,32 +36,45 @@ const bannerEntity = createEntity({
 const bannerTable = buildEntityTable("banner", bannerEntity);
 
 const signalFeature = defineFeature("sigframes", (r) => {
-  r.entity("ledger", ledgerEntity);
-  r.entity("banner", bannerEntity);
+  r.entity({ name: "ledger", ...ledgerEntity });
+  r.entity({ name: "banner", ...bannerEntity });
 
-  r.writeHandler(
-    "ledger:create",
-    z.object({ email: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "ledger:create",
+    schema: z.object({ email: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(ledgerTable, ledgerEntity, { entityName: "ledger" });
       return crud.create({ email: event.payload.email }, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
-  r.writeHandler(
-    "banner:create",
-    z.object({ title: z.string() }),
-    async (event, ctx) => {
+    access: { roles: ["Admin"] },
+  });
+  r.writeHandler({
+    name: "banner:create",
+    schema: z.object({ title: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bannerTable, bannerEntity, { entityName: "banner" });
       return crud.create({ title: event.payload.title }, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler("ledger:list", z.object({}), async () => [], { access: { roles: ["Admin"] } });
-  r.queryHandler("banner:list", z.object({}), async () => [], { access: { roles: ["Admin"] } });
+  r.queryHandler({
+    name: "ledger:list",
+    schema: z.object({}),
+    handler: async () => [],
+    access: { roles: ["Admin"] },
+  });
+  r.queryHandler({
+    name: "banner:list",
+    schema: z.object({}),
+    handler: async () => [],
+    access: { roles: ["Admin"] },
+  });
   // No entity segment in the name — only liveEntities opens banner signals to anonymous.
-  r.queryHandler("current-banner", z.object({}), async () => ({}), {
+  r.queryHandler({
+    name: "current-banner",
+    schema: z.object({}),
+    handler: async () => ({}),
     access: { roles: ["anonymous", "User"] },
     liveEntities: ["banner"],
   });

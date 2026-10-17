@@ -71,7 +71,7 @@ export const fileProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   // Kein r.requires("config") + kein r.requires("secrets") — der
   // In-Memory-Provider hat keine Config + kein Secret. Nur die
   // file-foundation muss da sein (Plugin-extension-point).
-  r.requires("file-foundation");
+  r.requires({ features: ["file-foundation"] });
 
   const plugin: FileProviderPlugin = {
     build: async (_ctx: FileProviderContext, tenantId: string): Promise<FileStorageProvider> => {

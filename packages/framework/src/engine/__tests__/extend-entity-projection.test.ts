@@ -22,7 +22,7 @@ const otherDerivedRowId = (source: { readonly aggregateId: string }): string => 
 describe("r.extendEntityProjection — registration", () => {
   test("merges apply keys + extraSources into the implicit projection", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -42,7 +42,7 @@ describe("r.extendEntityProjection — registration", () => {
 
   test("extension source equal to the entity name is not duplicated into extraSources", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -58,7 +58,7 @@ describe("r.extendEntityProjection — registration", () => {
 
   test("rowIdOf maps each of the extension's sources into extraSourceRowIds", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -79,7 +79,7 @@ describe("r.extendEntityProjection — registration", () => {
 
   test("no extraSourceRowIds on the definition when no extension declares rowIdOf", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -96,8 +96,8 @@ describe("r.extendEntityProjection — registration", () => {
 
   test("auto-verb of a registered extraSources entity is a valid apply-key", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
-      r.entity("field-definition", exampleEntity("field_definitions"));
+      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity({ name: "field-definition", ...exampleEntity("field_definitions") });
       r.extendEntityProjection("unit", {
         sources: ["field-definition"],
         apply: { "field-definition.deleted": noopApply },
@@ -114,7 +114,7 @@ describe("r.extendEntityProjection — registration", () => {
         piiFields: "none",
       });
       r.extendEntityProjection("unit", { apply: { [setEvent.name]: noopApply } });
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
     });
     const registry = createRegistry([feature]);
     const projection = registry.getAllProjections().get("test:projection:unit-entity");
@@ -124,7 +124,7 @@ describe("r.extendEntityProjection — registration", () => {
   test("empty apply throws at registration time", () => {
     expect(() =>
       defineFeature("test", (r) => {
-        r.entity("unit", exampleEntity());
+        r.entity({ name: "unit", ...exampleEntity() });
         r.extendEntityProjection("unit", { apply: {} });
       }),
     ).toThrow(/no apply handlers/);
@@ -134,7 +134,7 @@ describe("r.extendEntityProjection — registration", () => {
 describe("r.extendEntityProjection — registry-build validation", () => {
   test("unknown entity fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -145,7 +145,7 @@ describe("r.extendEntityProjection — registry-build validation", () => {
 
   test("apply-key collision with a lifecycle apply fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       r.extendEntityProjection("unit", { apply: { "unit.created": noopApply } });
     });
     expect(() => createRegistry([feature])).toThrow(/collides/);
@@ -153,7 +153,7 @@ describe("r.extendEntityProjection — registry-build validation", () => {
 
   test("apply-key collision between two extensions fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -165,7 +165,7 @@ describe("r.extendEntityProjection — registry-build validation", () => {
 
   test("unknown apply-key (neither auto-verb nor domain event) fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       r.extendEntityProjection("unit", { apply: { "customField.set": noopApply } });
     });
     expect(() => createRegistry([feature])).toThrow(/no such event/);
@@ -173,7 +173,7 @@ describe("r.extendEntityProjection — registry-build validation", () => {
 
   test("rowIdOf without sources fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -187,7 +187,7 @@ describe("r.extendEntityProjection — registry-build validation", () => {
 
   test("rowIdOf on the entity's own stream fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -202,7 +202,7 @@ describe("r.extendEntityProjection — registry-build validation", () => {
 
   test("a source shared with a different rowIdOf fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const firstEvent = r.defineEvent("first-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });
@@ -225,7 +225,7 @@ describe("r.extendEntityProjection — registry-build validation", () => {
 
   test("a source shared with an extension lacking rowIdOf fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       const firstEvent = r.defineEvent("first-set", z.object({ fieldKey: z.string() }), {
         piiFields: "none",
       });

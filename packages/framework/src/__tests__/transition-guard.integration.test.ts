@@ -78,105 +78,105 @@ const orderTable = buildEntityTable("order", orderEntity);
 const ticketTable = buildEntityTable("ticket", ticketEntity);
 
 const feature = defineFeature("txguard", (r) => {
-  r.entity("invoice", invoiceEntity);
-  r.entity("order", orderEntity);
-  r.entity("ticket", ticketEntity);
+  r.entity({ name: "invoice", ...invoiceEntity });
+  r.entity({ name: "order", ...orderEntity });
+  r.entity({ name: "ticket", ...ticketEntity });
 
-  r.writeHandler(
-    "invoice:create",
-    z.object({ title: z.string(), status: z.string().optional() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "invoice:create",
+    schema: z.object({ title: z.string(), status: z.string().optional() }),
+    handler: async (event, ctx) =>
       createEventStoreExecutor(invoiceTable, invoiceEntity, { entityName: "invoice" }).create(
         event.payload,
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "invoice:update",
-    z.object({
+  r.writeHandler({
+    name: "invoice:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) =>
+    handler: async (event, ctx) =>
       createEventStoreExecutor(invoiceTable, invoiceEntity, { entityName: "invoice" }).update(
         event.payload,
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "order:create",
-    z.object({ title: z.string(), status: z.string().optional() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "order:create",
+    schema: z.object({ title: z.string(), status: z.string().optional() }),
+    handler: async (event, ctx) =>
       createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" }).create(
         event.payload,
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "order:update",
-    z.object({
+  r.writeHandler({
+    name: "order:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) =>
+    handler: async (event, ctx) =>
       createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" }).update(
         event.payload,
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "ticket:create",
-    z.object({ title: z.string() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "ticket:create",
+    schema: z.object({ title: z.string() }),
+    handler: async (event, ctx) =>
       createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).create(
         event.payload,
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "ticket:delete",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "ticket:delete",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).delete(
         event.payload,
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "ticket:update",
-    z.object({
+  r.writeHandler({
+    name: "ticket:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) =>
+    handler: async (event, ctx) =>
       createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).update(
         event.payload,
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 let stack: TestStack;

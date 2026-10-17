@@ -146,7 +146,7 @@ export function createMetricsFeature(options: MetricsFeatureOptions): FeatureDef
       category: "operations",
       recommended: false,
     });
-    for (const feature of requiredFeatures(metrics)) r.requires(feature);
+    for (const feature of requiredFeatures(metrics)) r.requires({ features: [feature] });
     for (const metric of metrics) r.queryHandler(createTenantMetricQuery(metric, now));
     r.translations({ keys: METRICS_I18N });
   });
@@ -167,7 +167,7 @@ export function createSystemMetricsFeature(options: MetricsFeatureOptions): Feat
       recommended: false,
     });
     r.systemScope();
-    for (const feature of requiredFeatures(metrics)) r.requires(feature);
+    for (const feature of requiredFeatures(metrics)) r.requires({ features: [feature] });
     for (const metric of metrics) r.queryHandler(createSystemMetricQuery(metric, now));
     r.translations({ keys: METRICS_I18N });
   });

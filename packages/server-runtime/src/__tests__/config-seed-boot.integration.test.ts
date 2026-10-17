@@ -37,7 +37,7 @@ import {
 import { applyBootSeeds } from "../boot/apply-boot-seeds.js";
 
 const bootSeedsFeature = defineFeature("boot-seeds-test", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       siteName: createTenantConfig("text", {

@@ -183,10 +183,10 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   // Hard-deps: mail-foundation für Plugin-API + config für tier-Wahl +
   // cap-counter (transitiv via withCapEnforcement, aber explicit ist
   // klarer für boot-Validator-Errors).
-  r.requires("config");
-  r.requires("cap-counter");
-  r.requires(mailFoundationFeature.name);
-  r.requires(BILLING_FOUNDATION_FEATURE);
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["cap-counter"] });
+  r.requires({ features: [mailFoundationFeature.name] });
+  r.requires({ features: [BILLING_FOUNDATION_FEATURE] });
 
   // Tier-config-key. Tenant-Admin setzt's; default "free".
   r.config(

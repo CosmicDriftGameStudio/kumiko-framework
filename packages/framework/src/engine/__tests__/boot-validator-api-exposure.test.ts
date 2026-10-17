@@ -29,7 +29,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
       r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
-      r.requires("compliance-profiles");
+      r.requires({ features: ["compliance-profiles"] });
       r.usesApi("compliance.forTenant");
     });
     expect(() => validateBoot([provider, consumer])).not.toThrow();
@@ -60,7 +60,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
       r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
-      r.requires("compliance-profiles");
+      r.requires({ features: ["compliance-profiles"] });
       r.usesApi("compliance.fortenant"); // typo: lowercase t
     });
     expect(() => validateBoot([provider, consumer])).toThrow(
@@ -132,7 +132,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
       r.exposesApi("shared.api");
     });
     const consumer = defineFeature("consumer", (r) => {
-      r.requires("provider-a");
+      r.requires({ features: ["provider-a"] });
       r.usesApi("shared.api");
     });
     expect(() => validateBoot([a, b, consumer])).toThrow(

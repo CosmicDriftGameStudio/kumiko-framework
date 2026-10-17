@@ -80,7 +80,7 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-mention-forget-test-contact-fixture", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 
 // No own `retention` default: only a tenant compliance profile's preset
@@ -98,7 +98,7 @@ const invoiceEntity = createEntity({
   },
 });
 const invoiceFixtureFeature = defineFeature("notes-mention-forget-test-invoice-fixture", (r) => {
-  r.entity("invoice", invoiceEntity);
+  r.entity({ name: "invoice", ...invoiceEntity });
 });
 
 const author = createTestUser({ id: 1, roles: ["TenantMember"] });

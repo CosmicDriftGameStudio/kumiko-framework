@@ -130,7 +130,7 @@ const fakePlugin: InboundMailProviderPlugin = {
 };
 
 const fakeProviderFeature = defineFeature("inbound-provider-oauth-fake", (r) => {
-  r.requires("inbound-mail-foundation");
+  r.requires({ features: ["inbound-mail-foundation"] });
   r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, PROVIDER_KEY, fakePlugin);
 });
 

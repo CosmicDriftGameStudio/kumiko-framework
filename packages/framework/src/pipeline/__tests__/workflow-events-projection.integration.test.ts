@@ -39,7 +39,7 @@ const writableRunViewTable = runViewTable as unknown as Parameters<typeof insert
 const PROJECTION_NAME = "wfview:projection:wf-run-view-entity";
 
 const workflowViewFeature = defineFeature("wfview", (r) => {
-  r.entity("wf-run-view", runViewEntity);
+  r.entity({ name: "wf-run-view", ...runViewEntity });
   r.extendEntityProjection("wf-run-view", {
     sources: [WORKFLOW_AGGREGATE_TYPE],
     apply: {
@@ -66,10 +66,10 @@ const workflowViewFeature = defineFeature("wfview", (r) => {
     },
   });
 
-  r.writeHandler(
-    "run:record",
-    z.object({ runId: z.uuid(), fail: z.boolean() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "run:record",
+    schema: z.object({ runId: z.uuid(), fail: z.boolean() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
@@ -86,8 +86,8 @@ const workflowViewFeature = defineFeature("wfview", (r) => {
       }
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

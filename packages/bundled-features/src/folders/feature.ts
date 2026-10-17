@@ -58,8 +58,8 @@ function registerFolders(
   if (toggleable !== undefined) r.toggleable(toggleable);
 
   const folderAssignmentEntity = createFolderAssignmentEntity(ownership, parents);
-  r.entity("folder", folderEntity);
-  r.entity("folder-assignment", folderAssignmentEntity);
+  r.entity({ name: "folder", ...folderEntity });
+  r.entity({ name: "folder-assignment", ...folderAssignmentEntity });
 
   // Folder catalog — plain CRUD, no custom logic. update is rename (and, in a
   // later stage, reparent: it accepts changes.parentId, optimistic-locked).

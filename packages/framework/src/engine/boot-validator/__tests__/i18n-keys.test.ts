@@ -273,12 +273,12 @@ describe("validateI18nSurfaceKeys — mask.title is unconditionally required (fw
 
 describe("validateI18nSurfaceKeys — extension-selector settings dashboard", () => {
   const secretsMount = defineFeature("secrets", (r) => {
-    r.writeHandler(
-      "set",
-      z.object({ key: z.string(), value: z.string() }),
-      async () => ({ isSuccess: true, data: null }),
-      { access: { roles: ["TenantAdmin"] } },
-    );
+    r.writeHandler({
+      name: "set",
+      schema: z.object({ key: z.string(), value: z.string() }),
+      handler: async () => ({ isSuccess: true, data: null }),
+      access: { roles: ["TenantAdmin"] },
+    });
   });
   const hubWithHint = defineFeature("config", (r) => {
     r.translations({ keys: SETTINGS_HUB_I18N });
@@ -310,7 +310,7 @@ describe("validateI18nSurfaceKeys — extension-selector settings dashboard", ()
     r.extensionSelector("mailTransport", keys.provider);
   });
   const smtp = defineFeature("mail-smtp", (r) => {
-    r.requires("mail-foundation");
+    r.requires({ features: ["mail-foundation"] });
     r.translations({
       keys: {
         "mail-smtp.settings": { en: "SMTP" },

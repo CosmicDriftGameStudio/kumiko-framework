@@ -55,7 +55,7 @@ export const prospectsFeature = defineFeature("prospects", (r) => {
     read: openRead,
     verbs: { update: false },
   });
-  r.entity("prospect", prospectEntity);
+  r.entity({ name: "prospect", ...prospectEntity });
 
   const { executor: suggestionExecutor } = createEntityExecutor("suggestion", suggestionEntity);
   const { executor: prospectExecutor } = createEntityExecutor("prospect", prospectEntity);
@@ -64,10 +64,10 @@ export const prospectsFeature = defineFeature("prospects", (r) => {
   // edited (RenderEdit's onChange `changes`, same delta the controlled mode
   // reports) — the handler owns merging that onto the suggestion it already
   // has, so an untouched field never has to round-trip through the browser.
-  r.writeHandler(
-    "prospect:accept",
-    z.object({ suggestionId: z.uuid(), changes: acceptChangesSchema }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "prospect:accept",
+    schema: z.object({ suggestionId: z.uuid(), changes: acceptChangesSchema }),
+    handler: async (event, ctx) => {
       const suggestion = await suggestionExecutor.detail(
         { id: event.payload.suggestionId },
         event.user,
@@ -108,13 +108,13 @@ export const prospectsFeature = defineFeature("prospects", (r) => {
       if (!flipped.isSuccess) return flipped;
       return created;
     },
-    adminWrite,
-  );
+    ...adminWrite,
+  });
 
-  r.queryHandler(
-    "prospect:detail",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => prospectExecutor.detail(query.payload, query.user, ctx.db),
-    openRead,
-  );
+  r.queryHandler({
+    name: "prospect:detail",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => prospectExecutor.detail(query.payload, query.user, ctx.db),
+    ...openRead,
+  });
 });

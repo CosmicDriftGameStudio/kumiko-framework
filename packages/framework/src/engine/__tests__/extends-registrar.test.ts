@@ -28,7 +28,7 @@ const dummySaveContext: SaveContext = {
 describe("extendsRegistrar", () => {
   test("r.useExtension records usage with name, entity, and options", () => {
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("tags", "vehicle");
       r.useExtension("customFields", "vehicle", { allowTypes: ["text", "number"] });
     });
@@ -54,7 +54,7 @@ describe("extendsRegistrar", () => {
     });
 
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("tags", "vehicle");
     });
 
@@ -83,7 +83,7 @@ describe("extendsRegistrar", () => {
       r.extendsRegistrar("commentable", { onRegister: () => {} });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("tags", "vehicle");
       r.useExtension("commentable", "vehicle");
       r.useExtension("tags", "driver");
@@ -104,13 +104,13 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity(
-        "vehicle",
-        createEntity({
+      r.entity({
+        name: "vehicle",
+        ...createEntity({
           table: "Vehicles",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.useExtension("customFields", "vehicle");
     });
 
@@ -130,23 +130,23 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("credit", (r) => {
-      r.requires("audit");
-      r.entity(
-        "credit",
-        createEntity({
+      r.requires({ features: ["audit"] });
+      r.entity({
+        name: "credit",
+        ...createEntity({
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "create",
-        z.object({ name: z.string() }),
-        async () => ({
+      });
+      r.writeHandler({
+        name: "create",
+        schema: z.object({ name: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: { id: "c1" },
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.useExtension("audited", "credit");
     });
 
@@ -166,35 +166,35 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity(
-        "vehicle",
-        createEntity({
+      r.entity({
+        name: "vehicle",
+        ...createEntity({
           table: "Vehicles",
           idType: "uuid",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave
       // wires onto every entity-scoped handler automatically.
-      r.writeHandler(
-        "vehicle:create",
-        z.object({ name: z.string() }),
-        async () => ({
+      r.writeHandler({
+        name: "vehicle:create",
+        schema: z.object({ name: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: { id: "v1" },
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
-      r.writeHandler(
-        "vehicle:update",
-        z.object({ id: z.string() }),
-        async () => ({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.writeHandler({
+        name: "vehicle:update",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: { id: "v1" },
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.useExtension("audited", "vehicle");
     });
 
@@ -224,7 +224,7 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("audited", "vehicle");
     });
 
@@ -266,7 +266,7 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("audited", "vehicle");
     });
 

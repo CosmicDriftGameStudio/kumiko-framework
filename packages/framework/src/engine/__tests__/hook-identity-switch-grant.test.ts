@@ -47,7 +47,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as { queryAs: QueryAsFn };
         try {
@@ -56,7 +56,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
           caught = err;
         }
       };
-      r.hook("postSave", { allOf: thing }, hookFn);
+      r.hook({ type: "postSave", target: { allOf: thing }, handler: hookFn });
     });
 
     const registry = createRegistry([feature]);
@@ -84,12 +84,15 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let queryAsResult: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as { queryAs: QueryAsFn };
         queryAsResult = await asContext.queryAs(systemUser, "whoami", {});
       };
-      r.hook("postSave", { allOf: thing }, hookFn, {
+      r.hook({
+        type: "postSave",
+        target: { allOf: thing },
+        handler: hookFn,
         escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
       });
     });
@@ -107,8 +110,11 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
   test("registering an { allOf } hook with an empty escapeHatch reason throws at registration", () => {
     expect(() => {
       defineFeature("test", (r) => {
-        const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-        r.hook("postSave", { allOf: thing }, async () => undefined, {
+        const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+        r.hook({
+          type: "postSave",
+          target: { allOf: thing },
+          handler: async () => undefined,
           escapeHatch: { reason: "" },
         });
       });
@@ -131,7 +137,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as { resolveActiveMembership: ResolveActiveMembershipFn };
         try {
@@ -140,7 +146,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
           caught = err;
         }
       };
-      r.hook("postSave", { allOf: thing }, hookFn);
+      r.hook({ type: "postSave", target: { allOf: thing }, handler: hookFn });
     });
 
     const registry = createRegistry([feature]);
@@ -170,7 +176,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as { resolveActiveMembership: ResolveActiveMembershipFn };
         try {
@@ -179,7 +185,10 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
           caught = err;
         }
       };
-      r.hook("postSave", { allOf: thing }, hookFn, {
+      r.hook({
+        type: "postSave",
+        target: { allOf: thing },
+        handler: hookFn,
         escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
       });
     });

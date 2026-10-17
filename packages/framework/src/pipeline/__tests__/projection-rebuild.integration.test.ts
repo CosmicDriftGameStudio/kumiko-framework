@@ -89,7 +89,7 @@ const itemsPerGroupProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("rebuildtest", (r) => {
-  r.entity("rebuild-item", itemEntity);
+  r.entity({ name: "rebuild-item", ...itemEntity });
   r.projection(itemsPerGroupProjection);
 });
 
@@ -289,7 +289,7 @@ describe("rebuildProjection — error path", () => {
 
     // Construct a broken registry where apply("rebuild-item.created") throws.
     const brokenFeature = defineFeature("brokentest", (r) => {
-      r.entity("rebuild-item", itemEntity);
+      r.entity({ name: "rebuild-item", ...itemEntity });
       r.projection({
         ...itemsPerGroupProjection,
         name: "items-per-group",
@@ -331,7 +331,7 @@ describe("rebuildProjection — error path", () => {
 
     // Now attempt a rebuild with a broken apply under the SAME projection name.
     const brokenFeature = defineFeature("rebuildtest", (r) => {
-      r.entity("rebuild-item", itemEntity);
+      r.entity({ name: "rebuild-item", ...itemEntity });
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
@@ -492,7 +492,7 @@ describe("rebuildProjection — meter emission", () => {
     await appendCreatedEvent(group, "a");
 
     const brokenFeature = defineFeature("failmeter", (r) => {
-      r.entity("rebuild-item", itemEntity);
+      r.entity({ name: "rebuild-item", ...itemEntity });
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
@@ -598,7 +598,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     apply: {},
   };
   const swapFeature = defineFeature("swaptest", (r) => {
-    r.entity("swap-indexed", swapEntity);
+    r.entity({ name: "swap-indexed", ...swapEntity });
     r.projection(swapProjection);
   });
   const swapRegistry = createRegistry([swapFeature]);
@@ -658,7 +658,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     // live table unlocked, so it returns the pre-swap rows promptly.
     let liveDuringReplay: number | undefined = -1;
     const probeFeature = defineFeature("probetest", (r) => {
-      r.entity("rebuild-item", itemEntity);
+      r.entity({ name: "rebuild-item", ...itemEntity });
       r.projection({
         ...itemsPerGroupProjection,
         apply: {

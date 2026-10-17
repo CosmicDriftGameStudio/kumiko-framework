@@ -95,7 +95,7 @@ function mailNotification(subject: string) {
 }
 
 const invoiceFeature = defineFeature(FEATURE, (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.notification("invoice", mailNotification("Invoice"));
   r.notification("inherit", mailNotification("Inherited"));
   r.notification("immediate", mailNotification("Immediate"));
@@ -138,7 +138,7 @@ const renderedPdfRequests: { slug: string; locale: string; variables: unknown }[
 
 // Stands in for renderer-puppeteer-client: records what the mail asked to print.
 const fakePdfRenderer = defineFeature("fake-pdf-renderer", (r) => {
-  r.requires("renderer-foundation");
+  r.requires({ features: ["renderer-foundation"] });
   r.useExtension("renderer", "fake-pdf", {
     kinds: ["document-pdf"] as const,
     render: async (req) => {

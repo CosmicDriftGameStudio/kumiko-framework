@@ -39,7 +39,7 @@ import { generateId } from "../../utils/index.js";
 // --- Fixture ---
 
 const auditFeature = defineFeature("audit", (r) => {
-  r.entity("widget", sharedWidgetEntity);
+  r.entity({ name: "widget", ...sharedWidgetEntity });
 
   // Two MSPs so the dispatcher has two consumer rows to register in the
   // pre-registration tests below. Both no-op — the tests observe the

@@ -56,7 +56,7 @@ const runEntity: EntityDefinition = createEntity({
 });
 
 const handoverStorageFixturesFeature = defineFeature("handover-storage-fixtures", (r) => {
-  r.entity("run", runEntity);
+  r.entity({ name: "run", ...runEntity });
 });
 
 const runTable = buildEntityTable("run", runEntity);

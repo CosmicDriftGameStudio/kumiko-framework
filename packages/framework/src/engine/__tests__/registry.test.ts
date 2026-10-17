@@ -198,12 +198,12 @@ describe("getAllStreamHandlers", () => {
 describe("double-qualified handler names (#1991)", () => {
   test("createRegistry throws at boot when a query handler's short name is already fully-qualified", () => {
     const feature = defineFeature("registry-test-ai-orch", (r) => {
-      r.queryHandler(
-        "registry-test-ai-orch:query:duplicate-candidates",
-        z.object({}),
-        async () => ({}),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "registry-test-ai-orch:query:duplicate-candidates",
+        schema: z.object({}),
+        handler: async () => ({}),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/double-qualification/);
@@ -211,7 +211,10 @@ describe("double-qualified handler names (#1991)", () => {
 
   test("createRegistry allows a sub-structured short name whose entity prefix merely resembles the feature name", () => {
     const feature = defineFeature("registry-test-invoices", (r) => {
-      r.queryHandler("invoice:mark-paid", z.object({}), async () => ({}), {
+      r.queryHandler({
+        name: "invoice:mark-paid",
+        schema: z.object({}),
+        handler: async () => ({}),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -303,20 +306,20 @@ describe("extensionSelector boot-validation", () => {
       });
     });
     const consumer = defineFeature("money-horse", (r) => {
-      r.requires("cap-ext");
-      r.entity(
-        "credit",
-        createEntity({
+      r.requires({ features: ["cap-ext"] });
+      r.entity({
+        name: "credit",
+        ...createEntity({
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "doSomething",
-        z.object({}),
-        async () => ({ isSuccess: true as const, data: {} }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      });
+      r.writeHandler({
+        name: "doSomething",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.useExtension("credit-cap", "credit");
     });
     expect(() => createRegistry([ext, consumer])).toThrow(

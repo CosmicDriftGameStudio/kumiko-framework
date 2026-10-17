@@ -16,30 +16,30 @@ import { createDispatcher } from "../dispatcher.js";
 const streamCleanupState = { closed: false };
 
 const echoFeature = defineFeature("echo", (r) => {
-  r.entity(
-    "item",
-    createEntity({
+  r.entity({
+    name: "item",
+    ...createEntity({
       table: "Items",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
-  );
+  });
 
-  r.writeHandler(
-    "item:create",
-    z.object({ name: z.string().min(1) }),
-    async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "item:list",
-    z.object({ search: z.string().optional() }),
-    async (query) => ({
+  r.queryHandler({
+    name: "item:list",
+    schema: z.object({ search: z.string().optional() }),
+    handler: async (query) => ({
       items: [],
       search: query.payload.search,
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   r.streamHandler(
     "item:tail",
@@ -75,9 +75,13 @@ const echoFeature = defineFeature("echo", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  r.hook("validation", "item:create", (data) => {
-    if (data["name"] === "forbidden") return [{ field: "name", error: "forbidden_name" }];
-    return null;
+  r.hook({
+    type: "validation",
+    target: "item:create",
+    handler: (data) => {
+      if (data["name"] === "forbidden") return [{ field: "name", error: "forbidden_name" }];
+      return null;
+    },
   });
 });
 
@@ -130,22 +134,20 @@ describe("dispatcher.write", () => {
     // it must SKIP the rate-limit — not throw "no RateLimitResolver is
     // configured". (The HTTP path still has the resolver for real anon writes.)
     const rlFeature = defineFeature("rl", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "item:create",
-        z.object({ name: z.string() }),
-        async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
-        {
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          rateLimit: { per: "ip+handler", limit: 3, windowSeconds: 60 },
-        },
-      );
+      });
+      r.writeHandler({
+        name: "item:create",
+        schema: z.object({ name: z.string() }),
+        handler: async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        rateLimit: { per: "ip+handler", limit: 3, windowSeconds: 60 },
+      });
     });
     const dispatcher = createDispatcher(createRegistry([rlFeature]), {});
     const result = await dispatcher.write(
@@ -161,22 +163,20 @@ describe("dispatcher.write", () => {
     // rate-limiting feature. User buckets cannot skip (unlike ip+no-IP), so we
     // fail loud at first write instead of silently running uncapped.
     const rlFeature = defineFeature("rl-user", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "item:create",
-        z.object({ name: z.string() }),
-        async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
-        {
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
-        },
-      );
+      });
+      r.writeHandler({
+        name: "item:create",
+        schema: z.object({ name: z.string() }),
+        handler: async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
+      });
     });
     const dispatcher = createDispatcher(createRegistry([rlFeature]), {});
     const result = await dispatcher.write(
@@ -197,23 +197,23 @@ describe("dispatcher.write", () => {
     // gegen denselben SessionUser — sonst ist's nicht der gleiche.
     const captured: { fromEvent?: unknown; fromCtx?: unknown } = {};
     const aliasFeature = defineFeature("alias", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "item:create",
-        z.object({ name: z.string() }),
-        async (event, ctx) => {
+      });
+      r.writeHandler({
+        name: "item:create",
+        schema: z.object({ name: z.string() }),
+        handler: async (event, ctx) => {
           captured.fromEvent = event.user;
           captured.fromCtx = ctx.user;
           return { isSuccess: true, data: {} };
         },
-        { access: { roles: ["Admin"] } },
-      );
+        access: { roles: ["Admin"] },
+      });
     });
     const dispatcher = createDispatcher(createRegistry([aliasFeature]), {});
     const user = createTestUser();
@@ -636,12 +636,19 @@ describe("dispatcher.query postQuery hooks", () => {
     // entity. Handler-keyed postQuery hooks must still fire — gating the hook
     // pass on entity-existence makes such a hook register silently + never run.
     const feature = defineFeature("dash", (r) => {
-      r.queryHandler("dashboard", z.object({}), async () => ({ count: 1 }), {
+      r.queryHandler({
+        name: "dashboard",
+        schema: z.object({}),
+        handler: async () => ({ count: 1 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postQuery", "dashboard", async ({ entityName, rows }) => {
-        expect(entityName).toBeUndefined();
-        return { rows: rows.map((row) => ({ ...row, enriched: true })) };
+      r.hook({
+        type: "postQuery",
+        target: "dashboard",
+        handler: async ({ entityName, rows }) => {
+          expect(entityName).toBeUndefined();
+          return { rows: rows.map((row) => ({ ...row, enriched: true })) };
+        },
       });
     });
 
@@ -655,10 +662,13 @@ describe("dispatcher.query postQuery hooks", () => {
     // single-object branch, not the rows-list branch (which would crash on
     // [...null]). The hook here returns the row unchanged so the shape survives.
     const feature = defineFeature("nullrows", (r) => {
-      r.queryHandler("dashboard", z.object({}), async () => ({ rows: null, nextCursor: null }), {
+      r.queryHandler({
+        name: "dashboard",
+        schema: z.object({}),
+        handler: async () => ({ rows: null, nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postQuery", "dashboard", async ({ rows }) => ({ rows }));
+      r.hook({ type: "postQuery", target: "dashboard", handler: async ({ rows }) => ({ rows }) });
     });
 
     const dispatcher = createDispatcher(createRegistry([feature]), {});
@@ -668,10 +678,17 @@ describe("dispatcher.query postQuery hooks", () => {
 
   test("single-object postQuery hook returning ≠1 row throws", async () => {
     const feature = defineFeature("multi", (r) => {
-      r.queryHandler("dashboard", z.object({}), async () => ({ count: 1 }), {
+      r.queryHandler({
+        name: "dashboard",
+        schema: z.object({}),
+        handler: async () => ({ count: 1 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postQuery", "dashboard", async ({ rows }) => ({ rows: [...rows, ...rows] }));
+      r.hook({
+        type: "postQuery",
+        target: "dashboard",
+        handler: async ({ rows }) => ({ rows: [...rows, ...rows] }),
+      });
     });
 
     const dispatcher = createDispatcher(createRegistry([feature]), {});
@@ -766,22 +783,25 @@ describe("dispatcher feature-gate", () => {
   function toggled() {
     return defineFeature("toggled", (r) => {
       r.toggleable({ default: true });
-      r.entity(
-        "widget",
-        createEntity({
+      r.entity({
+        name: "widget",
+        ...createEntity({
           table: "Widgets",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler("widget:list", z.object({}).passthrough(), async () => ({ items: [] }), {
+      });
+      r.queryHandler({
+        name: "widget:list",
+        schema: z.object({}).passthrough(),
+        handler: async () => ({ items: [] }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.writeHandler(
-        "widget:create",
-        z.object({ name: z.string() }),
-        async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
-        { access: { roles: ["Admin"] } },
-      );
+      r.writeHandler({
+        name: "widget:create",
+        schema: z.object({ name: z.string() }),
+        handler: async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+        access: { roles: ["Admin"] },
+      });
       r.streamHandler(
         "widget:tail",
         z.object({}).passthrough(),
@@ -962,12 +982,12 @@ describe("dispatcher feature-gate", () => {
     const tenantB = "00000000-0000-4000-8000-0000000000b4" as TenantId;
 
     const probe = defineFeature("probe", (r) => {
-      r.queryHandler(
-        "check",
-        z.object({}).passthrough(),
-        async (_event, ctx) => ({ enabled: await ctx.hasFeature("toggled") }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "check",
+        schema: z.object({}).passthrough(),
+        handler: async (_event, ctx) => ({ enabled: await ctx.hasFeature("toggled") }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const registry = createRegistry([toggled(), probe]);
     const dispatcher = createDispatcher(
@@ -1002,12 +1022,12 @@ describe("dispatcher feature-gate", () => {
     const plainTenant = "00000000-0000-4000-8000-0000000000d6" as TenantId;
 
     const probe = defineFeature("probe", (r) => {
-      r.queryHandler(
-        "check",
-        z.object({}).passthrough(),
-        async (_event, ctx) => ({ enabled: await ctx.hasFeature("premium-companion") }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "check",
+        schema: z.object({}).passthrough(),
+        handler: async (_event, ctx) => ({ enabled: await ctx.hasFeature("premium-companion") }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const registry = createRegistry([probe]);
     const effectiveFeatures = Object.assign(() => new Set(["probe"]), {
@@ -1037,20 +1057,20 @@ describe("write-handler shape guard", () => {
 
   function brokenFeature() {
     return defineFeature("broken", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "item:create",
-        z.object({ name: z.string() }),
-        // biome-ignore lint/suspicious/noExplicitAny: deliberate wrong-shape return for the test
-        async (event) => ({ id: "x", name: event.payload.name }) as any,
-        { access: { roles: ["Admin"] } },
-      );
+      });
+      r.writeHandler({
+        name: "item:create",
+        schema: z.object({ name: z.string() }),
+        handler: // biome-ignore lint/suspicious/noExplicitAny: deliberate wrong-shape return for the test
+          async (event) => ({ id: "x", name: event.payload.name }) as any,
+        access: { roles: ["Admin"] },
+      });
     });
   }
 
@@ -1084,17 +1104,17 @@ describe("dispatcher context.geoTzProvider (680/1)", () => {
     // the property forwarding at dispatcher.ts would make the injection a
     // silent no-op (provider configured, ctx.tz.fromCoordinates still throws).
     const geoFeature = defineFeature("geo", (r) => {
-      r.queryHandler(
-        "resolve-zone",
-        z.object({ latitude: z.number(), longitude: z.number() }),
-        async (query, ctx) => ({
+      r.queryHandler({
+        name: "resolve-zone",
+        schema: z.object({ latitude: z.number(), longitude: z.number() }),
+        handler: async (query, ctx) => ({
           zone: await ctx.tz.fromCoordinates({
             latitude: query.payload.latitude,
             longitude: query.payload.longitude,
           }),
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const registry = createRegistry([geoFeature]);
     const calls: Array<{ latitude: number; longitude: number }> = [];

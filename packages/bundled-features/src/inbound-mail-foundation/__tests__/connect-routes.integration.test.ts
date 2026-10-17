@@ -87,7 +87,7 @@ const oauthTestPlugin: InboundMailProviderPlugin = {
 };
 
 const oauthTestProviderFeature = defineFeature("inbound-provider-oauth-test", (r) => {
-  r.requires("inbound-mail-foundation");
+  r.requires({ features: ["inbound-mail-foundation"] });
   r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, OAUTH_PROVIDER_KEY, oauthTestPlugin);
 });
 

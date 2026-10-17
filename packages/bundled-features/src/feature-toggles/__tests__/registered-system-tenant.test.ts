@@ -30,13 +30,13 @@ describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
     const observed: string[] = [];
 
     const dummy = defineFeature("dummy", (r) => {
-      r.entity(
-        "widget",
-        createEntity({
+      r.entity({
+        name: "widget",
+        ...createEntity({
           table: "Widgets",
           fields: { name: createTextField({ personal: false, reason: "technical_reference" }) },
         }),
-      );
+      });
     });
 
     const runtime: GlobalFeatureToggleRuntime | null = null;

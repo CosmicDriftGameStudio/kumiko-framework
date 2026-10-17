@@ -23,10 +23,16 @@ function dashboardFeature(
   extra: Partial<Pick<DashboardScreenDefinition, "timeRange" | "scope">> = {},
 ) {
   return defineFeature("demo", (r) => {
-    r.queryHandler("incident:open-count", z.object({}), async () => ({ count: 3 }), {
+    r.queryHandler({
+      name: "incident:open-count",
+      schema: z.object({}),
+      handler: async () => ({ count: 3 }),
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
-    r.queryHandler("incident:latest", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+    r.queryHandler({
+      name: "incident:latest",
+      schema: z.object({}),
+      handler: async () => ({ rows: [], nextCursor: null }),
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     r.screen({
@@ -289,10 +295,16 @@ describe("validateBoot — dashboard screens", () => {
 });
 
 const catalogFeature = defineFeature("catalog", (r) => {
-  r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+  r.queryHandler({
+    name: "items:list",
+    schema: z.object({}),
+    handler: async () => ({ rows: [], nextCursor: null }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.queryHandler("items:status", z.object({}), async () => ({ enabled: true }), {
+  r.queryHandler({
+    name: "items:status",
+    schema: z.object({}),
+    handler: async () => ({ enabled: true }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.screen({
@@ -333,7 +345,10 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
 
   test("accepts a same-feature short id", () => {
     const feature = defineFeature("demo", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -398,10 +413,16 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
 
   describe("visibleWhen field against the query outputSchema", () => {
     const typedCatalog = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.queryHandler("items:status", z.object({}), async () => ({ enabled: true }), {
+      r.queryHandler({
+        name: "items:status",
+        schema: z.object({}),
+        handler: async () => ({ enabled: true }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ enabled: z.boolean() }),
       });
@@ -468,7 +489,10 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
           layout: { sections: [{ fields: ["note"] }] },
           ...extra,
         } as never);
-        r.queryHandler("done", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        r.queryHandler({
+          name: "done",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -727,13 +751,22 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
 
   function gatedFeature(panels: DashboardScreenDefinition["panels"]) {
     return defineFeature("demo", (r) => {
-      r.queryHandler("incident:open-count", z.object({}), async () => ({ count: 3 }), {
+      r.queryHandler({
+        name: "incident:open-count",
+        schema: z.object({}),
+        handler: async () => ({ count: 3 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.queryHandler("incident:latest", z.object({}), async () => ({ rows: [] }), {
+      r.queryHandler({
+        name: "incident:latest",
+        schema: z.object({}),
+        handler: async () => ({ rows: [] }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.queryHandler("portfolio:state", z.object({}), async () => ({ state: "filled" }), {
+      r.queryHandler({
+        name: "portfolio:state",
+        schema: z.object({}),
+        handler: async () => ({ state: "filled" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ state: z.string() }),
       });

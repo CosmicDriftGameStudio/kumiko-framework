@@ -19,7 +19,7 @@ function contactMailer(
   options: { readonly withVariables?: boolean } = {},
 ) {
   return defineFeature("contacts", (r) => {
-    r.entity("contact", contactEntity);
+    r.entity({ name: "contact", ...contactEntity });
     r.writeHandler({
       name: "ping",
       schema: z.object({}),

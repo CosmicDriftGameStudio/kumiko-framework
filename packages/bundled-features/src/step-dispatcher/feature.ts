@@ -64,7 +64,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
       recommended: false,
     });
     r.envSchema(stepDispatcherEnvSchema);
-    r.requires("secrets");
+    r.requires({ features: ["secrets"] });
 
     // Literal name: the few-shot corpus parser only reads string-literal job names.
     // StepDispatcherJobNames.deliver mirrors it; feature.boot.test.ts pins the two together.

@@ -27,8 +27,8 @@ export function createRendererMailHtmlFeature(
     r.describe(
       'A `renderer-foundation` plugin that handles `RenderRequest { kind: "mail" }` and returns `{ subject, html, text, previewText? }` suitable for sending via `channel-email`. The mail template (`kind: "mail"`, document HTML, subject in `meta`) resolves through `template-resolver`\'s DB fallback, its body is compiled to Handlebars by template-resolver and rendered with escaping, then placed into an MJML layout (`kind: "mail-layout"`, slug `default` unless `meta.layoutSlug` says otherwise, an in-code structured layout with the tenant branding logo and accent color as last resort) that `mjml()` compiles to email-safe table HTML, with `html-to-text` producing the plain-text alternative. An optional `footer` resolver adds the platform imprint, privacy link and footer text below every structured layout, and an optional `brandSuffix` resolver adds a word after the tenant name in the brand row of the in-code layout. Mail meta `headerChip`, `tone` and `footerNote` add a chip beside the brand, the tone of the top line and chip, and a note above the site and unsubscribe links of the card. Seed an editable system layout with `seedSystemMailLayout(db)`. Requires `renderer-foundation` + `template-resolver`.',
     );
-    r.requires("renderer-foundation");
-    r.requires("template-resolver");
+    r.requires({ features: ["renderer-foundation"] });
+    r.requires({ features: ["template-resolver"] });
 
     r.useExtension("renderer", "mail-html", {
       kinds: ["mail"] as const,

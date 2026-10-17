@@ -65,11 +65,11 @@ const uploadedPayload = z.object({
 });
 
 const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
-  r.entity("report", reportEntity);
+  r.entity({ name: "report", ...reportEntity });
 
-  r.writeHandler(
-    "store",
-    z.object({
+  r.writeHandler({
+    name: "store",
+    schema: z.object({
       fileName: z.string(),
       mimeType: z.string(),
       bytes: z.array(z.number()),
@@ -81,15 +81,15 @@ const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
         })
         .optional(),
     }),
-    (event, ctx) =>
+    handler: (event, ctx) =>
       createFileRefFromBytes(ctx, {
         fileName: event.payload.fileName,
         mimeType: event.payload.mimeType,
         data: Uint8Array.from(event.payload.bytes),
         ...(event.payload.attachTo ? { attachTo: event.payload.attachTo } : {}),
       }),
-    { access: { openToAll: { reason: "test fixture: every signed-in user may store bytes" } } },
-  );
+    access: { openToAll: { reason: "test fixture: every signed-in user may store bytes" } },
+  });
 
   r.writeHandler(
     defineWriteHandler({

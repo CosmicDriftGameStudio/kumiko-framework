@@ -44,12 +44,12 @@ const ticketEntity = createEntity({
 const ticketTable = buildEntityTable("ticket", ticketEntity);
 
 const peopleFeature = defineFeature("listrefsortpeople", (r) => {
-  r.entity("person", personEntity);
+  r.entity({ name: "person", ...personEntity });
 });
 
 const ticketFeature = defineFeature("listrefsort", (r) => {
-  r.requires("listrefsortpeople");
-  r.entity("ticket", ticketEntity);
+  r.requires({ features: ["listrefsortpeople"] });
+  r.entity({ name: "ticket", ...ticketEntity });
   r.queryHandler(defineEntityListHandler("ticket", ticketEntity, { access: { roles: ["Admin"] } }));
 });
 

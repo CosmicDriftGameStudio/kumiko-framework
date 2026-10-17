@@ -42,7 +42,7 @@ const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const emailTransport = createInMemoryTransport();
 
 const probeFeature = defineFeature("auth-mail-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "invite-without-link",

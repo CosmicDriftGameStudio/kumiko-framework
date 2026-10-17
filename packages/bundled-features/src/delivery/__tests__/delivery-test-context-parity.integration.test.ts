@@ -40,7 +40,7 @@ const WEBHOOK_PATH = "/hooks/parity";
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 
 const probeFeature = defineFeature("parity-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "ping",

@@ -79,7 +79,7 @@ const vehicleEntity = createEntity({
 });
 
 const vehicleFeature = defineFeature("testVehicleFileFields", (r) => {
-  r.entity("vehicle", vehicleEntity);
+  r.entity({ name: "vehicle", ...vehicleEntity });
 });
 
 // The vehicle fixture's image/file fields make server.ts's boot guard require
@@ -89,7 +89,7 @@ const vehicleFeature = defineFeature("testVehicleFileFields", (r) => {
 // satisfy that boot check.
 const bootGuardFileProvider = createInMemoryFileProvider();
 const testFileProviderFeature = defineFeature("testFileProviderBootGuard", (r) => {
-  r.requires("file-foundation");
+  r.requires({ features: ["file-foundation"] });
   r.useExtension("fileProvider", "test", { build: async () => bootGuardFileProvider });
 });
 

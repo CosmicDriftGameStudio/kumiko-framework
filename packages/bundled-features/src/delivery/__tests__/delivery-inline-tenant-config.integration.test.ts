@@ -35,7 +35,7 @@ import type { DeliveryService } from "../types.js";
 const transport = createInMemoryTransport();
 
 const probe = defineFeature("inline-config-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.notification("hello", {
     variables: { name: templateVariable.text({ required: true }) },
     template: { en: { body: '<p>Hello <span data-variable="name"></span></p>' } },

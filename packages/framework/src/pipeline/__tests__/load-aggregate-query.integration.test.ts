@@ -38,7 +38,7 @@ const invoiceTable = buildEntityTable("asof-invoice", invoiceEntity);
 // --- Feature ---
 
 const asOfFeature = defineFeature("asoftest", (r) => {
-  r.entity("asof-invoice", invoiceEntity);
+  r.entity({ name: "asof-invoice", ...invoiceEntity });
 
   // Two domain events at different versions. v1→v2 migration bumps the
   // "amount" field from string to integer cents, same pattern as B1.
@@ -68,17 +68,17 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     entityName: "asof-invoice",
   });
 
-  r.writeHandler(
-    "invoice:create",
-    z.object({ customer: z.string(), status: z.string() }),
-    async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "invoice:create",
+    schema: z.object({ customer: z.string(), status: z.string() }),
+    handler: async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "invoice:approve",
-    z.object({ id: z.uuid(), amount: z.number().int(), approvedBy: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "invoice:approve",
+    schema: z.object({ id: z.uuid(), amount: z.number().int(), approvedBy: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "asof-invoice",
@@ -87,18 +87,18 @@ const asOfFeature = defineFeature("asoftest", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Query handler — reduces raw events into a derived shape via
   // ctx.loadAggregate. Exposes live aggregation over HTTP.
-  r.queryHandler(
-    "invoice:state",
-    z.object({
+  r.queryHandler({
+    name: "invoice:state",
+    schema: z.object({
       id: z.uuid(),
       asOf: z.iso.datetime().optional(),
     }),
-    async (query, ctx) => {
+    handler: async (query, ctx) => {
       const events = await ctx.loadAggregate(query.payload.id, {
         ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
       });
@@ -133,8 +133,8 @@ const asOfFeature = defineFeature("asoftest", (r) => {
       }
       return state;
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 // --- Test stack ---

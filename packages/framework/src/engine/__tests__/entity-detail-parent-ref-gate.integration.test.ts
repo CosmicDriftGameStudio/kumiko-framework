@@ -53,20 +53,20 @@ const linkEntity = createEntity({
 const linkTable = buildEntityTable("link", linkEntity);
 
 const feature = defineFeature("detailpr", (r) => {
-  r.entity("host", hostEntity);
-  r.entity("link", linkEntity);
-  r.queryHandler(
-    "link-cached-detail",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) =>
+  r.entity({ name: "host", ...hostEntity });
+  r.entity({ name: "link", ...linkEntity });
+  r.queryHandler({
+    name: "link-cached-detail",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) =>
       createEventStoreExecutor(linkTable, linkEntity, {
         entityName: "link",
         ...(ctx.entityCache !== undefined && { entityCache: ctx.entityCache }),
       }).detail(query.payload, query.user, ctx.db, {
         parentVisibility: { entities: ctx.registry.getAllEntities() },
       }),
-    { access: { roles: ["TenantMember"] } },
-  );
+    access: { roles: ["TenantMember"] },
+  });
 });
 
 const userA = createTestUser({ id: 80, roles: ["TenantMember"], claims: { team: "team-a" } });

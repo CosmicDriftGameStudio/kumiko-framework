@@ -99,12 +99,12 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         resourceMaxBytes: createSystemConfig("number", { default: 2_097_152, bounds: { min: 1 } }),
       },
     });
-    r.entity("template-resource", templateResourceEntity);
+    r.entity({ name: "template-resource", ...templateResourceEntity });
     // Only when the app actually mounts a user-owned collection: the entity's
     // `content` is `userOwned`, which makes it subject data — the boot guard
     // then requires an EXT_USER_DATA hook (mount `template-resolver-user-data`).
     // Registering it unconditionally would impose that on every app.
-    if (hasUserOwned) r.entity("user-content-entry", userContentEntryEntity);
+    if (hasUserOwned) r.entity({ name: "user-content-entry", ...userContentEntryEntity });
 
     const handlers = {
       upsertSystem: r.writeHandler(upsertSystemWrite),

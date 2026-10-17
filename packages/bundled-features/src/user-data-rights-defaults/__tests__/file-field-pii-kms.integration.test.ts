@@ -41,7 +41,7 @@ const documentEntity = createEntity({
 });
 
 const documentFeature = defineFeature("filepii", (r) => {
-  r.entity("document", documentEntity);
+  r.entity({ name: "document", ...documentEntity });
   r.crud("document", documentEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },

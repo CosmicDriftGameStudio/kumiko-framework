@@ -76,50 +76,50 @@ let afterCommitHookShouldEchoBag = false;
 const echoedBagIds: string[] = [];
 
 const bridgeFeature = defineFeature("ctxbridge", (r) => {
-  const bag = r.entity("bag", bagEntity);
-  const secret = r.entity("secret", secretEntity);
-  const echo = r.entity("echo", echoEntity);
+  const bag = r.entity({ name: "bag", ...bagEntity });
+  const secret = r.entity({ name: "secret", ...secretEntity });
+  const echo = r.entity({ name: "echo", ...echoEntity });
 
-  r.writeHandler(
-    "bag:create",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "bag:create",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "secret:create",
-    z.object({ owner: z.string(), token: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "secret:create",
+    schema: z.object({ owner: z.string(), token: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(secretTable, secretEntity, { entityName: "secret" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: access.privileged } },
-  );
+    access: { roles: access.privileged },
+  });
 
-  r.queryHandler(
-    "secret:by-owner",
-    z.object({ owner: z.string() }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "secret:by-owner",
+    schema: z.object({ owner: z.string() }),
+    handler: async (query, ctx) => {
       const rows = await selectMany(ctx.db, secretTable);
       return (
         (rows as Array<Record<string, unknown>>).find((r) => r["owner"] === query.payload.owner) ??
         null
       );
     },
-    { access: { roles: access.privileged } },
-  );
+    access: { roles: access.privileged },
+  });
 
   // Outer handler: creates a bag AND (as system) creates a secret for the user.
   // writeAs(system) must share the outer tx. An intentional failure in a later
   // step rolls the secret back too.
-  r.writeHandler(
-    "bag:create-with-secret",
-    z.object({ label: z.string(), token: z.string(), fail: z.boolean().optional() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "bag:create-with-secret",
+    schema: z.object({ label: z.string(), token: z.string(), fail: z.boolean().optional() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       const created = await crud.create({ label: event.payload.label }, event.user, ctx.db);
       if (!created.isSuccess) return created;
@@ -140,19 +140,17 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
 
       return created;
     },
-    {
-      access: { roles: ["Admin"] },
-      escapeHatch: { reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller" },
-    },
-  );
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller" },
+  });
 
   // Two inserts, one via ctx.db (tx-bound) and one via ctx.dbOutsideTransaction
   // (unbound pool), then an unconditional failure. Proves the outside-tx write
   // survives the handler's own rollback while the tx-bound one doesn't.
-  r.writeHandler(
-    "bag:create-outside-tx-then-fail",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "bag:create-outside-tx-then-fail",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
       const outsideTx = ctx.dbOutsideTransaction;
@@ -162,15 +160,15 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       await crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, outsideTx);
       return writeFailure(new UnprocessableError("intentional_failure"));
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // The throw (not a failure result) is the other rollback path: the outside
   // transaction must have committed before it.
-  r.writeHandler(
-    "bag:outside-transaction-then-throw",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "bag:outside-transaction-then-throw",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
       const outsideTransaction = ctx.outsideTransaction;
@@ -182,32 +180,30 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       );
       throw new Error("handler fails after the outside transaction committed");
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Handler that fetches the secret via ctx.queryAs(system) — proves the
   // privileged call returns the token field even though the caller (Admin)
   // couldn't read it themselves.
-  r.queryHandler(
-    "bag:peek-secret",
-    z.object({ owner: z.string() }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "bag:peek-secret",
+    schema: z.object({ owner: z.string() }),
+    handler: async (query, ctx) => {
       return ctx.queryAs(createSystemUser(query.user.tenantId), "ctxbridge:query:secret:by-owner", {
         owner: query.payload.owner,
       });
     },
-    {
-      access: { roles: ["Admin"] },
-      escapeHatch: { reason: "test fixture: queryAs(SYSTEM) reads the privileged token field" },
-    },
-  );
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "test fixture: queryAs(SYSTEM) reads the privileged token field" },
+  });
 
   // Proves runBatch strips the request signal: both inserts land and
   // ctx.signal is undefined even though the request was pre-aborted.
-  r.writeHandler(
-    "bag:create-signal-probe",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "bag:create-signal-probe",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await ctx.db?.selectMany(bagTable, {});
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
@@ -220,55 +216,59 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       );
       return { isSuccess: true as const, data: { signalSeen: ctx.signal !== undefined } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Query path counterpart — ctx.db.selectMany hits signal.throwIfAborted().
-  r.queryHandler(
-    "bag:list-signal-probe",
-    z.object({}),
-    async (_query, ctx) => selectMany(ctx.db, bagTable),
-    { access: { roles: ["Admin"] } },
-  );
+  r.queryHandler({
+    name: "bag:list-signal-probe",
+    schema: z.object({}),
+    handler: async (_query, ctx) => selectMany(ctx.db, bagTable),
+    access: { roles: ["Admin"] },
+  });
 
   // Negative control: never touches ctx.db, so a pre-aborted signal must still 500.
-  r.queryHandler(
-    "bag:query-boom",
-    z.object({}),
-    async () => {
+  r.queryHandler({
+    name: "bag:query-boom",
+    schema: z.object({}),
+    handler: async () => {
       throw new Error("unrelated boom");
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Pre-write ctx.db read — crud.create's own insert writes via db.raw and
   // doesn't check the signal, so this is what makes the test discriminating.
-  r.writeHandler(
-    "bag:create-plain",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "bag:create-plain",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.db?.selectMany(bagTable, {});
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "echo:create",
-    z.object({ bagId: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "echo:create",
+    schema: z.object({ bagId: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(echoTable, echoEntity, {
         entityName: "echo",
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // afterCommit hook on bag — fires once per outer commit.
-  r.hook("postSave", { allOf: bag }, async (result) => {
-    afterCommitLog.push(`bag:${result.data["label"]}`);
+  r.hook({
+    type: "postSave",
+    target: { allOf: bag },
+    handler: async (result) => {
+      afterCommitLog.push(`bag:${result.data["label"]}`);
+    },
   });
 
   // afterCommit hook on bag that writes a SECOND entity via ctx.write,
@@ -277,10 +277,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
   // is a live, usable handle rather than the already-committed tx
   // (dead-tx-in-afterCommit-hooks). Explicit phase so the test says
   // what it means, even though afterCommit is already the default.
-  r.hook(
-    "postSave",
-    { allOf: bag },
-    async (result, ctx) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: bag },
+    handler: async (result, ctx) => {
       if (!afterCommitHookShouldEchoBag) return;
       const bagId = String(result.id);
       // Hooks are typed against AppContext (no bridge), but the runtime
@@ -290,18 +290,26 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       const echoRes = await handlerCtx.write("ctxbridge:write:echo:create", { bagId });
       if (echoRes.isSuccess) echoedBagIds.push(bagId);
     },
-    { phase: HookPhases.afterCommit },
-  );
+    phase: HookPhases.afterCommit,
+  });
 
-  r.hook("postSave", { allOf: echo }, async (result) => {
-    afterCommitLog.push(`echo:${result.data["bagId"]}`);
+  r.hook({
+    type: "postSave",
+    target: { allOf: echo },
+    handler: async (result) => {
+      afterCommitLog.push(`echo:${result.data["bagId"]}`);
+    },
   });
 
   // afterCommit hook on secret — the entity targeted by the nested writeAs.
   // Proves: (a) hook fires exactly once per successful writeAs, (b) hook
   // does NOT fire when the outer transaction rolls back.
-  r.hook("postSave", { allOf: secret }, async (result) => {
-    afterCommitLog.push(`secret:${result.data["owner"]}`);
+  r.hook({
+    type: "postSave",
+    target: { allOf: secret },
+    handler: async (result) => {
+      afterCommitLog.push(`secret:${result.data["owner"]}`);
+    },
   });
 });
 

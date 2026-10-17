@@ -40,7 +40,7 @@ const orderTable = buildEntityTable("mmh-order", orderEntity);
 const confirmLoadCounts: number[] = [];
 
 const mmhFeature = defineFeature("mmh", (r) => {
-  r.entity("mmh-order", orderEntity);
+  r.entity({ name: "mmh-order", ...orderEntity });
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
   const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }), {
@@ -52,10 +52,10 @@ const mmhFeature = defineFeature("mmh", (r) => {
     entityName: "mmh-order",
   });
 
-  r.writeHandler(
-    "order:place",
-    z.object({ item: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:place",
+    schema: z.object({ item: z.string() }),
+    handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await ctx.unsafeAppendEvent({
@@ -66,8 +66,8 @@ const mmhFeature = defineFeature("mmh", (r) => {
       });
       return created;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Hop 1: placed → confirmed. Uses ctx.loadAggregate to observe the current
   // stream before deciding + ctx.appendEvent to cascade.

@@ -48,8 +48,8 @@ const textOnlyEntity = createEntity({
 const ROLES = { access: { roles: ["Admin", "User", "SystemAdmin"] } } as const;
 
 const bindFeature = defineFeature("bind-ref", (r) => {
-  r.entity("dossier", dossierEntity);
-  r.entity("plain", textOnlyEntity);
+  r.entity({ name: "dossier", ...dossierEntity });
+  r.entity({ name: "plain", ...textOnlyEntity });
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, ROLES));
 });

@@ -125,12 +125,12 @@ const testFeature = defineFeature("test", (r) => {
       await sleep(500);
     },
   );
-  r.writeHandler(
-    "capped-event",
-    z.object({ n: z.number() }),
-    async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "capped-event",
+    schema: z.object({ n: z.number() }),
+    handler: async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   // Event-triggered twin — exercises handleEvent's maxPerTenant guard
   // (dispatch and handleEvent share isOverPerTenantLimit).
   r.job(
@@ -150,12 +150,12 @@ const testFeature = defineFeature("test", (r) => {
     },
   );
 
-  r.writeHandler(
-    "retry-event-trigger",
-    z.object({ n: z.number() }),
-    async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.writeHandler({
+    name: "retry-event-trigger",
+    schema: z.object({ n: z.number() }),
+    handler: async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   // Event-triggered job with retries — proves handleEvent passes
   // retries/backoff to the queue the same way dispatch() does (fw
   // job-runner retries regression, solon).

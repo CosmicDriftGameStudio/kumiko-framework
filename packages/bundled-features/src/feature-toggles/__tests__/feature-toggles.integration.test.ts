@@ -62,16 +62,16 @@ function widgetFeature(): FeatureDefinition {
   return defineFeature("widget", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity("widget", widgetEntity);
+    r.entity({ name: "widget", ...widgetEntity });
 
     // Use the event-store executor so the framework's lifecycle pipeline
     // (postSave hooks, incl. cross-feature ones) actually fires after the
     // write. Direct-DB writes bypass the pipeline — we'd never be able to
     // prove the hook-filter then.
-    r.writeHandler(
-      "widget:create",
-      z.object({ name: z.string().min(1).max(100), active: z.boolean().optional() }),
-      async (event, ctx) => {
+    r.writeHandler({
+      name: "widget:create",
+      schema: z.object({ name: z.string().min(1).max(100), active: z.boolean().optional() }),
+      handler: async (event, ctx) => {
         if (!ctx.systemDb) {
           throw new InternalError({
             message: "widget:create requires ctx.systemDb — is r.systemScope() still set?",
@@ -82,8 +82,8 @@ function widgetFeature(): FeatureDefinition {
         );
         return widgetCrud.create(event.payload, event.user, db);
       },
-      { access: { roles: ["SystemAdmin"] } },
-    );
+      access: { roles: ["SystemAdmin"] },
+    });
   });
 }
 
@@ -108,24 +108,28 @@ function widgetAuditFeature(): FeatureDefinition {
   return defineFeature("widget-audit", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity("widget-audit", widgetAuditEntity);
+    r.entity({ name: "widget-audit", ...widgetAuditEntity });
 
-    r.hook("postSave", { allOf: "widget" }, async (result, ctx) => {
-      if (result.kind !== "save" || !result.isNew) return;
-      if (!ctx.systemDb) return;
-      const name = result.changes!["name"] as string | undefined;
-      if (!name) return;
-      const db = ctx.systemDb.acknowledgeCrossTenant(
-        "widget audit sink is system-wide in this test",
-      );
-      await seedRow(db, widgetAuditTable, {
-        id: generateId(),
-        widgetName: name,
-        version: 1,
-        tenantId: SYSTEM_TENANT_ID,
-        createdAt: Temporal.Now.instant(),
-        modifiedAt: Temporal.Now.instant(),
-      });
+    r.hook({
+      type: "postSave",
+      target: { allOf: "widget" },
+      handler: async (result, ctx) => {
+        if (result.kind !== "save" || !result.isNew) return;
+        if (!ctx.systemDb) return;
+        const name = result.changes!["name"] as string | undefined;
+        if (!name) return;
+        const db = ctx.systemDb.acknowledgeCrossTenant(
+          "widget audit sink is system-wide in this test",
+        );
+        await seedRow(db, widgetAuditTable, {
+          id: generateId(),
+          widgetName: name,
+          version: 1,
+          tenantId: SYSTEM_TENANT_ID,
+          createdAt: Temporal.Now.instant(),
+          modifiedAt: Temporal.Now.instant(),
+        });
+      },
     });
   });
 }
@@ -147,7 +151,7 @@ function widgetTrackerFeature(): FeatureDefinition {
     // Declared dependency on widget: when widget is globally off, the
     // resolver's cascade drops widget-tracker as well (no matter its own
     // override). That's the shape the cascade test below asserts on.
-    r.requires("widget");
+    r.requires({ features: ["widget"] });
 
     r.multiStreamProjection({
       name: "tracker",

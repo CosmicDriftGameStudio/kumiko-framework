@@ -46,10 +46,10 @@ function cannedText(payload: RunInput): string {
 }
 
 export const aiTextDemoFeature = defineFeature("ai-text", (r) => {
-  r.queryHandler(
-    "run",
-    runInput,
-    async ({ payload }) => {
+  r.queryHandler({
+    name: "run",
+    schema: runInput,
+    handler: async ({ payload }) => {
       const text = cannedText(payload);
       return {
         type: "text" as const,
@@ -57,14 +57,12 @@ export const aiTextDemoFeature = defineFeature("ai-text", (r) => {
         usage: { inputTokens: payload.text.length, outputTokens: text.length },
       };
     },
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo stand-in for a real LLM call: returns canned text transforms with no " +
-            "side effects or per-user data; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo stand-in for a real LLM call: returns canned text transforms with no " +
+          "side effects or per-user data; any signed-in user may query it",
       },
     },
-  );
+  });
 });

@@ -46,7 +46,7 @@ export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
     category: "storage",
     recommended: false,
   });
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   r.extendsRegistrar(EXT_FILE_PROVIDER, {
     onRegister: () => {

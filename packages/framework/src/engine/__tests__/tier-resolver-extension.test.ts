@@ -15,14 +15,14 @@ import {
 function tierResolverFeature(name: string) {
   return defineFeature(name, (r) => {
     r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, { onRegister: () => {} });
-    r.entity("dummy", createEntity({ table: "Dummies", fields: {} }));
+    r.entity({ name: "dummy", ...createEntity({ table: "Dummies", fields: {} }) });
     r.useExtension(TENANT_TIER_RESOLVER_EXT, "dummy", { build: async () => () => new Set() });
   });
 }
 
 function plainFeature(name: string) {
   return defineFeature(name, (r) => {
-    r.entity("thing", createEntity({ table: "Things", fields: {} }));
+    r.entity({ name: "thing", ...createEntity({ table: "Things", fields: {} }) });
   });
 }
 
@@ -44,7 +44,7 @@ describe("findTierResolverUsage", () => {
   test("ignoriert andere Extension-Usages", () => {
     const other = defineFeature("other", (r) => {
       r.extendsRegistrar("somethingElse", { onRegister: () => {} });
-      r.entity("d", createEntity({ table: "Ds", fields: {} }));
+      r.entity({ name: "d", ...createEntity({ table: "Ds", fields: {} }) });
       r.useExtension("somethingElse", "d");
     });
     expect(findTierResolverUsage([other])).toBeUndefined();

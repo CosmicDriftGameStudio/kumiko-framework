@@ -19,22 +19,25 @@ const postsQuerySchema = z.object({
 
 function campaignFeature(expandableRow: EntityListExpandableRow) {
   return defineFeature("campaigns", (r) => {
-    r.entity(
-      "campaign",
-      createEntity({
+    r.entity({
+      name: "campaign",
+      ...createEntity({
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
-    r.queryHandler("post:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+    });
+    r.queryHandler({
+      name: "post:list",
+      schema: z.object({}),
+      handler: async () => ({ rows: [], nextCursor: null }),
       access: OPEN_TO_ALL,
       outputSchema: postsQuerySchema,
     });
-    r.writeHandler(
-      "mark-posted",
-      z.object({}),
-      async () => ({ isSuccess: true as const, data: null }),
-      { access: { roles: ["Admin"] } },
-    );
+    r.writeHandler({
+      name: "mark-posted",
+      schema: z.object({}),
+      handler: async () => ({ isSuccess: true as const, data: null }),
+      access: { roles: ["Admin"] },
+    });
     r.screen({
       id: "campaign-list",
       type: "entityList",

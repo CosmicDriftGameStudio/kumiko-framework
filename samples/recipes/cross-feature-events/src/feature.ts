@@ -64,7 +64,7 @@ export const capturedEvents: CapturedEvent[] = [];
 // --- Feature ---
 
 export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
-  r.entity("pubsub-order", orderEntity);
+  r.entity({ name: "pubsub-order", ...orderEntity });
 
   // Define the event shape once. The returned `.name` is the qualified
   // name ("pubsub-orders:event:order-placed") — pass it to ctx.appendEvent.
@@ -76,10 +76,10 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
 
   const { executor: orderExecutor } = createEntityExecutor("pubsub-order", orderEntity);
 
-  r.writeHandler(
-    "order:place",
-    z.object({ customer: z.string().min(1), product: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:place",
+    schema: z.object({ customer: z.string().min(1), product: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const result = await orderExecutor.create(event.payload, event.user, ctx.db);
       if (result.isSuccess) {
         // emitEvent runs inside the executor's TX and is typed against
@@ -100,8 +100,8 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
       }
       return result;
     },
-    { access: { roles: ["Admin", "Customer"] } },
-  );
+    access: { roles: ["Admin", "Customer"] },
+  });
 
   // Async consumer — Marten-style. Fires after commit, via the event-
   // dispatcher. No `table` means this MSP is pure side-effect (no state

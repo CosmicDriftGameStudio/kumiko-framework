@@ -46,7 +46,7 @@ const creditEntity = createEntity({
   },
 });
 const hostFixturesFeature = defineFeature("folders-test-host-fixtures", (r) => {
-  r.entity("credit", creditEntity);
+  r.entity({ name: "credit", ...creditEntity });
 });
 
 // The parent entity's ids are uuid-shaped, but the readable labels below carry

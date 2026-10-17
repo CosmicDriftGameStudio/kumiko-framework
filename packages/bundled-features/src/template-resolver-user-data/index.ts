@@ -16,7 +16,7 @@ export const templateResolverUserDataFeature = defineFeature("template-resolver-
   // template-resolver is optional for the same reason as in
   // notes-history-user-data: a toggleable mount would otherwise trip the
   // "effectively disabled" boot warning even though the entity is there.
-  r.requires("user-data-rights");
+  r.requires({ features: ["user-data-rights"] });
   r.optionalRequires("template-resolver");
   r.useExtension(EXT_USER_DATA, "user-content-entry", {
     export: userContentExportHook,

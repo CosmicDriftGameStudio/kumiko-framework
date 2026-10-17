@@ -81,7 +81,12 @@ describe("duplicate handler names inside one feature", () => {
     expect(() =>
       defineFeature("dup-crud", (r) => {
         r.crud("task", taskEntity, crudAccess);
-        r.queryHandler("task:detail", z.object({}), async () => null, { access });
+        r.queryHandler({
+          name: "task:detail",
+          schema: z.object({}),
+          handler: async () => null,
+          access,
+        });
       }),
     ).toThrow(
       /Feature "dup-crud" registers the query handler "task:detail" twice\. r\.crud\("task", \.\.\.\) already registers that name; use a distinct name or drop the "detail" verb from r\.crud\./,
@@ -91,8 +96,11 @@ describe("duplicate handler names inside one feature", () => {
   test("the order does not matter: r.crud after the custom handler throws too", () => {
     expect(() =>
       defineFeature("dup-crud-after", (r) => {
-        r.entity("task", taskEntity);
-        r.writeHandler("task:create", z.object({}), async () => ({ isSuccess: true, data: {} }), {
+        r.entity({ name: "task", ...taskEntity });
+        r.writeHandler({
+          name: "task:create",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true, data: {} }),
           access: { roles: ["Admin"] },
         });
         r.crud("task", taskEntity, crudAccess);
@@ -103,8 +111,8 @@ describe("duplicate handler names inside one feature", () => {
   test("a plain duplicate custom name throws", () => {
     expect(() =>
       defineFeature("dup-plain", (r) => {
-        r.queryHandler("lookup", z.object({}), async () => null, { access });
-        r.queryHandler("lookup", z.object({}), async () => null, { access });
+        r.queryHandler({ name: "lookup", schema: z.object({}), handler: async () => null, access });
+        r.queryHandler({ name: "lookup", schema: z.object({}), handler: async () => null, access });
       }),
     ).toThrow(
       /Feature "dup-plain" registers the query handler "lookup" twice\. Use a distinct name\./,

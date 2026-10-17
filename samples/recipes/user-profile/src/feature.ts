@@ -35,7 +35,7 @@ export function createAccountFeature(): FeatureDefinition {
         "entry — user-profile registers the `profile` screen itself " +
         "(fw#2312 declarative projectionDetail).",
     );
-    r.requires("user-profile");
+    r.requires({ features: ["user-profile"] });
 
     r.nav({
       id: "profile",

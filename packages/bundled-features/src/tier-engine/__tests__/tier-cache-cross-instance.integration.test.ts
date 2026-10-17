@@ -35,7 +35,10 @@ const TIER_MAP: TierMap<{ readonly maxItems: number }> = {
 
 const featProFeature = defineFeature("feat-pro", (r) => {
   r.toggleable({ default: false });
-  r.queryHandler("ping", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["TenantAdmin"] },
   });
 });

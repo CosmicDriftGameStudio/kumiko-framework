@@ -15,22 +15,25 @@ import { buildEventId, createLifecycleHooks, type SystemHooks } from "../lifecyc
 
 function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHookFn[] }) {
   const feature = defineFeature("test", (r) => {
-    r.entity(
-      "user",
-      createEntity({
+    r.entity({
+      name: "user",
+      ...createEntity({
         table: "Users",
         fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
+    });
     // Dummy handler so hook targets resolve (boot validation requires it)
-    r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+    r.writeHandler({
+      name: "user",
+      schema: z.object({}),
+      handler: async () => ({ isSuccess: true as const, data: null }),
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     if (hooks?.preSave) {
-      for (const h of hooks.preSave) r.hook("preSave", "user", h);
+      for (const h of hooks.preSave) r.hook({ type: "preSave", target: "user", handler: h });
     }
     if (hooks?.postSave) {
-      for (const h of hooks.postSave) r.hook("postSave", "user", h);
+      for (const h of hooks.postSave) r.hook({ type: "postSave", target: "user", handler: h });
     }
   });
   return createRegistry([feature]);
@@ -294,20 +297,27 @@ describe("runPostSave phase routing", () => {
   test("runs only hooks matching the given phase", async () => {
     const calls: string[] = [];
     const feature = defineFeature("phases", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook(
-        "postSave",
-        "user",
-        async () => {
+      r.hook({
+        type: "postSave",
+        target: "user",
+        handler: async () => {
           calls.push("inTx");
         },
-        { phase: "inTransaction" },
-      );
-      r.hook("postSave", "user", async () => {
-        calls.push("afterCommit");
+        phase: "inTransaction",
+      });
+      r.hook({
+        type: "postSave",
+        target: "user",
+        handler: async () => {
+          calls.push("afterCommit");
+        },
       });
     });
     const registry = createRegistry([feature]);
@@ -323,18 +333,21 @@ describe("runPostSave phase routing", () => {
 
   test("inTransaction phase: hook errors throw (to roll back)", async () => {
     const feature = defineFeature("phases", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook(
-        "postSave",
-        "user",
-        async () => {
+      r.hook({
+        type: "postSave",
+        target: "user",
+        handler: async () => {
           throw new Error("inTx-hook-boom");
         },
-        { phase: "inTransaction" },
-      );
+        phase: "inTransaction",
+      });
     });
     const registry = createRegistry([feature]);
     const pipeline = createLifecycleHooks(registry);
@@ -349,15 +362,26 @@ describe("runPostSave phase routing", () => {
     try {
       const afterRan: string[] = [];
       const feature = defineFeature("phases", (r) => {
-        r.entity("user", createEntity({ table: "Users", fields: {} }));
-        r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+        r.writeHandler({
+          name: "user",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true, data: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.hook("postSave", "user", async () => {
-          throw new Error("afterCommit-boom");
+        r.hook({
+          type: "postSave",
+          target: "user",
+          handler: async () => {
+            throw new Error("afterCommit-boom");
+          },
         });
-        r.hook("postSave", "user", async () => {
-          afterRan.push("second");
+        r.hook({
+          type: "postSave",
+          target: "user",
+          handler: async () => {
+            afterRan.push("second");
+          },
         });
       });
       const registry = createRegistry([feature]);
@@ -376,8 +400,11 @@ describe("runPostSave phase routing", () => {
 
   test("system hooks respect their phase setting", async () => {
     const feature = defineFeature("phases", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -428,24 +455,28 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
     const calls: Array<{ tenant: string }> = [];
 
     const featureA = defineFeature("feat-a", (r) => {
-      r.entity(
-        "widget",
-        createEntity({
+      r.entity({
+        name: "widget",
+        ...createEntity({
           table: "Widgets",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler(
-        "widget:create",
-        z.object({ name: z.string() }),
-        async () => ({ isSuccess: true as const, data: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      });
+      r.writeHandler({
+        name: "widget:create",
+        schema: z.object({ name: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     const featureB = defineFeature("feat-b", (r) => {
-      r.hook("postSave", { allOf: "widget" }, async (_result, ctx) => {
-        calls.push({ tenant: ctx._tenantId ?? "no-tenant" });
+      r.hook({
+        type: "postSave",
+        target: { allOf: "widget" },
+        handler: async (_result, ctx) => {
+          calls.push({ tenant: ctx._tenantId ?? "no-tenant" });
+        },
       });
     });
 
@@ -562,21 +593,32 @@ describe("runPreDelete", () => {
   test("runs feature + entity + system hooks, all inTransaction (throw on error)", async () => {
     const calls: string[] = [];
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+      });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("preDelete", "user", async () => {
-        calls.push("handler");
+      r.hook({
+        type: "preDelete",
+        target: "user",
+        handler: async () => {
+          calls.push("handler");
+        },
       });
-      r.hook("preDelete", { allOf: "user" }, async () => {
-        calls.push("entity");
+      r.hook({
+        type: "preDelete",
+        target: { allOf: "user" },
+        handler: async () => {
+          calls.push("entity");
+        },
       });
     });
     const registry = createRegistry([feature]);
@@ -598,18 +640,25 @@ describe("runPreDelete", () => {
 
   test("a hook throwing aborts the delete (rejects, not swallowed)", async () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+      });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("preDelete", "user", async () => {
-        throw new Error("blocked-delete");
+      r.hook({
+        type: "preDelete",
+        target: "user",
+        handler: async () => {
+          throw new Error("blocked-delete");
+        },
       });
     });
     const registry = createRegistry([feature]);
@@ -644,18 +693,25 @@ describe("runPostDelete", () => {
   test("runs feature then system hooks (best-effort by default phase)", async () => {
     const calls: string[] = [];
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+      });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postDelete", "user", async () => {
-        calls.push("feature");
+      r.hook({
+        type: "postDelete",
+        target: "user",
+        handler: async () => {
+          calls.push("feature");
+        },
       });
     });
     const registry = createRegistry([feature]);
@@ -677,24 +733,27 @@ describe("runPostDelete", () => {
 
   test("inTransaction phase: hook errors throw", async () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+      });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook(
-        "postDelete",
-        "user",
-        async () => {
+      r.hook({
+        type: "postDelete",
+        target: "user",
+        handler: async () => {
           throw new Error("postDelete-inTx-boom");
         },
-        { phase: "inTransaction" },
-      );
+        phase: "inTransaction",
+      });
     });
     const registry = createRegistry([feature]);
     const pipeline = createLifecycleHooks(registry);

@@ -28,38 +28,34 @@ const ERASE_MID_QN = "kms-erase-gate-test:write:erase-mid";
 const ERASE_HIGH_QN = "kms-erase-gate-test:write:erase-high";
 
 const kmsGateFeature = defineFeature("kms-erase-gate-test", (r) => {
-  r.writeHandler(
-    "erase-mid",
-    z.object({}),
-    async () => {
+  r.writeHandler({
+    name: "erase-mid",
+    schema: z.object({}),
+    handler: async () => {
       await configuredPiiSubjectKms()!.eraseKey(SUBJECT, {
         requestId: "kms-erase-gate-test:erase-mid",
         eraseReason: "test",
       });
       return { isSuccess: true as const, data: {} };
     },
-    {
-      access: { roles: ["Admin"] },
-      description: "Erase the widget subject key (mid risk, default).",
-    },
-  );
+    access: { roles: ["Admin"] },
+    description: "Erase the widget subject key (mid risk, default).",
+  });
 
-  r.writeHandler(
-    "erase-high",
-    z.object({}),
-    async () => {
+  r.writeHandler({
+    name: "erase-high",
+    schema: z.object({}),
+    handler: async () => {
       await configuredPiiSubjectKms()!.eraseKey(SUBJECT, {
         requestId: "kms-erase-gate-test:erase-high",
         eraseReason: "test",
       });
       return { isSuccess: true as const, data: {} };
     },
-    {
-      access: { roles: ["Admin"] },
-      description: "Erase the widget subject key (high risk).",
-      agent: { risk: "high" },
-    },
-  );
+    access: { roles: ["Admin"] },
+    description: "Erase the widget subject key (high risk).",
+    agent: { risk: "high" },
+  });
 });
 
 let stack: TestStack;

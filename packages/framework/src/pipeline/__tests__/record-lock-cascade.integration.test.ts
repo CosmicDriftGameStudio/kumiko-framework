@@ -70,10 +70,10 @@ const ROLES = { access: { roles: ["Admin"] } } as const;
 const IRREVERSIBLE = { ...ROLES, agent: { risk: "high" } } as const;
 
 const cascadeFeature = defineFeature("lockcascade", (r) => {
-  r.entity("project", projectEntity);
-  r.entity("task", taskEntity);
-  r.entity("note", noteEntity);
-  r.entity("chore", choreEntity);
+  r.entity({ name: "project", ...projectEntity });
+  r.entity({ name: "task", ...taskEntity });
+  r.entity({ name: "note", ...noteEntity });
+  r.entity({ name: "chore", ...choreEntity });
   r.relation("project", "tasks", {
     type: "hasMany",
     target: "task",
@@ -96,42 +96,42 @@ const cascadeFeature = defineFeature("lockcascade", (r) => {
   const projectExecutor = createEventStoreExecutor(projectTable, projectEntity, {
     entityName: "project",
   });
-  r.writeHandler(
-    "project:system-delete",
-    z.object({ id: z.uuid(), purpose: z.enum(["none", "retention"]) }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "project:system-delete",
+    schema: z.object({ id: z.uuid(), purpose: z.enum(["none", "retention"]) }),
+    handler: async (event, ctx) =>
       projectExecutor.delete(
         { id: event.payload.id },
         createSystemUser(event.user.tenantId),
         ctx.db,
         event.payload.purpose === "retention" ? { writePurpose: WritePurposes.retention } : {},
       ),
-    IRREVERSIBLE,
-  );
-  r.writeHandler(
-    "project:unlocking-delete",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+    ...IRREVERSIBLE,
+  });
+  r.writeHandler({
+    name: "project:unlocking-delete",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       projectExecutor.delete({ id: event.payload.id }, event.user, ctx.db, {
         unsafeSkipLockGuard: true,
       }),
-    IRREVERSIBLE,
-  );
+    ...IRREVERSIBLE,
+  });
 
   const choreExecutor = createEventStoreExecutor(
     buildEntityTable("chore", choreEntity),
     choreEntity,
     { entityName: "chore" },
   );
-  r.writeHandler(
-    "chore:unlocking-delete",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "chore:unlocking-delete",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       choreExecutor.delete({ id: event.payload.id }, event.user, ctx.db, {
         unsafeSkipLockGuard: true,
       }),
-    ROLES,
-  );
+    ...ROLES,
+  });
 
   for (const [name, entity] of [
     ["project", projectEntity],

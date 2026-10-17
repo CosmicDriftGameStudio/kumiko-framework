@@ -53,7 +53,7 @@ const docEntity = createEntity({
 });
 
 const batchSearchFeature = defineFeature("batch-search", (r) => {
-  r.entity("doc", docEntity);
+  r.entity({ name: "doc", ...docEntity });
   r.defineEvent("noop", z.object({}), { piiFields: "none" });
 });
 

@@ -13,10 +13,14 @@ const stubHandler = async () => ({ isSuccess: true as const, data: null });
 describe("lifecycle hook registration", () => {
   test("preSave hooks are registered", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.hook("preSave", "user", async (changes) => {
-        changes["email"] = (changes["email"] as string).toLowerCase();
-        return changes;
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.hook({
+        type: "preSave",
+        target: "user",
+        handler: async (changes) => {
+          changes["email"] = (changes["email"] as string).toLowerCase();
+          return changes;
+        },
       });
     });
 
@@ -25,7 +29,7 @@ describe("lifecycle hook registration", () => {
 
   test("postSave hooks are registered", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("postSave", "user", async () => {});
+      r.hook({ type: "postSave", target: "user", handler: async () => {} });
     });
 
     expect(Object.keys(feature.hooks?.postSave ?? {})).toContain("user");
@@ -33,7 +37,7 @@ describe("lifecycle hook registration", () => {
 
   test("preDelete hooks are registered", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("preDelete", "user", async () => {});
+      r.hook({ type: "preDelete", target: "user", handler: async () => {} });
     });
 
     expect(Object.keys(feature.hooks?.preDelete ?? {})).toContain("user");
@@ -41,7 +45,7 @@ describe("lifecycle hook registration", () => {
 
   test("postDelete hooks are registered", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("postDelete", "user", async () => {});
+      r.hook({ type: "postDelete", target: "user", handler: async () => {} });
     });
 
     expect(Object.keys(feature.hooks?.postDelete ?? {})).toContain("user");
@@ -49,8 +53,8 @@ describe("lifecycle hook registration", () => {
 
   test("multiple hooks on same entity are collected in order", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("preSave", "user", async (changes) => changes);
-      r.hook("preSave", "user", async (changes) => changes);
+      r.hook({ type: "preSave", target: "user", handler: async (changes) => changes });
+      r.hook({ type: "preSave", target: "user", handler: async (changes) => changes });
     });
 
     const hooks = feature.hooks?.preSave?.["user"];
@@ -59,9 +63,9 @@ describe("lifecycle hook registration", () => {
 
   test("validation hooks still work alongside lifecycle hooks", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("validation", "userForm", () => null);
-      r.hook("preSave", "user", async (changes) => changes);
-      r.hook("postSave", "user", async () => {});
+      r.hook({ type: "validation", target: "userForm", handler: () => null });
+      r.hook({ type: "preSave", target: "user", handler: async (changes) => changes });
+      r.hook({ type: "postSave", target: "user", handler: async () => {} });
     });
 
     expect(feature.hooks?.validation?.["userForm"]).toBeDefined();
@@ -73,12 +77,15 @@ describe("lifecycle hook registration", () => {
 describe("lifecycle hooks in registry", () => {
   test("merges preSave hooks within same feature", () => {
     const f1 = defineFeature("a", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), stubHandler, {
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: stubHandler,
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("preSave", "user", async (changes) => changes);
-      r.hook("preSave", "user", async (changes) => changes);
+      r.hook({ type: "preSave", target: "user", handler: async (changes) => changes });
+      r.hook({ type: "preSave", target: "user", handler: async (changes) => changes });
     });
 
     const registry = createRegistry([f1]);
@@ -87,19 +94,25 @@ describe("lifecycle hooks in registry", () => {
 
   test("cross-feature hooks use full prefixed name", () => {
     const f1 = defineFeature("a", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), stubHandler, {
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.writeHandler({
+        name: "user",
+        schema: z.object({}),
+        handler: stubHandler,
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postSave", "user", async () => {});
+      r.hook({ type: "postSave", target: "user", handler: async () => {} });
     });
     // Feature b hooks into a.user by using the full prefixed name
     const f2 = defineFeature("b", (r) => {
-      r.writeHandler("a.user", z.object({}), stubHandler, {
+      r.writeHandler({
+        name: "a.user",
+        schema: z.object({}),
+        handler: stubHandler,
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postSave", "a.user", async () => {});
-      r.hook("postSave", "a.user", async () => {});
+      r.hook({ type: "postSave", target: "a.user", handler: async () => {} });
+      r.hook({ type: "postSave", target: "a.user", handler: async () => {} });
     });
 
     const registry = createRegistry([f1, f2]);
@@ -110,7 +123,7 @@ describe("lifecycle hooks in registry", () => {
 
   test("returns empty array for entity without hooks", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
     });
 
     const registry = createRegistry([feature]);

@@ -77,8 +77,8 @@ const sagaStateTable = pgTable("read_mspreb_saga_state", {
 let invoiceBilledEventName = "";
 
 const feature = defineFeature("mspreb", (r) => {
-  r.entity("msp-reb-invoice", invoiceEntity);
-  r.entity("msp-reb-payment", paymentEntity);
+  r.entity({ name: "msp-reb-invoice", ...invoiceEntity });
+  r.entity({ name: "msp-reb-payment", ...paymentEntity });
 
   const invoiceBilled = r.defineEvent(
     "invoice-billed",
@@ -156,10 +156,10 @@ const feature = defineFeature("mspreb", (r) => {
     entityName: "msp-reb-payment",
   });
 
-  r.writeHandler(
-    "invoice:bill",
-    z.object({ customer: z.uuid(), cents: z.number().int() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "invoice:bill",
+    schema: z.object({ customer: z.uuid(), cents: z.number().int() }),
+    handler: async (event, ctx) => {
       const res = await invoiceExecutor.create(
         { customer: event.payload.customer },
         event.user,
@@ -174,13 +174,13 @@ const feature = defineFeature("mspreb", (r) => {
       });
       return res;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "payment:receive",
-    z.object({ customer: z.uuid(), cents: z.number().int() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "payment:receive",
+    schema: z.object({ customer: z.uuid(), cents: z.number().int() }),
+    handler: async (event, ctx) => {
       const res = await paymentExecutor.create(
         { customer: event.payload.customer },
         event.user,
@@ -195,8 +195,8 @@ const feature = defineFeature("mspreb", (r) => {
       });
       return res;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 const BALANCE_MSP = "mspreb:projection:customer-balance";

@@ -42,7 +42,7 @@ const widgetEntity = createEntity({
 const widgetTable = buildEntityTable("widget", widgetEntity);
 
 const widgetFeature = defineFeature("reindex-test", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
 });
 
 // fw#1611: pii + searchable — the read-table column holds ciphertext, a
@@ -55,7 +55,7 @@ const contactEntity = createEntity({
 });
 const contactTable = buildEntityTable("contact", contactEntity);
 const contactFeature = defineFeature("reindex-pii-test", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 
 let stack: TestStack;

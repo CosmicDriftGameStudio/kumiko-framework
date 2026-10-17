@@ -84,7 +84,7 @@ const catalog: BillingPlanCatalog = {
 const emailTransport = createInMemoryTransport();
 
 const mockProviderFeature = defineFeature("test-mock-recipient-limit-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,
     priceToTier: { price_starter: "starter", price_pro: "pro" },

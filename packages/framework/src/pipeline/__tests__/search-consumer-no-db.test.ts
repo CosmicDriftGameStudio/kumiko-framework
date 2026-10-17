@@ -33,7 +33,7 @@ describe("search consumer without a db on its context", () => {
     } as unknown as SearchAdapter; // @cast-boundary test stub — only remove() is reachable on this path
     const registry = createRegistry([
       defineFeature("nodb", (r) => {
-        r.entity("note", noteEntity);
+        r.entity({ name: "note", ...noteEntity });
       }),
     ]);
     const consumer = createSearchEventConsumer(adapter, registry);

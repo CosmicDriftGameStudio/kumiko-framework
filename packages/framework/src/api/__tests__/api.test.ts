@@ -18,27 +18,27 @@ import { buildServer } from "../server.js";
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 
 const testFeature = defineFeature("test", (r) => {
-  r.entity(
-    "item",
-    createEntity({
+  r.entity({
+    name: "item",
+    ...createEntity({
       table: "Items",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
-  );
+  });
 
-  r.writeHandler(
-    "item:create",
-    z.object({ name: z.string().min(1) }),
-    async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "item:list",
-    z.object({ search: z.string().optional() }),
-    async () => [{ id: 1, name: "Test" }],
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.queryHandler({
+    name: "item:list",
+    schema: z.object({ search: z.string().optional() }),
+    handler: async () => [{ id: 1, name: "Test" }],
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   r.streamHandler(
     "item:tail",
@@ -742,14 +742,17 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
   // → Hono-app.{get,post}(path) → Response. deps.app erlaubt internal-call
   // an /api/* (gleicher Auth-Pfad wie ein echter HTTP-Call).
   const routeFeature = defineFeature("routes", (r) => {
-    r.entity(
-      "item",
-      createEntity({
+    r.entity({
+      name: "item",
+      ...createEntity({
         table: "Items",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
-    r.queryHandler("item:list", z.object({}), async () => [{ id: 7 }], {
+    });
+    r.queryHandler({
+      name: "item:list",
+      schema: z.object({}),
+      handler: async () => [{ id: 7 }],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     r.httpRoute({
@@ -798,17 +801,20 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     // defaultTenantId macht den inner-Call ohne Bearer-Token möglich;
     // pinst dass deps.app.fetch identisch zu einem echten HTTP-Call läuft.
     const inner = defineFeature("inner", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       // Bewusst "anonymous" — openToAll schließt anonymous-User explizit
       // aus (siehe access.ts), damit das Aktivieren von anonymousAccess
       // nicht versehentlich jeden openToAll-Handler public macht.
-      r.queryHandler("item:list", z.object({}), async () => [{ id: 42, name: "hello" }], {
+      r.queryHandler({
+        name: "item:list",
+        schema: z.object({}),
+        handler: async () => [{ id: 42, name: "hello" }],
         access: { roles: ["anonymous"] },
       });
       r.httpRoute({

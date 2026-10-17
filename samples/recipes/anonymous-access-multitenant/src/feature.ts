@@ -34,32 +34,30 @@ export const productEntity = createEntity({
 export const productTable = buildEntityTable("product", productEntity);
 
 export const multiTenantShopFeature = defineFeature("mtshop", (r) => {
-  r.entity("product", productEntity);
+  r.entity({ name: "product", ...productEntity });
 
   // Public listing — every tenant has its own products, scoped by tenantId
   // automatically via the framework's tenant-isolation. Anonymous visitors
   // see only the tenant they landed on.
-  r.queryHandler(
-    "product:list",
-    z.object({}),
-    async (_event, ctx) => ctx.db.selectMany(productTable),
-    {
-      access: { roles: [...access.anonymous, "User", "Admin"] },
-      rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
-    },
-  );
+  r.queryHandler({
+    name: "product:list",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ctx.db.selectMany(productTable),
+    access: { roles: [...access.anonymous, "User", "Admin"] },
+    rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
+  });
 
   // Admin-only — proves role-gating still works on top of the multi-tenant
   // anonymous resolution.
-  r.writeHandler(
-    "product:create",
-    z.object({ name: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "product:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const exec = createEventStoreExecutor(productTable, productEntity, {
         entityName: "product",
       });
       return exec.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });

@@ -66,7 +66,7 @@ const UNSAFE_ALL_TENANTS_REASON = "fw#2913 test — cross-tenant widget sweep";
 const OBJECT_FORM_REASON = "object-form unsafeAllTenants test — cross-tenant widget sweep";
 
 const qpFeature = defineFeature("qp", (r) => {
-  r.entity("qp-widget", widgetEntity);
+  r.entity({ name: "qp-widget", ...widgetEntity });
 
   r.projection({
     name: "widget-count-tenant",
@@ -121,47 +121,45 @@ const qpFeature = defineFeature("qp", (r) => {
     entityName: "qp-widget",
   });
 
-  r.writeHandler(
-    "widget:create",
-    z.object({ name: z.string() }),
-    async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "widget:create",
+    schema: z.object({ name: z.string() }),
+    handler: async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "widget:list-tenant",
-    z.object({}),
-    async (_query, ctx) => ctx.queryProjection("qp:projection:widget-count-tenant"),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.queryHandler({
+    name: "widget:list-tenant",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ctx.queryProjection("qp:projection:widget-count-tenant"),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.queryHandler(
-    "widget:list-system",
-    z.object({ unsafeAllTenants: z.boolean().optional() }),
-    async (query, ctx) =>
+  r.queryHandler({
+    name: "widget:list-system",
+    schema: z.object({ unsafeAllTenants: z.boolean().optional() }),
+    handler: async (query, ctx) =>
       ctx.queryProjection("qp:projection:widget-audit", {
         unsafeAllTenants: query.payload.unsafeAllTenants ?? false,
       }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.queryHandler(
-    "widget:list-ghost",
-    z.object({}),
-    async (_query, ctx) => ctx.queryProjection("qp:projection:does-not-exist"),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.queryHandler({
+    name: "widget:list-ghost",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ctx.queryProjection("qp:projection:does-not-exist"),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.queryHandler(
-    "widget:list-tenant-escape-hatch",
-    z.object({}),
-    async (_query, ctx) =>
+  r.queryHandler({
+    name: "widget:list-tenant-escape-hatch",
+    schema: z.object({}),
+    handler: async (_query, ctx) =>
       ctx.queryProjection("qp:projection:widget-count-tenant", { unsafeAllTenants: true }),
-    {
-      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-      escapeHatch: { reason: UNSAFE_ALL_TENANTS_REASON },
-    },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    escapeHatch: { reason: UNSAFE_ALL_TENANTS_REASON },
+  });
 
   r.queryHandler(
     defineProjectionQueryHandler("widget:list-object-form", "qp:projection:widget-count-tenant", {
@@ -170,36 +168,36 @@ const qpFeature = defineFeature("qp", (r) => {
     }),
   );
 
-  r.queryHandler(
-    "widget:list-entitymeta",
-    z.object({}),
-    async (_query, ctx) => ctx.queryProjection("qp:projection:widget-count-entitymeta"),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.queryHandler({
+    name: "widget:list-entitymeta",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ctx.queryProjection("qp:projection:widget-count-entitymeta"),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.queryHandler(
-    "widget:list-tenant-untyped-payload",
-    z.object({ unsafeAllTenants: z.unknown() }),
-    async (query, ctx) =>
+  r.queryHandler({
+    name: "widget:list-tenant-untyped-payload",
+    schema: z.object({ unsafeAllTenants: z.unknown() }),
+    handler: async (query, ctx) =>
       ctx.queryProjection("qp:projection:widget-count-tenant", {
         // @cast-boundary test-fixture — deliberately not the literal boolean `true`,
         // proving a truthy-but-not-strictly-true value still tenant-filters.
         unsafeAllTenants: query.payload.unsafeAllTenants as boolean,
       }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 const qpSystemFeature = defineFeature("qp-system", (r) => {
   r.systemScope();
 
-  r.queryHandler(
-    "widget:list-tenant-systemscope",
-    z.object({}),
-    async (_query, ctx) =>
+  r.queryHandler({
+    name: "widget:list-tenant-systemscope",
+    schema: z.object({}),
+    handler: async (_query, ctx) =>
       ctx.queryProjection("qp:projection:widget-count-tenant", { unsafeAllTenants: true }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 let stack: TestStack;

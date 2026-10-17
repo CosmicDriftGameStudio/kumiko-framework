@@ -41,7 +41,7 @@ const readPageSizeQuery = defineQueryHandler({
 });
 
 const devcfgFeature = defineFeature("devcfg", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       pageSize: createTenantConfig("number", {

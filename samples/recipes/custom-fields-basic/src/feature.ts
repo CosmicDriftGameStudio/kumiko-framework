@@ -53,9 +53,10 @@ function propertyExecutor() {
 // --- Feature ---
 
 export const propertyFeature = defineFeature("property-management", (r) => {
-  r.requires("custom-fields");
+  r.requires({ features: ["custom-fields"] });
 
-  r.entity("property", {
+  r.entity({
+    name: "property",
     table: "read_sample_cf_properties",
     fields: {
       name: { type: "text", required: true, maxLength: 200 },

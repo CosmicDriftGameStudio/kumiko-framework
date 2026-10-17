@@ -86,19 +86,19 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
     access: open.access,
   });
 
-  r.queryHandler(
-    "note:summary",
-    z.object({ id: z.string() }),
-    async (query) => ({ id: query.payload.id, ...NOTE_DETAIL_FIELDS }),
-    open,
-  );
+  r.queryHandler({
+    name: "note:summary",
+    schema: z.object({ id: z.string() }),
+    handler: async (query) => ({ id: query.payload.id, ...NOTE_DETAIL_FIELDS }),
+    ...open,
+  });
 
-  r.writeHandler(
-    "note:comment",
-    commentPayloadSchema,
-    async () => ({ isSuccess: true as const, data: null }),
-    open,
-  );
+  r.writeHandler({
+    name: "note:comment",
+    schema: commentPayloadSchema,
+    handler: async () => ({ isSuccess: true as const, data: null }),
+    ...open,
+  });
 
   r.screen({
     id: "note-detail",

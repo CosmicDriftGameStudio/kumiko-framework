@@ -107,7 +107,7 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
     recommended: false,
   });
   // EXT_TENANT_DATA-Hook braucht den tenant-lifecycle-Host.
-  r.requires("tenant-lifecycle");
+  r.requires({ features: ["tenant-lifecycle"] });
 
   // 5 fine-grained domain-events (Payload-Schemas: events.ts).
   // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).

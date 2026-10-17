@@ -43,8 +43,8 @@ const globalItemEntity = createEntity({
 const globalItemTable = buildEntityTable("globalItem", globalItemEntity);
 
 const feature = defineFeature("sdcjob", (r) => {
-  r.entity("item", itemEntity);
-  r.entity("globalItem", globalItemEntity);
+  r.entity({ name: "item", ...itemEntity });
+  r.entity({ name: "globalItem", ...globalItemEntity });
   r.writeHandler(
     defineEntityCreateHandler("globalItem", globalItemEntity, { access: { roles: ["Admin"] } }),
   );

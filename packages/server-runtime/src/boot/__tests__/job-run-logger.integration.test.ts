@@ -115,21 +115,24 @@ const attachResults: Array<{ writeOk: boolean; rowCount: number }> = [];
 const attachFailures: string[] = [];
 
 const attachDispatcherFeature = defineFeature("jobattach", (r) => {
-  r.entity("note", attachNoteEntity);
+  r.entity({ name: "note", ...attachNoteEntity });
 
-  r.writeHandler(
-    "create",
-    z.object({ text: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "create",
+    schema: z.object({ text: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(attachNoteTable, attachNoteEntity, {
         entityName: "note",
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.queryHandler("list", z.object({}), async (_query, ctx) => selectMany(ctx.db, attachNoteTable), {
+  r.queryHandler({
+    name: "list",
+    schema: z.object({}),
+    handler: async (_query, ctx) => selectMany(ctx.db, attachNoteTable),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 

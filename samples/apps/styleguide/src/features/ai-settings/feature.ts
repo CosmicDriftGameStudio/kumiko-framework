@@ -53,14 +53,14 @@ function isProvider(value: unknown): value is Provider {
 }
 
 export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.translations({ keys: AI_SETTINGS_I18N });
 
   r.crud("connection", connectionEntity, { write: open, read: openRead });
-  r.queryHandler(
-    "connection-options",
-    noPayload,
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "connection-options",
+    schema: noPayload,
+    handler: async (query, ctx) => {
       const page = await executor.list({ limit: 100 }, query.user, ctx.db);
       return {
         rows: page.rows.map((row) => ({
@@ -69,28 +69,33 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
         })),
       };
     },
-    openRead,
-  );
+    ...openRead,
+  });
 
-  r.queryHandler(
-    "model-options",
-    connectionIdPayload,
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "model-options",
+    schema: connectionIdPayload,
+    handler: async (query, ctx) => {
       const { connectionId } = query.payload;
       if (connectionId === undefined) return { rows: [] };
       const row = await executor.detail({ id: connectionId }, query.user, ctx.db);
       const provider = row?.["provider"];
       return { rows: isProvider(provider) ? MODELS_BY_PROVIDER[provider] : [] };
     },
-    openRead,
-  );
+    ...openRead,
+  });
 
-  r.queryHandler("step-options", noPayload, async () => ({ rows: AI_STEPS }), openRead);
+  r.queryHandler({
+    name: "step-options",
+    schema: noPayload,
+    handler: async () => ({ rows: AI_STEPS }),
+    ...openRead,
+  });
 
-  r.queryHandler(
-    "all-model-options",
-    noPayload,
-    async () => ({
+  r.queryHandler({
+    name: "all-model-options",
+    schema: noPayload,
+    handler: async () => ({
       rows: PROVIDERS.flatMap((provider) =>
         MODELS_BY_PROVIDER[provider].map((model) => ({
           ...model,
@@ -98,13 +103,13 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
         })),
       ),
     }),
-    openRead,
-  );
+    ...openRead,
+  });
 
-  r.queryHandler(
-    "connection:summary",
-    idPayload,
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "connection:summary",
+    schema: idPayload,
+    handler: async (query, ctx) => {
       const row = await executor.detail({ id: query.payload.id }, query.user, ctx.db);
       return {
         id: query.payload.id,
@@ -112,12 +117,22 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
         provider: String(row?.["provider"] ?? ""),
       };
     },
-    openRead,
-  );
+    ...openRead,
+  });
 
   const acknowledged = async () => ({ isSuccess: true as const, data: null });
-  r.writeHandler("step:assign", z.object({}).passthrough(), acknowledged, open);
-  r.writeHandler("probe:run", z.object({}).passthrough(), acknowledged, open);
+  r.writeHandler({
+    name: "step:assign",
+    schema: z.object({}).passthrough(),
+    handler: acknowledged,
+    ...open,
+  });
+  r.writeHandler({
+    name: "probe:run",
+    schema: z.object({}).passthrough(),
+    handler: acknowledged,
+    ...open,
+  });
 
   r.config({
     keys: {

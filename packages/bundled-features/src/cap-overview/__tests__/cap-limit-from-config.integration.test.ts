@@ -38,7 +38,7 @@ const STATIC_PRO_LIMIT = 50;
 const TENANT_A = testTenantId(9201);
 
 const budgetFeature = defineFeature("cap-budget-probe", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       publicBudget: createSystemConfig("number", {

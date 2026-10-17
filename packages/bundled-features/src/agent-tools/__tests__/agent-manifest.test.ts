@@ -25,36 +25,38 @@ const gatedEntity = createEntity({
 
 function buildTestFeature() {
   return defineFeature("agent-manifest-test", (r) => {
-    r.entity("widget", gatedEntity);
+    r.entity({ name: "widget", ...gatedEntity });
 
-    r.queryHandler("widget:lookup", z.object({ id: z.string() }), async () => ({}), {
+    r.queryHandler({
+      name: "widget:lookup",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({}),
       access: { roles: ["admin", "viewer"] },
       description: "Look up a widget by id.",
     });
 
-    r.writeHandler(
-      "widget:archive",
-      z.object({ id: z.string() }),
-      async () => ({ isSuccess: true, data: {} }),
-      {
-        access: { roles: ["admin"] },
-        description: "Archive a widget.",
-      },
-    );
+    r.writeHandler({
+      name: "widget:archive",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({ isSuccess: true, data: {} }),
+      access: { roles: ["admin"] },
+      description: "Archive a widget.",
+    });
 
-    r.queryHandler("widget:undescribed", z.object({ id: z.string() }), async () => ({}), {
+    r.queryHandler({
+      name: "widget:undescribed",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({}),
       access: { roles: ["admin", "viewer"] },
     });
 
-    r.queryHandler(
-      "widget:oddschema",
-      z.object({ occurredAt: z.instanceof(Date) }),
-      async () => ({}),
-      {
-        access: { roles: ["admin", "viewer"] },
-        description: "Takes a schema z.toJSONSchema cannot express.",
-      },
-    );
+    r.queryHandler({
+      name: "widget:oddschema",
+      schema: z.object({ occurredAt: z.instanceof(Date) }),
+      handler: async () => ({}),
+      access: { roles: ["admin", "viewer"] },
+      description: "Takes a schema z.toJSONSchema cannot express.",
+    });
   });
 }
 
@@ -68,9 +70,12 @@ const otherEntity = createEntity({
 // sort order provably diverge in the determinism test below.
 function buildOtherFeature() {
   return defineFeature("aa-other-feature", (r) => {
-    r.entity("other", otherEntity);
+    r.entity({ name: "other", ...otherEntity });
 
-    r.queryHandler("other:lookup", z.object({ id: z.string() }), async () => ({}), {
+    r.queryHandler({
+      name: "other:lookup",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({}),
       access: { roles: ["admin"] },
       description: "Look up an other by id.",
     });
@@ -117,7 +122,7 @@ describe("buildAgentManifest", () => {
 
   test("object-form handlers forward description and agent hints into the manifest", () => {
     const feature = defineFeature("agent-object-form", (r) => {
-      r.entity("widget", gatedEntity);
+      r.entity({ name: "widget", ...gatedEntity });
       r.writeHandler(
         defineWriteHandler({
           name: "widget:purge",
@@ -158,14 +163,15 @@ describe("buildAgentManifest", () => {
 
   test("references meta with a business key survives into the exported inputSchema", () => {
     const feature = defineFeature("agent-references", (r) => {
-      r.writeHandler(
-        "post:publish",
-        z.object({
+      r.writeHandler({
+        name: "post:publish",
+        schema: z.object({
           channelKeys: z.array(z.string()).meta({ references: { entity: "channel", by: "key" } }),
         }),
-        async () => ({ isSuccess: true, data: {} }),
-        { access: { roles: ["admin"] }, description: "Publish a post." },
-      );
+        handler: async () => ({ isSuccess: true, data: {} }),
+        access: { roles: ["admin"] },
+        description: "Publish a post.",
+      });
     });
     const admin = buildAgentManifest(createRegistry([feature]), { locale: "en", roles: ["admin"] });
     const publish = admin.handlers.find((h) => h.qn.endsWith(":publish"));
@@ -365,7 +371,7 @@ describe("buildAgentManifest", () => {
 
   test("entity and field labels resolve via suffix match, first registered key wins", () => {
     const feature = defineFeature("label-suffix-test", (r) => {
-      r.entity("widget", gatedEntity);
+      r.entity({ name: "widget", ...gatedEntity });
       r.translations({
         keys: {
           "label-suffix-test:entity:widget": { en: "Widget" },

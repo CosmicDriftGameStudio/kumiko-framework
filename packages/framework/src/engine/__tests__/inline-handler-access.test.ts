@@ -11,7 +11,12 @@ describe("inline handler registration requires options.access", () => {
   test("writeHandler with empty options throws at registration", () => {
     expect(() =>
       defineFeature("inline-access", (r) => {
-        r.writeHandler("create", z.object({}), noopHandler, optionsWithoutAccess);
+        r.writeHandler({
+          name: "create",
+          schema: z.object({}),
+          handler: noopHandler,
+          ...optionsWithoutAccess,
+        });
       }),
     ).toThrow(/inline form requires schema \+ handler \+ options\.access/);
   });
@@ -19,7 +24,12 @@ describe("inline handler registration requires options.access", () => {
   test("queryHandler with empty options throws at registration", () => {
     expect(() =>
       defineFeature("inline-access", (r) => {
-        r.queryHandler("list", z.object({}), noopHandler, optionsWithoutAccess);
+        r.queryHandler({
+          name: "list",
+          schema: z.object({}),
+          handler: noopHandler,
+          ...optionsWithoutAccess,
+        });
       }),
     ).toThrow(/inline form requires schema \+ handler \+ options\.access/);
   });

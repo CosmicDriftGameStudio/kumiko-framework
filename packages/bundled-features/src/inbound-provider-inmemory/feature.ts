@@ -149,6 +149,6 @@ export const inboundProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) =>
     category: "notifications",
     recommended: false,
   });
-  r.requires("inbound-mail-foundation");
+  r.requires({ features: ["inbound-mail-foundation"] });
   r.useExtension("inboundMailProvider", INMEMORY_PROVIDER_KEY, inMemoryInboundMailPlugin);
 });

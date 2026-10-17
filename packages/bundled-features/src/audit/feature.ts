@@ -44,7 +44,7 @@ export function createAuditFeature(): FeatureDefinition {
         recommended: false,
       });
       r.translations({ keys: AUDIT_I18N });
-      r.requires("tenant", "user", "config");
+      r.requires({ features: ["tenant", "user", "config"] });
 
       // Registered so ops tools/MSPs can discover the type — escape-hatch-audit-sink.ts appends it via the low-level event-store API.
       r.defineEvent("escape-hatch-used", escapeHatchUsedSchema, { piiFields: "none" });

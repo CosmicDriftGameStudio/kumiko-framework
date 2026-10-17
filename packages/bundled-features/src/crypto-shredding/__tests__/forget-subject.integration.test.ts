@@ -300,7 +300,7 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
   });
   const probeTable = buildEntityTable("forgetSubjectSearchProbe", probeEntity);
   const probeFeature = defineFeature("forget-subject-search-probe", (r) => {
-    r.entity("probe", probeEntity);
+    r.entity({ name: "probe", ...probeEntity });
   });
 
   let searchStack: TestStack;
@@ -414,7 +414,7 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
   });
   const probeTable = buildEntityTable("forgetSubjectFailingSearchProbe", probeEntity);
   const probeFeature = defineFeature("forget-subject-failing-search-probe", (r) => {
-    r.entity("probe", probeEntity);
+    r.entity({ name: "probe", ...probeEntity });
   });
 
   let failingStack: TestStack;
@@ -490,7 +490,7 @@ describe("crypto-shredding :: forget-subject closes the login door although the 
   });
   const probeTable = buildEntityTable("forgetSubjectDoorFailingSearchProbe", probeEntity);
   const probeFeature = defineFeature("forget-subject-door-failing-search-probe", (r) => {
-    r.entity("probe", probeEntity);
+    r.entity({ name: "probe", ...probeEntity });
   });
 
   let doorStack: TestStack;
@@ -601,7 +601,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
   });
   const shareLikeTable = buildEntityTable("forgetSubjectShareLikeProbe", shareLikeEntity);
   const shareLikeFeature = defineFeature("forget-subject-share-like-probe", (r) => {
-    r.entity("probe", shareLikeEntity);
+    r.entity({ name: "probe", ...shareLikeEntity });
   });
 
   function shareLikeProbeExecutor() {
@@ -868,7 +868,7 @@ describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing ta
     },
   });
   const missingTableProbeFeature = defineFeature("forget-subject-missing-table-probe", (r) => {
-    r.entity("probe", missingTableProbeEntity);
+    r.entity({ name: "probe", ...missingTableProbeEntity });
   });
 
   let missingTableStack: TestStack;

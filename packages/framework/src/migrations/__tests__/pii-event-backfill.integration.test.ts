@@ -66,7 +66,7 @@ function buildContactEntity(phoneIsPii: boolean): EntityDefinition {
 
 function buildCrmFeature(entity: EntityDefinition) {
   return defineFeature("crm", (r) => {
-    r.entity("contact", entity);
+    r.entity({ name: "contact", ...entity });
     r.writeHandler(
       defineEntityWriteHandler("contact:create", entity, { access: { roles: ["Admin"] } }),
     );

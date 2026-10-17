@@ -6,18 +6,16 @@ import type { AuthRoutesConfig } from "../auth-routes.js";
 import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const loginFeature = defineFeature("retiredcookie", (r) => {
-  r.writeHandler(
-    "login",
-    z.object({ email: z.string(), password: z.string() }),
-    async () => ({
+  r.writeHandler({
+    name: "login",
+    schema: z.object({ email: z.string(), password: z.string() }),
+    handler: async () => ({
       isSuccess: true as const,
       data: { kind: "auth-session", session: TestUsers.user },
     }),
-    {
-      access: { roles: ["anonymous"] },
-      rateLimit: { per: "ip", limit: 1000, windowSeconds: 60 },
-    },
-  );
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip", limit: 1000, windowSeconds: 60 },
+  });
 });
 
 const BASE_AUTH_CONFIG: AuthRoutesConfig = {

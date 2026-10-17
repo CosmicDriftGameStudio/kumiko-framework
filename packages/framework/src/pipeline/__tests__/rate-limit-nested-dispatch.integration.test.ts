@@ -47,40 +47,54 @@ const resolver: RateLimitResolver = {
 const ipLimit = { per: "ip", limit: 60, windowSeconds: 60 } as const;
 
 const nestedFeature = defineFeature("rl-nested", (r) => {
-  r.queryHandler("inner-ip", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "inner-ip",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
     rateLimit: ipLimit,
   });
-  r.queryHandler("inner-user", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "inner-user",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "user", limit: 60, windowSeconds: 60 },
   });
-  r.queryHandler(
-    "outer-same-bucket",
-    z.object({}),
-    async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-ip", {}) }),
-    { access: { roles: ["Admin"] }, rateLimit: ipLimit },
-  );
-  r.queryHandler(
-    "outer-other-bucket",
-    z.object({}),
-    async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-user", {}) }),
-    { access: { roles: ["Admin"] }, rateLimit: ipLimit },
-  );
-  r.queryHandler("inner-ip-strict", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "outer-same-bucket",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-ip", {}) }),
+    access: { roles: ["Admin"] },
+    rateLimit: ipLimit,
+  });
+  r.queryHandler({
+    name: "outer-other-bucket",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-user", {}) }),
+    access: { roles: ["Admin"] },
+    rateLimit: ipLimit,
+  });
+  r.queryHandler({
+    name: "inner-ip-strict",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
   });
-  r.queryHandler(
-    "outer-stricter-nested",
-    z.object({}),
-    async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-ip-strict", {}) }),
-    { access: { roles: ["Admin"] }, rateLimit: ipLimit },
-  );
-  r.queryHandler(
-    "outer-retry-after-denial",
-    z.object({}),
-    async (_event, ctx) => {
+  r.queryHandler({
+    name: "outer-stricter-nested",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ({
+      inner: await ctx.query("rl-nested:query:inner-ip-strict", {}),
+    }),
+    access: { roles: ["Admin"] },
+    rateLimit: ipLimit,
+  });
+  r.queryHandler({
+    name: "outer-retry-after-denial",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       const outcomes: boolean[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -92,9 +106,13 @@ const nestedFeature = defineFeature("rl-nested", (r) => {
       }
       return { outcomes };
     },
-    { access: { roles: ["Admin"] }, rateLimit: ipLimit },
-  );
-  r.writeHandler("touch", z.object({}), async () => ({ isSuccess: true as const, data: {} }), {
+    access: { roles: ["Admin"] },
+    rateLimit: ipLimit,
+  });
+  r.writeHandler({
+    name: "touch",
+    schema: z.object({}),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "user", limit: 60, windowSeconds: 60 },
   });

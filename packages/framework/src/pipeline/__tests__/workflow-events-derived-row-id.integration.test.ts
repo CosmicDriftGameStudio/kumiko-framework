@@ -46,7 +46,7 @@ const writableRunViewTable = runViewTable as unknown as Parameters<typeof insert
 const PROJECTION_NAME = "wfsalted:projection:wf-salted-run-view-entity";
 
 const workflowViewFeature = defineFeature("wfsalted", (r) => {
-  r.entity("wf-salted-run-view", runViewEntity);
+  r.entity({ name: "wf-salted-run-view", ...runViewEntity });
   r.extendEntityProjection("wf-salted-run-view", {
     sources: [WORKFLOW_AGGREGATE_TYPE],
     rowIdOf: saltedRowId,
@@ -66,10 +66,10 @@ const workflowViewFeature = defineFeature("wfsalted", (r) => {
     },
   });
 
-  r.writeHandler(
-    "run:record",
-    z.object({ runId: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "run:record",
+    schema: z.object({ runId: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
@@ -78,8 +78,8 @@ const workflowViewFeature = defineFeature("wfsalted", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

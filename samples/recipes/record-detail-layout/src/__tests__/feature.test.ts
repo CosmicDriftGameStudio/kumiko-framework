@@ -76,7 +76,10 @@ describe("record-detail-layout showcase — registration", () => {
 describe("record-detail-layout showcase — boot-validator catches author mistakes", () => {
   test("metric without a fieldLabels entry fails boot — no fallback to the raw column name", () => {
     const broken = defineFeature("broken-order-desk", (r) => {
-      r.queryHandler("order:detail", z.object({ id: z.string() }), async () => ({ id: "1" }), {
+      r.queryHandler({
+        name: "order:detail",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({ id: "1" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -94,7 +97,10 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 
   test("tabs with only one section fails boot", () => {
     const broken = defineFeature("broken-order-desk-tabs", (r) => {
-      r.queryHandler("order:detail", z.object({ id: z.string() }), async () => ({ id: "1" }), {
+      r.queryHandler({
+        name: "order:detail",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({ id: "1" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({

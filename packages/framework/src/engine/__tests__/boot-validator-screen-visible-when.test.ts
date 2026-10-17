@@ -10,17 +10,24 @@ type GatedScreen = Pick<ScreenDefinition, "visibleWhen" | "fallback">;
 
 function gatedFeature(gate: GatedScreen, upgradeGate: GatedScreen = {}) {
   return defineFeature("demo", (r) => {
-    r.queryHandler(
-      "tier:scoped-status",
-      z.object({ tierId: z.string() }),
-      async () => ({ enabled: true }),
-      { access: OPEN, outputSchema: z.object({ enabled: z.boolean() }) },
-    );
-    r.queryHandler("tier:status", z.object({}), async () => ({ enabled: true }), {
+    r.queryHandler({
+      name: "tier:scoped-status",
+      schema: z.object({ tierId: z.string() }),
+      handler: async () => ({ enabled: true }),
       access: OPEN,
       outputSchema: z.object({ enabled: z.boolean() }),
     });
-    r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+    r.queryHandler({
+      name: "tier:status",
+      schema: z.object({}),
+      handler: async () => ({ enabled: true }),
+      access: OPEN,
+      outputSchema: z.object({ enabled: z.boolean() }),
+    });
+    r.queryHandler({
+      name: "items:list",
+      schema: z.object({}),
+      handler: async () => ({ rows: [], nextCursor: null }),
       access: OPEN,
     });
     r.screen({

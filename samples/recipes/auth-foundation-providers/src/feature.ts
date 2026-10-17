@@ -47,7 +47,7 @@ export function createSubdomainTenantRoutingFeature(
   const reserved = new Set(opts.reservedSubdomains ?? ["www", "app", "api", "admin"]);
 
   return defineFeature("sample-subdomain-tenant-routing", (r) => {
-    r.requires("auth-foundation");
+    r.requires({ features: ["auth-foundation"] });
 
     const resolverPlugin: TenantResolverProvider = {
       trust,

@@ -56,7 +56,7 @@ let waitForAllWrites = createBarrier(POOL_MAX);
 const queuedSends: string[] = [];
 
 const queuedChannelFeature = defineFeature("queued-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.useExtension(DELIVERY_CHANNEL_EXTENSION, "queuedProbe", {
     mode: "queued",
     send: async (address) => {
@@ -67,7 +67,7 @@ const queuedChannelFeature = defineFeature("queued-probe", (r) => {
 });
 
 const probeFeature = defineFeature("after-commit-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "broadcast",

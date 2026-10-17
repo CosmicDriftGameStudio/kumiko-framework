@@ -40,7 +40,7 @@ const photoEntity = createEntity({
 });
 
 const photoFeature = defineFeature("variantroutetest", (r) => {
-  r.entity("photo", photoEntity);
+  r.entity({ name: "photo", ...photoEntity });
   r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, { onRegister: () => {} });
   r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
 });

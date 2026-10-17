@@ -34,7 +34,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   // every app that mounts form-draft without config, which is a breaking
   // change no minor/patch release should introduce silently.
   r.optionalRequires("config");
-  r.entity("form-draft", formDraftEntity);
+  r.entity({ name: "form-draft", ...formDraftEntity });
 
   r.writeHandler(saveDraftWrite);
   r.writeHandler(discardDraftWrite);

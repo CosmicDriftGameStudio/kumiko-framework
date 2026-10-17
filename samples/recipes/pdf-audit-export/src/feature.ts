@@ -56,20 +56,20 @@ const AUDIT_ROW_LIMIT = 100;
 const access = { access: { roles: ["Admin", "User"] } } as const;
 
 export const pdfAuditExportFeature = defineFeature("pdf-audit-export", (r) => {
-  r.entity("inspection", inspectionEntity);
+  r.entity({ name: "inspection", ...inspectionEntity });
   const { executor: inspectionExecutor } = createEntityExecutor("inspection", inspectionEntity);
 
-  r.writeHandler(
-    "inspection:create",
-    z.object({
+  r.writeHandler({
+    name: "inspection:create",
+    schema: z.object({
       assetName: z.string().min(1),
       inspectedOn: z.iso.date(),
       result: z.enum(INSPECTION_RESULTS),
       inspector: z.string().optional(),
     }),
-    async (event, ctx) => inspectionExecutor.create(event.payload, event.user, ctx.db),
-    access,
-  );
+    handler: async (event, ctx) => inspectionExecutor.create(event.payload, event.user, ctx.db),
+    ...access,
+  });
 
   r.writeHandler(
     defineWriteHandler({

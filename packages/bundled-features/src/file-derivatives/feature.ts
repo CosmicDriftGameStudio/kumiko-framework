@@ -111,12 +111,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
     });
     // Needs a storage provider to read the original + write the variant —
     // without file-foundation there's nothing to derive from or write to.
-    r.requires("file-foundation");
+    r.requires({ features: ["file-foundation"] });
     // variant() reads fileRefsTable, which "files" (not file-foundation)
     // owns — without this, mounting file-derivatives + file-foundation
     // alone boots fine but fails at request-time with a SQL error the first
     // time variant() runs.
-    r.requires("files");
+    r.requires({ features: ["files"] });
 
     r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, {
       onRegister: () => {
@@ -164,7 +164,7 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
         // tenant's public variants from staying reachable — require the
         // dependency so a missing mount fails boot, not the tenant check
         // silently no-op-ing at request time.
-        r.requires("tenant");
+        r.requires({ features: ["tenant"] });
         r.queryHandler(publicVariantByFileRefQuery);
       }
 

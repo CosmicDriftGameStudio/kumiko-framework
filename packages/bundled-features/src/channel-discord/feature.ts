@@ -24,8 +24,8 @@ export function createChannelDiscordFeature(
       category: "notifications",
       recommended: false,
     });
-    r.requires("delivery");
-    r.requires("secrets");
+    r.requires({ features: ["delivery"] });
+    r.requires({ features: ["secrets"] });
 
     const webhookTarget = resolveChatWebhookTarget(
       {

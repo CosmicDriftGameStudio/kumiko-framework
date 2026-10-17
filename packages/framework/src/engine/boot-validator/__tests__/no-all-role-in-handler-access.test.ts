@@ -6,17 +6,15 @@ import { validateHandlerAccess } from "../entity-handler.js";
 describe('validateHandlerAccess — roles: ["all"] is rejected', () => {
   test("a write handler with roles: ['all'] throws, naming the handler", () => {
     const feature = defineFeature("no-all-write", (r) => {
-      r.writeHandler(
-        "note:create",
-        z.object({ title: z.string() }),
-        async () => ({
+      r.writeHandler({
+        name: "note:create",
+        schema: z.object({ title: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: {},
         }),
-        {
-          access: { roles: ["all"] },
-        },
-      );
+        access: { roles: ["all"] },
+      });
     });
 
     expect(() => validateHandlerAccess(feature)).toThrow(/no-all-write:write:note:create/);
@@ -25,14 +23,12 @@ describe('validateHandlerAccess — roles: ["all"] is rejected', () => {
 
   test("a query handler with roles: ['all'] throws, naming the handler", () => {
     const feature = defineFeature("no-all-query", (r) => {
-      r.queryHandler(
-        "note:list",
-        z.object({}),
-        async () => ({ isSuccess: true as const, data: {} }),
-        {
-          access: { roles: ["all"] },
-        },
-      );
+      r.queryHandler({
+        name: "note:list",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { roles: ["all"] },
+      });
     });
 
     expect(() => validateHandlerAccess(feature)).toThrow(/no-all-query:query:note:list/);
@@ -40,17 +36,15 @@ describe('validateHandlerAccess — roles: ["all"] is rejected', () => {
 
   test("openToAll access is unaffected", () => {
     const feature = defineFeature("open-to-all-ok", (r) => {
-      r.writeHandler(
-        "note:create",
-        z.object({ title: z.string() }),
-        async () => ({
+      r.writeHandler({
+        name: "note:create",
+        schema: z.object({ title: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: {},
         }),
-        {
-          access: { openToAll: { reason: "any signed-in user" } },
-        },
-      );
+        access: { openToAll: { reason: "any signed-in user" } },
+      });
     });
 
     expect(() => validateHandlerAccess(feature)).not.toThrow();
@@ -58,18 +52,16 @@ describe('validateHandlerAccess — roles: ["all"] is rejected', () => {
 
   test("roles: ['anonymous'] with a rateLimit boots fine", () => {
     const feature = defineFeature("anon-ok", (r) => {
-      r.writeHandler(
-        "note:create",
-        z.object({ title: z.string() }),
-        async () => ({
+      r.writeHandler({
+        name: "note:create",
+        schema: z.object({ title: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: {},
         }),
-        {
-          access: { roles: ["anonymous"] },
-          rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
-        },
-      );
+        access: { roles: ["anonymous"] },
+        rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
+      });
     });
 
     expect(() => validateHandlerAccess(feature)).not.toThrow();

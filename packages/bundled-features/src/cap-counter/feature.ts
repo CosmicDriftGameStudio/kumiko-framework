@@ -77,7 +77,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     category: "operations",
     recommended: false,
   });
-  r.entity("cap-counter", capCounterEntity);
+  r.entity({ name: "cap-counter", ...capCounterEntity });
   r.storeTable(capReservationsTableMeta, {
     reason: "coordination.cap_reservation_ledger",
   });

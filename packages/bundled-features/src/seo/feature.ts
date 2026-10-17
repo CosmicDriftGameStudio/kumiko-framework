@@ -179,7 +179,7 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
     // config keys need the config feature's write/read machinery to actually
     // function (same hard dependency managed-pages has) — only legal-pages/
     // managed-pages are genuinely optional (merged only when opted in).
-    r.requires("config");
+    r.requires({ features: ["config"] });
     r.optionalRequires("legal-pages", "managed-pages");
 
     r.config({ keys: SEO_CONFIG_KEYS });

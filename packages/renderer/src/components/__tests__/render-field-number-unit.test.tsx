@@ -209,7 +209,7 @@ describe("RenderField — number unit through the shipped client schema", () => 
     mileageUnit: string | { readonly field: string },
   ): EntityDefinition {
     const feature = defineFeature("fleet", (r) => {
-      r.entity("vehicle", buildEntity(mileageUnit));
+      r.entity({ name: "vehicle", ...buildEntity(mileageUnit) });
     });
     const app = buildAppSchema(createRegistry([feature]));
     const entity = app.features[0]?.entities["vehicle"];

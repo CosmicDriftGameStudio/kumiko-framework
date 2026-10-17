@@ -74,17 +74,17 @@ export const orderEntity = createEntity({
 const orderTable = buildEntityTable("order", orderEntity);
 
 export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
-  r.entity("order", orderEntity);
+  r.entity({ name: "order", ...orderEntity });
 
   // 1) Create — standard path. Zod schema rejects an empty cart; the
   //    dispatcher converts the ZodIssue into a ValidationError with
   //    details.fields[] (no handler code needed).
-  r.writeHandler(
-    "order:create",
-    z.object({
+  r.writeHandler({
+    name: "order:create",
+    schema: z.object({
       totalCents: z.number().int().min(1, "cart_is_empty"),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" });
       return crud.create(
         { ...event.payload, ownerId: event.user.id, status: "draft" },
@@ -92,8 +92,8 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
         ctx.db,
       );
     },
-    { access: { roles: ["User", "Admin"] } },
-  );
+    access: { roles: ["User", "Admin"] },
+  });
 
   // 2) Pay — business rule: only placed orders can be paid. Shows three
   //    different failure shapes in a single handler:
@@ -103,10 +103,10 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
   //      - UnprocessableError with reason from OrdersLiteReasons
   //      - Framework-generated UnprocessableError with reason
   //        FrameworkReasons.invalidTransition via guardTransition
-  r.writeHandler(
-    "order:pay",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:pay",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       const [current] = await ctx.db.selectMany(orderTable, { id: event.payload.id });
 
       // NotFoundError — automatic reason = "order_not_found" via snake-case
@@ -153,16 +153,16 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
         ctx.db,
       );
     },
-    { access: { roles: ["User", "Admin"] } },
-  );
+    access: { roles: ["User", "Admin"] },
+  });
 
   // 3) Cancel — shows ConflictError for a business conflict that isn't a
   //    transition or a stale write. E.g. a refund window expired; the row
   //    is fine but the action is no longer allowed.
-  r.writeHandler(
-    "order:cancel",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:cancel",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       const [current] = await ctx.db.selectMany(orderTable, { id: event.payload.id });
       if (!current) return failNotFound("order", event.payload.id);
 
@@ -192,18 +192,18 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
         ctx.db,
       );
     },
-    { access: { roles: ["User", "Admin"] } },
-  );
+    access: { roles: ["User", "Admin"] },
+  });
 
   // 4) Update — demonstrates the throw-based path (KumikoError raised
   //    directly, not via writeFailure return). The dispatcher catches it
   //    and wraps it in a WriteErrorInfo the same as the return path.
   //    Use this style when a helper deep in the call tree needs to abort
   //    without threading a WriteResult back up.
-  r.writeHandler(
-    "order:rename",
-    z.object({ id: z.uuid(), nickname: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:rename",
+    schema: z.object({ id: z.uuid(), nickname: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const [current] = await ctx.db.selectMany(orderTable, { id: event.payload.id });
 
       if (!current) {
@@ -233,6 +233,6 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
         },
       };
     },
-    { access: { roles: ["User", "Admin"] } },
-  );
+    access: { roles: ["User", "Admin"] },
+  });
 });

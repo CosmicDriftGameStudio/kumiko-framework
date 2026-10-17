@@ -20,7 +20,7 @@ export const foldersUserDataFeature = defineFeature("folders-user-data", (r) => 
   // OPTIONAL: if it's mounted toggleable(default=false) (e.g. per-tenant via
   // tier), a hard r.requires would throw an "effectively disabled" boot
   // warning even though the folder entities exist and the hooks work fine.
-  r.requires("user-data-rights");
+  r.requires({ features: ["user-data-rights"] });
   r.optionalRequires("folders");
   r.useExtension(EXT_USER_DATA, "folder", {
     export: folderExportHook,

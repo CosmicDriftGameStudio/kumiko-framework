@@ -36,11 +36,11 @@ const noteEntity = createEntity({
 });
 
 const baseFeature: FeatureDefinition = defineFeature("phase2-base", (r) => {
-  r.entity("base-thing", baseEntity);
+  r.entity({ name: "base-thing", ...baseEntity });
 });
 
 const notesFeature: FeatureDefinition = defineFeature("phase2-notes", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
 });
 
 const dbName = `kumiko_phase2_${generateId().slice(-8)}`;

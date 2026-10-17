@@ -41,7 +41,7 @@ const personEntity = createEntity({
   },
 });
 const personFeature = defineFeature("kmsslotsbidx", (r) => {
-  r.entity("person", personEntity);
+  r.entity({ name: "person", ...personEntity });
 });
 const personExecutor = createEventStoreExecutor(
   buildEntityTable("person", personEntity),

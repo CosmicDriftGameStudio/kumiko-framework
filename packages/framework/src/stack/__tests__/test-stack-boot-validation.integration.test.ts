@@ -17,12 +17,12 @@ const navToUnmountedFeature = defineFeature("navsubset", (r) => {
 });
 
 const refEntityToUnmountedFeature = defineFeature("ledger", (r) => {
-  r.queryHandler(
-    "schedule:list",
-    z.object({}),
-    async () => ({ rows: [], nextCursor: null }),
-    openToAllAccess,
-  );
+  r.queryHandler({
+    name: "schedule:list",
+    schema: z.object({}),
+    handler: async () => ({ rows: [], nextCursor: null }),
+    ...openToAllAccess,
+  });
   r.screen({
     id: "schedule-list",
     type: "projectionList",

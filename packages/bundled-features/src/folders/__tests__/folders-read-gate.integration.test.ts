@@ -50,7 +50,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("folders-rg-test-fixtures", (r) => {
-  r.entity("project", projectEntity);
+  r.entity({ name: "project", ...projectEntity });
 });
 
 type TestUser = ReturnType<typeof createTestUser>;

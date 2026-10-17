@@ -30,7 +30,7 @@ const noteEntity = createEntity({
 });
 
 const feature = defineFeature("uef", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   r.crud("note", noteEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },

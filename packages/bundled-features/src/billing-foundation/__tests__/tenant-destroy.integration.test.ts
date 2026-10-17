@@ -51,7 +51,7 @@ import { createBillingFoundationFeature } from "../feature.js";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.js";
 
 const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   r.useExtension("subscriptionProvider", "mock-destroy-provider", {
     verifyAndParseWebhook: async () => null,
     oneOffPriceIds: ["price_topup"],

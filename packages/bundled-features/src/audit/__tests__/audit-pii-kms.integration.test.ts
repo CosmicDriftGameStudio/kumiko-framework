@@ -33,7 +33,7 @@ const memberEntity = createEntity({
 });
 
 const memberFeature = defineFeature("auditkms", (r) => {
-  r.entity("member", memberEntity);
+  r.entity({ name: "member", ...memberEntity });
   r.writeHandler(
     defineEntityWriteHandler("member:create", memberEntity, {
       access: { roles: ["Admin", "SystemAdmin"] },

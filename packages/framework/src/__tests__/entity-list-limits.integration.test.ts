@@ -28,7 +28,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("limitwidgets", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
   r.writeHandler(
     defineEntityCreateHandler("widget", widgetEntity, { access: { roles: ["Admin"] } }),
   );

@@ -55,7 +55,7 @@ const memoEntity = createEntity({
 });
 
 const memosFeature = defineFeature("fw2626memos", (r) => {
-  r.entity("memo", memoEntity);
+  r.entity({ name: "memo", ...memoEntity });
   for (const verb of ["create", "update", "delete"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`memo:${verb}`, memoEntity, {

@@ -86,7 +86,7 @@ let providerThrows = false;
 let billingEnabled = true;
 
 const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     priceToTier: { price_starter: "starter", price_pro: "pro" },
@@ -148,7 +148,7 @@ const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
 
 // A provider that can open checkouts but cannot report live prices.
 const mockProviderWithoutPricesFeature = defineFeature("test-mock-consent-no-prices", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     oneOffPriceIds: ["price_topup"],

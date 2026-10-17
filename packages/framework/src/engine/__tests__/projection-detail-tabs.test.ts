@@ -103,12 +103,12 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
   // required field on an unopened tab surfaces instead of blocking silently.
   test("mode: tabs on entityEdit boots", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity(
-        "rent",
-        createEntity({
+      r.entity({
+        name: "rent",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -127,12 +127,12 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("mode: tabs on entityEdit enforces the same per-tab id as projectionDetail", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity(
-        "rent",
-        createEntity({
+      r.entity({
+        name: "rent",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -153,12 +153,12 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("mode: tabs on entityEdit with a single section throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity(
-        "rent",
-        createEntity({
+      r.entity({
+        name: "rent",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -176,12 +176,12 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
   // required field on a hidden tab would still block their submit in silence.
   test("mode: tabs on actionForm still throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.writeHandler(
-        "archive",
-        z.object({ reason: z.string() }),
-        async () => ({ isSuccess: true as const, data: {} }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.writeHandler({
+        name: "archive",
+        schema: z.object({ reason: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "rent-action",
         type: "actionForm",
@@ -216,7 +216,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("object-form metric with its own label needs no fieldLabels entry", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -268,7 +271,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("metric navigate.tab with no screen/entity — a known section id boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -290,7 +296,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("valid tabs + header + metrics declaration boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({

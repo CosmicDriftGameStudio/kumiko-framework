@@ -68,9 +68,13 @@ const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEn
 // analog of tier-engine's tenant hook above.
 const userPostSaveFired = { count: 0 };
 const userHookVendorFeature = defineFeature("user-hook-vendor-test", (r) => {
-  r.requires("user");
-  r.hook("postSave", { allOf: "user" }, async (ctx) => {
-    if (ctx.isNew) userPostSaveFired.count++;
+  r.requires({ features: ["user"] });
+  r.hook({
+    type: "postSave",
+    target: { allOf: "user" },
+    handler: async (ctx) => {
+      if (ctx.isNew) userPostSaveFired.count++;
+    },
   });
 });
 
@@ -83,14 +87,18 @@ const tenantMembershipPostSaveFired = { count: 0, seenTenantIds: [] as string[] 
 const tenantMembershipHookVendorFeature = defineFeature(
   "tenant-membership-hook-vendor-test",
   (r) => {
-    r.requires("tenant");
-    r.hook("postSave", { allOf: "tenant-membership" }, async (result, context) => {
-      if (result.isNew) {
-        tenantMembershipPostSaveFired.count++;
-        if (context._tenantId !== undefined) {
-          tenantMembershipPostSaveFired.seenTenantIds.push(String(context._tenantId));
+    r.requires({ features: ["tenant"] });
+    r.hook({
+      type: "postSave",
+      target: { allOf: "tenant-membership" },
+      handler: async (result, context) => {
+        if (result.isNew) {
+          tenantMembershipPostSaveFired.count++;
+          if (context._tenantId !== undefined) {
+            tenantMembershipPostSaveFired.seenTenantIds.push(String(context._tenantId));
+          }
         }
-      }
+      },
     });
   },
 );

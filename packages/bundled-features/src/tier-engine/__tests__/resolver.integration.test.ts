@@ -55,15 +55,15 @@ const TEST_TIER_MAP: TierMap<TestCaps> = {
 // effective-Set ist, dispatcher passt durch — wenn nicht, 403 feature_disabled.
 const featProFeature = defineFeature("feat-pro", (r) => {
   r.toggleable({ default: false });
-  r.queryHandler(
-    "ping",
-    {
+  r.queryHandler({
+    name: "ping",
+    schema: {
       parse: () => ({}),
       safeParse: () => ({ success: true as const, data: {} }),
     } as never,
-    async () => ({ ok: true }),
-    { access: { roles: ["TenantAdmin"] } },
-  );
+    handler: async () => ({ ok: true }),
+    access: { roles: ["TenantAdmin"] },
+  });
 });
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);

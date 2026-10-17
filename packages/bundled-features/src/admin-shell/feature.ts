@@ -65,15 +65,15 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       category: "operations",
       recommended: false,
     });
-    r.requires("user");
-    r.requires("tenant");
-    r.requires("audit");
-    r.requires("jobs");
-    r.requires("metrics");
-    r.requires("metrics-system");
-    if (includeTierAdmin) r.requires("tier-engine");
-    if (includeCapOverview) r.requires("cap-overview");
-    if (includeDocumentDesigner) r.requires("document-designer");
+    r.requires({ features: ["user"] });
+    r.requires({ features: ["tenant"] });
+    r.requires({ features: ["audit"] });
+    r.requires({ features: ["jobs"] });
+    r.requires({ features: ["metrics"] });
+    r.requires({ features: ["metrics-system"] });
+    if (includeTierAdmin) r.requires({ features: ["tier-engine"] });
+    if (includeCapOverview) r.requires({ features: ["cap-overview"] });
+    if (includeDocumentDesigner) r.requires({ features: ["document-designer"] });
 
     r.translations({ keys: ADMIN_SHELL_I18N });
 

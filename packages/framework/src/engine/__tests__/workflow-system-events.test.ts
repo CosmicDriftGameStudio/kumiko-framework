@@ -19,13 +19,13 @@ const noopApply = async (): Promise<void> => {};
 
 function featureApplying(applyKey: string) {
   return defineFeature("test", (r) => {
-    r.entity(
-      "run-view",
-      createEntity({
+    r.entity({
+      name: "run-view",
+      ...createEntity({
         table: "run_views",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
+    });
     r.extendEntityProjection("run-view", {
       sources: [WORKFLOW_AGGREGATE_TYPE],
       apply: { [applyKey]: noopApply },

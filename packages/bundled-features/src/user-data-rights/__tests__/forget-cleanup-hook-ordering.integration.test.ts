@@ -124,7 +124,7 @@ const hostFirstEntity = makeEntity(HOST_FIRST.tableName);
 // BEFORE the owner-nulling host hook; hostFirst registers the host hook FIRST
 // (the order that exposed the bug). The order-sentinel must make both correct.
 const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
-  r.entity(CF_FIRST.entityName, cfFirstEntity);
+  r.entity({ name: CF_FIRST.entityName, ...cfFirstEntity });
   r.useExtension(EXT_USER_DATA, CF_FIRST.entityName, {
     export: async () => null,
     delete: makeRedactHook(CF_FIRST.tableName),
@@ -139,7 +139,7 @@ const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
 });
 
 const hostFirstFeature = defineFeature(HOST_FIRST.featureName, (r) => {
-  r.entity(HOST_FIRST.entityName, hostFirstEntity);
+  r.entity({ name: HOST_FIRST.entityName, ...hostFirstEntity });
   r.useExtension(EXT_USER_DATA, HOST_FIRST.entityName, {
     export: async () => null,
     delete: makeHostDeleteHook(HOST_FIRST.tableName),

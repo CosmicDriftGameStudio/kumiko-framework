@@ -41,7 +41,7 @@ const noteEntity = createEntity({
 const ROLES = { access: { roles: ["Admin", "User", "SystemAdmin"] } } as const;
 
 const noteFeature = defineFeature("tenant-check-notes", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("note", noteEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("note", noteEntity, ROLES));

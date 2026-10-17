@@ -128,12 +128,12 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // shared variable; an app mounting auth-mfa without `secrets` still gets the
     // KEK slot (and its _CIPHERTEXT twin) declared.
     r.envSchema(secretsEnvSchema);
-    r.requires("user");
-    r.requires("config");
+    r.requires({ features: ["user"] });
+    r.requires({ features: ["config"] });
     // verify.write.ts dispatches "tenant:query:memberships" — without this
     // the app boots clean and the first MFA login dies at runtime on an
     // unknown handler instead of failing at mount time.
-    r.requires("tenant");
+    r.requires({ features: ["tenant"] });
     r.config("required", mfaRequiredConfigKey(opts.requiredPolicy));
 
     // Declarative secretMint screen — mint (no input) -> reveal QR/secret/
@@ -162,7 +162,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
         ),
     });
 
-    r.entity("user-mfa", userMfaEntity);
+    r.entity({ name: "user-mfa", ...userMfaEntity });
 
     // Late-bound by run-prod-app once the sessions feature (if mounted) has
     // produced a concrete `sessionRevokeAllOthers` callback — mirrors

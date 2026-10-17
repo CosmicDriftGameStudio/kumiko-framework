@@ -46,8 +46,8 @@ const createOnly = {
 } as const;
 
 export const relationsFeature = defineFeature("org", (r) => {
-  const team = r.entity("team", teamEntity);
-  const member = r.entity("member", memberEntity);
+  const team = r.entity({ name: "team", ...teamEntity });
+  const member = r.entity({ name: "member", ...memberEntity });
 
   r.relation(team, "members", {
     type: "hasMany",

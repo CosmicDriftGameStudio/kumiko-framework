@@ -78,8 +78,8 @@ const codeFeature = defineFeature("presave-wiring-code", (r) => {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
-  r.hook("preSave", "code:create", overwriteCodeWhenArmed);
-  r.hook("preSave", "code:update", overwriteCodeWhenArmed);
+  r.hook({ type: "preSave", target: "code:create", handler: overwriteCodeWhenArmed });
+  r.hook({ type: "preSave", target: "code:update", handler: overwriteCodeWhenArmed });
 });
 
 const contactFeature = defineFeature("presave-wiring", (r) => {
@@ -91,10 +91,10 @@ const contactFeature = defineFeature("presave-wiring", (r) => {
   // preSave has no entity-wide `{ allOf }` shorthand (unlike postSave/
   // preDelete/postDelete) — r.crud registers separate create/update
   // handlers, so both need their own target.
-  r.hook("preSave", "contact:create", deriveDisplayName);
-  r.hook("preSave", "contact:update", deriveDisplayName);
-  r.hook("preSave", "contact:create", deriveAuthorId);
-  r.hook("preSave", "contact:update", deriveAuthorId);
+  r.hook({ type: "preSave", target: "contact:create", handler: deriveDisplayName });
+  r.hook({ type: "preSave", target: "contact:update", handler: deriveDisplayName });
+  r.hook({ type: "preSave", target: "contact:create", handler: deriveAuthorId });
+  r.hook({ type: "preSave", target: "contact:update", handler: deriveAuthorId });
 });
 
 const throwingEntity = createEntity({
@@ -107,7 +107,7 @@ const throwingFeature = defineFeature("presave-wiring-throw", (r) => {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
-  r.hook("preSave", "thing:create", throwOnPreSave);
+  r.hook({ type: "preSave", target: "thing:create", handler: throwOnPreSave });
 });
 
 const CREATE = "presave-wiring:write:contact:create";

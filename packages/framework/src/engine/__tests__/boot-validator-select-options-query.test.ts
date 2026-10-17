@@ -15,7 +15,10 @@ const OPEN_ACCESS = {
 } as const;
 
 const catalog = defineFeature("catalog", (r) => {
-  r.queryHandler("model-options", z.object({}), async () => ({ rows: [] }), {
+  r.queryHandler({
+    name: "model-options",
+    schema: z.object({}),
+    handler: async () => ({ rows: [] }),
     access: OPEN_ACCESS,
   });
 });
@@ -168,7 +171,8 @@ describe.each([
 describe("validateBoot — select optionsQuery on entity fields", () => {
   test("a top-level entity select field with optionsQuery throws", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity("item", {
+      r.entity({
+        name: "item",
         fields: {
           model: { type: "select", options: [], optionsQuery: "catalog:query:model-options" },
         } as never,
@@ -181,7 +185,8 @@ describe("validateBoot — select optionsQuery on entity fields", () => {
 
   test("an embedded select sub-field with optionsQuery throws", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity("item", {
+      r.entity({
+        name: "item",
         fields: {
           meta: {
             type: "embedded",
@@ -200,7 +205,12 @@ describe("validateBoot — select optionsQuery on entity fields", () => {
 
 function featureWithWriteForm(fieldDefs: Record<string, unknown>) {
   return defineFeature("shop", (r) => {
-    r.queryHandler("thing", z.object({}), async () => ({ rows: [] }), { access: OPEN_ACCESS });
+    r.queryHandler({
+      name: "thing",
+      schema: z.object({}),
+      handler: async () => ({ rows: [] }),
+      access: OPEN_ACCESS,
+    });
     r.writeHandler({
       name: "save",
       schema: { _type: "stub" } as never,
@@ -381,7 +391,8 @@ describe("validateBoot — writeOnly on configEdit fields follows the key's encr
 describe("validateBoot — select optionsAvailabilityQuery on entity fields", () => {
   const planEntity = (optionsAvailabilityQuery: string) =>
     defineFeature("shop", (r) => {
-      r.entity("item", {
+      r.entity({
+        name: "item",
         fields: {
           plan: { type: "select", options: ["free", "pro"], optionsAvailabilityQuery },
         },
@@ -402,7 +413,8 @@ describe("validateBoot — select optionsAvailabilityQuery on entity fields", ()
 describe("validateBoot — multiSelect optionsAvailabilityQuery", () => {
   const roleEntity = (optionsAvailabilityQuery: string) =>
     defineFeature("shop", (r) => {
-      r.entity("item", {
+      r.entity({
+        name: "item",
         fields: {
           roles: { type: "multiSelect", options: ["a", "b"], optionsAvailabilityQuery },
         },
@@ -411,7 +423,10 @@ describe("validateBoot — multiSelect optionsAvailabilityQuery", () => {
 
   const roleForm = (optionsAvailabilityQuery: string) =>
     defineFeature("shop", (r) => {
-      r.writeHandler("set-roles", z.object({}), async () => ({ isSuccess: true, data: {} }), {
+      r.writeHandler({
+        name: "set-roles",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: {} }),
         access: OPEN_ACCESS,
       });
       r.screen({
@@ -449,7 +464,8 @@ describe("validateBoot — select optionTones", () => {
   test("an unknown tone on an entity select field throws, a known one boots", () => {
     const withTone = (tone: string) =>
       defineFeature("shop", (r) => {
-        r.entity("item", {
+        r.entity({
+          name: "item",
           fields: {
             state: { type: "select", options: ["open"], optionTones: { open: tone } },
           } as never,

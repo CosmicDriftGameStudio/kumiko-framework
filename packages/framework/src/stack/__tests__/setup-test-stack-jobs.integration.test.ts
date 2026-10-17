@@ -16,10 +16,10 @@ import { TestUsers } from "../test-users.js";
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
 
 const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
-  r.writeHandler(
-    "create",
-    z.object({ note: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "create",
+    schema: z.object({ note: z.string() }),
+    handler: async (event, ctx) => {
       // Exact repro from #983: bracket-access, dynamic context extension —
       // not a typed HandlerContext field (mirrors trigger.write.ts).
       const jobRunner = ctx["jobRunner"] as
@@ -31,8 +31,8 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
       await jobRunner.dispatch("manualdispatch:job:record", { note: event.payload.note });
       return { isSuccess: true as const, data: { id: 1, note: event.payload.note } };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (payload) => {
     jobRuns.push({ name: "manualdispatch:job:record", payload });
   });

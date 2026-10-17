@@ -81,27 +81,28 @@ const ruleTable = buildEntityTable("rule", ruleEntity);
 const ruleExecutor = createEventStoreExecutor(ruleTable, ruleEntity, { entityName: "rule" });
 
 const gateFeature = defineFeature("instructiongate", (r) => {
-  r.entity("prompt", promptEntity);
+  r.entity({ name: "prompt", ...promptEntity });
 
   r.crud("prompt", promptEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
 
-  r.writeHandler(
-    "create-prompt-mid",
-    z.object({ label: z.string(), body: z.string().optional() }),
-    async (event, ctx) => promptExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "create-prompt-mid",
+    schema: z.object({ label: z.string(), body: z.string().optional() }),
+    handler: async (event, ctx) => promptExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.entity("defaultedprompt", defaultedPromptEntity);
-  r.writeHandler(
-    "create-defaulted-prompt-mid",
-    z.object({ label: z.string() }),
-    async (event, ctx) => defaultedPromptExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.entity({ name: "defaultedprompt", ...defaultedPromptEntity });
+  r.writeHandler({
+    name: "create-defaulted-prompt-mid",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) =>
+      defaultedPromptExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
   r.queryHandler(
     defineEntityListHandler("defaultedprompt", defaultedPromptEntity, {
@@ -109,17 +110,21 @@ const gateFeature = defineFeature("instructiongate", (r) => {
     }),
   );
 
-  r.entity("rule", ruleEntity);
+  r.entity({ name: "rule", ...ruleEntity });
   r.queryHandler(defineEntityDetailHandler("rule", ruleEntity, { access: { roles: ["Admin"] } }));
-  r.hook("preSave", "rule:update", async (changes) =>
-    changes["label"] === "derive-body" ? { ...changes, body: "derived by hook" } : changes,
-  );
-  r.writeHandler(
-    "create-rule-high",
-    z.object({ label: z.string() }),
-    async (event, ctx) => ruleExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] }, agent: { risk: "high" } },
-  );
+  r.hook({
+    type: "preSave",
+    target: "rule:update",
+    handler: async (changes) =>
+      changes["label"] === "derive-body" ? { ...changes, body: "derived by hook" } : changes,
+  });
+  r.writeHandler({
+    name: "create-rule-high",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => ruleExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    agent: { risk: "high" },
+  });
   r.writeHandler(
     defineEntityUpdateHandler("rule", ruleEntity, {
       access: { roles: ["Admin"] },
@@ -127,29 +132,30 @@ const gateFeature = defineFeature("instructiongate", (r) => {
     }),
   );
 
-  r.writeHandler(
-    "create-prompt-high",
-    z.object({ label: z.string(), body: z.string().optional() }),
-    async (event, ctx) => promptExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] }, agent: { risk: "high" } },
-  );
+  r.writeHandler({
+    name: "create-prompt-high",
+    schema: z.object({ label: z.string(), body: z.string().optional() }),
+    handler: async (event, ctx) => promptExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    agent: { risk: "high" },
+  });
 
-  r.writeHandler(
-    "update-prompt-mid",
-    z.object({ id: z.uuid(), label: z.string().optional(), body: z.string().optional() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "update-prompt-mid",
+    schema: z.object({ id: z.uuid(), label: z.string().optional(), body: z.string().optional() }),
+    handler: async (event, ctx) => {
       const { id, ...changes } = event.payload;
       return promptExecutor.update({ id, changes }, event.user, ctx.db, {
         skipOptimisticLock: true,
       });
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "delegate-update-to-standard",
-    z.object({ id: z.uuid(), body: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "delegate-update-to-standard",
+    schema: z.object({ id: z.uuid(), body: z.string() }),
+    handler: async (event, ctx) => {
       const row = await promptExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       const version = typeof row?.["version"] === "number" ? row["version"] : 0;
       return ctx.write("instructiongate:write:prompt:update", {
@@ -158,8 +164,8 @@ const gateFeature = defineFeature("instructiongate", (r) => {
         changes: { body: event.payload.body },
       });
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 function errorReason(details: unknown): string | undefined {

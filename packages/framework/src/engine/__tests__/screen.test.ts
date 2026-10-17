@@ -41,7 +41,7 @@ function derivedProductEntity() {
 describe("r.screen() — registration", () => {
   test("stores an entityList screen on the FeatureDefinition", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -226,7 +226,10 @@ describe("r.screen() — registration", () => {
   test("validateBoot boots a projectionDetail extension section without contributesToFormSubmit (self-persisting, solon#264)", () => {
     const features = [
       defineFeature("app", (r) => {
-        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({}),
+          handler: async () => ({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -296,10 +299,16 @@ describe("r.screen() — registration", () => {
   test("validateBoot accepts a relatedList rowClick with a detailFor screen in another feature (fw#2166)", () => {
     const features = [
       defineFeature("app", (r) => {
-        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({}),
+          handler: async () => ({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        r.queryHandler({
+          name: "foo:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -320,13 +329,13 @@ describe("r.screen() — registration", () => {
         });
       }),
       defineFeature("billing", (r) => {
-        r.entity(
-          "invoice",
-          createEntity({
+        r.entity({
+          name: "invoice",
+          ...createEntity({
             table: "invoices",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "invoice-detail",
           type: "custom",
@@ -360,10 +369,16 @@ describe("r.screen() — registration", () => {
   test("validateBoot accepts a valid relatedList section without rowClick (fw#2166)", () => {
     const features = [
       defineFeature("app", (r) => {
-        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({}),
+          handler: async () => ({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        r.queryHandler({
+          name: "foo:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -385,10 +400,16 @@ describe("r.screen() — registration", () => {
     test("rejects searchable: true when the bound query's schema has no search parameter", () => {
       const features = [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({}),
+            handler: async () => ({ rows: [], nextCursor: null }),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.screen({
@@ -415,17 +436,18 @@ describe("r.screen() — registration", () => {
     test("accepts searchable: true when the bound query's schema accepts search", () => {
       const features = [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler(
-            "foo:list",
-            z.object({ search: z.string().optional() }),
-            async () => ({ rows: [], nextCursor: null }),
-            {
-              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-            },
-          );
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({ search: z.string().optional() }),
+            handler: async () => ({ rows: [], nextCursor: null }),
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
           r.screen({
             id: "x",
             type: "projectionDetail",
@@ -450,10 +472,16 @@ describe("r.screen() — registration", () => {
     test("rejects facets when the bound query's schema has no filters parameter", () => {
       const features = [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({}),
+            handler: async () => ({ rows: [], nextCursor: null }),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.screen({
@@ -487,17 +515,18 @@ describe("r.screen() — registration", () => {
     test("rejects a facet whose field is not a declared column", () => {
       const features = [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler(
-            "foo:list",
-            z.object({ filters: z.array(z.object({})).optional() }),
-            async () => ({ rows: [], nextCursor: null }),
-            {
-              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-            },
-          );
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({ filters: z.array(z.object({})).optional() }),
+            handler: async () => ({ rows: [], nextCursor: null }),
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
           r.screen({
             id: "x",
             type: "projectionDetail",
@@ -531,17 +560,18 @@ describe("r.screen() — registration", () => {
     test("accepts valid facets when the bound query's schema accepts filters", () => {
       const features = [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler(
-            "foo:list",
-            z.object({ filters: z.array(z.object({})).optional() }),
-            async () => ({ rows: [], nextCursor: null }),
-            {
-              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-            },
-          );
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({ filters: z.array(z.object({})).optional() }),
+            handler: async () => ({ rows: [], nextCursor: null }),
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
           r.screen({
             id: "x",
             type: "projectionDetail",
@@ -580,10 +610,16 @@ describe("r.screen() — registration", () => {
     }) {
       return [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({}),
+            handler: async () => ({ rows: [], nextCursor: null }),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.screen({
@@ -641,17 +677,18 @@ describe("r.screen() — registration", () => {
     test("rejects parentFilter combined with parentParam on the same section", () => {
       const features = [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler(
-            "foo:list",
-            z.object({ filter: z.unknown().optional() }),
-            async () => ({ rows: [], nextCursor: null }),
-            {
-              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-            },
-          );
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({ filter: z.unknown().optional() }),
+            handler: async () => ({ rows: [], nextCursor: null }),
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
           r.screen({
             id: "x",
             type: "projectionDetail",
@@ -677,10 +714,16 @@ describe("r.screen() — registration", () => {
     test("rejects parentFilter when the bound query's schema has no filter parameter", () => {
       const features = [
         defineFeature("app", (r) => {
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          r.queryHandler({
+            name: "foo:list",
+            schema: z.object({}),
+            handler: async () => ({ rows: [], nextCursor: null }),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.screen({
@@ -713,7 +756,7 @@ describe("r.screen() — registration", () => {
       });
       const features = [
         defineFeature("app", (r) => {
-          r.entity("order", orderEntity);
+          r.entity({ name: "order", ...orderEntity });
           r.queryHandler(
             defineEntityListHandler("order", orderEntity, {
               access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -735,7 +778,10 @@ describe("r.screen() — registration", () => {
               ],
             },
           });
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
         }),
@@ -755,7 +801,7 @@ describe("r.screen() — registration", () => {
       });
       const features = [
         defineFeature("app", (r) => {
-          r.entity("order", orderEntity);
+          r.entity({ name: "order", ...orderEntity });
           r.queryHandler(
             defineEntityListHandler("order", orderEntity, {
               access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -777,7 +823,10 @@ describe("r.screen() — registration", () => {
               ],
             },
           });
-          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          r.queryHandler({
+            name: "foo:detail",
+            schema: z.object({}),
+            handler: async () => ({}),
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
         }),
@@ -789,7 +838,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section on entityEdit (fw#2166)", () => {
     const features = [
       defineFeature("shop", (r) => {
-        r.entity("product", productEntity());
+        r.entity({ name: "product", ...productEntity() });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -835,12 +884,12 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section on actionForm (fw#2166)", () => {
     const features = [
       defineFeature("shop", (r) => {
-        r.writeHandler(
-          "restock",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        r.writeHandler({
+          name: "restock",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "restock",
           type: "actionForm",
@@ -888,18 +937,22 @@ describe("r.screen() — registration", () => {
   test("validateBoot accepts a relatedList rowAction bound to a registered write-handler (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
-        r.writeHandler(
-          "sync",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          {
-            access: { roles: ["Admin"] },
-          },
-        );
-        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+        r.writeHandler({
+          name: "sync",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({}),
+          handler: async () => ({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        r.queryHandler({
+          name: "foo:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -933,13 +986,13 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section with both rowClick and a rowActions rowClick:true entry (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("billing", (r) => {
-        r.entity(
-          "invoice",
-          createEntity({
+        r.entity({
+          name: "invoice",
+          ...createEntity({
             table: "invoices",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
+        });
         r.screen({
           id: "invoice-detail",
           type: "custom",
@@ -1109,17 +1162,18 @@ describe("r.screen() — registration", () => {
   test("validateBoot accepts a valid projectionDetail writeForm section (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
-        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({}),
+          handler: async () => ({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.writeHandler(
-          "save",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          {
-            access: { roles: ["Admin"] },
-          },
-        );
+        r.writeHandler({
+          name: "save",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -1153,15 +1207,18 @@ describe("r.screen() — registration", () => {
         // Screens always require their own "screen:<id>.title" key — supplied
         // here so the throw below isolates the one key this test is about.
         r.translations({ keys: { "screen:x.title": { en: "X" } } });
-        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({}),
+          handler: async () => ({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.writeHandler(
-          "save",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        r.writeHandler({
+          name: "save",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -1195,15 +1252,18 @@ describe("r.screen() — registration", () => {
             "app:entity:__write-form-section__:field:name": { en: "Name" },
           },
         });
-        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({}),
+          handler: async () => ({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.writeHandler(
-          "save",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        r.writeHandler({
+          name: "save",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -1229,7 +1289,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a writeForm section on entityEdit (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("shop", (r) => {
-        r.entity("product", productEntity());
+        r.entity({ name: "product", ...productEntity() });
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -1287,12 +1347,12 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a writeForm section on actionForm (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("shop", (r) => {
-        r.writeHandler(
-          "restock",
-          z.object({}),
-          async () => ({ isSuccess: true as const, data: null }),
-          { access: { roles: ["Admin"] } },
-        );
+        r.writeHandler({
+          name: "restock",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
         r.screen({
           id: "restock",
           type: "actionForm",
@@ -1319,7 +1379,7 @@ describe("r.screen() — registration", () => {
 
   test("stores an entityEdit screen with sections + conditional fields", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "product-edit",
         type: "entityEdit",
@@ -1359,7 +1419,7 @@ describe("r.screen() — registration", () => {
   test("rejects duplicate screen ids within the same feature", () => {
     expect(() =>
       defineFeature("shop", (r) => {
-        r.entity("product", productEntity());
+        r.entity({ name: "product", ...productEntity() });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -1379,7 +1439,7 @@ describe("r.screen() — registration", () => {
   test("rejects non-kebab-case screen ids", () => {
     expect(() =>
       defineFeature("shop", (r) => {
-        r.entity("product", productEntity());
+        r.entity({ name: "product", ...productEntity() });
         r.screen({
           id: "productList",
           type: "entityList",
@@ -1393,7 +1453,7 @@ describe("r.screen() — registration", () => {
   test("accepts kebab-case screen ids", () => {
     expect(() =>
       defineFeature("shop", (r) => {
-        r.entity("product", productEntity());
+        r.entity({ name: "product", ...productEntity() });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -1408,7 +1468,7 @@ describe("r.screen() — registration", () => {
 describe("createRegistry — screen indexing", () => {
   test("indexes screens by qualified name", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1428,7 +1488,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreenFeature maps a screen back to its owning feature", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1443,7 +1503,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("same screen id from two features qualifies to different names", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1452,7 +1512,7 @@ describe("createRegistry — screen indexing", () => {
       });
     });
     const warehouse = defineFeature("warehouse", (r) => {
-      r.entity("item", productEntity());
+      r.entity({ name: "item", ...productEntity() });
       r.screen({ id: "list", type: "entityList", entity: "item", columns: ["name"] });
     });
     const registry = createRegistry([shop, warehouse]);
@@ -1463,7 +1523,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreensByEntity groups entity-bound screens", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1493,7 +1553,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreensByEntity aggregates screens on the same entity from two different features", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1519,7 +1579,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreen / getScreensByEntity return stored screens with qualified id", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1543,7 +1603,7 @@ describe("createRegistry — screen indexing", () => {
 describe("validateBoot — screen validation", () => {
   test("entityList with unknown entity fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1558,7 +1618,7 @@ describe("validateBoot — screen validation", () => {
     // Entity exists, but in another feature. The hint helps the feature
     // author realise cross-feature screen ownership isn't supported.
     const shop = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
     });
     const ui = defineFeature("ui", (r) => {
       r.screen({ id: "list", type: "entityList", entity: "product", columns: ["name"] });
@@ -1568,7 +1628,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList with unknown field (string form) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1581,7 +1641,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList with unknown field (object form) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1594,7 +1654,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList with a derived-field column boots (derived is a valid column)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", derivedProductEntity());
+      r.entity({ name: "product", ...derivedProductEntity() });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1607,7 +1667,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList defaultSort on a derived field fails boot (server sort can't apply)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", derivedProductEntity());
+      r.entity({ name: "product", ...derivedProductEntity() });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1621,7 +1681,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with unknown field (string form in sections) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1636,7 +1696,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with unknown field (object form in sections) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1685,7 +1745,7 @@ describe("validateBoot — screen validation", () => {
 
   test("fully-populated entityEdit with sections + slots + conditionals passes boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1708,7 +1768,7 @@ describe("validateBoot — screen validation", () => {
 
   test("wizard entityEdit with slots.footer passes boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "edit-wizard",
         type: "entityEdit",
@@ -1731,7 +1791,7 @@ describe("validateBoot — screen validation", () => {
     // oversight. Locked down at boot rather than silently producing an empty
     // UI surface.
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({ id: "list", type: "entityList", entity: "product", columns: [] });
     });
     expect(() => validateBoot([feature])).toThrow(/empty columns list/);
@@ -1739,7 +1799,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with empty sections fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1752,7 +1812,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with a section that has zero fields fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", productEntity());
+      r.entity({ name: "product", ...productEntity() });
       r.screen({
         id: "edit",
         type: "entityEdit",

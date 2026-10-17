@@ -26,14 +26,17 @@ const UNSAFE_RAW_REASON = "test: stream declares unsafeRaw";
 const escapeHatchEvents: EscapeHatchUseEvent[] = [];
 
 const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
-  r.queryHandler(
-    "whoami",
-    z.object({}),
-    async (query) => ({ roles: query.user.roles, tenantId: query.user.tenantId }),
-    { access: { roles: ["system", "User"] } },
-  );
+  r.queryHandler({
+    name: "whoami",
+    schema: z.object({}),
+    handler: async (query) => ({ roles: query.user.roles, tenantId: query.user.tenantId }),
+    access: { roles: ["system", "User"] },
+  });
 
-  r.queryHandler("admin-only", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "admin-only",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
   });
 

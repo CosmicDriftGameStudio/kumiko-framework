@@ -43,7 +43,7 @@ const recordingLogger: Logger = {
 
 function leakyChannelFeature(name: string, behavior: "send" | "render", mode: "inline" | "queued") {
   return defineFeature(name, (r) => {
-    r.requires("delivery");
+    r.requires({ features: ["delivery"] });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, name, {
       mode,
       render: async () => {
@@ -59,7 +59,7 @@ function leakyChannelFeature(name: string, behavior: "send" | "render", mode: "i
 }
 
 const probeFeature = defineFeature("codes-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "ping",

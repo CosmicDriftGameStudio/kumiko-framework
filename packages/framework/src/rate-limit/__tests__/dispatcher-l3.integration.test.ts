@@ -24,12 +24,17 @@ const objFormPing = defineQueryHandler({
 });
 
 const userOpsLimited = defineFeature("rl-test", (r) => {
-  r.queryHandler("ping", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
   });
-  r.queryHandler("open", z.object({}), async () => ({ ok: true }), {
-    // No rateLimit option — proves opt-in: this handler stays
+  r.queryHandler({
+    name: "open",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }), // No rateLimit option — proves opt-in: this handler stays
     // unlimited even though the same user just got blocked on `ping`.
     access: { roles: ["Admin"] },
   });
@@ -133,7 +138,10 @@ const outageWrite = defineWriteHandler({
 });
 
 const outageFeature = defineFeature("rl-outage", (r) => {
-  r.queryHandler("ping", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
   });

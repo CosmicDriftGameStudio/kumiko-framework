@@ -49,7 +49,7 @@ const admin = TestUsers.admin;
 const recipient = createTestUser({ id: 7, roles: ["User"] });
 
 const appFeature = defineFeature("app", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
 
   r.writeHandler(
     defineWriteHandler({

@@ -43,7 +43,7 @@ const albumEntity = createEntity({
 const albumTable = buildEntityTable("album", albumEntity);
 
 const feature = defineFeature("pluralfilepii", (r) => {
-  r.entity("album", albumEntity);
+  r.entity({ name: "album", ...albumEntity });
   r.crud("album", albumEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin", "Reader"] } },

@@ -404,13 +404,16 @@ describe("validateBoot nav allowlist wiring", () => {
 
   function shopFeature(options: { readonly withWorkspace: boolean }) {
     return defineFeature("shop", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler("item:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      });
+      r.queryHandler({
+        name: "item:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({ id: "item-list", type: "entityList", entity: "item", columns: ["title"] });

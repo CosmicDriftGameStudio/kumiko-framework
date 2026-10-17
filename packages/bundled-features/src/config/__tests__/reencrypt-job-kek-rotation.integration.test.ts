@@ -65,7 +65,7 @@ const GARBAGE_KEY = "kek-rot:config:garbage-value";
 const GARBAGE_VALUE = "not-json-and-not-an-envelope";
 
 const rotFeature = defineFeature("kek-rot", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({ keys: { "secret-pass": keyDef, "garbage-value": keyDef } });
 });
 

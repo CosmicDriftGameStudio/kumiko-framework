@@ -234,7 +234,7 @@ const configuredStockGuard = createStockCapGuard(async (_db, { config }) => {
 
 const CONFIGURED_ITEM_QN = "stock-limit-probe:write:create-item";
 const stockLimitProbeFeature = defineFeature("stock-limit-probe", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       maxItems: createSystemConfig("number", {

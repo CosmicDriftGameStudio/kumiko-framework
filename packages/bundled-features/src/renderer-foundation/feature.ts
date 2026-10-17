@@ -20,7 +20,7 @@ export function createRendererFoundationFeature() {
       category: "notifications",
       recommended: false,
     });
-    r.requires("template-resolver");
+    r.requires({ features: ["template-resolver"] });
 
     r.extendsRegistrar(RENDERER_EXTENSION, {
       onRegister: () => {

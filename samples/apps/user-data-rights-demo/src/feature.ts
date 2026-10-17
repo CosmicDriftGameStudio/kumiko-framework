@@ -122,7 +122,7 @@ const listTodosHandler = defineQueryHandler({
 });
 
 export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.requires("user-data-rights");
+  r.requires({ features: ["user-data-rights"] });
 
   // store_todos is a direct-write store: the create handler `insertOne`s and
   // the forget hook `updateMany`/`deleteMany`s rows WITHOUT emitting lifecycle

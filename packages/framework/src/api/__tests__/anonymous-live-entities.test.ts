@@ -20,10 +20,13 @@ type QueryDeclaration = {
 
 function registryWith(queries: readonly QueryDeclaration[]) {
   const feature = defineFeature("demo", (r) => {
-    r.entity("thing", entityOnTable("things"));
-    r.entity("secret", entityOnTable("secrets"));
+    r.entity({ name: "thing", ...entityOnTable("things") });
+    r.entity({ name: "secret", ...entityOnTable("secrets") });
     for (const query of queries) {
-      r.queryHandler(query.name, z.object({}), async () => ({}), {
+      r.queryHandler({
+        name: query.name,
+        schema: z.object({}),
+        handler: async () => ({}),
         access: query.access,
         ...(query.liveEntities && { liveEntities: query.liveEntities }),
       });

@@ -20,7 +20,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
   test("singleton + idParam throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("me", z.object({}), async () => ({ id: "u1" }), {
+      r.queryHandler({
+        name: "me",
+        schema: z.object({}),
+        handler: async () => ({ id: "u1" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -39,13 +42,16 @@ describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
 
   test("singleton + detailFor throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler("me", z.object({}), async () => ({ id: "u1" }), {
+      });
+      r.queryHandler({
+        name: "me",
+        schema: z.object({}),
+        handler: async () => ({ id: "u1" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -70,7 +76,10 @@ describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
 
   test("singleton without idParam/detailFor boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("me", z.object({}), async () => ({ id: "u1" }), {
+      r.queryHandler({
+        name: "me",
+        schema: z.object({}),
+        handler: async () => ({ id: "u1" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({

@@ -26,47 +26,45 @@ export const productEntity = createEntity({
 const productTable = buildEntityTable("product", productEntity);
 
 export const productFeature = defineFeature("shop", (r) => {
-  r.entity("product", productEntity);
+  r.entity({ name: "product", ...productEntity });
 
-  r.writeHandler(
-    "product:create",
-    z.object({
+  r.writeHandler({
+    name: "product:create",
+    schema: z.object({
       name: z.string().min(1),
       brand: z.string().optional(),
       sku: z.string().min(1),
       category: z.string().optional(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(productTable, productEntity, {
         searchAdapter: ctx.searchAdapter,
         entityName: "product",
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "product:list",
-    z.object({
+  r.queryHandler({
+    name: "product:list",
+    schema: z.object({
       search: z.string().optional(),
       limit: z.number().optional(),
     }),
-    async (query, ctx) => {
+    handler: async (query, ctx) => {
       const crud = createEventStoreExecutor(productTable, productEntity, {
         searchAdapter: ctx.searchAdapter,
         entityName: "product",
       });
       return crud.list(query.payload, query.user, ctx.db);
     },
-    {
-      access: {
-        openToAll: {
-          reason:
-            "any signed-in user may search and list products in this recipe; creating " +
-            "a product still requires the Admin role above",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may search and list products in this recipe; creating " +
+          "a product still requires the Admin role above",
       },
     },
-  );
+  });
 });

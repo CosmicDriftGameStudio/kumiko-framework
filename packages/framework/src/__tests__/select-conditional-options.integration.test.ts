@@ -39,14 +39,18 @@ const monitorEntity = createEntity({
 const monitorTable = buildEntityTable("monitor", monitorEntity);
 
 const monitoring = defineFeature("monitoring", (r) => {
-  r.entity("monitor", monitorEntity);
+  r.entity({ name: "monitor", ...monitorEntity });
   const executor = createEventStoreExecutor(monitorTable, monitorEntity, {
     entityName: "monitor",
   });
-  r.writeHandler(
-    "monitor:system-set-kind",
-    z.object({ id: z.uuid(), kind: z.enum(["http", "heartbeat"]), withPurpose: z.boolean() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "monitor:system-set-kind",
+    schema: z.object({
+      id: z.uuid(),
+      kind: z.enum(["http", "heartbeat"]),
+      withPurpose: z.boolean(),
+    }),
+    handler: async (event, ctx) =>
       executor.update(
         { id: event.payload.id, changes: { kind: event.payload.kind } },
         createSystemUser(event.user.tenantId),
@@ -56,8 +60,8 @@ const monitoring = defineFeature("monitoring", (r) => {
           ...(event.payload.withPurpose && { writePurpose: WritePurposes.erasure }),
         },
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
   r.writeHandler(
     defineEntityCreateHandler("monitor", monitorEntity, { access: { roles: ["Admin"] } }),
   );

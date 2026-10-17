@@ -143,7 +143,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       category: "billing",
       recommended: false,
     });
-    r.requires("tenant-lifecycle", "compliance-profiles");
+    r.requires({ features: ["tenant-lifecycle", "compliance-profiles"] });
     // 5 fine-grained domain-events. All 5 share the same payload shape (a
     // subscription-state snapshot); the event type tags what happened.
     // Future consumers (billing-history, accounting) listen directly on

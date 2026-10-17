@@ -42,66 +42,70 @@ const itemEntity = createEntity({
 const itemTable = buildEntityTable("item", itemEntity);
 
 const errorFeature = defineFeature("errctr", (r) => {
-  r.entity("item", itemEntity);
+  r.entity({ name: "item", ...itemEntity });
 
   // CRUD create to prep update/delete scenarios (NotFound, VersionConflict).
-  r.writeHandler(
-    "item:create",
-    z.object({ name: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // VersionConflict: update with stale version → 409 via CrudExecutor.
-  r.writeHandler(
-    "item:update",
-    z.object({
+  r.writeHandler({
+    name: "item:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.update(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // ValidationError via Zod schema (too-short string).
   // The "name: z.string().min(3)" constraint triggers a ZodIssue which the
   // dispatcher wraps into ValidationError.details.fields automatically.
-  r.writeHandler(
-    "item:create-strict",
-    z.object({ name: z.string().min(3) }),
-    async () => writeFailure(new UnprocessableError("unreachable")),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "item:create-strict",
+    schema: z.object({ name: z.string().min(3) }),
+    handler: async () => writeFailure(new UnprocessableError("unreachable")),
+    access: { roles: ["Admin"] },
+  });
 
   // ValidationError via a hook (post-schema business validation).
-  const createForHook = r.writeHandler(
-    "item:create-for-hook",
-    z.object({ name: z.string() }),
-    async (event, ctx) => {
+  const createForHook = r.writeHandler({
+    name: "item:create-for-hook",
+    schema: z.object({ name: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
-  r.hook("validation", createForHook, (data) => {
-    if (data["name"] === "forbidden") {
-      return [{ field: "name", error: "name_is_forbidden" }];
-    }
-    return null;
+    access: { roles: ["Admin"] },
+  });
+  r.hook({
+    type: "validation",
+    target: createForHook,
+    handler: (data) => {
+      if (data["name"] === "forbidden") {
+        return [{ field: "name", error: "name_is_forbidden" }];
+      }
+      return null;
+    },
   });
 
   // ConflictError: generic 409, used e.g. for delete_restricted.
-  r.writeHandler(
-    "item:conflict",
-    z.object({}),
-    async () =>
+  r.writeHandler({
+    name: "item:conflict",
+    schema: z.object({}),
+    handler: async () =>
       writeFailure(
         new ConflictError({
           message: "would leave dangling references",
@@ -109,67 +113,67 @@ const errorFeature = defineFeature("errctr", (r) => {
           details: { reason: "has_dependencies", blocker: "order" },
         }),
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // UnprocessableError: business rule, reason surfaces under details.reason.
-  r.writeHandler(
-    "item:unprocessable",
-    z.object({}),
-    async () =>
+  r.writeHandler({
+    name: "item:unprocessable",
+    schema: z.object({}),
+    handler: async () =>
       writeFailure(
         new UnprocessableError("already_fulfilled", {
           i18nKey: "errctr.errors.alreadyFulfilled",
           details: { stage: "ship" },
         }),
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // AccessDeniedError in the handler body (distinct from dispatcher-level
   // role check, which also surfaces AccessDeniedError — both land on 403).
-  r.writeHandler(
-    "item:explicit-deny",
-    z.object({}),
-    async () =>
+  r.writeHandler({
+    name: "item:explicit-deny",
+    schema: z.object({}),
+    handler: async () =>
       writeFailure(
         new AccessDeniedError({
           message: "manual access deny",
           details: { reason: "manual_deny" },
         }),
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // NotFoundError thrown directly as KumikoError (in query handler — proves
   // the throw-based path, not the writeFailure return-based path).
-  r.queryHandler(
-    "item:detail-strict",
-    z.object({ id: z.uuid() }),
-    async (event) => {
+  r.queryHandler({
+    name: "item:detail-strict",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event) => {
       throw new NotFoundError("item", event.payload.id);
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   // InternalError auto-wrap: handler raises an unexpected TypeError; the
   // dispatcher wraps it so the wire body is the sanitized InternalError shape.
-  r.writeHandler(
-    "item:boom",
-    z.object({}),
-    async () => {
+  r.writeHandler({
+    name: "item:boom",
+    schema: z.object({}),
+    handler: async () => {
       throw new TypeError("cannot_read_prop");
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Nested cause: user-thrown KumikoError with a .cause chain. The
   // forensic info should stay server-side (Log), while the response body
   // carries only the top-level class.
-  r.writeHandler(
-    "item:caused",
-    z.object({}),
-    async () => {
+  r.writeHandler({
+    name: "item:caused",
+    schema: z.object({}),
+    handler: async () => {
       const inner = new Error("upstream_service_blew_up");
       throw new ConflictError({
         message: "conflict caused by upstream",
@@ -178,8 +182,8 @@ const errorFeature = defineFeature("errctr", (r) => {
         cause: inner,
       });
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

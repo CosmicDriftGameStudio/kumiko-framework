@@ -42,7 +42,7 @@ const emailChannel = createEmailChannel({
 const NOTIFICATION_TYPE = "email-rich-text-probe:notify:rich-note";
 
 const richTextProbeFeature = defineFeature("email-rich-text-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "send-note",

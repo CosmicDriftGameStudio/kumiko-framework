@@ -13,35 +13,35 @@ import { TestUsers } from "../test-users.js";
 let stack!: TestStack;
 
 const pingFeature = defineFeature("reqhelp", (r) => {
-  r.writeHandler(
-    "echo",
-    z.object({ note: z.string().min(1) }),
-    async (event) => ({
+  r.writeHandler({
+    name: "echo",
+    schema: z.object({ note: z.string().min(1) }),
+    handler: async (event) => ({
       isSuccess: true as const,
       data: { note: event.payload.note, userId: event.user.id },
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.writeHandler(
-    "boom",
-    z.object({}),
-    async () =>
+  r.writeHandler({
+    name: "boom",
+    schema: z.object({}),
+    handler: async () =>
       writeFailure(new UnprocessableError("reqhelp-boom", { i18nKey: "errors.unprocessable" })),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.queryHandler(
-    "lookup",
-    z.object({ id: z.string().min(1) }),
-    async (query) => {
+  r.queryHandler({
+    name: "lookup",
+    schema: z.object({ id: z.string().min(1) }),
+    handler: async (query) => {
       if (query.payload.id === "missing") {
         throw new NotFoundError("thing", query.payload.id, { i18nKey: "errors.notFound" });
       }
       return { id: query.payload.id, ok: true };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 beforeAll(async () => {

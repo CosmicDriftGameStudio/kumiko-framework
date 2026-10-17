@@ -27,7 +27,6 @@ import {
   createEntity,
   createTextField,
   defineFeature,
-  registerEntityCrud,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
@@ -75,7 +74,7 @@ const recordProbeEntity = createEntity({
 });
 const recordProbeTable = buildEntityTable("forgetSubjectRecordProbe", recordProbeEntity);
 const recordProbeFeature = defineFeature("forget-subject-record-probe", (r) => {
-  registerEntityCrud(r, RECORD_PROBE_ENTITY_NAME, recordProbeEntity, {
+  r.crud(RECORD_PROBE_ENTITY_NAME, recordProbeEntity, {
     verbs: { create: false, delete: false, detail: false, list: false },
     write: { access: { roles: ["DataProtectionOfficer"] } },
   });
@@ -441,7 +440,7 @@ const blockDeleteProbeTable = buildEntityTable(
   blockDeleteProbeEntity,
 );
 const blockDeleteProbeFeature = defineFeature("forget-subject-blockdelete-probe", (r) => {
-  r.entity(BLOCK_DELETE_PROBE_ENTITY_NAME, blockDeleteProbeEntity);
+  r.entity({ name: BLOCK_DELETE_PROBE_ENTITY_NAME, ...blockDeleteProbeEntity });
 });
 
 function blockDeleteProbeExecutor() {
@@ -587,7 +586,7 @@ const overrideProbeEntity = createEntity({
 });
 const overrideProbeTable = buildEntityTable("forgetSubjectOverrideProbe", overrideProbeEntity);
 const overrideProbeFeature = defineFeature("forget-subject-override-probe", (r) => {
-  r.entity(OVERRIDE_PROBE_ENTITY_NAME, overrideProbeEntity);
+  r.entity({ name: OVERRIDE_PROBE_ENTITY_NAME, ...overrideProbeEntity });
 });
 
 describe("crypto-shredding :: forget-subject (record subject) tenant retention policy, #2805", () => {

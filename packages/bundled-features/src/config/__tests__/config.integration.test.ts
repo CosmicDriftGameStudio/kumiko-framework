@@ -56,7 +56,7 @@ const otherTenantAdmin = createTestUser({
 // Scenario 1: System URL — one value for the whole system
 // Scenario 2: Mail server — system default + tenant override
 const appFeature = defineFeature("app", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   r.config({
     keys: {
@@ -78,7 +78,7 @@ const appFeature = defineFeature("app", (r) => {
 // Scenario 3: Tenant mail signature — admin can change
 // Scenario 4: Tenant invoice pattern — billing can change
 const invoicingFeature = defineFeature("invoicing", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   r.config({
     keys: {
@@ -101,7 +101,7 @@ const invoicingFeature = defineFeature("invoicing", (r) => {
 // `notificationsFeature.exports` (defineFeature generic) — that's how the
 // probe handler below reaches the typed handle without module-capture.
 const notificationsFeature = defineFeature("notifications", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   return r.config({
     keys: {
       pushEnabled: createUserConfig("boolean", { default: true }),
@@ -111,7 +111,7 @@ const notificationsFeature = defineFeature("notifications", (r) => {
 
 // Scenario 6: Feature setting per tenant
 const ordersFeature = defineFeature("orders", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   return r.config({
     keys: {
       maxOrderCount: createTenantConfig("number", { default: 100, write: access.roles("Admin") }),
@@ -142,7 +142,7 @@ const ordersFeature = defineFeature("orders", (r) => {
 // r.config() shorthand — single-key sibling of r.config({keys}), same
 // wiring end-to-end (registry → resolver → ctx.config). No seeds needed here.
 const configKeyDemoFeature = defineFeature("configkeydemo", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   const betaEnabled = r.config(
     "betaEnabled",
     createTenantConfig("boolean", { default: false, write: access.roles("Admin") }),
@@ -163,15 +163,15 @@ const probe: {
   betaEnabled: undefined,
 };
 const probeFeature = defineFeature("probe", (r) => {
-  r.requires("config");
-  r.requires("orders");
-  r.requires("notifications");
-  r.requires("configkeydemo");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["orders"] });
+  r.requires({ features: ["notifications"] });
+  r.requires({ features: ["configkeydemo"] });
 
-  r.writeHandler(
-    "read-config",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "read-config",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       if (!ctx.config) throw new Error("ctx.config not wired — _configAccessorFactory missing");
       probe.orders = await ctx.config(ordersFeature.exports.maxOrderCount);
       probe.push = await ctx.config(notificationsFeature.exports.pushEnabled);
@@ -181,13 +181,13 @@ const probeFeature = defineFeature("probe", (r) => {
         data: { orders: probe.orders, push: probe.push, betaEnabled: probe.betaEnabled },
       };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 // Encrypted config key
 const integrationFeature = defineFeature("integration", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   r.config({
     keys: {
@@ -224,7 +224,7 @@ const configFeature = createConfigFeature();
 // keyDef.pattern as a hard-reject gate, same posture as bounds. The regex
 // allows empty (clear) | a CSS hex color.
 const patternFeature = defineFeature("patterned", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       hexColor: createTenantConfig("text", {
@@ -239,7 +239,7 @@ const patternFeature = defineFeature("patterned", (r) => {
 const tenantsSeenByValidator: string[][] = [];
 const validatorCalls: Array<{ value: string; ctx: Omit<ConfigValidateContext, "db"> }> = [];
 const validatedFeature = defineFeature("validated", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       endpoint: createTenantConfig("text", {
@@ -282,7 +282,7 @@ const validatedFeature = defineFeature("validated", (r) => {
 
 // Scenario 11: Config seeding — feature with deploy-time defaults
 const seedFeature = defineFeature("seeddemo", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   return r.config({
     keys: {
       themeColor: createTenantConfig("text", { default: "blue" }),
@@ -298,7 +298,7 @@ const seedFeature = defineFeature("seeddemo", (r) => {
 // Readiness-Scenario: required keys — feature is unusable until the tenant
 // sets real values (mirrors mail-transport-smtp / file-provider-s3).
 const transportFeature = defineFeature("transport", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   return r.config({
     keys: {
       smtpHost: createTenantConfig("text", {

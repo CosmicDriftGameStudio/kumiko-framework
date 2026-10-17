@@ -45,7 +45,7 @@ export const fileProviderS3EnvFeature = defineFeature(FEATURE_NAME, (r) => {
   // No r.requires("config") / r.requires("secrets") — credentials come from
   // env, not the per-tenant config + secrets store. Only the file-foundation
   // plugin-extension-point must be mounted.
-  r.requires("file-foundation");
+  r.requires({ features: ["file-foundation"] });
 
   const plugin: FileProviderPlugin = {
     // tenantId ignored: one shared bucket serves all tenants (isolation via

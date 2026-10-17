@@ -95,7 +95,7 @@ function startStub(): {
 }
 
 const opsFeature = defineFeature("ops", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "announce",

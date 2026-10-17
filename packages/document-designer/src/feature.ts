@@ -30,7 +30,7 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
       category: "content",
       recommended: false,
     });
-    r.requires("template-resolver");
+    r.requires({ features: ["template-resolver"] });
 
     r.translations({ keys: DOCUMENT_DESIGNER_I18N });
 

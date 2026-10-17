@@ -46,7 +46,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
       category: "storage",
       recommended: false,
     });
-    r.entity(FILE_REF_ENTITY_NAME, fileRefEntity);
+    r.entity({ name: FILE_REF_ENTITY_NAME, ...fileRefEntity });
     r.writeHandler(bindReferencedFilesWrite);
     return { routeOptions: options };
   });

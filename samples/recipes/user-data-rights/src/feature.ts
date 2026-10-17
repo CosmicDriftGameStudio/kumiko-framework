@@ -55,7 +55,7 @@ export const noteEntity = createEntity({
 export const notesTable = deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" });
 
 export const notesFeature = defineFeature("notes", (r) => {
-  r.requires("user-data-rights");
+  r.requires({ features: ["user-data-rights"] });
   // store_notes is a direct-write store: the forget hook below `updateMany`/
   // `deleteMany`s rows WITHOUT emitting lifecycle events. r.entity would make
   // it a rebuildable implicit projection whose replay finds zero note events

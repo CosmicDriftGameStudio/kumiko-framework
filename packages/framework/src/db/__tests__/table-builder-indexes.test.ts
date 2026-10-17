@@ -123,7 +123,7 @@ describe("buildEntityTable — entity.indexes", () => {
     expect(() => buildEntityTable("widget", entity)).not.toThrow();
     // But validateBoot does.
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity("widget", entity);
+      r.entity({ name: "widget", ...entity });
     });
     expect(() => validateBoot([feature])).toThrow(/multi-value field/);
   });
@@ -132,7 +132,8 @@ describe("buildEntityTable — entity.indexes", () => {
 describe("validateBoot — entity.indexes", () => {
   test("Tippfehler im column-Namen wirft", () => {
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity("widget", {
+      r.entity({
+        name: "widget",
         fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         indexes: [{ columns: ["titel"] }], // typo
       });
@@ -142,7 +143,8 @@ describe("validateBoot — entity.indexes", () => {
 
   test("leere column-Liste wirft", () => {
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity("widget", {
+      r.entity({
+        name: "widget",
         fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         indexes: [{ columns: [] as never }],
       });
@@ -152,7 +154,8 @@ describe("validateBoot — entity.indexes", () => {
 
   test("single-column index nur auf tenantId ist redundant", () => {
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity("widget", {
+      r.entity({
+        name: "widget",
         fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         indexes: [{ columns: ["tenantId"] }],
       });
@@ -167,7 +170,8 @@ describe("validateBoot — entity.indexes", () => {
     // oben ist redundant — beide Hälften der Bedingung sind damit gepinnt,
     // sonst fliegt der Branch beim nächsten Revert/Refactor stumm raus.
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity("widget", {
+      r.entity({
+        name: "widget",
         fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         indexes: [{ unique: true, columns: ["tenantId"] }],
       });
@@ -177,7 +181,8 @@ describe("validateBoot — entity.indexes", () => {
 
   test("composite mit tenantId ist OK (z.B. für unique über 3 Cols)", () => {
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity("widget", {
+      r.entity({
+        name: "widget",
         fields: {
           key: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           archived: createBooleanField({}),
@@ -190,7 +195,8 @@ describe("validateBoot — entity.indexes", () => {
 
   test("base columns (id, tenantId, version) sind erlaubt", () => {
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity("widget", {
+      r.entity({
+        name: "widget",
         fields: { key: createTextField({ personal: false, reason: "test_fixture" }) },
         indexes: [{ columns: ["tenantId", "version"] }],
       });
