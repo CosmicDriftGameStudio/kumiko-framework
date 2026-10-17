@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  AccessDeniedError,
+  InternalError,
+  RateLimitError,
+  UnprocessableError,
+  ValidationError,
+} from "@cosmicdrift/kumiko-framework/errors";
 import type { ToolCallRequest, ToolDispatcher } from "../tool-dispatch.js";
 import { dispatchToolCall } from "../tool-dispatch.js";
 import type { ToolDispatchDescriptor } from "../types.js";
@@ -166,7 +173,25 @@ describe("dispatchToolCall — search/findBy (unchanged behaviour)", () => {
     ]);
   });
 
-  test("a dispatcher rejection (e.g. missing handler or failed cap check) becomes an error result, not a throw", async () => {
+  test("a cap-check rejection keeps its message and code in the error result", async () => {
+    const dispatcher = recordingDispatcher({
+      query: async () => {
+        throw new AccessDeniedError({ message: "cap exceeded for vendor:list" });
+      },
+    });
+
+    const result = await dispatchToolCall(
+      request({ dispatcher, toolName: "search_vendor", input: { query: "anything" } }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "cap exceeded for vendor:list",
+      code: "access_denied",
+    });
+  });
+
+  test("an unexpected dispatcher throw (e.g. missing handler) becomes a generic error result, not a throw", async () => {
     const dispatcher = recordingDispatcher({
       query: async () => {
         throw new Error("no handler registered for qn 'vendor:list'");
@@ -177,7 +202,11 @@ describe("dispatchToolCall — search/findBy (unchanged behaviour)", () => {
       request({ dispatcher, toolName: "search_vendor", input: { query: "anything" } }),
     );
 
-    expect(result).toEqual({ ok: false, error: "no handler registered for qn 'vendor:list'" });
+    expect(result).toEqual({
+      ok: false,
+      error: "Tool failed unexpectedly",
+      code: "internal_error",
+    });
   });
 });
 
@@ -308,7 +337,7 @@ describe("dispatchToolCall — server write tools", () => {
       request({ dispatcher, toolName: "vendor_feature_vendor_approve", input: { id: "vendor-1" } }),
     );
 
-    expect(result).toEqual({ ok: false, error: "access denied" });
+    expect(result).toEqual({ ok: false, error: "access denied", code: "access_denied" });
   });
 
   test("no detailQn: returns only id/version scalars, never the raw write payload", async () => {
@@ -468,5 +497,138 @@ describe("dispatchToolCall — client tools", () => {
     );
     expect(mixedTypes.ok).toBe(false);
     if (!mixedTypes.ok) expect(mixedTypes.error).toContain(`"options"`);
+  });
+});
+
+describe("dispatchToolCall — failure classification", () => {
+  function failingWrite(thrown: unknown) {
+    const logged: { msg: string; data: Record<string, unknown> | undefined }[] = [];
+    const log = {
+      error: (msg: string, data?: Record<string, unknown>) => {
+        logged.push({ msg, data });
+      },
+    };
+    const dispatcher = recordingDispatcher({
+      write: async () => {
+        throw thrown;
+      },
+    });
+    const run = () =>
+      dispatchToolCall(request({ dispatcher, log, toolName: "vendor_feature_vendor_ping" }));
+    return { run, logged };
+  }
+
+  function writeFailure(httpStatus: number, code: string, message: string) {
+    const dispatcher = recordingDispatcher({
+      write: async () => ({
+        isSuccess: false,
+        error: { code, httpStatus, i18nKey: `errors.${code}`, message },
+      }),
+    });
+    const logged: unknown[] = [];
+    const log = { error: (msg: string) => void logged.push(msg) };
+    return {
+      logged,
+      run: () =>
+        dispatchToolCall(request({ dispatcher, log, toolName: "vendor_feature_vendor_ping" })),
+    };
+  }
+
+  test("InternalError hides its text, reports internal_error and logs the cause", async () => {
+    const cause = new InternalError({ message: "pg connection to 10.0.0.5 refused" });
+    const { run, logged } = failingWrite(cause);
+    const result = await run();
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Tool failed unexpectedly",
+      code: "internal_error",
+    });
+    expect(logged).toHaveLength(1);
+    expect(logged[0]?.data).toMatchObject({
+      toolName: "vendor_feature_vendor_ping",
+      code: "internal_error",
+      cause,
+    });
+  });
+
+  test("a plain Error never leaks its message", async () => {
+    const { run, logged } = failingWrite(new Error("db password=hunter2"));
+    const result = await run();
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Tool failed unexpectedly",
+      code: "internal_error",
+    });
+    expect(JSON.stringify(result)).not.toContain("hunter2");
+    expect(logged).toHaveLength(1);
+  });
+
+  test("a thrown string yields the generic message", async () => {
+    const { run } = failingWrite("secret-token-abc");
+    const result = await run();
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Tool failed unexpectedly",
+      code: "internal_error",
+    });
+  });
+
+  test("client errors keep their text and carry the error code", async () => {
+    const unprocessable = await failingWrite(
+      new UnprocessableError("vendor_blocked", { message: "vendor is blocked" }),
+    ).run();
+    expect(unprocessable).toEqual({ ok: false, error: "vendor is blocked", code: "unprocessable" });
+
+    const validation = await failingWrite(new ValidationError({ fields: [] })).run();
+    expect(validation).toEqual({
+      ok: false,
+      error: "Validation failed",
+      code: "validation_error",
+    });
+  });
+
+  test("RateLimitError is retryable and exposes retryAfterSeconds", async () => {
+    const { run, logged } = failingWrite(
+      new RateLimitError({
+        bucket: "agent",
+        limit: 5,
+        remaining: 0,
+        windowSeconds: 60,
+        resetAt: "2026-01-01T00:00:00.000Z",
+        retryAfterSeconds: 12,
+      }),
+    );
+    const result = await run();
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "rate_limited",
+      retryable: true,
+      retryAfterSeconds: 12,
+    });
+    expect(logged).toHaveLength(0);
+  });
+
+  test("a 5xx WriteFailure is generic and logged", async () => {
+    const { run, logged } = writeFailure(500, "internal_error", "relation vendor_x does not exist");
+    const result = await run();
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Tool failed unexpectedly",
+      code: "internal_error",
+    });
+    expect(logged).toHaveLength(1);
+  });
+
+  test("a 4xx WriteFailure keeps text and code", async () => {
+    const { run, logged } = writeFailure(403, "access_denied", "access denied");
+    const result = await run();
+
+    expect(result).toEqual({ ok: false, error: "access denied", code: "access_denied" });
+    expect(logged).toHaveLength(0);
   });
 });
