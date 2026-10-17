@@ -29,6 +29,7 @@ import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantTable } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../feature.js";
+import { DESTRUCTION_STAGES } from "../stages.js";
 import { driveDestructionToCompletion, seedDestroyingTenant } from "../testing.js";
 
 const NAME = "Shred Me Holding";
@@ -107,6 +108,25 @@ describe("tenant-lifecycle :: destroy shreds tenant.name", () => {
     for (const eventName of after.events) {
       expect(await decryptStoredPii(String(eventName), "name", "test")).toBe(PII_ERASED_SENTINEL);
     }
+  });
+
+  test("the tenant-row stage is idempotent: a second run on a destroyed tenant succeeds", async () => {
+    const tenantId = await createTenant();
+    await seedDestroyingTenant(stack.db, tenantId);
+    expect(await driveDestructionToCompletion(stack, stack.db, tenantId)).toBe("destroyed");
+
+    const tenantRow = DESTRUCTION_STAGES.find((stage) => stage.name === "tenant-row");
+    if (!tenantRow) throw new Error("tenant-row stage missing");
+    const outcome = await tenantRow.run({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId,
+      deadlineAt: Number.POSITIVE_INFINITY,
+    });
+
+    expect(outcome.done).toBe(true);
+    const [row] = await selectMany<{ status: string }>(stack.db, tenantTable, { id: tenantId });
+    expect(row?.status).toBe("destroyed");
   });
 
   test("the derived search document of the tenant name is purged with the key", async () => {

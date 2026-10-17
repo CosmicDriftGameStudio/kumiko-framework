@@ -1103,6 +1103,9 @@ const piiSoftEntity = createEntity({
 });
 const piiSoftTable = buildEntityTable("esExecPiiSoft", piiSoftEntity);
 
+type KeyState = "existing-key" | "never-keyed";
+const KEY_STATES: KeyState[] = ["existing-key", "never-keyed"];
+
 describe("event-store-executor — restore re-encrypts pii in previous", () => {
   const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
   const kms = new InMemoryKmsAdapter();
@@ -1221,20 +1224,22 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
     expect(restoredEvents).toHaveLength(0);
   }
 
-  test("erased subject key: restore of a pre-KMS plaintext row fails with subject-erased and stores nothing", async () => {
-    const created = await plainCrud.create(
-      { email: "prekms@test.de", ownerId: adminUser.id },
-      adminUser,
-      tdb,
-    );
-    if (!created.isSuccess) throw new Error("create failed");
-    const deleted = await plainCrud.delete({ id: created.data.id }, adminUser, tdb);
-    if (!deleted.isSuccess) throw new Error("delete failed");
-    await kms.createKey({ kind: "user", userId: String(created.data.id) });
-    await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
+  test.each(KEY_STATES)(
+    "erased subject key (%s): restore of a pre-KMS plaintext row fails with subject-erased and stores nothing",
+    async (keyState) => {
+      const created = await plainCrud.create(
+        { email: "prekms@test.de", ownerId: adminUser.id },
+        adminUser,
+        tdb,
+      );
+      if (!created.isSuccess) throw new Error("create failed");
+      const deleted = await plainCrud.delete({ id: created.data.id }, adminUser, tdb);
+      if (!deleted.isSuccess) throw new Error("delete failed");
+      await eraseSubjectKey(created.data.id, keyState);
 
-    await expectRestoreRefusedAndNothingStored(created.data.id);
-  });
+      await expectRestoreRefusedAndNothingStored(created.data.id);
+    },
+  );
 
   test("erased subject: restore of a KMS row succeeds and stores the sentinel in previous", async () => {
     const created = await kmsCrud.create(
@@ -1254,15 +1259,20 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
     expect(storedPrevious["email"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  async function createPreKmsRowWithErasedSubject(): Promise<EntityId> {
+  async function eraseSubjectKey(id: EntityId, keyState: KeyState): Promise<void> {
+    const subject = { kind: "user", userId: String(id) } as const;
+    if (keyState === "existing-key") await kms.createKey(subject);
+    await kms.eraseKey(subject);
+  }
+
+  async function createPreKmsRowWithErasedSubject(keyState: KeyState): Promise<EntityId> {
     const created = await plainCrud.create(
       { email: "prekms@test.de", ownerId: adminUser.id },
       adminUser,
       tdb,
     );
     if (!created.isSuccess) throw new Error("create failed");
-    await kms.createKey({ kind: "user", userId: String(created.data.id) });
-    await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
+    await eraseSubjectKey(created.data.id, keyState);
     return created.data.id;
   }
 
@@ -1276,63 +1286,75 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
     return payload.previous;
   }
 
-  test("erased subject: update fails without a writePurpose, erasure update stores the sentinel in previous", async () => {
-    const id = await createPreKmsRowWithErasedSubject();
-    const changes = { secretNote: "after-erasure" };
+  test.each(KEY_STATES)(
+    "erased subject (%s): update fails without a writePurpose, erasure update stores the sentinel in previous",
+    async (keyState) => {
+      const id = await createPreKmsRowWithErasedSubject(keyState);
+      const changes = { secretNote: "after-erasure" };
 
-    await expect(
-      kmsCrud.update({ id, changes }, adminUser, tdb, { skipOptimisticLock: true }),
-    ).rejects.toMatchObject({ details: { reason: FrameworkReasons.subjectErased } });
+      await expect(
+        kmsCrud.update({ id, changes }, adminUser, tdb, { skipOptimisticLock: true }),
+      ).rejects.toMatchObject({ details: { reason: FrameworkReasons.subjectErased } });
 
-    const updated = await kmsCrud.update({ id, changes }, adminUser, tdb, {
-      skipOptimisticLock: true,
-      writePurpose: WritePurposes.erasure,
-    });
+      const updated = await kmsCrud.update({ id, changes }, adminUser, tdb, {
+        skipOptimisticLock: true,
+        writePurpose: WritePurposes.erasure,
+      });
 
-    expect(updated.isSuccess).toBe(true);
-    const previous = await loadStoredPrevious("esExecPiiSoft.updated", id);
-    expect(previous["email"]).toBe(PII_ERASED_SENTINEL);
-  });
+      expect(updated.isSuccess).toBe(true);
+      const previous = await loadStoredPrevious("esExecPiiSoft.updated", id);
+      expect(previous["email"]).toBe(PII_ERASED_SENTINEL);
+    },
+  );
 
-  test("erased subject: erasure update leaves other subjects' fields encrypted", async () => {
-    const id = await createPreKmsRowWithErasedSubject();
+  test.each(KEY_STATES)(
+    "erased subject (%s): erasure update leaves other subjects' fields encrypted",
+    async (keyState) => {
+      const id = await createPreKmsRowWithErasedSubject(keyState);
 
-    const updated = await kmsCrud.update(
-      { id, changes: { ownerSecret: "owner-secret-after" } },
-      adminUser,
-      tdb,
-      { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
-    );
+      const updated = await kmsCrud.update(
+        { id, changes: { ownerSecret: "owner-secret-after" } },
+        adminUser,
+        tdb,
+        { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
+      );
 
-    expect(updated.isSuccess).toBe(true);
-    const rows = (await asRawClient(testDb.db).unsafe(
-      `SELECT payload FROM kumiko_events WHERE type = 'esExecPiiSoft.updated' AND aggregate_id = '${id}'`,
-    )) as Array<{ payload: { changes: Record<string, unknown> } }>;
-    expect(String(rows[0]?.payload.changes["ownerSecret"])).toStartWith(PII_CIPHERTEXT_PREFIX);
-  });
+      expect(updated.isSuccess).toBe(true);
+      const rows = (await asRawClient(testDb.db).unsafe(
+        `SELECT payload FROM kumiko_events WHERE type = 'esExecPiiSoft.updated' AND aggregate_id = '${id}'`,
+      )) as Array<{ payload: { changes: Record<string, unknown> } }>;
+      expect(String(rows[0]?.payload.changes["ownerSecret"])).toStartWith(PII_CIPHERTEXT_PREFIX);
+    },
+  );
 
-  test("erased subject: forget succeeds on a pre-KMS plaintext row and removes it", async () => {
-    const id = await createPreKmsRowWithErasedSubject();
+  test.each(KEY_STATES)(
+    "erased subject (%s): forget succeeds on a pre-KMS plaintext row and removes it",
+    async (keyState) => {
+      const id = await createPreKmsRowWithErasedSubject(keyState);
 
-    const forgotten = await kmsCrud.forget({ id }, adminUser, tdb);
+      const forgotten = await kmsCrud.forget({ id }, adminUser, tdb);
 
-    expect(forgotten.isSuccess).toBe(true);
-    const rows = (await asRawClient(testDb.db).unsafe(
-      `SELECT id FROM read_es_exec_pii_soft WHERE id = '${id}'`,
-    )) as Array<{ id: unknown }>;
-    expect(rows).toHaveLength(0);
-    const previous = await loadStoredPrevious("esExecPiiSoft.forgotten", id);
-    expect(previous["email"]).toBe(PII_ERASED_SENTINEL);
-  });
+      expect(forgotten.isSuccess).toBe(true);
+      const rows = (await asRawClient(testDb.db).unsafe(
+        `SELECT id FROM read_es_exec_pii_soft WHERE id = '${id}'`,
+      )) as Array<{ id: unknown }>;
+      expect(rows).toHaveLength(0);
+      const previous = await loadStoredPrevious("esExecPiiSoft.forgotten", id);
+      expect(previous["email"]).toBe(PII_ERASED_SENTINEL);
+    },
+  );
 
-  test("erased subject: after an erasure delete, restore stays refused", async () => {
-    const id = await createPreKmsRowWithErasedSubject();
+  test.each(KEY_STATES)(
+    "erased subject (%s): after an erasure delete, restore stays refused",
+    async (keyState) => {
+      const id = await createPreKmsRowWithErasedSubject(keyState);
 
-    const deleted = await kmsCrud.delete({ id }, adminUser, tdb, {
-      writePurpose: WritePurposes.erasure,
-    });
+      const deleted = await kmsCrud.delete({ id }, adminUser, tdb, {
+        writePurpose: WritePurposes.erasure,
+      });
 
-    expect(deleted.isSuccess).toBe(true);
-    await expectRestoreRefusedAndNothingStored(id);
-  });
+      expect(deleted.isSuccess).toBe(true);
+      await expectRestoreRefusedAndNothingStored(id);
+    },
+  );
 });

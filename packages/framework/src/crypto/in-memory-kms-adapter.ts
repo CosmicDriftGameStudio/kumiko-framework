@@ -17,7 +17,8 @@ interface KeyEntry {
 }
 
 // Non-persistent adapter for tests and dev mode. Erased entries stay as
-// tombstones so the create-after-erase contract holds within a process.
+// tombstones (also for never-keyed subjects) so the create-after-erase
+// contract holds within a process.
 export class InMemoryKmsAdapter implements LocalKeyKmsAdapter {
   readonly capabilities = { mode: "local-key" } as const;
 
@@ -37,11 +38,8 @@ export class InMemoryKmsAdapter implements LocalKeyKmsAdapter {
   }
 
   async eraseKey(subject: SubjectId): Promise<void> {
-    const entry = this.keys.get(subjectIdToKey(subject));
-    // skip: eraseKey is contractually idempotent — unknown subject is a no-op
-    if (!entry) return;
-    entry.key = null;
-    entry.erased = true;
+    // A never-keyed subject gets a tombstone too, so createKey cannot mint one later.
+    this.keys.set(subjectIdToKey(subject), { key: null, erased: true });
   }
 
   async health(): Promise<KmsHealth> {
