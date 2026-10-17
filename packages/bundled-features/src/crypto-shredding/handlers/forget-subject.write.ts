@@ -365,7 +365,10 @@ async function closeUserLoginDoor(
       runner,
       userId,
       { status: USER_STATUS.Deleted },
-      { writePurpose: WritePurposes.erasure },
+      // includeDeleted: a user whose stream is already deleted but whose status
+      // still reads active would otherwise fail with not_found (500) and keep
+      // sessions and PATs alive.
+      { writePurpose: WritePurposes.erasure, includeDeleted: true },
     );
     if (ctx.registry.features.has("personal-access-tokens")) {
       await revokeAllPatTokensForUser(runner, userId);

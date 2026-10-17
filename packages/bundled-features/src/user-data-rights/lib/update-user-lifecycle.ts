@@ -34,6 +34,10 @@ export type UpdateUserLifecycleOptions = {
   // Erasure flows run after the subject key is erased; the write then stores the
   // erased sentinel instead of failing on re-encrypt.
   readonly writePurpose?: WritePurpose;
+  // Also address a row the stream has already soft-deleted. Only erasure needs
+  // this: a deleted stream with a still-`active` status must still get its
+  // status event so the login door closes.
+  readonly includeDeleted?: boolean;
 };
 
 // `conn` is ctx.db.unsafeRaw() (regular handlers) or the open tx
@@ -70,6 +74,7 @@ export async function updateUserLifecycle(
       skipOptimisticLock: true,
       ...(options?.expect && { expect: options.expect }),
       ...(options?.writePurpose && { writePurpose: options.writePurpose }),
+      ...(options?.includeDeleted && { includeDeleted: true }),
     },
   );
 
