@@ -1,0 +1,47 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { tasksFeature } from "../features/tasks";
+
+const TASK_CREATE = "tasks:write:task:create";
+const TASK_STATS = "tasks:query:task:stats";
+
+type TaskStats = { total: number; urgent: number; done: number };
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupAppTestStack([tasksFeature]);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("eval acceptance: task overview", () => {
+  test("the overview screen and its nav entry are declared", () => {
+    expect(Object.keys(tasksFeature.screens)).toContain("task-overview");
+    expect(Object.keys(tasksFeature.navs)).toContain("task-overview");
+  });
+
+  test("stats counts total, urgent and done tasks of the tenant", async () => {
+    const owner = await seedTenant(stack);
+    const other = await seedTenant(stack);
+    await owner.api.writeOk(TASK_CREATE, { title: "A", status: "todo", isUrgent: true });
+    await owner.api.writeOk(TASK_CREATE, { title: "B", status: "done", isUrgent: true });
+    await owner.api.writeOk(TASK_CREATE, { title: "C", status: "done" });
+    await owner.api.writeOk(TASK_CREATE, { title: "D" });
+    await other.api.writeOk(TASK_CREATE, { title: "Foreign", status: "done", isUrgent: true });
+
+    const ownerStats = await owner.api.queryOk<TaskStats>(TASK_STATS, {});
+    expect(ownerStats).toEqual({ total: 4, urgent: 2, done: 2 });
+    const otherStats = await other.api.queryOk<TaskStats>(TASK_STATS, {});
+    expect(otherStats).toEqual({ total: 1, urgent: 1, done: 1 });
+  });
+
+  test("stats of an empty tenant are all zero", async () => {
+    const tenant = await seedTenant(stack);
+    const stats = await tenant.api.queryOk<TaskStats>(TASK_STATS, {});
+    expect(stats).toEqual({ total: 0, urgent: 0, done: 0 });
+  });
+});

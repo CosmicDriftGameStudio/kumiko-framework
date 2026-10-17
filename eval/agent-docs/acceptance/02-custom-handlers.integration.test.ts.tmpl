@@ -1,0 +1,95 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { tasksFeature } from "../features/tasks";
+
+const TASK_CREATE = "tasks:write:task:create";
+const TASK_COMPLETE = "tasks:write:task:complete";
+const TASK_DETAIL = "tasks:query:task:detail";
+const TASK_OPEN_COUNT = "tasks:query:task:open-count";
+
+type Created = { id: string };
+type TaskRow = { id: string; status: string | null; version: number };
+type OpenCount = { count: number };
+
+const UNKNOWN_TASK_ID = "00000000-0000-4000-8000-000000000000";
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupAppTestStack([tasksFeature]);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("eval acceptance: complete + open-count", () => {
+  test("complete sets the status to done and bumps the version", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(TASK_CREATE, {
+      title: "Ship it",
+      status: "todo",
+    });
+
+    await tenant.api.writeOk(TASK_COMPLETE, { id: created.id, version: 1 });
+
+    const detail = await tenant.api.queryOk<TaskRow>(TASK_DETAIL, { id: created.id });
+    expect(detail.status).toBe("done");
+    expect(detail.version).toBe(2);
+  });
+
+  test("completing a done task fails with task_already_done", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(TASK_CREATE, {
+      title: "Already finished",
+      status: "done",
+    });
+
+    const error = await tenant.api.writeErr(TASK_COMPLETE, { id: created.id, version: 1 });
+    expect(error.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(error.httpStatus).toBeLessThan(500);
+    expectErrorIncludes(error, "task_already_done");
+  });
+
+  test("completing an unknown task fails with not found", async () => {
+    const tenant = await seedTenant(stack);
+    const error = await tenant.api.writeErr(TASK_COMPLETE, { id: UNKNOWN_TASK_ID, version: 1 });
+    expect(error.httpStatus).toBe(404);
+  });
+
+  test("completing with a stale version fails with version_conflict", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(TASK_CREATE, {
+      title: "Edited meanwhile",
+      status: "todo",
+    });
+    await tenant.api.writeOk("tasks:write:task:update", {
+      id: created.id,
+      version: 1,
+      changes: { title: "Edited" },
+    });
+
+    const error = await tenant.api.writeErr(TASK_COMPLETE, { id: created.id, version: 1 });
+    expectErrorIncludes(error, "version_conflict");
+  });
+
+  test("open-count counts the tenant's tasks that are not done", async () => {
+    const owner = await seedTenant(stack);
+    const other = await seedTenant(stack);
+    await owner.api.writeOk(TASK_CREATE, { title: "Open A", status: "todo" });
+    await owner.api.writeOk(TASK_CREATE, { title: "Open B" });
+    const finished = await owner.api.writeOk<Created>(TASK_CREATE, {
+      title: "Finish me",
+      status: "todo",
+    });
+    await owner.api.writeOk(TASK_COMPLETE, { id: finished.id, version: 1 });
+    await other.api.writeOk(TASK_CREATE, { title: "Foreign", status: "todo" });
+
+    const ownerCount = await owner.api.queryOk<OpenCount>(TASK_OPEN_COUNT, {});
+    expect(ownerCount.count).toBe(2);
+    const otherCount = await other.api.queryOk<OpenCount>(TASK_OPEN_COUNT, {});
+    expect(otherCount.count).toBe(1);
+  });
+});
