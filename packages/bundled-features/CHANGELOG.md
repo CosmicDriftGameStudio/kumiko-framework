@@ -1,5 +1,130 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.366.0
+
+### Minor Changes
+
+- 09d5344: Agent tool failures are classified instead of passing raw messages through
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: Agent tool failures are classified instead of passing raw messages through
+  detail: dispatchToolCall now adds a code to failed tool results. Client errors keep their message, rate limits also set retryable and retryAfterSeconds. Server errors and unknown throws are logged with their cause and returned to the model as "Tool failed unexpectedly", so internal details such as database messages no longer reach the model. ToolCallRequest accepts an optional log.
+  -->
+- 22b7f6e: Inbound mail fetch can skip already-seen message ids
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Inbound mail fetch can skip already-seen message ids
+  detail: InboundMailProviderPlugin.fetch receives an optional filterUnknownMessageIds(providerMessageIds) hook. The watch supervisor implements it with a tenant- and account-scoped lookup of already-seen provider message ids and returns the ids not seen yet, so a plugin can avoid downloading messages it has already processed.
+  -->
+- 22b7f6e: InboundMailContext exposes metricsFor to provider plugins
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: InboundMailContext exposes metricsFor to provider plugins
+  detail: InboundMailContext gains an optional metricsFor(featureName) returning a MetricsHandle. runProdApp, the worker app and the dev server wire it from the observability meter, so provider plugins can emit their own metrics through the same pipeline.
+  migration: Code that builds SystemWireDeps itself adds metricsFor (createMetricsForFactory(meter)).
+  -->
+- 8a7d835: Renaming a notification type keeps user preferences and address opt-outs
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Renaming a notification type keeps user preferences and address opt-outs
+  detail: r.notification accepts renamedFrom, a list of former qualified names. Preferences and address opt-outs stored under a former name keep applying to the renamed notification, and a stored choice under the current name wins over one under a former name. New writes via setPreference and the unsubscribe and resubscribe handlers are stored under the current name, resubscribeAddress also lifts opt-outs under former names. Boot fails if an alias is a current notification name, is the wildcard, or is claimed by two notifications.
+  -->
+
+### Patch Changes
+
+- 22b7f6e: cap-counter calendar settle is idempotent
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: cap-counter calendar settle is idempotent
+  detail: Settling a calendar cap reservation now keeps the row as a tombstone (new column store_cap_reservations.settled_at, retained for 24 hours) instead of deleting it. A repeated settle with the same reservation id is a no-op, and confirm, give-back and expiry sweep ignore settled rows. The sweep deletes expired tombstones.
+  migration: Apps with cap-counter generate a migration for the new column store_cap_reservations.settled_at (kumiko migrate generate).
+  -->
+- 22b7f6e: One injectable Clock for ctx.tz in handlers and jobs
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: One injectable Clock for ctx.tz in handlers and jobs
+  detail: New type Clock and TzContextOptions.clock. AppContext.clock feeds ctx.tz.now() in handlers, and JobContext.tz gives jobs the same ctx.tz API (tenant timezone from tenant config, read once per job run, UTC fallback). The testing helper createManualClock(start) returns a clock with set and advance. The tenant-lifecycle job now reads time through ctx.tz.now().
+  migration: Code that builds a JobContext literal itself (boot seeds, test doubles) adds `tz: createTzContext()`.
+  -->
+- a919906: forget-subject is covered for users stored before the KMS and users without an event stream
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-subject is covered for users stored before the KMS and users without an event stream
+  detail: Tests now cover forget-subject for users stored as plaintext before the KMS was configured and for users without an event stream. Both succeed since the KMS tombstone fix, close the login door and write the audit event.
+  -->
+- 22b7f6e: Removed unused AuthHandlers.inviteCancel constant
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Removed unused AuthHandlers.inviteCancel constant
+  detail: AuthHandlers.inviteCancel pointed at auth-email-password:write:invite-cancel, a handler that never existed. The constant is removed.
+  migration: If you referenced AuthHandlers.inviteCancel, use tenant:write:cancel-invitation.
+  -->
+- 22b7f6e: invite-create is no longer exposed to agents
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: invite-create is no longer exposed to agents
+  detail: The admin invite-create handler is now opted out of the agent tool catalog with agent: { expose: false }, like the other invite handlers, because it mails an accept link to an arbitrary address.
+  -->
+- 7053800: The registrar takes one object per call: r.writeHandler, r.queryHandler, r.entity, r.requires and r.hook lose their positional forms
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Registrar methods take a single object, positional calls throw at registration
+  detail: |
+    r.writeHandler, r.queryHandler, r.entity, r.requires and r.hook now take one object. The positional overloads are gone from the types and throw when the feature is defined, with a message that points at the codemod. The throw is removed in the first release after 2026-10-29.
+  
+    writeHandler (queryHandler is the same shape):
+      before: r.writeHandler("order:archive", schema, handler, { access });
+      after:  r.writeHandler({ name: "order:archive", schema, handler, access });
+  
+    hook (type picks the handler shape, target is a name, a list or { allOf }):
+      before: r.hook("postSave", "order", handler, { escapeHatch });
+      after:  r.hook({ type: "postSave", target: "order", handler, escapeHatch });
+  
+    entity and requires:
+      before: r.entity("order", definition, { table: ordersTable });  r.requires("auth", "tenant");
+      after:  r.entity({ name: "order", ...definition, backingTable: ordersTable });  r.requires({ features: ["auth", "tenant"] });
+  
+    registerEntityCrud is no longer exported from @cosmicdrift/kumiko-framework/engine; call r.crud(name, entity, options) instead. The entity option { table } is now backingTable on the r.entity object and lands in the feature's entityTables, not in its entities. HookDefinition and EntityObjectDefinition are exported from @cosmicdrift/kumiko-types. Hook definitions are checked per type: validation takes no escapeHatch, phase only exists on postSave and postDelete, and { allOf } is not accepted on preSave.
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites every positional r.writeHandler, r.queryHandler, r.entity, r.requires, r.hook and registerEntityCrud call to the object form. Calls it cannot resolve statically (a spread argument, a registrar that is not typed as FeatureRegistrar) are listed as manual work with file and line; rewrite those by hand.
+  codemod: scripts/codemod/object-form.ts
+  manualAfterCodemod: true
+  -->
+- Updated dependencies [22b7f6e]
+- Updated dependencies [15d76a8]
+- Updated dependencies [8a7d835]
+- Updated dependencies [7053800]
+- Updated dependencies [3d58dea]
+- Updated dependencies [49b3f10]
+- Updated dependencies [5df8e3a]
+- Updated dependencies [22b7f6e]
+- Updated dependencies [7053800]
+  - @cosmicdrift/kumiko-framework@0.366.0
+  - @cosmicdrift/kumiko-types@0.366.0
+  - @cosmicdrift/kumiko-renderer@0.366.0
+  - @cosmicdrift/kumiko-renderer-web@0.366.0
+  - @cosmicdrift/kumiko-headless@0.366.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.366.0
+
 ## 0.365.1
 
 ### Patch Changes

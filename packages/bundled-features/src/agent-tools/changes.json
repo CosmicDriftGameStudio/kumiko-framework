@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.366.0",
+    "type": "improvement",
+    "title": "Agent tool failures are classified instead of passing raw messages through",
+    "detail": "dispatchToolCall now adds a code to failed tool results. Client errors keep their message, rate limits also set retryable and retryAfterSeconds. Server errors and unknown throws are logged with their cause and returned to the model as \"Tool failed unexpectedly\", so internal details such as database messages no longer reach the model. ToolCallRequest accepts an optional log."
+  },
+  {
     "version": "0.353.0",
     "type": "fix",
     "title": "buildToolCatalog throws when the manifest was built with denyQns the catalog options lack",

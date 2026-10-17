@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.366.0",
+    "type": "improvement",
+    "title": "Inbound mail fetch can skip already-seen message ids",
+    "detail": "InboundMailProviderPlugin.fetch receives an optional filterUnknownMessageIds(providerMessageIds) hook. The watch supervisor implements it with a tenant- and account-scoped lookup of already-seen provider message ids and returns the ids not seen yet, so a plugin can avoid downloading messages it has already processed."
+  },
+  {
+    "version": "0.366.0",
+    "type": "breaking",
+    "title": "InboundMailContext exposes metricsFor to provider plugins",
+    "detail": "InboundMailContext gains an optional metricsFor(featureName) returning a MetricsHandle. runProdApp, the worker app and the dev server wire it from the observability meter, so provider plugins can emit their own metrics through the same pipeline.",
+    "migration": "Code that builds SystemWireDeps itself adds metricsFor (createMetricsForFactory(meter))."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Watch supervisor skips and logs accounts whose address does not decrypt",

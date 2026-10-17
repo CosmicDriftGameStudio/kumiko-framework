@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.366.0",
+    "type": "fix",
+    "title": "forget-subject is covered for users stored before the KMS and users without an event stream",
+    "detail": "Tests now cover forget-subject for users stored as plaintext before the KMS was configured and for users without an event stream. Both succeed since the KMS tombstone fix, close the login door and write the audit event."
+  },
+  {
     "version": "0.365.1",
     "type": "fix",
     "title": "eraseKey leaves a tombstone for subjects that never had a key",

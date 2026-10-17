@@ -1,5 +1,45 @@
 [
   {
+    "version": "0.366.0",
+    "type": "breaking",
+    "title": "One injectable Clock for ctx.tz in handlers and jobs",
+    "detail": "New type Clock and TzContextOptions.clock. AppContext.clock feeds ctx.tz.now() in handlers, and JobContext.tz gives jobs the same ctx.tz API (tenant timezone from tenant config, read once per job run, UTC fallback). The testing helper createManualClock(start) returns a clock with set and advance. The tenant-lifecycle job now reads time through ctx.tz.now().",
+    "migration": "Code that builds a JobContext literal itself (boot seeds, test doubles) adds `tz: createTzContext()`."
+  },
+  {
+    "version": "0.366.0",
+    "type": "improvement",
+    "title": "Handler input references work on nested fields and record keys",
+    "detail": "The references meta on handler input schemas is now found on fields inside arrays, nested objects and records, and on record keys. The new readHandlerFieldReferences and handlerFieldReferences return each hit with a path such as \"channels[].channelKey\" or \"labels{key}\" plus typed path segments. Boot validation checks nested references too and names the path in its error message. readHandlerFieldReference and handlerFieldReference behave as before."
+  },
+  {
+    "version": "0.366.0",
+    "type": "breaking",
+    "title": "Registrar methods take a single object, positional calls throw at registration",
+    "detail": "r.writeHandler, r.queryHandler, r.entity, r.requires and r.hook now take one object. The positional overloads are gone from the types and throw when the feature is defined, with a message that points at the codemod. The throw is removed in the first release after 2026-10-29.\n\nwriteHandler (queryHandler is the same shape):\n  before: r.writeHandler(\"order:archive\", schema, handler, { access });\n  after:  r.writeHandler({ name: \"order:archive\", schema, handler, access });\n\nhook (type picks the handler shape, target is a name, a list or { allOf }):\n  before: r.hook(\"postSave\", \"order\", handler, { escapeHatch });\n  after:  r.hook({ type: \"postSave\", target: \"order\", handler, escapeHatch });\n\nentity and requires:\n  before: r.entity(\"order\", definition, { table: ordersTable });  r.requires(\"auth\", \"tenant\");\n  after:  r.entity({ name: \"order\", ...definition, backingTable: ordersTable });  r.requires({ features: [\"auth\", \"tenant\"] });\n\nregisterEntityCrud is no longer exported from @cosmicdrift/kumiko-framework/engine; call r.crud(name, entity, options) instead. The entity option { table } is now backingTable on the r.entity object and lands in the feature's entityTables, not in its entities. HookDefinition and EntityObjectDefinition are exported from @cosmicdrift/kumiko-types. Hook definitions are checked per type: validation takes no escapeHatch, phase only exists on postSave and postDelete, and { allOf } is not accepted on preSave.",
+    "migration": "Run `bun kumiko-upgrade --apply`. It rewrites every positional r.writeHandler, r.queryHandler, r.entity, r.requires, r.hook and registerEntityCrud call to the object form. Calls it cannot resolve statically (a spread argument, a registrar that is not typed as FeatureRegistrar) are listed as manual work with file and line; rewrite those by hand.",
+    "codemod": "scripts/codemod/object-form.ts",
+    "manualAfterCodemod": true
+  },
+  {
+    "version": "0.366.0",
+    "type": "improvement",
+    "title": "The app schema no longer lists screens, navs and workspaces of features a tenant has switched off",
+    "detail": "A feature declared with r.toggleable() that is off for the caller's tenant (tier engine or feature toggles) used to stay in the nav while all its handlers answered 403 feature_disabled. GET /api/schema now drops its screens, navs, content collections and workspaces for that tenant, and every action, redirect, nav parent and workspace member that pointed at them is removed too. Entities and translations stay. The response is cached per role set and per set of disabled features, so tenants with the same set share one ETag. Without an effectiveFeatures resolver nothing changes."
+  },
+  {
+    "version": "0.366.0",
+    "type": "improvement",
+    "title": "selectMany supports column projection via SelectOptions.fields",
+    "detail": "SelectOptions gains fields, a list of entity field names. selectMany then selects only those columns instead of all of them. An empty list or a name that is not a column of the table throws."
+  },
+  {
+    "version": "0.366.0",
+    "type": "improvement",
+    "title": "kumiko-upgrade names each pending manual step by an id",
+    "detail": "Every pending manual step of kumiko-upgrade now has a stable id, derived from the release version and the step title. The text output shows it in brackets and the JSON output carries it as manualId, so a script or an agent can tell steps apart and record which ones it has done."
+  },
+  {
     "version": "0.365.1",
     "type": "fix",
     "title": "App and worker boot wait for Postgres instead of crashing",

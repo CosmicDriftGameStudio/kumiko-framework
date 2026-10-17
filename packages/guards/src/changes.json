@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.366.0",
+    "type": "improvement",
+    "title": "kumiko-guards gains the api-object-form guard",
+    "detail": "The guard fails on a positional r.writeHandler, r.queryHandler, r.entity, r.requires or r.hook call and on registerEntityCrud, and names the object form to use. It runs with the default kumiko-guards checks. The direct-entity-writes guard now also reads entity registrations written in the object form, including a backingTable override."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "public-exports-changelog --base=<ref> checks drops against the baseline of the merge-base and matches exported names as whole identifiers",
