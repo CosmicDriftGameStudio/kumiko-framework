@@ -1051,6 +1051,46 @@ describe("backfillEventPiiEncryption: owner re-key (fw#3670)", () => {
     expect(result.rekeyedFields).toBe(0);
     expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
   });
+
+  test("follow-ups that omit the owner key (ownerless, owned, ownerless): the created value stays tenant-keyed", async () => {
+    const userX = generateId();
+    const memoId = generateId();
+    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: "Alice" });
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { body: "Bob" }, previous: { id: memoId, body: "Alice" } },
+      1,
+    );
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { ownerId: userX }, previous: { id: memoId, body: "Bob" } },
+      2,
+    );
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { body: "Carol" }, previous: { id: memoId, body: "Bob", ownerId: userX } },
+      3,
+    );
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
+      [memoId, TENANT, null, "projection-row-body"],
+    );
+    armKms();
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(result.rekeyedFields).toBe(0);
+    // Documented rebuild-vs-live deviation: a rebuild keeps the value tenant-keyed, the live path
+    // would have re-keyed it under X when the owner arrived.
+    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
+  });
 });
 
 // fw#2790 — "Altbestand: Freitext-Klartext in kumiko_events". The

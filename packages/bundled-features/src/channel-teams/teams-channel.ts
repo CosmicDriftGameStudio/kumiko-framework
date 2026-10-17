@@ -8,9 +8,11 @@ import {
 
 export type TeamsChannelOptions = ChatWebhookChannelOptions;
 
+const TEAMS_WEBHOOK_PREFIX = "channel-teams:webhooks.";
+
 export const TEAMS_SECRET_KEYS = {
-  webhookPrefix: "channel-teams:webhooks.",
-  webhookKeyFor: (connection: string) => `channel-teams:webhooks.${connection}`,
+  webhookPrefix: TEAMS_WEBHOOK_PREFIX,
+  webhookKeyFor: (connection: string) => `${TEAMS_WEBHOOK_PREFIX}${connection}`,
 } as const;
 
 export const TEAMS_DEFAULT_ALLOWED_HOSTS = [

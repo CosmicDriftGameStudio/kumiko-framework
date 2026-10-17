@@ -120,11 +120,13 @@ export type ColumnBuilder<TValue = unknown> = {
   $onUpdate(fn: () => unknown): ColumnBuilder<TValue>;
 };
 
-function buildColumn<TValue>(
+// TValue is never inferred from the factory's declared return type, so a factory that forgets its
+// type argument fails to compile instead of silently typing the column from its own annotation.
+function buildColumn<TValue = never>(
   sqlName: string,
   pgType: PgType,
   opts?: { bigintJsMode?: "number" | "bigint" },
-): ColumnBuilder<TValue> {
+): ColumnBuilder<NoInfer<TValue>> {
   let notNull = false;
   let primaryKey = false;
   let unique = false;
@@ -206,43 +208,43 @@ function buildColumn<TValue>(
 // ---- Column factories ----
 
 export function uuid(name: string): ColumnBuilder<string> {
-  return buildColumn(name, "uuid");
+  return buildColumn<string>(name, "uuid");
 }
 
 export function text(name: string): ColumnBuilder<string> {
-  return buildColumn(name, "text");
+  return buildColumn<string>(name, "text");
 }
 
 export function boolean(name: string): ColumnBuilder<boolean> {
-  return buildColumn(name, "boolean");
+  return buildColumn<boolean>(name, "boolean");
 }
 
 export function integer(name: string): ColumnBuilder<number> {
-  return buildColumn(name, "integer");
+  return buildColumn<number>(name, "integer");
 }
 
 export function doublePrecision(name: string): ColumnBuilder<number> {
-  return buildColumn(name, "double precision");
+  return buildColumn<number>(name, "double precision");
 }
 
 export function serial(name: string): ColumnBuilder<number> {
-  return buildColumn(name, "serial");
+  return buildColumn<number>(name, "serial");
 }
 
 export function bigint(name: string, opts?: { mode?: "bigint" | "number" }): ColumnBuilder<bigint> {
   const jsMode = opts?.mode === "number" ? "number" : "bigint";
-  return buildColumn(name, "bigint", { bigintJsMode: jsMode });
+  return buildColumn<bigint>(name, "bigint", { bigintJsMode: jsMode });
 }
 
 export function bigserial(
   name: string,
   _opts?: { mode?: "bigint" | "number" },
 ): ColumnBuilder<bigint> {
-  return buildColumn(name, "bigserial");
+  return buildColumn<bigint>(name, "bigserial");
 }
 
 export function jsonb(name: string): ColumnBuilder<Record<string, unknown>> {
-  return buildColumn(name, "jsonb");
+  return buildColumn<Record<string, unknown>>(name, "jsonb");
 }
 
 // Legacy alias kept for compat — timestamptz with no precision.
@@ -250,7 +252,7 @@ export function timestamp(
   name: string,
   _opts?: { withTimezone?: boolean; mode?: "string" | "date" },
 ): ColumnBuilder<Temporal.Instant | string> {
-  return buildColumn(name, "timestamptz");
+  return buildColumn<Temporal.Instant | string>(name, "timestamptz");
 }
 
 // numeric → text (we don't currently use Decimal); kept for compat with
@@ -259,7 +261,7 @@ export function numeric(
   name: string,
   _opts?: { precision?: number; scale?: number },
 ): ColumnBuilder<string> {
-  return buildColumn(name, "text");
+  return buildColumn<string>(name, "text");
 }
 
 export function instant(
@@ -267,7 +269,7 @@ export function instant(
   opts?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 },
 ): ColumnBuilder<Temporal.Instant> {
   const pgType: PgType = opts?.precision === 3 ? "timestamptz(3)" : "timestamptz";
-  return buildColumn(name, pgType);
+  return buildColumn<Temporal.Instant>(name, pgType);
 }
 
 // PG `date` — no time-of-day, no timezone. Calendar-day fields (invoice
@@ -275,7 +277,7 @@ export function instant(
 // Instant — that detour is exactly what made `type:"date"` TZ-dependent on
 // both read and write (kumiko-framework#1924).
 export function plainDate(name: string): ColumnBuilder<Temporal.PlainDate> {
-  return buildColumn(name, "date");
+  return buildColumn<Temporal.PlainDate>(name, "date");
 }
 
 // Real numeric(precision, scale) column — exact decimal storage (interest
@@ -286,14 +288,14 @@ export const decimalColumn = (
   name: string,
   precision: number,
   scale: number,
-): ColumnBuilder<number> => buildColumn(name, `numeric(${precision},${scale})`);
+): ColumnBuilder<number> => buildColumn<number>(name, `numeric(${precision},${scale})`);
 
 // moneyAmount kept as a customType-style API but produces a bigint column.
 // bigintJsMode "bigint" — entity-table-meta renders money as bigint, and the
 // table-builder↔meta lockstep guard fails on a number-mode column. (Precision
 // past 2^53 is the underlying motivation, not the immediate breakage.)
 export const moneyAmount = (name: string): ColumnBuilder<bigint> =>
-  buildColumn(name, "bigint", { bigintJsMode: "bigint" });
+  buildColumn<bigint>(name, "bigint", { bigintJsMode: "bigint" });
 
 // ---- Index + primaryKey helpers ----
 

@@ -476,6 +476,24 @@ describe("files-tenant-data :: destroy hooks respect deadlineAt", () => {
     expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(0);
   });
 
+  test("fileRefStorageDestroyHook still deletes a chunk when list() itself uses up the whole deadline", async () => {
+    await seedTenant(tenantA);
+    const keys = [`${tenantA.tenantId}/a.bin`, `${tenantA.tenantId}/b.bin`];
+    for (const key of keys) await provider.write(key, new Uint8Array([1]));
+
+    // The hook only consults the deadline after list(), so an already expired deadline is
+    // exactly the state a list() that used up the whole budget leaves behind.
+    const result = await fileRefStorageDestroyHook(tenantA.tenantId, {
+      tenantId: tenantA.tenantId,
+      db: stack.db,
+      deadlineAt: Date.now() - 1,
+      fileProviderResolver: async () => provider,
+    });
+
+    expect(result).toEqual({ done: false, processed: 2 });
+    expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(0);
+  });
+
   test("fileRefStorageDestroyHook fails closed when deleting the last pending key throws", async () => {
     await seedTenant(tenantA);
     await provider.write(`${tenantA.tenantId}/only.bin`, new Uint8Array([1]));

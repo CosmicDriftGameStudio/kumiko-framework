@@ -7,9 +7,11 @@ import {
 
 export type SlackChannelOptions = ChatWebhookChannelOptions;
 
+const SLACK_WEBHOOK_PREFIX = "channel-slack:webhooks.";
+
 export const SLACK_SECRET_KEYS = {
-  webhookPrefix: "channel-slack:webhooks.",
-  webhookKeyFor: (connection: string) => `channel-slack:webhooks.${connection}`,
+  webhookPrefix: SLACK_WEBHOOK_PREFIX,
+  webhookKeyFor: (connection: string) => `${SLACK_WEBHOOK_PREFIX}${connection}`,
 } as const;
 
 export const SLACK_DEFAULT_ALLOWED_HOSTS = ["hooks.slack.com"] as const;

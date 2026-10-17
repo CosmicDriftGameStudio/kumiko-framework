@@ -779,6 +779,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   let worker: Worker | null = null;
   let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
   let schedulerSeenTimer: ReturnType<typeof setInterval> | null = null;
+  let schedulerStampPending = false;
   // A timed-out gate is abandoned, not aborted (the job context carries no
   // AbortSignal); stop() waits for it so it cannot write after the shutdown.
   const abandonedBootGates = new Set<Promise<void>>();
@@ -1490,13 +1491,51 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     return ids;
   }
 
+  async function upsertCronSchedulers(queue: Queue, lane: JobRunIn): Promise<void> {
+    for (const [name, jobDef] of allJobs) {
+      if (laneForJob(jobDef) !== lane) continue;
+      if ("cron" in jobDef.trigger) {
+        await queue.upsertJobScheduler(
+          schedulerIdForJobName(name),
+          cronRepeatOptions(jobDef.trigger),
+          {
+            name: jobDef.perTenant ? `_perTenant:${name}` : name,
+            data: {},
+            // Queue-level defaultJobOptions (jobRetentionOpts) covers
+            // retention; a count here would sweep queue-wide again and
+            // evict perTenant children and boot jobs.
+            opts: {
+              ...buildRetryBullOpts(jobDef),
+            },
+          },
+        );
+      }
+    }
+  }
+
+  // After a failed initial stamp an older runner may have removed our
+  // schedulers as unseen, so the next tick stamps and re-upserts before the
+  // flag clears.
+  async function refreshSchedulerSeen(
+    queue: Queue,
+    lane: JobRunIn,
+    schedulerIds: ReadonlySet<string>,
+  ): Promise<void> {
+    await markSchedulersSeen(queue, schedulerIds);
+    if (schedulerStampPending) {
+      await upsertCronSchedulers(queue, lane);
+      schedulerStampPending = false;
+    }
+  }
+
   function startSchedulerSeenRefresh(
     queue: Queue,
+    lane: JobRunIn,
     schedulerIds: ReadonlySet<string>,
   ): ReturnType<typeof setInterval> | null {
     if (schedulerIds.size === 0) return null;
     const timer = setInterval(() => {
-      markSchedulersSeen(queue, schedulerIds).catch((err: unknown) => {
+      refreshSchedulerSeen(queue, lane, schedulerIds).catch((err: unknown) => {
         errorLogger.warn("scheduler seen refresh failed", {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -1583,27 +1622,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // scheduler a concurrent older runner finds without one gets deleted.
       // Best-effort like the periodic refresh: a failed stamp must not stop the start.
       await markSchedulersSeen(consumerQueue, expectedSchedulerIds).catch((err: unknown) => {
+        schedulerStampPending = true;
         errorLogger.warn("scheduler seen stamp failed", {
           error: err instanceof Error ? err.message : String(err),
         });
       });
-      for (const [name, jobDef] of allJobs) {
-        if (laneForJob(jobDef) !== consumerLane) continue;
-        if ("cron" in jobDef.trigger) {
-          const schedulerId = schedulerIdForJobName(name);
-          await consumerQueue.upsertJobScheduler(schedulerId, cronRepeatOptions(jobDef.trigger), {
-            name: jobDef.perTenant ? `_perTenant:${name}` : name,
-            data: {},
-            // Queue-level defaultJobOptions (jobRetentionOpts) covers
-            // retention; a count here would sweep queue-wide again and
-            // evict perTenant children and boot jobs.
-            opts: {
-              ...buildRetryBullOpts(jobDef),
-            },
-          });
-        }
-      }
-      schedulerSeenTimer = startSchedulerSeenRefresh(consumerQueue, expectedSchedulerIds);
+      await upsertCronSchedulers(consumerQueue, consumerLane);
+      schedulerSeenTimer = startSchedulerSeenRefresh(
+        consumerQueue,
+        consumerLane,
+        expectedSchedulerIds,
+      );
 
       await removeOrphanJobSchedulers(consumerQueue, expectedSchedulerIds, consumerLane, {
         info: (msg, data) =>

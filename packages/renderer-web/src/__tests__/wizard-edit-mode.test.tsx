@@ -236,8 +236,11 @@ describe("entityEdit wizard on an existing record: phone footer", () => {
     expect(back.getAttribute("aria-label")).toBe("Back");
     expect(back.textContent).toBe("");
     const saveClose = screen.getByTestId("render-edit-wizard-save-close");
-    expect(bar.contains(saveClose)).toBe(false);
-    expect(screen.getByTestId("render-edit-form-overflow")).toBeTruthy();
+    expect(saveClose.closest(".hidden")).not.toBeNull();
+    const overflow = screen.getByTestId("render-edit-form-overflow");
+    await waitFor(() => expect(overflow.className).not.toContain("hidden"));
+    await userEvent.click(overflow);
+    expect(saveClose.closest(".hidden")).toBeNull();
     expect(screen.getByTestId("render-edit-wizard-next").textContent).toBe("Next");
   });
 });

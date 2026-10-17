@@ -1,7 +1,6 @@
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbRunner } from "../../db/connection.js";
 import type { WhereObject } from "../../db/query.js";
-import { type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.js";
+import { requestedTenantIds, type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.js";
 import { InternalError } from "../../errors/classes.js";
 import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
 import type { PipelineCtx } from "../types/step.js";
@@ -20,16 +19,6 @@ export function readSourceFor(
     });
   }
   return unsafeRawForDeclaredStep(ctx.systemDb ?? ctx.db, unsafeAllTenants.reason);
-}
-
-// Tenant ids a where.tenantId filter asks for; undefined when the form is not
-// understood (operator objects other than eq/in), so the caller does not warn.
-function requestedTenantIds(requested: unknown): readonly unknown[] | undefined {
-  if (Array.isArray(requested)) return requested;
-  if (!isPlainObject(requested)) return [requested];
-  if (Array.isArray(requested["in"])) return requested["in"];
-  if ("eq" in requested) return [requested["eq"]];
-  return undefined;
 }
 
 // TenantDb silently narrows a foreign where.tenantId to the caller's scope; the step keeps that

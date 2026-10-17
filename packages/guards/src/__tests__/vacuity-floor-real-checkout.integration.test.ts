@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { checkRootFloor, isSecurityGuard } from "../_lib/guard-kit";
 import { resolveRepoRoots } from "../_lib/roots";
-import { scanFiles, scanRoots } from "../_lib/scan-scope";
+import { type ScanSpec, scanFiles, scanRoots } from "../_lib/scan-scope";
 import { GUARDS } from "../run-guards";
 
 describe("Vacuity-Floor gegen den echten Checkout", () => {
@@ -25,5 +25,14 @@ describe("Vacuity-Floor gegen den echten Checkout", () => {
       return violatingRoots.length > 0 ? [{ name: guard.name, violatingRoots }] : [];
     });
     expect(problems).toEqual([]);
+  });
+
+  test("der lokale Repo-Root liefert eine positive Source-Surface und Dateien für eine Source-Scan-Spec", () => {
+    const roots = resolveRepoRoots();
+    if (roots.length === 0) return;
+    const spec: ScanSpec = { scope: "source", extensions: ["ts", "tsx"] };
+    const [scan] = scanRoots(spec, roots);
+    expect(scan?.sourceSurface).toBeGreaterThan(0);
+    expect(scan?.files.length).toBeGreaterThan(0);
   });
 });

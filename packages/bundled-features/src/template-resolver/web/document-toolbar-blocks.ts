@@ -46,8 +46,8 @@ export type DocumentEditorProps = ContentEditorProps & {
   /** Canvas only: renders the toolbar (and its insert panel) into this element instead of above the editor;
    *  null renders none. Lets several region editors share one toolbar that follows the focused one. */
   readonly toolbarHost?: HTMLElement | null;
-  /** Called with the handle once the editor exists; it is not called again on destroy, so drop the handle when the editor unmounts. */
-  readonly onEditorReady?: (handle: DocumentEditorHandle) => void;
+  /** Called with the handle once the editor exists and with null when it is destroyed (unmount or rebuild), so a held handle never outlives its editor. */
+  readonly onEditorReady?: (handle: DocumentEditorHandle | null) => void;
 };
 
 export const MAIL_DOCUMENT_BLOCKS = [

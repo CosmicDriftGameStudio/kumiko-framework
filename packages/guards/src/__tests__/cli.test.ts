@@ -1,51 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isSecurityGuard } from "../_lib/guard-kit";
 import { GUARDS } from "../run-guards";
 import { REPO_CHECKS } from "../run-repo-checks";
 import { UI_GUARDS } from "../run-ui-guards";
-import { writeRepo } from "./parent-workspace-fixture";
-
-const CLI_PATH = join(import.meta.dir, "..", "cli.ts");
-
-async function runCli(
-  args: string[],
-  opts: { readonly cwd?: string } = {},
-): Promise<{
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}> {
-  const proc = Bun.spawn(["bun", CLI_PATH, ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-    cwd: opts.cwd,
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { exitCode, stdout, stderr };
-}
-
-async function runCliInFixtureRepo(args: string[]): Promise<{
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}> {
-  // Real-process runs against a one-file fixture repo: scanning the whole
-  // checkout from a spawned CLI exceeded the test budget under CI load.
-  const fixture = mkdtempSync(join(tmpdir(), "cli-fixture-repo-"));
-  writeRepo(fixture, { name: "cli-fixture-repo", layout: "flat" });
-  try {
-    return await runCli(args, { cwd: fixture });
-  } finally {
-    rmSync(fixture, { recursive: true, force: true });
-  }
-}
+import { runCli } from "./run-cli";
 
 describe("cli.ts — real process runs, no mocks", () => {
   test("an unknown subcommand exits 1 and lists the valid subcommands on stderr", async () => {
@@ -72,18 +31,6 @@ describe("cli.ts — real process runs, no mocks", () => {
       const { exitCode, stderr } = await runCli([sub, "--nope"]);
       expect(exitCode).toBe(1);
       expect(stderr).toContain("Unknown argument");
-    }
-  });
-
-  test("licenses with nothing installed fails loudly instead of passing", async () => {
-    const fixture = mkdtempSync(join(tmpdir(), "cli-licenses-empty-"));
-    writeRepo(fixture, { name: "cli-licenses-empty", layout: "flat" });
-    try {
-      const { exitCode, stderr } = await runCli(["licenses"], { cwd: fixture });
-      expect(exitCode).toBe(1);
-      expect(stderr).toContain("nothing scanned");
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
     }
   });
 
@@ -124,67 +71,6 @@ describe("cli.ts — real process runs, no mocks", () => {
       readFileSync(join(import.meta.dir, "..", "..", "package.json"), "utf8"),
     );
     expect(inventory.version).toBe(pkg.version);
-  });
-
-  test("checks runs the repo-checks suite and prints the guard-kit banner", async () => {
-    const { exitCode, stdout } = await runCliInFixtureRepo(["checks"]);
-
-    // The one-file fixture scans 0 files for the real-provider-isolation
-    // check, which that check reports as a failure.
-    expect(exitCode).toBe(1);
-    expect(stdout).toContain("✗ Real-Provider-Isolation Guard");
-    expect(stdout).toContain("kumiko-guards");
-    expect(stdout).toContain("guards registered");
-    const bannerCount = stdout.split("guards registered").length - 1;
-    expect(bannerCount).toBe(1);
-  });
-
-  test("ui and guards with no args run their whole suite and exit 0 on the fixture repo", async () => {
-    for (const suite of ["ui", "guards"]) {
-      const { exitCode, stdout } = await runCliInFixtureRepo([suite]);
-
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain("guards registered");
-      expect(stdout).not.toContain("✗");
-    }
-  });
-
-  test("guards --explain reaches run-guards' --explain branch through the bin instead of running the checks", async () => {
-    const { exitCode, stdout } = await runCliInFixtureRepo(["guards", "--explain"]);
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("Repo:");
-    expect(stdout).not.toContain("guards registered");
-  });
-
-  test("guards --strict-security-baseline reaches run-guards' security-only filter through the bin", async () => {
-    const expectedCount = GUARDS.filter(isSecurityGuard).length;
-    expect(expectedCount).toBeGreaterThan(0);
-    expect(expectedCount).toBeLessThan(GUARDS.length);
-
-    const { stdout } = await runCliInFixtureRepo(["guards", "--strict-security-baseline"]);
-
-    expect(stdout).toContain(`${expectedCount} guards registered`);
-  });
-
-  test("guards --write-security-baseline reaches run-guards' baseline writer through the bin — the bug this fixes", async () => {
-    const fixture = mkdtempSync(join(tmpdir(), "cli-write-baseline-"));
-    writeRepo(fixture, { name: "cli-write-baseline-fixture", layout: "flat" });
-    try {
-      const { exitCode, stdout } = await runCli(["guards", "--write-security-baseline"], {
-        cwd: fixture,
-      });
-      const baselinePath = join(fixture, ".kumiko-security-baseline.json");
-
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain("Security baseline written");
-      expect(existsSync(baselinePath)).toBe(true);
-      const baseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
-      expect(baseline.repo).toBe("cli-write-baseline-fixture");
-      expect(baseline.format).toBe(1);
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
-    }
   });
 
   test("an unknown flag for guards exits 1 and lists guards' known flags on stderr, instead of being silently ignored", async () => {

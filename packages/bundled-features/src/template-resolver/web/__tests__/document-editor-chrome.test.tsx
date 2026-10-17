@@ -234,3 +234,145 @@ describe("PlaceholderLineEditor", () => {
     expect(fullTable.textContent).toBe("Table");
   });
 });
+
+describe("DocumentTiptapEditor value sync", () => {
+  function ExternalValue({
+    onChangeSpy,
+    onEditorReady,
+  }: {
+    readonly onChangeSpy: (html: string) => void;
+    readonly onEditorReady?: ExtraProps["onEditorReady"];
+  }) {
+    const [value, setValue] = useState("");
+    return (
+      <Providers>
+        <DocumentTiptapEditor
+          id={CONTENT_EDITOR_ELEMENT_ID}
+          value={value}
+          onChange={(html) => {
+            onChangeSpy(html);
+            setValue(html);
+          }}
+          variables={[]}
+          readOnly={false}
+          {...(onEditorReady && { onEditorReady })}
+        />
+        <button type="button" onClick={() => setValue("<p>loaded <strong>body</strong></p>")}>
+          load canonical
+        </button>
+        <button type="button" onClick={() => setValue("<b>loaded</b>")}>
+          load non-canonical
+        </button>
+        <output data-testid="html">{value}</output>
+      </Providers>
+    );
+  }
+
+  test("mounting with an empty value emits no onChange", async () => {
+    const changes: string[] = [];
+    render(<ExternalValue onChangeSpy={(html) => changes.push(html)} />);
+    await screen.findByRole("button", { name: "Bold" });
+    await waitFor(() => expect(document.querySelector(".ProseMirror")).not.toBeNull());
+    await act(async () => {});
+    expect(changes).toEqual([]);
+  });
+
+  test("a body that arrives after mount is shown without emitting onChange", async () => {
+    const changes: string[] = [];
+    render(<ExternalValue onChangeSpy={(html) => changes.push(html)} />);
+    await screen.findByRole("button", { name: "Bold" });
+    await waitFor(() => expect(document.querySelector(".ProseMirror")).not.toBeNull());
+    changes.length = 0;
+
+    fireEvent.click(screen.getByRole("button", { name: "load canonical" }));
+
+    await waitFor(() => {
+      expect(document.querySelector(".ProseMirror")?.innerHTML).toContain("<strong>body</strong>");
+    });
+    expect(changes).toEqual([]);
+  });
+
+  test("a non-canonical body is normalised once without a update loop, and the next edit emits the canonical html", async () => {
+    const changes: string[] = [];
+    let handle: DocumentEditorHandle | null = null;
+    render(
+      <ExternalValue
+        onChangeSpy={(html) => changes.push(html)}
+        onEditorReady={(next) => {
+          handle = next;
+        }}
+      />,
+    );
+    await screen.findByRole("button", { name: "Bold" });
+    await waitFor(() => expect(handle).not.toBeNull());
+    await waitFor(() => expect(document.querySelector(".ProseMirror")).not.toBeNull());
+    changes.length = 0;
+
+    fireEvent.click(screen.getByRole("button", { name: "load non-canonical" }));
+    await waitFor(() => {
+      expect(document.querySelector(".ProseMirror")?.innerHTML).toContain(
+        "<strong>loaded</strong>",
+      );
+    });
+    // setContent decides emitUpdate synchronously, so the rendered content
+    // already proves no onChange was emitted for the load.
+    expect(changes).toEqual([]);
+
+    act(() => handle?.insertPlaceholder("name"));
+    await waitFor(() => expect(changes).toHaveLength(1));
+    const [emitted = ""] = changes;
+    await waitFor(() => expect(currentHtml()).toBe(emitted));
+    // The echoed value re-enters the editor; a loop would emit again in that commit.
+    await act(async () => {});
+    expect(changes).toHaveLength(1);
+    expect(emitted).toContain("<strong>loaded</strong>");
+    expect(emitted).toContain('<span data-variable="name"></span>');
+    expect(currentHtml()).toBe(emitted);
+  });
+});
+
+describe("onEditorReady lifecycle", () => {
+  test("DocumentTiptapEditor reports its handle, then null when it unmounts", async () => {
+    const reports: Array<DocumentEditorHandle | null> = [];
+    const view = render(
+      <Providers>
+        <DocumentTiptapEditor
+          id={CONTENT_EDITOR_ELEMENT_ID}
+          value=""
+          onChange={() => {}}
+          variables={[]}
+          readOnly={false}
+          onEditorReady={(next) => reports.push(next)}
+        />
+      </Providers>,
+    );
+    await waitFor(() => expect(reports.at(-1)).not.toBeNull());
+    view.unmount();
+    await waitFor(() => expect(reports.at(-1)).toBeNull());
+  });
+
+  test("PlaceholderLineEditor reports null for the replaced editor before the new handle, and again on unmount", async () => {
+    const reports: Array<DocumentEditorHandle | null> = [];
+    const onEditorReady = (next: DocumentEditorHandle | null): void => {
+      reports.push(next);
+    };
+    const line = (value: string) => (
+      <PlaceholderLineEditor
+        id="line"
+        aria-label="Line"
+        value={value}
+        onChange={() => {}}
+        onEditorReady={onEditorReady}
+      />
+    );
+    const view = render(line("first"));
+    await waitFor(() => expect(reports.at(-1)).not.toBeNull());
+
+    view.rerender(line("loaded later"));
+    view.unmount();
+    // Once all four reports arrived the order is settled: the replaced editor reports null before
+    // its successor's handle, so a late null can never wipe the live handle.
+    await waitFor(() => expect(reports).toHaveLength(4));
+    expect(reports.map((report) => report === null)).toEqual([false, true, false, true]);
+  });
+});

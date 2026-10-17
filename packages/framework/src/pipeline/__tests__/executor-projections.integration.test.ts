@@ -118,6 +118,24 @@ const exprojFeature = defineFeature("exproj", (r) => {
     },
   );
 
+  // A job dispatched without a write origin builds its TenantDb without a personal-data gate;
+  // a TenantDb rebuilt from its unsafeRaw() grant must still run the custom projections.
+  r.job(
+    "make-audit-via-unsafe-raw",
+    {
+      trigger: { manual: true },
+      retries: 0,
+      escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw inside a job" },
+    },
+    async (payload, ctx) => {
+      const label = payload["label"];
+      if (typeof label !== "string") throw new Error("make-audit-via-unsafe-raw needs a label");
+      const ownTenantDb = createTenantDb(ctx.db.unsafeRaw(), ctx.systemUser.tenantId);
+      const outcome = await auditExecutor.create({ label }, ctx.systemUser, ownTenantDb);
+      if (!outcome.isSuccess) throw new Error("job audit write via unsafeRaw failed");
+    },
+  );
+
   r.job("make-audit", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     const label = payload["label"];
     if (typeof label !== "string") throw new Error("make-audit needs a label");
@@ -197,6 +215,18 @@ describe("executor writes run custom projections", () => {
 
     await waitFor(async () => {
       expect((await logRows()).map((row) => row.label)).toEqual(["from-job"]);
+    });
+    expect(projectionCalls).toHaveLength(1);
+  });
+
+  test("a job writing through a TenantDb rebuilt from ctx.db.unsafeRaw() projects exactly once", async () => {
+    await stack.jobRunner?.dispatch("exproj:job:make-audit-via-unsafe-raw", {
+      label: "from-job-unsafe-raw",
+      tenantId: admin.tenantId,
+    });
+
+    await waitFor(async () => {
+      expect((await logRows()).map((row) => row.label)).toEqual(["from-job-unsafe-raw"]);
     });
     expect(projectionCalls).toHaveLength(1);
   });

@@ -30,7 +30,7 @@ export type PlaceholderLineEditorProps = {
   readonly flat?: boolean;
   /** Hint shown while the line is empty. */
   readonly placeholder?: string;
-  readonly onEditorReady?: (handle: DocumentEditorHandle) => void;
+  readonly onEditorReady?: (handle: DocumentEditorHandle | null) => void;
   readonly "aria-label": string;
 };
 
@@ -67,7 +67,7 @@ function LineEditorBody({
   readonly readOnly: boolean;
   readonly flat: boolean;
   readonly placeholder: string | undefined;
-  readonly onEditorReady: ((handle: DocumentEditorHandle) => void) | undefined;
+  readonly onEditorReady: ((handle: DocumentEditorHandle | null) => void) | undefined;
   readonly ariaLabel: string;
 }): ReactNode {
   const extensions = useMemo(
@@ -120,6 +120,7 @@ function LineEditorBody({
       transformPastedHTML: (html) => singleLine(html.replace(/<[^>]*>/g, " ")),
     },
     onCreate: ({ editor: created }) => onEditorReady?.(createEditorHandle(created)),
+    onDestroy: () => onEditorReady?.(null),
     onUpdate: ({ editor: e }) => onChange(contentToLine(e.getJSON().content?.[0]?.content)),
   });
 
