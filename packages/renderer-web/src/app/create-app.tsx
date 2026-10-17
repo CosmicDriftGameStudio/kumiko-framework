@@ -20,6 +20,7 @@ import {
   DispatcherProvider,
   type DraftStorage,
   DraftStorageProvider,
+  ErrorBoundary,
   type ExtensionSectionComponent,
   ExtensionSectionsProvider,
   type FeatureSchema,
@@ -50,7 +51,17 @@ import {
   useTranslation,
   withSessionEndedDetection,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ComponentType, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ComponentType,
+  createContext,
+  type ErrorInfo,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { lastSegment } from "../layout/nav-tree.js";
 import { defaultPrimitives, ScreenWidthProvider } from "../primitives/index.js";
@@ -67,6 +78,8 @@ import { createBrowserDraftStorage } from "./draft-storage.js";
 import { useBrowserNavApi } from "./nav.js";
 import { NavProvidersProvider } from "./nav-providers-context.js";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context.js";
+import { RootErrorFallback } from "./root-error-fallback.js";
+import { ScreenErrorFallback } from "./screen-error-fallback.js";
 
 const EMPTY_FEATURES: readonly FeatureSchema[] = [];
 const EMPTY_COLLECTIONS: readonly QualifiedContentCollection[] = [];
@@ -139,7 +152,14 @@ export function buildNavProviderMaps(
 //
 //   createKumikoApp({ schema: clientSchema });
 
+export type BoundaryErrorHandler = (error: Error, info: ErrorInfo) => void;
+
+const BoundaryErrorHandlerContext = createContext<BoundaryErrorHandler | undefined>(undefined);
+
 export type CreateKumikoAppOptions = {
+  /** Called when the screen or root error boundary catches an error, after it
+   *  was logged with console.error — attach telemetry here. */
+  readonly onError?: BoundaryErrorHandler;
   /** App schema. Accepts AppSchema (multi-feature) or the legacy
    *  FeatureSchema (single-feature) — toAppSchema() normalizes internally.
    *
@@ -682,30 +702,38 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
 
   const root = createRoot(container);
   root.render(
-    <KumikoAppRoot
-      initialApp={initialApp}
-      screenQn={options.screenQn}
-      {...(options.schemaUrl !== undefined && { schemaUrl: options.schemaUrl })}
-      clientFeatures={clientFeatures}
-      providers={providers}
-      gates={gates}
-      customScreens={customScreens}
-      columnRenderers={columnRenderers}
-      extensionSectionComponents={extensionSectionComponents}
-      contentEditors={contentEditors}
-      resolvers={resolvers}
-      dispatcher={dispatcher}
-      sessionEndedSignal={sessionEndedSignal}
-      draftStorage={draftStorage}
-      primitives={primitives}
-      liveEvents={liveEvents}
-      localeResolver={localeResolver}
-      navAdapter={navAdapter}
-      screenWidth={options.screenWidth}
-      {...(options.translate !== undefined && { translate: options.translate })}
-      {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
-      {...(options.shell !== undefined && { shell: options.shell })}
-    />,
+    <ErrorBoundary
+      scope="root"
+      {...(options.onError !== undefined && { onError: options.onError })}
+      fallback={() => <RootErrorFallback />}
+    >
+      <BoundaryErrorHandlerContext.Provider value={options.onError}>
+        <KumikoAppRoot
+          initialApp={initialApp}
+          screenQn={options.screenQn}
+          {...(options.schemaUrl !== undefined && { schemaUrl: options.schemaUrl })}
+          clientFeatures={clientFeatures}
+          providers={providers}
+          gates={gates}
+          customScreens={customScreens}
+          columnRenderers={columnRenderers}
+          extensionSectionComponents={extensionSectionComponents}
+          contentEditors={contentEditors}
+          resolvers={resolvers}
+          dispatcher={dispatcher}
+          sessionEndedSignal={sessionEndedSignal}
+          draftStorage={draftStorage}
+          primitives={primitives}
+          liveEvents={liveEvents}
+          localeResolver={localeResolver}
+          navAdapter={navAdapter}
+          screenWidth={options.screenWidth}
+          {...(options.translate !== undefined && { translate: options.translate })}
+          {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
+          {...(options.shell !== undefined && { shell: options.shell })}
+        />
+      </BoundaryErrorHandlerContext.Provider>
+    </ErrorBoundary>,
   );
   return { root };
 }
@@ -823,6 +851,7 @@ function RoutedScreen({
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
   const nav = useNav();
+  const onBoundaryError = useContext(BoundaryErrorHandlerContext);
 
   // ScreenId from the route is NOT qualified — nav.route.screenId
   // comes from the URL path and is the short form ("order-list"). We
@@ -930,13 +959,22 @@ function RoutedScreen({
     };
 
   return (
-    <KumikoScreen
-      schema={schemaForScreen}
-      qn={qn}
-      {...(translate !== undefined && { translate })}
-      {...(entityId !== undefined && { entityId })}
-      onRowClick={effectiveOnRowClick}
-      {...(effectiveOnCopyLink !== undefined && { onCopyLink: effectiveOnCopyLink })}
-    />
+    <ErrorBoundary
+      key={`${qn}/${entityId ?? ""}`}
+      scope="screen"
+      {...(onBoundaryError !== undefined && { onError: onBoundaryError })}
+      fallback={({ error, reset }) => (
+        <ScreenErrorFallback screen={qn} error={error} onReset={reset} />
+      )}
+    >
+      <KumikoScreen
+        schema={schemaForScreen}
+        qn={qn}
+        {...(translate !== undefined && { translate })}
+        {...(entityId !== undefined && { entityId })}
+        onRowClick={effectiveOnRowClick}
+        {...(effectiveOnCopyLink !== undefined && { onCopyLink: effectiveOnCopyLink })}
+      />
+    </ErrorBoundary>
   );
 }

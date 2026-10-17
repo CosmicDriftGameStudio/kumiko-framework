@@ -1,8 +1,12 @@
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { captureScreenshot, SCREENSHOT_DIR_ENV } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, test } from "@playwright/test";
+import {
+  captureScreenshot,
+  expect,
+  SCREENSHOT_DIR_ENV,
+  boundaryGuardedTest as test,
+} from "@cosmicdrift/kumiko-testing/e2e";
 
 const screenshotDir = mkdtempSync(join(tmpdir(), "kumiko-testing-fit-"));
 process.env[SCREENSHOT_DIR_ENV] = screenshotDir;

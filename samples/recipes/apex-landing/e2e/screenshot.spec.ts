@@ -7,7 +7,8 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
 import { HERO_SCREENSHOT } from "../src/constants";
 import { renderLanding, SAMPLE_PLANS } from "../src/feature";
 

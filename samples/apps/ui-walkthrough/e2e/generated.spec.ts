@@ -17,8 +17,12 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CSRF_COOKIE_NAME } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import {
+  CSRF_COOKIE_NAME,
+  expect,
+  boundaryGuardedTest as test,
+} from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const here = dirname(fileURLToPath(import.meta.url));

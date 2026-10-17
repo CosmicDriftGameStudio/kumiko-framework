@@ -3,7 +3,7 @@
 // Complements security.integration tests (HTTP 403 matrix) with workspace
 // switcher + overview + members UI checks.
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import {
   csrfToken,
   loginAsRegularUser,

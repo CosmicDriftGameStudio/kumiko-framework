@@ -15,7 +15,7 @@
 // scrolling-table contract and went red the moment #2565 landed
 // (ff39c707d) — rewritten to assert the card contract it actually ships.
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test.describe("mobile (< md)", () => {
   // 390px is the < md breakpoint under test (CSS-only, not device/touch

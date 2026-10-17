@@ -9,7 +9,7 @@
 //
 // Falls Bug aktiv: keine onChange, data-* Attribut bleibt leer.
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test.describe("ComboboxInput mouse-click in real browser", () => {
   test.beforeEach(async ({ page }) => {

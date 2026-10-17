@@ -6,7 +6,7 @@
 // Call statt Fixture-Sharing hält die Test-Kopplung gering — jeder
 // Spec-File steht für sich.
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
 test("update flow: click row, change title, save, list shows new title", async ({ page }) => {

@@ -12,7 +12,7 @@
 //   2. Tippen ins Feld → onChange feuert ISO yyyy-mm-dd.
 //   3. Jahres-Dropdown springt direkt aufs Zieljahr (kein 120×-Klicken).
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test.describe("DateInput calendar (#369) im echten Browser", () => {
   test.beforeEach(async ({ page }) => {

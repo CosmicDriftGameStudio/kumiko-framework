@@ -6,7 +6,7 @@
 // create-flow/update-flow weil die Recipe-Layer das schon abdeckt; der
 // Showcase-Wert hier ist die Workspace-Komposition selbst.
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
 test("workspaces: boot, login, lands on admin workspace, sidebar zeigt admin-navs", async ({

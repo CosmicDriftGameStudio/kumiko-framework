@@ -2,8 +2,12 @@
 // Before/after shots for the header primary action, long status badge, empty
 // list copy and flow-layout text width. Runs only with SCREENSHOT_DIR set.
 
-import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Page, test } from "@playwright/test";
+import {
+  captureScreenshot,
+  expect,
+  boundaryGuardedTest as test,
+} from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const DESKTOP = { width: 1440, height: 900 } as const;

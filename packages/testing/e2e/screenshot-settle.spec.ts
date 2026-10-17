@@ -3,11 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   captureScreenshot,
+  expect,
   runScreenshots,
   SCREENSHOT_DIR_ENV,
+  boundaryGuardedTest as test,
   trackInFlightRequests,
 } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 // Always a fresh tmpdir: these specs must never write into a caller's SCREENSHOT_DIR.
 const screenshotDir = mkdtempSync(join(tmpdir(), "kumiko-testing-settle-"));

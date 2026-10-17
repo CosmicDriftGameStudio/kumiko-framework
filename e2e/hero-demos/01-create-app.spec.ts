@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { createAppDemo } from "../../scripts/demos/01-create-app.ts";
 import { runDemo } from "./run-demo.ts";
 

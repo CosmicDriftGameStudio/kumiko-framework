@@ -2,7 +2,7 @@
 // render (stats, charts, badges, ModeSwitch) and the ModeSwitch is
 // interactive.
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("FloatingPanel moves, resizes, keeps the page usable and restores geometry", async ({
   page,

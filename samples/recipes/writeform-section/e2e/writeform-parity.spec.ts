@@ -9,7 +9,8 @@
 
 import { mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
 import { CREATED_COMMENTS_KEY } from "./fixtures/mock-dispatcher";
 
 const SCREENSHOT_DIR =

@@ -2,7 +2,7 @@
 // sub-list writes through the real server and the parent row's counter
 // follows. Uses "VW Golf" so the first row (screenshot subject) stays as seeded.
 
-import { expect, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
 test("marking a post in the expanded row updates the campaign's posted counter", async ({

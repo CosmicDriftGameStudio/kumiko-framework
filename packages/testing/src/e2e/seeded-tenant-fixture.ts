@@ -1,14 +1,13 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import {
-  type APIRequestContext,
-  type BrowserContext,
-  test as base,
-  type Page,
-  type Request as PlaywrightRequest,
-  type PlaywrightTestArgs,
-  type PlaywrightTestOptions,
-  type PlaywrightWorkerArgs,
-  type TestInfo,
+import type {
+  APIRequestContext,
+  BrowserContext,
+  Page,
+  Request as PlaywrightRequest,
+  PlaywrightTestArgs,
+  PlaywrightTestOptions,
+  PlaywrightWorkerArgs,
+  TestInfo,
 } from "@playwright/test";
 import type * as z from "zod";
 import {
@@ -29,6 +28,7 @@ import {
   loginViaApi,
   syntheticClientIpFor,
 } from "./auth-kit";
+import { boundaryGuardedTest as base } from "./boundary-guard";
 import { SEED_ROUTES, SEED_TOKEN_ENV } from "./constants";
 import { seedRouteHeaders } from "./mail-capture";
 import {

@@ -2,7 +2,8 @@
 // The unit suffix of a number field stays inside the input box, also once the
 // "changed" marker widens the label beyond the input's width.
 
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 test.use({ locale: "de-DE", viewport: { width: 1440, height: 900 } });

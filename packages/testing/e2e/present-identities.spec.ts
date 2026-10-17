@@ -3,11 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   captureScreenshot,
+  expect,
   type PresentIdentity,
   runMatrix,
   SCREENSHOT_DIR_ENV,
+  boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { DESKTOP_VIEWPORT } from "../src/e2e/constants";
 
 // Always a fresh tmpdir: these specs must never write into a caller's SCREENSHOT_DIR.
