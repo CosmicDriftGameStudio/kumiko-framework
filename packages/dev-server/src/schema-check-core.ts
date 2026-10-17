@@ -18,6 +18,16 @@ export function resolveGeneratePath(cwd: string): string {
   return drizzlePath;
 }
 
+// The scaffold layout has no static import registry: kumiko/schema.ts derives
+// ENTITY_METAS from composeFeatures(APP_FEATURES), so there is nothing to drift.
+export function usesDerivedSchemaLayout(cwd: string): boolean {
+  return (
+    existsSync(resolve(cwd, "kumiko/schema.ts")) &&
+    !existsSync(resolve(cwd, "drizzle/generate.ts")) &&
+    !existsSync(resolve(cwd, "schema/generate.ts"))
+  );
+}
+
 // The features composeFeatures auto-prepends in auth-mode (config + user +
 // tenant + auth-email-password). Derived from composeFeatures itself so this
 // can't drift from the real prepend-list in compose-features.ts.

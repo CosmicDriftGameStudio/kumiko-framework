@@ -4,7 +4,46 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { implicitAuthModeFeatureNames, resolveGeneratePath } from "../schema-check-core.js";
+import {
+  implicitAuthModeFeatureNames,
+  resolveGeneratePath,
+  usesDerivedSchemaLayout,
+} from "../schema-check-core.js";
+
+describe("usesDerivedSchemaLayout", () => {
+  function withTmp(files: readonly string[], assertLayout: (cwd: string) => void): void {
+    const cwd = mkdtempSync(join(tmpdir(), "schema-check-layout-"));
+    try {
+      for (const rel of files) {
+        mkdirSync(join(cwd, rel, ".."), { recursive: true });
+        writeFileSync(join(cwd, rel), "// stub", "utf-8");
+      }
+      assertLayout(cwd);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+
+  test("true with only kumiko/schema.ts", () => {
+    withTmp(["kumiko/schema.ts"], (cwd) => expect(usesDerivedSchemaLayout(cwd)).toBe(true));
+  });
+
+  test("false when drizzle/generate.ts exists too", () => {
+    withTmp(["kumiko/schema.ts", "drizzle/generate.ts"], (cwd) =>
+      expect(usesDerivedSchemaLayout(cwd)).toBe(false),
+    );
+  });
+
+  test("false when schema/generate.ts exists too", () => {
+    withTmp(["kumiko/schema.ts", "schema/generate.ts"], (cwd) =>
+      expect(usesDerivedSchemaLayout(cwd)).toBe(false),
+    );
+  });
+
+  test("false for an empty dir", () => {
+    withTmp([], (cwd) => expect(usesDerivedSchemaLayout(cwd)).toBe(false));
+  });
+});
 
 describe("resolveGeneratePath", () => {
   test("defaults to drizzle/generate.ts when neither candidate exists", () => {
