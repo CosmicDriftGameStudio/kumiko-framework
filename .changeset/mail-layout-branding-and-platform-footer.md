@@ -54,3 +54,10 @@ type: fix
 title: A placeholder inside a button label is kept
 detail: The document schema allows placeholder chips inside a button label. Before, saving or seeding a body such as a button reading "View {{pageName}}" split the button: the label stopped at the placeholder and the rest landed in a new paragraph outside the button.
 -->
+
+<!-- kumiko-changes
+feature: template-resolver
+type: improvement
+title: compileDocumentBodyToHandlebars takes a height cap for resource images
+detail: The new resourceImageMaxHeightPx option adds max-height and width:auto to resource images. The mail renderer caps images in a layout header at 64 px, so a square logo stays small while a wide wordmark keeps its 180 px width cap.
+-->

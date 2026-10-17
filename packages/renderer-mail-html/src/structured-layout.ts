@@ -12,6 +12,7 @@ import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 
 // The logo of a mail layout and of a mail body is capped here; the editors show the same width.
 export const MAIL_IMAGE_MAX_WIDTH_PX = 180;
+const MAIL_HEADER_IMAGE_MAX_HEIGHT_PX = 64;
 
 // Appearance values are enum members or a strict hex (see mailLayoutAppearance / isHexColor),
 // so interpolating them into the frame cannot inject MJML; the escaping keeps that if the schema widens.
@@ -84,7 +85,7 @@ export type StructuredLayoutInput = {
 
 export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string {
   const regions = readLayoutRegions(input.layoutHtml);
-  const renderRegion = (region: string): string =>
+  const renderRegion = (region: string, maxHeightPx?: number): string =>
     region.trim() === ""
       ? ""
       : input.compile(
@@ -94,6 +95,7 @@ export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string
             {
               ...(input.resourceSrc && { resourceSrc: input.resourceSrc }),
               resourceImageMaxWidthPx: MAIL_IMAGE_MAX_WIDTH_PX,
+              ...(maxHeightPx !== undefined && { resourceImageMaxHeightPx: maxHeightPx }),
             },
           ),
         )(input.context);
@@ -105,7 +107,7 @@ export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string
   return input.compile(frame)({
     ...input.context,
     content: input.contentHtml,
-    regionHeader: renderRegion(regions.header),
+    regionHeader: renderRegion(regions.header, MAIL_HEADER_IMAGE_MAX_HEIGHT_PX),
     regionSignature: renderRegion(regions.signature),
     regionFooter,
     mailFooterHtml: input.footerHtml ?? "",

@@ -57,6 +57,13 @@ describe("compileDocumentBodyToHandlebars", () => {
         resourceImageMaxWidthPx: 180,
       }),
     ).toContain('style="max-width:180px;height:auto"');
+    expect(
+      compileDocumentBodyToHandlebars(html, variables, {
+        resourceSrc,
+        resourceImageMaxWidthPx: 180,
+        resourceImageMaxHeightPx: 64,
+      }),
+    ).toContain('style="max-width:180px;max-height:64px;width:auto;height:auto"');
   });
 
   test("table cells get padding inline for mail only and keep their alignment", () => {

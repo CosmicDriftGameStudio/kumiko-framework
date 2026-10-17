@@ -158,6 +158,8 @@ export type CompileDocumentBodyOptions = {
   readonly resourceSrc?: (key: string) => string | undefined;
   // Mail clients ignore document CSS, so a full-width logo needs an inline width cap.
   readonly resourceImageMaxWidthPx?: number;
+  // Keeps a square logo in a mail header from growing to the full width cap.
+  readonly resourceImageMaxHeightPx?: number;
   // Mail clients ignore document CSS, so mail turns data-align into an inline style.
   readonly alignmentAsInlineStyle?: boolean;
   // Same reason: a[data-button] only looks like a button through editor/print CSS.
@@ -220,6 +222,7 @@ function rewriteResourceImage(
   element: ScanElement,
   resourceSrc: CompileDocumentBodyOptions["resourceSrc"],
   maxWidthPx: number | undefined,
+  maxHeightPx: number | undefined,
 ): void {
   const key = element.getAttribute("data-resource") ?? "";
   const src = isDocumentResourceKey(key) ? resourceSrc?.(key) : undefined;
@@ -230,8 +233,11 @@ function rewriteResourceImage(
   }
   element.setAttribute("src", src);
   element.removeAttribute("data-resource");
-  if (maxWidthPx !== undefined)
-    element.setAttribute("style", `max-width:${maxWidthPx}px;height:auto`);
+  const caps = [
+    ...(maxWidthPx === undefined ? [] : [`max-width:${maxWidthPx}px`]),
+    ...(maxHeightPx === undefined ? [] : [`max-height:${maxHeightPx}px;width:auto`]),
+  ];
+  if (caps.length > 0) element.setAttribute("style", `${caps.join(";")};height:auto`);
 }
 
 function stripScriptsAndActiveContent(
@@ -240,7 +246,12 @@ function stripScriptsAndActiveContent(
 ): void {
   for (const element of Array.from(root.querySelectorAll("script"))) element.remove();
   for (const element of Array.from(root.querySelectorAll("img[data-resource]"))) {
-    rewriteResourceImage(element, options.resourceSrc, options.resourceImageMaxWidthPx);
+    rewriteResourceImage(
+      element,
+      options.resourceSrc,
+      options.resourceImageMaxWidthPx,
+      options.resourceImageMaxHeightPx,
+    );
   }
   for (const element of Array.from(root.querySelectorAll("*"))) stripActiveContent(element);
 }

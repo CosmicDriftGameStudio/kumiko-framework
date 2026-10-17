@@ -147,6 +147,28 @@ describe("email channel List-Unsubscribe headers", () => {
     });
   });
 
+  test("line breaks and angle brackets in an app unsubscribeUrl cannot break out of the header", async () => {
+    const transport = createInMemoryTransport();
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: {
+        subject: "t",
+        body: "b",
+        unsubscribeUrl: "https://app.example/u?x=<a>\r\nBcc: victim@example.com",
+      },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+
+    const [sent] = transport.sent;
+    if (!sent) throw new Error("expected a sent mail");
+    const header = sent.headers?.["List-Unsubscribe"] ?? "";
+    expect(header).not.toMatch(/[\r\n]/);
+    expect(header.slice(1, -1)).not.toMatch(/[<>]/);
+    expect(Object.keys(sent.headers ?? {})).toEqual(["List-Unsubscribe"]);
+  });
+
   test("a non-http unsubscribeUrl sets no headers", async () => {
     const transport = createInMemoryTransport();
     const message: ChannelMessage = {

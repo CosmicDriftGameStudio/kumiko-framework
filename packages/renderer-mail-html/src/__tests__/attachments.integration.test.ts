@@ -507,6 +507,7 @@ describe("mail attachments: inline logo and file attachment", () => {
 
     expect(mail.html).toContain("Plain");
     expect(mail.html).toContain('src="cid:logo"');
+    expect(mail.html).toContain("max-height:64px");
     expect(mail.attachments).toHaveLength(1);
     expect(mail.attachments?.[0]).toMatchObject({ kind: "inline", cid: "logo" });
     expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(
