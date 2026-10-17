@@ -84,6 +84,7 @@ import {
   type SseBroker,
   type TokenVerifier,
   TRUSTED_PROXY_HOPS_ENV,
+  withFileProviderResolver,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
@@ -1391,7 +1392,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   });
   const seedDispatcher =
     (options.seeds?.length ?? 0) > 0 || options.seedsDir !== undefined
-      ? createDispatcher(registry, { db, redis, entityCache, registry, ...extraContext })
+      ? createDispatcher(
+          registry,
+          withFileProviderResolver(
+            registry,
+            { db, redis, entityCache, registry, ...extraContext },
+            cacheSync,
+          ),
+        )
       : undefined;
   if (seedDispatcher) {
     for (const seed of options.seeds ?? []) {
