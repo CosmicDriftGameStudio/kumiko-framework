@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.365.1
+
+### Patch Changes
+
+- 34530bf: Timestamp format accepts a timeZone
+  
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: The timestamp FormatSpec takes an IANA timeZone
+  detail: { format: "timestamp", timeZone: "Europe/Berlin" } formats the instant in that zone instead of the runtime's zone. Without timeZone nothing changes. The option is ignored for the date format, which has no time component.
+  -->
+- Updated dependencies [93e1a7d]
+- Updated dependencies [9a8abc9]
+- Updated dependencies [34530bf]
+- Updated dependencies [8633239]
+- Updated dependencies [34530bf]
+- Updated dependencies [34530bf]
+  - @cosmicdrift/kumiko-framework@0.365.1
+  - @cosmicdrift/kumiko-types@0.365.1
+
 ## 0.365.0
 
 ### Patch Changes

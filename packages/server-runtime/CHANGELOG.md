@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.365.1
+
+### Patch Changes
+
+- 93e1a7d: App and worker boot wait for Postgres instead of crashing
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: App and worker boot wait for Postgres instead of crashing
+  detail: runProdApp and worker processes now probe the database before the schema-drift check and retry with exponential backoff (1s to 15s, up to 90s) on transient connection errors such as too_many_connections or ECONNREFUSED. The KMS health check at boot retries the same way. Non-transient errors like auth failures still abort immediately.
+  -->
+- Updated dependencies [93e1a7d]
+- Updated dependencies [9a8abc9]
+- Updated dependencies [34530bf]
+- Updated dependencies [8633239]
+- Updated dependencies [34530bf]
+- Updated dependencies [34530bf]
+  - @cosmicdrift/kumiko-framework@0.365.1
+  - @cosmicdrift/kumiko-bundled-features@0.365.1
+  - @cosmicdrift/kumiko-types@0.365.1
+  - @cosmicdrift/kumiko-headless@0.365.1
+  - @cosmicdrift/kumiko-renderer-mail-html@0.365.1
+  - @cosmicdrift/kumiko-renderer-web@0.365.1
+
 ## 0.365.0
 
 ### Patch Changes
