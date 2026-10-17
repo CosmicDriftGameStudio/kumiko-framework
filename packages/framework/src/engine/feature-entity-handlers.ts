@@ -98,6 +98,23 @@ function agentSlots(source: {
   };
 }
 
+function transactionPhaseSlots<TSchema extends ZodType, TPrepared>(
+  def: Pick<
+    WriteHandlerDefinition<string, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
+    "reserveBeforeTransaction" | "beforeTransaction" | "transaction"
+  >,
+) {
+  return {
+    ...(def.reserveBeforeTransaction && {
+      reserveBeforeTransaction: def.reserveBeforeTransaction,
+    }),
+    ...(def.beforeTransaction && {
+      beforeTransaction: def.beforeTransaction as BeforeTransactionPhase, // @cast-boundary engine-bridge
+    }),
+    ...(def.transaction && { transaction: def.transaction }),
+  };
+}
+
 function requireInlineHandlerArgs<TSchema, THandler, TOptions extends { access?: unknown }>(
   kind: string,
   schema: TSchema | undefined,
@@ -185,14 +202,8 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
           ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
-          ...(def.reserveBeforeTransaction && {
-            reserveBeforeTransaction: def.reserveBeforeTransaction,
-          }),
-          ...(def.beforeTransaction && {
-            beforeTransaction: def.beforeTransaction as BeforeTransactionPhase, // @cast-boundary engine-bridge
-          }),
+          ...transactionPhaseSlots(def),
           ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
-          ...(def.transaction && { transaction: def.transaction }),
           // Forward the pipeline-build closure so boot-validators and
           // Designer/AI tooling can inspect the step list. Absent on
           // free-form handlers — defineWriteHandler only sets `perform`
