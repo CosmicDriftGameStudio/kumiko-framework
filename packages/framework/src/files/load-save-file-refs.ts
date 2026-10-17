@@ -1,11 +1,13 @@
 import { selectMany } from "../db/query.js";
 import type { TenantDb } from "../db/tenant-db.js";
+import { tenantDbRunner } from "../db/tenant-db-runner.js";
 import {
   isFileField,
   type Registry,
   type SaveContext,
   type SessionUser,
 } from "../engine/types/index.js";
+import { getStreamVersions } from "../event-store/event-store.js";
 import { fileRefIdsOf } from "./bind-pending-file-refs.js";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
 import { fileRefsTable } from "./file-ref-table.js";
@@ -40,5 +42,18 @@ export async function loadSaveFileRefs(args: {
     tenantId: user.tenantId,
     isDeleted: false,
   });
-  return new Map(rows.map((row) => [String(row["id"]), row]));
+  // The binding update needs the stream version as expectedVersion: events without a projection
+  // effect (e.g. ingest requests) advance the stream but not the row's version column.
+  const streamVersions = await getStreamVersions(
+    tenantDbRunner(db),
+    rows.map((row) => String(row["id"])),
+    db.tenantId,
+  );
+  return new Map(
+    rows.map((row) => {
+      const id = String(row["id"]);
+      const streamVersion = streamVersions.get(id);
+      return [id, streamVersion === undefined ? row : { ...row, version: streamVersion }];
+    }),
+  );
 }

@@ -11,7 +11,7 @@ export {
   PDF_HEADER_MARGIN_MM,
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
-} from "../constants.js";
+} from "../pdf-constants.js";
 export {
   TemplateResolverErrors,
   TemplateResolverHandlers,
