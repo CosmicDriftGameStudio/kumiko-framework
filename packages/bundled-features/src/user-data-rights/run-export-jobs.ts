@@ -815,7 +815,7 @@ function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant):
 // Stream-Counter konsistent bleibt (Memory feedback_event_store_tenant_consistency).
 // @wrapper-known semantic-alias
 function systemTenantDb(db: DbConnection, tenantId: TenantId) {
-  return createTenantDb(db, tenantId, "system");
+  return createTenantDb({ db, tenantId, mode: "system" });
 }
 
 function buildExportStorageKey(job: JobRow): string {

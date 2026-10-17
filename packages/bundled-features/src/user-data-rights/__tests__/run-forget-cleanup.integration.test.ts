@@ -320,8 +320,13 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
 
     const { log } = capturingJobLog();
     const jobCtx = {
-      db: createTenantDb(stack.db, TENANT_A, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: TENANT_A,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+        },
       }),
       registry: stack.registry,
       log,
@@ -363,8 +368,13 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     const { log, warns } = capturingJobLog();
     try {
       await job?.handler({}, {
-        db: createTenantDb(stack.db, TENANT_A, "tenant", undefined, undefined, undefined, {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+        db: createTenantDb({
+          db: stack.db,
+          tenantId: TENANT_A,
+          mode: "tenant",
+          grants: {
+            unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          },
         }),
         registry: stack.registry,
         systemUser: createSystemUser(TENANT_A),

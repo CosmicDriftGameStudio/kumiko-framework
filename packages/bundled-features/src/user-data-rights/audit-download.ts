@@ -54,7 +54,7 @@ export interface RecordDownloadUseArgs {
 export async function recordDownloadUse(args: RecordDownloadUseArgs): Promise<void> {
   const { db, tokenId, tokenVersion, tokenUseCount, tenantId, now, ip, userAgent } = args;
   const executor = createSystemUser(tenantId);
-  const tdb = createTenantDb(db, tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId, mode: "system" });
 
   await tokenCrud
     .update(
@@ -103,7 +103,7 @@ export interface RecordInvalidAttemptArgs {
 export async function recordInvalidAttempt(args: RecordInvalidAttemptArgs): Promise<void> {
   const { db, tenantId, now } = args;
   const executor = createSystemUser(tenantId);
-  const tdb = createTenantDb(db, tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId, mode: "system" });
   await attemptCrud
     .create(
       {

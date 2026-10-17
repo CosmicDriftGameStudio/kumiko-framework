@@ -149,7 +149,7 @@ function configFor(tenantId: TenantId) {
     resolver,
   )({
     user: { id: systemUser.id, tenantId },
-    db: createTenantDb(stack.db, tenantId, "tenant"),
+    db: createTenantDb({ db: stack.db, tenantId, mode: "tenant" }),
   });
 }
 
@@ -210,7 +210,7 @@ async function renderInvoice(tenantId: TenantId) {
     resolver,
   )({
     user: { id: systemUser.id, tenantId },
-    db: createTenantDb(stack.db, tenantId, "tenant"),
+    db: createTenantDb({ db: stack.db, tenantId, mode: "tenant" }),
   });
   const result = await plugin.render(
     {

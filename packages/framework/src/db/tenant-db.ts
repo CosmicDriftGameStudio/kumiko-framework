@@ -352,7 +352,7 @@ export function createSystemDbView(
 // same connection/transaction. For code that must run caller-supplied callbacks (e.g. config
 // validators) without handing them a cross-tenant view.
 export function scopeTenantDbToTenant(db: TenantDb, tenantId: TenantId): TenantDb {
-  return createTenantDb(tenantDbRunner(db), tenantId, "tenant");
+  return createTenantDb({ db: tenantDbRunner(db), tenantId, mode: "tenant" });
 }
 
 // @cast-boundary tenant-db-row
@@ -496,15 +496,62 @@ export async function runInOwnTransaction<T>(
   return rebind(fn);
 }
 
+export type CreateTenantDbOptions = {
+  readonly db: DbRunner;
+  readonly tenantId: TenantId;
+  readonly mode?: TenantDbMode;
+  readonly tracer?: Tracer;
+  readonly meter?: Meter;
+  readonly signal?: AbortSignal;
+  readonly grants?: TenantDbGrants;
+};
+
+// Runners (postgres-js Sql/tx handles) are functions and RawDbClient mocks carry no own
+// `tenantId`/`db`, so a runner is never mistaken for the options object.
+function isCreateTenantDbOptions(
+  value: DbRunner | CreateTenantDbOptions,
+): value is CreateTenantDbOptions {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.hasOwn(value, "tenantId") &&
+    Object.hasOwn(value, "db")
+  );
+}
+
+export function createTenantDb(options: CreateTenantDbOptions): TenantDb;
+/** @deprecated Positional form, use createTenantDb({ db, tenantId, ... }). Run `bun kumiko-upgrade --apply` to rewrite call sites. Removed in the first release after 2026-10-29. */
 export function createTenantDb(
   db: DbRunner,
   tenantId: TenantId,
-  mode: TenantDbMode = "tenant",
+  mode?: TenantDbMode,
+  tracer?: Tracer,
+  meter?: Meter,
+  signal?: AbortSignal,
+  grants?: TenantDbGrants,
+): TenantDb;
+export function createTenantDb(
+  dbOrOptions: DbRunner | CreateTenantDbOptions,
+  tenantId?: TenantId,
+  mode?: TenantDbMode,
   tracer?: Tracer,
   meter?: Meter,
   signal?: AbortSignal,
   grants?: TenantDbGrants,
 ): TenantDb {
+  if (isCreateTenantDbOptions(dbOrOptions)) return buildTenantDb(dbOrOptions);
+  return buildTenantDb({ db: dbOrOptions, tenantId, mode, tracer, meter, signal, grants });
+}
+
+// Untyped JS callers or an `as` cast can still hand in undefined; a scoped handle
+// without a tenant would bind `tenant_id = NULL` instead of failing loudly.
+function buildTenantDb(
+  options: Omit<CreateTenantDbOptions, "tenantId"> & { readonly tenantId: TenantId | undefined },
+): TenantDb {
+  const { db, tenantId, mode = "tenant", tracer, meter, signal, grants } = options;
+  if (tenantId === undefined) {
+    throw new InternalError({ message: "createTenantDb: tenantId is required" });
+  }
   if (meter) registerStandardMetrics(meter);
   const report = grants?.report ?? fallbackEscapeHatchReporter(tenantId);
   const personalDataGate = grants?.personalDataGate ?? runnerPersonalDataGates.get(db);
@@ -856,24 +903,32 @@ export function createTenantDb(
 
   declaredUnsafeRawRunners.set(tenantDb, grantedUnsafeRawRunner);
   unsafeRawRebinders.set(tenantDb, (grant) =>
-    createTenantDb(db, tenantId, mode, tracer, meter, signal, {
-      ...rebindGrants,
-      unsafeRaw: grant,
-      // db.global() writes are write-handler-only: a rebind (a hook's own grant) must not inherit them.
-      globalWrites: undefined,
+    createTenantDb({
+      db,
+      tenantId,
+      mode,
+      tracer,
+      meter,
+      signal,
+      grants: {
+        ...rebindGrants,
+        unsafeRaw: grant,
+        // db.global() writes are write-handler-only: a rebind (a hook's own grant) must not inherit them.
+        globalWrites: undefined,
+      },
     }),
   );
   crossTenantRebinders.set(tenantDb, (reason, deferReport) => {
     if (!deferReport) report("acknowledge-cross-tenant", reason);
-    const acknowledged = createTenantDb(
+    const acknowledged = createTenantDb({
       db,
       tenantId,
-      "system",
+      mode: "system",
       tracer,
       meter,
       signal,
-      rebindGrants,
-    );
+      grants: rebindGrants,
+    });
     crossTenantUseReporters.set(acknowledged, (target) =>
       report("acknowledge-cross-tenant", reason, target),
     );
@@ -890,7 +945,7 @@ export function createTenantDb(
     // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since the fresh tx-handle isn't itself registered in runnerPersonalDataGates.
     const txGrants = personalDataGate ? { ...rebindGrants, personalDataGate } : rebindGrants;
     return runInNewTransaction(db, (tx) =>
-      fn(createTenantDb(tx, tenantId, mode, tracer, meter, signal, txGrants)),
+      fn(createTenantDb({ db: tx, tenantId, mode, tracer, meter, signal, grants: txGrants })),
     );
   });
   bindTenantDbRunner(tenantDb, db);
@@ -902,22 +957,18 @@ export function createTenantDb(
   return tenantDb;
 }
 
-// Tenant-mode TenantDb whose writes reach the registry's custom projections. The positional
-// undefineds of createTenantDb would hide a moved grants parameter from the type checker.
+// Tenant-mode TenantDb whose writes reach the registry's custom projections.
 export function createProjectingTenantDb(
   db: DbRunner,
   tenantId: TenantId,
   projectionRegistry: Registry | undefined,
 ): TenantDb {
-  return createTenantDb(
+  return createTenantDb({
     db,
     tenantId,
-    "tenant",
-    undefined,
-    undefined,
-    undefined,
-    projectionRegistry ? { projectionRegistry } : undefined,
-  );
+    mode: "tenant",
+    grants: projectionRegistry ? { projectionRegistry } : undefined,
+  });
 }
 
 export { asRawClient };

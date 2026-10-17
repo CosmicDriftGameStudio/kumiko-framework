@@ -278,7 +278,7 @@ async function seedPropertyAnonymizeOverride(): Promise<void> {
       tenantId: TENANT,
     },
     by,
-    createTenantDb(stack.db, TENANT, "system"),
+    createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
   );
   if (!result.isSuccess)
     throw new Error(`seedPropertyAnonymizeOverride failed: ${JSON.stringify(result)}`);

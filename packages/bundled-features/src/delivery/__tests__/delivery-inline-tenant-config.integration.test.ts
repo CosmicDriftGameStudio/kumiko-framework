@@ -75,7 +75,7 @@ beforeAll(async () => {
           const systemUser = createSystemUser(tenantId);
           return accessorFactory({
             user: { id: systemUser.id, tenantId },
-            db: createTenantDb(deps.db, tenantId),
+            db: createTenantDb({ db: deps.db, tenantId }),
           });
         },
       });

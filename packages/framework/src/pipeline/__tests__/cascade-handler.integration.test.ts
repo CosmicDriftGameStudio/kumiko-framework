@@ -99,7 +99,7 @@ const memberEntity = createEntity({
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 
   await unsafeCreateEntityTable(testDb.db, departmentEntity);
   await unsafeCreateEntityTable(testDb.db, userEntity);

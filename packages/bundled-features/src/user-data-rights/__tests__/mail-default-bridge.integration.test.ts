@@ -145,8 +145,13 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     // EXAKT der prod-Job-Kontext: configResolver gesetzt, config undefined.
     // log required since #1572 persists incomplete[] via ctx.log.warn.
     const jobCtx = {
-      db: createTenantDb(stack.db, TENANT_A, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: TENANT_A,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+        },
       }),
       registry: stack.registry,
       configResolver,

@@ -90,7 +90,11 @@ beforeAll(async () => {
       if (!handler) return [];
       // Hand-built context, not routed through the dispatcher — active-tenant-ids
       // is an r.systemScope() handler, fail-closed on ctx.db, needs ctx.systemDb too.
-      const systemModeDb = createTenantDb(db, "00000000-0000-4000-8000-000000000000", "system");
+      const systemModeDb = createTenantDb({
+        db,
+        tenantId: "00000000-0000-4000-8000-000000000000",
+        mode: "system",
+      });
       const result = await handler.handler(
         {
           type: TenantQueries.activeTenantIds,

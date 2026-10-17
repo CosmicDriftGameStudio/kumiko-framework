@@ -38,7 +38,7 @@ const foreign = testTenantId(2);
 
 describe("createUncheckedSystemDb", () => {
   test("carries the SYSTEM_SCOPE_CHECK_BRAND", () => {
-    const systemDb = createTenantDb(unusedRunner(), own, "system");
+    const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
     const unchecked = createUncheckedSystemDb(systemDb);
 
     expect(unchecked[SYSTEM_SCOPE_CHECK_BRAND]).toBe(true);
@@ -46,21 +46,21 @@ describe("createUncheckedSystemDb", () => {
 
   describe("assertTenantMatch", () => {
     test("returns the underlying TenantDb when the tenantId matches", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(unchecked.assertTenantMatch(own)).toBe(systemDb);
     });
 
     test("throws AccessDeniedError when the tenantId doesn't match", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(() => unchecked.assertTenantMatch(foreign)).toThrow(/tenant self-check failed/);
     });
 
     test("does not report — it is a tenant-safe check", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const { report, calls } = recordingReporter();
       const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
 
@@ -72,7 +72,7 @@ describe("createUncheckedSystemDb", () => {
 
   describe("assertRowsTenant", () => {
     test("returns the rows unchanged when every row matches", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
       const rows = [
         { tenantId: own, name: "a" },
@@ -83,7 +83,7 @@ describe("createUncheckedSystemDb", () => {
     });
 
     test("throws AccessDeniedError on the first mismatched row instead of filtering", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
       const rows = [
         { tenantId: own, name: "a" },
@@ -96,14 +96,14 @@ describe("createUncheckedSystemDb", () => {
     });
 
     test("an empty row array trivially passes", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(unchecked.assertRowsTenant([], "tenantId")).toEqual([]);
     });
 
     test("accepts SYSTEM_TENANT_ID rows as reference data, mirroring tenant-mode readWhere", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
       const rows = [
         { tenantId: own, name: "a" },
@@ -114,7 +114,7 @@ describe("createUncheckedSystemDb", () => {
     });
 
     test("does not report — it is a tenant-safe check", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const { report, calls } = recordingReporter();
       const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
       const rows = [{ tenantId: own, name: "a" }];
@@ -126,7 +126,7 @@ describe("createUncheckedSystemDb", () => {
 
   describe("acknowledgeCrossTenant", () => {
     test("returns the underlying TenantDb without comparing tenants when given a reason", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(unchecked.acknowledgeCrossTenant("user feature is cross-tenant by design")).toBe(
@@ -135,21 +135,21 @@ describe("createUncheckedSystemDb", () => {
     });
 
     test("throws on an empty reason", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(() => unchecked.acknowledgeCrossTenant("")).toThrow(/non-empty reason/);
     });
 
     test("throws on a whitespace-only reason", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(() => unchecked.acknowledgeCrossTenant("   ")).toThrow(/non-empty reason/);
     });
 
     test("reports acknowledge-cross-tenant once with the reason", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const { report, calls } = recordingReporter();
       const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
 
@@ -164,7 +164,7 @@ describe("createUncheckedSystemDb", () => {
     });
 
     test("an empty reason throws and does not report", () => {
-      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const { report, calls } = recordingReporter();
       const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
 
@@ -176,8 +176,8 @@ describe("createUncheckedSystemDb", () => {
   describe("outsideTransaction", () => {
     describe("assertTenantMatch", () => {
       test("returns the outside-transaction TenantDb, not the in-tx one, when the tenantId matches", () => {
-        const systemDb = createTenantDb(unusedRunner(), own, "system");
-        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
+        const outsideTxDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
 
         const result = unchecked.outsideTransaction.assertTenantMatch(own);
@@ -186,8 +186,8 @@ describe("createUncheckedSystemDb", () => {
       });
 
       test("throws AccessDeniedError when the tenantId doesn't match", () => {
-        const systemDb = createTenantDb(unusedRunner(), own, "system");
-        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
+        const outsideTxDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
 
         expect(() => unchecked.outsideTransaction.assertTenantMatch(foreign)).toThrow(
@@ -196,7 +196,7 @@ describe("createUncheckedSystemDb", () => {
       });
 
       test("throws when no outside-transaction db was configured, even for a matching tenantId", () => {
-        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const unchecked = createUncheckedSystemDb(systemDb);
 
         expect(() => unchecked.outsideTransaction.assertTenantMatch(own)).toThrow(
@@ -207,8 +207,8 @@ describe("createUncheckedSystemDb", () => {
 
     describe("acknowledgeCrossTenant", () => {
       test("returns the outside-transaction TenantDb without comparing tenants when given a reason", () => {
-        const systemDb = createTenantDb(unusedRunner(), own, "system");
-        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
+        const outsideTxDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
 
         const result = unchecked.outsideTransaction.acknowledgeCrossTenant(
@@ -219,8 +219,8 @@ describe("createUncheckedSystemDb", () => {
       });
 
       test("throws on an empty reason", () => {
-        const systemDb = createTenantDb(unusedRunner(), own, "system");
-        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
+        const outsideTxDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
 
         expect(() => unchecked.outsideTransaction.acknowledgeCrossTenant("")).toThrow(
@@ -229,7 +229,7 @@ describe("createUncheckedSystemDb", () => {
       });
 
       test("throws when no outside-transaction db was configured, even with a valid reason", () => {
-        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const unchecked = createUncheckedSystemDb(systemDb);
 
         expect(() => unchecked.outsideTransaction.acknowledgeCrossTenant("valid reason")).toThrow(
@@ -238,8 +238,8 @@ describe("createUncheckedSystemDb", () => {
       });
 
       test("reports acknowledge-cross-tenant once with the reason", () => {
-        const systemDb = createTenantDb(unusedRunner(), own, "system");
-        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
+        const outsideTxDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const { report, calls } = recordingReporter();
         const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb, report);
 

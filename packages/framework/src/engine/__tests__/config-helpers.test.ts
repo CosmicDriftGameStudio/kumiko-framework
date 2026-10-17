@@ -299,7 +299,7 @@ describe("config helpers — validate (async write gate)", () => {
       scope: "tenant",
       tenantId,
       userId: null,
-      db: createTenantDb(unusedRunner, tenantId),
+      db: createTenantDb({ db: unusedRunner, tenantId }),
     });
     expect(seen).toEqual(["https://example.com"]);
   });

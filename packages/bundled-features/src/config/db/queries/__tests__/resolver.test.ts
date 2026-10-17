@@ -65,7 +65,7 @@ describe("config db/queries/resolver — tenant-mode TenantDb narrowing", () => 
         throw new Error("not used in test");
       },
     } as unknown as DbRunner;
-    const tdb = createTenantDb(recordingRunner, "t1");
+    const tdb = createTenantDb({ db: recordingRunner, tenantId: "t1" });
 
     await selectConfigRowsForScope(tdb, SYSTEM_TENANT_ID, "t1", "u1");
 

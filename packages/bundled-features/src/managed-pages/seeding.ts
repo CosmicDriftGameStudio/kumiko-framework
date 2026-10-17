@@ -37,7 +37,7 @@ export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise
   // der event-store-stream im falschen tenant-bucket → version_conflict
   // bei späteren echten writes). TestUsers.systemAdmin ist testTenantId(1).
   const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
-  const tdb = createTenantDb(db, opts.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: opts.tenantId, mode: "system" });
 
   const existing = await fetchOne<PageRow>(db, pagesTable, {
     tenantId: opts.tenantId,

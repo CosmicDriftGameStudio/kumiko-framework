@@ -178,7 +178,7 @@ beforeEach(async () => {
 
 async function seedRun(tenantId: TenantId, name: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb(stack.db, tenantId, "system");
+  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
   const result = await runCrud.create({ name }, user, db);
   if (!result.isSuccess) throw new Error(`seedRun failed: ${result.error.message}`);
   return String(result.data.id);
@@ -186,7 +186,7 @@ async function seedRun(tenantId: TenantId, name: string): Promise<string> {
 
 async function seedPhoto(tenantId: TenantId, hostId: string, caption: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb(stack.db, tenantId, "system");
+  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
   const result = await photoCrud.create({ hostType: "run", hostId, caption }, user, db);
   if (!result.isSuccess) throw new Error(`seedPhoto failed: ${result.error.message}`);
   return String(result.data.id);
@@ -194,7 +194,7 @@ async function seedPhoto(tenantId: TenantId, hostId: string, caption: string): P
 
 async function seedNote(tenantId: TenantId, hostId: string, body: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb(stack.db, tenantId, "system");
+  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
   const result = await noteCrud.create({ hostType: "run", hostId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedNote failed: ${result.error.message}`);
   return String(result.data.id);

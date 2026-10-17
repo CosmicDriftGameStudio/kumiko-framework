@@ -206,7 +206,7 @@ function buildSecretsContext(
         tenantId,
         roles: SYSTEM_ROLES,
       };
-      const tdb = createTenantDb(db, tenantId, "system");
+      const tdb = createTenantDb({ db, tenantId, mode: "system" });
 
       const existing = await lookup(tenantId, key);
       const commonFields = {
@@ -271,7 +271,7 @@ function buildSecretsContext(
         tenantId,
         roles: SYSTEM_ROLES,
       };
-      const tdb = createTenantDb(db, tenantId, "system");
+      const tdb = createTenantDb({ db, tenantId, mode: "system" });
       const result = await executor.delete({ id: existing.id }, actor, tdb);
       return result.isSuccess;
     },

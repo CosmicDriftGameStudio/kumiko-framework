@@ -77,7 +77,7 @@ async function releaseRowFileRefs(
     isCreateMode,
   );
   const systemUser = createSystemUser(row.tenantId);
-  const tenantDb = createTenantDb(db, row.tenantId, "system");
+  const tenantDb = createTenantDb({ db, tenantId: row.tenantId, mode: "system" });
   for (const ref of ownedRefs) {
     const forgetResult = await fileRefExecutor.forget({ id: ref.id }, systemUser, tenantDb);
     if (!forgetResult.isSuccess) {
@@ -132,7 +132,7 @@ export async function deleteStaleDraftsBatch(
   const byId = new Map(batch.map((row) => [row.id, row]));
   for (const [tenantId, ids] of groupStaleDraftIdsByTenant(batch)) {
     const systemUser = createSystemUser(tenantId);
-    const tenantDb = createTenantDb(db, tenantId, "system");
+    const tenantDb = createTenantDb({ db, tenantId, mode: "system" });
     for (const id of ids) {
       // Race: user may have saved between select and here — skip if no longer stale.
       if (!(await isDraftStillStale(db, tenantId, id, retentionDays))) {

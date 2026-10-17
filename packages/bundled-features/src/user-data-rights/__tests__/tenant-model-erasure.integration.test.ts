@@ -283,7 +283,7 @@ describe("forget pipeline honours the effective tenant model", () => {
     const deleteResult = await membershipExecutor.delete(
       { id: created.id },
       createSystemUser(TENANT),
-      createTenantDb(stack.db, TENANT, "system"),
+      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
     );
     if (!deleteResult.isSuccess) {
       throw new Error(`test setup: co-member delete failed: ${deleteResult.error.code}`);
@@ -334,7 +334,7 @@ describe("forget pipeline honours the effective tenant model", () => {
     const deleteResult = await membershipExecutor.delete(
       { id: created.id },
       createSystemUser(OTHER_TENANT),
-      createTenantDb(stack.db, TENANT, "system"),
+      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
     );
     if (!deleteResult.isSuccess) {
       throw new Error(`test setup: co-member delete failed: ${deleteResult.error.code}`);
@@ -370,7 +370,7 @@ describe("forget pipeline honours the effective tenant model", () => {
     const deleteResult = await membershipExecutor.delete(
       { id: first.id },
       createSystemUser(TENANT),
-      createTenantDb(stack.db, TENANT, "system"),
+      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
     );
     if (!deleteResult.isSuccess) {
       throw new Error(`test setup: member removal failed: ${deleteResult.error.code}`);
@@ -469,8 +469,13 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
     if (!job) return;
 
     const ctx: JobContext = {
-      db: createTenantDb(stack.db, TENANT, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+        },
       }),
       registry: stack.registry,
       configResolver: createConfigResolver({

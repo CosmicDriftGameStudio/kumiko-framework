@@ -273,17 +273,27 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     // path a cross-tenant read the dispatcher never allows. Cross-tenant reach only
     // exists through the grant-carrying systemDb view below.
     const isSystem = registry.isHandlerSystemScoped(tenantUserIdsQuery);
-    const tenantDb = createTenantDb(run.db, tenantId, "tenant", undefined, undefined, undefined, {
-      report,
+    const tenantDb = createTenantDb({
+      db: run.db,
+      tenantId,
+      mode: "tenant",
+      grants: {
+        report,
+      },
     });
     // The dispatcher grants a systemScope handler's ctx.systemDb.unsafeRaw() ungated —
     // the grant comes from the handler's own r.systemScope() registration, not from this
     // caller. Only the systemDb view's own source TenantDb carries the grant, so it
     // can't leak onto ctx.db.
     const systemDbSourceTenantDb = isSystem
-      ? createTenantDb(run.db, tenantId, "system", undefined, undefined, undefined, {
-          report,
-          unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"` },
+      ? createTenantDb({
+          db: run.db,
+          tenantId,
+          mode: "system",
+          grants: {
+            report,
+            unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"` },
+          },
         })
       : undefined;
     // Hand-built context, not routed through the dispatcher — this needs both

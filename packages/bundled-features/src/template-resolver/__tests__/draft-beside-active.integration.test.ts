@@ -406,7 +406,7 @@ describe("template-resolver :: draft beside the active version", () => {
         tenantId,
       },
       admin,
-      createTenantDb(stack.db, tenantId),
+      createTenantDb({ db: stack.db, tenantId }),
     );
     expect(created.isSuccess).toBe(true);
     const id = created.isSuccess ? String(created.data["id"]) : "";

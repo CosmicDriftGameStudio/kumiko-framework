@@ -8,7 +8,7 @@ import { connectionEntity } from "./feature";
 
 export const seedAiConnections: SeedFn = async (stack) => {
   const { executor } = createEntityExecutor("connection", connectionEntity);
-  const tenantDb = createTenantDb(stack.db, TestUsers.admin.tenantId);
+  const tenantDb = createTenantDb({ db: stack.db, tenantId: TestUsers.admin.tenantId });
   const connections = [
     {
       id: ANTHROPIC_CONNECTION_ID,

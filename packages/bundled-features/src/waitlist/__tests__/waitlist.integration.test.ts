@@ -62,7 +62,7 @@ async function requestUserDeletion(userId: string): Promise<void> {
       },
     },
     TestUsers.systemAdmin,
-    createTenantDb(stack.db, SYSTEM_TENANT_ID, "system"),
+    createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
   );
   expect(result.isSuccess).toBe(true);
 }

@@ -84,7 +84,7 @@ function seedExecutor() {
 }
 
 function tenantDb() {
-  return createTenantDb(stack.db, admin.tenantId, "system");
+  return createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" });
 }
 
 describe("reindexEntity", () => {
@@ -184,7 +184,7 @@ describe("reindexEntity", () => {
     const created = await executor.create(
       { label: plain },
       admin,
-      createTenantDb(stack.db, admin.tenantId, "system"),
+      createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" }),
     );
     if (!created.isSuccess) throw new Error("seed failed");
 
@@ -219,7 +219,7 @@ describe("reindexEntity", () => {
     const created = await executor.create(
       { label: plain },
       admin,
-      createTenantDb(stack.db, admin.tenantId, "system"),
+      createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" }),
     );
     if (!created.isSuccess) throw new Error("seed failed");
 

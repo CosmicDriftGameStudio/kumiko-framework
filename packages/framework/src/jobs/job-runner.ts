@@ -652,7 +652,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     if (!handler || !db) return undefined;
     return async () => {
       const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-      const systemModeDb = createTenantDb(db, SYSTEM_TENANT_ID, "system");
+      const systemModeDb = createTenantDb({ db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
       const reportEscapeHatch = createEscapeHatchReporter({
         handler: ACTIVE_TENANT_IDS_QUERY_NAME,
         tenantId: SYSTEM_TENANT_ID,
@@ -1259,9 +1259,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // unchecked cross-tenant escape hatch for such a job. Gated like jobDb so
     // ctx.systemDb, built from it, is gated too.
     const tenantScopedDb = configDb
-      ? createTenantDb(configDb, tenantId, "system", undefined, undefined, undefined, {
-          projectionRegistry: registry,
-          ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
+      ? createTenantDb({
+          db: configDb,
+          tenantId,
+          mode: "system",
+          grants: {
+            projectionRegistry: registry,
+            ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
+          },
         })
       : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
@@ -1284,12 +1289,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         ? createUncheckedSystemDb(tenantScopedDb, undefined, reportEscapeHatch)
         : undefined;
     const jobDb = configDb
-      ? createTenantDb(configDb, tenantId, "tenant", context.tracer, context.meter, undefined, {
-          unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
-          globalWrites: escapeHatchFor(jobDef.escapeHatch, "globalWrites"),
-          report: reportEscapeHatch,
-          projectionRegistry: registry,
-          ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
+      ? createTenantDb({
+          db: configDb,
+          tenantId,
+          mode: "tenant",
+          tracer: context.tracer,
+          meter: context.meter,
+          grants: {
+            unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
+            globalWrites: escapeHatchFor(jobDef.escapeHatch, "globalWrites"),
+            report: reportEscapeHatch,
+            projectionRegistry: registry,
+            ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
+          },
         })
       : undefined;
     const crossTenantReadsReason = escapeHatchFor(jobDef.escapeHatch, "unsafeRaw")?.reason;

@@ -79,7 +79,7 @@ let stack: TestStack;
 async function seedRow(tenantId: string, plaintext: string): Promise<void> {
   const envelope = await cipher.encrypt(JSON.stringify(plaintext), { tenantId });
   const systemUser = createSystemUser(tenantId);
-  const tdb = createTenantDb(stack.db, tenantId, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId, mode: "system" });
   const result = await executor.create(
     { key: KEY, value: envelope, tenantId, userId: null },
     systemUser,
@@ -117,10 +117,15 @@ function capturingLog(captured: CapturedLog): TestJobLog {
 
 function jobCtx(captured: CapturedLog): Parameters<typeof reencryptJob>[1] {
   return {
-    db: createTenantDb(stack.db, SYSTEM_TENANT_ID),
+    db: createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID }),
     systemDb: createSystemDbView(
-      createTenantDb(stack.db, SYSTEM_TENANT_ID, "system", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        grants: {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        },
       }),
     ),
     registry: stack.registry,

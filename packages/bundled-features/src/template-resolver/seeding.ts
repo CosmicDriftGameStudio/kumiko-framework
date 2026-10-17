@@ -89,7 +89,7 @@ export async function seedSystemTemplate(
 ): Promise<{ id: string }> {
   const tenantId = SYSTEM_TENANT_ID;
   const by = opts.by ?? createSystemUser(tenantId);
-  const tdb = createTenantDb(db, tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId, mode: "system" });
 
   const label = `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale}`;
   const slug = templateSlugSchema.safeParse(opts.slug);
@@ -379,7 +379,7 @@ export async function seedTextBlock(
   opts: SeedTextBlockOptions,
 ): Promise<{ id: string }> {
   const by = opts.by ?? createSystemUser(opts.tenantId);
-  const tdb = createTenantDb(db, opts.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: opts.tenantId, mode: "system" });
 
   const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
     tenantId: opts.tenantId,

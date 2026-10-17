@@ -51,7 +51,7 @@ describe("formDraftExportHook", () => {
     );
 
     const snippet = await formDraftExportHook({
-      db: createTenantDb(stack.db, owner.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: owner.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: owner.tenantId,
       userId: owner.id,
@@ -87,7 +87,7 @@ describe("formDraftExportHook", () => {
     );
 
     const snippet = await formDraftExportHook({
-      db: createTenantDb(stack.db, tenantATestTenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: tenantATestTenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: tenantATestTenantId,
       userId: sameIdTenantA.id,
@@ -100,7 +100,7 @@ describe("formDraftExportHook", () => {
   test("returns null when the user saved no drafts", async () => {
     const lurker = createTestUser({ id: 3, roles: ["TenantMember"] });
     const snippet = await formDraftExportHook({
-      db: createTenantDb(stack.db, lurker.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: lurker.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: lurker.tenantId,
       userId: lurker.id,
@@ -126,7 +126,7 @@ describe("formDraftDeleteHook", () => {
 
     await formDraftDeleteHook(
       {
-        db: createTenantDb(stack.db, alice.tenantId, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: alice.tenantId, mode: "tenant" }),
         registry: stack.registry,
         tenantId: alice.tenantId,
         userId: alice.id,
@@ -143,7 +143,7 @@ describe("formDraftDeleteHook", () => {
     await expect(
       formDraftDeleteHook(
         {
-          db: createTenantDb(stack.db, lurker.tenantId, "tenant"),
+          db: createTenantDb({ db: stack.db, tenantId: lurker.tenantId, mode: "tenant" }),
           registry: stack.registry,
           tenantId: lurker.tenantId,
           userId: lurker.id,

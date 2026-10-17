@@ -463,7 +463,7 @@ export function createTierEngineFeature<
             tenantId: newTenantId,
             roles: ["SystemAdmin"],
           };
-          const tdb = createTenantDb(rawDb, newTenantId, "system");
+          const tdb = createTenantDb({ db: rawDb, tenantId: newTenantId, mode: "system" });
 
           await tierAssignmentExecutor.create(
             { id: aggregateId, tier: defaultTier, source: TierAssignmentSources.default },

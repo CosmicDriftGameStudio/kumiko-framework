@@ -64,7 +64,7 @@ function makeCtx(
   log: JobContext["log"] = noopLogger,
 ): JobContext {
   return {
-    db: createTenantDb(stack.db, tenantA.tenantId, "tenant"),
+    db: createTenantDb({ db: stack.db, tenantId: tenantA.tenantId, mode: "tenant" }),
     registry: stack.registry,
     systemUser: tenantA,
     log,
@@ -94,7 +94,7 @@ function makeCapturingLogger(): { log: JobContext["log"]; infoLines: string[] } 
 
 async function seedFileRef(tenantId: TenantId, storageKey: string): Promise<void> {
   const user = TestUsers.systemAdmin;
-  const tdb = createTenantDb(stack.db, tenantId, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId, mode: "system" });
   const result = await fileRefCrud.create(
     { storageKey, fileName: "photo.jpg", mimeType: "image/jpeg", size: 10 },
     user,
@@ -209,7 +209,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     );
     const rowId = rows[0]?.id;
     expect(rowId).toBeDefined();
-    const tdb = createTenantDb(stack.db, tenantA.tenantId, "system");
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA.tenantId, mode: "system" });
     if (rowId) {
       const deleteResult = await fileRefCrud.delete({ id: rowId }, TestUsers.systemAdmin, tdb);
       expect(deleteResult.isSuccess).toBe(true);

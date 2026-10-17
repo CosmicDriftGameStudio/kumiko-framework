@@ -173,7 +173,7 @@ async function appendTenantStageEventIdempotent(
 
 async function markTenantDestroyFailed(db: DbRunner, tenantId: TenantId): Promise<void> {
   const user = createSystemUser(tenantId);
-  const scopedDb = createTenantDb(db, tenantId, "system");
+  const scopedDb = createTenantDb({ db, tenantId, mode: "system" });
   await tenantCrud.update(
     {
       id: tenantId,
@@ -431,7 +431,7 @@ export async function runTenantDestructionSweep(args: {
     const events = await loadAggregate(args.db, tenantId, tenantId);
     const version = lastEventVersion(events);
     const user = createSystemUser(tenantId);
-    const scopedDb = createTenantDb(args.db, tenantId, "system");
+    const scopedDb = createTenantDb({ db: args.db, tenantId, mode: "system" });
     // Version-guarded (no skipOptimisticLock): a concurrent cancel-destruction
     // between the `due` select above and this write also appends to the same
     // tenant stream, so an unguarded overwrite here would silently revert the

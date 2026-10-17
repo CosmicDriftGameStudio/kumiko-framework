@@ -128,7 +128,7 @@ async function seedProbeRow(): Promise<string> {
   const result = await probeCrud.create(
     { label: "must be erased" },
     curator,
-    createTenantDb(stack.db, TENANT, "system"),
+    createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
   );
   if (!result.isSuccess) throw new Error(`seedProbeRow failed: ${result.error.message}`);
   return String(result.data.id);

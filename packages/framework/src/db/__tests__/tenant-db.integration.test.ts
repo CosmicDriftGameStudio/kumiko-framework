@@ -60,7 +60,7 @@ afterAll(async () => {
 describe("scoped mode (default)", () => {
   describe("insert", () => {
     test("auto-injects tenantId into values", async () => {
-      const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
       const row = await tdb.insertOne(table, { name: "Item 1" });
       expect(row?.["tenantId"]).toBe(testTenantId(1));
@@ -68,7 +68,7 @@ describe("scoped mode (default)", () => {
     });
 
     test("cannot override tenantId via values", async () => {
-      const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
       const row = await tdb.insertOne(table, { name: "Sneaky", tenantId: testTenantId(999) });
       expect(row?.["tenantId"]).toBe(testTenantId(1));
@@ -77,8 +77,8 @@ describe("scoped mode (default)", () => {
 
   describe("select", () => {
     test("only returns rows for own tenant", async () => {
-      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
-      const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
+      const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
+      const tdb2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
 
       await tdb1.insertOne(table, { name: "T1 Scoped" });
       await tdb2.insertOne(table, { name: "T2 Scoped" });
@@ -91,7 +91,7 @@ describe("scoped mode (default)", () => {
     });
 
     test("additional where conditions combine with tenant filter", async () => {
-      const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
       await tdb.insertOne(table, { name: "findme", status: "active" });
       await tdb.insertOne(table, { name: "notme", status: "draft" });
@@ -105,7 +105,7 @@ describe("scoped mode (default)", () => {
     });
 
     test("select with columns", async () => {
-      const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
       await tdb.insertOne(table, { name: "ColSelect" });
 
@@ -124,7 +124,7 @@ describe("scoped mode (default)", () => {
     });
 
     test("select with limit", async () => {
-      const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
       for (let i = 0; i < 5; i++) {
         await tdb.insertOne(table, { name: `Limit${i}` });
@@ -137,8 +137,8 @@ describe("scoped mode (default)", () => {
 
   describe("update", () => {
     test("only updates rows for own tenant", async () => {
-      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
-      const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
+      const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
+      const tdb2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
 
       const row = await tdb1.insertOne(table, { name: "T1 Update" });
       const id = row!["id"] as string;
@@ -153,7 +153,7 @@ describe("scoped mode (default)", () => {
     });
 
     test("update without returning", async () => {
-      const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
       const row = await tdb.insertOne(table, { name: "NoReturn" });
       const id = row!["id"] as string;
@@ -167,8 +167,8 @@ describe("scoped mode (default)", () => {
 
   describe("delete", () => {
     test("only deletes rows for own tenant", async () => {
-      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
-      const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
+      const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
+      const tdb2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
 
       const row = await tdb1.insertOne(table, { name: "T1 Delete" });
       const id = row!["id"] as string;
@@ -182,8 +182,8 @@ describe("scoped mode (default)", () => {
 
   describe("cross-tenant isolation", () => {
     test("tenant cannot see, update, or delete other tenant data", async () => {
-      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
-      const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
+      const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
+      const tdb2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
 
       const created = await tdb1.insertOne(table, { name: "Secret" });
       const id = created!["id"] as string;
@@ -211,8 +211,8 @@ describe("scoped mode (default)", () => {
         insertedAt: Temporal.Now.instant(),
       });
 
-      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
-      const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
+      const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
+      const tdb2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
 
       // Both tenants can see the global reference row
       const rows1 = await tdb1.selectMany(table, { name: "GlobalRef" });
@@ -231,7 +231,7 @@ describe("scoped mode (default)", () => {
         insertedAt: Temporal.Now.instant(),
       });
 
-      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
       const result = await tdb1.updateMany(table, { name: "Hacked" }, { name: "RefNoUpdate" });
 
@@ -252,7 +252,7 @@ describe("scoped mode (default)", () => {
         insertedAt: Temporal.Now.instant(),
       });
 
-      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
+      const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
       await tdb1.deleteMany(table, { name: "RefNoDelete" });
 
       const [stillThere] = await selectMany(testDb.db, table, { name: "RefNoDelete" });
@@ -267,13 +267,13 @@ describe("scoped mode (default)", () => {
 
 describe("system mode (r.systemScope())", () => {
   test("select returns rows from ALL tenants", async () => {
-    const scoped1 = createTenantDb(testDb.db, tenant1.tenantId);
-    const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
+    const scoped1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
+    const scoped2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
 
     await scoped1.insertOne(table, { name: "System-T1" });
     await scoped2.insertOne(table, { name: "System-T2" });
 
-    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
     const rows = await systemDb.selectMany(table);
 
     const tenantIds = new Set(rows.map((r) => r!["tenantId"]));
@@ -282,7 +282,7 @@ describe("system mode (r.systemScope())", () => {
   });
 
   test("insert uses tenantId as default but handler can override", async () => {
-    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
 
     // Without explicit tenantId — uses the default (tenant1)
     const defaultRow = await systemDb.insertOne(table, { name: "SystemDefault" });
@@ -300,10 +300,10 @@ describe("system mode (r.systemScope())", () => {
     // Config feature sets tenantId = null for system-scoped values
     // This requires the column to allow NULL — using systemTable which has no tenantId col,
     // but we can test the spread order logic directly:
-    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
 
     // In scoped mode, tenantId: 77 would be overridden to 1
-    const scopedDb = createTenantDb(testDb.db, tenant1.tenantId);
+    const scopedDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     const scopedRow = await scopedDb.insertOne(table, {
       name: "ScopedForce",
       tenantId: testTenantId(77),
@@ -319,28 +319,28 @@ describe("system mode (r.systemScope())", () => {
   });
 
   test("update affects rows from any tenant", async () => {
-    const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
+    const scoped2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
     const row = await scoped2.insertOne(table, { name: "T2-System-Upd" });
     const id = row!["id"] as string;
 
     // Scoped tenant 1 cannot update tenant 2's row
-    const scoped1 = createTenantDb(testDb.db, tenant1.tenantId);
+    const scoped1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     const scopedResult = await scoped1.updateMany(table, { name: "ScopedFail" }, { id: id });
     expect(scopedResult).toHaveLength(0);
 
     // Unscoped CAN update tenant 2's row
-    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
     const updated = await systemDb.updateMany(table, { name: "SystemWin" }, { id: id });
     expect(updated[0]!["name"]).toBe("SystemWin");
   });
 
   test("delete affects rows from any tenant", async () => {
-    const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
+    const scoped2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
     const row = await scoped2.insertOne(table, { name: "T2-System-Del" });
     const id = row!["id"] as string;
 
     // Unscoped can delete tenant 2's row from tenant 1 context
-    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
     await systemDb.deleteMany(table, { id: id });
 
     // Verify it's gone
@@ -359,13 +359,13 @@ describe("tables without tenantId column", () => {
     await seedRow(testDb.db, systemTable, { label: "System-A" });
     await seedRow(testDb.db, systemTable, { label: "System-B" });
 
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     const rows = await tdb.selectMany(systemTable);
     expect(rows.length).toBeGreaterThanOrEqual(2);
   });
 
   test("insert does not inject tenantId", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
     const row = await tdb.insertOne(systemTable, { label: "NoTenantInjection" });
     const data = row!;
@@ -375,7 +375,7 @@ describe("tables without tenantId column", () => {
   });
 
   test("select with where works without tenant filter", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
     await tdb.insertOne(systemTable, { label: "FindThis" });
 
@@ -384,7 +384,7 @@ describe("tables without tenantId column", () => {
   });
 
   test("update works without tenant filter", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
     const row = await tdb.insertOne(systemTable, { label: "BeforeUpd" });
     const id = row!["id"] as number;
@@ -396,7 +396,7 @@ describe("tables without tenantId column", () => {
   });
 
   test("delete works without tenant filter", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
     const row = await tdb.insertOne(systemTable, { label: "ToDelete" });
     const id = row!["id"] as number;
@@ -414,7 +414,7 @@ describe("tables without tenantId column", () => {
 
 describe("tenantId property", () => {
   test("exposes tenantId for use in cursor queries etc.", () => {
-    const tdb = createTenantDb(testDb.db, testTenantId(42));
+    const tdb = createTenantDb({ db: testDb.db, tenantId: testTenantId(42) });
     expect(tdb.tenantId).toBe(testTenantId(42));
   });
 });
@@ -429,7 +429,7 @@ describe("tenantId property", () => {
 
 describe("mass-update guard", () => {
   test(".set().returning() without .where() rejects with a clear error", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     await tdb.insertOne(table, { name: "MassUpdateVictim1" });
     await tdb.insertOne(table, { name: "MassUpdateVictim2" });
 
@@ -445,7 +445,7 @@ describe("mass-update guard", () => {
   });
 
   test(".set() awaited without .where() rejects too", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     await tdb.insertOne(table, { name: "AwaitGuardVictim" });
 
     // biome-ignore lint/suspicious/noExplicitAny: test cast
@@ -460,7 +460,7 @@ describe("mass-update guard", () => {
   });
 
   test(".set().where(...).returning() still works (guard only triggers on missing where)", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     const row = await tdb.insertOne(table, { name: "HappyPath" });
     const id = row!["id"] as string;
 
@@ -473,14 +473,12 @@ describe("pre-flight signal cancellation", () => {
   test("aborted signal: select throws AbortError before SQL is issued", async () => {
     const controller = new AbortController();
     controller.abort();
-    const tdb = createTenantDb(
-      testDb.db,
-      tenant1.tenantId,
-      "tenant",
-      undefined,
-      undefined,
-      controller.signal,
-    );
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "tenant",
+      signal: controller.signal,
+    });
 
     let thrown: unknown;
     try {
@@ -494,14 +492,12 @@ describe("pre-flight signal cancellation", () => {
   test("aborted signal: insert/update/delete all throw AbortError", async () => {
     const controller = new AbortController();
     controller.abort();
-    const tdb = createTenantDb(
-      testDb.db,
-      tenant1.tenantId,
-      "tenant",
-      undefined,
-      undefined,
-      controller.signal,
-    );
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "tenant",
+      signal: controller.signal,
+    });
 
     let insertThrown: unknown;
     try {
@@ -534,14 +530,12 @@ describe("pre-flight signal cancellation", () => {
     // 2..N would all execute and waste DB-CPU. With it, the chain stops
     // immediately.
     const controller = new AbortController();
-    const tdb = createTenantDb(
-      testDb.db,
-      tenant1.tenantId,
-      "tenant",
-      undefined,
-      undefined,
-      controller.signal,
-    );
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "tenant",
+      signal: controller.signal,
+    });
 
     const first = await tdb.insertOne(table, { name: "preflight-first" });
     expect(first).toBeDefined();
@@ -566,7 +560,7 @@ describe("pre-flight signal cancellation", () => {
   });
 
   test("no signal passed: queries run normally (signal is opt-in)", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     const result = await tdb.insertOne(table, { name: "no-signal" });
     expect(result).toBeDefined();
     expect(result?.["name"]).toBe("no-signal");

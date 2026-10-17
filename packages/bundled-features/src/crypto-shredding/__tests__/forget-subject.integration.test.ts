@@ -337,7 +337,7 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
   }
 
   function probeTenantDb() {
-    return createTenantDb(searchStack.db, admin.tenantId, "system");
+    return createTenantDb({ db: searchStack.db, tenantId: admin.tenantId, mode: "system" });
   }
 
   test("forget-subject over HTTP purges userOwned rows from the search index", async () => {
@@ -451,7 +451,7 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
     }).create(
       { ownerId, userNote: "SweepFailureNote" },
       admin,
-      createTenantDb(failingStack.db, admin.tenantId, "system"),
+      createTenantDb({ db: failingStack.db, tenantId: admin.tenantId, mode: "system" }),
     );
     if (!created.isSuccess) throw new Error("create failed");
 
@@ -554,7 +554,7 @@ describe("crypto-shredding :: forget-subject closes the login door although the 
     }).create(
       { ownerId: userId, userNote: "DoorSweepFailureNote" },
       admin,
-      createTenantDb(doorStack.db, admin.tenantId, "system"),
+      createTenantDb({ db: doorStack.db, tenantId: admin.tenantId, mode: "system" }),
     );
     if (!created.isSuccess) throw new Error("create failed");
 
@@ -811,7 +811,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     const created = await shareLikeProbeExecutor().create(
       { recipientName: "Tommy Recipient" },
       dpoUser,
-      createTenantDb(stack.db, TENANT, "system"),
+      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
     );
     if (!created.isSuccess) throw new Error("create failed");
     const subjectId = String(created.data.id);
@@ -839,7 +839,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     const created = await shareLikeProbeExecutor().create(
       { recipientName: "Peter Recipient" },
       foreignTenantAuthor,
-      createTenantDb(stack.db, TENANT_B, "system"),
+      createTenantDb({ db: stack.db, tenantId: TENANT_B, mode: "system" }),
     );
     if (!created.isSuccess) throw new Error("create failed");
     const subjectId = String(created.data.id);

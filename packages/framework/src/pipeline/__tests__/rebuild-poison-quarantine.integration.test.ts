@@ -145,7 +145,7 @@ beforeAll(async () => {
     poisonCounter: counterTable,
     poisonMspCounter: mspCounterTable,
   });
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

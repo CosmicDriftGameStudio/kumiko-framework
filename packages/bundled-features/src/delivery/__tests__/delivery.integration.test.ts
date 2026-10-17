@@ -1990,8 +1990,13 @@ describe("flow 17: async render→send pipeline", () => {
   // real ctx.systemDb carries in production.
   function makeSystemDb(tenantId: TenantId) {
     return createSystemDbView(
-      createTenantDb(db, tenantId, "system", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      createTenantDb({
+        db,
+        tenantId,
+        mode: "system",
+        grants: {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        },
       }),
     );
   }
@@ -2591,7 +2596,7 @@ describe("flow 20: resubscribe endpoint", () => {
       notificationAddressOptOutEntity,
       { entityName: "notification-address-opt-out" },
     );
-    const tenantDb = createTenantDb(db, admin.tenantId);
+    const tenantDb = createTenantDb({ db, tenantId: admin.tenantId });
     const seeded = await optOutExecutor.create(
       { id: lastGenerationId, addressHash, notificationType, channel },
       admin,

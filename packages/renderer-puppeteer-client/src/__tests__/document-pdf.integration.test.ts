@@ -439,7 +439,7 @@ describe("document-pdf through renderPdfBeforeTransaction and storeRenderedPdf",
         status: "active",
       },
       adminTenantB,
-      createTenantDb(stack.db, adminTenantB.tenantId, "system"),
+      createTenantDb({ db: stack.db, tenantId: adminTenantB.tenantId, mode: "system" }),
     );
     expect(created.isSuccess).toBe(true);
 

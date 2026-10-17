@@ -259,7 +259,7 @@ describe("runSchemaCli apply — rebuild uses the wired blind-index key", () => 
     const created = await personExecutor.create(
       { email: "marc@example.com" },
       admin,
-      createTenantDb(testDb.db, admin.tenantId),
+      createTenantDb({ db: testDb.db, tenantId: admin.tenantId }),
     );
     if (!created.isSuccess) throw new Error("create failed");
     resetBlindIndexKeyForTests();

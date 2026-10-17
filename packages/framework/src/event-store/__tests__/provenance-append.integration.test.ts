@@ -37,7 +37,7 @@ function provenanceEvent(overrides: Partial<ProvenanceEventInput>): ProvenanceEv
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  tdb = createTenantDb(testDb.db, tenantA);
+  tdb = createTenantDb({ db: testDb.db, tenantId: tenantA });
 });
 
 afterAll(async () => {
@@ -77,7 +77,7 @@ describe("appendProvenanceEvent", () => {
     await appendProvenanceEvent(tdb, provenanceEvent({ aggregateId, expectedVersion: 0 }));
 
     await transaction(testDb.db, async (tx) => {
-      const txTdb = createTenantDb(tx, tenantA);
+      const txTdb = createTenantDb({ db: tx, tenantId: tenantA });
 
       await expect(
         appendProvenanceEvent(txTdb, provenanceEvent({ aggregateId, expectedVersion: 0 })),
@@ -145,7 +145,7 @@ describe("appendProvenanceEvent", () => {
   });
 
   test('a mode: "system" TenantDb is rejected for a foreign event.tenantId too', async () => {
-    const systemTdb = createTenantDb(testDb.db, tenantA, "system");
+    const systemTdb = createTenantDb({ db: testDb.db, tenantId: tenantA, mode: "system" });
     const event = provenanceEvent({ tenantId: tenantB });
     const before = await countAllEvents();
 

@@ -59,7 +59,7 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "moneyOrder");
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
   configureEntityFieldEncryption(cipher);
 });
 

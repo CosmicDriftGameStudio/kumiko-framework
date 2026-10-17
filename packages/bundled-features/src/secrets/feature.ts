@@ -72,8 +72,13 @@ export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./
 // FileProviderContext-Pfade (S3-Plugin im Worker) liefern dieselben
 // zwei Felder, also reicht die schmale ctx-shape — kein voller
 // HandlerContext-Import noetig.
+// Handler contexts carry the caller as ctx.user, provider contexts set _userId (takes precedence).
 export function requireSecretsContext(
-  ctx: { readonly secrets?: SecretsContext; readonly _userId?: string | undefined },
+  ctx: {
+    readonly secrets?: SecretsContext;
+    readonly _userId?: string | undefined;
+    readonly user?: { readonly id: string };
+  },
   handlerName: string,
 ): SecretsContext {
   if (!ctx.secrets) {
@@ -83,10 +88,10 @@ export function requireSecretsContext(
         "createSecretsContext({db, masterKeyProvider, registry}) via extraContext.secrets at boot.",
     });
   }
-  const userId = ctx._userId;
+  const userId = ctx._userId ?? ctx.user?.id;
   if (!userId) {
     throw new InternalError({
-      message: `[${handlerName}] ctx._userId missing — cannot audit secret reads without a caller identity.`,
+      message: `[${handlerName}] ctx._userId missing (and no ctx.user) — cannot audit secret reads without a caller identity.`,
     });
   }
   const withAudit = (raw: SecretsContext): SecretsContext => ({

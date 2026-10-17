@@ -29,7 +29,7 @@ export function createMfaCodeVerifier(): MfaCodeVerifier {
       reason:
         "reads the MFA enrollment of the user being re-authenticated on the caller's handler context; the calling handler declares its own escapeHatch",
     });
-    const scopedDb = createTenantDb(ctx.db.unsafeRaw(), tenantId, "system");
+    const scopedDb = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId, mode: "system" });
     const row = await findUserMfaRow(scopedDb, { id: userId, tenantId, roles: [] });
     if (!row) return { enrolled: false, ok: false };
     // Fail closed without ctx.redis, matching disable.write.ts/verify.write.ts —

@@ -48,6 +48,26 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
     expect(() => requireSecretsContext(fileProviderCtx, "test-handler")).toThrow(/_userId missing/);
   });
 
+  test("handler contexts audit as ctx.user.id when no _userId is set", async () => {
+    const audits: unknown[] = [];
+    const raw: SecretsContext = {
+      ...makeRawSecretsContext(),
+      get: async (_tenantId, _key, audit) => {
+        audits.push(audit);
+        return undefined;
+      },
+    };
+    const wrapped = requireSecretsContext(
+      { secrets: raw, user: { id: "caller-user" } },
+      "secrets:write:set",
+    );
+    await wrapped.get(
+      "tenant-x" as Parameters<SecretsContext["get"]>[0],
+      "any-key" as unknown as Parameters<SecretsContext["get"]>[1],
+    );
+    expect(audits).toEqual([{ userId: "caller-user", handlerName: "secrets:write:set" }]);
+  });
+
   test("throws when secrets is missing (boot-Misconfig)", () => {
     const fileProviderCtx = {
       _userId: SYSTEM_USER_ID,

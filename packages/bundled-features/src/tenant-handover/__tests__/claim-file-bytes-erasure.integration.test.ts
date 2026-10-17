@@ -111,7 +111,7 @@ type SeededCar = {
 // source tenant's key prefix.
 async function seedCarWithPhoto(): Promise<SeededCar> {
   const user = createSystemUser(SOURCE_TENANT);
-  const db = createTenantDb(stack.db, SOURCE_TENANT, "system");
+  const db = createTenantDb({ db: stack.db, tenantId: SOURCE_TENANT, mode: "system" });
   const car = await carCrud.create({ name: "my car" }, user, db);
   if (!car.isSuccess) throw new Error(`car create failed: ${car.error.message}`);
   const carId = String(car.data.id);

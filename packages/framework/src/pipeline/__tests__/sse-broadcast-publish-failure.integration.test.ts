@@ -56,7 +56,11 @@ describe("sse-broadcast consumer with a failing Redis publish", () => {
 
     await broker.close();
     const admin = TestUsers.admin;
-    await executor.create({ name: "lost-push" }, admin, createTenantDb(stack.db, admin.tenantId));
+    await executor.create(
+      { name: "lost-push" },
+      admin,
+      createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
+    );
     await dispatcher.runOnce();
 
     const state = await getConsumerState(stack.db, SSE_BROADCAST_CONSUMER_NAME);

@@ -30,7 +30,7 @@ export function makeSeedCreateFileRef(deps: {
   return (tenantId, input) =>
     createFileRefFromBytes(
       {
-        db: createTenantDb(db, tenantId),
+        db: createTenantDb({ db, tenantId }),
         files: fileResolver
           ? createFileContext(() => fileResolver(tenantId), tenantId)
           : context.files,

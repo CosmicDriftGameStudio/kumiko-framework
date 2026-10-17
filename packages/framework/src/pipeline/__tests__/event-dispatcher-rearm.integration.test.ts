@@ -69,7 +69,7 @@ beforeAll(async () => {
     systemHooks: [],
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {
@@ -234,7 +234,7 @@ describe("issue #1350 — bounded dead-consumer re-arm", () => {
     });
     try {
       await unsafeCreateEntityTable(recStack.db, sharedWidgetEntity, "widget");
-      const recTdb = createTenantDb(recStack.db, admin.tenantId);
+      const recTdb = createTenantDb({ db: recStack.db, tenantId: admin.tenantId });
 
       poisonNames.add("poison-metric");
       await executor.create({ name: "poison-metric" }, admin, recTdb);

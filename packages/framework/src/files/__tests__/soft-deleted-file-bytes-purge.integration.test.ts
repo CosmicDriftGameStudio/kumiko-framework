@@ -180,7 +180,7 @@ describe("soft-delete cleanup of fileRef bytes", () => {
     failDeleteForKeys = new Set(poison.map((file) => file.storageKey));
 
     await purgeExpiredFileRefsWithBytes({
-      db: createTenantDb(stack.db, admin.tenantId),
+      db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
       table: fileRefProjectionTable(),
       where: { isDeleted: true, deletedAt: { lt: expiredBefore }, tenantId: admin.tenantId },
       expiredBefore,

@@ -173,7 +173,11 @@ export function createInviteAcceptHandler() {
         // Tenant-scoping: ctx.db ist auf event.user.tenantId gescopt
         // (= NICHT der invitation-tenant). Eigene TenantDb für den
         // invitation-tenant bauen damit der executor die row findet.
-        const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
+        const invitationTdb = createTenantDb({
+          db: dbConn,
+          tenantId: invitationTenantId,
+          mode: "system",
+        });
         const updateResult = await invitationExecutor.update(
           {
             id: invitationId,

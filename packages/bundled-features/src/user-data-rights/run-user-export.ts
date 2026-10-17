@@ -121,10 +121,15 @@ function buildHookDb(
     sink: args.escapeHatchAuditSink,
     log: args.escapeHatchAuditLog ?? createFallbackLogger("user-data-rights"),
   });
-  return createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
-    unsafeRaw:
-      entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
-    report,
+  return createTenantDb({
+    db,
+    tenantId,
+    mode: "tenant",
+    grants: {
+      unsafeRaw:
+        entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
+      report,
+    },
   });
 }
 

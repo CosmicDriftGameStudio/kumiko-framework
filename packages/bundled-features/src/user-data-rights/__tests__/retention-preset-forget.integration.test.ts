@@ -251,7 +251,7 @@ describe("data-retention preset honored by forget + policy-for (kumiko-framework
       adminC,
     );
 
-    const tenantDb: TenantDb = createTenantDb(stack.db, TENANT_A, "tenant");
+    const tenantDb: TenantDb = createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" });
     const policy = await resolveRetentionPolicyForTenant({
       db: tenantDb,
       registry: stack.registry,

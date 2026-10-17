@@ -79,7 +79,7 @@ let stack: TestStack;
 async function seedV1Row(): Promise<void> {
   const envelope = await cipher.encrypt(JSON.stringify(PLAINTEXT), { tenantId: SYSTEM_TENANT_ID });
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb(stack.db, SYSTEM_TENANT_ID, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
   const result = await executor.create(
     { key: KEY, value: envelope, tenantId: SYSTEM_TENANT_ID, userId: null },
     systemUser,
@@ -90,7 +90,7 @@ async function seedV1Row(): Promise<void> {
 
 async function seedGarbageRow(): Promise<void> {
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb(stack.db, SYSTEM_TENANT_ID, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
   const result = await executor.create(
     { key: GARBAGE_KEY, value: GARBAGE_VALUE, tenantId: SYSTEM_TENANT_ID, userId: null },
     systemUser,
@@ -139,15 +139,12 @@ function capturingLog(captured: CapturedLog): TestJobLog {
 
 function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
   const log = captured ? capturingLog(captured) : noopLog;
-  const systemModeDb = createTenantDb(
-    stack.db,
-    SYSTEM_TENANT_ID,
-    "system",
-    undefined,
-    undefined,
-    undefined,
-    { unsafeRaw: { reason: "test: job context mirrors systemScope() grant" } },
-  );
+  const systemModeDb = createTenantDb({
+    db: stack.db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    grants: { unsafeRaw: { reason: "test: job context mirrors systemScope() grant" } },
+  });
   return {
     db: systemModeDb,
     systemDb: createSystemDbView(systemModeDb),

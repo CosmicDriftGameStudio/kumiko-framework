@@ -73,7 +73,7 @@ async function createExtract(fileRefId: string): Promise<string> {
       meta: { provider: "test", ms: 1, needsOcr: false, pagesParsed: 2, totalPages: 2 },
     },
     actor,
-    createTenantDb(stack.db, tenantId),
+    createTenantDb({ db: stack.db, tenantId }),
   );
   if (!result.isSuccess) throw new Error(`create failed: ${result.error.message}`);
   return String(result.data.id);
@@ -99,7 +99,7 @@ describe("documentExtract.pages — tenant-subject encryption (#1621)", () => {
   test("round-trips back to the original pages through the executor", async () => {
     const id = await createExtract("file-2");
 
-    const row = await executor.detail({ id }, actor, createTenantDb(stack.db, tenantId));
+    const row = await executor.detail({ id }, actor, createTenantDb({ db: stack.db, tenantId }));
     expect(readIngestPages(row?.["pages"])).toEqual(pages);
   });
 
@@ -108,7 +108,7 @@ describe("documentExtract.pages — tenant-subject encryption (#1621)", () => {
 
     await kms.eraseKey({ kind: "tenant", tenantId });
 
-    const row = await executor.detail({ id }, actor, createTenantDb(stack.db, tenantId));
+    const row = await executor.detail({ id }, actor, createTenantDb({ db: stack.db, tenantId }));
     expect(row?.["pages"]).toBe(PII_ERASED_SENTINEL);
     expect(readIngestPages(row?.["pages"])).toEqual([]);
   });

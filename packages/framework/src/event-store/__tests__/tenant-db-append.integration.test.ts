@@ -32,7 +32,7 @@ function eventFor(aggregateId: string, expectedVersion: number) {
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  tenantDb = createTenantDb(testDb.db, tenantA);
+  tenantDb = createTenantDb({ db: testDb.db, tenantId: tenantA });
 });
 
 afterAll(async () => {
@@ -67,7 +67,10 @@ describe("appendEventInTenantDb", () => {
 
     await expect(
       transaction(testDb.db, async (tx) => {
-        await appendEventInTenantDb(createTenantDb(tx, tenantA), eventFor(aggregateId, 0));
+        await appendEventInTenantDb(
+          createTenantDb({ db: tx, tenantId: tenantA }),
+          eventFor(aggregateId, 0),
+        );
         throw new Error("abort");
       }),
     ).rejects.toThrow("abort");

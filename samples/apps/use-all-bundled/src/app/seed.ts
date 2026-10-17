@@ -86,7 +86,7 @@ async function seedTierAssignment(
   adminUserId: string,
 ): Promise<void> {
   const by: SessionUser = { ...TestUsers.systemAdmin, tenantId, id: adminUserId };
-  const tdb = createTenantDb(db, tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId, mode: "system" });
   const result = await tierAssignmentExecutor.create(
     { id: tierAssignmentAggregateId(tenantId), tier, source: "manual", tenantId },
     by,
@@ -110,7 +110,7 @@ async function seedTagsAndNotes(
   adminUserId: string,
 ): Promise<void> {
   const by: SessionUser = { ...TestUsers.systemAdmin, tenantId, id: adminUserId };
-  const tdb = createTenantDb(db, tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId, mode: "system" });
 
   const created = async (
     label: string,

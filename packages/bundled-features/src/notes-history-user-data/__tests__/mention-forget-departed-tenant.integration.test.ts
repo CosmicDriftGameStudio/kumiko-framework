@@ -223,14 +223,14 @@ describe("forget reaches tenants the user already left", () => {
     const shredded = await noteEntryExecutor.detail(
       { id: mentionInT.id },
       noteAuthorInT,
-      createTenantDb(stack.db, TENANT_T, "system"),
+      createTenantDb({ db: stack.db, tenantId: TENANT_T, mode: "system" }),
     );
     expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
 
     const untouched = await noteEntryExecutor.detail(
       { id: noteInV.id },
       noteAuthorInV,
-      createTenantDb(stack.db, TENANT_V, "system"),
+      createTenantDb({ db: stack.db, tenantId: TENANT_V, mode: "system" }),
     );
     expect(untouched?.["body"]).toBe("unrelated to X");
 

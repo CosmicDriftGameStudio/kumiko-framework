@@ -58,7 +58,7 @@ async function eventTenantIds(aggregateId: string): Promise<string[]> {
 
 describe("systemStream stream-tenant routing (#497)", () => {
   test("systemStream entity: created event lands on SYSTEM_TENANT_ID", async () => {
-    const db = createTenantDb(testDb.db, user.tenantId);
+    const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     const res = await systemExec.create({ name: "a" }, user, db);
     expect(res.isSuccess).toBe(true);
     if (!res.isSuccess) throw new Error("create failed");
@@ -67,7 +67,7 @@ describe("systemStream stream-tenant routing (#497)", () => {
   });
 
   test("systemStream entity: update addresses the SYSTEM stream (every op routes)", async () => {
-    const db = createTenantDb(testDb.db, user.tenantId);
+    const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     const created = await systemExec.create({ name: "a" }, user, db);
     if (!created.isSuccess) throw new Error("create failed");
     const id = String(created.data.id);
@@ -83,7 +83,7 @@ describe("systemStream stream-tenant routing (#497)", () => {
   });
 
   test("normal entity: created event lands on the caller's tenant (unchanged)", async () => {
-    const db = createTenantDb(testDb.db, user.tenantId);
+    const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     const res = await tenantExec.create({ name: "a" }, user, db);
     expect(res.isSuccess).toBe(true);
     if (!res.isSuccess) throw new Error("create failed");

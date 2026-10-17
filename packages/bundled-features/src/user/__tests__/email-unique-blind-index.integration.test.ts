@@ -72,7 +72,7 @@ afterEach(() => {
 describe("fw#2134 — email unique constraint on the blind-index column", () => {
   test("two concurrent creates with the same email: exactly one wins, loser fails on the bidx constraint", async () => {
     const email = "race@example.com";
-    const tdb = createTenantDb(testDb.db, SYSTEM_TENANT_ID, "system");
+    const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
     const systemUser = createSystemUser(SYSTEM_TENANT_ID);
 
     const [first, second] = await Promise.all([
@@ -119,7 +119,7 @@ describe("fw#2134 — email unique constraint on the blind-index column", () => 
     // the same email succeeds once the original row is soft-deleted — only
     // a live (non-deleted) row still occupying the email blocks the slot.
     const email = "soft-deleted@example.com";
-    const tdb = createTenantDb(testDb.db, SYSTEM_TENANT_ID, "system");
+    const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
     const systemUser = createSystemUser(SYSTEM_TENANT_ID);
 
     const created = await executor.create(

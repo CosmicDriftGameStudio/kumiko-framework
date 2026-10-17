@@ -433,7 +433,7 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
       },
     );
     const systemUser = createSystemUser(TENANT_A);
-    const tenantDb = createTenantDb(stack.db, TENANT_A, "system");
+    const tenantDb = createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "system" });
     const createResult = await invitationExecutor.create(
       {
         email: INVITE_EMAIL,
@@ -473,7 +473,7 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     // Cross-tenant isolation: Alice's own email invited in a different
     // tenant must land in that tenant's section, not TENANT_A's.
     const foreignTenantSystemUser = createSystemUser(TENANT_B);
-    const foreignTenantDb = createTenantDb(stack.db, TENANT_B, "system");
+    const foreignTenantDb = createTenantDb({ db: stack.db, tenantId: TENANT_B, mode: "system" });
     const foreignTenantResult = await invitationExecutor.create(
       {
         email: INVITE_EMAIL,
@@ -492,7 +492,7 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     // in the GDPR bundle. The hook decrypts locally (same as invitations
     // query) — assert plaintext here so a regression to raw ciphertext fails.
     const hookCtx: UserDataHookCtx = {
-      db: createTenantDb(stack.db, TENANT_A, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: ALICE_ID,
@@ -565,7 +565,7 @@ describe("runUserExport :: fileRef PII export via the fileRefs side-channel (#19
     // assertion would catch it even though the runUserExport() assertions
     // below would stay green either way.
     const hookCtx: UserDataHookCtx = {
-      db: createTenantDb(stack.db, TENANT_A, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: ALICE_ID,

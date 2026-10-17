@@ -41,7 +41,7 @@ async function createOwnerRow(): Promise<string> {
   const created = await noteExec.create(
     { label: "before" },
     owner,
-    createTenantDb(testDb.db, owner.tenantId),
+    createTenantDb({ db: testDb.db, tenantId: owner.tenantId }),
   );
   if (!created.isSuccess) throw new Error("create failed");
   return String(created.data.id);
@@ -50,7 +50,7 @@ async function createOwnerRow(): Promise<string> {
 describe("executor streamTenantId (#3607)", () => {
   test("a system-mode db writes to the row's stream with the operator as actor", async () => {
     const id = await createOwnerRow();
-    const systemDb = createTenantDb(testDb.db, operator.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
 
     const updated = await noteExec.update({ id, changes: { label: "after" } }, operator, systemDb, {
       skipOptimisticLock: true,
@@ -70,7 +70,7 @@ describe("executor streamTenantId (#3607)", () => {
 
   test("a streamTenantId that is not the row's tenant is refused and nothing is written", async () => {
     const id = await createOwnerRow();
-    const systemDb = createTenantDb(testDb.db, operator.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
 
     const result = await noteExec.update({ id, changes: { label: "wrong" } }, operator, systemDb, {
       skipOptimisticLock: true,
@@ -84,7 +84,7 @@ describe("executor streamTenantId (#3607)", () => {
   });
 
   test("a tenant-mode db bound to a different tenant may not address the stream", async () => {
-    const otherTenantDb = createTenantDb(testDb.db, testTenantId(3));
+    const otherTenantDb = createTenantDb({ db: testDb.db, tenantId: testTenantId(3) });
     const eventsBefore = await selectMany(testDb.db, eventsTable);
 
     const created = await noteExec.create({ label: "nope" }, operator, otherTenantDb, {
@@ -97,7 +97,7 @@ describe("executor streamTenantId (#3607)", () => {
 
   test("an update through a db bound to another tenant cannot even see the row", async () => {
     const id = await createOwnerRow();
-    const otherTenantDb = createTenantDb(testDb.db, testTenantId(3));
+    const otherTenantDb = createTenantDb({ db: testDb.db, tenantId: testTenantId(3) });
 
     const result = await noteExec.update(
       { id, changes: { label: "nope" } },
@@ -113,7 +113,7 @@ describe("executor streamTenantId (#3607)", () => {
 
   test("a tenant-mode db bound to the stream tenant carries the override with the operator as actor", async () => {
     const id = await createOwnerRow();
-    const ownerTenantDb = createTenantDb(testDb.db, ownerTenantId);
+    const ownerTenantDb = createTenantDb({ db: testDb.db, tenantId: ownerTenantId });
 
     const updated = await noteExec.update(
       { id, changes: { label: "via-tenant-db" } },
@@ -134,7 +134,7 @@ describe("executor streamTenantId (#3607)", () => {
   });
 
   test("create on a system-mode db lands in the target stream with the operator as actor", async () => {
-    const systemDb = createTenantDb(testDb.db, operator.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
 
     const created = await noteExec.create({ label: "into-owner" }, operator, systemDb, {
       streamTenantId: ownerTenantId,
@@ -157,7 +157,7 @@ describe("executor streamTenantId (#3607)", () => {
   });
 
   test("create refuses a payload tenantId that differs from streamTenantId", async () => {
-    const systemDb = createTenantDb(testDb.db, operator.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
 
     const result = await noteExec.create(
       { label: "mismatch", tenantId: testTenantId(3) },
@@ -170,7 +170,7 @@ describe("executor streamTenantId (#3607)", () => {
   });
 
   test("create on a tenant-mode db bound to a different tenant may not address the stream", async () => {
-    const tenantDb = createTenantDb(testDb.db, owner.tenantId);
+    const tenantDb = createTenantDb({ db: testDb.db, tenantId: owner.tenantId });
 
     const result = await noteExec.create({ label: "nope" }, owner, tenantDb, {
       streamTenantId: testTenantId(3),

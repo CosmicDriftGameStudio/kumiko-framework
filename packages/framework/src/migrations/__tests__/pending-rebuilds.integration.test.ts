@@ -131,7 +131,7 @@ beforeAll(async () => {
     readOrphanProjection: orphanProjectionTable,
     readPendingMspNames: mspItemNamesTable,
   });
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
   markerDir = mkdtempSync(join(tmpdir(), "pending-rebuilds-"));
 });
 

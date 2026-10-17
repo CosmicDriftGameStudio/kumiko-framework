@@ -86,7 +86,7 @@ afterAll(async () => {
 
 describe("TenantDb.aggregate — measures", () => {
   test("count, countDistinct, sum and avg over the tenant's own rows", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     expect(await tdb.aggregate(itemsTable, { measure: { fn: "count" } })).toEqual([
       { keys: [], value: 5 },
     ]);
@@ -102,7 +102,7 @@ describe("TenantDb.aggregate — measures", () => {
   });
 
   test("sum is 0 and avg is null when no row matches", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     const where = { status: "nonexistent" };
     expect(
       await tdb.aggregate(itemsTable, { measure: { fn: "sum", field: "amount" } }, where),
@@ -115,7 +115,7 @@ describe("TenantDb.aggregate — measures", () => {
 
 describe("TenantDb.aggregate — grouping", () => {
   test("groups by a field and orders by value descending with a limit", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     const rows = await tdb.aggregate(itemsTable, {
       measure: { fn: "count" },
       groupBy: [{ field: "status" }],
@@ -135,7 +135,7 @@ describe("TenantDb.aggregate — grouping", () => {
   });
 
   test("hour bucket returns epoch-ms keys per hour", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     const rows = await tdb.aggregate(itemsTable, {
       measure: { fn: "count" },
       groupBy: [{ field: "createdAt", bucket: "hour", timeZone: "UTC" }],
@@ -149,7 +149,7 @@ describe("TenantDb.aggregate — grouping", () => {
   });
 
   test("day bucket honours the time zone", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     const utc = await tdb.aggregate(itemsTable, {
       measure: { fn: "count" },
       groupBy: [{ field: "createdAt", bucket: "day", timeZone: "UTC" }],
@@ -167,7 +167,7 @@ describe("TenantDb.aggregate — grouping", () => {
   });
 
   test("a bucket combined with a where filter keeps parameter order intact", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     const rows = await tdb.aggregate(
       itemsTable,
       {
@@ -185,7 +185,7 @@ describe("TenantDb.aggregate — grouping", () => {
 
 describe("TenantDb.aggregate — tenant isolation", () => {
   test("tenant mode never sees another tenant's rows, even when asked to", async () => {
-    const tdbB = createTenantDb(stack.db, tenantB);
+    const tdbB = createTenantDb({ db: stack.db, tenantId: tenantB });
     expect(await tdbB.aggregate(itemsTable, { measure: { fn: "count" } })).toEqual([
       { keys: [], value: 1 },
     ]);
@@ -201,7 +201,7 @@ describe("TenantDb.aggregate — tenant isolation", () => {
   });
 
   test("system mode aggregates across tenants", async () => {
-    const systemDb = createTenantDb(stack.db, tenantA, "system");
+    const systemDb = createTenantDb({ db: stack.db, tenantId: tenantA, mode: "system" });
     expect(await systemDb.aggregate(itemsTable, { measure: { fn: "count" } })).toEqual([
       { keys: [], value: 6 },
     ]);

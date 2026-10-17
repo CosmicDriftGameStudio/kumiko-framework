@@ -72,17 +72,17 @@ describe("db/query guards — a real TenantDb has no unfiltered escape via asRaw
   }
 
   test("asRawClient throws and points callers at ctx.db.unsafeRaw", () => {
-    const tdb = createTenantDb(explodingRunner(), tenantId);
+    const tdb = createTenantDb({ db: explodingRunner(), tenantId });
     expect(() => asRawClient(tdb)).toThrow("unsafeRaw");
   });
 
   test("countWhere throws before issuing any SQL", async () => {
-    const tdb = createTenantDb(explodingRunner(), tenantId);
+    const tdb = createTenantDb({ db: explodingRunner(), tenantId });
     await expect(countWhere(tdb, meta, {})).rejects.toThrow("unsafeRaw");
   });
 
   test("transaction throws before issuing any SQL", async () => {
-    const tdb = createTenantDb(explodingRunner(), tenantId);
+    const tdb = createTenantDb({ db: explodingRunner(), tenantId });
     await expect(transaction(tdb, async () => "unreached")).rejects.toThrow("unsafeRaw");
   });
 });
@@ -100,7 +100,7 @@ describe("db/query guards — selectMany still delegates a real TenantDb, tenant
         throw new Error("begin not used in this test");
       },
     } as unknown as DbRunner;
-    const tdb = createTenantDb(recordingRunner, tenantId);
+    const tdb = createTenantDb({ db: recordingRunner, tenantId });
 
     await selectMany(tdb, meta, {});
 

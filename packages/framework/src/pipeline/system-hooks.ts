@@ -285,7 +285,7 @@ async function readProjectionRowForSearch(
   if (entity.softDelete && table["isDeleted"]) {
     where["isDeleted"] = false;
   }
-  const row = await createTenantDb(baseDb, tenantId).fetchOne(table, where);
+  const row = await createTenantDb({ db: baseDb, tenantId }).fetchOne(table, where);
   if (!row) return undefined;
   const state = rehydrateCompoundTypes(row, entity);
   // The event payload never carries sensitive fields; extensions must not see them via the row either.

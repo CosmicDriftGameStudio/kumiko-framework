@@ -23,15 +23,15 @@ function fakeRunner(): DbRunner {
 
 describe("TenantDb has no .raw", () => {
   test("compile-time: .raw is not a property of TenantDb", () => {
-    const tdb = createTenantDb(fakeRunner(), tenantId);
+    const tdb = createTenantDb({ db: fakeRunner(), tenantId });
     // @ts-expect-error TenantDb no longer exposes `raw`.
     expect(tdb.raw).toBeUndefined();
   });
 
   test("createTenantDb rejects an already tenant-scoped TenantDb: compile error, and raw access throws", () => {
-    const tdb = createTenantDb(fakeRunner(), tenantId);
+    const tdb = createTenantDb({ db: fakeRunner(), tenantId });
     // @ts-expect-error TenantDb is already tenant-scoped; createTenantDb only accepts a raw DbRunner.
-    const rewrapped = createTenantDb(tdb, tenantId);
+    const rewrapped = createTenantDb({ db: tdb, tenantId });
     expect(() => asRawClient(tenantDbRunner(rewrapped))).toThrow(
       /asRawClient: received a tenant-scoped TenantDb/,
     );
@@ -41,13 +41,13 @@ describe("TenantDb has no .raw", () => {
 describe("tenantDbRunner", () => {
   test("returns the runner bound at createTenantDb() (identity)", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId);
+    const tdb = createTenantDb({ db: runner, tenantId });
     expect(tenantDbRunner(tdb)).toBe(runner);
   });
 
   test("withUnsafeRawGrant rebinds also resolve to the original runner", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId);
+    const tdb = createTenantDb({ db: runner, tenantId });
     const regranted = withUnsafeRawGrant(tdb, { reason: "test grant" });
     expect(regranted).not.toBe(tdb);
     expect(tenantDbRunner(regranted)).toBe(runner);
@@ -78,8 +78,15 @@ describe("tenantDbRunner", () => {
 describe("createUncheckedSystemDb(...).unsafeRaw", () => {
   test("resolves to the runner bound at createTenantDb()", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId, "system");
+    const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
     expect(systemDb.unsafeRaw("test reason")).toBe(runner);
+  });
+});
+
+describe("createTenantDb without a tenant", () => {
+  test("the options form throws instead of binding tenant_id to NULL", () => {
+    // @ts-expect-error tenantId is required; untyped callers can still pass undefined.
+    expect(() => createTenantDb({ db: fakeRunner(), tenantId: undefined })).toThrow(InternalError);
   });
 });

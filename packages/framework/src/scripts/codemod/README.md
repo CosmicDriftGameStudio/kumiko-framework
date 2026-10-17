@@ -79,3 +79,24 @@ bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/db-factory.ts
 
 Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the
 changed files with Biome. `--check` exits 1 while any rewritable or manual site is left.
+
+## tenant-db-options.ts
+
+Moves `createTenantDb(db, tenantId, mode, tracer, meter, signal, grants)` to the options object
+`createTenantDb({ db, tenantId, mode, tracer, meter, signal, grants })`. A call is only touched when
+the callee resolves (import, aliased import, namespace import or `await import(…)` destructuring) to
+the framework export; a local function with the same name is left alone. Arguments that are the
+identifier of the same name become shorthand, literal `undefined` arguments after `tenantId` are
+dropped, an explicit `mode` is kept, comments between the arguments are preserved. Idempotent —
+calls already passing one object literal are left alone.
+
+Reported as `manual` instead of guessed at: spread arguments, more than seven arguments, a single
+argument that is not an object literal, and `createTenantDb` used as a value (callback, assignment,
+`.bind`/`.call`/`.apply`).
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/tenant-db-options.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the
+changed files with Biome. `--check` exits 1 while any rewritable or manual site is left.

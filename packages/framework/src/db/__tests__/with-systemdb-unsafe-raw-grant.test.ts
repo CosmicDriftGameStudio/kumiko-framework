@@ -30,7 +30,7 @@ describe("withSystemDbUnsafeRawGrant", () => {
 
   test("without a grant, unsafeRaw denies with AccessDeniedError naming the caller", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId, "system");
+    const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
     const gated = withSystemDbUnsafeRawGrant(systemDb, undefined, 'postSave hook of feature "x"');
     expect(() => gated.unsafeRaw("a reason")).toThrow(AccessDeniedError);
@@ -39,7 +39,7 @@ describe("withSystemDbUnsafeRawGrant", () => {
 
   test("with a grant, unsafeRaw resolves to the original runner", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId, "system");
+    const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
     const gated = withSystemDbUnsafeRawGrant(systemDb, { reason: "hook reason" }, "hook");
     expect(gated.unsafeRaw("hook reason")).toBe(runner);
@@ -47,7 +47,7 @@ describe("withSystemDbUnsafeRawGrant", () => {
 
   test("repeated rebinding is not stacked — a second rebind reflects only its own grant", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId, "system");
+    const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
     const grantedFirst = withSystemDbUnsafeRawGrant(systemDb, { reason: "first" }, "hook-1");
     const deniedSecond = withSystemDbUnsafeRawGrant(grantedFirst, undefined, "hook-2");
@@ -59,7 +59,7 @@ describe("withSystemDbUnsafeRawGrant", () => {
 
   test("the gated runner is registered for unsafeRawForDeclaredStep", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId, "system");
+    const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
     const gated = withSystemDbUnsafeRawGrant(systemDb, { reason: "hook reason" }, "hook");
     expect(unsafeRawForDeclaredStep(gated, "hook reason")).toBe(runner);

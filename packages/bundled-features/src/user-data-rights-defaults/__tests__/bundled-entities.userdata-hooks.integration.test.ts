@@ -127,7 +127,7 @@ function uuid(suffix: number): string {
 
 function ctx(userId: string, overrides: Record<string, unknown> = {}) {
   return {
-    db: createTenantDb(full.db, TENANT_A, "tenant"),
+    db: createTenantDb({ db: full.db, tenantId: TENANT_A, mode: "tenant" }),
     registry: full.registry,
     tenantId: TENANT_A,
     userId,
@@ -501,7 +501,7 @@ describe("job-run userData-hooks (#799)", () => {
 describe("Presence-Gating: Source-Feature nicht gemountet → null/no-op statt Crash", () => {
   test("alle gegateten Hooks no-open auf dem Minimal-Stack", async () => {
     const minCtx = {
-      db: createTenantDb(minimal.db, TENANT_A, "tenant"),
+      db: createTenantDb({ db: minimal.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: minimal.registry,
       tenantId: TENANT_A,
       userId: "any-user",

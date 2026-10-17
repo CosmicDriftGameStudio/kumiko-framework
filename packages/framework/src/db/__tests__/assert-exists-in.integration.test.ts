@@ -85,18 +85,18 @@ describe("assertExistsIn — DbConnection + explizite tenantId", () => {
 
 describe("assertExistsIn — TenantDb auto-filter", () => {
   test("eigene Row → null", async () => {
-    const dbA = createTenantDb(stack.db, tenantA, "tenant");
+    const dbA = createTenantDb({ db: stack.db, tenantId: tenantA, mode: "tenant" });
     expect(await assertExistsIn(dbA, orderTable, { field: "id", value: ID_A })).toBeNull();
   });
 
   test("ISOLATION: fremde Row via TenantDb → NotFoundError", async () => {
-    const dbA = createTenantDb(stack.db, tenantA, "tenant");
+    const dbA = createTenantDb({ db: stack.db, tenantId: tenantA, mode: "tenant" });
     const r = await assertExistsIn(dbA, orderTable, { field: "id", value: ID_B });
     expect(r).toBeInstanceOf(NotFoundError);
   });
 
   test("fehlende Row via TenantDb → NotFoundError", async () => {
-    const dbA = createTenantDb(stack.db, tenantA, "tenant");
+    const dbA = createTenantDb({ db: stack.db, tenantId: tenantA, mode: "tenant" });
     const r = await assertExistsIn(dbA, orderTable, { field: "id", value: MISSING });
     expect(r).toBeInstanceOf(NotFoundError);
   });

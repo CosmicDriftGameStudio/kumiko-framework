@@ -40,7 +40,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, noteEntity, "removed-note");
   await createProjectionStateTable(stack.db);
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {
