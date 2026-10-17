@@ -439,6 +439,11 @@ async function consumeInTransaction(
     ...ownRow,
     settledAt: null,
   });
+  if (open && open.capName !== options.capName) {
+    throw new Error(
+      `cap-counter: reservation ${id} belongs to cap "${open.capName}", not "${options.capName}"`,
+    );
+  }
   const claimed = open && (await claimReservationRow(txDb, user, open));
   if (claimed) {
     if (options.units > claimed.amount) {
