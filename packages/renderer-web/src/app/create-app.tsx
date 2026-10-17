@@ -40,7 +40,7 @@ import {
   type QualifiedContentCollection,
   qualifyScreenId,
   type ReturnHost,
-  ScreenUnavailableState,
+  ScreenMissingState,
   type SessionEndedSignal,
   SessionEndedSignalProvider,
   TokensProvider,
@@ -950,7 +950,7 @@ function RoutedScreen({
   if (feature === undefined || activeScreen === undefined) {
     const landingExists = findOwnerFeature(app.features, fallbackQn) !== undefined;
     return (
-      <ScreenUnavailableState
+      <ScreenMissingState
         {...(landingExists && { homeScreenId: lastSegment(fallbackQn) })}
         screenQn={qn}
       />

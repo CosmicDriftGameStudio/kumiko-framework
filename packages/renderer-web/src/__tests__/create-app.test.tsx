@@ -174,8 +174,7 @@ describe("createKumikoApp", () => {
       dispatcher: makeDispatcher(),
       screenQn: "tasks:screen:does-not-exist",
     });
-    expect(await screen.findByTestId("kumiko-screen-missing")).toBeTruthy();
-    expect(screen.queryByTestId("kumiko-screen-not-found")).toBeNull();
+    expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
     expect(screen.queryByText(/does-not-exist/)).toBeNull();
   });
 
@@ -195,11 +194,10 @@ describe("createKumikoApp", () => {
       dispatcher: makeDispatcher(),
       navAdapter: () => memoryNav,
     });
-    expect(await screen.findByTestId("kumiko-screen-missing")).toBeTruthy();
-    expect(screen.queryByTestId("kumiko-screen-not-found")).toBeNull();
+    expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
     expect(screen.queryByText(/Screen not found/)).toBeNull();
     expect(screen.queryByText(/tasks:screen:releases/)).toBeNull();
-    fireEvent.click(screen.getByTestId("kumiko-screen-missing-home"));
+    fireEvent.click(screen.getByTestId("kumiko-screen-not-found-home"));
     expect(navigate).toHaveBeenCalledWith({ screenId: "task-edit" });
   });
 

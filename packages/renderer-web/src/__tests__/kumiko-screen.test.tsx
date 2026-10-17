@@ -94,7 +94,7 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={schema} qn="tasks:screen:ghost" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-missing")).toBeTruthy();
+    expect(screen.getByTestId("kumiko-screen-not-found")).toBeTruthy();
   });
 
   test("role-gated screen, no UserRolesProvider mounted → access-denied placeholder", () => {

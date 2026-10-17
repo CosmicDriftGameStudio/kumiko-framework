@@ -71,7 +71,7 @@ export {
   KumikoScreen,
   qualifyNavId,
   qualifyScreenId,
-  ScreenUnavailableState,
+  ScreenMissingState,
 } from "./app/kumiko-screen.js";
 export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.js";
 export {

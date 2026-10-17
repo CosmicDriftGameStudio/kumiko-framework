@@ -11,7 +11,8 @@ Unavailable-screen empty state, projectionDetail title, folder picker
 feature: renderer
 type: fix
 title: A route to a screen missing from the schema shows an empty state
-detail: A tenant-disabled feature, stale link or typo no longer falls back to the first feature or shows "Screen not found: <qn>". The app renders "This page is not available" with a button to the landing screen; the qualified name only goes to the console. New i18n keys kumiko.screen-unavailable.title, .hint and .home (en, de, es).
+detail: A tenant-disabled feature, stale link or typo no longer falls back to the first feature or shows "Screen not found: <qn>". The app renders "This page is not available" with a button to the landing screen; the qualified name only goes to the console. New i18n keys kumiko.screen-missing.title, .hint and .home (en, de, es). The access-denied banner of KumikoScreen and the toolbar drawer is now translated too (kumiko.screen-access-denied.title) and no longer prints the qualified name.
+migration: e2e checks on the text "Screen not found" should use the testId kumiko-screen-not-found; the testIds are unchanged.
 -->
 
 <!-- kumiko-changes
