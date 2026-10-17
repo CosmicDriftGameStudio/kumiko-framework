@@ -2,8 +2,10 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createLongTextField,
+  createNumberField,
   createSelectField,
   createTextField,
+  createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { EntityEventMigration } from "@cosmicdrift/kumiko-types/fields";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -24,7 +26,9 @@ const renameMailHtmlKind: EntityEventMigration = {
 // TemplateResource — strukturierte Template-Definition mit Tenant-
 // Override-Hierarchie, Locale-Fallback und Resource-Linking via
 // file-foundation. Pro (tenantId, slug, kind, locale) genau eine Row;
-// scope/status/version differenzieren Lifecycle.
+// scope/status/version differenzieren Lifecycle. Der Entwurf neben einer
+// aktiven Fassung liegt in `draft`; die Hauptfelder bleiben die ausgelieferte
+// Fassung.
 //
 // `variableSchema` + `linkedResources` sind JSON-Strings in longText
 // (Pattern aus compliance-profiles — kein dedizierter jsonbField im
@@ -58,6 +62,11 @@ export const templateResourceEntity = createEntity({
     scope: createSelectField({ required: true, options: [...TEMPLATE_SCOPES] }),
     parentTemplateId: createTextField({ personal: false, reason: "technical_reference" }),
     status: createSelectField({ required: true, options: [...TEMPLATE_STATUSES] }),
+    // JSON of the unpublished edit beside the active version (see template-draft.ts).
+    draft: createLongTextField({ personal: false, reason: "is_business_data" }),
+    // `version` counts every save including drafts; these two describe the served version.
+    activeVersion: createNumberField({ integer: true, min: 1 }),
+    activeSince: createTimestampField({}),
   },
   indexes: [
     {
@@ -101,4 +110,7 @@ export type TemplateResourceRow = {
   readonly scope: string;
   readonly parentTemplateId: string | null;
   readonly status: string;
+  readonly draft: string | null;
+  readonly activeVersion: number | null;
+  readonly activeSince: Temporal.Instant | null;
 } & EntityAuditColumns;

@@ -4,6 +4,13 @@ import * as z from "zod";
 import { FALLBACK_LOCALE } from "../constants.js";
 import { type LayoutRegions, readLayoutRegions } from "../layout-regions.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import {
+  type ActiveInfo,
+  draftViewerTenantId,
+  isHiddenSystemDraft,
+  toWorkingRow,
+  type WorkingRow,
+} from "../template-draft.js";
 import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.js";
 import { localeSchema, templateSlugSchema } from "./shared.js";
 import { parseStoredJson } from "./template-gates.js";
@@ -13,6 +20,7 @@ export type LayoutSourceRow = {
   readonly version: number;
   readonly status: string;
   readonly locale: string;
+  readonly active: ActiveInfo | null;
 };
 
 export type LayoutSourceResponse = {
@@ -42,37 +50,47 @@ function pickByLocale(
   );
 }
 
-function toSourceRow(row: TemplateResourceRow): LayoutSourceRow {
-  return { id: String(row.id), version: row.version, status: row.status, locale: row.locale };
+function toSourceRow(row: WorkingRow): LayoutSourceRow {
+  return {
+    id: String(row.id),
+    version: row.version,
+    status: row.status,
+    locale: row.locale,
+    active: row.active,
+  };
 }
 
-function layoutFormat(row: TemplateResourceRow): "html" | "mjml" | null {
+function layoutFormat(row: WorkingRow): "html" | "mjml" | null {
   return row.contentFormat === "html" || row.contentFormat === "mjml" ? row.contentFormat : null;
 }
 
 function pickEditedRows(
   rows: readonly TemplateResourceRow[],
-  isSystemAdmin: boolean,
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
   locale: string | undefined,
 ): {
-  readonly tenantRow: TemplateResourceRow | null;
-  readonly systemRow: TemplateResourceRow | null;
+  readonly tenantRow: WorkingRow | null;
+  readonly systemRow: WorkingRow | null;
 } {
-  const tenantRow = isSystemAdmin
+  const tenantRow = user.roles.includes("SystemAdmin")
     ? null
     : pickByLocale(
         rows.filter((row) => row.scope === "tenant"),
         locale,
       );
   const systemRow = pickByLocale(
-    rows.filter((row) => row.scope === "system"),
+    rows.filter((row) => row.scope === "system" && !isHiddenSystemDraft(user, row)),
     locale,
   );
-  return { tenantRow, systemRow };
+  return {
+    tenantRow: tenantRow && toWorkingRow(tenantRow, user.tenantId),
+    // Only a SystemAdmin works on the system draft; a tenant sees the served system version.
+    systemRow: systemRow && toWorkingRow(systemRow, draftViewerTenantId(user, systemRow)),
+  };
 }
 
 function readEffectiveRegions(
-  effective: TemplateResourceRow | null,
+  effective: WorkingRow | null,
   effectiveFormat: "html" | "mjml" | null,
 ): LayoutRegions {
   return effective !== null && effectiveFormat === "html"
@@ -80,10 +98,7 @@ function readEffectiveRegions(
     : EMPTY_REGIONS;
 }
 
-function readMjmlSource(
-  systemRow: TemplateResourceRow | null,
-  isSystemAdmin: boolean,
-): string | null {
+function readMjmlSource(systemRow: WorkingRow | null, isSystemAdmin: boolean): string | null {
   const exposesMjml = isSystemAdmin && systemRow !== null && layoutFormat(systemRow) === "mjml";
   return exposesMjml ? (systemRow.content ?? "") : null;
 }
@@ -92,8 +107,8 @@ function buildLayoutSource(input: {
   readonly kind: "mail-layout" | "pdf-layout";
   readonly locale: string | undefined;
   readonly isSystemAdmin: boolean;
-  readonly tenantRow: TemplateResourceRow | null;
-  readonly systemRow: TemplateResourceRow | null;
+  readonly tenantRow: WorkingRow | null;
+  readonly systemRow: WorkingRow | null;
 }): LayoutSourceResponse {
   const { kind, locale, isSystemAdmin, tenantRow, systemRow } = input;
   const effective = tenantRow ?? systemRow;
@@ -122,7 +137,7 @@ export const layoutSourceQuery = defineQueryHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Reads the layout the caller edits: the tenant's own version and the system version of one layout slug, the header, signature and footer regions of the effective html version, and the locale a save has to use; a SystemAdmin edits the system version and also receives its mjml source. Use it to load the layout editor.",
+    "Reads the layout the caller edits: the tenant's own version and the system version of one layout slug (each the open draft if there is one, else the stored version, with `active` naming the served version), the header, signature and footer regions of the effective html version, and the locale a save has to use; a SystemAdmin edits the system version and also receives its mjml source. Use it to load the layout editor.",
   handler: async (query, ctx): Promise<LayoutSourceResponse> => {
     const { kind, slug, locale } = query.payload;
     const isSystemAdmin = query.user.roles.includes("SystemAdmin");
@@ -130,7 +145,7 @@ export const layoutSourceQuery = defineQueryHandler({
       kind,
       slug,
     });
-    const { tenantRow, systemRow } = pickEditedRows(rows, isSystemAdmin, locale);
+    const { tenantRow, systemRow } = pickEditedRows(rows, query.user, locale);
     return buildLayoutSource({ kind, locale, isSystemAdmin, tenantRow, systemRow });
   },
 });

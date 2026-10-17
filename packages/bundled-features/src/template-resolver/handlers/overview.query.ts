@@ -3,6 +3,14 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import {
+  activeSinceOf,
+  activeVersionOf,
+  draftViewerTenantId,
+  isHiddenSystemDraft,
+  parseTemplateDraft,
+  servedVersionOf,
+} from "../template-draft.js";
 import { collectTemplateUsage } from "../template-usage.js";
 import { storedRecord } from "./template-gates.js";
 
@@ -31,6 +39,8 @@ export type OverviewRow = {
   readonly locales: readonly string[];
   readonly status: TemplateStatus;
   readonly version: number;
+  readonly draftVersion: number | null;
+  readonly activeSince: string | null;
   readonly systemVersion: number | null;
   readonly layoutSlug: string | null;
   readonly modifiedAt: string;
@@ -126,7 +136,37 @@ function groupBySlugAndKind(
   return groups;
 }
 
-function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>): {
+// Another tenant's draft, including a system draft seen by a tenant, is never announced.
+function draftVersionFor(
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
+  row: TemplateResourceRow,
+): number | null {
+  const isOwnRow = row.tenantId === draftViewerTenantId(user, row);
+  return isOwnRow && parseTemplateDraft(row.draft) !== null ? row.version : null;
+}
+
+// Version columns of one overview row: the served version, a waiting draft and the system version it overrides.
+function versionFieldsOf(
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
+  preferred: TemplateResourceRow,
+  groupRows: readonly TemplateResourceRow[],
+): Pick<OverviewDraft, "version" | "draftVersion" | "activeSince" | "systemVersion"> {
+  const isActive = preferred.status === "active";
+  const systemSameLocale = groupRows.find(
+    (row) => row.scope === "system" && row.locale === preferred.locale,
+  );
+  return {
+    version: servedVersionOf(preferred),
+    draftVersion: draftVersionFor(user, preferred),
+    activeSince: isActive ? activeSinceOf(preferred).toString() : null,
+    systemVersion: systemSameLocale === undefined ? null : activeVersionOf(systemSameLocale),
+  };
+}
+
+function buildDrafts(
+  groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
+): {
   readonly drafts: OverviewDraft[];
   readonly layoutSlugByDocument: Map<string, string>;
 } {
@@ -137,9 +177,6 @@ function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>
     const preferred = effective === null ? undefined : preferredRow(effective.rows);
     if (effective === null || preferred === undefined) continue;
     if (!isOverviewKind(preferred.kind) || !isTemplateStatus(preferred.status)) continue;
-    const systemSameLocale = groupRows.find(
-      (row) => row.scope === "system" && row.locale === preferred.locale,
-    );
     const isDocument = preferred.kind === "mail" || preferred.kind === "document-pdf";
     const layoutSlug = isDocument ? layoutSlugOf(preferred) : null;
     if (layoutSlug !== null && preferred.kind === "document-pdf") {
@@ -154,8 +191,7 @@ function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>
       origin: effective.origin,
       locales: [...new Set(effective.rows.map((row) => row.locale))].sort(),
       status: preferred.status,
-      version: preferred.version,
-      systemVersion: systemSameLocale?.version ?? null,
+      ...versionFieldsOf(user, preferred, groupRows),
       layoutSlug,
       modifiedAt: modifiedAtOf(preferred),
     });
@@ -219,7 +255,7 @@ export const overviewQuery = defineQueryHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant: where the effective version comes from (own override or system), its locales, status and version, the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
+    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant: where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
   handler: async (query, ctx) => {
     const payload = query.payload;
     const rows = await selectMany<TemplateResourceRow>(
@@ -229,7 +265,11 @@ export const overviewQuery = defineQueryHandler({
       { limit: OVERVIEW_ROW_LIMIT },
     );
 
-    const { drafts, layoutSlugByDocument } = buildDrafts(groupBySlugAndKind(rows));
+    const visibleRows = rows.filter((row) => !isHiddenSystemDraft(query.user, row));
+    const { drafts, layoutSlugByDocument } = buildDrafts(
+      groupBySlugAndKind(visibleRows),
+      query.user,
+    );
     const overviewRows = drafts.map((draft) =>
       withUsage(draft, layoutSlugByDocument, ctx.registry),
     );

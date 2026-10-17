@@ -28,6 +28,21 @@ export function statusLabel(
   );
 }
 
+export function draftBesideActiveSentence(
+  t: Translate,
+  row: {
+    readonly status: string;
+    readonly version: number;
+    readonly active?: { readonly version: number } | null;
+  },
+): string | null {
+  if (asRowStatus(row.status) !== "draft" || row.active == null) return null;
+  return t("documentDesigner.origin.draftBesideActive", {
+    active: row.active.version,
+    draft: row.version,
+  });
+}
+
 export function asRowStatus(status: string): OverviewRowView["status"] {
   return status === "active" || status === "archived" ? status : "draft";
 }

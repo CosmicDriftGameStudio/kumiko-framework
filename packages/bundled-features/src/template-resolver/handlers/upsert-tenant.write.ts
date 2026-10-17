@@ -17,7 +17,7 @@ export const upsertTenantWrite = defineWriteHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Creates or overwrites a tenant-scoped template override with its variable schema, landing as a draft that only publish makes live; it refuses a system-tenant target, which is what upsert-system is for.",
+    "Creates or overwrites a tenant-scoped template override with its variable schema, landing as a draft that only publish makes live (over an active override the draft is stored beside it, the active version keeps being served until publish); it refuses a system-tenant target, which is what upsert-system is for.",
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — override aus Zod-parsed string,
     // event.user.tenantId schon TenantId-branded; union als TenantId casten

@@ -1123,6 +1123,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.collection.kindNotAllowed":
     "“{detail}” templates are written through their own editor, not through a collection.",
   "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",
+  "templateResolver.errors.noDraft": "There is no draft to discard.",
   "templateResolver.errors.template.invalidMeta": "The template settings are invalid.",
   "templateResolver.errors.template.meta.subject.required": "The subject is missing.",
   "templateResolver.errors.template.meta.subject.invalid":
@@ -1387,6 +1388,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.source.tenant": "Tenant",
   "documentDesigner.origin.system": "System template",
   "documentDesigner.origin.override": "Customised",
+  "documentDesigner.origin.draftBesideActive":
+    "Version {active} is sent, your draft (version {draft}) is not published yet.",
   "documentDesigner.status.active": "Active",
   "documentDesigner.status.draft": "Draft",
   "documentDesigner.status.archived": "Archived",
@@ -1609,10 +1612,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.discard.title": "Discard changes?",
   "documentDesigner.mail.discard.description": "Your unsaved changes are lost.",
   "documentDesigner.mail.discard.confirm": "Discard",
-  "documentDesigner.mail.activeSave.title": "Save as draft?",
-  "documentDesigner.mail.activeSave.description":
-    "Saving as a draft takes the active customisation offline until you publish. Publish instead?",
-  "documentDesigner.mail.activeSave.confirm": "Save as draft",
   "documentDesigner.mail.leave.title": "Unsaved changes",
   "documentDesigner.mail.leave.description":
     "Save your changes as a draft, discard them or stay on this page.",

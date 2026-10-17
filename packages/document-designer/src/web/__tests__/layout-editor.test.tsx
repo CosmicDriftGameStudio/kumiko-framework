@@ -150,6 +150,36 @@ describe("LayoutEditor", () => {
     );
   });
 
+  test("an open draft shows its number beside the served version in the header", async () => {
+    renderEditor(
+      ["TenantAdmin"],
+      {
+        ...tenantSource,
+        tenant: {
+          id: "t-1",
+          version: 5,
+          status: "draft",
+          locale: "de",
+          active: { version: 4, since: "2026-10-01T08:00:00Z" },
+        },
+      },
+      [],
+    );
+    await screen.findByTestId("document-designer-paper");
+    expect(screen.getByTestId("document-designer-editor-status").textContent).toBe("Draft v5");
+    expect(screen.queryByTestId("document-designer-editor-active-status")).toBeNull();
+    expect(screen.getByTestId("document-designer-origin-bar").textContent).toContain(
+      "Version 4 is sent, your draft (version 5) is not published yet.",
+    );
+  });
+
+  test("a served version without a draft shows a single status badge", async () => {
+    renderEditor(["TenantAdmin"], tenantSource, []);
+    await screen.findByTestId("document-designer-paper");
+    expect(screen.getByTestId("document-designer-editor-status").textContent).toBe("Active v2");
+    expect(screen.queryByTestId("document-designer-editor-active-status")).toBeNull();
+  });
+
   test("a platform admin sees the MJML tab and saves the edited source as system mjml", async () => {
     const calls: Call[] = [];
     renderEditor(["SystemAdmin"], systemSource, calls);

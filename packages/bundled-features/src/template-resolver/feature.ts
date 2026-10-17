@@ -10,6 +10,7 @@ import { makeCollectionListQuery } from "./handlers/collection-list.query.js";
 import { makeCollectionSetWrite } from "./handlers/collection-set.write.js";
 import { copyLocaleWrite } from "./handlers/copy-locale.write.js";
 import { diffToSystemQuery } from "./handlers/diff-to-system.query.js";
+import { discardDraftSystemWrite, discardDraftWrite } from "./handlers/discard-draft.write.js";
 import { exportBundleQuery } from "./handlers/export-bundle.query.js";
 import { findByIdQuery } from "./handlers/find-by-id.query.js";
 import { importBundleWrite } from "./handlers/import-bundle.write.js";
@@ -66,7 +67,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     r.describe(
       [
         "Every piece of editable text lives here, in one entity: mail bodies, notification texts, PDF document templates, AI prompts and plain text blocks. What a record is used for is the `kind` (`notification`, `mail`, `mail-layout`, `document-pdf`, `pdf-layout`, `ai-prompt`, `text-block`, `snippet`, `image-snapshot`).",
-        "Reading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`.",
+        "Reading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`. Saving a draft over an active template keeps the active version served and stores the edit beside it (column `draft`); `publish` makes it the served version, `discardDraft` / `discardDraftSystem` throws it away.",
         "Text an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.",
         "How a collection is edited follows from `contentFormat`: `plain` gives a text area, `rich` a small WYSIWYG (bold, italic, headings, lists, links), `markdown` a text area that stores markdown text (same insertable chips as `plain`). All three offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
@@ -100,6 +101,8 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       archive: r.writeHandler(archiveWrite),
       publishSystem: r.writeHandler(publishSystemWrite),
       archiveSystem: r.writeHandler(archiveSystemWrite),
+      discardDraft: r.writeHandler(discardDraftWrite),
+      discardDraftSystem: r.writeHandler(discardDraftSystemWrite),
       resetToSystem: r.writeHandler(resetToSystemWrite),
       set: r.writeHandler(setWrite),
       importBundle: r.writeHandler(importBundleWrite),

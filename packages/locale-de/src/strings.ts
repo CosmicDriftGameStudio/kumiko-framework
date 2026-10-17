@@ -1158,6 +1158,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
   "templateResolver.errors.noSystemTemplate":
     "Es gibt keine aktive Systemvorlage, auf die zurückgesetzt werden könnte.",
+  "templateResolver.errors.noDraft": "Es gibt keinen Entwurf, der verworfen werden könnte.",
   "templateResolver.errors.template.invalidMeta": "Die Vorlageneinstellungen sind ungültig.",
   "templateResolver.errors.template.meta.subject.required": "Der Betreff fehlt.",
   "templateResolver.errors.template.meta.subject.invalid":
@@ -1426,6 +1427,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.source.tenant": "Mandant",
   "documentDesigner.origin.system": "System-Vorlage",
   "documentDesigner.origin.override": "Mandanten-Anpassung",
+  "documentDesigner.origin.draftBesideActive":
+    "Verschickt wird Version {active}, Ihr Entwurf (Version {draft}) ist noch nicht veröffentlicht.",
   "documentDesigner.status.active": "Aktiv",
   "documentDesigner.status.draft": "Entwurf",
   "documentDesigner.status.archived": "Archiviert",
@@ -1650,10 +1653,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.discard.title": "Änderungen verwerfen?",
   "documentDesigner.mail.discard.description": "Ihre ungespeicherten Änderungen gehen verloren.",
   "documentDesigner.mail.discard.confirm": "Verwerfen",
-  "documentDesigner.mail.activeSave.title": "Als Entwurf speichern?",
-  "documentDesigner.mail.activeSave.description":
-    "Speichern als Entwurf nimmt die aktive Anpassung offline, bis Sie veröffentlichen. Stattdessen veröffentlichen?",
-  "documentDesigner.mail.activeSave.confirm": "Als Entwurf speichern",
   "documentDesigner.mail.leave.title": "Ungespeicherte Änderungen",
   "documentDesigner.mail.leave.description":
     "Speichern Sie Ihre Änderungen als Entwurf, verwerfen Sie sie oder bleiben Sie auf dieser Seite.",

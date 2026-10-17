@@ -1,5 +1,6 @@
 // @runtime client
 import type { ValidationIssue } from "./layout-types.js";
+import type { ServedVersionView } from "./types.js";
 
 export type PlaceholderType = "text" | "money" | "date" | "link" | "list";
 
@@ -82,6 +83,7 @@ export type TemplateRowView = {
   readonly linkedResources: unknown;
   readonly meta: unknown;
   readonly modifiedAt: string | null;
+  readonly active?: ServedVersionView | null;
 };
 
 export type MailCategory = "" | "transactional" | "marketing";

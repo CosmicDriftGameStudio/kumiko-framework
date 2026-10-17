@@ -16,6 +16,8 @@ export type OverviewRowView = {
   readonly locales: readonly string[];
   readonly status: "draft" | "active" | "archived";
   readonly version: number;
+  /** An open draft beside the served version, never another tenant's. */
+  readonly draftVersion: number | null;
   readonly systemVersion: number | null;
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsageView[];
@@ -64,6 +66,7 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     locales,
     status,
     version,
+    draftVersion,
     systemVersion,
     modifiedAt,
     usedBy,
@@ -84,6 +87,7 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
       : [],
     status,
     version: numberOr(version, 0),
+    draftVersion: numberOr(draftVersion, null),
     systemVersion: numberOr(systemVersion, null),
     modifiedAt: stringOr(modifiedAt, ""),
     usedBy: usages,
