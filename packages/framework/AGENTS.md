@@ -49,7 +49,10 @@ write the table yourself.
 **Handler.** The only way in. A write handler changes state, a query handler
 reads it. Both have a qualified name (QN), a Zod payload schema and an access
 rule. `r.crud(name, entity, options)` registers the entity plus create,
-update, delete, restore, list and detail handlers in one call. Turn single
+update, delete, restore, list and detail handlers in one call. Its options
+need an access rule for both sides, `write: { access }` and
+`read: { access }`; `verbAccess: { delete: { roles: ["Admin"] } }`
+overrides a single verb. Without them boot stops. Turn single
 verbs off with `verbs: { delete: false }` and register them yourself when
 they need different access or logic. Custom logic goes into
 `r.writeHandler(qn, schema, fn, { access })` and
@@ -60,7 +63,10 @@ executor from `createEntityExecutor(name, entity)`.
 `entityList`, `entityEdit`, `projectionList`, `projectionDetail`,
 `actionForm`, `dashboard` and `custom`. The renderer builds the UI from the
 declaration. Columns, sections, row actions, tabs, wizard steps and
-conditional fields are data, not JSX.
+conditional fields are data, not JSX. A `dashboard` lists `panels`; a
+`stat` panel names a query handler and the `valueField` to show from its
+result, and a `stat-group` panel holds several stats. The query returns one
+flat object with those fields.
 
 **Nav.** A sidebar entry: `r.nav({ id, label, screen, parent, order })`.
 Parents may belong to another feature; refer to them by QN.
@@ -83,6 +89,12 @@ that holds global data calls `r.systemScope()`.
 Screens and nav entries can narrow visibility further with their own
 `access`. Anonymous endpoints use the `anonymous` role. Field level and row
 level rules exist as well (see the table below).
+An `openToAll` write handler whose payload contains personal fields must
+say that every tenant member may write them:
+`{ openToAll: { reason: "...", personalData: "tenant-members" } }`. The
+alternatives are roles, or binding each row to its caller. Boot names all
+three. On query handlers `personalData` is only valid as
+`access: { roles: ["anonymous"], personalData: "public-intake" }`.
 
 **Personal data.** Every text field says whether it holds personal data;
 the field types reject a text field without that stance.
@@ -90,7 +102,10 @@ the field types reject a text field without that stance.
 business data. For personal data name the subject, `personal: "self"`,
 `personal: { of: "<ownerField>" }` or `personal: "tenant"`, plus
 `find: "exact" | "fuzzy" | "none" | "secret"`. A plain foreign key to a user
-is `personal: "ref"`. The framework encrypts personal fields per subject and
+is `personal: "ref"`. `personal: "self"` is for the row that is the user.
+When the record itself is the person, such as a contact or a customer that
+is not a user, use `personal: { of: "id" }`; the entity then needs a uuid
+`id`. The framework encrypts personal fields per subject and
 can erase them on request.
 
 **Client.** The web side of a feature is a `ClientFeatureDefinition` in the
@@ -145,8 +160,14 @@ feature and test. Start from them.
 | Unit tests | `bun run test` |
 | Integration tests (needs `docker compose up -d`) | `bun run test:integration` |
 | Browser tests | `bun run e2e` |
-| New migration after an entity change | `bun run schema:generate` |
+| New migration after an entity change or a newly mounted bundled feature | `bun run schema:generate <name>` |
+| Check migrations against the features, no database needed | `bun kumiko-schema validate` |
 | Apply migrations | `bun run schema:apply` |
+
+`<name>` is required and becomes part of the file name
+(`schema:generate add-invoice`). Mounting a bundled feature in
+`APP_FEATURES` adds its tables, so it needs a migration like your own
+entities do.
 
 ## Rules: never this, do that
 
@@ -164,6 +185,11 @@ produces code that compiles and then fails in production.
 - Never hand-write SQL for reads that an executor `list` or `detail` covers.
   Use `r.queryHandler` with the executor, or a projection with
   `ctx.queryProjection`.
+- Never filter or count the rows of one `list` page in code. `list` returns
+  one page (default 50, `limit` at most 200). Pass
+  `filter: { field, op, value }` (`eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`)
+  so the database filters, and `totalCount: true` to get `total` over all
+  matching rows; `limit: 1, totalCount: true` is a count query.
 - Never change an event schema in place once it has been emitted. Version it
   (see `agents/examples/event-sourcing.md`).
 - Never read or write another tenant's data. `ctx.db` is tenant scoped on
@@ -237,6 +263,8 @@ as bundled features.
 | --- | --- | --- |
 | A CRUD entity with list and edit | `createEntity` + `r.crud` + `entityList` / `entityEdit` screens | `agents/examples/basic-entity.md` |
 | Business logic beyond CRUD | `r.writeHandler` / `r.queryHandler` with `createEntityExecutor` | `agents/examples/custom-handlers.md` |
+| Filtered lists and counts | Executor `list` with `filter` and `totalCount` | `agents/examples/custom-handlers.md` |
+| Key figures on a dashboard | `dashboard` screen with `stat` / `stat-group` panels and a query handler | `agents/examples/dashboard-stats.md` |
 | Relations between entities | `r.relation(entity, name, { type, target, foreignKey, onDelete })` | `agents/examples/relations.md` |
 | Structured sub-objects in a field | Embedded fields | `agents/examples/embedded.md` |
 | List, edit, custom screens and navs | `r.screen`, `r.nav` | `agents/examples/screens-nav.md` |
@@ -283,7 +311,10 @@ source file with its path. `src/feature.ts` holds the feature;
 the framework repo set up their stack with `setupTestStack` from
 `@cosmicdrift/kumiko-framework/stack` and create tables in the test. In an
 app, `setupAppTestStack` and `seedTenant` do that for you; keep the
-assertions, take the setup from your scaffolded integration test.
+assertions, take the setup from your scaffolded integration test. Table
+setup in sample tests (`unsafeCreateEntityTable`, `createEventsTable`) and
+any raw `DELETE FROM` cleanup are framework internals. Never copy them;
+isolate tests with one tenant each.
 
 Some samples import from `@app/define`. That alias points at the generated
 `.kumiko/define.ts`, which re-exports the engine with event types narrowed to
