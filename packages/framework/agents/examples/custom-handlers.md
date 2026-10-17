@@ -30,9 +30,10 @@ logic is yours.
 - **`skipOptimisticLock` for last-writer-wins** — `reset` deliberately
   bypasses the version check because the operation is admin-driven and
   resetting twice is semantically the same as resetting once.
-- **Custom queries** — `counter:active` filters the projection in
-  TypeScript after the executor's list returns. Useful when the filter is
-  computed (above-threshold) rather than indexed.
+- **Custom queries** — `counter:active` passes a server-side `filter`
+  (`eq`/`ne`/`lt`/`gt`/`lte`/`gte`/`in`) and `totalCount` to the executor's
+  list. Never filter a page in TypeScript: list is paginated, so rows after
+  the first page would be missed.
 - **`failNotFound` helper** — typed error response for the 404 case
   without a hand-built `KumikoError` subclass.
 
@@ -69,6 +70,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
@@ -231,44 +233,80 @@ describe("custom write handler: reset", () => {
 });
 
 describe("custom query handler: active counters", () => {
+  // Own tenants: the total assertions would otherwise count counters created by other tests.
+  const activeAdmin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(11) });
+  const activeUser = createTestUser({ id: 2, roles: ["User"], tenantId: testTenantId(11) });
+  const otherAdmin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(12) });
+
   test("filters counters by minimum count", async () => {
     const c1 = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "active-a" },
-      admin,
+      activeAdmin,
     );
     const c2 = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "active-b" },
-      admin,
+      activeAdmin,
     );
     await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "inactive" },
-      admin,
+      activeAdmin,
     );
 
     await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       { id: c1.id, amount: 10 },
-      user,
+      activeUser,
     );
     await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       { id: c2.id, amount: 5 },
-      user,
+      activeUser,
     );
 
-    const result = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
-      "counters:query:counter:active",
-      { minCount: 5 },
-      admin,
-    );
+    const result = await stack.http.queryOk<{
+      rows: Record<string, unknown>[];
+      nextCursor: string | null;
+      total?: number;
+    }>("counters:query:counter:active", { minCount: 5 }, activeAdmin);
 
     const names = result.rows.map((r) => r["name"]);
     expect(names).toContain("active-a");
     expect(names).toContain("active-b");
     expect(names).not.toContain("inactive");
+    expect(result.total).toBe(2);
+  });
+
+  test("total and nextCursor describe the full filtered set", async () => {
+    for (const name of ["total-a", "total-b", "total-c"]) {
+      const created = await stack.http.writeOk<SaveContext>(
+        "counters:write:counter:create",
+        { name },
+        otherAdmin,
+      );
+      await stack.http.writeOk<SaveContext>(
+        "counters:write:counter:increment",
+        { id: created.id, amount: 1 },
+        otherAdmin,
+      );
+    }
+    await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:create",
+      { name: "total-untouched" },
+      otherAdmin,
+    );
+
+    const result = await stack.http.queryOk<{
+      rows: Record<string, unknown>[];
+      nextCursor: string | null;
+      total?: number;
+    }>("counters:query:counter:active", { minCount: 1 }, otherAdmin);
+
+    expect(result.rows).toHaveLength(3);
+    expect(result.total).toBe(3);
+    expect(result.nextCursor).toBeNull();
   });
 });
 ```
@@ -277,7 +315,7 @@ describe("custom query handler: active counters", () => {
 
 ```ts
 // Custom Handlers Sample
-// Shows: writeHandler with business logic, queryHandler with custom filtering,
+// Shows: writeHandler with business logic, queryHandler with a server-side filter,
 // handler that modifies payload before DB write.
 
 import {
@@ -289,6 +327,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+
+// detail() returns an untyped row; parse the two fields the increment needs once.
+const counterVersionRowSchema = z.object({ count: z.number(), version: z.number() });
 
 export const counterEntity = createEntity({
   table: "read_sample_counters",
@@ -326,13 +367,14 @@ export const counterFeature = defineFeature("counters", (r) => {
         return failNotFound("counter", event.payload.id);
       }
 
-      const newCount = (current["count"] as number) + event.payload.amount;
+      const { count, version } = counterVersionRowSchema.parse(current);
+      const newCount = count + event.payload.amount;
       // Read-modify-write on counter: use the version we just read so two
       // concurrent increments don't clobber each other's changes.
       return counterExecutor.update(
         {
           id: event.payload.id,
-          version: current["version"] as number,
+          version,
           changes: { count: newCount, lastIncrementedBy: `user:${event.user.id}` },
         },
         event.user,
@@ -358,17 +400,22 @@ export const counterFeature = defineFeature("counters", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  // Custom query: only counters above a threshold
+  // Custom query: only counters above a threshold. list() returns one page
+  // (default 50, max 200, MAX_LIST_LIMIT), so a JS filter would miss rows after
+  // page 1; filter in the query instead. totalCount counts over the whole WHERE.
   r.queryHandler(
     "counter:active",
-    z.object({ minCount: z.number().default(1) }),
-    async (query, ctx) => {
-      const all = await counterExecutor.list({}, query.user, ctx.db);
-      return {
-        ...all,
-        rows: all.rows.filter((r) => (r["count"] as number) >= query.payload.minCount),
-      };
-    },
+    z.object({ minCount: z.number().int().default(1), cursor: z.string().optional() }),
+    async (query, ctx) =>
+      counterExecutor.list(
+        {
+          filter: { field: "count", op: "gte", value: query.payload.minCount },
+          totalCount: true,
+          cursor: query.payload.cursor,
+        },
+        query.user,
+        ctx.db,
+      ),
     {
       access: {
         openToAll: {
