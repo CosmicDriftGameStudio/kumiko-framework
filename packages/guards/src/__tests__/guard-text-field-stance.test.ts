@@ -58,7 +58,12 @@ describe("Text-Field Personal-Stance Guard", () => {
     try {
       const sfs = files({ "packages/bundled-features/src/rogue/entity.ts": NO_STANCE_CALL });
       expect(scan(sfs, []).findings).toHaveLength(1);
-      expect(warn).not.toHaveBeenCalled();
+      // Other test files in the same bun process emit async warnings (job-runner stop(), mail egress)
+      // while this spy is active, so only the guard's own warn prefix counts.
+      const guardWarnings = warn.mock.calls.filter((args) =>
+        args.some((arg) => String(arg).includes("[text-field-stance WARN]")),
+      );
+      expect(guardWarnings).toHaveLength(0);
     } finally {
       warn.mockRestore();
     }
