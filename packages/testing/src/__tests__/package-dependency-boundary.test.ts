@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { Node, Project, SyntaxKind } from "ts-morph";
+import { ts } from "ts-morph";
 import * as z from "zod";
 
 const TESTING_PACKAGE_NAME = "@cosmicdrift/kumiko-testing";
@@ -38,40 +38,11 @@ function isCoreSubpath(subpath: string): boolean {
   return CORE_ENTRY_KEYS.includes(`./${subpath}`);
 }
 
-const project = new Project({
-  skipAddingFilesFromTsConfig: true,
-  skipFileDependencyResolution: true,
-});
-
-// Syntactic walk on purpose: getImportStringLiterals() builds a full program per call.
+// The pre-processor scanner covers static, re-export, dynamic and type-level imports without
+// building an AST; a full ts-morph walk over every consumer test file is too slow for the suite.
 function importSpecifiersOf(absolutePath: string): string[] {
-  const sourceFile = project.createSourceFile(absolutePath, readFileSync(absolutePath, "utf8"), {
-    overwrite: true,
-  });
-  const specifiers: string[] = [];
-  for (const declaration of sourceFile.getImportDeclarations()) {
-    specifiers.push(declaration.getModuleSpecifierValue());
-  }
-  for (const declaration of sourceFile.getExportDeclarations()) {
-    const specifier = declaration.getModuleSpecifierValue();
-    if (specifier !== undefined) specifiers.push(specifier);
-  }
-  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const [firstArgument] = call.getArguments();
-    if (
-      call.getExpression().getKind() === SyntaxKind.ImportKeyword &&
-      Node.isStringLiteral(firstArgument)
-    ) {
-      specifiers.push(firstArgument.getLiteralText());
-    }
-  }
-  for (const importType of sourceFile.getDescendantsOfKind(SyntaxKind.ImportType)) {
-    const argument = importType.getArgument();
-    const literal = Node.isLiteralTypeNode(argument) ? argument.getLiteral() : undefined;
-    if (Node.isStringLiteral(literal)) specifiers.push(literal.getLiteralText());
-  }
-  project.removeSourceFile(sourceFile);
-  return specifiers;
+  const { importedFiles } = ts.preProcessFile(readFileSync(absolutePath, "utf8"), true, true);
+  return importedFiles.map((reference) => reference.fileName);
 }
 
 function resolveRelativeSource(fromFile: string, specifier: string): string | undefined {
