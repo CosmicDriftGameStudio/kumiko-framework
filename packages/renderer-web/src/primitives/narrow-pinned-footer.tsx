@@ -1,4 +1,5 @@
 import {
+  type ButtonProps,
   FOOTER_ACTION_ROLE_PROP,
   type FooterActionMarker,
   NARROW_LABEL_PROP,
@@ -18,12 +19,7 @@ import {
 import { cn } from "../lib/cn.js";
 import { Button as UiButton } from "../ui/button.js";
 
-type FooterNodeProps = {
-  readonly type?: string;
-  readonly children?: ReactNode;
-  readonly ariaLabel?: string;
-} & FooterActionMarker &
-  StickyPrimaryActionMarker;
+type FooterNodeProps = ButtonProps & FooterActionMarker & StickyPrimaryActionMarker;
 
 type FooterElement = ReactElement<FooterNodeProps>;
 
@@ -31,13 +27,30 @@ function asFooterElement(node: ReactNode): FooterElement | undefined {
   return isValidElement<FooterNodeProps>(node) ? node : undefined;
 }
 
-function isBackNode(node: ReactNode): boolean {
-  return asFooterElement(node)?.props[FOOTER_ACTION_ROLE_PROP] === "back";
+function backAccessibleName(node: FooterElement): string | undefined {
+  const { children, ariaLabel } = node.props;
+  return typeof children === "string" ? children : ariaLabel;
+}
+
+// Back collapses to an icon, so it needs a name that survives losing its children;
+// without one it stays a regular overflow action.
+function isIconizableBackNode(node: ReactNode): boolean {
+  const element = asFooterElement(node);
+  return (
+    element?.props[FOOTER_ACTION_ROLE_PROP] === "back" && backAccessibleName(element) !== undefined
+  );
+}
+
+function isExplicitPrimaryNode(node: ReactNode): boolean {
+  return asFooterElement(node)?.props[FOOTER_ACTION_ROLE_PROP] === "primary";
+}
+
+function isSubmitNode(node: ReactNode): boolean {
+  return asFooterElement(node)?.props.type === "submit";
 }
 
 function isPrimaryNode(node: ReactNode): boolean {
-  const props = asFooterElement(node)?.props;
-  return props?.[FOOTER_ACTION_ROLE_PROP] === "primary" || props?.type === "submit";
+  return isExplicitPrimaryNode(node) || isSubmitNode(node);
 }
 
 function isStickyMarkedNode(node: ReactNode): boolean {
@@ -55,8 +68,11 @@ type NarrowFooterParts = {
 };
 
 function splitNarrowFooterNodes(nodes: readonly ReactNode[]): NarrowFooterParts {
-  const back = nodes.find(isBackNode);
-  const primary = lastOf(nodes.filter(isPrimaryNode)) ?? lastOf(nodes.filter(isStickyMarkedNode));
+  const back = nodes.find(isIconizableBackNode);
+  const primary =
+    nodes.find(isExplicitPrimaryNode) ??
+    lastOf(nodes.filter(isSubmitNode)) ??
+    lastOf(nodes.filter(isStickyMarkedNode));
   return {
     back,
     primary,
@@ -65,24 +81,65 @@ function splitNarrowFooterNodes(nodes: readonly ReactNode[]): NarrowFooterParts 
 }
 
 function BackIconButton({ node }: { readonly node: FooterElement }): ReactNode {
-  const { children, ariaLabel } = node.props;
   return cloneElement(node, {
     size: "icon",
-    ariaLabel: typeof children === "string" ? children : ariaLabel,
+    ariaLabel: backAccessibleName(node),
     children: null,
-  } as Partial<FooterNodeProps>);
+  });
 }
 
-function PrimaryButton({ node }: { readonly node: ReactNode }): ReactNode {
+// Stands in for the unsaved text and the overflow badge while the "…" trigger is not visible.
+function UnsavedIndicator({
+  status,
+  testId,
+}: {
+  readonly status: string;
+  readonly testId: string | undefined;
+}): ReactNode {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        data-testid={testId}
+        className="absolute top-1 right-1 size-2 rounded-full bg-status-active"
+      />
+      <span className="sr-only">{status}</span>
+    </>
+  );
+}
+
+function PrimaryButton({
+  node,
+  unsavedStatus,
+  indicatorTestId,
+}: {
+  readonly node: ReactNode;
+  readonly unsavedStatus: string | undefined;
+  readonly indicatorTestId: string | undefined;
+}): ReactNode {
+  const indicator =
+    unsavedStatus !== undefined ? (
+      <UnsavedIndicator status={unsavedStatus} testId={indicatorTestId} />
+    ) : null;
   const element = asFooterElement(node);
   if (element === undefined || !isPrimaryNode(node)) {
-    return <div className="min-w-0 flex-1 [&>button]:w-full">{node}</div>;
+    return (
+      <div className="relative min-w-0 flex-1 [&>button]:w-full">
+        {node}
+        {indicator}
+      </div>
+    );
   }
   const narrowLabel = element.props[NARROW_LABEL_PROP];
   return cloneElement(element, {
-    className: "min-w-0 flex-1",
-    children: <span className="min-w-0 truncate">{narrowLabel ?? element.props.children}</span>,
-  } as Partial<FooterNodeProps>);
+    className: "relative min-w-0 flex-1",
+    children: (
+      <>
+        <span className="min-w-0 truncate">{narrowLabel ?? element.props.children}</span>
+        {indicator}
+      </>
+    ),
+  });
 }
 
 // Overflow nodes are arbitrary (slot mounts may render nothing, buttons may be disabled),
@@ -114,15 +171,17 @@ function OverflowPopover({
   label,
   unsavedCount,
   testId,
+  hasEnabledAction,
+  contentRef,
 }: {
   readonly nodes: readonly ReactNode[];
   readonly label: string;
   readonly unsavedCount: number | undefined;
   readonly testId: string | undefined;
+  readonly hasEnabledAction: boolean;
+  readonly contentRef: (element: HTMLDivElement | null) => void;
 }): ReactNode {
   const [open, setOpen] = useState(false);
-  const [content, setContent] = useState<HTMLDivElement | null>(null);
-  const hasEnabledAction = useContainsEnabledAction(content);
   const isDirty = unsavedCount !== undefined && unsavedCount > 0;
   return (
     <PopoverPrimitive.Root open={open && hasEnabledAction} onOpenChange={setOpen}>
@@ -152,7 +211,7 @@ function OverflowPopover({
           action buttons owning dialogs). forceMount keeps those dialogs mounted while closed. */}
       <PopoverPrimitive.Portal forceMount>
         <PopoverPrimitive.Content
-          ref={setContent}
+          ref={contentRef}
           forceMount
           side="top"
           align="center"
@@ -181,17 +240,23 @@ export function NarrowPinnedFooter({
   nodes,
   overflowLabel,
   unsavedCount,
+  unsavedStatus,
   testId,
   keyboardInset,
 }: {
   readonly nodes: readonly ReactNode[];
   readonly overflowLabel: string;
   readonly unsavedCount: number | undefined;
+  readonly unsavedStatus: string | undefined;
   readonly testId: string | undefined;
   readonly keyboardInset: number;
 }): ReactNode {
   const { back, primary, overflow } = splitNarrowFooterNodes(nodes);
   const backElement = asFooterElement(back);
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
+  const hasEnabledAction = useContainsEnabledAction(content);
+  const overflowTriggerVisible = overflow.length > 0 && hasEnabledAction;
+  const isDirty = unsavedCount !== undefined && unsavedCount > 0;
   return (
     <div
       data-testid={testId !== undefined ? `${testId}-actions` : undefined}
@@ -210,9 +275,17 @@ export function NarrowPinnedFooter({
           label={overflowLabel}
           unsavedCount={unsavedCount}
           testId={testId}
+          hasEnabledAction={hasEnabledAction}
+          contentRef={setContent}
         />
       )}
-      {primary !== undefined && <PrimaryButton node={primary} />}
+      {primary !== undefined && (
+        <PrimaryButton
+          node={primary}
+          unsavedStatus={isDirty && !overflowTriggerVisible ? unsavedStatus : undefined}
+          indicatorTestId={testId !== undefined ? `${testId}-primary-badge` : undefined}
+        />
+      )}
     </div>
   );
 }

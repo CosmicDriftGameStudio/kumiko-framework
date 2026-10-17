@@ -28,8 +28,8 @@ describe("coerceRow — date → Temporal.PlainDate", () => {
     // (2026-03-15T00:00:00.000Z) regardless of process TZ.
     const row = { published_at: new Date(Date.UTC(2026, 2, 15)) };
     const result = coerceRow(row, dateTableInfo());
-    expect(result.published_at).toBeInstanceOf(Temporal.PlainDate);
-    expect((result.published_at as unknown as Temporal.PlainDate).toString()).toBe("2026-03-15");
+    expect(result["published_at"]).toBeInstanceOf(Temporal.PlainDate);
+    expect((result["published_at"] as unknown as Temporal.PlainDate).toString()).toBe("2026-03-15");
   });
 
   test("does not drift the day under a negative-offset process TZ", () => {
@@ -41,7 +41,9 @@ describe("coerceRow — date → Temporal.PlainDate", () => {
     try {
       const row = { published_at: new Date(Date.UTC(2026, 2, 15)) };
       const result = coerceRow(row, dateTableInfo());
-      expect((result.published_at as unknown as Temporal.PlainDate).toString()).toBe("2026-03-15");
+      expect((result["published_at"] as unknown as Temporal.PlainDate).toString()).toBe(
+        "2026-03-15",
+      );
     } finally {
       if (savedTz === undefined) delete process.env.TZ;
       else process.env.TZ = savedTz;
@@ -51,21 +53,21 @@ describe("coerceRow — date → Temporal.PlainDate", () => {
   test("coerces a plain 'yyyy-mm-dd' driver string", () => {
     const row = { published_at: "2026-12-01" };
     const result = coerceRow(row, dateTableInfo());
-    expect(result.published_at).toBeInstanceOf(Temporal.PlainDate);
-    expect((result.published_at as unknown as Temporal.PlainDate).toString()).toBe("2026-12-01");
+    expect(result["published_at"]).toBeInstanceOf(Temporal.PlainDate);
+    expect((result["published_at"] as unknown as Temporal.PlainDate).toString()).toBe("2026-12-01");
   });
 
   test("passes an already-PlainDate value through unchanged", () => {
     const pd = Temporal.PlainDate.from("2026-01-01");
     const row = { published_at: pd };
     const result = coerceRow(row, dateTableInfo());
-    expect(result.published_at).toBe(pd);
+    expect(result["published_at"]).toBe(pd);
   });
 
   test("leaves null untouched", () => {
     const row = { published_at: null };
     const result = coerceRow(row, dateTableInfo());
-    expect(result.published_at).toBeNull();
+    expect(result["published_at"]).toBeNull();
   });
 });
 
@@ -82,7 +84,7 @@ describe("coerceRow — date column that is still timestamptz", () => {
       const shifted = new Date(Date.UTC(2026, 2, 14, 23));
       const first = coerceRow({ legacy_day: shifted }, legacyInfo);
       coerceRow({ legacy_day: shifted }, legacyInfo);
-      expect((first.legacy_day as unknown as Temporal.PlainDate).toString()).toBe("2026-03-14");
+      expect((first["legacy_day"] as unknown as Temporal.PlainDate).toString()).toBe("2026-03-14");
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0]?.[0])).toContain('column "legacy_day"');
     } finally {

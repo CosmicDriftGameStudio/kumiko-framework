@@ -328,6 +328,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.errors.planTiersShareProduct":
     "Each plan needs its own Stripe product. Contact support.",
   "billing-foundation.errors.priceUnavailable": "This plan's price is temporarily unavailable.",
+  "billing-foundation.errors.providerCustomerUnknown":
+    "The billing account for this subscription no longer exists. Subscribe again to continue.",
   "billing-foundation.errors.providerHasNoPriceCatalog":
     "This provider has no known prices configured.",
   "billing-foundation.errors.providerMismatch":

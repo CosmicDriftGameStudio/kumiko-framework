@@ -49,7 +49,22 @@ const booleanScreen: EntityListScreenDefinition = {
   columns: [{ field: "current", renderer: { format: "boolean" } }],
 };
 
-function renderCurrentCell(current: boolean | null): HTMLElement {
+const typedBooleanEntity = {
+  fields: { current: { type: "boolean" } },
+} as unknown as EntityDefinition;
+
+const typedBooleanScreen: EntityListScreenDefinition = {
+  id: "",
+  type: "entityList",
+  entity: "__projection__",
+  columns: [{ field: "current" }],
+};
+
+function renderCurrentCell(
+  current: boolean | null,
+  screen: EntityListScreenDefinition = booleanScreen,
+  entity: EntityDefinition = currentColumnEntity,
+): HTMLElement {
   cleanup();
   function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
     return (
@@ -69,8 +84,8 @@ function renderCurrentCell(current: boolean | null): HTMLElement {
   }
   const result = render(
     <RenderList
-      screen={booleanScreen}
-      entity={currentColumnEntity}
+      screen={screen}
+      entity={entity}
       rows={[{ id: "r1", current }]}
       featureName="sessions"
     />,
@@ -96,5 +111,12 @@ describe("RenderList: format boolean", () => {
     const cell = renderCurrentCell(null);
     expect(cell.textContent).not.toContain("No");
     expect(cell.textContent).not.toContain("Yes");
+  });
+
+  test("type boolean without a renderer announces Yes for true and No for false", () => {
+    const yes = renderCurrentCell(true, typedBooleanScreen, typedBooleanEntity);
+    expect(yes.textContent).toContain("Yes");
+    const no = renderCurrentCell(false, typedBooleanScreen, typedBooleanEntity);
+    expect(no.textContent).toContain("No");
   });
 });

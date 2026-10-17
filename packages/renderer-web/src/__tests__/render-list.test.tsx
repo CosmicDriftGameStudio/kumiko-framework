@@ -104,11 +104,11 @@ describe("RenderList", () => {
 
     // Row 1
     expect(screen.getByTestId("cell-r1-title").textContent).toBe("Alpha");
-    expect(screen.getByTestId("cell-r1-isUrgent").textContent).toBe("✓");
+    expect(screen.getByTestId("cell-r1-isUrgent").textContent).toBe("Yes");
     expect(screen.getByTestId("cell-r1-priority").textContent).toBe("P3"); // custom renderer
 
     // Row 2
-    expect(screen.getByTestId("cell-r2-isUrgent").textContent).toBe("–"); // false → empty-cell placeholder
+    expect(screen.getByTestId("cell-r2-isUrgent").textContent).toBe("–No"); // false → placeholder + sr-only No
     expect(screen.getByTestId("cell-r2-priority").textContent).toBe("P1");
   });
 

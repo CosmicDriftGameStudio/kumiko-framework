@@ -1165,7 +1165,8 @@ export type EntityDefinition<
   readonly systemStream?: boolean;
   /** Schema version stamped on every lifecycle event (default 1, integer 1..999). Bump it together with a step in `eventMigrations`. */
   readonly eventVersion?: number;
-  /** One step per version, fromVersion → fromVersion+1. Transforms run on row-shaped field records; the record may be partial, touch only keys that are present. */
+  /** One step per version, fromVersion → fromVersion+1. Transforms run on row-shaped field records; the record may be partial, touch only keys that are present.
+   *  `pii` and `encrypted` fields arrive as stored ciphertext bound to their field name (AAD): pass them through under the same key, never rename or derive from them, or the value can no longer be decrypted. */
   readonly eventMigrations?: readonly EntityEventMigration[];
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
