@@ -191,13 +191,20 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
       );
     }
     const unsubscribeUrl = message.data?.["unsubscribeUrl"];
-    const { subject, html, text, attachments } = await ctx.renderMail({
+    const { subject, html, text, attachments, fromName, replyTo } = await ctx.renderMail({
       slug: notificationType,
       locale: message.locale ?? "en",
       variables: message.data ?? {},
       ...(typeof unsubscribeUrl === "string" && { unsubscribeUrl }),
     });
-    return { html, subject, text, ...(attachments !== undefined && { attachments }) };
+    return {
+      html,
+      subject,
+      text,
+      ...(fromName !== undefined && { fromName }),
+      ...(replyTo !== undefined && { replyTo }),
+      ...(attachments !== undefined && { attachments }),
+    };
   }
 
   return {
@@ -217,8 +224,14 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
     },
 
     async send(address, message, ctx, rendered) {
-      const { html, subject, text, attachments } = rendered ?? (await renderMessage(message, ctx));
-      const envelope = emailEnvelopeFrom(message.data);
+      const { html, subject, text, attachments, fromName, replyTo } =
+        rendered ?? (await renderMessage(message, ctx));
+      // Template-level sender defaults; notify data wins.
+      const envelope = {
+        ...(fromName && { fromName }),
+        ...(replyTo && { replyTo }),
+        ...emailEnvelopeFrom(message.data),
+      };
       const resolvedAttachments = await resolveAttachments(
         [
           ...(attachments ?? []).map((ref): AttachmentSource => ({ ref, origin: "template" })),

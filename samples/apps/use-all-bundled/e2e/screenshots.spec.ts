@@ -180,8 +180,8 @@ const adminMfaLoginChallenge =
     await page.getByLabel("Code").waitFor();
   };
 
-// PDF template editor: the system invoice in edit mode, after printing (both
-// pages rendered) and with the tenant customisations drawer open.
+// PDF template editor: the system invoice in edit mode, in preview mode (both
+// pages printed) and with the tenant customisations drawer open.
 const pdfEditorFlow = (stage: "edit" | "preview" | "overrides") => async (page: Page) => {
   await signInAsAdmin(page);
   await page.goto(
@@ -189,13 +189,15 @@ const pdfEditorFlow = (stage: "edit" | "preview" | "overrides") => async (page: 
   );
   await page.getByTestId("pdf-template-editor").waitFor();
   if (stage === "edit") return;
-  await page.getByRole("button", { name: "Generate PDF" }).click();
+  if (stage === "overrides") {
+    await page.getByRole("button", { name: "Show tenant customisations" }).click();
+    await page.getByTestId("document-designer-overrides-drawer").waitFor();
+    return;
+  }
+  await page.getByTestId("pdf-mode-switch").getByText("Preview", { exact: true }).click();
   // The first print cold-starts Chromium in the puppeteer-service.
   await page.getByTestId("pdf-page-1").waitFor({ timeout: E2E_TIMEOUT_MS.poll });
   await page.getByTestId("pdf-page-2").waitFor();
-  if (stage === "preview") return;
-  await page.getByRole("button", { name: "Show tenant customisations" }).click();
-  await page.getByTestId("document-designer-overrides-drawer").waitFor();
 };
 
 const SCENARIOS: readonly Scenario[] = [

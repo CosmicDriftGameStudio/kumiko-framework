@@ -21,7 +21,6 @@ export function useMailPersistence(args: {
   readonly title: string;
   readonly isSystemAdmin: boolean;
   readonly row: TemplateRowView | null;
-  readonly sender: unknown;
 }): MailPersistence {
   const t = useTranslation();
   const upsertTenant = useMutation<UpsertResponse>(TemplateResolverHandlers.upsertTenant);
@@ -38,7 +37,7 @@ export function useMailPersistence(args: {
       title: args.title,
       content: draft.body,
       contentFormat: "html",
-      meta: buildMeta(draft, args.sender),
+      meta: buildMeta(draft),
       variableSchema: parseJsonRecord(args.row?.variableSchema),
     };
     const saved = args.isSystemAdmin

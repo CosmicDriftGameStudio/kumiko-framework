@@ -5,7 +5,7 @@
 
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
 import { loginAs } from "./_helpers/login";
 
@@ -14,12 +14,20 @@ test.describe.configure({ mode: "serial" });
 
 // CI starts Playwright from the repo root, so fixture paths cannot be cwd-relative.
 const here = dirname(fileURLToPath(import.meta.url));
-const LOGO = resolve(here, "fixtures/logo-nordlicht.png");
 const PDF = resolve(here, "fixtures/hausordnung.pdf");
+
+// The title lives in the shell header: the editor has no header row of its own.
+function editorTitle(page: Page): Locator {
+  return page.locator('[data-kumiko-layout="shell-header"] h1');
+}
 
 // The subject editor loads lazily behind a plain input with the raw {{name}}
 // text; a click on that fallback can put the caret inside a placeholder token.
+// It also remounts once when the validation result delivers the placeholder
+// labels, which would drop the keystrokes typed meanwhile: the placeholder
+// rail lists the variables only after that result arrived.
 async function appendToSubject(page: Page, text: string): Promise<void> {
+  await expect(page.locator('[data-testid^="mail-placeholder-"]').first()).toBeVisible();
   const subject = page.locator("#mail-subject[contenteditable='true']");
   await expect(subject).toBeVisible();
   await subject.click();
@@ -36,9 +44,7 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
   await expect(row).toHaveCount(1);
   await row.getByRole("button", { name: "Bearbeiten" }).click();
 
-  await expect(page.getByTestId("document-designer-editor-title")).toContainText(
-    "Korrigierte Rechnung",
-  );
+  await expect(editorTitle(page)).toContainText("Korrigierte Rechnung");
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
 
   // The draft has no due date: the placeholder is flagged and publishing is blocked.
@@ -54,14 +60,11 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("v2");
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
 
-  // Logo as inline image, PDF as attachment.
-  await page.getByTestId("mail-resource-upload-open").click();
-  await page.setInputFiles("#mail-upload-image", LOGO);
-  await expect(page.getByTestId("mail-resource-row")).toHaveCount(1);
-  await expect(page.getByTestId("mail-content")).toContainText("logo-nordlicht");
+  // The draft has no resources yet; the logo comes from the layout header.
+  await expect(page.getByTestId("mail-resource-row")).toHaveCount(0);
   await page.getByTestId("mail-resource-upload-open").click();
   await page.setInputFiles("#mail-upload-attachment", PDF);
-  await expect(page.getByTestId("mail-resource-row")).toHaveCount(2);
+  await expect(page.getByTestId("mail-resource-row")).toHaveCount(1);
   await expect(
     page.getByTestId("mail-resource-row").filter({ hasText: "hausordnung.pdf" }),
   ).toHaveCount(1);
@@ -73,8 +76,12 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
   await expect(frame).toBeVisible();
   await expect(frame).toHaveAttribute("sandbox", "");
   await expect(
-    page.frameLocator('[data-testid="mail-preview-iframe"]').getByText("Ihre Rechnung ist da"),
+    page.frameLocator('[data-testid="mail-preview-iframe"]').getByText("Rechnung online ansehen"),
   ).toBeVisible();
+  // The logo appears once, from the tenant layout header.
+  await expect(page.frameLocator('[data-testid="mail-preview-iframe"]').locator("img")).toHaveCount(
+    1,
+  );
   await expect(page.getByTestId("mail-preview-attachments")).toContainText("hausordnung.pdf");
   await expect(page.getByTestId("mail-preview-checks")).toBeVisible();
   // A long sample value must not squeeze its label out of the rail.
@@ -104,7 +111,7 @@ test("switching the language with unsaved changes asks first and keeps the input
   await page.goto("/templates");
   const row = page.getByRole("row").filter({ hasText: "Korrigierte Rechnung" });
   await row.getByRole("button", { name: "Bearbeiten" }).click();
-  await expect(page.getByTestId("document-designer-editor-title")).toBeVisible();
+  await expect(editorTitle(page)).toBeVisible();
 
   await appendToSubject(page, " (geprüft)");
   const subject = page.locator("#mail-subject");

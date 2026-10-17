@@ -124,9 +124,32 @@ function neutralizeBraces(html: string): string {
 export type CompileDocumentBodyOptions = {
   // Returns the src for an `img[data-resource]` key; undefined drops the image.
   readonly resourceSrc?: (key: string) => string | undefined;
+  // Mail clients ignore document CSS, so a full-width logo needs an inline width cap.
+  readonly resourceImageMaxWidthPx?: number;
   // Mail clients ignore document CSS, so mail turns data-align into an inline style.
   readonly alignmentAsInlineStyle?: boolean;
+  // Same reason: a[data-button] only looks like a button through editor/print CSS.
+  readonly buttonAsInlineStyle?: boolean;
+  // Same reason: cell padding and table width only exist in editor/print CSS, so without
+  // inline styles a mail table renders its cells flush against each other.
+  readonly tableAsInlineStyle?: boolean;
+  // Replaces the default button look; only values from the layout appearance belong here.
+  readonly buttonInlineStyle?: string;
 };
+
+const MAIL_BUTTON_STYLE =
+  "display:inline-block;padding:10px 20px;border-radius:6px;background-color:#1f5468;color:#ffffff;font-weight:600;text-decoration:none";
+
+const MAIL_TABLE_STYLE = "width:100%;border-collapse:collapse";
+const MAIL_TABLE_CELL_STYLE = "padding:6px 12px;vertical-align:top;border-bottom:1px solid #e5e5e5";
+const MAIL_TABLE_HEAD_STYLE = "font-size:12px;font-weight:600;color:#6b7280;text-align:left";
+const MAIL_SMALL_STYLE = "font-size:12px;color:#6b7280";
+
+// Appended after an existing style (data-align) so the alignment survives.
+function appendStyle(element: ScanElement, style: string): void {
+  const existing = element.getAttribute("style");
+  element.setAttribute("style", existing === null ? style : `${existing};${style}`);
+}
 
 const RESOURCE_IMAGE_CONTENT_TYPES: ReadonlySet<string> = new Set([
   "image/png",
@@ -164,6 +187,7 @@ function rewriteAlignment(element: ScanElement): void {
 function rewriteResourceImage(
   element: ScanElement,
   resourceSrc: CompileDocumentBodyOptions["resourceSrc"],
+  maxWidthPx: number | undefined,
 ): void {
   const key = element.getAttribute("data-resource") ?? "";
   const src = isDocumentResourceKey(key) ? resourceSrc?.(key) : undefined;
@@ -174,6 +198,54 @@ function rewriteResourceImage(
   }
   element.setAttribute("src", src);
   element.removeAttribute("data-resource");
+  if (maxWidthPx !== undefined)
+    element.setAttribute("style", `max-width:${maxWidthPx}px;height:auto`);
+}
+
+function stripScriptsAndActiveContent(
+  root: ScanElement,
+  options: CompileDocumentBodyOptions,
+): void {
+  for (const element of Array.from(root.querySelectorAll("script"))) element.remove();
+  for (const element of Array.from(root.querySelectorAll("img[data-resource]"))) {
+    rewriteResourceImage(element, options.resourceSrc, options.resourceImageMaxWidthPx);
+  }
+  for (const element of Array.from(root.querySelectorAll("*"))) stripActiveContent(element);
+}
+
+function applyAlignmentInlineStyles(root: ScanElement): void {
+  for (const element of Array.from(root.querySelectorAll("[data-align]"))) {
+    rewriteAlignment(element);
+  }
+  for (const element of Array.from(root.querySelectorAll("[data-size]"))) {
+    element.removeAttribute("data-size");
+    appendStyle(element, MAIL_SMALL_STYLE);
+  }
+}
+
+function applyTableInlineStyles(root: ScanElement): void {
+  for (const table of Array.from(root.querySelectorAll("table"))) {
+    appendStyle(table, MAIL_TABLE_STYLE);
+  }
+  for (const cell of Array.from(root.querySelectorAll("td, th"))) {
+    appendStyle(cell, MAIL_TABLE_CELL_STYLE);
+  }
+  for (const head of Array.from(root.querySelectorAll("th"))) {
+    appendStyle(head, MAIL_TABLE_HEAD_STYLE);
+  }
+}
+
+function rewriteLinks(
+  root: ScanElement,
+  state: CompileState,
+  options: CompileDocumentBodyOptions,
+): void {
+  for (const element of Array.from(root.querySelectorAll("a[href]"))) {
+    rewriteLink(element, state);
+    if (options.buttonAsInlineStyle === true && element.hasAttribute("data-button")) {
+      element.setAttribute("style", options.buttonInlineStyle ?? MAIL_BUTTON_STYLE);
+    }
+  }
 }
 
 // Turns a sanitized document body into Handlebars source. Rows and links are
@@ -187,22 +259,13 @@ export function compileDocumentBodyToHandlebars(
   const state: CompileState = { variables, expressions: [] };
   const scrubbed = html.replaceAll(EXPRESSION_OPEN, "").replaceAll(EXPRESSION_CLOSE, "");
   const compiled = withParsedDocument(scrubbed, (root) => {
-    for (const element of Array.from(root.querySelectorAll("script"))) element.remove();
-    for (const element of Array.from(root.querySelectorAll("img[data-resource]"))) {
-      rewriteResourceImage(element, options.resourceSrc);
-    }
-    for (const element of Array.from(root.querySelectorAll("*"))) stripActiveContent(element);
-    if (options.alignmentAsInlineStyle === true) {
-      for (const element of Array.from(root.querySelectorAll("[data-align]"))) {
-        rewriteAlignment(element);
-      }
-    }
+    stripScriptsAndActiveContent(root, options);
+    if (options.alignmentAsInlineStyle === true) applyAlignmentInlineStyles(root);
+    if (options.tableAsInlineStyle === true) applyTableInlineStyles(root);
     for (const element of Array.from(root.querySelectorAll("span[data-variable]"))) {
       rewriteVariable(element, state);
     }
-    for (const element of Array.from(root.querySelectorAll("a[href]"))) {
-      rewriteLink(element, state);
-    }
+    rewriteLinks(root, state, options);
     for (const element of Array.from(root.querySelectorAll("tr[data-each]"))) {
       rewriteRepeatRow(element, state);
     }

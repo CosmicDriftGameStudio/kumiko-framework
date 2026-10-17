@@ -1,5 +1,6 @@
 // @runtime client
 import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
+import type { TemplateDiff } from "./layout-types.js";
 
 export type TemplateScope = "system" | "tenant";
 export type TemplateStatus = "draft" | "active" | "archived";
@@ -44,6 +45,9 @@ export type VariableInfo = {
   readonly type: VariableType;
   readonly label?: string;
   readonly required?: boolean;
+  readonly item?: Readonly<
+    Record<string, { readonly type: VariableType; readonly label?: string }>
+  >;
 };
 
 export type ValidationWarning = {
@@ -92,10 +96,23 @@ export type PdfPreviewResult = {
   readonly durationMs: number;
 };
 
+export type TenantOverrideRow = {
+  readonly tenantId: string;
+  readonly tenantName: string;
+  readonly templateId: string;
+  readonly locale: string;
+  readonly status: "active" | "draft";
+  readonly version: number;
+  readonly changedAt: string;
+  readonly changedBy: string | null;
+};
+
 export type TenantOverrides = {
   readonly activeOverrides: number;
   readonly draftOverrides: number;
   readonly totalTenants: number | null;
+  readonly rows: readonly TenantOverrideRow[];
+  readonly diff: TemplateDiff | null;
 };
 
 export type SaveResult = {

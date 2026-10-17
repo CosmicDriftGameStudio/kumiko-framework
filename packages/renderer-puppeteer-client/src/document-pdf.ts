@@ -76,6 +76,7 @@ const PRINT_CSS = [
   "[data-align=center]{text-align:center}",
   "[data-align=right]{text-align:right}",
   "[data-align=justify]{text-align:justify}",
+  "[data-size=small]{font-size:8pt;color:#555}",
   "img{max-width:100%}",
 ].join("");
 

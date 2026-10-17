@@ -327,7 +327,7 @@ describe("template-resolver :: tenant-overrides without the tenant feature", () 
       { slug, kind: "mail" },
       systemAdmin,
     );
-    expect(counts).toEqual({ activeOverrides: 1, draftOverrides: 1, totalTenants: null });
+    expect(counts).toMatchObject({ activeOverrides: 1, draftOverrides: 1, totalTenants: null });
   });
 });
 

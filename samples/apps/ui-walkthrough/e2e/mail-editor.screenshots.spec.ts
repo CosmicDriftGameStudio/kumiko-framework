@@ -4,15 +4,10 @@
 // mail-editor.spec.ts walks its own draft "Korrigierte Rechnung", so nothing
 // here depends on spec order. No test mail is sent from this spec.
 
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Page, test } from "@playwright/test";
 import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
 import { loginAs } from "./_helpers/login";
-
-// CI starts Playwright from the repo root, so the fixture path cannot be cwd-relative.
-const LOGO = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/logo-nordlicht.png");
 
 test.use({ locale: "de-DE", viewport: { width: 1280, height: 820 } });
 test.describe.configure({ mode: "serial" });
@@ -25,10 +20,18 @@ async function shot(page: Page, name: string): Promise<void> {
   await captureScreenshot(page, name);
 }
 
+// The shell header gets the title only what the actions leave over: a clipped h1 is a layout bug.
+async function expectTitleFits(page: Page): Promise<void> {
+  const title = page.locator('[data-kumiko-layout="shell-header"] h1');
+  await expect(title).toBeVisible();
+  const fits = await title.evaluate((element) => element.scrollWidth <= element.clientWidth);
+  expect(fits).toBe(true);
+}
+
 async function openEditor(page: Page): Promise<void> {
   await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
   await page.goto(EDITOR_URL);
-  await expect(page.getByTestId("document-designer-editor-title")).toContainText(
+  await expect(page.locator('[data-kumiko-layout="shell-header"] h1')).toContainText(
     "Rechnung versendet",
   );
   await expect(page.getByTestId("mail-placeholder-dueDate")).toHaveAttribute("data-bad", "true");
@@ -36,9 +39,15 @@ async function openEditor(page: Page): Promise<void> {
 
 test("mail-editor-edit", async ({ page }) => {
   await openEditor(page);
-  await page.getByTestId("mail-resource-upload-open").click();
-  await page.setInputFiles("#mail-upload-image", LOGO);
+  // The seeded draft carries the invoice PDF as resource.
   await expect(page.getByTestId("mail-resource-row")).toHaveCount(1);
+  await expectTitleFits(page);
+  // The upload scrolled the left rail down; the shot shows it from its top, with one block selected.
+  await page.evaluate(() => {
+    for (const rail of document.querySelectorAll("aside")) rail.scrollTo(0, 0);
+  });
+  await page.locator("a[data-button]").first().click();
+  await expect(page.getByTestId("document-block-options")).toBeVisible();
   await shot(page, "mail-editor-edit");
 });
 
@@ -54,16 +63,6 @@ test("mail-editor-edit-en-missing", async ({ page }) => {
   await openEditor(page);
   await page.getByTestId("mail-locale-switch").getByText("en", { exact: true }).click();
   await expect(page.getByTestId("mail-origin-bar")).toHaveAttribute("data-variant", "warn");
-  // Without status badges the actions must still sit on their own row, unwrapped.
-  const title = await page.getByTestId("document-designer-editor-title").boundingBox();
-  const testMail = await page.getByTestId("mail-test-mail-header").boundingBox();
-  const publish = await page.getByTestId("mail-header-publish").boundingBox();
-  expect(title).not.toBeNull();
-  expect(testMail).not.toBeNull();
-  expect(publish).not.toBeNull();
-  if (title !== null && testMail !== null && publish !== null) {
-    expect(testMail.y).toBeGreaterThanOrEqual(title.y + title.height);
-    expect(publish.y).toBe(testMail.y);
-  }
+  await expectTitleFits(page);
   await shot(page, "mail-editor-edit-en-missing");
 });

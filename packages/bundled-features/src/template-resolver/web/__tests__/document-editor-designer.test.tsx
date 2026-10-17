@@ -74,7 +74,7 @@ describe("DocumentTiptapEditor designer surface", () => {
     await waitFor(() => expect(currentHtml()).toContain('<tr data-each="lines">'));
     const bar = await screen.findByTestId("document-repeat-bar");
     expect(bar.textContent).toContain("Repeat · Invoice lines");
-    expect(bar.textContent).toContain("Keep rows together");
+    expect(bar.textContent).not.toContain("Keep rows together");
     await click("Repeat header row");
     await waitFor(() => expect(currentHtml()).toContain("data-repeat-header"));
     expect(sanitizeDocumentHtml(currentHtml())).toEqual({ ok: true, html: currentHtml() });

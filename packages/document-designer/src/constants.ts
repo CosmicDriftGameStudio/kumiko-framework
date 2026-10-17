@@ -14,6 +14,11 @@ export const PLATFORM_TEMPLATES_NAV_ID = "platform-templates" as const;
 export const BRANDING_SCREEN_QN = "managed-pages:screen:branding-settings" as const;
 export const BRANDING_QUERY_QN = "managed-pages:query:branding" as const;
 
+// Pinned like the branding names: the user features' constants are not exported to the web barrel.
+export const USER_ME_QUERY_QN = "user:query:user:me" as const;
+export const PROFILE_FEATURE_NAME = "user-profile" as const;
+export const PROFILE_SCREEN_ID = "profile" as const;
+
 export const DEFAULT_LAYOUT_SLUG = "default" as const;
 
 export type TemplateEditorKind = "mail" | "document-pdf" | "mail-layout" | "pdf-layout";

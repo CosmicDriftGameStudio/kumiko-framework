@@ -2,6 +2,7 @@ import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages"
 import type { RendererContext } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   collectDocumentResourceKeys,
+  isHexColor,
   type LayoutRegions,
   sanitizeDocumentHtml,
   TemplateNotFoundError,
@@ -127,6 +128,11 @@ export async function readDocumentFormat(
 
 export async function readTenantName(ctx: RendererContext): Promise<string> {
   return (await readConfigText(ctx, BRANDING_QN.title)) ?? "";
+}
+
+export async function readBrandingAccentColor(ctx: RendererContext): Promise<string | undefined> {
+  const value = await readConfigText(ctx, BRANDING_QN.accentColor);
+  return value !== undefined && isHexColor(value) ? value : undefined;
 }
 
 const LOGO_RESOURCE_KEY = "logo";

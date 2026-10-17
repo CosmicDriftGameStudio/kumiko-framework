@@ -102,12 +102,19 @@ const preview = {
 
 type Call = { readonly type: string; readonly payload: unknown };
 
-function fakeDispatcher(status: string, calls: Call[], validationAnswer = validation): Dispatcher {
-  const answer = (type: string): unknown => {
+function fakeDispatcher(
+  status: string,
+  calls: Call[],
+  validationAnswer = validation,
+  previewAnswer = preview,
+): Dispatcher {
+  const answer = (type: string, payload: unknown): unknown => {
     switch (type) {
       case "template-resolver:query:overview":
         return { rows: [overviewRow], nextCursor: null, total: 1 };
-      case "template-resolver:query:list":
+      case "template-resolver:query:list": {
+        const asked = (payload as { locale?: string } | undefined)?.locale;
+        if (asked !== undefined && asked !== "de") return [];
         return [
           {
             id: "t-1",
@@ -119,14 +126,17 @@ function fakeDispatcher(status: string, calls: Call[], validationAnswer = valida
             modifiedAt: "x",
           },
         ];
+      }
       case "template-resolver:query:find-by-id":
         return storedRow(status);
       case "template-resolver:query:validate":
         return validationAnswer;
       case "template-resolver:query:preview":
-        return preview;
+        return previewAnswer;
       case "template-resolver:query:usage":
         return { usedBy: [] };
+      case "user:query:user:me":
+        return { email: "editor@example.org" };
       default:
         return undefined;
     }
@@ -139,7 +149,7 @@ function fakeDispatcher(status: string, calls: Call[], validationAnswer = valida
     batch: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["batch"],
     query: (async (type: string, payload: unknown) => {
       calls.push({ type, payload });
-      const data = answer(type);
+      const data = answer(type, payload);
       return data === undefined
         ? {
             isSuccess: false,
@@ -172,7 +182,11 @@ const translations = mergeTranslations(
 );
 const MailEditor = createMailEditor(["de", "en"]);
 
-function renderEditor(dispatcher: Dispatcher, wrapper?: (children: ReactNode) => ReactNode): void {
+function renderEditor(
+  dispatcher: Dispatcher,
+  wrapper?: (children: ReactNode) => ReactNode,
+  navApi: NavApi = nav,
+): void {
   const editor = <MailEditor />;
   render(
     <LocaleProvider
@@ -182,7 +196,7 @@ function renderEditor(dispatcher: Dispatcher, wrapper?: (children: ReactNode) =>
       <DispatcherProvider dispatcher={dispatcher}>
         <UserRolesProvider roles={["TenantAdmin"]}>
           <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={nav}>
+            <NavProvider value={navApi}>
               {wrapper === undefined ? editor : wrapper(editor)}
             </NavProvider>
           </PrimitivesProvider>
@@ -192,31 +206,75 @@ function renderEditor(dispatcher: Dispatcher, wrapper?: (children: ReactNode) =>
   );
 }
 
-async function makeDirty(): Promise<void> {
-  const category = await screen.findByTestId("mail-editor-properties");
-  const marketing = Array.from(category.querySelectorAll("input,button,option")).find(
-    (node) => node.textContent === "Marketing" || (node as HTMLInputElement).value === "marketing",
+async function openPreview(): Promise<void> {
+  const switcher = await screen.findByTestId("mail-mode-switch");
+  const option = Array.from(switcher.querySelectorAll("button,input,label")).find(
+    (node) => node.textContent === "Preview",
   );
-  if (marketing === undefined) throw new Error("category control not found");
-  if (
-    marketing instanceof HTMLOptionElement &&
-    marketing.parentElement instanceof HTMLSelectElement
-  ) {
-    fireEvent.change(marketing.parentElement, { target: { value: "marketing" } });
-  } else {
-    fireEvent.click(marketing);
-  }
+  if (option === undefined) throw new Error("preview option not found");
+  fireEvent.click(option);
+  await screen.findByTestId("mail-preview-iframe");
+}
+
+async function makeDirty(): Promise<void> {
+  fireEvent.click(await screen.findByTestId("combobox-mail-category"));
+  const marketing = (await screen.findAllByText("Marketing")).find(
+    (node) => node.closest("[role=option], [cmdk-item]") !== null,
+  );
+  if (marketing === undefined) throw new Error("category option not found");
+  fireEvent.click(marketing);
 }
 
 afterEach(cleanup);
 
 describe("MailEditor", () => {
+  test("a language without a version shows an empty state and no editor, subject or raw parser text", async () => {
+    const englishNav: NavApi = { ...nav, searchParams: { ...nav.searchParams, locale: "en" } };
+    renderEditor(fakeDispatcher("draft", []), undefined, englishNav);
+    const canvas = await screen.findByTestId("mail-missing-locale");
+    expect(canvas.textContent).toContain(
+      "There is no version for English yet. Recipients with language en get the German version.",
+    );
+    expect(screen.getByTestId("mail-copy-locale").textContent).toBe("Copy from German");
+    expect(screen.getByTestId("mail-create-blank")).toBeTruthy();
+    expect(screen.queryByTestId("mail-subject")).toBeNull();
+    expect(screen.getByTestId("mail-sender")).toBeTruthy();
+    expect(screen.getByTestId("mail-placeholder-dueDate").getAttribute("data-bad")).toBeNull();
+    const text = document.body.textContent ?? "";
+    expect(text).not.toContain("Too small");
+    expect(text).not.toContain("expected string");
+  });
+
+  test("a missing subject is reported in plain words at the field, never as parser text", async () => {
+    const withIssue = {
+      ...validation,
+      canSave: false,
+      issues: [
+        {
+          path: "meta.subject",
+          code: "invalid_meta",
+          i18nKey: "templateResolver.errors.template.meta.subject.required",
+        },
+      ],
+    };
+    renderEditor(fakeDispatcher("draft", [], withIssue));
+    await waitFor(() => {
+      const text = document.body.textContent ?? "";
+      expect(text).toContain("The subject is missing.");
+    });
+    const text = document.body.textContent ?? "";
+    expect(text).not.toContain("Too small");
+    expect(text).not.toContain("expected string");
+  });
+
   test("publishing is disabled while a required placeholder is missing", async () => {
     renderEditor(fakeDispatcher("draft", []));
     const row = await screen.findByTestId("mail-placeholder-dueDate");
     expect(row.getAttribute("data-bad")).toBe("true");
+    expect(screen.getByTestId("document-designer-header-publish").hasAttribute("disabled")).toBe(
+      true,
+    );
     expect(screen.getByTestId("document-designer-publish").hasAttribute("disabled")).toBe(true);
-    expect(screen.getByTestId("mail-header-publish").hasAttribute("disabled")).toBe(true);
     await waitFor(() =>
       expect(screen.getByTestId("mail-editor-footer-message").textContent).toContain("Due date"),
     );
@@ -244,6 +302,44 @@ describe("MailEditor", () => {
       status: "draft",
       content: "<p>Hallo</p>",
       meta: { subject: "Ihre Rechnung", category: "marketing" },
+    });
+  });
+
+  test("the header carries save and the origin badge", async () => {
+    const calls: Call[] = [];
+    renderEditor(fakeDispatcher("draft", calls));
+    await makeDirty();
+    const save = screen.getByTestId("document-designer-header-save");
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
+    expect(screen.getByTestId("document-designer-editor-origin").textContent).not.toBe("");
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(calls.some((call) => call.type === "template-resolver:write:upsert-tenant")).toBe(
+        true,
+      ),
+    );
+  });
+
+  test("sender name and reply-to are part of the saved meta", async () => {
+    const calls: Call[] = [];
+    renderEditor(fakeDispatcher("draft", calls));
+    fireEvent.change(await screen.findByTestId("mail-sender"), {
+      target: { value: "Nordlicht Immobilien" },
+    });
+    fireEvent.change(screen.getByTestId("mail-reply-to"), {
+      target: { value: "buchhaltung@example.org" },
+    });
+    const save = screen.getByTestId("document-designer-save");
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(calls.some((call) => call.type === "template-resolver:write:upsert-tenant")).toBe(
+        true,
+      ),
+    );
+    const upsert = calls.find((call) => call.type === "template-resolver:write:upsert-tenant");
+    expect(upsert?.payload).toMatchObject({
+      meta: { senderName: "Nordlicht Immobilien", replyTo: "buchhaltung@example.org" },
     });
   });
 
@@ -285,16 +381,49 @@ describe("MailEditor", () => {
     expect(screen.getByTestId("mail-preview-attachments").textContent).toContain("agb.pdf");
   });
 
+  test("the test mail goes to the own address and can leave the attachments out", async () => {
+    const calls: Call[] = [];
+    renderEditor(fakeDispatcher("draft", calls));
+    await openPreview();
+    await waitFor(() =>
+      expect((screen.getByTestId("mail-test-recipient") as HTMLInputElement).value).toBe(
+        "editor@example.org",
+      ),
+    );
+    expect(screen.getByTestId("mail-preview-to").textContent).toBe("editor@example.org");
+    fireEvent.click(screen.getByTestId("mail-test-send"));
+    await waitFor(() =>
+      expect(calls.some((call) => call.type === "template-resolver:write:send-test")).toBe(true),
+    );
+    expect(
+      calls.find((call) => call.type === "template-resolver:write:send-test")?.payload,
+    ).toMatchObject({
+      includeAttachments: true,
+    });
+
+    const attachments = document.getElementById("mail-test-attachments");
+    if (attachments === null) throw new Error("attachment checkbox not found");
+    fireEvent.click(attachments);
+    fireEvent.click(screen.getByTestId("mail-test-send"));
+    await waitFor(() =>
+      expect(
+        calls.filter((call) => call.type === "template-resolver:write:send-test"),
+      ).toHaveLength(2),
+    );
+    expect(
+      calls.filter((call) => call.type === "template-resolver:write:send-test")[1]?.payload,
+    ).toMatchObject({ includeAttachments: false });
+  });
+
+  test("a template without attachments says so instead of offering the checkbox", async () => {
+    renderEditor(fakeDispatcher("draft", [], validation, { ...preview, attachments: [] }));
+    await openPreview();
+    expect(await screen.findByTestId("mail-test-no-attachments")).toBeTruthy();
+    expect(document.getElementById("mail-test-attachments")).toBeNull();
+  });
+
   test("the record picker link only shows with a provider", async () => {
-    const open = async (): Promise<void> => {
-      const switcher = await screen.findByTestId("mail-mode-switch");
-      const option = Array.from(switcher.querySelectorAll("button,input,label")).find(
-        (node) => node.textContent === "Preview",
-      );
-      if (option === undefined) throw new Error("preview option not found");
-      fireEvent.click(option);
-      await screen.findByTestId("mail-preview-iframe");
-    };
+    const open = openPreview;
     renderEditor(fakeDispatcher("draft", []));
     await open();
     expect(screen.queryByTestId("mail-record-picker-open")).toBeNull();

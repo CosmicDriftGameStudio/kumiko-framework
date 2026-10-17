@@ -17,6 +17,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.documentEditor.divider": "Divider",
     "template-resolver.documentEditor.heading3": "Heading 3",
     "template-resolver.documentEditor.image": "Image",
+    "template-resolver.documentEditor.imageBlock": "Image · inline",
     "template-resolver.documentEditor.imageAlt": "Alt text (optional)",
     "template-resolver.documentEditor.insert": "Insert",
     "template-resolver.documentEditor.insertPlaceholder": "Placeholder",
@@ -36,7 +37,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.documentEditor.alignJustify": "Justified",
     "template-resolver.documentEditor.repeatBarList": "Repeat · {list}",
     "template-resolver.documentEditor.repeatHeader": "Repeat header row",
-    "template-resolver.documentEditor.keepRowsTogether": "Keep rows together",
     "template-resolver.documentEditor.paragraph": "Paragraph",
     "template-resolver.documentEditor.paragraphStyle": "Paragraph style",
     "template-resolver.documentEditor.placeholder": "Write your text…",
@@ -86,7 +86,24 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.collection.kindNotAllowed":
       "“{detail}” templates are written through their own editor, not through a collection.",
     "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",
-    "templateResolver.errors.template.invalidMeta": "Invalid template settings: {detail}",
+    "templateResolver.errors.template.invalidMeta": "The template settings are invalid.",
+    "templateResolver.errors.template.meta.subject.required": "The subject is missing.",
+    "templateResolver.errors.template.meta.subject.invalid":
+      "The subject is invalid (at most 200 characters, no line breaks).",
+    "templateResolver.errors.template.meta.previewText.required": "The preview text is missing.",
+    "templateResolver.errors.template.meta.previewText.invalid":
+      "The preview text is invalid (at most 200 characters, no line breaks).",
+    "templateResolver.errors.template.meta.senderName.required": "The sender name is missing.",
+    "templateResolver.errors.template.meta.senderName.invalid":
+      "The sender name is invalid (at most 80 characters, no line breaks).",
+    "templateResolver.errors.template.meta.replyTo.required": "The reply-to address is missing.",
+    "templateResolver.errors.template.meta.replyTo.invalid":
+      "The reply-to address is not a valid email address.",
+    "templateResolver.errors.template.meta.layoutSlug.required": "The layout is missing.",
+    "templateResolver.errors.template.meta.layoutSlug.invalid": "The chosen layout is invalid.",
+    "templateResolver.errors.template.meta.fileName.required": "The file name is missing.",
+    "templateResolver.errors.template.meta.fileName.invalid":
+      "The file name is invalid: no slashes, quotes, semicolons or two dots in a row.",
     "templateResolver.errors.template.unknownPlaceholders": "Unknown placeholders: {detail}",
     "templateResolver.errors.template.missingRequiredPlaceholders":
       "Required placeholders are not used: {detail}",
@@ -112,7 +129,8 @@ export const defaultTranslations: TranslationsByLocale = {
       "There is no PDF template “{slug}” for this tenant or the system.",
     "template-resolver.documentEditor.htmlSource": "HTML source",
     "template-resolver.documentEditor.removeBlock": "Remove block",
-    "template-resolver.documentEditor.selectedBlock": "Selected block",
+    "template-resolver.documentEditor.list": "List",
+    "template-resolver.documentEditor.more": "More",
     "template-resolver.documentEditor.showHtml": "HTML",
     "template-resolver.documentEditor.underline": "Underline",
     "template-resolver.editor.saveFailed": "Save failed.",

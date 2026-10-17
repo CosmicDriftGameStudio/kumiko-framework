@@ -187,7 +187,7 @@ const mailDraft = (content: string, extra: Record<string, unknown> = {}) => ({
 });
 
 describe("template-resolver :: preview query", () => {
-  test("a stored system-only template renders with sample values and two list rows", async () => {
+  test("a stored system-only template renders with sample values and three list rows", async () => {
     const preview = await stack.http.queryOk<Preview>(
       TemplateResolverQueries.preview,
       { slug: SLUG, kind: "mail", locale: LOCALE },
@@ -198,7 +198,7 @@ describe("template-resolver :: preview query", () => {
     expect(preview.html).toContain("15. März 2026");
     expect(preview.html).toContain("Beratung");
     expect(preview.html).toContain("Lizenz");
-    expect(preview.html).not.toContain("Dritte Zeile");
+    expect(preview.html).toContain("Dritte Zeile");
     expect(preview.checks.every((check) => check.ok)).toBe(true);
   });
 
@@ -334,6 +334,15 @@ describe("template-resolver :: send-test write", () => {
     expect(message?.to).toBe(addressOf(admin.id));
     expect(message?.subject).toBe("[TEST] Entwurf RE-2026-001");
     expect(message?.html).toContain("ENTWURF RE-2026-001");
+  });
+
+  test("prefixSubject false sends the subject without the test prefix", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE, prefixSubject: false },
+      adminOf(59),
+    );
+    expect(emailTransport.sent[0]?.subject).toBe("Rechnung RE-2026-001");
   });
 
   test("an extra recipient field in the payload changes nothing", async () => {
@@ -532,6 +541,58 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
     expect(file).toMatchObject({ kind: "file", fileName: "offer.pdf" });
     expect(Buffer.from(file?.content ?? [])).toEqual(Buffer.from(PDF_BYTES));
     expect(emailTransport.sent[0]?.attachments?.some((a) => a.kind === "inline")).toBe(true);
+  });
+
+  test("includeAttachments=false drops the files but keeps the inline images", async () => {
+    const admin = adminOf(61);
+    await storeTemplateWithResources(admin, "draft");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      { ...mailDraft(DRAFT_BODY), includeAttachments: false },
+      admin,
+    );
+    const attachments = emailTransport.sent[0]?.attachments ?? [];
+    expect(attachments.some((a) => a.kind === "file")).toBe(false);
+    expect(attachments.some((a) => a.kind === "inline")).toBe(true);
+  });
+
+  test("includeAttachments=true sends the files like the default", async () => {
+    const admin = adminOf(62);
+    await storeTemplateWithResources(admin, "draft");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      { ...mailDraft(DRAFT_BODY), includeAttachments: true },
+      admin,
+    );
+    expect(emailTransport.sent[0]?.attachments?.some((a) => a.kind === "file")).toBe(true);
+  });
+
+  test("a test mail carries the template's sender name and reply-to", async () => {
+    const admin = adminOf(63);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      mailDraft("<p>x</p>", {
+        meta: {
+          subject: "Entwurf",
+          senderName: "Nordlicht Immobilien GmbH",
+          replyTo: "buchhaltung@nordlicht-immobilien.de",
+        },
+      }),
+      admin,
+    );
+    expect(emailTransport.sent[0]).toMatchObject({
+      fromName: "Nordlicht Immobilien GmbH",
+      replyTo: "buchhaltung@nordlicht-immobilien.de",
+    });
+  });
+
+  test("a reply-to that is not an email address is rejected", async () => {
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.sendTest,
+      mailDraft("<p>x</p>", { meta: { subject: "Entwurf", replyTo: "not-an-address" } }),
+      adminOf(64),
+    );
+    expect(err.code).toBe("validation_error");
   });
 
   test("the resources of another tenant's row are not used", async () => {

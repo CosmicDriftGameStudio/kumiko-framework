@@ -62,6 +62,8 @@ export type RenderResponse = (
       html: string;
       text: string;
       previewText?: string;
+      fromName?: string;
+      replyTo?: string;
       attachments?: readonly MailAttachmentRef[];
     }
   | {

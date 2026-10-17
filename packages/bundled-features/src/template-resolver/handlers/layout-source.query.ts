@@ -4,7 +4,9 @@ import * as z from "zod";
 import { FALLBACK_LOCALE } from "../constants.js";
 import { type LayoutRegions, readLayoutRegions } from "../layout-regions.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.js";
 import { localeSchema, templateSlugSchema } from "./shared.js";
+import { parseStoredJson } from "./template-gates.js";
 
 export type LayoutSourceRow = {
   readonly id: string;
@@ -19,6 +21,8 @@ export type LayoutSourceResponse = {
   readonly regions: LayoutRegions;
   readonly effectiveFormat: "html" | "mjml" | null;
   readonly mjmlSource: string | null;
+  /** Appearance of the effective mail layout; invalid stored meta reads as defaults (empty). */
+  readonly meta: MailLayoutMeta;
   readonly locale: string;
 };
 
@@ -67,6 +71,48 @@ function pickEditedRows(
   return { tenantRow, systemRow };
 }
 
+function readEffectiveRegions(
+  effective: TemplateResourceRow | null,
+  effectiveFormat: "html" | "mjml" | null,
+): LayoutRegions {
+  return effective !== null && effectiveFormat === "html"
+    ? readLayoutRegions(effective.content ?? "")
+    : EMPTY_REGIONS;
+}
+
+function readMjmlSource(
+  systemRow: TemplateResourceRow | null,
+  isSystemAdmin: boolean,
+): string | null {
+  const exposesMjml = isSystemAdmin && systemRow !== null && layoutFormat(systemRow) === "mjml";
+  return exposesMjml ? (systemRow.content ?? "") : null;
+}
+
+function buildLayoutSource(input: {
+  readonly kind: "mail-layout" | "pdf-layout";
+  readonly locale: string | undefined;
+  readonly isSystemAdmin: boolean;
+  readonly tenantRow: TemplateResourceRow | null;
+  readonly systemRow: TemplateResourceRow | null;
+}): LayoutSourceResponse {
+  const { kind, locale, isSystemAdmin, tenantRow, systemRow } = input;
+  const effective = tenantRow ?? systemRow;
+  const effectiveFormat = effective === null ? null : layoutFormat(effective);
+  return {
+    tenant: tenantRow === null ? null : toSourceRow(tenantRow),
+    system:
+      systemRow === null
+        ? null
+        : { ...toSourceRow(systemRow), contentFormat: systemRow.contentFormat },
+    regions: readEffectiveRegions(effective, effectiveFormat),
+    effectiveFormat,
+    mjmlSource: readMjmlSource(systemRow, isSystemAdmin),
+    meta:
+      kind === "mail-layout" ? readMailLayoutMeta(parseStoredJson(effective?.meta ?? null)) : {},
+    locale: effective?.locale ?? locale ?? FALLBACK_LOCALE,
+  };
+}
+
 export const layoutSourceQuery = defineQueryHandler({
   name: "layout-source",
   schema: z.object({
@@ -85,24 +131,6 @@ export const layoutSourceQuery = defineQueryHandler({
       slug,
     });
     const { tenantRow, systemRow } = pickEditedRows(rows, isSystemAdmin, locale);
-    const effective = tenantRow ?? systemRow;
-    const effectiveFormat = effective === null ? null : layoutFormat(effective);
-    return {
-      tenant: tenantRow === null ? null : toSourceRow(tenantRow),
-      system:
-        systemRow === null
-          ? null
-          : { ...toSourceRow(systemRow), contentFormat: systemRow.contentFormat },
-      regions:
-        effective !== null && effectiveFormat === "html"
-          ? readLayoutRegions(effective.content ?? "")
-          : EMPTY_REGIONS,
-      effectiveFormat,
-      mjmlSource:
-        isSystemAdmin && systemRow !== null && layoutFormat(systemRow) === "mjml"
-          ? (systemRow.content ?? "")
-          : null,
-      locale: effective?.locale ?? locale ?? FALLBACK_LOCALE,
-    };
+    return buildLayoutSource({ kind, locale, isSystemAdmin, tenantRow, systemRow });
   },
 });

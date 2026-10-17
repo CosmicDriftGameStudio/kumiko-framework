@@ -34,6 +34,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.kind.layout": { en: "Layout", de: "Layout" },
   "documentDesigner.source.system": { en: "System", de: "System" },
   "documentDesigner.source.tenant": { en: "Tenant", de: "Mandant" },
+  "documentDesigner.origin.system": { en: "System template", de: "System-Vorlage" },
+  "documentDesigner.origin.override": { en: "Customised", de: "Mandanten-Anpassung" },
   "documentDesigner.status.active": { en: "Active", de: "Aktiv" },
   "documentDesigner.status.draft": { en: "Draft", de: "Entwurf" },
   "documentDesigner.status.archived": { en: "Archived", de: "Archiviert" },
@@ -86,20 +88,56 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.appearance.title": { en: "Appearance", de: "Darstellung" },
   "documentDesigner.appearance.width": { en: "Width", de: "Breite" },
   "documentDesigner.appearance.font": { en: "Font", de: "Schrift" },
-  "documentDesigner.appearance.systemFont": {
-    en: "System font (Helvetica, Arial)",
-    de: "Systemschrift (Helvetica, Arial)",
-  },
   "documentDesigner.appearance.background": { en: "Outer background", de: "Hintergrund außen" },
-  "documentDesigner.appearance.backgroundValue": { en: "#f5f5f5", de: "#f5f5f5" },
-  "documentDesigner.appearance.pageFormat": { en: "Page format", de: "Seitenformat" },
-  "documentDesigner.appearance.hint": {
-    en: "The appearance is fixed. Custom fonts and colours will follow.",
-    de: "Darstellung ist fest vorgegeben. Eigene Schriften und Farben kommen später.",
+  "documentDesigner.appearance.font.sans": {
+    en: "System font (Arial, Helvetica)",
+    de: "Systemschrift (Arial, Helvetica)",
+  },
+  "documentDesigner.appearance.font.serif": {
+    en: "Serif font (Georgia)",
+    de: "Serifenschrift (Georgia)",
+  },
+  "documentDesigner.appearance.fontHint": {
+    en: "Custom fonts in mails come later. PDF uses the bundled framework font.",
+    de: "Eigene Schriften in Mails kommen sp\u00e4ter. PDF nutzt die geb\u00fcndelte Schrift des Frameworks.",
+  },
+  "documentDesigner.appearance.backgroundInvalid": {
+    en: "Enter a colour like #f3f2ee.",
+    de: "Eine Farbe wie #f3f2ee angeben.",
+  },
+  "documentDesigner.appearance.accentLine": {
+    en: "Accent line at the top",
+    de: "Akzentlinie oben",
+  },
+  "documentDesigner.appearance.accentLine.branding": {
+    en: "Accent colour from branding",
+    de: "Akzentfarbe aus Branding",
+  },
+  "documentDesigner.appearance.accentLine.none": { en: "None", de: "Keine" },
+  "documentDesigner.appearance.buttonStyle": { en: "Button style", de: "Button-Stil" },
+  "documentDesigner.appearance.buttonStyle.filled-rounded": {
+    en: "Filled, rounded",
+    de: "Gef\u00fcllt, abgerundet",
+  },
+  "documentDesigner.appearance.buttonStyle.filled-square": {
+    en: "Filled, square",
+    de: "Gef\u00fcllt, eckig",
+  },
+  "documentDesigner.appearance.buttonStyle.outline": { en: "Outline", de: "Umriss" },
+  "documentDesigner.appearance.fromMjml": {
+    en: "The appearance comes from this layout's MJML source.",
+    de: "Die Darstellung kommt aus der MJML-Quelle dieses Layouts.",
   },
   "documentDesigner.mjml.title": { en: "MJML source", de: "MJML-Quelle" },
+  "documentDesigner.mjml.hint": {
+    en: "Platform admins can edit the MJML source directly. Tenants only see the draft mode.",
+    de: "Plattform-Admins k\u00f6nnen die MJML-Quelle direkt bearbeiten. Mandanten sehen nur den Entwurfs-Modus.",
+  },
+  "documentDesigner.renderer.title": { en: "Renderer", de: "Renderer" },
+  "documentDesigner.renderer.mjml": { en: "MJML", de: "MJML" },
+  "documentDesigner.renderer.chromium": { en: "Chromium (PDF)", de: "Chromium (PDF)" },
+  "documentDesigner.renderer.active": { en: "active", de: "aktiv" },
 
-  "documentDesigner.editor.crumb": { en: "Templates", de: "Vorlagen" },
   "documentDesigner.editor.title.mail": { en: "Mail layout", de: "Mail-Layout" },
   "documentDesigner.editor.title.pdf": { en: "Letterhead", de: "Briefpapier" },
   "documentDesigner.editor.kindSwitch": { en: "Layout kind", de: "Layout-Art" },
@@ -148,8 +186,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
 
   "documentDesigner.editor.diff.open": {
-    en: "Difference to the system layout",
-    de: "Unterschied zum System-Layout",
+    en: "Show difference",
+    de: "Unterschied anzeigen",
   },
   "documentDesigner.editor.diff.title": {
     en: "Difference to the system layout",
@@ -160,8 +198,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Ihr Layout entspricht dem System-Layout.",
   },
   "documentDesigner.editor.reset.open": {
-    en: "Reset to system layout",
-    de: "Auf System-Layout zurücksetzen",
+    en: "Reset",
+    de: "Zurücksetzen",
   },
   "documentDesigner.editor.reset.title": {
     en: "Reset to system layout?",
@@ -174,6 +212,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.editor.reset.confirm": { en: "Reset", de: "Zurücksetzen" },
 
   "documentDesigner.editor.region.header": { en: "Header", de: "Kopf" },
+  "documentDesigner.editor.logoCaption": {
+    en: "Logo · from branding, max. 180 px wide",
+    de: "Logo · aus Branding, max. 180 px breit",
+  },
   "documentDesigner.editor.region.content": { en: "Template content", de: "Inhalt der Vorlage" },
   "documentDesigner.editor.region.signature": { en: "Signature area", de: "Signatur-Bereich" },
   "documentDesigner.editor.region.footer": { en: "Footer", de: "Fuß" },
@@ -238,10 +280,6 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Preview",
     de: "Vorschau",
   },
-  "documentDesigner.mail.header.testMail": {
-    en: "Send test mail to me",
-    de: "Test-Mail an mich",
-  },
   "documentDesigner.mail.language.de": {
     en: "German",
     de: "Deutsch",
@@ -255,8 +293,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Spanisch",
   },
   "documentDesigner.mail.origin.overrides": {
-    en: 'Overrides the system template "{title}" v{version}.',
-    de: "Überschreibt die System-Vorlage „{title}“ v{version}.",
+    en: "Overrides the system template v{version}.",
+    de: "Überschreibt die System-Vorlage v{version}.",
   },
   "documentDesigner.mail.origin.tenantOnly": {
     en: "This template exists only for your tenant.",
@@ -275,8 +313,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Archiviert.",
   },
   "documentDesigner.mail.origin.reset": {
-    en: "Reset to system template",
-    de: "Auf System-Vorlage zurücksetzen",
+    en: "Reset",
+    de: "Zurücksetzen",
   },
   "documentDesigner.mail.origin.system": {
     en: "You are viewing the system template v{version}. Saving creates a customisation for your tenant.",
@@ -287,20 +325,36 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "System-Vorlage v{version}. Speichern ändert sie für alle Mandanten ohne eigene Anpassung.",
   },
   "documentDesigner.mail.origin.missing": {
-    en: "There is no own version for {language}. Recipients with language {locale} get the {fallback} version.",
-    de: "Für {language} gibt es keine eigene Fassung. Empfänger mit Sprache {locale} bekommen die Fassung {fallback}.",
+    en: "There is no version for {language} yet.",
+    de: "Für {language} gibt es noch keine Fassung.",
   },
-  "documentDesigner.mail.origin.missingNoFallback": {
-    en: "There is no own version for {language}.",
-    de: "Für {language} gibt es keine eigene Fassung.",
+  "documentDesigner.mail.missing.text": {
+    en: "There is no version for {language} yet. Recipients with language {locale} get the {fallbackAdjective} version.",
+    de: "Für {language} gibt es noch keine Fassung. Empfänger mit Sprache {locale} bekommen die {fallbackAdjective} Fassung.",
+  },
+  "documentDesigner.mail.missing.textNoFallback": {
+    en: "There is no version for {language} yet.",
+    de: "Für {language} gibt es noch keine Fassung.",
+  },
+  "documentDesigner.mail.missing.copy": {
+    en: "Copy from {language}",
+    de: "Aus {language} kopieren",
+  },
+  "documentDesigner.mail.languageAdjective.de": {
+    en: "German",
+    de: "deutsche",
+  },
+  "documentDesigner.mail.languageAdjective.en": {
+    en: "English",
+    de: "englische",
+  },
+  "documentDesigner.mail.languageAdjective.es": {
+    en: "Spanish",
+    de: "spanische",
   },
   "documentDesigner.mail.origin.copyNote": {
     en: "Copying a system version does not bring images or attachments along; upload them again afterwards.",
     de: "Beim Kopieren einer System-Fassung kommen Bilder und Anhänge nicht mit; laden Sie sie danach neu hoch.",
-  },
-  "documentDesigner.mail.origin.copyFrom": {
-    en: "Copy from {fallback}",
-    de: "Aus {fallback} kopieren",
   },
   "documentDesigner.mail.origin.createBlank": {
     en: "Start empty",
@@ -338,6 +392,14 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "System placeholders",
     de: "System-Platzhalter",
   },
+  "documentDesigner.mail.system.layout": {
+    en: "Layout",
+    de: "Layout",
+  },
+  "documentDesigner.mail.system.hint": {
+    en: "Filled in by the platform. Imprint and unsubscribe link come from the layout.",
+    de: "Füllt die Plattform. Impressum und Abmeldelink liefert das Layout.",
+  },
   "documentDesigner.mail.resource.title": {
     en: "Resources",
     de: "Ressourcen",
@@ -367,8 +429,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Entfernen",
   },
   "documentDesigner.mail.resource.caption": {
-    en: "{key} · embedded as CID",
-    de: "{key} · als CID eingebettet",
+    en: "{key} · {size} · embedded as CID",
+    de: "{key} · {size} · als CID eingebettet",
   },
   "documentDesigner.mail.resource.hint": {
     en: "Inline images are sent as CID. Attachments from PDF templates are generated when the mail is sent.",
@@ -446,6 +508,18 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Default sender of the tenant",
     de: "Standard-Absender des Mandanten",
   },
+  "documentDesigner.mail.props.senderPlaceholder": {
+    en: "Name shown to recipients",
+    de: "Name, den Empfänger sehen",
+  },
+  "documentDesigner.mail.props.senderHint": {
+    en: "The address comes from the platform's mail delivery.",
+    de: "Die Adresse kommt vom Mail-Versand der Plattform.",
+  },
+  "documentDesigner.mail.props.replyTo": {
+    en: "Reply to",
+    de: "Antwort an",
+  },
   "documentDesigner.mail.props.category": {
     en: "Category",
     de: "Kategorie",
@@ -481,6 +555,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.mail.attachments.file": {
     en: "File",
     de: "Datei",
+  },
+  "documentDesigner.mail.attachments.hint": {
+    en: "PDF templates are generated when the mail is sent; files go out as uploaded.",
+    de: "PDF-Vorlagen werden beim Versand erzeugt, Dateien gehen so mit, wie sie hochgeladen wurden.",
   },
   "documentDesigner.mail.pdfLink.title": {
     en: "Attachment from PDF template",
@@ -525,6 +603,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.mail.versions.line": {
     en: "v{version} {when}, {name}",
     de: "v{version} {when}, {name}",
+  },
+  "documentDesigner.mail.versions.hint": {
+    en: "Every save creates a new version. The active one is what recipients get.",
+    de: "Jedes Speichern legt eine neue Version an. Aktiv ist die Version, die Empfänger bekommen.",
   },
   "documentDesigner.mail.footer.missing": {
     en: 'Required placeholder "{names}" is missing in subject, preview text and content. Publishing is blocked.',
@@ -583,8 +665,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Verwerfen",
   },
   "documentDesigner.mail.preview.bar": {
-    en: 'Preview with sample values from the placeholder schema. Rendered through "{layout}".',
-    de: "Vorschau mit Beispielwerten aus dem Platzhalter-Schema. Gerendert über „{layout}“.",
+    en: 'Preview with sample values from the placeholder schema. Rendered through "Mail layout v{version}", renderer: MJML.',
+    de: "Vorschau mit Beispielwerten aus dem Platzhalter-Schema. Gerendert über „Mail-Layout v{version}“, Renderer: MJML.",
   },
   "documentDesigner.mail.preview.barPlain": {
     en: "Preview with sample values from the placeholder schema.",
@@ -626,6 +708,14 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Mail preview",
     de: "Mail-Vorschau",
   },
+  "documentDesigner.mail.preview.from": {
+    en: "From",
+    de: "Von",
+  },
+  "documentDesigner.mail.preview.to": {
+    en: "To",
+    de: "An",
+  },
   "documentDesigner.mail.preview.samples": {
     en: "Sample values",
     de: "Beispielwerte",
@@ -646,6 +736,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Checks",
     de: "Prüfung",
   },
+  "documentDesigner.mail.preview.checksHint": {
+    en: "What the server found while rendering this mail.",
+    de: "Das hat der Server beim Rendern dieser Mail gefunden.",
+  },
   "documentDesigner.mail.testMail.title": {
     en: "Test mail",
     de: "Test-Mail",
@@ -658,13 +752,21 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Your address",
     de: "Ihre Adresse",
   },
-  "documentDesigner.mail.testMail.prefix": {
-    en: "Subject with [TEST] prefix",
+  "documentDesigner.mail.testMail.changeAddress": {
+    en: "Change address",
+    de: "Adresse ändern",
+  },
+  "documentDesigner.mail.testMail.prefixSubject": {
+    en: "Prefix the subject with [TEST]",
     de: "Betreff mit Präfix [TEST]",
   },
   "documentDesigner.mail.testMail.attachments": {
-    en: "Attachments are sent along",
-    de: "Anhänge werden mitgesendet",
+    en: "Send attachments along",
+    de: "Anhang mitsenden",
+  },
+  "documentDesigner.mail.testMail.noAttachments": {
+    en: "This template has no attachments",
+    de: "Diese Vorlage hat keine Anhänge",
   },
   "documentDesigner.mail.testMail.send": {
     en: "Send test mail",

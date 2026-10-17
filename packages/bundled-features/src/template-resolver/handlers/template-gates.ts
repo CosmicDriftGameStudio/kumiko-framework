@@ -24,12 +24,24 @@ const PLACEHOLDER_VALIDATED_KINDS: ReadonlySet<TemplateKind> = new Set([
   "pdf-layout",
 ]);
 
+// The parser's wording is English and meant for logs; the UI gets a key per setting instead.
+const META_FIELDS_WITH_MESSAGES: ReadonlySet<string> = new Set([
+  "subject",
+  "previewText",
+  "senderName",
+  "replyTo",
+  "layoutSlug",
+  "fileName",
+]);
+
 function metaIssueToFieldIssue(issue: TemplateMetaIssue): FieldIssue {
+  const hasMessage = META_FIELDS_WITH_MESSAGES.has(issue.field);
   return {
     path: issue.path,
     code: "invalid_meta",
-    i18nKey: "templateResolver.errors.template.invalidMeta",
-    params: { detail: issue.message },
+    i18nKey: hasMessage
+      ? `templateResolver.errors.template.meta.${issue.field}.${issue.missing ? "required" : "invalid"}`
+      : "templateResolver.errors.template.invalidMeta",
   };
 }
 

@@ -6,6 +6,8 @@ import {
 import { useMutation, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { EmptyState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
+import { originOf } from "./editor-header.js";
+import { EditorInfoBar } from "./editor-shell.js";
 import type {
   LayoutKind,
   LayoutSourceView,
@@ -30,15 +32,22 @@ function metaValueText(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-export function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNode {
+// "full" shows the tenant's version as it reads (everything but the removed system blocks).
+export function DiffView({
+  data,
+  mode = "diff",
+}: {
+  readonly data: TemplateDiff;
+  readonly mode?: "diff" | "full";
+}): ReactNode {
   const t = useTranslation();
-  const { data, loading } = useQuery<TemplateDiff>(TemplateResolverQueries.diffToSystem, {
-    id: tenantId,
-  });
-  if (loading || data === null) return <LoadingState />;
-  if (data.identical) return <EmptyState title={t("documentDesigner.editor.diff.identical")} />;
+  if (mode === "diff" && data.identical) {
+    return <EmptyState title={t("documentDesigner.editor.diff.identical")} />;
+  }
   // Diff blocks have no identity beyond their position.
-  const entries = data.blocks.map((block, position) => ({ block, key: `block-${position}` }));
+  const entries = data.blocks
+    .map((block, position) => ({ block, key: `block-${position}` }))
+    .filter(({ block }) => mode === "diff" || block.change !== "removed");
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-1" data-testid="document-designer-diff">
@@ -48,11 +57,12 @@ export function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNod
             data-change={block.change}
             className={`whitespace-pre-wrap rounded px-2 py-1 font-mono text-xs ${DIFF_TONE[block.change]}`}
           >
-            {DIFF_MARK[block.change]} {block.content}
+            {mode === "diff" && `${DIFF_MARK[block.change]} `}
+            {block.content}
           </li>
         ))}
       </ul>
-      {data.meta.length > 0 && (
+      {mode === "diff" && data.meta.length > 0 && (
         <ul className="flex flex-col gap-1" data-testid="document-designer-diff-meta">
           {data.meta.map((entry) => (
             <li key={entry.key} className="rounded bg-muted px-2 py-1 font-mono text-xs">
@@ -62,6 +72,39 @@ export function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNod
         </ul>
       )}
     </div>
+  );
+}
+
+export function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNode {
+  const { data, loading } = useQuery<TemplateDiff>(TemplateResolverQueries.diffToSystem, {
+    id: tenantId,
+  });
+  if (loading || data === null) return <LoadingState />;
+  return <DiffView data={data} />;
+}
+
+export function DiffDrawer({
+  tenantId,
+  onClose,
+}: {
+  readonly tenantId: string;
+  readonly onClose: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Drawer, Modal } = usePrimitives();
+  const title = t("documentDesigner.editor.diff.title");
+  const body = <DiffPanel tenantId={tenantId} />;
+  const onOpenChange = (open: boolean): void => {
+    if (!open) onClose();
+  };
+  return Drawer === undefined ? (
+    <Modal open onOpenChange={onOpenChange} title={title}>
+      {body}
+    </Modal>
+  ) : (
+    <Drawer open onOpenChange={onOpenChange} title={title}>
+      {body}
+    </Drawer>
   );
 }
 
@@ -119,7 +162,7 @@ export function OriginBar({
   readonly onReset: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Button, Dialog, Drawer, Modal, Text } = usePrimitives();
+  const { Button, Dialog } = usePrimitives();
   const [diffOpen, setDiffOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const resetToSystem = useMutation(TemplateResolverHandlers.resetToSystem);
@@ -127,16 +170,8 @@ export function OriginBar({
   const canDiff = tenant !== null && system?.contentFormat === "html";
   const canReset = tenant !== null && system !== null && !isSystemAdmin;
 
-  const diffTitle = t("documentDesigner.editor.diff.title");
-  const diffBody = tenant === null ? null : <DiffPanel tenantId={tenant.id} />;
-
-  return (
-    <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-muted px-4 py-2.5"
-      data-testid="document-designer-origin-bar"
-    >
-      <Text>{originText(t, { isSystemAdmin, source, kind, userCount, overrides })}</Text>
-      <div className="grow" />
+  const links = (
+    <>
       {canDiff && (
         <Button
           variant="link"
@@ -155,29 +190,36 @@ export function OriginBar({
           {t("documentDesigner.editor.reset.open")}
         </Button>
       )}
-      {diffOpen &&
-        (Drawer === undefined ? (
-          <Modal open onOpenChange={setDiffOpen} title={diffTitle}>
-            {diffBody}
-          </Modal>
-        ) : (
-          <Drawer open onOpenChange={setDiffOpen} title={diffTitle}>
-            {diffBody}
-          </Drawer>
-        ))}
-      <Dialog
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        title={t("documentDesigner.editor.reset.title")}
-        description={t("documentDesigner.editor.reset.description")}
-        confirmLabel={t("documentDesigner.editor.reset.confirm")}
-        variant="danger"
-        onConfirm={async () => {
-          if (tenant === null) return;
-          const result = await resetToSystem.mutate({ id: tenant.id });
-          if (result.isSuccess) onReset();
-        }}
-      />
-    </div>
+    </>
+  );
+  return (
+    <EditorInfoBar
+      tone={tenant !== null ? "active" : "muted"}
+      testId="document-designer-origin-bar"
+      origin={originOf(tenant === null, system !== null)}
+      links={links}
+      overlays={
+        <>
+          {diffOpen && tenant !== null && (
+            <DiffDrawer tenantId={tenant.id} onClose={() => setDiffOpen(false)} />
+          )}
+          <Dialog
+            open={resetOpen}
+            onOpenChange={setResetOpen}
+            title={t("documentDesigner.editor.reset.title")}
+            description={t("documentDesigner.editor.reset.description")}
+            confirmLabel={t("documentDesigner.editor.reset.confirm")}
+            variant="danger"
+            onConfirm={async () => {
+              if (tenant === null) return;
+              const result = await resetToSystem.mutate({ id: tenant.id });
+              if (result.isSuccess) onReset();
+            }}
+          />
+        </>
+      }
+    >
+      {originText(t, { isSystemAdmin, source, kind, userCount, overrides })}
+    </EditorInfoBar>
   );
 }

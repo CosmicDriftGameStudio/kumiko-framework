@@ -78,6 +78,11 @@ export type {
 } from "./handlers/overview.query.js";
 export { localeSchema } from "./handlers/shared.js";
 export {
+  isHexColor,
+  type MailLayoutAppearance,
+  mailLayoutAppearance,
+} from "./layout-appearance.js";
+export {
   type LayoutRegions,
   readLayoutRegions,
   type SanitizeLayoutResult,
@@ -116,10 +121,12 @@ export {
   type LayoutTemplateMeta,
   MAIL_CATEGORIES,
   type MailCategory,
+  type MailLayoutMeta,
   type MailTemplateMeta,
   type PdfTemplateMeta,
   parseTemplateMeta,
   pdfAttachmentFileNamePatternSchema,
+  readMailLayoutMeta,
   readPdfTemplateMeta,
   type TemplateMeta,
   type TemplateMetaIssue,

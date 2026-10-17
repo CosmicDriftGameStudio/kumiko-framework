@@ -40,7 +40,10 @@ export function createTemplateMailRenderer(
       html: response.html,
       text: response.text,
       ...(response.previewText !== undefined && { previewText: response.previewText }),
+      ...(response.fromName !== undefined && { fromName: response.fromName }),
+      ...(response.replyTo !== undefined && { replyTo: response.replyTo }),
       ...(response.attachments !== undefined && { attachments: response.attachments }),
+      ...(response.layout !== undefined && { layout: response.layout }),
     };
   };
 }

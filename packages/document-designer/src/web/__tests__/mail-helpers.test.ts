@@ -23,42 +23,51 @@ const row: TemplateRowView = {
   content: "<p>Hi</p>",
   variableSchema: "{}",
   linkedResources: "{}",
-  meta: JSON.stringify({ subject: "S", previewText: "P", layoutSlug: "brand", sender: "kebab" }),
+  meta: JSON.stringify({
+    subject: "S",
+    previewText: "P",
+    layoutSlug: "brand",
+    senderName: "Nordlicht",
+    replyTo: "buchhaltung@example.org",
+  }),
   modifiedAt: null,
 };
 
 describe("mail draft", () => {
-  test("loads subject, preview text, layout and body and keeps the sender aside", () => {
-    const loaded = loadedMailOf(row);
-    expect(loaded.draft).toEqual({
+  test("loads subject, preview text, layout and body", () => {
+    expect(loadedMailOf(row)).toEqual({
       subject: "S",
       previewText: "P",
       layoutSlug: "brand",
       category: "",
+      senderName: "Nordlicht",
+      replyTo: "buchhaltung@example.org",
       body: "<p>Hi</p>",
     });
-    expect(loaded.sender).toBe("kebab");
   });
 
-  test("meta leaves out empty optional fields and passes the sender through", () => {
-    const { draft, sender } = loadedMailOf(row);
-    expect(buildMeta({ ...draft, previewText: "", layoutSlug: "" }, sender)).toEqual({
-      subject: "S",
-      sender: "kebab",
-    });
-    expect(buildMeta({ ...draft, category: "marketing" }, undefined)).toEqual({
+  test("meta leaves out empty optional fields", () => {
+    const draft = loadedMailOf(row);
+    expect(
+      buildMeta({ ...draft, previewText: "", layoutSlug: "", senderName: "", replyTo: "" }),
+    ).toEqual({ subject: "S" });
+    expect(buildMeta({ ...draft, category: "marketing" })).toEqual({
       subject: "S",
       previewText: "P",
       layoutSlug: "brand",
       category: "marketing",
+      senderName: "Nordlicht",
+      replyTo: "buchhaltung@example.org",
     });
   });
 
   test("dirty compares every field", () => {
-    const { draft } = loadedMailOf(row);
+    const draft = loadedMailOf(row);
     expect(isDraftDirty(draft, draft)).toBe(false);
     expect(isDraftDirty({ ...draft, body: "<p>x</p>" }, draft)).toBe(true);
     expect(isDraftDirty({ ...draft, category: "marketing" }, draft)).toBe(true);
+    expect(isDraftDirty({ ...draft, senderName: "Other" }, draft)).toBe(true);
+    expect(isDraftDirty({ ...draft, replyTo: "other@example.org" }, draft)).toBe(true);
   });
 });
 

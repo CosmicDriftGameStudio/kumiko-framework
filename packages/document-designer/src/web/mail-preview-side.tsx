@@ -1,10 +1,13 @@
 // @runtime client
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { displayValue } from "./mail-draft.js";
 import type { MailPreview, MailValidation, PreviewCheck } from "./mail-types.js";
 import { usePreviewRecordPicker } from "./preview-record-picker.js";
-import { RailHint, RailRow, RailSection } from "./rail.js";
+import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
+import type { OwnAddress } from "./use-own-address.js";
+
+const noop = (): void => undefined;
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
@@ -91,24 +94,67 @@ function RecordPickerLink({
   );
 }
 
+export type TestMailControls = {
+  readonly pending: boolean;
+  readonly onSend: () => void;
+  readonly includeAttachments: boolean;
+  readonly onIncludeAttachments: (next: boolean) => void;
+  readonly prefixSubject: boolean;
+  readonly onPrefixSubject: (next: boolean) => void;
+};
+
+function TestMailRecipient({ own }: { readonly own: OwnAddress }): ReactNode {
+  const t = useTranslation();
+  const nav = useNav();
+  const { Field, Input, Link } = usePrimitives();
+  const { profileScreenId } = own;
+  return (
+    <RailField>
+      <Field id="mail-test-recipient" label={t("documentDesigner.mail.testMail.recipient")}>
+        <Input
+          kind="text"
+          id="mail-test-recipient"
+          name="mail-test-recipient"
+          testId="mail-test-recipient"
+          value={own.email ?? t("documentDesigner.mail.testMail.ownAddress")}
+          onChange={noop}
+          disabled
+        />
+      </Field>
+      {profileScreenId !== null && (
+        <Link
+          href={nav.hrefFor({ screenId: profileScreenId })}
+          onPress={() => nav.navigate({ screenId: profileScreenId })}
+          testId="mail-test-recipient-edit"
+        >
+          {t("documentDesigner.mail.testMail.changeAddress")}
+        </Link>
+      )}
+    </RailField>
+  );
+}
+
 export function PreviewSide({
   preview,
   validation,
   slug,
   locale,
+  own,
   testMail,
 }: {
   readonly preview: MailPreview | null;
   readonly validation: MailValidation | null;
   readonly slug: string;
   readonly locale: string;
-  readonly testMail: { readonly pending: boolean; readonly onSend: () => void };
+  readonly own: OwnAddress;
+  readonly testMail: TestMailControls;
 }): ReactNode {
   const t = useTranslation();
-  const { Button, Field, Text } = usePrimitives();
+  const { Button, Field, Input, Text } = usePrimitives();
+  const hasAttachments = preview?.attachments.some((a) => a.kind !== "inline") === true;
   const [picked, setPicked] = useState<Readonly<Record<string, unknown>> | null>(null);
   return (
-    <div className="flex flex-col" data-testid="mail-preview-side">
+    <div data-testid="mail-preview-side">
       <RailSection
         title={t("documentDesigner.mail.preview.samples")}
         action={<RecordPickerLink slug={slug} locale={locale} onPick={setPicked} />}
@@ -117,14 +163,43 @@ export function PreviewSide({
         <RailHint>{t("documentDesigner.mail.preview.samplesHint")}</RailHint>
       </RailSection>
       <RailSection title={t("documentDesigner.mail.testMail.title")}>
-        <div className="flex flex-col gap-2 px-2">
-          <Field id="mail-test-recipient" label={t("documentDesigner.mail.testMail.recipient")}>
-            <Text>{t("documentDesigner.mail.testMail.ownAddress")}</Text>
+        <TestMailRecipient own={own} />
+        <RailField>
+          <Field
+            id="mail-test-prefix"
+            label={t("documentDesigner.mail.testMail.prefixSubject")}
+            layout="inline"
+          >
+            <Input
+              kind="boolean"
+              id="mail-test-prefix"
+              name="mail-test-prefix"
+              value={testMail.prefixSubject}
+              onChange={testMail.onPrefixSubject}
+            />
           </Field>
-          <Text variant="muted">✓ {t("documentDesigner.mail.testMail.prefix")}</Text>
-          <Text variant="muted">✓ {t("documentDesigner.mail.testMail.attachments")}</Text>
+          {hasAttachments ? (
+            <Field
+              id="mail-test-attachments"
+              label={t("documentDesigner.mail.testMail.attachments")}
+              layout="inline"
+            >
+              <Input
+                kind="boolean"
+                id="mail-test-attachments"
+                name="mail-test-attachments"
+                value={testMail.includeAttachments}
+                onChange={testMail.onIncludeAttachments}
+              />
+            </Field>
+          ) : (
+            <Text variant="muted" testId="mail-test-no-attachments">
+              {t("documentDesigner.mail.testMail.noAttachments")}
+            </Text>
+          )}
           <Button
             variant="secondary"
+            width="full"
             disabled={testMail.pending}
             loading={testMail.pending}
             onClick={testMail.onSend}
@@ -132,7 +207,7 @@ export function PreviewSide({
           >
             {t("documentDesigner.mail.testMail.send")}
           </Button>
-        </div>
+        </RailField>
         <RailHint>{t("documentDesigner.mail.testMail.hint")}</RailHint>
       </RailSection>
       <RailSection title={t("documentDesigner.mail.preview.checks")} testId="mail-preview-checks">
@@ -145,6 +220,7 @@ export function PreviewSide({
             bad={!check.ok}
           />
         ))}
+        <RailHint>{t("documentDesigner.mail.preview.checksHint")}</RailHint>
       </RailSection>
     </div>
   );

@@ -13,6 +13,8 @@ export const EMPTY_DRAFT: MailDraft = {
   previewText: "",
   layoutSlug: "",
   category: "",
+  senderName: "",
+  replyTo: "",
   body: "",
 };
 
@@ -23,6 +25,33 @@ export const PLACEHOLDER_SYMBOL: Readonly<Record<PlaceholderType, string>> = {
   link: "↗",
   list: "≡",
 };
+
+// Filled in by the layout around the content, so a template that never uses them is fine.
+export const LAYOUT_OWNED_PLACEHOLDERS: ReadonlySet<string> = new Set([
+  "imprint",
+  "unsubscribeUrl",
+]);
+
+export const SYSTEM_PLACEHOLDER_TYPE: Readonly<Record<string, PlaceholderType>> = {
+  imprint: "link",
+  unsubscribeUrl: "link",
+};
+
+type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
+
+export function systemPlaceholderLabel(t: Translate, name: string): string {
+  const key = `documentDesigner.placeholder.${name}`;
+  const translated = t(key);
+  return translated === key ? name : translated;
+}
+
+// Chips in the editors show these instead of the raw system names.
+export function systemLabelMap(
+  t: Translate,
+  names: readonly string[],
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(names.map((name) => [name, systemPlaceholderLabel(t, name)]));
+}
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -48,34 +77,28 @@ function textOf(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-export type LoadedMail = {
-  readonly draft: MailDraft;
-  // The sender is passed through untouched: the editor does not edit it.
-  readonly sender: unknown;
-};
-
-export function loadedMailOf(row: TemplateRowView | null): LoadedMail {
-  if (row === null) return { draft: EMPTY_DRAFT, sender: undefined };
+export function loadedMailOf(row: TemplateRowView | null): MailDraft {
+  if (row === null) return EMPTY_DRAFT;
   const meta = parseJsonRecord(row.meta);
   return {
-    draft: {
-      subject: textOf(meta["subject"]),
-      previewText: textOf(meta["previewText"]),
-      layoutSlug: textOf(meta["layoutSlug"]),
-      category: categoryOf(meta["category"]),
-      body: row.content,
-    },
-    sender: meta["sender"],
+    subject: textOf(meta["subject"]),
+    previewText: textOf(meta["previewText"]),
+    layoutSlug: textOf(meta["layoutSlug"]),
+    category: categoryOf(meta["category"]),
+    senderName: textOf(meta["senderName"]),
+    replyTo: textOf(meta["replyTo"]),
+    body: row.content,
   };
 }
 
-export function buildMeta(draft: MailDraft, sender: unknown): Record<string, unknown> {
+export function buildMeta(draft: MailDraft): Record<string, unknown> {
   return {
     subject: draft.subject,
     ...(draft.previewText !== "" && { previewText: draft.previewText }),
     ...(draft.layoutSlug !== "" && { layoutSlug: draft.layoutSlug }),
     ...(draft.category !== "" && { category: draft.category }),
-    ...(sender !== undefined && { sender }),
+    ...(draft.senderName !== "" && { senderName: draft.senderName }),
+    ...(draft.replyTo !== "" && { replyTo: draft.replyTo }),
   };
 }
 
@@ -85,6 +108,8 @@ export function isDraftDirty(current: MailDraft, saved: MailDraft): boolean {
     current.previewText !== saved.previewText ||
     current.layoutSlug !== saved.layoutSlug ||
     current.category !== saved.category ||
+    current.senderName !== saved.senderName ||
+    current.replyTo !== saved.replyTo ||
     current.body !== saved.body
   );
 }

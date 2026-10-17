@@ -1,5 +1,6 @@
 // @runtime client
 import type { ContentEditorProps } from "@cosmicdrift/kumiko-renderer";
+import type { ReactNode } from "react";
 
 export type DocumentToolbarBlock =
   | "image"
@@ -39,6 +40,11 @@ export type DocumentEditorProps = ContentEditorProps & {
   readonly chrome?: DocumentEditorChrome;
   /** "compact" renders the placeholder and block buttons icon-only with a tooltip, for narrow columns. Default "full". */
   readonly toolbar?: "full" | "compact";
+  /** Canvas only: wraps the editable area in a caller-owned page (letterhead, margins) instead of the default mail paper. */
+  readonly renderPaper?: (editable: ReactNode) => ReactNode;
+  /** Canvas only: renders the toolbar (and its insert panel) into this element instead of above the editor;
+   *  null renders none. Lets several region editors share one toolbar that follows the focused one. */
+  readonly toolbarHost?: HTMLElement | null;
   /** Called with the handle once the editor exists and with null when it is destroyed. */
   readonly onEditorReady?: (handle: DocumentEditorHandle) => void;
 };

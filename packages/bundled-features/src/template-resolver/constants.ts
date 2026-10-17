@@ -65,6 +65,9 @@ export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
 export const PDF_PAGE_FORMATS = ["A4", "Letter"] as const;
 export type PdfPageFormat = (typeof PDF_PAGE_FORMATS)[number];
 
+// Colors end up inside MJML attributes, so only a strict hex is ever written there.
+export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
 export const DEFAULT_MAIL_LAYOUT_SLUG = "default";
 
 // The mail transport enforces no size limit of its own; 10 MiB is a common provider ceiling.

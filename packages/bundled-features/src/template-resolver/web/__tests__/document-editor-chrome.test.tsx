@@ -142,10 +142,11 @@ describe("DocumentTiptapEditor labels, handle and previews", () => {
     await screen.findByRole("button", { name: "Underline" });
     await waitFor(() => {
       const label = document.querySelector(".ProseMirror span.uppercase");
-      expect(label?.textContent).toBe("Image");
+      expect(label?.textContent).toBe("Image · inline");
     });
     fireEvent.click(screen.getByRole("button", { name: "Underline" }));
-    fireEvent.click(screen.getByRole("button", { name: "HTML" }));
+    fireEvent.keyDown(screen.getByRole("button", { name: "More" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "HTML" }));
     const source = await screen.findByLabelText("HTML source");
     await waitFor(() =>
       expect(source.querySelector("pre")?.textContent).toContain('data-resource="logo"'),

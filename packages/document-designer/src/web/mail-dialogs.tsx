@@ -2,9 +2,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 
-export type LeaveTarget =
-  | { readonly kind: "locale"; readonly locale: string }
-  | { readonly kind: "back" };
+export type LeaveTarget = { readonly kind: "locale"; readonly locale: string };
 
 export type ConfirmDialog =
   | { readonly kind: "none" }
