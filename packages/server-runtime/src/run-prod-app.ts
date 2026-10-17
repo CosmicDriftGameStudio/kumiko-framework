@@ -104,7 +104,7 @@ import {
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
-  isTierResolverPlugin,
+  requireTierResolverPlugin,
   type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
@@ -1012,11 +1012,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   if (resolvedEffectiveFeatures === undefined) {
     const tierResolverUsage = findTierResolverUsage(features);
     if (tierResolverUsage) {
-      const plugin = tierResolverUsage.options;
-      if (!isTierResolverPlugin(plugin)) {
-        throw new Error("tier-resolver registration options must provide a build() factory");
-      }
-      resolvedEffectiveFeatures = await plugin.build({ db, registry, cacheSync });
+      resolvedEffectiveFeatures = await requireTierResolverPlugin(tierResolverUsage).build({
+        db,
+        registry,
+        cacheSync,
+      });
     }
   }
 

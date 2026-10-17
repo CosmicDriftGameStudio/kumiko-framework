@@ -39,6 +39,7 @@ import { tenantTable } from "../../tenant/schema/tenant.js";
 import { seedTenantMembership } from "../../tenant/testing.js";
 import { createUserFeature } from "../../user/feature.js";
 import {
+  DESTRUCTION_STAGE_TICK_BUDGET_MS,
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_FAILED_EVENT_QN,
   TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_QN,
@@ -403,6 +404,7 @@ describe("tenant-lifecycle :: full sweep pipeline", () => {
 // destroy-hook fails, does that stall every OTHER destroying tenant's sweep
 // progress in the same tick?" without a second full stack.
 let selectivePoisonTargetTenantId: TenantId | null = null;
+const deadlinesSeenByHook: number[] = [];
 
 function createSelectivePoisonTenantDataFeature() {
   return defineFeature("test-selective-poison-tenant-data", (r) => {
@@ -410,7 +412,8 @@ function createSelectivePoisonTenantDataFeature() {
     // EXT_EXTERNAL_RESOURCE — the pipeline's FIRST stage — so the poison
     // fires on the very first sweep tick instead of several stages in.
     r.useExtension(EXT_EXTERNAL_RESOURCE, "selective-poison-pill", {
-      destroyTenant: async (tenantId: TenantId) => {
+      destroyTenant: async (tenantId: TenantId, hookCtx) => {
+        if (hookCtx.deadlineAt !== undefined) deadlinesSeenByHook.push(hookCtx.deadlineAt);
         if (tenantId === selectivePoisonTargetTenantId) {
           throw new Error("selective-poison");
         }
@@ -474,6 +477,15 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
     await isolationStack.cleanup();
   });
 
+  beforeEach(async () => {
+    resetTenantLifecycleGateCacheForTests();
+    await resetTestTables(isolationStack.db, [
+      tenantTable,
+      tenantComplianceProfileTable,
+      eventsTable,
+    ]);
+  });
+
   async function seedDestroyingTenant(id: TenantId): Promise<void> {
     await isolationStack.http.writeOk(
       TenantHandlers.create,
@@ -490,6 +502,7 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
 
   test("tenant A's poisoned destroy-hook does not block tenant B's sweep progress", async () => {
     selectivePoisonTargetTenantId = tenantA;
+    deadlinesSeenByHook.length = 0;
     await seedDestroyingTenant(tenantA);
     await seedDestroyingTenant(tenantB);
 
@@ -508,6 +521,26 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
     expect(rowB[0]?.["status"]).toBe("destroying"); // still mid-pipeline, but progressed
     const eventsB = await loadAggregate(isolationStack.db, tenantB, tenantB);
     expect(eventsB.some((e) => e.type.endsWith("tenant-destruction-stage-succeeded"))).toBe(true);
+  });
+
+  test("one sweep tick splits a single stage budget across the destroying tenants", async () => {
+    selectivePoisonTargetTenantId = null;
+    deadlinesSeenByHook.length = 0;
+    await seedDestroyingTenant(tenantA);
+    await seedDestroyingTenant(tenantB);
+
+    await runTenantDestructionSweep({
+      db: isolationStack.db,
+      registry: isolationStack.registry,
+    });
+    const finishedAt = Date.now();
+
+    expect(deadlinesSeenByHook).toHaveLength(2);
+    const [earliest, latest] = [...deadlinesSeenByHook].sort((a, b) => a - b);
+    // Tenant 1 gets half of the tick window, so no single tenant can consume the whole budget
+    // and the tenant behind it still starts with time left.
+    expect(earliest).toBeLessThanOrEqual(finishedAt + DESTRUCTION_STAGE_TICK_BUDGET_MS / 2);
+    expect(latest).toBeLessThanOrEqual(finishedAt + DESTRUCTION_STAGE_TICK_BUDGET_MS);
   });
 });
 

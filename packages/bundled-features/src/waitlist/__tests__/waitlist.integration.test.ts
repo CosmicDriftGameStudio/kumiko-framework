@@ -61,6 +61,7 @@ async function requestUserDeletion(userId: string): Promise<void> {
   expect(result.isSuccess).toBe(true);
 }
 let adminNoticeRecipient: string | null = null;
+let recipientResolverFails = false;
 
 const TENANT_ADMIN: SessionUser = {
   id: crypto.randomUUID(),
@@ -72,7 +73,10 @@ beforeAll(async () => {
   stack = await createWaitlistTestStack({
     appName: "Acme",
     // Async on purpose: apps read the recipient from config, which only resolves async.
-    notifyRecipient: async () => adminNoticeRecipient,
+    notifyRecipient: async () => {
+      if (recipientResolverFails) throw new Error("config down");
+      return adminNoticeRecipient;
+    },
   });
 });
 
@@ -82,6 +86,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   adminNoticeRecipient = null;
+  recipientResolverFails = false;
   await resetWaitlistTestState(stack);
 });
 
@@ -208,6 +213,16 @@ describe("waitlist submit", () => {
     await submit(validBody("notice2@example.com"));
     expect(mailsTo("ops@example.com")).toHaveLength(1);
     expect(await entries()).toHaveLength(2);
+  });
+
+  test("a rejecting notifyRecipient resolver never fails the submit", async () => {
+    adminNoticeRecipient = "ops@example.com";
+    recipientResolverFails = true;
+    const res = await submit(validBody("resolver-down@example.com"));
+    expect(res.status).toBe(200);
+    expect(await entries()).toHaveLength(1);
+    expect(mailsTo("resolver-down@example.com")).toHaveLength(1);
+    expect(mailsTo("ops@example.com")).toHaveLength(0);
   });
 });
 

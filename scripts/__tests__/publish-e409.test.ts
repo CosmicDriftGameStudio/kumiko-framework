@@ -126,19 +126,32 @@ afterAll(() => {
   rmSync(stubDir, { recursive: true, force: true });
 });
 
+// Redirected into stubDir so warnings written by the script under test never land in
+// the real job summary when this suite runs inside GitHub Actions.
+function stepSummaryPath(): string {
+  return join(stubDir, "step-summary.md");
+}
+
 function runBash(
   script: string,
   stubEnv: Record<string, string>,
-): { exitCode: number; stdout: string; stderr: string } {
+): { exitCode: number; stdout: string; stderr: string; stepSummary: string } {
+  rmSync(stepSummaryPath(), { force: true });
   // Passed via env, not interpolated into the stub: npm output containing `$`
   // or backticks must reach the script verbatim.
   const result = Bun.spawnSync(["bash", "-c", script], {
-    env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}`, ...stubEnv },
+    env: {
+      ...process.env,
+      PATH: `${stubDir}:${process.env.PATH ?? ""}`,
+      GITHUB_STEP_SUMMARY: stepSummaryPath(),
+      ...stubEnv,
+    },
   });
   return {
     exitCode: result.exitCode ?? -1,
     stdout: result.stdout.toString("utf-8"),
     stderr: result.stderr.toString("utf-8"),
+    stepSummary: existsSync(stepSummaryPath()) ? readFileSync(stepSummaryPath(), "utf-8") : "",
   };
 }
 
@@ -354,7 +367,13 @@ function runSkipBranch(
   distTagLs: string,
   remoteHasTag = true,
   distTagExitCode = 0,
-): { exitCode: number; stdout: string; npmCalls: string[] } {
+): {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  stepSummary: string;
+  npmCalls: string[];
+} {
   const callLog = join(stubDir, "npm-calls.log");
   rmSync(callLog, { force: true });
   const script =
@@ -375,13 +394,13 @@ function runSkipBranch(
       'echo "skipped=$skipped"',
     ].join("\n") + "\n";
   // The extracted branch ends at `continue`; the closing `fi` is re-added above.
-  const { exitCode, stdout } = runBash(script, {
+  const result = runBash(script, {
     STUB_CALL_LOG: callLog,
     STUB_DIST_TAG_LS: distTagLs,
     STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
     STUB_DIST_TAG_EXIT: String(distTagExitCode),
   });
-  return { exitCode, stdout, npmCalls: readNpmCalls(callLog) };
+  return { ...result, npmCalls: readNpmCalls(callLog) };
 }
 
 describe("publish-with-oidc.sh already-on-registry skip branch", () => {
@@ -396,10 +415,21 @@ describe("publish-with-oidc.sh already-on-registry skip branch", () => {
   });
 
   test("a rejected kumiko-tmp removal does not fail the run", () => {
-    const { exitCode, stdout } = runSkipBranch("latest: 0.233.0\\nkumiko-tmp: 0.233.0\\n", false, 1);
+    const { exitCode, stdout, stderr, stepSummary, npmCalls } = runSkipBranch(
+      "latest: 0.233.0\\nkumiko-tmp: 0.233.0\\n",
+      false,
+      1,
+    );
     expect(exitCode).toBe(0);
     expect(stdout).toContain("skipped=1");
     expect(stdout).toContain("New tag: @cosmicdrift/kumiko-types@0.233.0");
+    expect(npmCalls).toContain("dist-tag rm @cosmicdrift/kumiko-types kumiko-tmp");
+    expect(stderr).toContain(
+      "::warning::@cosmicdrift/kumiko-types: removing the kumiko-tmp dist-tag failed",
+    );
+    expect(stepSummary).toContain(
+      "- :warning: @cosmicdrift/kumiko-types: removing the kumiko-tmp dist-tag failed",
+    );
   });
 
   test("emits New tag for a registry version whose tag is missing on origin", () => {

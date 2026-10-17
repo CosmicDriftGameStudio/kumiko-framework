@@ -93,6 +93,15 @@ export function isTierResolverPlugin(v: unknown): v is TierResolverPlugin {
   return isPlainObject(v) && typeof v["build"] === "function";
 }
 
+export function requireTierResolverPlugin(
+  usage: RegistrarExtensionRegistration,
+): TierResolverPlugin {
+  if (!isTierResolverPlugin(usage.options)) {
+    throw new Error("tier-resolver registration options must provide a build() factory");
+  }
+  return usage.options;
+}
+
 export function findTierResolverUsage(
   features: readonly FeatureDefinition[],
 ): RegistrarExtensionRegistration | undefined {
