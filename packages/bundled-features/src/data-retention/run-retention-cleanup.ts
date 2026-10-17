@@ -57,7 +57,7 @@ import {
   type WhereObject,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
-import { deleteStoredFileAndDerivatives } from "@cosmicdrift/kumiko-framework/derivatives";
+import { deleteFileRefBytes } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
   type EntityDefinition,
@@ -386,11 +386,11 @@ async function isFileRefSharedByOtherRow(
 // not abort the whole tenant run.
 async function deleteFileFailingClosed(
   key: string,
-  store: Parameters<typeof deleteStoredFileAndDerivatives>[1],
+  files: FileContext,
   logContext: string,
 ): Promise<readonly string[]> {
   try {
-    return await deleteStoredFileAndDerivatives(key, store, "data-retention:hardDelete");
+    return await deleteFileRefBytes(files, { storageKey: key }, "data-retention:hardDelete");
   } catch (err) {
     // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
     console.warn(
@@ -477,7 +477,6 @@ async function purgeHardDeleteRowWithFiles(args: {
     return false;
   }
   const files = args.files;
-  const store = { list: files.list, delete: (key: string) => files.ref(key).delete() };
 
   let anyFailed = false;
   for (const fileRef of toDelete) {
@@ -485,7 +484,7 @@ async function purgeHardDeleteRowWithFiles(args: {
     if (typeof key !== "string" || key.length === 0) continue;
     const failedKeys = await deleteFileFailingClosed(
       key,
-      store,
+      files,
       `tenant=${args.tenantId} entity=${args.entityName} row=${rowId}`,
     );
     if (failedKeys.length > 0) {

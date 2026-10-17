@@ -162,6 +162,18 @@ describe("createFileContext", () => {
     expect(() => files.ref("")).toThrow(/must start with/);
   });
 
+  test("listFromFileRef lists a handed-over row's key and its derivatives, nothing beside them", async () => {
+    const provider = createInMemoryFileProvider();
+    await provider.write("t2/b.jpg", new Uint8Array([1]));
+    await provider.write("t2/b.thumb-0123456789abcdef.jpg", new Uint8Array([2]));
+    await provider.write("t2/bb.jpg", new Uint8Array([3]));
+    const files = createFileContext(() => Promise.resolve(provider), "t1");
+
+    const keys = await files.listFromFileRef({ storageKey: "t2/b.jpg" });
+    expect([...keys].sort()).toEqual(["t2/b.jpg", "t2/b.thumb-0123456789abcdef.jpg"]);
+    await expect(files.listFromFileRef({ storageKey: "../t3/x.jpg" })).rejects.toThrow();
+  });
+
   test("the provider is resolved once and memoized across ref() and list()", async () => {
     const provider = createInMemoryFileProvider();
     let resolveCount = 0;

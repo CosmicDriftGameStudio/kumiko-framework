@@ -76,6 +76,10 @@ export function createFileContext(
       assertSafeStorageKey(row.storageKey);
       return createFileHandle(row.storageKey, getProvider);
     },
+    listFromFileRef: async (row) => {
+      assertSafeStorageKey(row.storageKey);
+      return (await getProvider()).list(storageKeyStemPrefix(row.storageKey));
+    },
     list: async (prefix) => {
       if (tenantId !== undefined && !prefix.startsWith(`${tenantId}/`)) {
         throw new Error(`FileContext.list: prefix must start with "${tenantId}/"`);
