@@ -20,6 +20,8 @@ import { templateResourceEntity } from "../table.js";
 
 const MAIL_SLUG = "lifecycle-mailer:notify:hello";
 const PLAIN_SLUG = "lifecycle-mailer:notify:plain";
+const BRANDED_SLUG = "lifecycle-mailer:notify:branded";
+const BARE_SLUG = "lifecycle-mailer:notify:bare";
 
 const mailer = defineFeature("lifecycle-mailer", (r) => {
   r.writeHandler({
@@ -42,6 +44,19 @@ const mailer = defineFeature("lifecycle-mailer", (r) => {
     data: () => ({}),
     template: { de: { body: "<p>Plain</p>" } },
     meta: { de: { subject: "Plain" } },
+  });
+  r.notification("branded", {
+    trigger: { on: "create" },
+    recipient: () => null,
+    data: () => ({}),
+    template: { de: { body: "<p>Branded</p>" } },
+    meta: { de: { subject: "Branded", layoutSlug: "fancy" } },
+  });
+  // No code template: the email channel never renders it through the resolver.
+  r.notification("bare", {
+    trigger: { on: "create" },
+    recipient: () => null,
+    data: () => ({}),
   });
 });
 
@@ -213,6 +228,44 @@ describe("template-resolver :: archive-system / publish-system", () => {
     expect((await resolve(10, slug)).id).toBe(systemRowId);
   });
 
+  test("after archive-system, diff-to-system and reset-to-system both report no system template", async () => {
+    const overrideSlug = "lifecycle-archived-system";
+    const system = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertSystem,
+      plainMailPayload(overrideSlug),
+      systemAdmin,
+    );
+    const override = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      plainMailPayload(overrideSlug, { content: "<p>Eigener Text</p>" }),
+      tenantAdmin,
+    );
+    await stack.http.queryOk(
+      TemplateResolverQueries.diffToSystem,
+      { id: override.id },
+      tenantAdmin,
+    );
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.archiveSystem,
+      { id: system.id },
+      systemAdmin,
+    );
+
+    const diffErr = await stack.http.queryErr(
+      TemplateResolverQueries.diffToSystem,
+      { id: override.id },
+      tenantAdmin,
+    );
+    const resetErr = await stack.http.writeErr(
+      TemplateResolverHandlers.resetToSystem,
+      { id: override.id },
+      tenantAdmin,
+    );
+    expect(diffErr.code).toBe("not_found");
+    expect(JSON.stringify(resetErr)).toContain("no_system_template");
+  });
+
   test("a tenant row id is NotFound for the system handlers", async () => {
     const draft = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
@@ -283,7 +336,9 @@ describe("template-resolver :: usage", () => {
       { slug: "default", kind: "mail-layout" },
       tenantAdmin,
     );
+    // MAIL_SLUG has a stored system template without layoutSlug, which wins over its code meta.
     expect(byDefault.usedBy.map((entry) => [entry.qualifiedName, entry.role])).toEqual([
+      [MAIL_SLUG, "layout"],
       [PLAIN_SLUG, "layout"],
     ]);
     const fancy = await stack.http.queryOk<Usage>(
@@ -291,7 +346,40 @@ describe("template-resolver :: usage", () => {
       { slug: "fancy", kind: "mail-layout" },
       tenantAdmin,
     );
-    expect(fancy.usedBy.map((entry) => entry.qualifiedName)).toEqual([MAIL_SLUG]);
+    expect(fancy.usedBy.map((entry) => entry.qualifiedName)).toEqual([BRANDED_SLUG]);
+  });
+
+  test("a tenant override that names another layout moves the notification to that layout, for that tenant only", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      plainMailPayload(BRANDED_SLUG, {
+        content: "<p>Eigen</p>",
+        meta: { subject: "Eigen", layoutSlug: "tenant-fancy" },
+      }),
+      tenantAdmin,
+    );
+    const usedBy = async (slug: string, user: SessionUser): Promise<string[]> =>
+      (
+        await stack.http.queryOk<Usage>(
+          TemplateResolverQueries.usage,
+          { slug, kind: "mail-layout" },
+          user,
+        )
+      ).usedBy.map((entry) => entry.qualifiedName);
+
+    expect(await usedBy("tenant-fancy", tenantAdmin)).toEqual([BRANDED_SLUG]);
+    expect(await usedBy("fancy", tenantAdmin)).toEqual([]);
+    expect(await usedBy("tenant-fancy", otherTenantAdmin)).toEqual([]);
+    expect(await usedBy("fancy", otherTenantAdmin)).toEqual([BRANDED_SLUG]);
+  });
+
+  test("a mail slug without a code template has no usage", async () => {
+    const usage = await stack.http.queryOk<Usage>(
+      TemplateResolverQueries.usage,
+      { slug: BARE_SLUG, kind: "mail" },
+      tenantAdmin,
+    );
+    expect(usage.usedBy).toEqual([]);
   });
 
   test("other kinds have no usage", async () => {

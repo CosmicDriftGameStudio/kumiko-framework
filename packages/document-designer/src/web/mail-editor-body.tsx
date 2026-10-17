@@ -37,7 +37,12 @@ import { MissingLocaleCanvas } from "./mail-missing-locale.js";
 import { MailOriginBar } from "./mail-origin-bar.js";
 import { PdfLinkModal } from "./mail-pdf-link-modal.js";
 import { MailPreviewMode } from "./mail-preview.js";
-import { AttachmentSection, PropertiesSection, UsageSection } from "./mail-right-rail.js";
+import {
+  AttachmentSection,
+  ChromeSection,
+  PropertiesSection,
+  UsageSection,
+} from "./mail-right-rail.js";
 import type { MailDraft, MailValidation, TemplateRowView } from "./mail-types.js";
 import { UploadModal } from "./mail-upload-modal.js";
 import { VersionsSection } from "./mail-versions.js";
@@ -65,7 +70,7 @@ export type MailEditorBodyProps = {
   readonly onRefreshRow: () => Promise<void>;
 };
 
-function sortedUnique(values: readonly string[]): string[] {
+function uniqueValues(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
@@ -75,7 +80,7 @@ export function placeholderNames(validation: MailValidation | null): string[] {
     name,
     ...Object.keys(variable.item ?? {}).map((item) => `${name}.${item}`),
   ]);
-  return sortedUnique([...own, ...validation.systemPlaceholders]);
+  return uniqueValues([...own, ...validation.systemPlaceholders]);
 }
 
 export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
@@ -144,9 +149,8 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     validation?.canPublish === true &&
     (dirty || creating || row?.status !== "active");
 
-  const persist = async (publish: boolean): Promise<boolean> => persistence.save(draft, publish);
   const saveAndReload = async (publish: boolean): Promise<void> => {
-    if (await persist(publish)) await onReload();
+    if ((await persistence.save(draft, publish)) !== "failed") await onReload();
   };
   const saveDraft = (): void => void saveAndReload(false);
 
@@ -319,6 +323,12 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           right={
             <>
               <PropertiesSection draft={draft} layouts={layouts.rows} onChange={update} />
+              <ChromeSection
+                draft={draft}
+                vocabulary={vocabulary}
+                insert={insert}
+                onChange={update}
+              />
               <AttachmentSection
                 attachments={attachments}
                 pdfTitles={pdfTitles}
@@ -411,7 +421,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
         }}
         onRemove={removeResource}
         onLeaveSave={async (target) => {
-          if (await persist(false)) perform(target);
+          if ((await persistence.save(draft, false)) === "saved") perform(target);
         }}
         onLeaveDiscard={(target) => {
           setDialog({ kind: "none" });

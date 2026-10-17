@@ -18,7 +18,7 @@ The production wiring shape: mount `createAuthMfaFeature()` next to `createAuthE
 
 1. `createAuthMfaFeature({ setupTokenSecret, challengeTokenSecret, issuer })` builds the feature; `mfaStatusCheckerFromFeature(mfaFeature)` reads its login-status callback back off.
 2. That callback goes into `createAuthEmailPasswordFeature({ mfaStatusChecker: ... })` — `login.write.ts` calls it after the password check to decide whether to mint a JWT or a challenge.
-3. `buildServer({ auth: { mfaVerifyHandler: AuthMfaHandlers.verify } })` mounts `POST /auth/mfa/verify`, a framework route (not a dispatcher write-handler) with its own rate limiter, since it runs before a JWT exists.
+3. `buildServer({ auth: { mfaVerifyHandler: AuthMfaHandlers.verify, switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate } })` (the gate is required with `mfaVerifyHandler`, so a tenant switch asks for the second factor too) mounts `POST /auth/mfa/verify`, a framework route (not a dispatcher write-handler) with its own rate limiter, since it runs before a JWT exists.
 4. If `sessions` is mounted too, `bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers)` wires "enable/disable/regenerate signs out every other session."
 
 ## What to copy into your app
@@ -51,6 +51,7 @@ const server = buildServer({
     membershipQuery: "tenant:query:memberships",
     loginHandler: "auth-email-password:[REDACTED:API key param]",
     mfaVerifyHandler: AuthMfaHandlers.verify,
+    switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
     sessionCreator: sessionCallbacks.sessionCreator,
     sessionRevoker: sessionCallbacks.sessionRevoker,
     sessionChecker: sessionCallbacks.sessionChecker,
@@ -86,7 +87,7 @@ Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `creat
 // the resulting app behaves like this test asserts: login is two-step once
 // MFA is enabled, and a valid TOTP code completes it.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   AuthHandlers,
   createAuthEmailPasswordFeature,
@@ -106,9 +107,7 @@ import {
   createUserFeature,
   UserHandlers,
   userEntity,
-  userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -158,6 +157,7 @@ beforeAll(async () => {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       mfaVerifyHandler: AuthMfaHandlers.verify,
+      switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
     },
   });
 
@@ -170,11 +170,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await stack.cleanup();
   configureEntityFieldEncryption(undefined);
-});
-
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 describe("auth-mfa sample wiring", () => {
@@ -287,6 +282,7 @@ describe("auth-mfa sample wiring", () => {
 //       membershipQuery: "tenant:query:memberships",
 //       loginHandler: "auth-email-password:[REDACTED:API key param]",
 //       mfaVerifyHandler: AuthMfaHandlers.verify,
+//       switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
 //       sessionCreator: sessionCallbacks.sessionCreator,
 //       sessionRevoker: sessionCallbacks.sessionRevoker,
 //       sessionChecker: sessionCallbacks.sessionChecker,

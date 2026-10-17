@@ -1,0 +1,75 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { contactsFeature } from "../features/contacts";
+import { APP_FEATURES } from "../run-config";
+
+const CONTACT_CREATE = "contacts:write:contact:create";
+const CONTACT_UPDATE = "contacts:write:contact:update";
+const CONTACT_DELETE = "contacts:write:contact:delete";
+const CONTACT_LIST = "contacts:query:contact:list";
+const CONTACT_DETAIL = "contacts:query:contact:detail";
+
+type Created = { id: string };
+type ContactRow = { id: string; name: string; company?: string | null; version: number };
+type ContactList = { rows: ContactRow[] };
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupAppTestStack([contactsFeature]);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("eval acceptance: contacts", () => {
+  test("the feature is mounted and declares its screens and nav", () => {
+    expect(APP_FEATURES.map((feature) => feature.name)).toContain("contacts");
+    expect(Object.keys(contactsFeature.screens)).toEqual(
+      expect.arrayContaining(["contact-list", "contact-edit"]),
+    );
+    expect(Object.keys(contactsFeature.navs)).toContain("contacts");
+  });
+
+  test("create, update, detail and delete round-trip within one tenant", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(CONTACT_CREATE, {
+      name: "Ada Lovelace",
+      email: "ada@example.test",
+      phone: "+44 20 0000 0000",
+      company: "Analytical Engines",
+    });
+
+    await tenant.api.writeOk(CONTACT_UPDATE, {
+      id: created.id,
+      version: 1,
+      changes: { company: "Babbage & Co" },
+    });
+    const detail = await tenant.api.queryOk<ContactRow>(CONTACT_DETAIL, { id: created.id });
+    expect(detail.name).toBe("Ada Lovelace");
+    expect(detail.company).toBe("Babbage & Co");
+
+    await tenant.api.writeOk(CONTACT_DELETE, { id: created.id });
+    const afterDelete = await tenant.api.queryOk<ContactList>(CONTACT_LIST, {});
+    expect(afterDelete.rows).toEqual([]);
+  });
+
+  test("a contact is listed for its own tenant only", async () => {
+    const owner = await seedTenant(stack);
+    const other = await seedTenant(stack);
+    await owner.api.writeOk(CONTACT_CREATE, { name: "Grace Hopper", company: "Navy" });
+
+    const ownerRows = await owner.api.queryOk<ContactList>(CONTACT_LIST, {});
+    expect(ownerRows.rows.map((row) => row.name)).toEqual(["Grace Hopper"]);
+    const otherRows = await other.api.queryOk<ContactList>(CONTACT_LIST, {});
+    expect(otherRows.rows).toEqual([]);
+  });
+
+  test("a contact without a name is rejected", async () => {
+    const tenant = await seedTenant(stack);
+    const error = await tenant.api.writeErr(CONTACT_CREATE, { company: "Nameless Ltd" });
+    expect(error.httpStatus).toBeLessThan(500);
+  });
+});

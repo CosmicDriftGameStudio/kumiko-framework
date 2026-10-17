@@ -6,9 +6,8 @@
 // stub, package.json with @cosmicdrift/* deps, tsconfig, .env.example,
 // README.
 //
-// .ts files are built via ts-morph (same tool [[scaffoldAppFeature]] uses
-// to auto-mount features). Means a single AST representation for both
-// generate + later modify — no template-string ↔ ts-morph divergence.
+// Generated files are emitted already formatted to Biome's output (import
+// order, 100-col wrapping, trailing commas) so a fresh app passes `biome check`.
 // Static files (package.json, tsconfig, .env, README) stay text-based.
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -20,7 +19,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
 import { isKebabSegment } from "./kebab.js";
 import { renderAgentsMd, renderClaudeMd } from "./scaffold-agent-docs.js";
 import {
@@ -60,6 +58,19 @@ export type ScaffoldTestSetupFactory = (input: {
   readonly appName: string;
   readonly frameworkVersion: string;
 }) => ScaffoldTestSetup;
+
+// Exact pin (no caret): the generated files are formatted to this Biome's output,
+// and a scaffold-lint test keeps it equal to the monorepo's own Biome version.
+export const SCAFFOLD_BIOME_VERSION = "2.5.7";
+
+const SCAFFOLD_GITIGNORE = `node_modules/
+dist/
+dist-server/
+.env
+.kumiko/
+test-results/
+playwright-report/
+`;
 
 export type ScaffoldAppOptions = {
   /** kebab-case app name (e.g. "my-shop"). Becomes package-name + folder. */
@@ -118,6 +129,9 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   write(join(destination, "biome.json"), renderBiomeJson());
   files.push("biome.json");
+
+  write(join(destination, ".gitignore"), SCAFFOLD_GITIGNORE);
+  files.push(".gitignore");
 
   if (testSetup === undefined) {
     write(join(destination, "bunfig.toml"), renderBunfigToml());
@@ -239,7 +253,7 @@ function renderPackageJson(
         zod: "^4.4.3",
       },
       devDependencies: sortedByName({
-        "@biomejs/biome": "^2.4.15",
+        "@biomejs/biome": SCAFFOLD_BIOME_VERSION,
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -286,7 +300,7 @@ function renderTsconfig(): string {
 function renderBiomeJson(): string {
   return `${JSON.stringify(
     {
-      $schema: "https://biomejs.dev/schemas/2.4.15/schema.json",
+      $schema: `https://biomejs.dev/schemas/${SCAFFOLD_BIOME_VERSION}/schema.json`,
       vcs: {
         enabled: true,
         clientKind: "git",
@@ -327,7 +341,7 @@ function renderBiomeJson(): string {
       linter: {
         enabled: true,
         rules: {
-          recommended: true,
+          preset: "recommended",
           correctness: { noUnusedVariables: "error", noUnusedImports: "error" },
           suspicious: { noExplicitAny: "error", noDebugger: "error", noConsole: "warn" },
           complexity: { useLiteralKeys: "off" },
@@ -378,14 +392,6 @@ pathIgnorePatterns = [
 `;
 }
 
-function newTsProject(): Project {
-  return new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: { target: 99, module: 99, strict: true },
-    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
-  });
-}
-
 const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
   {
     name: "secrets",
@@ -416,10 +422,48 @@ const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
 // rutschen die 4 nicht in run-config.ts.
 const COMPOSE_AUTO_MOUNTED_NAMES = new Set(["config", "user", "tenant", "auth-email-password"]);
 
-function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string {
-  const project = newTsProject();
-  const sf = project.createSourceFile("run-config.ts", "");
+const MAX_LINE_WIDTH = 100;
 
+// Mirrors Biome's import sort so generated files pass `biome check` untouched:
+// packages alphabetically by specifier, relative paths last.
+function compareImportKeys(a: string, b: string): number {
+  const lowerA = a.replace(/^type /, "").toLowerCase();
+  const lowerB = b.replace(/^type /, "").toLowerCase();
+  if (lowerA !== lowerB) return lowerA < lowerB ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function isRelativeSpecifier(specifier: string): boolean {
+  return specifier.startsWith("./") || specifier.startsWith("../");
+}
+
+type ImportSpec = {
+  readonly specifier: string;
+  readonly names: readonly string[];
+  readonly typeOnly?: boolean;
+};
+
+function renderImportLine({ specifier, names, typeOnly }: ImportSpec): string {
+  const sorted = [...names].sort(compareImportKeys);
+  const keyword = typeOnly === true ? "import type" : "import";
+  const oneLine = `${keyword} { ${sorted.join(", ")} } from "${specifier}";`;
+  if (sorted.length === 1 || oneLine.length <= MAX_LINE_WIDTH) return oneLine;
+  return `${keyword} {\n${sorted.map((n) => `  ${n},`).join("\n")}\n} from "${specifier}";`;
+}
+
+function renderSortedImports(imports: readonly ImportSpec[]): string {
+  return [...imports]
+    .sort((a, b) => {
+      const relativeA = isRelativeSpecifier(a.specifier);
+      const relativeB = isRelativeSpecifier(b.specifier);
+      if (relativeA !== relativeB) return relativeA ? 1 : -1;
+      return compareImportKeys(a.specifier, b.specifier);
+    })
+    .map(renderImportLine)
+    .join("\n");
+}
+
+function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string {
   // Fallback decided BEFORE filtering: if the caller passed features (even
   // if every one of them is an auto-mounted name), an all-filtered-out empty
   // result is the correct outcome — falling back to FOUNDATION_FEATURES here
@@ -433,320 +477,225 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
     if (!existing.includes(entry.exportName)) existing.push(entry.exportName);
     grouped.set(entry.importPath, existing);
   }
-  for (const [importPath, namedImports] of grouped) {
-    sf.addImportDeclaration({ moduleSpecifier: importPath, namedImports });
-  }
-  sf.addImportDeclaration({
-    moduleSpecifier: "./features/tasks",
-    namedImports: ["tasksFeature"],
-  });
+  const imports: ImportSpec[] = [
+    ...[...grouped].map(([specifier, names]) => ({ specifier, names })),
+    { specifier: "./features/tasks", names: ["tasksFeature"] },
+  ];
 
   const callExprs = [...effective.map((f) => f.callExpression), "tasksFeature"];
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    isExported: true,
-    declarations: [
-      {
-        name: "APP_FEATURES",
-        initializer: `[${callExprs.join(", ")}] as const`,
-      },
-    ],
-  });
+  const oneLineFeatures = `export const APP_FEATURES = [${callExprs.join(", ")}] as const;`;
+  const appFeatures =
+    oneLineFeatures.length <= MAX_LINE_WIDTH
+      ? oneLineFeatures
+      : `export const APP_FEATURES = [\n${callExprs.map((c) => `  ${c},`).join("\n")}\n] as const;`;
 
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    isExported: true,
-    declarations: [{ name: "HAS_AUTH", initializer: "true" }],
-  });
+  return `// Single source of truth for your app's feature composition.
+// config/user/tenant/auth-email-password are added automatically
+// via composeFeatures(includeBundled:true) when runProdApp is called
+// with \`auth: {…}\` (see bin/main.ts).
+//
+// Add new features:
+//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatic)
+//   - or: hand-edit + add the import below
 
-  sf.insertText(
-    0,
-    [
-      "// Single source of truth for your app's feature composition.",
-      "// config/user/tenant/auth-email-password are added automatically",
-      "// via composeFeatures(includeBundled:true) when runProdApp is called",
-      "// with `auth: {…}` (see bin/main.ts).",
-      "//",
-      "// Add new features:",
-      "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatic)",
-      "//   - or: hand-edit + add the import below",
-      "",
-      "",
-    ].join("\n"),
-  );
+${renderSortedImports(imports)}
 
-  return sf.getFullText();
+${appFeatures}
+
+export const HAS_AUTH = true;
+`;
+}
+
+function renderAdminAuthBlock(appName: string, extraAdminLines: readonly string[]): string {
+  const passwordAndExtras = extraAdminLines.map((l) => `      ${l}`).join("\n");
+  return `  auth: {
+    admin: {
+      email: "admin@${appName}.local",
+${passwordAndExtras}
+      memberships: [
+        {
+          tenantId: DEFAULT_TENANT_ID,
+          tenantKey: "${appName}",
+          tenantName: "${appName}",
+          roles: ["TenantAdmin"],
+        },
+      ],
+    },
+  },`;
 }
 
 function renderMain(appName: string): string {
   const tenantId = deriveTenantId(appName);
-  const project = newTsProject();
-  const sf = project.createSourceFile("main.ts", "");
+  const imports = renderSortedImports([
+    { specifier: "@cosmicdrift/kumiko-dev-server/env-schema", names: ["frameworkCoreEnvSchema"] },
+    { specifier: "@cosmicdrift/kumiko-server-runtime", names: ["composeFeatures", "runProdApp"] },
+    { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
+    { specifier: "@cosmicdrift/kumiko-framework/env", names: ["composeEnvSchema"] },
+    {
+      specifier: "@cosmicdrift/kumiko-framework/crypto",
+      names: ["requireKmsWiring", "resolveKmsWiring"],
+    },
+    { specifier: "zod", names: ["z"] },
+    { specifier: "../src/run-config", names: ["APP_FEATURES", "HAS_AUTH"] },
+  ]);
+  const authBlock = renderAdminAuthBlock(appName, [
+    "// runProdApp validates envSchema before seeding: a missing or short value aborts the boot.",
+    'password: process.env["DEMO_ADMIN_PASSWORD"] ?? "",',
+    'displayName: "Admin",',
+  ]);
 
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-dev-server/env-schema",
-    namedImports: ["frameworkCoreEnvSchema"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-server-runtime",
-    namedImports: ["composeFeatures", "runProdApp"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-framework/engine",
-    isTypeOnly: true,
-    namedImports: ["TenantId"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-framework/env",
-    namedImports: ["composeEnvSchema"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-framework/crypto",
-    namedImports: ["requireKmsWiring", "resolveKmsWiring"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "../src/run-config",
-    namedImports: ["APP_FEATURES", "HAS_AUTH"],
-  });
+  // The envSchema must cover the SAME features runProdApp mounts at boot:
+  // `auth: { admin: … }` makes runProdApp auto-mix config/user/tenant/
+  // auth-email-password, so the JWT_SECRET (min-32) declaration has to be part
+  // of the boot-gate here too. Subject-key KMS is optional locally (plaintext +
+  // loud warning) but required under NODE_ENV=production (fw#2317 / #2339).
+  return `// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
+// composeFeatures + validateBoot + createRegistry without DB/Redis-connect
+// (see @cosmicdrift/kumiko-server-runtime runProdApp). The real dev boot
+// runs via \`bunx kumiko dev\` (in-repo dev-tool) with a Docker stack — DX-1.0
+// only covers the boot-mode path; \`kumiko dev\` lands in a later DX phase.
 
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: "DEFAULT_TENANT_ID",
-        initializer: `"${tenantId}" as TenantId`,
-      },
-    ],
-  });
+${imports}
 
-  // The envSchema must cover the SAME features runProdApp mounts at boot.
-  // `auth: { admin: … }` below makes runProdApp auto-mix config/user/tenant/
-  // auth-email-password via composeFeatures(includeBundled:HAS_AUTH); compose the
-  // identical set here so the auth feature's JWT_SECRET (min-32) declaration
-  // is part of the boot-gate — otherwise a too-short JWT_SECRET slips through.
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: "bootFeatures",
-        initializer: "composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH })",
-      },
-    ],
-  });
+const DEFAULT_TENANT_ID = "${tenantId}" as TenantId;
 
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: "envSchema",
-        initializer: "composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures })",
-      },
-    ],
-  });
+const bootFeatures = composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH });
 
-  // Subject-key KMS for the pii-annotated entities the --yes recommended set
-  // mounts (user, tenant-invitation, fileRef). Local/dev may omit the trio
-  // (plaintext + loud warning); NODE_ENV=production uses requireKmsWiring so
-  // a real deploy cannot silently store plaintext PII (fw#2317 / #2339).
-  // assertPiiBootInvariants already warns on the plaintext path — no duplicate console.warn.
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: "kmsOpts",
-        initializer: (writer) => {
-          writer.write("{").newLine();
-          writer.writeLine(`  logPrefix: "[${appName}]",`);
-          writer.writeLine(
-            `  plaintextReason: "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",`,
-          );
-          writer.write("} as const");
-        },
-      },
-    ],
-  });
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: "kmsWiring",
-        initializer: (writer) => {
-          writer.write(`process.env["NODE_ENV"] === "production"`);
-          writer.newLine();
-          writer.write("  ? requireKmsWiring(process.env, kmsOpts)");
-          writer.newLine();
-          writer.write("  : resolveKmsWiring(process.env, kmsOpts)");
-        },
-      },
-    ],
-  });
+const envSchema = composeEnvSchema({
+  core: frameworkCoreEnvSchema,
+  features: bootFeatures,
+  extend: z.object({
+    DEMO_ADMIN_PASSWORD: z
+      .string()
+      .min(12)
+      .describe(
+        "Password of the admin seeded on first boot (admin@${appName}.local). Generate with: openssl rand -hex 24",
+      )
+      .meta({ kumiko: { pulumi: { secret: true } } }),
+  }),
+});
 
-  sf.addStatements((writer) => {
-    writer
-      .write("await runProdApp(")
-      .inlineBlock(() => {
-        writer.writeLine("features: APP_FEATURES,");
-        writer.writeLine("envSchema,");
-        writer.writeLine('staticDir: "./dist",');
-        writer.writeLine("...kmsWiring,");
-        writer.write("auth: ").inlineBlock(() => {
-          writer.write("admin: ").inlineBlock(() => {
-            writer.writeLine(`email: "admin@${appName}.local",`);
-            writer.writeLine(`password: "change-me-on-first-deploy",`);
-            writer.writeLine(`displayName: "Admin",`);
-            writer.write("memberships: [");
-            writer.indent(() => {
-              writer.inlineBlock(() => {
-                writer.writeLine("tenantId: DEFAULT_TENANT_ID,");
-                writer.writeLine(`tenantKey: "${appName}",`);
-                writer.writeLine(`tenantName: "${appName}",`);
-                writer.writeLine(`roles: ["TenantAdmin"],`);
-              });
-              writer.write(",");
-            });
-            writer.write("],");
-          });
-        });
-      })
-      .write(");");
-  });
+const kmsOpts = {
+  logPrefix: "[${appName}]",
+  plaintextReason:
+    "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",
+} as const;
 
-  sf.insertText(
-    0,
-    [
-      "// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after",
-      "// composeFeatures + validateBoot + createRegistry without DB/Redis-connect",
-      "// (see @cosmicdrift/kumiko-server-runtime runProdApp). The real dev boot",
-      "// runs via `bunx kumiko dev` (in-repo dev-tool) with a Docker stack — DX-1.0",
-      "// only covers the boot-mode path; `kumiko dev` lands in a later DX phase.",
-      "",
-      "",
-    ].join("\n"),
-  );
+const kmsWiring =
+  process.env["NODE_ENV"] === "production"
+    ? requireKmsWiring(process.env, kmsOpts)
+    : resolveKmsWiring(process.env, kmsOpts);
 
-  return sf.getFullText();
+await runProdApp({
+  features: APP_FEATURES,
+  envSchema,
+  staticDir: "./dist",
+  ...kmsWiring,
+${authBlock}
+});
+`;
 }
 
 function renderDev(appName: string): string {
   const tenantId = deriveTenantId(appName);
-  const project = newTsProject();
-  const sf = project.createSourceFile("dev.ts", "");
+  const imports = renderSortedImports([
+    { specifier: "@cosmicdrift/kumiko-dev-server", names: ["runDevApp"] },
+    { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
+    { specifier: "../src/run-config", names: ["APP_FEATURES"] },
+    { specifier: "../src/seed", names: ["seedDemoTasks"] },
+  ]);
+  // Dev-only emailVerified skips the login verify gate for the seeded admin;
+  // prod's bin/main.ts leaves it unset because the verify flow must run there.
+  const authBlock = renderAdminAuthBlock(appName, [
+    'password: "changeme",',
+    'displayName: "Admin",',
+    "emailVerified: true,",
+  ]);
 
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-dev-server",
-    namedImports: ["runDevApp"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-framework/engine",
-    isTypeOnly: true,
-    namedImports: ["TenantId"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "../src/run-config",
-    namedImports: ["APP_FEATURES"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "../src/seed",
-    namedImports: ["seedDemoTasks"],
-  });
+  return `// Dev bootstrap. \`bun --watch bin/dev.ts\` (see package.json scripts.dev)
+// starts a full-featured dev server with auto-reload on code changes.
+// setupTestStack creates missing entity tables automatically — a new
+// r.entity(...) in a feature becomes a CREATE TABLE on the next reboot,
+// no manual \`kumiko schema apply\` needed (that's prod-only).
+// Persistent DB via KUMIKO_DEV_DB_NAME (.env) so admin + data survive reboots.
 
-  sf.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: "DEFAULT_TENANT_ID",
-        initializer: `"${tenantId}" as TenantId`,
-      },
-    ],
-  });
+${imports}
 
-  sf.addStatements((writer) => {
-    writer
-      .write("await runDevApp(")
-      .inlineBlock(() => {
-        writer.writeLine("features: APP_FEATURES,");
-        writer.writeLine("welcomeBanner: true,");
-        writer.writeLine(`clientEntry: "./src/client.tsx",`);
-        writer.writeLine("seeds: [seedDemoTasks],");
-        writer.write("auth: ").inlineBlock(() => {
-          writer.write("admin: ").inlineBlock(() => {
-            writer.writeLine(`email: "admin@${appName}.local",`);
-            writer.writeLine(`password: "changeme",`);
-            writer.writeLine(`displayName: "Admin",`);
-            // Dev-only: skip the email-verify login gate for the seeded
-            // admin. Prod's scaffold (renderMain) leaves this unset on
-            // purpose — the verify flow must run there.
-            writer.writeLine("emailVerified: true,");
-            writer.write("memberships: [");
-            writer.indent(() => {
-              writer.inlineBlock(() => {
-                writer.writeLine("tenantId: DEFAULT_TENANT_ID,");
-                writer.writeLine(`tenantKey: "${appName}",`);
-                writer.writeLine(`tenantName: "${appName}",`);
-                writer.writeLine(`roles: ["TenantAdmin"],`);
-              });
-              writer.write(",");
-            });
-            writer.write("],");
-          });
-        });
-      })
-      .write(");");
-  });
+const DEFAULT_TENANT_ID = "${tenantId}" as TenantId;
 
-  sf.insertText(
-    0,
-    [
-      "// Dev bootstrap. `bun --watch bin/dev.ts` (see package.json scripts.dev)",
-      "// starts a full-featured dev server with auto-reload on code changes.",
-      "// setupTestStack creates missing entity tables automatically — a new",
-      "// r.entity(...) in a feature becomes a CREATE TABLE on the next reboot,",
-      "// no manual `kumiko schema apply` needed (that's prod-only).",
-      "// Persistent DB via KUMIKO_DEV_DB_NAME (.env) so admin + data survive reboots.",
-      "",
-      "",
-    ].join("\n"),
-  );
+await runDevApp({
+  features: APP_FEATURES,
+  welcomeBanner: true,
+  clientEntry: "./src/client.tsx",
+  seeds: [seedDemoTasks],
+${authBlock}
+});
+`;
+}
 
-  return sf.getFullText();
+// Tiers mirror how Biome wraps the JSX as the name grows.
+function renderDefaultAppShellElement(appName: string): string {
+  const spanOpen = '<span className="font-semibold tracking-tight">';
+  // html-ok: appName is kebab-validated (a-z/0-9/-); this is generated .tsx source, not runtime HTML.
+  const brandInline = `${spanOpen}${appName}</span>`;
+  const singleLine = `    <DefaultAppShell brand={${brandInline}} schema={schema}>`;
+  if (singleLine.length <= MAX_LINE_WIDTH) return singleLine;
+  const brandAttrInline = `      brand={${brandInline}}`;
+  const brandAttribute =
+    brandAttrInline.length <= MAX_LINE_WIDTH
+      ? brandAttrInline
+      : `${[
+          "      brand={",
+          ...(`        ${brandInline}`.length <= MAX_LINE_WIDTH
+            ? [`        ${brandInline}`]
+            : [`        ${spanOpen}`, `          ${appName}`, "        </span>"]),
+          "      }",
+        ].join("\n")}`;
+  return ["    <DefaultAppShell", brandAttribute, "      schema={schema}", "    >"].join("\n");
 }
 
 function renderClient(appName: string): string {
-  return [
-    "// Browser entry. runDevApp's clientEntry option bundles this file to",
-    "// /client.js and the default HTML loads it. createKumikoApp fetches the",
-    "// AppSchema itself from the authenticated GET /api/schema and mounts",
-    "// the routes.",
-    "//",
-    "// AppShell wraps DefaultAppShell to supply `brand` — createKumikoApp's",
-    "// shell option only injects schema + children. Without `shell` the",
-    "// active screen renders with no layout wrapper (a bare banner after",
-    "// login instead of the app). emailPasswordClient() brings the login",
-    "// screen + session provider — without it /login stays empty.",
-    "//",
-    "// Add new client plugins (e.g. notificationsClient()) to clientFeatures",
-    "// here — symmetric to APP_FEATURES on the server side.",
-    "",
-    'import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";',
-    'import { tasksClient } from "./features/tasks/web";',
-    'import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
-    'import type { ReactNode } from "react";',
-    "",
-    "function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {",
-    "  return (",
-    // html-ok: appName is kebab-validated (a-z/0-9/-); this is generated .tsx source, not runtime HTML.
-    `    <DefaultAppShell brand={<span className="font-semibold tracking-tight">${appName}</span>} schema={schema}>`,
-    "      {children}",
-    "    </DefaultAppShell>",
-    "  );",
-    "}",
-    "",
-    "createKumikoApp({",
-    "  shell: AppShell,",
-    "  clientFeatures: [emailPasswordClient(), tasksClient],",
-    "});",
-    "",
-  ].join("\n");
+  const imports = renderSortedImports([
+    {
+      specifier: "@cosmicdrift/kumiko-bundled-features/auth-email-password/web",
+      names: ["emailPasswordClient"],
+    },
+    { specifier: "./features/tasks/web", names: ["tasksClient"] },
+    {
+      specifier: "@cosmicdrift/kumiko-renderer-web",
+      names: ["type AppSchema", "createKumikoApp", "DefaultAppShell"],
+    },
+    { specifier: "react", names: ["ReactNode"], typeOnly: true },
+  ]);
+  return `// Browser entry. runDevApp's clientEntry option bundles this file to
+// /client.js and the default HTML loads it. createKumikoApp fetches the
+// AppSchema itself from the authenticated GET /api/schema and mounts
+// the routes.
+//
+// AppShell wraps DefaultAppShell to supply \`brand\` — createKumikoApp's
+// shell option only injects schema + children. Without \`shell\` the
+// active screen renders with no layout wrapper (a bare banner after
+// login instead of the app). emailPasswordClient() brings the login
+// screen + session provider — without it /login stays empty.
+//
+// Add new client plugins (e.g. notificationsClient()) to clientFeatures
+// here — symmetric to APP_FEATURES on the server side.
+
+${imports}
+
+function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {
+  return (
+${renderDefaultAppShellElement(appName)}
+      {children}
+    </DefaultAppShell>
+  );
+}
+
+createKumikoApp({
+  shell: AppShell,
+  clientFeatures: [emailPasswordClient(), tasksClient],
+});
+`;
 }
 
 function renderEnvExample(appName: string): string {
@@ -765,6 +714,11 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # KUMIKO_SECRETS_MASTER_KEY_V1: base64-encoded 32 bytes (AES-256 KEK).
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
+
+# DEMO_ADMIN_PASSWORD: password of the admin seeded on first prod boot
+# (admin@${appName}.local). Required by \`bun run boot\` and \`bun run start\`,
+# min 12 chars. Generate with: openssl rand -hex 24
+DEMO_ADMIN_PASSWORD=
 
 # Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). All-or-none.
 # Unset → local boot with plaintext PII + warning; NODE_ENV=production requires
@@ -801,6 +755,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -858,7 +813,8 @@ bun run boot
 \`\`\`
 
 Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature composition
-+ env schema, exits 0 without touching DB/Redis. Useful in CI.
++ env schema, exits 0 without touching DB/Redis. Useful in CI. It needs
+\`DEMO_ADMIN_PASSWORD\` (min 12 chars, \`openssl rand -hex 24\`) in \`.env\`.
 
 Without \`PLATFORM_KEK\` / \`SUBJECT_KEYS_DATABASE_URL\` / \`KUMIKO_BLIND_INDEX_KEY\`
 set (see \`.env.example\`), both \`bun run boot\` and \`bun run start\` boot with
@@ -872,6 +828,9 @@ bun run build          # kumiko-build → dist/ + dist-server/
 bun run schema:apply   # apply checked-in kumiko/migrations (needs DATABASE_URL)
 bun run start          # runProdApp against dist/
 \`\`\`
+
+The first prod boot seeds \`admin@${appName}.local\` with the password from
+\`DEMO_ADMIN_PASSWORD\` (required, min 12 chars). Log in with that.
 
 After adding entities/features, regenerate migrations:
 
@@ -915,9 +874,9 @@ function renderKumikoSchema(): string {
     "// Computes table-metas from the SAME composeFeatures(APP_FEATURES) the",
     "// runtime sees (runProdApp/runDevApp) — migration and runtime cannot drift.",
     "",
-    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";',
     'import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";',
+    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
     "",
     "export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...APP_FEATURES], {",
@@ -954,10 +913,10 @@ function renderBinKumiko(): string {
     "// ad-hoc SQL. kumiko-build bundles this file to dist-server/kumiko.js.",
     "",
     'import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";',
-    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";',
     'import { composeEnvSchema, kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";',
     'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
+    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
     "",
     "const [, , cmd, ...rest] = Bun.argv;",
@@ -967,7 +926,9 @@ function renderBinKumiko(): string {
     'if (cmd === "schema") {',
     "  const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });",
     "  const kmsSlots = kmsSlotsOf(composeEnvSchema({ core: frameworkCoreEnvSchema, features }).schema);",
-    "  process.exit(await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features, kmsSlots }));",
+    "  process.exit(",
+    "    await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features, kmsSlots }),",
+    "  );",
     "}",
     "",
     'if (cmd === "consumer") {',
@@ -975,7 +936,9 @@ function renderBinKumiko(): string {
     "}",
     "",
     "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
-    'console.error("\\n  Unknown: kumiko " + (cmd ?? "") + " — only \'kumiko schema <sub>\' or \'kumiko consumer <sub>\' in the standalone bundle.\\n");',
+    "console.error(",
+    `  \`\\n  Unknown: kumiko \${cmd ?? ""} — only 'kumiko schema <sub>' or 'kumiko consumer <sub>' in the standalone bundle.\\n\`,`,
+    ");",
     "process.exit(1);",
     "",
   ].join("\n");

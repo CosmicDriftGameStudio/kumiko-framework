@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { ConflictError } from "./classes.js";
 import { FrameworkReasons } from "./reasons.js";
 
@@ -7,4 +8,12 @@ export function subjectErasedConflict(cause?: unknown): ConflictError {
     details: { reason: FrameworkReasons.subjectErased },
     ...(cause instanceof Error && { cause }),
   });
+}
+
+export function isSubjectErasedConflict(e: unknown): e is ConflictError {
+  return (
+    e instanceof ConflictError &&
+    isPlainObject(e.details) &&
+    e.details["reason"] === FrameworkReasons.subjectErased
+  );
 }

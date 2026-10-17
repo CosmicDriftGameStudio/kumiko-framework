@@ -104,6 +104,18 @@ const shopFeature = defineFeature("anonshop", (r) => {
   );
 });
 
+// Reads the first SSE chunk and closes the stream; the stream otherwise never ends.
+async function readFirstSseChunk(res: Response): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("SSE response has no body");
+  try {
+    const { value } = await reader.read();
+    return new TextDecoder().decode(value);
+  } finally {
+    await reader.cancel();
+  }
+}
+
 // --- Suite ---
 
 describe("anonymous access — single-tenant default", () => {
@@ -217,6 +229,28 @@ describe("anonymous access — single-tenant default", () => {
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("unauthenticated");
     expect(await selectMany(stack.db, productTable)).toHaveLength(0);
+  });
+
+  test("stale auth cookie on /api/sse: the downgraded stream opens with a session-ended frame and expires the cookie", async () => {
+    const res = await stack.http.raw("GET", "/api/sse", undefined, {
+      Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt`,
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toMatch(
+      new RegExp(`${AUTH_COOKIE_BASE}=;[^,]*Max-Age=0`, "i"),
+    );
+    const firstChunk = await readFirstSseChunk(res);
+    expect(firstChunk).toContain("event: session-ended");
+    expect(firstChunk).toContain('"code":"invalid_token"');
+  });
+
+  test("anonymous /api/sse without a cookie carries no session-ended frame", async () => {
+    const res = await stack.http.raw("GET", "/api/sse");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toBeNull();
+    const firstChunk = await readFirstSseChunk(res);
+    expect(firstChunk).toContain("event: ping");
+    expect(firstChunk).not.toContain("session-ended");
   });
 
   test("stale auth cookie on /api/auth/* keeps 401 invalid_token", async () => {
@@ -428,6 +462,16 @@ describe("anonymous access — revoked session cookie", () => {
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("unauthenticated");
+  });
+
+  test("/api/sse with the revoked cookie opens with a session-ended frame carrying session_invalid", async () => {
+    const res = await stack.http.raw("GET", "/api/sse", undefined, {
+      Cookie: await revokedSessionCookie(),
+    });
+    expect(res.status).toBe(200);
+    const firstChunk = await readFirstSseChunk(res);
+    expect(firstChunk).toContain("event: session-ended");
+    expect(firstChunk).toContain('"code":"session_invalid"');
   });
 
   test("the same revoked token as bearer keeps 401 session_invalid", async () => {

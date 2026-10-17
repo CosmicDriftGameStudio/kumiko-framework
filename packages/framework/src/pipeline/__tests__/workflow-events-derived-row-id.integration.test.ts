@@ -5,6 +5,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { v5 as uuidv5 } from "uuid";
 import * as z from "zod";
+import type { DbTx } from "../../db/connection.js";
+import { assertNoUnreachableLiveRows } from "../../db/queries/shadow-swap.js";
 import { insertOne, selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
@@ -183,5 +185,33 @@ describe("rowIdOf on r.extendEntityProjection", () => {
       rebuildProjection(PROJECTION_NAME, { db: stack.db, registry: stack.registry }),
     ).rejects.toThrow(GHOST_ERROR);
     expect((await runRows()).map((row) => row["id"])).toContain(runId);
+  });
+
+  test("keyset pagination over more source aggregates than one batch backs every live row", async () => {
+    const runIds: string[] = [];
+    for (let i = 0; i < 4; i++) runIds.push(await recordSharedRun());
+    for (const runId of runIds) {
+      for (const tenant of [tenantA, tenantB]) {
+        await seedLiveRow(
+          saltedRowId({ tenantId: tenant.tenantId, aggregateId: runId }),
+          tenant.tenantId,
+        );
+      }
+    }
+    const batchSize = 3;
+
+    // 8 distinct (tenant, aggregate) pairs → three pages; a skipped page would report ghosts.
+    await stack.db.begin(async (tx: DbTx) => {
+      await assertNoUnreachableLiveRows(
+        tx,
+        PROJECTION_NAME,
+        "read_wf_salted_run_views",
+        [WORKFLOW_AGGREGATE_TYPE],
+        { [WORKFLOW_AGGREGATE_TYPE]: saltedRowId },
+        batchSize,
+      );
+    });
+
+    expect(await runRows()).toHaveLength(8);
   });
 });

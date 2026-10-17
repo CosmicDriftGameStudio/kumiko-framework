@@ -70,6 +70,24 @@ describe("resolveContentType", () => {
     expect(resolveContentType({ declared: OCTET, bytes, filename: "x" })).toBe(OCTET);
   });
 
+  test("SVG, HTML fragments and prefixed XHTML are not relabelled as XML", () => {
+    const samples = [
+      '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+      "<div>hello</div>",
+      '<x:html xmlns:x="http://www.w3.org/1999/xhtml"><x:body/></x:html>',
+    ];
+    for (const sample of samples) {
+      expect(resolveContentType({ declared: OCTET, bytes: encode(sample), filename: "x" })).toBe(
+        OCTET,
+      );
+    }
+  });
+
+  test("a prefixed non-HTML root without declaration is still XML", () => {
+    const bytes = encode('<inv:Invoice xmlns:inv="urn:x"/>');
+    expect(resolveContentType({ declared: OCTET, bytes, filename: "x" })).toBe("application/xml");
+  });
+
   test("a concrete declared type is never overridden", () => {
     const pdfBytes = encode("%PDF-1.7");
     const xmlBytes = encode("<?xml version='1.0'?><a/>");

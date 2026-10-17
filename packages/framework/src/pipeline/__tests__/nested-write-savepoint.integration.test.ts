@@ -5,12 +5,16 @@ import { asRawClient, selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createEntity,
+  createSystemUser,
   createTextField,
   defineFeature,
+  defineWriteHandler,
   HookPhases,
+  stepsPipeline,
   type WriteResult,
 } from "../../engine/index.js";
 import type { HandlerContext } from "../../engine/types/index.js";
+import type { PipelineCtx } from "../../engine/types/step.js";
 import { eventsTable } from "../../event-store/index.js";
 import {
   setupTestStack,
@@ -60,8 +64,10 @@ const admin = TestUsers.admin;
 const afterCommitLog: string[] = [];
 let lastInnerResult: WriteResult | undefined;
 let lastHookWriteResult: WriteResult | undefined;
+let lastParallelResults: { rejected: WriteResult; kept: WriteResult } | undefined;
 
 const nestedFeature = defineFeature("nws", (r) => {
+  r.requires.step("callFeature");
   const inner = r.entity("inner", innerEntity);
   const mid = r.entity("mid", midEntity);
   r.entity("outer", outerEntity);
@@ -107,6 +113,58 @@ const nestedFeature = defineFeature("nws", (r) => {
       });
 
       return crud.create({ label: `${event.payload.label}-after` }, event.user, ctx.db);
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // ctx.writeAs goes through the gated identity switch; the handler swallows the inner result.
+  r.writeHandler(
+    "outer:write-as",
+    z.object({ label: z.string(), innerLabel: z.string() }),
+    async (event, ctx) => {
+      lastInnerResult = await ctx.writeAs(
+        createSystemUser(event.user.tenantId),
+        "nws:write:inner:create",
+        { label: event.payload.innerLabel },
+      );
+      const crud = createEventStoreExecutor(outerTable, outerEntity, { entityName: "outer" });
+      return crud.create({ label: event.payload.label }, event.user, ctx.db);
+    },
+    {
+      access: { roles: ["Admin"] },
+      escapeHatch: { reason: "test fixture: write as system inside a nested savepoint" },
+    },
+  );
+
+  // The workflow step variant: callFeature throws on a failed inner write.
+  r.writeHandler(
+    defineWriteHandler({
+      name: "outer:call-feature",
+      schema: z.object({ innerLabel: z.string() }),
+      access: { roles: ["Admin"] },
+      perform: stepsPipeline<{ innerLabel: string }, Record<string, never>>(({ r: step }) => [
+        step.step.callFeature("inner", {
+          handler: "nws:write:inner:create",
+          payload: ({ event }: PipelineCtx<{ innerLabel: string }>) => ({
+            label: event.payload.innerLabel,
+          }),
+        }),
+        step.step.return(() => ({ isSuccess: true as const, data: {} })),
+      ]),
+    }),
+  );
+
+  // Both writes start in the same tick on the one transaction connection.
+  r.writeHandler(
+    "outer:parallel",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      const [rejected, kept] = await Promise.all([
+        ctx.write("nws:write:inner:create", { label: `${event.payload.label}-${REJECTED_MARKER}` }),
+        ctx.write("nws:write:inner:create", { label: `${event.payload.label}-kept` }),
+      ]);
+      lastParallelResults = { rejected, kept };
+      return { isSuccess: true as const, data: {} };
     },
     { access: { roles: ["Admin"] } },
   );
@@ -178,6 +236,7 @@ beforeEach(async () => {
   afterCommitLog.length = 0;
   lastInnerResult = undefined;
   lastHookWriteResult = undefined;
+  lastParallelResults = undefined;
   await stack.redis.flushNamespace();
 });
 
@@ -246,5 +305,58 @@ describe("nested ctx.write failure is confined to a savepoint", () => {
     expect(await eventsMentioning("t4-mid")).toHaveLength(1);
     expect(await labelsOf(outerTable, "t4-outer")).toEqual(["t4-outer", "t4-outer-after"]);
     expect(afterCommitLog).toEqual(["mid:t4-mid"]);
+  });
+
+  test("parallel nested writes are serialized: the failing one cannot discard the other's rows", async () => {
+    const res = await stack.http.write("nws:write:outer:parallel", { label: "t5" }, admin);
+    expect((await res.json()).isSuccess).toBe(true);
+
+    expect(lastParallelResults?.rejected.isSuccess).toBe(false);
+    expect(lastParallelResults?.kept.isSuccess).toBe(true);
+    expect(await labelsOf(innerTable, "t5-")).toEqual(["t5-kept"]);
+    expect(await eventsMentioning("t5-kept")).toHaveLength(1);
+    expect(await eventsMentioning("t5-rejected")).toHaveLength(0);
+    expect(afterCommitLog).toEqual(["inner:t5-kept"]);
+  });
+
+  test("ctx.writeAs nests in a savepoint: a rejected inner write leaves no row, event or afterCommit", async () => {
+    const res = await stack.http.write(
+      "nws:write:outer:write-as",
+      { label: "t6-outer", innerLabel: "t6-rejected" },
+      admin,
+    );
+    expect((await res.json()).isSuccess).toBe(true);
+
+    expect(lastInnerResult?.isSuccess).toBe(false);
+    expect(await labelsOf(innerTable, "t6-")).toEqual([]);
+    expect(await eventsMentioning("t6-rejected")).toHaveLength(0);
+    expect(await labelsOf(outerTable, "t6-outer")).toEqual(["t6-outer"]);
+    expect(afterCommitLog).toEqual([]);
+  });
+
+  test("the callFeature step leaves no inner row, event or afterCommit when the inner write is rejected", async () => {
+    const res = await stack.http.write(
+      "nws:write:outer:call-feature",
+      { innerLabel: "t7-rejected" },
+      admin,
+    );
+    expect((await res.json()).isSuccess).toBe(false);
+
+    expect(await labelsOf(innerTable, "t7-")).toEqual([]);
+    expect(await eventsMentioning("t7-rejected")).toHaveLength(0);
+    expect(afterCommitLog).toEqual([]);
+  });
+
+  test("the callFeature step commits an accepted inner write exactly once", async () => {
+    const res = await stack.http.write(
+      "nws:write:outer:call-feature",
+      { innerLabel: "t8-kept" },
+      admin,
+    );
+    expect((await res.json()).isSuccess).toBe(true);
+
+    expect(await labelsOf(innerTable, "t8-")).toEqual(["t8-kept"]);
+    expect(await eventsMentioning("t8-kept")).toHaveLength(1);
+    expect(afterCommitLog).toEqual(["inner:t8-kept"]);
   });
 });

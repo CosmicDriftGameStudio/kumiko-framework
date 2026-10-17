@@ -10,7 +10,7 @@
 //     failure; predecessor pre-flight per aggregate in the batch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { DbConnection, PgClient } from "../../db/connection.js";
+import type { DbConnection } from "../../db/connection.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { createTestDb, type TestDb } from "../../stack/index.js";
 import { generateId as uuid } from "../../utils/index.js";
@@ -151,9 +151,8 @@ describe("appendRaw — single event", () => {
   });
 
   test("does NOT fire pg_notify on EVENTS_PUBSUB_CHANNEL — contrast with append", async () => {
-    // Open a dedicated LISTEN connection. postgres-js exposes listen() on the
-    // client; the callback is invoked per NOTIFY payload. The resolved value
-    // is a meta-object with an `unlisten` method, not a plain function.
+    // Open a dedicated LISTEN connection (postgres-js or Bun.SQL); the
+    // callback is invoked per NOTIFY payload.
     // Postgres delivers notifications in commit order, so a sentinel NOTIFY sent
     // after the control append proves that everything committed before it has
     // already been delivered; no sleeping needed.
@@ -163,8 +162,8 @@ describe("appendRaw — single event", () => {
     const sentinelSeen = new Promise<void>((resolve) => {
       markSentinelSeen = resolve;
     });
-    const client = testDb.client as PgClient;
-    const subscription = await client.listen("kumiko_events_new", (payload: string) => {
+    const listenClient = testDb.client;
+    const subscription = await listenClient.listen("kumiko_events_new", (payload: string) => {
       if (payload === sentinel) markSentinelSeen();
       else notifications.push(payload);
     });
@@ -182,7 +181,10 @@ describe("appendRaw — single event", () => {
         payload: {},
         metadata: { userId: userMigration },
       });
-      await client.notify("kumiko_events_new", sentinel);
+      await asRawClient(testDb.db).unsafe("SELECT pg_notify($1, $2)", [
+        "kumiko_events_new",
+        sentinel,
+      ]);
       await sentinelSeen;
       // Exactly the control append's notification: appendRaw sent none.
       expect(notifications).toHaveLength(1);

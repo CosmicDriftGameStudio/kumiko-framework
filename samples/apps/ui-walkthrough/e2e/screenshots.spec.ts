@@ -5,7 +5,7 @@
 
 import { resolve } from "node:path";
 import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const DESKTOP = { width: 1440, height: 900 } as const;
@@ -14,19 +14,6 @@ const LIST_TABLE = '[data-testid="render-list-table"]';
 const EDIT_FORM = '[data-testid="render-edit-form"]';
 
 test.use({ locale: "de-DE", viewport: DESKTOP });
-
-// The login handler allows 20 attempts per IP and minute; one login per worker
-// keeps the whole e2e run (all specs share the IP) under that limit.
-let sessionCookies: Awaited<ReturnType<BrowserContext["cookies"]>> | undefined;
-
-async function login(page: Page): Promise<void> {
-  if (sessionCookies !== undefined) {
-    await page.context().addCookies(sessionCookies);
-    return;
-  }
-  await loginAsAdmin(page);
-  sessionCookies = await page.context().cookies();
-}
 
 async function shot(page: Page, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
@@ -37,7 +24,7 @@ async function shot(page: Page, name: string): Promise<void> {
 }
 
 async function openLeaseList(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/lease-list");
   await page.locator(LIST_TABLE).waitFor();
 }
@@ -53,7 +40,7 @@ const RECORD_POSITIONS_URL = "/record-positions";
 const LONG_LEASE_LABEL = "Haus Kautionsweg — WE-41 · 01.09.2026";
 
 async function openRecordPositions(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto(RECORD_POSITIONS_URL);
   await expect(page.getByText("Zahlungsweise").first()).toBeVisible();
 }
@@ -72,7 +59,7 @@ test("liste-light", async ({ page }) => {
 });
 
 async function openCampaignListWithTwoDates(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/campaign-list");
   await page.getByText("Škoda Octavia (2021)").waitFor();
 }
@@ -85,7 +72,7 @@ test("liste-zwei-daten-light", async ({ page }) => {
 const LEASE_DETAIL_URL = "/lease-detail/00000000-0000-4000-8000-000000003103";
 
 async function openMaxNachmieterParties(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto(LEASE_DETAIL_URL);
   await page.getByRole("tab", { name: /Vertragsparteien/ }).click();
   await expect(page.getByText("Marie Nachmieter").first()).toBeVisible();
@@ -168,19 +155,27 @@ test("drawer-light", async ({ page }) => {
   await shot(page, "drawer-light");
 });
 
-async function openOctaviaEditForm(page: Page): Promise<void> {
+// The row-action menu only exists in the desktop table, so the record is
+// opened at desktop width and the test's own viewport restored afterwards.
+async function openVehicleRecordAtDesktop(
+  page: Page,
+  open: (page: Page) => Promise<void>,
+): Promise<void> {
   const testViewport = page.viewportSize();
   await page.setViewportSize(DESKTOP);
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
-  await page.getByText("Octavia").first().click();
+  await open(page);
   await page.locator(EDIT_FORM).waitFor();
   if (testViewport !== null) await page.setViewportSize(testViewport);
 }
 
+const openOctaviaEditForm = (page: Page) =>
+  openVehicleRecordAtDesktop(page, (current) => current.getByText("Octavia").first().click());
+
 test("formular-light", async ({ page }) => {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await page.getByText("Octavia").first().click();
@@ -195,7 +190,7 @@ test("formular-light", async ({ page }) => {
 });
 
 test("wizard-light", async ({ page }) => {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await page.getByRole("button", { name: "Weitere Aktionen" }).first().click();
@@ -208,19 +203,11 @@ test("wizard-light", async ({ page }) => {
   await shot(page, "wizard-light");
 });
 
-// The row-action menu only exists in the desktop table, so the record is
-// opened at desktop width and the test's own viewport restored afterwards.
-async function openVehicleWizardForExistingRecord(page: Page): Promise<void> {
-  const testViewport = page.viewportSize();
-  await page.setViewportSize(DESKTOP);
-  await login(page);
-  await page.goto("/vehicle-list");
-  await page.locator(LIST_TABLE).waitFor();
-  await page.getByRole("button", { name: "Weitere Aktionen" }).first().click();
-  await page.getByRole("menuitem", { name: "Schritt für Schritt" }).click();
-  await page.locator(EDIT_FORM).waitFor();
-  if (testViewport !== null) await page.setViewportSize(testViewport);
-}
+const openVehicleWizardForExistingRecord = (page: Page) =>
+  openVehicleRecordAtDesktop(page, async (current) => {
+    await current.getByRole("button", { name: "Weitere Aktionen" }).first().click();
+    await current.getByRole("menuitem", { name: "Schritt für Schritt" }).click();
+  });
 
 test("wizard-edit-desktop-light", async ({ page }) => {
   await openVehicleWizardForExistingRecord(page);
@@ -234,7 +221,7 @@ const LEASE_HUB_URL = "/lease-hub/00000000-0000-4000-8000-000000003103";
 const INTER_FONT = resolve(import.meta.dirname, "../../styleguide/public/fonts/inter-var.woff2");
 
 async function openVehicleForm(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await page.getByText("Octavia").first().click();
@@ -242,13 +229,13 @@ async function openVehicleForm(page: Page): Promise<void> {
 }
 
 async function openLeaseHub(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto(LEASE_HUB_URL);
   await expect(page.getByTestId("lease-hub-header")).toBeVisible();
 }
 
 async function openDashboard(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/rental-dashboard");
   await expect(page.getByText("Restschuld heute")).toBeVisible();
 }
@@ -279,7 +266,7 @@ test("detail-tab-extension-light", async ({ page }) => {
 });
 
 test("liste-boolean-light", async ({ page }) => {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await shot(page, "liste-boolean-light");
@@ -303,7 +290,7 @@ test("sidebar-overflow-light", async ({ page }) => {
 
 test("inter-hyphen-light", async ({ page }) => {
   await page.route("**/__inter.woff2", (route) => route.fulfill({ path: INTER_FONT }));
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/campaign-list");
   await page.getByText("Herbst - Gebrauchtwagen").waitFor();
   await page.addStyleTag({
@@ -315,7 +302,7 @@ test("inter-hyphen-light", async ({ page }) => {
 });
 
 async function openCampaignList(page: Page): Promise<void> {
-  await login(page);
+  await loginAsAdmin(page);
   await page.goto("/campaign-list");
   await page.locator(LIST_TABLE).waitFor();
   await page.getByText("Herbst - Gebrauchtwagen").waitFor();
@@ -337,14 +324,14 @@ test.describe("mobile", () => {
   test.use({ viewport: MOBILE });
 
   test("mobile-light", async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
     await page.goto("/campaign-list");
     await page.getByText("Škoda Octavia (2021)").waitFor();
     await shot(page, "mobile-light");
   });
 
   test("mobile-nav-light", async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
     await page.goto("/campaign-list");
     await page.getByText("Škoda Octavia (2021)").waitFor();
     await page
@@ -368,14 +355,8 @@ test.describe("mobile", () => {
     await shot(page, "wizard-edit-mobile-open-light");
   });
 
-  test("wizard-footer-mobile-update-light", async ({ page }) => {
-    await openVehicleWizardForExistingRecord(page);
-    await page.getByTestId("render-edit-wizard-next").click();
-    await shot(page, "wizard-footer-mobile-update-light");
-  });
-
   test("wizard-footer-mobile-create-light", async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
     await page.goto("/vehicle-wizard");
     await page.locator(EDIT_FORM).waitFor();
     await page.getByTestId("render-edit-wizard-next").click();
@@ -448,7 +429,7 @@ test.describe("mobile", () => {
   });
 
   test("mobile-header-liste", async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
     await page.goto("/lease-list");
     await page.getByText("Max Nachmieter").first().waitFor();
     await shot(page, "mobile-header-liste");

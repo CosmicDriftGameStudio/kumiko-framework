@@ -10,6 +10,7 @@ import type { ContentFormat, UpsertKind } from "../constants.js";
 import type { TemplateWriteScope } from "../layout-regions.js";
 import { imageResourceKeysOf } from "../linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { isSystemAdmin } from "../template-draft.js";
 import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-validation.js";
 import { contentFormatSchema, kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
 import { evaluateTemplateWrite } from "./template-gates.js";
@@ -53,7 +54,9 @@ export async function validateTemplateDraft(
   payload: TemplateDraftInput,
 ) {
   const variables = resolveTemplateVariables(ctx.registry, payload.slug, payload.variableSchema);
-  const { slug, kind, scope, locale } = payload;
+  const { slug, kind, locale } = payload;
+  // The dry run must not promise what the caller's write handlers would refuse.
+  const scope: TemplateWriteScope = isSystemAdmin(user) ? payload.scope : "tenant";
   const known = [
     ...(await knownResourceKeys(ctx.db, {
       tenantId: SYSTEM_TENANT_ID,

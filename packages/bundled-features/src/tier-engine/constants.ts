@@ -22,6 +22,15 @@ export const TierAssignmentSources = {
   default: "default",
 } as const;
 
+export type TierAssignmentSource =
+  (typeof TierAssignmentSources)[keyof typeof TierAssignmentSources];
+
+const TIER_ASSIGNMENT_SOURCE_VALUES: readonly string[] = Object.values(TierAssignmentSources);
+
+export function isTierAssignmentSource(value: unknown): value is TierAssignmentSource {
+  return typeof value === "string" && TIER_ASSIGNMENT_SOURCE_VALUES.includes(value);
+}
+
 // Qualified query handler names.
 export const TierEngineQueries = {
   list: "tier-engine:query:tier-assignment:list",

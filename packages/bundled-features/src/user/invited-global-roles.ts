@@ -7,7 +7,7 @@ import {
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { GLOBAL_ROLE_OPTIONS } from "./constants.js";
+import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "./constants.js";
 import { userEntity, userTable } from "./schema/user.js";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
@@ -17,8 +17,6 @@ type UserRolesRow = {
   readonly version: number;
   readonly roles: readonly string[] | string | null;
 };
-
-type GlobalRole = (typeof GLOBAL_ROLE_OPTIONS)[number];
 
 function isGlobalRole(role: string): role is GlobalRole {
   return GLOBAL_ROLE_OPTIONS.some((option) => option === role);
@@ -34,7 +32,7 @@ export function parseInvitedGlobalRoles(raw: unknown): readonly GlobalRole[] {
 // already holds. Users live on SYSTEM_TENANT_ID (tenancy "global").
 export async function grantInvitedGlobalRoles(
   db: DbRunner,
-  options: { readonly userId: string; readonly globalRoles: readonly string[] },
+  options: { readonly userId: string; readonly globalRoles: readonly GlobalRole[] },
 ) {
   const existing = await fetchOne<UserRolesRow>(db, userTable, { id: options.userId });
   if (!existing) return writeFailure(new NotFoundError("user", options.userId));

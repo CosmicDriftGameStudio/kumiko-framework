@@ -304,7 +304,8 @@ type CallOutcome =
   | { readonly ok: false; readonly networkFailure: DispatcherError };
 
 function buildUnexpectedShapeError(status: number): DispatcherError {
-  return buildNetworkError(`unexpected response shape (${status})`);
+  // The server did answer: keep its status so 401/5xx handling still applies.
+  return { ...buildNetworkError(`unexpected response shape (${status})`), httpStatus: status };
 }
 
 // Middleware gates (csrf, origin, auth, rate limits) answer write and batch

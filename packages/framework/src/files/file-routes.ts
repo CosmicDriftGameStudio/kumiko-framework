@@ -12,12 +12,13 @@ import {
   PII_ERASED_SENTINEL,
 } from "../crypto/index.js";
 import type { DbConnection } from "../db/connection.js";
-import { createTenantDb, type TenantDb } from "../db/tenant-db.js";
+import { createProjectingTenantDb, type TenantDb } from "../db/tenant-db.js";
 import {
   createDerivativesContext,
   resolveFieldVariant,
   resolveRenderer,
 } from "../derivatives/index.js";
+import { SYSTEM_USER_ID } from "../engine/system-user.js";
 import {
   isFileField,
   isUuid,
@@ -88,7 +89,7 @@ export type FileRoutesOptions = {
   // Roles that may read uploads without a target field (entityType and entityId null, e.g.
   // inbox or dropzone files). Such files belong to no record, so the app decides declaratively
   // who reads them within the tenant. Read only: never delete, and attached files stay behind
-  // their record's access.
+  // their record's access. System-generated files (uploaded by the system user) are excluded.
   readonly unclaimedUploadReaders?: readonly string[];
   // Replaces the default guard entirely. When set, privilegedRoles, unclaimedUploadReaders and
   // canReadRecord are ignored — the app takes full responsibility.
@@ -123,9 +124,13 @@ function createDefaultGuard(
   return async ({ fileRef, user, operation }) => {
     if (fileRef.insertedById === user.id) return "allow";
     if (privilegedRoles.some((role) => user.roles.includes(role))) return "allow";
-    const isUnclaimed = fileRef.entityType === null && fileRef.entityId === null;
+    // System-generated documents are created without attachTo too, but belong to a person's data, not to an inbox.
+    const isUnclaimedUpload =
+      fileRef.entityType === null &&
+      fileRef.entityId === null &&
+      fileRef.insertedById !== SYSTEM_USER_ID;
     if (
-      isUnclaimed &&
+      isUnclaimedUpload &&
       operation === "read" &&
       unclaimedUploadReaders.some((role) => user.roles.includes(role))
     ) {
@@ -198,9 +203,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
-  const projectionGrants = options.registry ? { projectionRegistry: options.registry } : undefined;
   const tenantDbFor = (tenantId: TenantId): TenantDb =>
-    createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, projectionGrants);
+    createProjectingTenantDb(db, tenantId, options.registry);
 
   const fileNameIsPersonal = piiSubjectFields.includes("fileName");
 
@@ -300,6 +304,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       {
         user,
         tenantDb: tenantDbFor(user.tenantId),
+        rowInOwnTransaction: true,
         registry: options.registry,
         defaultMaxUploadSize: options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
         writeBytes: (key, bytes, mimeType) => storageProvider.write(key, bytes, mimeType),

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -18,6 +19,12 @@ import { frameworkTsConfigPath, resolveRepoRoots } from "./_lib/roots";
 // owning feature (the version PR only writes changes.json at release), or the
 // write is refused.
 // Without an old baseline, `--write-baseline` is a bootstrap freeze.
+//
+// The committed baseline is a file the PR itself can edit (or delete and
+// bootstrap-freeze), so check mode with `--base=<ref>` additionally reads the
+// baseline from the merge-base with <ref> and runs every drop against THAT
+// baseline through the same ratchet gate as `--write-baseline`. Only when the
+// base has no baseline either is there nothing to protect.
 //
 // Scope: only the two packages with a changes.json home. packages/framework
 // has ONE changelog (src/changes.json); packages/bundled-features has one PER
@@ -48,6 +55,7 @@ const OUT_OF_SCOPE_PACKAGES = [
   "renderer",
 ] as const;
 
+const BASE_FLAG_PREFIX = "--base=";
 const BASELINE_FILE = ".kumiko-public-exports-baseline.json";
 const REFREEZE_COMMAND = "bun packages/guards/src/cli.ts public-exports-changelog --write-baseline";
 const BASELINE_FORMAT_VERSION = 1;
@@ -204,6 +212,19 @@ export function compareVersionsLocal(a: string, b: string): number {
   return 0;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Identifier boundaries, not substrings: `getUserById` must not cover a dropped `getUser`.
+export function mentionsExportName(text: string, name: string): boolean {
+  return new RegExp(`(?<![A-Za-z0-9_$])${escapeRegExp(name)}(?![A-Za-z0-9_$])`).test(text);
+}
+
+function everyNameMentioned(texts: readonly string[], names: readonly string[]): boolean {
+  return names.every((name) => texts.some((text) => mentionsExportName(text, name)));
+}
+
 export function isCoveredByChangelog(
   entries: readonly ChangelogEntryShape[],
   asOfVersion: string,
@@ -211,15 +232,16 @@ export function isCoveredByChangelog(
 ): boolean {
   // >= not >: package.json only bumps at release, so the entry `kumiko changes
   // add` writes in the removing PR carries the SAME version as asOfVersion.
-  // With exportNames, the entry must also name at least one dropped export, so
-  // a single breaking entry cannot blanket-cover unrelated drops.
-  return entries.some((e) => {
-    if (e.type !== "breaking") return false;
-    if (compareVersionsLocal(e.version, asOfVersion) < 0) return false;
-    if (exportNames.length === 0) return true;
-    const haystack = `${e.title ?? ""} ${e.detail ?? ""}`;
-    return exportNames.some((name) => haystack.includes(name));
-  });
+  // With exportNames, every dropped export must be named by some qualifying
+  // entry, so a single breaking entry cannot blanket-cover unrelated drops.
+  const qualifying = entries.filter(
+    (e) => e.type === "breaking" && compareVersionsLocal(e.version, asOfVersion) >= 0,
+  );
+  if (qualifying.length === 0) return false;
+  return everyNameMentioned(
+    qualifying.map((e) => `${e.title ?? ""} ${e.detail ?? ""}`),
+    exportNames,
+  );
 }
 
 function toChangelogEntry(e: unknown): ChangelogEntryShape[] {
@@ -241,7 +263,10 @@ function readChangelogEntries(absChangelogPath: string): ChangelogEntryShape[] {
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(absChangelogPath, "utf-8"));
-  } catch {
+  } catch (e) {
+    console.error(
+      `  ${absChangelogPath}: changelog unreadable (${e instanceof Error ? e.message : String(e)}); its entries cannot cover a dropped export until the JSON is fixed.`,
+    );
     return [];
   }
   return Array.isArray(raw) ? raw.flatMap(toChangelogEntry) : [];
@@ -395,6 +420,9 @@ export function evaluatePublicExportsChangelog(args: {
   readonly mode: EvaluateMode;
   /** Tests pass an explicit path; production resolves `<framework root>/.kumiko-public-exports-baseline.json`. */
   readonly baselinePath?: string;
+  /** Baseline as committed on the PR's merge-base; its drops go through the ratchet gate. */
+  readonly baseBaseline?: BaselinePayload;
+  readonly pendingBreakingChanges?: PendingBreakingChanges;
 }): EvaluateResult {
   logOutOfScopeNotice();
   const scans = scanAllPackages(args.cwd, args.project);
@@ -427,7 +455,72 @@ export function evaluatePublicExportsChangelog(args: {
   }
 
   const findings = findingsAgainstBaseline(parsed.baseline, scans);
+  if (args.baseBaseline) {
+    const alreadyReported = new Set(findings.map(findingIdentity));
+    const ratchet = uncoveredDrops(
+      args.cwd,
+      scans,
+      args.baseBaseline,
+      args.pendingBreakingChanges ?? new Map(),
+    );
+    findings.push(...ratchet.filter((f) => !alreadyReported.has(findingIdentity(f))));
+  }
   return { scans, baselineStatus: "ok", findings };
+}
+
+function findingIdentity(f: UncoveredFinding): string {
+  return `${f.pkg}|${f.key}|${f.names.join(",")}`;
+}
+
+// ── Baseline of the merge-base ───────────────────────────────────────────
+
+export type BaseBaselineRead =
+  | { readonly kind: "absent" }
+  | { readonly kind: "ok"; readonly baseline: BaselinePayload }
+  | { readonly kind: "error"; readonly detail: string };
+
+function git(args: readonly string[], cwd: string): { ok: true; out: string } | { ok: false } {
+  const res = spawnSync("git", args, { cwd, encoding: "utf-8" });
+  return res.status === 0 ? { ok: true, out: res.stdout } : { ok: false };
+}
+
+export function readBaseBaseline(cwd: string, baseRef: string): BaseBaselineRead {
+  if (baseRef === "" || baseRef.startsWith("-")) {
+    return {
+      kind: "error",
+      detail: `--base must be a ref name such as origin/main (got "${baseRef}"); an empty value or a leading "-" would be read as a git option.`,
+    };
+  }
+  const mergeBase = git(["merge-base", baseRef, "HEAD"], cwd);
+  if (!mergeBase.ok) {
+    return {
+      kind: "error",
+      detail: `git merge-base ${baseRef} HEAD failed — is ${baseRef} known locally? On shallow checkouts fetch the full history or the ref.`,
+    };
+  }
+  const commit = mergeBase.out.trim();
+  const listed = git(["ls-tree", "--name-only", commit, "--", BASELINE_FILE], cwd);
+  if (!listed.ok) return { kind: "error", detail: `git ls-tree ${commit} failed.` };
+  if (listed.out.trim() === "") return { kind: "absent" };
+  const shown = git(["show", `${commit}:./${BASELINE_FILE}`], cwd);
+  if (!shown.ok) return { kind: "error", detail: `git show ${commit}:${BASELINE_FILE} failed.` };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(shown.out);
+  } catch (e) {
+    console.error(
+      `  Baseline on ${baseRef} unreadable (${e instanceof Error ? e.message : String(e)}); nothing to ratchet against.`,
+    );
+    return { kind: "absent" };
+  }
+  const parsed = parseBaseline(raw);
+  if (parsed.kind !== "ok") {
+    console.error(
+      `  Baseline on ${baseRef} is ${parsed.kind} (${parsed.detail}); nothing to ratchet against.`,
+    );
+    return { kind: "absent" };
+  }
+  return { kind: "ok", baseline: parsed.baseline };
 }
 
 // ── Open changesets ───────────────────────────────────────────────────────
@@ -502,15 +595,15 @@ export async function loadPendingBreakingChanges(
   return pendingBreakingChangesIn(join(frameworkRootAbsPath, ".changeset"), parse);
 }
 
-// A feature-wide breaking block must not cover unrelated drops: the block has
-// to name at least one of the dropped exports.
+// A feature-wide breaking block must not cover unrelated drops: every dropped
+// export has to be named by some block of the feature.
 export function isCoveredByPendingChangeset(
   pending: PendingBreakingChanges,
   feature: string,
   droppedNames: readonly string[],
 ): boolean {
   const texts = pending.get(feature) ?? [];
-  return texts.some((text) => droppedNames.some((name) => text.includes(name)));
+  return texts.length > 0 && everyNameMentioned(texts, droppedNames);
 }
 
 // ── Write baseline ────────────────────────────────────────────────────────
@@ -653,13 +746,40 @@ function reportViolations(violations: readonly GuardViolation[]): void {
   ]);
 }
 
+// undefined = the ratchet inputs could not be read; the diagnosis is printed already.
+async function baseRatchetFor(
+  scanCwd: string,
+  mode: EvaluateMode,
+  baseRef: string | undefined,
+): Promise<
+  { baseBaseline?: BaselinePayload; pendingBreakingChanges?: PendingBreakingChanges } | undefined
+> {
+  if (baseRef === undefined || mode !== "check") return {};
+  const base = readBaseBaseline(scanCwd, baseRef);
+  if (base.kind === "error") {
+    console.error(`  ${base.detail}`);
+    return undefined;
+  }
+  if (base.kind === "absent") return {};
+  try {
+    const pendingBreakingChanges = await loadPendingBreakingChanges(scanCwd);
+    return { baseBaseline: base.baseline, pendingBreakingChanges };
+  } catch (e) {
+    console.error(
+      `  Cannot read open changesets: ${e instanceof Error ? e.message : String(e)}. Fix the changeset file named above.`,
+    );
+    return undefined;
+  }
+}
+
 export async function runPublicExportsChangelogCli(
   argv: readonly string[],
   cwd: string = process.cwd(),
 ): Promise<number> {
+  const baseArg = argv.find((arg) => arg.startsWith(BASE_FLAG_PREFIX));
   const flagsError = cliFlagsError(
     "public-exports-changelog",
-    argv,
+    argv.filter((arg) => !arg.startsWith(BASE_FLAG_PREFIX)),
     PUBLIC_EXPORTS_CHANGELOG_FLAGS,
   );
   if (flagsError !== undefined) {
@@ -696,7 +816,9 @@ export async function runPublicExportsChangelogCli(
   }
 
   const mode: EvaluateMode = argv.includes("--no-baseline") ? "no-baseline" : "check";
-  const result = evaluatePublicExportsChangelog({ cwd: scanCwd, project, mode });
+  const ratchet = await baseRatchetFor(scanCwd, mode, baseArg?.slice(BASE_FLAG_PREFIX.length));
+  if (ratchet === undefined) return 1;
+  const result = evaluatePublicExportsChangelog({ cwd: scanCwd, project, mode, ...ratchet });
   report(result);
   const baselineBroken =
     result.baselineStatus === "format-drift" || result.baselineStatus === "missing";

@@ -45,6 +45,7 @@ import {
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.js";
 import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.js";
+import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.js";
 import { executeRawQueryRead } from "./queries/raw-sql.js";
 import { buildEntityTable, physicalColumnName } from "./table-builder.js";
 import type { TenantDb } from "./tenant-db.js";
@@ -159,7 +160,7 @@ async function resolveRefAccessScope(
   // No read path exists for non-uuid ids, so nothing can be access-checked.
   if (refEntity.idType !== undefined && refEntity.idType !== "uuid") return { kind: "none" };
 
-  const params: unknown[] = [ids];
+  const params: unknown[] = [toPostgresArrayLiteral(ids)];
   let tenantClause = "";
   if (refTable["tenantId"] !== undefined && db.mode === "tenant") {
     params.push(db.tenantId, SYSTEM_TENANT_ID);

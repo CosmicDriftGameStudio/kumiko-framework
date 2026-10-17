@@ -369,6 +369,7 @@ export {
   type EffectiveFeaturesResolver,
   findTierResolverUsage,
   isTierResolverPlugin,
+  requireTierResolverPlugin,
   TENANT_TIER_RESOLVER_EXT,
   type TierResolverPlugin,
   type TrialGate,

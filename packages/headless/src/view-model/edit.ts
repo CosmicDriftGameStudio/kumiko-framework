@@ -20,6 +20,7 @@ import {
   sectionFieldSpecs,
   WRITE_FORM_SECTION_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import {
   buildOptionLabels,
   embeddedCellLabelKey,
@@ -413,15 +414,7 @@ type FileFieldHints = Pick<
 
 // file/image: entityType/fieldName travel with the upload POST so the
 // endpoint validates against the right field definition.
-type FileFieldDefOptions = {
-  accept?: readonly string[];
-  maxSize?: string;
-  maxCount?: number;
-  variants?: Readonly<Record<string, unknown>>;
-  capture?: "environment" | "user";
-};
-
-function isFileFieldType(fieldDef: EntityFieldDef): boolean {
+function isFileFieldType(fieldDef: EntityFieldDef): fieldDef is AnyFileFieldDef {
   return (
     fieldDef.type === "file" ||
     fieldDef.type === "image" ||
@@ -431,14 +424,13 @@ function isFileFieldType(fieldDef: EntityFieldDef): boolean {
 }
 
 function deriveImageHints(
-  fieldDef: EntityFieldDef,
-  fileDef: FileFieldDefOptions,
+  fieldDef: AnyFileFieldDef,
 ): Pick<EditFieldViewModel, "imageVariant" | "capture"> {
   if (fieldDef.type !== "image" && fieldDef.type !== "images") return {};
-  const imageVariant = Object.keys(fileDef.variants ?? {})[0];
+  const imageVariant = Object.keys(fieldDef.variants ?? {})[0];
   return {
     ...(imageVariant !== undefined && { imageVariant }),
-    ...(fileDef.capture !== undefined && { capture: fileDef.capture }),
+    ...(fieldDef.capture !== undefined && { capture: fieldDef.capture }),
   };
 }
 
@@ -449,15 +441,16 @@ function deriveFileFieldHints(
   entityId: string | undefined,
 ): FileFieldHints {
   if (!isFileFieldType(fieldDef)) return {};
-  const fileDef = fieldDef as unknown as FileFieldDefOptions;
+  const maxCount =
+    fieldDef.type === "files" || fieldDef.type === "images" ? fieldDef.maxCount : undefined;
   return {
-    ...(fileDef.accept !== undefined && { accept: fileDef.accept }),
-    ...(fileDef.maxSize !== undefined && { maxSize: fileDef.maxSize }),
-    ...(fileDef.maxCount !== undefined && { maxCount: fileDef.maxCount }),
+    ...(fieldDef.accept !== undefined && { accept: fieldDef.accept }),
+    ...(fieldDef.maxSize !== undefined && { maxSize: fieldDef.maxSize }),
+    ...(maxCount !== undefined && { maxCount }),
     entityType: entityName,
     fieldName,
     ...(entityId !== undefined && { entityId }),
-    ...deriveImageHints(fieldDef, fileDef),
+    ...deriveImageHints(fieldDef),
   };
 }
 

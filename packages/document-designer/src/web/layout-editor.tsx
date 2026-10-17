@@ -6,13 +6,17 @@ import { type ReactNode, useState } from "react";
 import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
 import { LayoutEditorBody } from "./layout-editor-body.js";
 import type { LayoutKind, LayoutSourceView, TenantOverrideCounts } from "./layout-types.js";
+import { layoutUserKind } from "./layout-users.js";
 import { parseOverviewRow } from "./overview-row.js";
 
 function parseLayoutKind(raw: string | undefined): LayoutKind {
   return raw === "pdf-layout" ? "pdf-layout" : "mail-layout";
 }
 
-type OverviewResponse = { readonly rows: readonly Readonly<Record<string, unknown>>[] };
+type OverviewResponse = {
+  readonly rows: readonly Readonly<Record<string, unknown>>[];
+  readonly total: number;
+};
 
 function LayoutEditorLoader({
   kind,
@@ -26,7 +30,11 @@ function LayoutEditorLoader({
   readonly onKindChange: (kind: LayoutKind) => void;
 }): ReactNode {
   const source = useQuery<LayoutSourceView>(TemplateResolverQueries.layoutSource, { kind, slug });
-  const overview = useQuery<OverviewResponse>(TemplateResolverQueries.overview, { limit: 200 });
+  const overview = useQuery<OverviewResponse>(TemplateResolverQueries.overview, {
+    limit: 200,
+    layoutSlug: slug,
+    filters: [{ field: "kind", op: "in", value: [layoutUserKind(kind)] }],
+  });
   const overrides = useQuery<TenantOverrideCounts>(
     TemplateResolverQueries.tenantOverrides,
     { slug, kind },
@@ -48,7 +56,12 @@ function LayoutEditorLoader({
   const data = source.data;
   const rows = (overview.data?.rows ?? []).flatMap((row) => parseOverviewRow(row) ?? []);
   const reload = async (): Promise<void> => {
-    await Promise.all([source.refetch(), overview.refetch(), overrides.refetch()]);
+    // refetch ignores `enabled`, and tenant-overrides is denied to everyone but the platform admin.
+    await Promise.all([
+      source.refetch(),
+      overview.refetch(),
+      ...(isSystemAdmin ? [overrides.refetch()] : []),
+    ]);
   };
   // A saved or reset layout is a new version: remount so the editors take the stored regions.
   const bodyKey = [kind, slug, data.tenant?.id, data.tenant?.version, data.system?.version].join(
@@ -62,6 +75,7 @@ function LayoutEditorLoader({
       isSystemAdmin={isSystemAdmin}
       source={data}
       overviewRows={rows}
+      usedByCount={overview.data?.total ?? rows.length}
       overrides={isSystemAdmin ? overrides.data : null}
       onKindChange={onKindChange}
       onReload={reload}

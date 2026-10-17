@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { type TemplateVariables, templateVariable } from "@cosmicdrift/kumiko-framework/engine";
-import { sampleValuesFor } from "../template-preview.js";
+import { MAIL_PREVIEW_MAX_BYTES } from "../constants.js";
+import {
+  encodedAttachmentBytes,
+  estimateMailBytes,
+  MIME_PART_OVERHEAD_BYTES,
+  sampleValuesFor,
+} from "../template-preview.js";
 
 describe("sampleValuesFor", () => {
   test("uses the declared example of a scalar variable", () => {
@@ -84,5 +90,38 @@ describe("sampleValuesFor", () => {
       { label: "[label]", price: 0 },
       { label: "[label]", price: 0 },
     ]);
+  });
+});
+
+describe("estimateMailBytes", () => {
+  const inlineImage = (sizeBytes: number) =>
+    ({ kind: "inline", cid: "logo", name: "logo", sizeBytes }) as const;
+
+  test("counts attachments base64-encoded plus a fixed part overhead", () => {
+    expect(encodedAttachmentBytes(3)).toBe(4 + MIME_PART_OVERHEAD_BYTES);
+    expect(encodedAttachmentBytes(4)).toBe(8 + MIME_PART_OVERHEAD_BYTES);
+  });
+
+  test("a raw size just under the cap exceeds it once encoded", () => {
+    const rawUnderCap = MAIL_PREVIEW_MAX_BYTES - 1024;
+    const total = estimateMailBytes({
+      html: "",
+      text: "",
+      attachments: [inlineImage(rawUnderCap)],
+    });
+    expect(rawUnderCap).toBeLessThan(MAIL_PREVIEW_MAX_BYTES);
+    expect(total).toBeGreaterThan(MAIL_PREVIEW_MAX_BYTES);
+  });
+
+  test("an attachment whose encoded size fits stays under the cap, and each part adds its overhead", () => {
+    const fitting = Math.floor(((MAIL_PREVIEW_MAX_BYTES - MIME_PART_OVERHEAD_BYTES) / 4) * 3) - 3;
+    const one = estimateMailBytes({ html: "", text: "", attachments: [inlineImage(fitting)] });
+    expect(one).toBeLessThanOrEqual(MAIL_PREVIEW_MAX_BYTES);
+    const two = estimateMailBytes({
+      html: "",
+      text: "",
+      attachments: [inlineImage(fitting), inlineImage(0)],
+    });
+    expect(two - one).toBe(MIME_PART_OVERHEAD_BYTES);
   });
 });

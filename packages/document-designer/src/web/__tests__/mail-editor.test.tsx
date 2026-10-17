@@ -45,7 +45,12 @@ const overviewRow = {
   usedByCount: 1,
 };
 
-function storedRow(status: string): Record<string, unknown> {
+const STORED_META = { subject: "Ihre Rechnung", category: "transactional" };
+
+function storedRow(
+  status: string,
+  meta: Readonly<Record<string, string>> = STORED_META,
+): Record<string, unknown> {
   return {
     id: "t-1",
     version: 4,
@@ -59,7 +64,7 @@ function storedRow(status: string): Record<string, unknown> {
     content: "<p>Hallo</p>",
     variableSchema: "{}",
     linkedResources: "{}",
-    meta: JSON.stringify({ subject: "Ihre Rechnung", category: "transactional" }),
+    meta: JSON.stringify(meta),
     modifiedAt: "2026-10-14T10:00:00.000Z",
   };
 }
@@ -107,6 +112,7 @@ function fakeDispatcher(
   calls: Call[],
   validationAnswer = validation,
   previewAnswer = preview,
+  storedMeta: Readonly<Record<string, string>> = STORED_META,
 ): Dispatcher {
   const answer = (type: string, payload: unknown): unknown => {
     switch (type) {
@@ -128,7 +134,7 @@ function fakeDispatcher(
         ];
       }
       case "template-resolver:query:find-by-id":
-        return storedRow(status);
+        return storedRow(status, storedMeta);
       case "template-resolver:query:validate":
         return validationAnswer;
       case "template-resolver:query:preview":
@@ -239,7 +245,11 @@ describe("MailEditor", () => {
     expect(screen.getByTestId("mail-create-blank")).toBeTruthy();
     expect(screen.queryByTestId("mail-subject")).toBeNull();
     expect(screen.getByTestId("mail-sender")).toBeTruthy();
-    expect(screen.getByTestId("mail-placeholder-dueDate").getAttribute("data-bad")).toBeNull();
+    // The placeholder rail comes from the validate query, which settles independently
+    // of the missing-locale canvas, so it has to be awaited on its own.
+    expect(
+      (await screen.findByTestId("mail-placeholder-dueDate")).getAttribute("data-bad"),
+    ).toBeNull();
     const text = document.body.textContent ?? "";
     expect(text).not.toContain("Too small");
     expect(text).not.toContain("expected string");
@@ -341,6 +351,83 @@ describe("MailEditor", () => {
     expect(upsert?.payload).toMatchObject({
       meta: { senderName: "Nordlicht Immobilien", replyTo: "buchhaltung@example.org" },
     });
+  });
+
+  test("the rail keeps the stored header chip and footer note, and a changed tone is previewed and saved", async () => {
+    const calls: Call[] = [];
+    renderEditor(
+      fakeDispatcher("draft", calls, validation, preview, {
+        ...STORED_META,
+        headerChip: "{{eventLabel}}",
+        tone: "{{tone}}",
+        footerNote: "Sie erhalten diese Mail als Kunde.",
+      }),
+    );
+    const chrome = await screen.findByTestId("mail-editor-chrome");
+    expect(chrome.textContent).toContain("Label in the header");
+    const toneSelect = await screen.findByTestId("combobox-mail-tone");
+    // A placeholder tone is kept as its own option instead of being reset to the default.
+    await waitFor(() => expect(toneSelect.textContent).toContain("From placeholder: {{tone}}"));
+    fireEvent.click(toneSelect);
+    const warning = (await screen.findAllByText("Warning (amber)")).find(
+      (node) => node.closest("[role=option], [cmdk-item]") !== null,
+    );
+    if (warning === undefined) throw new Error("tone option not found");
+    fireEvent.click(warning);
+    // The preview renders the unsaved draft, so the tone shows before saving.
+    await openPreview();
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (call) =>
+            call.type === "template-resolver:query:preview" &&
+            JSON.stringify(call.payload).includes('"tone":"warning"'),
+        ),
+      ).toBe(true),
+    );
+    const save = screen.getByTestId("document-designer-save");
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(calls.some((call) => call.type === "template-resolver:write:upsert-tenant")).toBe(
+        true,
+      ),
+    );
+    const upsert = calls.find((call) => call.type === "template-resolver:write:upsert-tenant");
+    expect(upsert?.payload).toMatchObject({
+      meta: {
+        headerChip: "{{eventLabel}}",
+        tone: "warning",
+        footerNote: "Sie erhalten diese Mail als Kunde.",
+      },
+    });
+  });
+
+  test("choosing the accent tone stores no tone, the renderer default", async () => {
+    const calls: Call[] = [];
+    renderEditor(
+      fakeDispatcher("draft", calls, validation, preview, { ...STORED_META, tone: "danger" }),
+    );
+    const toneSelect = await screen.findByTestId("combobox-mail-tone");
+    await waitFor(() => expect(toneSelect.textContent).toContain("Danger (red)"));
+    fireEvent.click(toneSelect);
+    const accent = (await screen.findAllByText("Accent colour (default)")).find(
+      (node) => node.closest("[role=option], [cmdk-item]") !== null,
+    );
+    if (accent === undefined) throw new Error("accent option not found");
+    fireEvent.click(accent);
+    const save = screen.getByTestId("document-designer-save");
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(calls.some((call) => call.type === "template-resolver:write:upsert-tenant")).toBe(
+        true,
+      ),
+    );
+    const upsert = calls.find((call) => call.type === "template-resolver:write:upsert-tenant");
+    const meta = (upsert?.payload as { meta?: Record<string, unknown> } | undefined)?.meta;
+    expect(meta).toBeDefined();
+    expect(meta?.tone).toBeUndefined();
   });
 
   test("saving an active row writes a draft without asking", async () => {

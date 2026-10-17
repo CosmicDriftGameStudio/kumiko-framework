@@ -9,6 +9,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
@@ -171,43 +172,79 @@ describe("custom write handler: reset", () => {
 });
 
 describe("custom query handler: active counters", () => {
+  // Own tenants: the total assertions would otherwise count counters created by other tests.
+  const activeAdmin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(11) });
+  const activeUser = createTestUser({ id: 2, roles: ["User"], tenantId: testTenantId(11) });
+  const otherAdmin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(12) });
+
   test("filters counters by minimum count", async () => {
     const c1 = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "active-a" },
-      admin,
+      activeAdmin,
     );
     const c2 = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "active-b" },
-      admin,
+      activeAdmin,
     );
     await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "inactive" },
-      admin,
+      activeAdmin,
     );
 
     await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       { id: c1.id, amount: 10 },
-      user,
+      activeUser,
     );
     await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       { id: c2.id, amount: 5 },
-      user,
+      activeUser,
     );
 
-    const result = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
-      "counters:query:counter:active",
-      { minCount: 5 },
-      admin,
-    );
+    const result = await stack.http.queryOk<{
+      rows: Record<string, unknown>[];
+      nextCursor: string | null;
+      total?: number;
+    }>("counters:query:counter:active", { minCount: 5 }, activeAdmin);
 
     const names = result.rows.map((r) => r["name"]);
     expect(names).toContain("active-a");
     expect(names).toContain("active-b");
     expect(names).not.toContain("inactive");
+    expect(result.total).toBe(2);
+  });
+
+  test("total and nextCursor describe the full filtered set", async () => {
+    for (const name of ["total-a", "total-b", "total-c"]) {
+      const created = await stack.http.writeOk<SaveContext>(
+        "counters:write:counter:create",
+        { name },
+        otherAdmin,
+      );
+      await stack.http.writeOk<SaveContext>(
+        "counters:write:counter:increment",
+        { id: created.id, amount: 1 },
+        otherAdmin,
+      );
+    }
+    await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:create",
+      { name: "total-untouched" },
+      otherAdmin,
+    );
+
+    const result = await stack.http.queryOk<{
+      rows: Record<string, unknown>[];
+      nextCursor: string | null;
+      total?: number;
+    }>("counters:query:counter:active", { minCount: 1 }, otherAdmin);
+
+    expect(result.rows).toHaveLength(3);
+    expect(result.total).toBe(3);
+    expect(result.nextCursor).toBeNull();
   });
 });

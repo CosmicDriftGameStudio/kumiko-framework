@@ -6,6 +6,7 @@ export const USER_FEATURE = "user" as const;
  *  platform operator. Membership roles (TenantAdmin/Admin/User/…) live on
  *  tenant-membership, not here. */
 export const GLOBAL_ROLE_OPTIONS = ["SystemAdmin"] as const;
+export type GlobalRole = (typeof GLOBAL_ROLE_OPTIONS)[number];
 
 // Qualified write handler names. Handlers carry the "user:" entity prefix so
 // field-level access rules (passwordHash system-only etc.) are wired up.

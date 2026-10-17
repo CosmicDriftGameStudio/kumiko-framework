@@ -3,6 +3,12 @@ import { PII_ERASED_SENTINEL } from "./kms-adapter.js";
 import { isPiiCiphertext } from "./pii-ciphertext-format.js";
 import { nonEmptyString } from "./subject-resolver.js";
 
+// userOwned and not recordOwned: the value follows the row's current owner.
+export function isPlainUserOwnedField(field: EntityDefinition["fields"][string]): boolean {
+  if (!("userOwned" in field) || field.userOwned === undefined) return false;
+  return !("recordOwned" in field && field.recordOwned === true);
+}
+
 // Personal fields keep their stored value when an update moves the row to a
 // new owner, so without re-keying they would stay shreddable only by the old
 // owner. Returns the unchanged-by-the-caller values that must be written again
@@ -16,8 +22,7 @@ export function personalFieldsRekeyedOnOwnerTransition(
 ): Record<string, unknown> {
   const rekeyed: Record<string, unknown> = {};
   for (const [name, field] of Object.entries(entity.fields)) {
-    if (!("userOwned" in field) || field.userOwned === undefined) continue;
-    if ("recordOwned" in field && field.recordOwned === true) continue;
+    if (!isPlainUserOwnedField(field) || !("userOwned" in field) || !field.userOwned) continue;
     if (name in submittedChanges) continue;
 
     const { ownerField } = field.userOwned;

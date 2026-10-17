@@ -142,15 +142,11 @@ function entryFor(
   };
 }
 
-// Only the final retry frees the key: earlier failures are retried by the runner and
-// must still dedup. Assumes ctx.redis is the handle the service claimed on; runProdApp
-// wires the same instance into both.
-async function releaseIdempotencyOnTerminalFailure(
-  ctx: JobContext,
-  p: RenderJobPayload,
-): Promise<void> {
-  // skip: nothing to release before the last attempt or without an idempotency key
-  if (!ctx.finalAttempt || !p.idempotencyKey) return;
+// Assumes ctx.redis is the handle the service claimed on; runProdApp wires the same
+// instance into both.
+async function releaseIdempotencyKey(ctx: JobContext, p: RenderJobPayload): Promise<void> {
+  // skip: no idempotency key was claimed for this notification
+  if (!p.idempotencyKey) return;
   if (!ctx.redis) {
     ctx.log.warn("delivery: idempotency key not released, job context has no redis", {
       notificationType: p.notificationType,
@@ -163,6 +159,33 @@ async function releaseIdempotencyOnTerminalFailure(
     ctx.log.warn(`delivery: idempotency key release failed: ${redactedMessageOf(err)}`, {
       notificationType: p.notificationType,
     });
+  }
+}
+
+// Only the final retry frees the key: earlier failures are retried by the runner and
+// must still dedup.
+async function releaseIdempotencyOnTerminalFailure(
+  ctx: JobContext,
+  p: RenderJobPayload,
+): Promise<void> {
+  // skip: not the last attempt, the runner retries and the key must keep deduplicating
+  if (!ctx.finalAttempt) return;
+  await releaseIdempotencyKey(ctx, p);
+}
+
+// Covers every throw after the payload parsed, not just the attempt-logged ones: a
+// missing registry or unknown channel on the last attempt would otherwise hold the key
+// until its TTL.
+async function releasingKeyOnTerminalFailure<T>(
+  ctx: JobContext,
+  p: RenderJobPayload,
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    await releaseIdempotencyOnTerminalFailure(ctx, p);
+    throw err;
   }
 }
 
@@ -188,7 +211,6 @@ async function failAttempt(
     p.deliveryAttemptId,
     entryFor(p, "failed", code, p.address),
   );
-  await releaseIdempotencyOnTerminalFailure(ctx, p);
   throw new Error(code);
 }
 
@@ -197,6 +219,10 @@ async function failAttempt(
 // the send step is never reached, so a stuck render can't half-send.
 export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
   const p = renderJobPayloadSchema.parse(payload);
+  return releasingKeyOnTerminalFailure(ctx, p, () => renderStep(p, ctx));
+};
+
+async function renderStep(p: RenderJobPayload, ctx: JobContext): Promise<void> {
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
   const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
   const channel = resolveChannel(registry, p.channelName);
@@ -229,13 +255,17 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
   } catch (err) {
     return failAttempt(ctx, db, registry, p, "channel_error", err);
   }
-};
+}
 
 // Deliver via the channel using the rendered payload (if any). On failure:
 // record the terminal failed event and rethrow so BullMQ retries the send with
 // the same already-rendered HTML — no re-render needed.
 export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
   const p = sendJobPayloadSchema.parse(payload);
+  return releasingKeyOnTerminalFailure(ctx, p, () => sendStep(p, ctx));
+};
+
+async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext): Promise<void> {
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
   const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
   const channel = resolveChannel(registry, p.channelName);
@@ -263,7 +293,10 @@ export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
         result.confirmed,
       ),
     );
+    // A soft failure ends the job successfully, so no retry follows and the caller's
+    // retry must not be skipped as a duplicate.
+    if (result.status === "failed") await releaseIdempotencyKey(ctx, p);
   } catch (err) {
     return failAttempt(ctx, db, registry, p, "send_failed", err);
   }
-};
+}

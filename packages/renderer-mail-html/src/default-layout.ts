@@ -1,6 +1,6 @@
-// Default MJML layout that apps can use out of the box for mail templates. The
-// renderer falls back to it when neither tenant nor system has a "mail-layout"
-// template with the requested slug (default: "default").
+// Default MJML layout that apps can seed as their editable system layout
+// (seedSystemMailLayout). Without any layout row the renderer uses an in-code
+// structured layout instead, which also shows the branding logo and accent.
 //
 // **Variables the layout receives (nothing else):**
 //   - {{tenantName}}      - header + footer
@@ -11,6 +11,10 @@
 //   - {{subject}}         - mj-title
 //   - {{previewText}}     - inbox preview line
 //   - {{unsubscribeUrl}}  - optional footer link
+//   - {{lang}}            - the mail locale for <mjml lang>
+//   - {{imprint}}         - imprint URL from the app's footer resolver
+//   - {{{mailFooterHtml}}} - escaped footer line (resolver text, imprint, privacy,
+//                           unsubscribe link), built in code
 //
 // **Tenant override:** upsert a template of kind "mail-layout", contentFormat
 // "html" (structured: data-content slot plus header/signature/footer regions),
@@ -19,7 +23,7 @@
 
 export { DEFAULT_MAIL_LAYOUT_SLUG } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
-export const DEFAULT_MAIL_LAYOUT_MJML = `<mjml>
+export const DEFAULT_MAIL_LAYOUT_MJML = `<mjml lang="{{lang}}">
   <mj-head>
     <mj-title>{{subject}}</mj-title>
     <mj-preview>{{previewText}}</mj-preview>
@@ -42,7 +46,7 @@ export const DEFAULT_MAIL_LAYOUT_MJML = `<mjml>
     <mj-section background-color="#f5f5f5" padding="20px">
       <mj-column>
         <mj-text font-size="11px" color="#888" align="center">
-          {{#if tenantName}}Sent by {{tenantName}}{{/if}}{{#if unsubscribeUrl}} · <a href="{{link unsubscribeUrl}}">Unsubscribe</a>{{/if}}
+          {{#if tenantName}}<p>Sent by {{tenantName}}</p>{{/if}}{{#if mailFooterHtml}}<p>{{{mailFooterHtml}}}</p>{{/if}}
         </mj-text>
       </mj-column>
     </mj-section>

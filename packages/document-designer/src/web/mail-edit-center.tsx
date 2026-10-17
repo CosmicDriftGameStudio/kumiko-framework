@@ -105,6 +105,7 @@ export function MailEditCenter({
           systemVariables={vocabulary.system}
           readOnly={readOnly}
           flat
+          placeholder={t("documentDesigner.mail.meta.previewTextPlaceholder")}
           onEditorReady={insert.register("previewText")}
           aria-label={t("documentDesigner.mail.meta.previewText")}
         />

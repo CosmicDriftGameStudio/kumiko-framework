@@ -32,6 +32,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link-Pattern), DB-row-owner ist tenant-feature
@@ -50,7 +51,7 @@ import {
   unassignableMembershipRoleError,
 } from "../../tenant/membership-roles.js";
 // kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import { GLOBAL_ROLE_OPTIONS } from "../../user/constants.js";
+import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/constants.js";
 // kumiko-lint-ignore cross-feature-import invitee lookup by email reads the user row
 import { userTable } from "../../user/schema/user.js";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
@@ -59,8 +60,6 @@ import { inviteAlreadyAccepted } from "../errors.js";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.js";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 import { AuthMailNotificationTypes } from "../mail-notifications.js";
-
-type GlobalRole = (typeof GLOBAL_ROLE_OPTIONS)[number];
 
 const InviteCreateSchema = z.object({
   email: z.email(),
@@ -116,6 +115,7 @@ type InviteIssueRequest = {
   readonly email: string;
   readonly role: string;
   readonly globalRoles: readonly GlobalRole[];
+  readonly locale?: string | undefined;
 };
 
 function checkAssignableInviteRole(
@@ -239,7 +239,7 @@ async function issueInvitation(
   const token = generateToken();
   await storeInviteToken(ctx.redis, { invitationId, token, ttlSeconds });
 
-  const locale = resolveHandlerMailLocale(ctx, opts.locale);
+  const locale = request.locale ?? resolveHandlerMailLocale(ctx, opts.locale);
 
   await dispatchMagicLinkMail(
     ctx.notify,
@@ -317,6 +317,8 @@ const SystemInviteCreateSchema = z.object({
   email: z.email(),
   role: z.string().min(1).max(50),
   globalRoles: z.array(z.enum(GLOBAL_ROLE_OPTIONS)).max(GLOBAL_ROLE_OPTIONS.length).default([]),
+  // Preferred over the request locale: provisioning callers know the invitee's language.
+  locale: z.string().max(35).refine(isValidLocaleTag, "invalid locale tag").optional(),
 });
 
 // System-only sibling of invite-create: the only path that can put global

@@ -15,4 +15,3 @@ export {
 export { formatScanWarning, runCodegen } from "./codegen/index.js";
 export { createCrashTracker } from "./crash-tracker.js";
 export { runInitDeployCli } from "./init-deploy-cli.js";
-export { implicitAuthModeFeatureNames, resolveGeneratePath } from "./schema-check-core.js";

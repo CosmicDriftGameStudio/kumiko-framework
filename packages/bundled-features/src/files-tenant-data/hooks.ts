@@ -129,6 +129,7 @@ export const fileRefTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
     },
     maxFailures: 1,
     deadlineAt: ctx.deadlineAt ?? Number.POSITIVE_INFINITY,
+    minBatches: 1,
     onRowError: (_row, err) => {
       firstFailure = err instanceof Error ? err.message : String(err);
     },
@@ -222,6 +223,9 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
       },
       maxFailures: 1,
       deadlineAt: ctx.deadlineAt ?? Number.POSITIVE_INFINITY,
+      // list() and the survivor lookup above can use up the whole budget; one chunk per tick
+      // still deletes, so the stage never reports "no progress".
+      minBatches: 1,
       onRowError: (_key, err) => {
         firstFailure = err instanceof Error ? err.message : String(err);
       },

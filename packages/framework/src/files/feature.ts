@@ -17,6 +17,7 @@ export type FilesFeatureOptions = {
   // Roles that may read uploads without a target field (entityType and entityId null, e.g.
   // inbox or dropzone files): they belong to no record, so the app declares who reads them
   // in the tenant. Read only, no delete; attached files stay behind their record's access.
+  // Files the system generated (uploader = system user) are excluded.
   readonly unclaimedUploadReaders?: readonly string[];
   // Global upload size default (per-field `maxSize` still wins). e.g. "10mb".
   readonly maxUploadSize?: string;
@@ -33,8 +34,10 @@ export type FilesFeatureOptions = {
 // userData/tenantData-Extensions sichtbar und registriert die implizite
 // Entity-Projektion (für rebuildProjection). Liegt im Framework neben
 // file-routes + fileRefsTable; bundled-features/files re-exportiert nur.
+export const FILES_FEATURE = "files" as const;
+
 export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDefinition {
-  return defineFeature("files", (r) => {
+  return defineFeature(FILES_FEATURE, (r) => {
     r.describe(
       "Exposes the `fileRef` entity from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and tenant-lifecycle cleanup deletes all refs on tenant destroy. Upload/download routes are registered by the server bootstrap when a `file-provider-*` feature is mounted; this feature carries their access/size policy via `createFilesFeature(opts?)`.",
     );

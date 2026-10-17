@@ -90,7 +90,31 @@ export function createDocumentHandlebars(format: DocumentFormat): typeof Handleb
   hbs.registerHelper("link", (value: unknown): string =>
     typeof value === "string" && SAFE_LINK_PROTOCOL.test(value.trim()) ? value : "#",
   );
+  hbs.registerHelper(
+    "stepIs",
+    function stepIs(
+      this: unknown,
+      value: unknown,
+      index: unknown,
+      keys: unknown,
+      state: unknown,
+      options: Handlebars.HelperOptions,
+    ): string {
+      return isStepInState(value, index, keys, state) ? options.fn(this) : options.inverse(this);
+    },
+  );
   return hbs;
+}
+
+// An unknown stage value reaches no stage: the row shows all stages as open.
+function isStepInState(value: unknown, index: unknown, keys: unknown, state: unknown): boolean {
+  if (typeof index !== "number" || typeof keys !== "string") return false;
+  const current =
+    typeof value === "string" || typeof value === "number"
+      ? keys.split(",").indexOf(String(value).trim())
+      : -1;
+  if (current < 0) return false;
+  return state === "current" ? index === current : index <= current;
 }
 
 const KNOWN_HELPERS = {
@@ -100,6 +124,7 @@ const KNOWN_HELPERS = {
   date: true,
   link: true,
   richText: true,
+  stepIs: true,
 } as const;
 
 export function compileDocumentSource(
@@ -143,7 +168,11 @@ export async function readBrandingAccentColor(ctx: RendererContext): Promise<str
   return value !== undefined && isHexColor(value) ? value : undefined;
 }
 
-const LOGO_RESOURCE_KEY = "logo";
+export async function readBrandingSiteUrl(ctx: RendererContext): Promise<string | undefined> {
+  return readConfigText(ctx, BRANDING_QN.siteUrl);
+}
+
+export const LOGO_RESOURCE_KEY = "logo";
 
 // Lookup order: the template's own link, the system template it overrides, and for
 // "logo" the tenant's branding logo. The system lookup is skipped for system templates.
@@ -183,7 +212,7 @@ export async function resolveResourceFileRefs(
 
 // The token is a free field of the tenant admin and the send reader also reaches the system
 // tenant's files, so only a file of the rendering tenant itself counts.
-async function readBrandingLogo(ctx: RendererContext): Promise<string | undefined> {
+export async function readBrandingLogo(ctx: RendererContext): Promise<string | undefined> {
   const fileRefId = await readConfigText(ctx, BRANDING_QN.logoFile);
   if (fileRefId === undefined || !isUuid(fileRefId)) return undefined;
   const [row] = await selectMany<{ id: string }>(ctx.db, fileRefsTable, {

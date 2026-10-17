@@ -92,7 +92,8 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
         "worker.js",
       ]);
       expect(readFileSync(join(result.outDir, "worker.js"), "utf8")).toContain("chunk-");
-      const run = Bun.spawnSync(["bun", join(result.outDir, "worker.js")]);
+      const run = Bun.spawnSync([process.execPath, join(result.outDir, "worker.js")]);
+      expect(run.exitCode, run.stderr.toString()).toBe(0);
       expect(run.stdout.toString().trim()).toBe("worker 42");
     } finally {
       rmSync(withoutWorker, { recursive: true, force: true });
@@ -124,11 +125,35 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
         "server.js",
       ]);
       expect(readFileSync(join(result.outDir, "bootstrap.js"), "utf8")).toContain("chunk-");
-      const run = Bun.spawnSync(["bun", join(result.outDir, "bootstrap.js")]);
+      const run = Bun.spawnSync([process.execPath, join(result.outDir, "bootstrap.js")]);
+      expect(run.exitCode, run.stderr.toString()).toBe(0);
       expect(run.stdout.toString().trim()).toBe("bootstrap 42");
     } finally {
       rmSync(withoutBootstrap, { recursive: true, force: true });
       rmSync(withBootstrap, { recursive: true, force: true });
+    }
+  });
+
+  test("bundles bin/main.js with bin/worker.js as server.js and worker.js", async () => {
+    const dir = makeFixture();
+    try {
+      rmSync(join(dir, "bin/main.ts"));
+      writeFileSync(
+        join(dir, "bin/main.js"),
+        `import { shared } from "../src/shared";\nconsole.log("server", shared());\n`,
+      );
+      writeFileSync(
+        join(dir, "bin/worker.js"),
+        `import { shared } from "../src/shared";\nconsole.log("worker", shared());\n`,
+      );
+      const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+      expect(result.entries.map((e) => e.file).sort()).toEqual([
+        "kumiko.js",
+        "server.js",
+        "worker.js",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 

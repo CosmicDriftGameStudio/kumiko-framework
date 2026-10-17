@@ -587,6 +587,9 @@ type SharedContextFields = {
   // runner and the outside-tx pool, for code that builds a notify for another user or tenant
   // (seed hooks) without holding a raw outside-tx connection.
   readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
+  // Set by the dispatcher: _notifyFactory bound to the calling job runner, for post-commit
+  // delivery of a notify built for another user or tenant (seed hooks).
+  readonly _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   // Wired at boot when the `audit` feature is mounted; absent → structured warn log.
   readonly _escapeHatchAuditSink?: EscapeHatchAuditSink;
   // Tenant-scoped secrets accessor. Present when the app wired a
@@ -971,6 +974,8 @@ export type JobContext = SharedContextFields & {
   readonly registry: Registry;
   readonly systemUser: SessionUser;
   readonly log: Logger;
+  // Same contract as HandlerContext.metricsFor: unregistered names no-op.
+  readonly metricsFor: (featureName: string) => MetricsHandle;
   readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
   // 1-based run number; finalAttempt = no retry follows if this run throws. A sequential-lock re-enqueue restarts at 1.
   readonly attempt: number;
@@ -1266,6 +1271,11 @@ export type AggregateStreamHandle = {
   // Append an event on this stream. Derives aggregateId/aggregateType/
   // expectedVersion from the handle automatically. Multiple calls in a
   // row bump the handle's internal version and the events-table in order.
+  // Only this handle's own appendOne calls advance the pinned version: if the
+  // same handler also writes to this aggregateId another way (ctx.appendEvent,
+  // a second handle, a CRUD write or a nested ctx.write), the next appendOne
+  // fails with VersionConflictError against that handler's own write. Route
+  // every append for the aggregate through one handle.
   readonly appendOne: (args: { readonly type: string; readonly payload: unknown }) => Promise<void>;
   // Idempotency check against `events` (fetch-time snapshot only — an
   // appendOne in the same handler isn't reflected). Guards a handler that
@@ -1478,7 +1488,9 @@ export type WriteHandlerDef = {
   /** Runs after all pre-handler gates (and after reserveBeforeTransaction) and before the
    *  transaction opens: no transaction and no connection held, for external I/O and reads only.
    *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
-   *  write before anything is written. A handler with this phase cannot run as a nested ctx.write. */
+   *  write before anything is written. A handler with this phase cannot run as a nested ctx.write.
+   *  `ctx.forTenant` is available but read-only here: its db denies writes for the own and a
+   *  foreign tenant alike (a foreign tenant stays gated by the SystemAdmin check). */
   readonly beforeTransaction?: BeforeTransactionPhase;
   /** `"perCommand"`: the handler runs without a transaction of its own. Every ctx.write/writeAs it
    *  issues runs as its own top-level command with its own transaction and afterCommit hooks;

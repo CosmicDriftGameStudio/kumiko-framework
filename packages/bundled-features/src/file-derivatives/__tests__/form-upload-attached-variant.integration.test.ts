@@ -539,6 +539,15 @@ describe("files removed from a record are disposed", () => {
     expect(await readFileAs(replacement, technician)).toBe(200);
   });
 
+  test("an id moved from one file field to another in the same update stays readable", async () => {
+    const file = await uploadLikeTheForm(photoHints("create"));
+    const gadgetId = await createGadget({ photo: file });
+
+    await updateGadget(gadgetId, 1, { photo: null, gallery: [file] });
+
+    expect(await readFileAs(file, technician)).toBe(200);
+  });
+
   test("a file bound to another record is not disposed when this record drops its id", async () => {
     const shared = await uploadLikeTheForm(photoHints("create"));
     const owner = await createGadget({ photo: shared });

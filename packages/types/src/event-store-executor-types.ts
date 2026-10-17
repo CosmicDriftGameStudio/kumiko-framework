@@ -26,8 +26,9 @@ export type PreSaveRunner = (
 ) => Promise<Record<string, unknown>>;
 
 // Cross-tenant verbs on a foreign row (create: into the target tenant's stream): stream, event tenant and PII key follow the row's tenant
-// while the acting user stays the operator. Honored only on a system-mode db and only when equal
-// to the loaded row's tenant; anything else fails the write.
+// while the acting user stays the operator. Honored on a system-mode db or a tenant-mode db bound
+// to exactly that tenant (ctx.forTenant). update/delete/restore: must equal the loaded row's
+// tenant. create: payload.tenantId, if set, must equal it. Anything else fails the write.
 export type StreamTenantOption = { readonly streamTenantId?: TenantId | undefined };
 
 // Why a framework system-user write may reach a locked row. Statutory deletion (retention)

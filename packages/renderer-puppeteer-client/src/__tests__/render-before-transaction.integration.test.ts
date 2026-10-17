@@ -45,6 +45,7 @@ import { renderPdfBeforeTransaction, storeRenderedPdf } from "../render-and-stor
 const FEATURE = "before-tx-pdf";
 const GENERATE = `${FEATURE}:write:generate`;
 const GENERATE_THEN_FAIL = `${FEATURE}:write:generate-then-fail`;
+const GENERATE_INVALID_ROW = `${FEATURE}:write:generate-invalid-row`;
 const PING = `${FEATURE}:write:ping`;
 const POOL_MAX = 2;
 const CONCURRENT_RENDERS = 3;
@@ -117,6 +118,17 @@ const pdfFeature = defineFeature(FEATURE, (r) => {
         if (!stored.isSuccess) return stored;
         return writeFailure(new UnprocessableError("forced_rollback"));
       },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate-invalid-row",
+      schema: z.object({ number: z.string() }),
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: (event, ctx) =>
+        renderPdfBeforeTransaction(ctx, renderArgs(event.payload.number)),
+      // A non-integer page count makes the rendered-pdf row insert fail after the bytes are stored.
+      handler: (event, ctx) => storeRenderedPdf(ctx, { ...event.prepared, pageCount: 1.5 }),
     }),
   );
   r.writeHandler(
@@ -253,6 +265,22 @@ describe("renderPdfBeforeTransaction", () => {
     const error = await pending;
 
     expect(error.details).toEqual({ reason: "forced_rollback" });
+    expect(
+      await selectMany(stack.db, renderedPdfsTable, { tenantId: admin.tenantId }),
+    ).toHaveLength(0);
+    expect(await selectMany(stack.db, fileRefsTable, { tenantId: admin.tenantId })).toHaveLength(0);
+    expect(provider.keys().filter((key) => key.startsWith(`${admin.tenantId}/`))).toEqual([]);
+  });
+
+  test("a rendered-pdf row that fails to insert releases the stored bytes and the fileRef", async () => {
+    const admin = tenantAdmin(9604);
+    const pending = stack.http.writeErr(GENERATE_INVALID_ROW, { number: "I-1" }, admin);
+    await waitFor(() => stubReceived === 1);
+    releaseHeldRequests();
+
+    const error = await pending;
+
+    expect(error.code).toBe("internal_error");
     expect(
       await selectMany(stack.db, renderedPdfsTable, { tenantId: admin.tenantId }),
     ).toHaveLength(0);

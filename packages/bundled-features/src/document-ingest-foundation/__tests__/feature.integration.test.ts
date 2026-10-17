@@ -49,7 +49,11 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetPiiSubjectKmsForTests,
+  waitFor,
+  zipWithEntries,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
@@ -182,16 +186,9 @@ const pngBytes = new Uint8Array([
 const textBytes = new TextEncoder().encode("plain text, not a supported mime type");
 const oversizedPdfBytes = new Uint8Array(PROVIDER_A_MAX_BYTES + 100);
 oversizedPdfBytes.set(new TextEncoder().encode("%PDF-1.4"));
-// ZIP local-file-header signature plus a word/ entry name — validateFileContent
-// content-verifies docx uploads against both, independent of options.accept.
-const docxBytes = new Uint8Array([
-  0x50,
-  0x4b,
-  0x03,
-  0x04,
-  ...Array(26).fill(0),
-  ...new TextEncoder().encode("word/document.xml"),
-]);
+// validateFileContent content-verifies docx uploads (ZIP with a word/ entry),
+// independent of options.accept.
+const docxBytes = zipWithEntries("word/document.xml");
 
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",

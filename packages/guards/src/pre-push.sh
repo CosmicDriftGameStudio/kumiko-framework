@@ -18,6 +18,9 @@
 #      sub-repo's own package.json `test` script — refuses the push if that
 #      script is missing.
 #
+# Before the checks below, the hook runs a gitleaks scan of origin/main..HEAD
+# when the binary is installed.
+#
 # Extension point: a tracked, executable scripts/pre-push-extra.sh runs
 # before the main check in every branch above, with KUMIKO_PUSH_REPO_ROOT
 # and KUMIKO_PUSH_PARENT_DIR available inline (never exported).
@@ -118,6 +121,22 @@ if [ -f "$REPO_ROOT/.kumiko/upgrade-state.json" ]; then
   fi
 fi
 
+# Secret scan: runs before check-wt.sh/bun check so a leaked credential is
+# caught in seconds, not after the long checks. A missing binary or a missing
+# origin/main only warns, so a machine without gitleaks is not locked out.
+# No --config: gitleaks reads a .gitleaks.toml in the repo root itself.
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "[pre-push] gitleaks not installed — secret scan skipped. Install: brew install gitleaks" >&2
+elif ! git -C "$REPO_ROOT" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+  echo "[pre-push] origin/main not found — secret scan skipped" >&2
+else
+  echo "[pre-push] gitleaks git origin/main..HEAD"
+  if ! (cd "$REPO_ROOT" && gitleaks git --no-banner --redact --log-opts="origin/main..HEAD" .); then
+    echo "[pre-push] gitleaks found secrets — refusing push" >&2
+    exit 1
+  fi
+fi
+
 # infra#559/#569: from a worktree, `--git-common-dir` resolves to the main
 # checkout's .git, so the branch below would scope `bun check` to the
 # canonical sibling path instead of this worktree — checking the wrong
@@ -176,6 +195,7 @@ if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] 
   run_guard_bin guards kumiko-guards guards
   run_guard_bin checks kumiko-guards checks
   run_guard_bin comment-lang kumiko-guards comment-lang --touched --base=origin/main
+  run_guard_bin public-exports-changelog kumiko-guards public-exports-changelog --base=origin/main
   if [ -n "$FAILED" ]; then
     echo "[pre-push] worktree check failed:$FAILED" >&2
     exit 1

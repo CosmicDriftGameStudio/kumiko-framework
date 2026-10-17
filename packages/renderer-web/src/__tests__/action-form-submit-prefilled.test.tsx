@@ -69,4 +69,42 @@ describe("KumikoScreen / actionForm submitPrefilled (web primitives)", () => {
     );
     expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
   });
+
+  test("readOnly prefilled field: shown but not editable, submit enabled and the payload carries the value", async () => {
+    const calls = renderForm(
+      { ...archiveForm, layout: { sections: [{ fields: [{ field: "id", readOnly: true }] }] } },
+      { id: "abc" },
+    );
+    const input = document.querySelector("#kumiko-edit-id") as HTMLInputElement;
+    expect(input.value).toBe("abc");
+    expect(input.readOnly || input.disabled).toBe(true);
+    const submit = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+    fireEvent.click(submit);
+    await waitFor(() => expect(calls).toEqual([{ id: "abc" }]));
+  });
+
+  test("hidden required id missing and only a readOnly field left: submit is rendered but disabled", () => {
+    renderForm(
+      {
+        ...archiveForm,
+        fields: {
+          id: { type: "text", required: true } as TextFieldDef,
+          note: { type: "text" } as TextFieldDef,
+        },
+        layout: {
+          sections: [
+            {
+              fields: [
+                { field: "id", visible: false },
+                { field: "note", readOnly: true },
+              ],
+            },
+          ],
+        },
+      },
+      {},
+    );
+    expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
+  });
 });

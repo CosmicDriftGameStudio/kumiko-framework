@@ -6,6 +6,7 @@ import { usePrimitives } from "../primitives.js";
 export type MultiSelectCheckboxOption = {
   readonly value: string;
   readonly label: string;
+  readonly disabled?: boolean;
 };
 
 export type MultiSelectCheckboxesProps = {
@@ -36,8 +37,13 @@ export function MultiSelectCheckboxes({
 
   // Always emits in `field.options` order (MultiSelectFieldDef's documented
   // ordering guarantee), never in click/selection order.
+  // Disabled options are pinned: they keep their current state whatever is toggled.
   const emitOrdered = (next: ReadonlySet<string>): void => {
-    onChange(options.filter((opt) => next.has(opt.value)).map((opt) => opt.value));
+    onChange(
+      options
+        .filter((opt) => (opt.disabled === true ? selected.has(opt.value) : next.has(opt.value)))
+        .map((opt) => opt.value),
+    );
   };
 
   const toggleOption = (optionValue: string, checked: boolean): void => {
@@ -85,7 +91,7 @@ export function MultiSelectCheckboxes({
                 name={`${id}-${opt.value}`}
                 value={selected.has(opt.value)}
                 onChange={(checked) => toggleOption(opt.value, checked)}
-                disabled={disabled}
+                disabled={disabled || opt.disabled === true}
               />
             </Field>
           </GridCell>

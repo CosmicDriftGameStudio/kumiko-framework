@@ -10,6 +10,7 @@ import {
   flushEscapeHatchAudits,
   reportEscapeHatchUse,
   withEscapeHatchAuditScope,
+  withEscapeHatchAuditScopeStream,
 } from "../escape-hatch-report.js";
 import { type MetricEvent, RecordingMeter } from "../recording-meter.js";
 import { registerStandardMetrics } from "../standard-metrics.js";
@@ -172,6 +173,40 @@ describe("escape-hatch audit durability", () => {
     expect(persisted).toEqual([baseEvent]);
   });
 
+  test("the stream scope reports audits from every pull and waits for them when the stream ends", async () => {
+    const { persisted, sink } = slowSink();
+    async function* handlerStream(): AsyncGenerator<number> {
+      await Promise.resolve();
+      reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+      yield 1;
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      reportEscapeHatchUse(
+        { ...baseEvent, reason: "second pull" },
+        { sink, log: recordingLogger() },
+      );
+      yield 2;
+    }
+
+    const chunks: number[] = [];
+    for await (const chunk of withEscapeHatchAuditScopeStream(handlerStream)) chunks.push(chunk);
+
+    expect(chunks).toEqual([1, 2]);
+    expect(persisted.map((event) => event.reason)).toEqual([baseEvent.reason, "second pull"]);
+  });
+
+  test("the stream scope waits for audits when the consumer closes the stream early", async () => {
+    const { persisted, sink } = slowSink();
+    async function* handlerStream(): AsyncGenerator<number> {
+      reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+      yield 1;
+      yield 2;
+    }
+
+    for await (const _chunk of withEscapeHatchAuditScopeStream(handlerStream)) break;
+
+    expect(persisted).toEqual([baseEvent]);
+  });
+
   test("a failing sink does not reject the scope and is logged", async () => {
     const log = recordingLogger();
     const sink = async () => {
@@ -289,6 +324,25 @@ describe("createEscapeHatchReporter with a process dedup (system cron hatches)",
     t.report("global-write", "sweep");
     t.report("global-write", "sweep");
     expect(t.events.map((e) => e.kind)).toEqual(["unsafe-raw", "global-write"]);
+  });
+
+  test("global-write to different target tables is audited per target", () => {
+    const t = setup({ processDedup: createEscapeHatchProcessDedup(["global-write"]) });
+    t.report("global-write", "sweep", { id: "table_a", tenantId });
+    t.report("global-write", "sweep", { id: "table_b", tenantId });
+    t.report("global-write", "sweep", { id: "table_a", tenantId });
+    expect(t.events.map((e) => e.target?.id)).toEqual(["table_a", "table_b"]);
+  });
+
+  test("a long-lived process re-audits after 24 h so each retention window holds an event", () => {
+    const t = setup({ processDedup: createEscapeHatchProcessDedup(["unsafe-raw"]) });
+    t.report("unsafe-raw", "sweep");
+    t.advance(24 * 60 * MINUTE_MS - 1);
+    t.report("unsafe-raw", "sweep");
+    expect(t.events).toHaveLength(1);
+    t.advance(1);
+    t.report("unsafe-raw", "sweep");
+    expect(t.events).toHaveLength(2);
   });
 
   test("kinds outside the process dedup stay on the 60 s window", () => {

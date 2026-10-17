@@ -215,6 +215,23 @@ describe("template-resolver :: overview", () => {
   });
 });
 
+describe("template-resolver :: overview layoutSlug filter", () => {
+  test("layoutSlug keeps only the documents using that layout and counts them in total", async () => {
+    const users = await overview(adminA, {
+      layoutSlug: "default",
+      filters: [{ field: "kind", op: "in", value: ["mail"] }],
+    });
+    expect(users.rows.map((row) => row.id).sort()).toEqual(
+      [`mail|${MAIL_SLUG}`, `mail|${REMINDER_SLUG}`].sort(),
+    );
+    expect(users.total).toBe(2);
+
+    const none = await overview(adminA, { layoutSlug: "no-such-layout" });
+    expect(none.rows).toEqual([]);
+    expect(none.total).toBe(0);
+  });
+});
+
 describe("template-resolver :: layout-source", () => {
   test("a TenantAdmin gets the regions of the own html version and no mjml source", async () => {
     const source = await layoutSource(adminA, { kind: "mail-layout" });

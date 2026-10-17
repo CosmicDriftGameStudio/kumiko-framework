@@ -13,6 +13,16 @@ import {
   parseTrustedProxyHopsEnv,
 } from "../client-ip.js";
 
+// Other test files in the same bun process emit async warnings while a console spy is active,
+// so assertions only count the X-Forwarded-For warning the resolver produces.
+function forwardedForWarnings(spy: {
+  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
+}) {
+  return spy.mock.calls.filter((args) =>
+    args.some((arg) => String(arg).includes("received X-Forwarded-For")),
+  );
+}
+
 describe("extractSocketAddress", () => {
   test("accepts the bare string shape", () => {
     expect(extractSocketAddress("10.0.0.1")).toBe("10.0.0.1");
@@ -72,14 +82,14 @@ describe("createClientIpResolver", () => {
         resolver.resolve(sourceOf({ "x-forwarded-for": "203.0.113.7" }));
         resolver.resolve(sourceOf({ "x-forwarded-for": "203.0.113.8" }));
         resolver.resolve(sourceOf({ "x-forwarded-for": "203.0.113.9" }));
-        expect(warnSpy).toHaveBeenCalledTimes(1);
+        expect(forwardedForWarnings(warnSpy)).toHaveLength(1);
       });
 
       test("a fresh resolver instance warns again — the flag isn't a module singleton", () => {
         warnSpy = spyOn(console, "warn").mockImplementation(() => {});
         createClientIpResolver(0).resolve(sourceOf({ "x-forwarded-for": "203.0.113.7" }));
         createClientIpResolver(0).resolve(sourceOf({ "x-forwarded-for": "203.0.113.7" }));
-        expect(warnSpy).toHaveBeenCalledTimes(2);
+        expect(forwardedForWarnings(warnSpy)).toHaveLength(2);
       });
 
       test("no warning when XFF is absent or blank", () => {
@@ -87,7 +97,7 @@ describe("createClientIpResolver", () => {
         const resolver = createClientIpResolver(0);
         resolver.resolve(sourceOf({}));
         resolver.resolve(sourceOf({ "x-forwarded-for": "   " }));
-        expect(warnSpy).not.toHaveBeenCalled();
+        expect(forwardedForWarnings(warnSpy)).toHaveLength(0);
       });
     });
   });

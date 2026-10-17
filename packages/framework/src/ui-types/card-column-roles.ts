@@ -37,8 +37,12 @@ export function cardFileDisplayKind(
 export function cardColumnRoles<C extends CardRoleColumn>(
   columns: readonly C[],
 ): CardColumnRoles<C> {
-  const image = columns.find((col) => col.fileDisplay?.kind === "image");
-  const textColumns = columns.filter((col) => col !== image);
+  const isImage = (col: C): boolean => col.fileDisplay?.kind === "image";
+  const image = columns.find((col) => isImage(col) && col.hideOnNarrow !== true);
+  // A narrow-hidden image must not turn into the title just because it is not the preview.
+  const textColumns = columns.filter(
+    (col) => col !== image && !(isImage(col) && col.hideOnNarrow === true),
+  );
   const title = textColumns.find((col) => col.highlighted === true) ?? textColumns[0];
   const status = textColumns.find(
     (col) => col !== title && col.type === "select" && col.renderer === undefined,

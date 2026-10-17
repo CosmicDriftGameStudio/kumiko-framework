@@ -1,4 +1,5 @@
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import type { DashboardStatTone } from "@cosmicdrift/kumiko-types/screen";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.js";
 
@@ -8,7 +9,7 @@ import { cn } from "../lib/cn.js";
 // with an app-semantic color (e.g. finance roles); value, delta and
 // sparkline stay on `tone`.
 
-export type StatTone = "default" | "positive" | "ok" | "warn" | "negative";
+export type StatTone = DashboardStatTone;
 
 const TONE_CHIP: Record<StatTone, string> = {
   default: "bg-muted text-foreground",

@@ -1,7 +1,7 @@
 // A wizard editing an existing record: steps show done by what the record
 // already holds (not by position), every non-current step is a jump target,
 // and leaving the current step still goes through its validate gate.
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -15,7 +15,14 @@ import {
   useReportStepComplete,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
+import {
+  createMockDispatcher,
+  render,
+  restoreViewportWidthAfterEach,
+  screen,
+  setViewportWidth,
+  waitFor,
+} from "./test-utils.js";
 
 const profileEntity = {
   fields: {
@@ -215,20 +222,8 @@ describe("entityEdit wizard on an existing record: jumping", () => {
   });
 });
 
-function setViewportWidth(width: number): void {
-  (
-    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-  ).happyDOM.setInnerWidth(width);
-}
-
 describe("entityEdit wizard on an existing record: phone footer", () => {
-  let wideInnerWidth = 0;
-  beforeEach(() => {
-    wideInnerWidth = window.innerWidth;
-  });
-  afterEach(() => {
-    setViewportWidth(wideInnerWidth);
-  });
+  restoreViewportWidthAfterEach();
 
   test("Back is an icon button, Save and close sits in the overflow, Next drops the step name", async () => {
     setViewportWidth(390);
@@ -241,8 +236,11 @@ describe("entityEdit wizard on an existing record: phone footer", () => {
     expect(back.getAttribute("aria-label")).toBe("Back");
     expect(back.textContent).toBe("");
     const saveClose = screen.getByTestId("render-edit-wizard-save-close");
-    expect(bar.contains(saveClose)).toBe(false);
-    expect(screen.getByTestId("render-edit-form-overflow")).toBeTruthy();
+    expect(saveClose.closest(".hidden")).not.toBeNull();
+    const overflow = screen.getByTestId("render-edit-form-overflow");
+    await waitFor(() => expect(overflow.className).not.toContain("hidden"));
+    await userEvent.click(overflow);
+    expect(saveClose.closest(".hidden")).toBeNull();
     expect(screen.getByTestId("render-edit-wizard-next").textContent).toBe("Next");
   });
 });

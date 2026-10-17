@@ -4,7 +4,6 @@ import type { AuthRoutesConfig } from "../api/auth-routes.js";
 import type { JwtHelper } from "../api/jwt.js";
 import { buildServer } from "../api/server.js";
 import { createSseBroker, type SseBroker } from "../api/sse-broker.js";
-import type { PgClient } from "../db/connection.js";
 import { validateBoot, validateNavBootSubset } from "../engine/boot-validator/index.js";
 import { validateOwnershipBoot } from "../engine/boot-validator/ownership.js";
 import { createRegistry } from "../engine/registry.js";
@@ -547,7 +546,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       (appContext.redis === undefined || options.rateLimitNowMs !== undefined);
     const rateLimitFallback = needsOwnRateLimitResolver
       ? createRateLimitResolver({
-          redis: testRedis.redis,
+          // An app-supplied redis keeps buckets and app redis on the same instance.
+          redis: appContext.redis ?? testRedis.redis,
           ...(options.rateLimitNowMs ? { nowMs: options.rateLimitNowMs } : {}),
         })
       : undefined;
@@ -578,7 +578,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       // post-commit latency (Sprint E.4).
       eventDispatcher: {
         pollIntervalMs: options.eventDispatcherPollIntervalMs ?? 50,
-        pgClient: testDb.client as PgClient | undefined,
+        pgClient: testDb.client,
         systemConsumers: {
           sse: enabledHooks.includes("sse"),
           search: enabledHooks.includes("search"),

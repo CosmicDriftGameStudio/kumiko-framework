@@ -1,5 +1,56 @@
 # create-kumiko-app
 
+## 0.364.0
+
+### Patch Changes
+
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-server-runtime@0.364.0
+  - @cosmicdrift/kumiko-dev-server@0.364.0
+  - @cosmicdrift/kumiko-testing@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes

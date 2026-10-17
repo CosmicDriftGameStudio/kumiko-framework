@@ -2,8 +2,9 @@
 // through ctx.crossTenantReads and reports a cross-tenant-read instead of an unsafe-raw.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { EscapeHatchUseEvent, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createNoopProvider,
   createPrometheusMeter,
@@ -19,6 +20,7 @@ import {
   resetTestTables,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
@@ -72,7 +74,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   auditEvents.length = 0;
-  await resetTestTables(stack.db, [tenantTable]);
+  await resetTestTables(stack.db, [tenantTable, eventsTable]);
 });
 
 async function runJob(): Promise<void> {
@@ -107,5 +109,54 @@ describe("run-tenant-destruction cron", () => {
     expect(meteredUses("unsafe-raw")).toBeGreaterThan(usesBefore);
     const events = await loadAggregate(stack.db, DUE_TENANT, DUE_TENANT);
     expect(events.some((e) => e.type.includes("destruction-stage"))).toBe(true);
+  });
+
+  test("a destroyRequested tenant past its grace period is started and swept", async () => {
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
+      TestUsers.systemAdmin,
+    );
+    await updateRows(
+      stack.db,
+      tenantTable,
+      {
+        status: "destroyRequested",
+        gracePeriodEnd: getTemporal().Now.instant().subtract({ hours: 24 }),
+      },
+      { id: DUE_TENANT },
+    );
+
+    await runJob();
+
+    const [row] = await selectMany(stack.db, tenantTable, { id: DUE_TENANT });
+    expect(row?.["status"]).toBe("destroying");
+    const events = await loadAggregate(stack.db, DUE_TENANT, DUE_TENANT);
+    expect(events.some((e) => e.type.includes("tenant-destruction-started"))).toBe(true);
+    expect(events.some((e) => e.type.includes("destruction-stage"))).toBe(true);
+  });
+
+  test("a destroyRequested tenant still within its grace period reports no unsafe-raw", async () => {
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
+      TestUsers.systemAdmin,
+    );
+    await updateRows(
+      stack.db,
+      tenantTable,
+      {
+        status: "destroyRequested",
+        gracePeriodEnd: getTemporal().Now.instant().add({ hours: 24 }),
+      },
+      { id: DUE_TENANT },
+    );
+
+    await runJob();
+
+    const [row] = await selectMany(stack.db, tenantTable, { id: DUE_TENANT });
+    expect(row?.["status"]).toBe("destroyRequested");
+    const events = await loadAggregate(stack.db, DUE_TENANT, DUE_TENANT);
+    expect(events.some((e) => e.type.includes("destruction-stage"))).toBe(false);
   });
 });

@@ -11,6 +11,7 @@ import {
 import { type ClientConfig, loadClientConfig } from "./config.js";
 import { buildDocumentPdfRequest } from "./document-pdf.js";
 import { postRender } from "./http-client.js";
+import { readImageDimensions } from "./image-dimensions.js";
 import { countPdfPages } from "./pdf-page-count.js";
 
 export function loadClientConfigOrUnavailable(): ClientConfig {
@@ -63,11 +64,12 @@ export async function puppeteerRender(
   }
   const result = await postRender(config, { kind: req.kind, html, options: req.options });
   const format = result.contentType.includes("png") ? "png" : "jpg";
+  const actual = readImageDimensions(result.bytes, format);
   return {
     kind: "image-snapshot",
     imageBytes: result.bytes,
     format,
-    width: req.options?.width ?? 1200,
-    height: req.options?.height ?? 800,
+    width: actual?.width ?? req.options?.width ?? 1200,
+    height: actual?.height ?? req.options?.height ?? 800,
   };
 }

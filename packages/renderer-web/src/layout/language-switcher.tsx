@@ -45,6 +45,9 @@ export type LanguageSwitcherProps = {
   readonly testId?: string;
 };
 
+export const LANDMARK_SELECTOR =
+  "header, footer, nav, main, aside, section[aria-label], section[aria-labelledby], [role='banner'], [role='contentinfo'], [role='navigation'], [role='main'], [role='complementary'], [role='region']";
+
 export function LanguageSwitcher({
   locales,
   icon = "🌐",
@@ -60,7 +63,7 @@ export function LanguageSwitcher({
   // Portal into the surrounding landmark: content under document.body would sit outside every
   // landmark and fail axe's "region" rule.
   const [trigger, setTrigger] = useState<HTMLButtonElement | null>(null);
-  const landmark = trigger?.closest("header, nav, main, aside, [role='banner']");
+  const landmark = trigger?.closest(LANDMARK_SELECTOR);
 
   const activeLocale = resolver.locale();
   // Matches either exact ("de-DE") or the language root ("de") against

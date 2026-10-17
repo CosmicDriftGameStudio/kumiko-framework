@@ -33,6 +33,7 @@ import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
+  createMetricsForFactory,
   emitJobLastSuccess,
   emitJobQueueDepth,
   flushEscapeHatchAudits,
@@ -123,6 +124,18 @@ export const ORPHAN_SCHEDULER_GRACE_MS = 60 * 60 * 1000;
 
 function schedulerSeenKey(queue: Queue): string {
   return queue.toKey("kumiko-scheduler-seen");
+}
+
+// "Seen" has to mean a live runner holds the scheduler, so runners re-stamp
+// their own ids periodically; a single stamp at start() would let a runner
+// restarting during a mixed-version window longer than the grace period delete
+// a scheduler a healthy newer pod still owns.
+async function markSchedulersSeen(queue: Queue, schedulerIds: ReadonlySet<string>): Promise<void> {
+  // skip: no cron scheduler on this lane, nothing to stamp
+  if (schedulerIds.size === 0) return;
+  const stamp = String(Date.now());
+  const entries = Object.fromEntries([...schedulerIds].map((id) => [id, stamp]));
+  await (await queue.client).hset(schedulerSeenKey(queue), entries);
 }
 
 type OrphanSchedulerLog = {
@@ -392,6 +405,9 @@ export type JobRunnerOptions = {
   // before failing boot. Defaults to BOOT_REDIS_TIMEOUT_MS; tests shrink it
   // to keep an unreachable-Redis assertion fast.
   bootRedisTimeoutMs?: number | undefined;
+  // How often a runner re-stamps its cron schedulers in the orphan-cleanup
+  // "seen" hash. Defaults to ORPHAN_SCHEDULER_GRACE_MS / 4; tests shrink it.
+  schedulerSeenRefreshMs?: number | undefined;
   // Override how long completed/failed jobs stay in Redis before BullMQ's
   // lazy queue-wide sweep evicts them. Defaults to
   // COMPLETED_JOB_RETENTION_AGE_SEC / FAILED_JOB_RETENTION_AGE_SEC; tests
@@ -575,6 +591,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const { registry, context, redisUrl, consumerLane } = options;
   const queueNamePrefix = options.queueNamePrefix ?? DEFAULT_QUEUE_NAME_PREFIX;
   const bootRedisTimeoutMs = options.bootRedisTimeoutMs ?? BOOT_REDIS_TIMEOUT_MS;
+  const schedulerSeenRefreshMs = options.schedulerSeenRefreshMs ?? ORPHAN_SCHEDULER_GRACE_MS / 4;
   const redisOpts = parseRedisOpts(redisUrl);
   // Use the context's tracer when present (observability-provider injected at
   // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
@@ -761,6 +778,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   }
   let worker: Worker | null = null;
   let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
+  let schedulerSeenTimer: ReturnType<typeof setInterval> | null = null;
+  let schedulerStampPending = false;
+  // A timed-out gate is abandoned, not aborted (the job context carries no
+  // AbortSignal); stop() waits for it so it cannot write after the shutdown.
+  const abandonedBootGates = new Set<Promise<void>>();
   // Forward reference to the runner's own API, exposed on the job-handler ctx
   // so a handler can dispatch a follow-up job (job→job chaining, e.g.
   // delivery.render → delivery.send). Assigned just before return; reads happen
@@ -1266,6 +1288,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       attempt,
       finalAttempt,
       log: createJobLogger(logs),
+      metricsFor: createMetricsForFactory(context.meter),
       ...(triggerName !== undefined && { triggerName }),
       ...(triggerEvent !== undefined && { triggerEvent }),
       write: (qn: string, payload: unknown) => {
@@ -1430,17 +1453,21 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
               });
             }, BOOT_GATE_SLOW_WARN_MS)
           : undefined;
+      const gateRun = handleJob({
+        id: bootJobIdForJobName(name),
+        name,
+        data: {},
+        attemptsMade: 0,
+        retryable: false,
+      });
+      const gateSettled = gateRun.then(
+        () => undefined,
+        () => undefined,
+      );
+      abandonedBootGates.add(gateSettled);
+      void gateSettled.then(() => abandonedBootGates.delete(gateSettled));
       try {
-        await Promise.race([
-          handleJob({
-            id: bootJobIdForJobName(name),
-            name,
-            data: {},
-            attemptsMade: 0,
-            retryable: false,
-          }),
-          ...(gateTimeout ? [gateTimeout.promise] : []),
-        ]);
+        await Promise.race([gateRun, ...(gateTimeout ? [gateTimeout.promise] : [])]);
       } catch (err) {
         // Leaving the worker's Redis connections open would keep the event loop alive and turn the aborted boot into
         // a hanging process instead of a non-zero exit.
@@ -1451,6 +1478,89 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         gateTimeout?.cancel();
         if (slowWarnTimer !== undefined) clearTimeout(slowWarnTimer);
       }
+    }
+  }
+
+  function cronSchedulerIdsForLane(lane: JobRunIn): Set<string> {
+    const ids = new Set<string>();
+    for (const [name, jobDef] of allJobs) {
+      if (laneForJob(jobDef) === lane && "cron" in jobDef.trigger) {
+        ids.add(schedulerIdForJobName(name));
+      }
+    }
+    return ids;
+  }
+
+  async function upsertCronSchedulers(queue: Queue, lane: JobRunIn): Promise<void> {
+    for (const [name, jobDef] of allJobs) {
+      if (laneForJob(jobDef) !== lane) continue;
+      if ("cron" in jobDef.trigger) {
+        await queue.upsertJobScheduler(
+          schedulerIdForJobName(name),
+          cronRepeatOptions(jobDef.trigger),
+          {
+            name: jobDef.perTenant ? `_perTenant:${name}` : name,
+            data: {},
+            // Queue-level defaultJobOptions (jobRetentionOpts) covers
+            // retention; a count here would sweep queue-wide again and
+            // evict perTenant children and boot jobs.
+            opts: {
+              ...buildRetryBullOpts(jobDef),
+            },
+          },
+        );
+      }
+    }
+  }
+
+  // After a failed initial stamp an older runner may have removed our
+  // schedulers as unseen, so the next tick stamps and re-upserts before the
+  // flag clears.
+  async function refreshSchedulerSeen(
+    queue: Queue,
+    lane: JobRunIn,
+    schedulerIds: ReadonlySet<string>,
+  ): Promise<void> {
+    await markSchedulersSeen(queue, schedulerIds);
+    if (schedulerStampPending) {
+      await upsertCronSchedulers(queue, lane);
+      schedulerStampPending = false;
+    }
+  }
+
+  function startSchedulerSeenRefresh(
+    queue: Queue,
+    lane: JobRunIn,
+    schedulerIds: ReadonlySet<string>,
+  ): ReturnType<typeof setInterval> | null {
+    if (schedulerIds.size === 0) return null;
+    const timer = setInterval(() => {
+      refreshSchedulerSeen(queue, lane, schedulerIds).catch((err: unknown) => {
+        errorLogger.warn("scheduler seen refresh failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }, schedulerSeenRefreshMs);
+    timer.unref();
+    return timer;
+  }
+
+  // Bounded: a gate that never returns must not block shutdown as well.
+  async function settleAbandonedBootGates(maxWaitMs: number): Promise<void> {
+    // skip: no timed-out gate left behind
+    if (abandonedBootGates.size === 0) return;
+    const wait = timeoutReject(
+      maxWaitMs,
+      "job-runner: abandoned boot gate still running at stop()",
+    );
+    try {
+      await Promise.race([Promise.all(abandonedBootGates), wait.promise]);
+    } catch (err) {
+      errorLogger.warn("abandoned boot gate did not finish before stop()", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      wait.cancel();
     }
   }
 
@@ -1507,27 +1617,22 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // Only schedule cron + boot for jobs that belong to this lane. Jobs
       // assigned to the other lane get their cron/boot wiring from the
       // runner running on that lane. Running both here would double-fire.
-      const expectedSchedulerIds = new Set<string>();
-      for (const [name, jobDef] of allJobs) {
-        if (laneForJob(jobDef) !== consumerLane) continue;
-        if ("cron" in jobDef.trigger) {
-          const schedulerId = schedulerIdForJobName(name);
-          expectedSchedulerIds.add(schedulerId);
-          await consumerQueue.upsertJobScheduler(schedulerId, cronRepeatOptions(jobDef.trigger), {
-            name: jobDef.perTenant ? `_perTenant:${name}` : name,
-            data: {},
-            // Queue-level defaultJobOptions (jobRetentionOpts) covers
-            // retention; a count here would sweep queue-wide again and
-            // evict perTenant children and boot jobs.
-            opts: {
-              ...buildRetryBullOpts(jobDef),
-            },
-          });
-          await (await consumerQueue.client).hset(schedulerSeenKey(consumerQueue), {
-            [schedulerId]: String(Date.now()),
-          });
-        }
-      }
+      const expectedSchedulerIds = cronSchedulerIdsForLane(consumerLane);
+      // Before the upserts: a seen entry without a scheduler is harmless, a
+      // scheduler a concurrent older runner finds without one gets deleted.
+      // Best-effort like the periodic refresh: a failed stamp must not stop the start.
+      await markSchedulersSeen(consumerQueue, expectedSchedulerIds).catch((err: unknown) => {
+        schedulerStampPending = true;
+        errorLogger.warn("scheduler seen stamp failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+      await upsertCronSchedulers(consumerQueue, consumerLane);
+      schedulerSeenTimer = startSchedulerSeenRefresh(
+        consumerQueue,
+        consumerLane,
+        expectedSchedulerIds,
+      );
 
       await removeOrphanJobSchedulers(consumerQueue, expectedSchedulerIds, consumerLane, {
         info: (msg, data) =>
@@ -1582,6 +1687,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         clearInterval(queueDepthTimer);
         queueDepthTimer = null;
       }
+      if (schedulerSeenTimer) {
+        clearInterval(schedulerSeenTimer);
+        schedulerSeenTimer = null;
+      }
       if (worker) {
         await worker.close();
         worker = null;
@@ -1591,6 +1700,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // without listeners -> unhandled rejection (fw#1805). Wait for readiness
       // first; a failed/timed-out wait must not block the close itself.
       const stopReadyTimeoutMs = Math.min(bootRedisTimeoutMs, STOP_QUEUE_READY_TIMEOUT_MS);
+      await settleAbandonedBootGates(stopReadyTimeoutMs);
       const readinessTimeout = timeoutReject(
         stopReadyTimeoutMs,
         `job-runner: Queue not ready within ${stopReadyTimeoutMs}ms during stop()`,

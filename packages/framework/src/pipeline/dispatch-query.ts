@@ -15,6 +15,7 @@ import {
   runHandlerInstrumented,
   type WriteOrigin,
 } from "./dispatch-shared.js";
+import type { AfterCommitHook } from "./dispatcher-utils.js";
 import { handlerAccessError } from "./handler-access-error.js";
 import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.js";
 
@@ -28,9 +29,10 @@ export async function executeQuery(
   user: SessionUser,
   origin: WriteOrigin,
   tx?: DbTx,
+  outerNotifySink?: AfterCommitHook[],
 ): Promise<unknown> {
   return runHandlerInstrumented(ctx, type, "query", user, () =>
-    executeQueryInner(ctx, type, payload, user, origin, tx),
+    executeQueryInner(ctx, type, payload, user, origin, tx, outerNotifySink),
   );
 }
 
@@ -41,6 +43,7 @@ async function executeQueryInner(
   user: SessionUser,
   origin: WriteOrigin,
   tx?: DbTx,
+  outerNotifySink?: AfterCommitHook[],
 ): Promise<unknown> {
   const { registry } = ctx;
   const handler = registry.getQueryHandler(type);
@@ -89,7 +92,17 @@ async function executeQueryInner(
     ? runInMemberReadOnlyTransaction(ctx, tx, (readOnlyTx) =>
         runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, origin, readOnlyTx),
       )
-    : runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, origin, tx);
+    : runQueryHandler(
+        ctx,
+        type,
+        handler,
+        parsed.data,
+        includeDeleted,
+        user,
+        origin,
+        tx,
+        outerNotifySink,
+      );
 }
 
 async function runQueryHandler(
@@ -101,6 +114,7 @@ async function runQueryHandler(
   user: SessionUser,
   origin: WriteOrigin,
   tx: DbTx | undefined,
+  outerNotifySink?: AfterCommitHook[],
 ): Promise<unknown> {
   const { registry } = ctx;
   const handlerContext = await buildHandlerContext(
@@ -111,6 +125,8 @@ async function runQueryHandler(
     tx,
     undefined,
     includeDeleted,
+    undefined,
+    outerNotifySink,
   );
   let result = await handler.handler({ type, payload, user }, handlerContext);
 

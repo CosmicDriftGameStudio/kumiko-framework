@@ -7,6 +7,7 @@ import {
   STYLESHEET_WATCH_ENV as DEV_SERVER_STYLESHEET_WATCH_ENV,
 } from "@cosmicdrift/kumiko-dev-server";
 import { TRUSTED_PROXY_HOPS_ENV as FRAMEWORK_TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
+import { SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import { REAL_PROVIDERS_ENV } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   E2E_WORKERS_ENV,
@@ -285,6 +286,25 @@ describe("defineAppE2eConfig defaults", () => {
     }
   });
 
+  test("webServer env also leaves keys defined only in .env.local to the server's own loading", () => {
+    const appDir = mkdtempSync(join(tmpdir(), "e2e-config-dotenv-local-"));
+    writeFileSync(join(appDir, ".env.local"), 'REDIS_URL="redis://local-host:6379"\n');
+    const originalCwd = process.cwd();
+    const savedRedisUrl = process.env["REDIS_URL"];
+    delete process.env["REDIS_URL"];
+    try {
+      process.chdir(appDir);
+      const server = defineAppE2eConfig({ port: 1 }).webServer;
+      if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+      expect(server.env).not.toHaveProperty("REDIS_URL");
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(appDir, { recursive: true, force: true });
+      if (savedRedisUrl === undefined) delete process.env["REDIS_URL"];
+      else process.env["REDIS_URL"] = savedRedisUrl;
+    }
+  });
+
   test("webServer env leaves Meilisearch unset unless the environment or the app env asks for it", () => {
     const server = defineAppE2eConfig({ port: 1 }).webServer;
     if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
@@ -399,6 +419,10 @@ describe("template-owned settings cannot be overridden", () => {
 
   test("the reserved KUMIKO_TRUSTED_PROXY_HOPS literal matches kumiko-framework's own constant", () => {
     expect(TRUSTED_PROXY_HOPS_ENV).toBe(FRAMEWORK_TRUSTED_PROXY_HOPS_ENV);
+  });
+
+  test("the seed-mode literal matches kumiko-framework's own constant", () => {
+    expect(SEED_ENABLE_ENV).toBe(SEED_MODE_ENV);
   });
 });
 

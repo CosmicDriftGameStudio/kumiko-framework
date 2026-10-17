@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "German text for discarding a template draft",
+    "detail": "Adds templateResolver.errors.noDraft."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "error texts for template meta and placeholder validation in German and Spanish",

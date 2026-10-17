@@ -37,6 +37,7 @@ type CapReservationRow = {
   readonly periodStartIso: string | null;
   readonly amount: number;
   readonly expiresAt: Temporal.Instant;
+  readonly createdAt: Temporal.Instant;
 };
 
 const NOTHING_TO_RELEASE: WriteResult = { isSuccess: true, data: {} };
@@ -136,13 +137,14 @@ function rollingEvent(
   amount: number,
   expectedVersion: number,
   type: string,
+  extraPayload: { readonly incrementedAt?: string } = {},
 ) {
   return {
     aggregateId: rollingCapAggregateId(user.tenantId, capName),
     aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
     expectedVersion,
     type,
-    payload: { capName, amount },
+    payload: { capName, amount, ...extraPayload },
     metadata: { userId: user.id },
   };
 }
@@ -213,7 +215,10 @@ async function giveBackRolling(
   );
   await appendEventInTenantDb(
     txDb,
-    rollingEvent(user, row.capName, row.amount, version, ROLLING_RELEASED_EVENT_QN),
+    // The window filter must use the increment's time: a sweep releases up to a TTL later.
+    rollingEvent(user, row.capName, row.amount, version, ROLLING_RELEASED_EVENT_QN, {
+      incrementedAt: row.createdAt.toString(),
+    }),
   );
   return NOTHING_TO_RELEASE;
 }

@@ -125,7 +125,11 @@ const testEmail = (userId: string | number) => `user-${userId}@test.com`;
 // Push test infrastructure
 const pushTransport = createInMemoryPushTransport();
 const testPushToken = (userId: string | number) => `push-token-${userId}`;
-const resolveTestEmail = async (userId: string) => testEmail(userId);
+const resolveFailsOnceFor = new Set<string>();
+const resolveTestEmail = async (userId: string) => {
+  if (resolveFailsOnceFor.delete(userId)) throw new Error("transient resolve failure");
+  return testEmail(userId);
+};
 
 const admin = TestUsers.admin;
 const user1 = createTestUser({ id: 2, roles: ["User"] });
@@ -2389,6 +2393,36 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
 
     expect(emailTransport.sent.some((e) => e.to === testEmail(user1.id))).toBe(false);
     expect(emailTransport.sent.some((e) => e.to === testEmail(user2.id))).toBe(true);
+  });
+
+  test("an address whose first resolve failed is still checked against opt-outs on the retry resolve", async () => {
+    await stack.redis.redis.del(RATE_KEY_EMAIL);
+    const notificationType = "app:notify:account-unsub-resolve-retry";
+    const address = testEmail(user1.id);
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: user1.tenantId, address, notificationType, channel: "email" },
+      UNSUBSCRIBE_SECRET,
+    );
+    expect((await postUnsubscribe(token)).status).toBe(200);
+    emailTransport.sent.length = 0;
+    resolveFailsOnceFor.add(String(user1.id));
+
+    await deliveryService.notify(
+      notificationType,
+      { to: [user1.id], data: { title: "Retry", body: "X" } },
+      admin,
+      user1.tenantId,
+    );
+
+    expect(emailTransport.sent.some((e) => e.to === address)).toBe(false);
+    const emailLogs = await selectMany(db, deliveryAttemptsTable, {
+      notificationType,
+      recipientId: user1.id,
+      channel: "email",
+    });
+    expect(emailLogs.some((l) => l["status"] === "skipped" && l["error"] === "unsubscribed")).toBe(
+      true,
+    );
   });
 
   // Account sends honor address opt-outs, same rule as deliverDirect.

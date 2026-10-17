@@ -47,18 +47,23 @@ export function createEscapeHatchReportWindow(opts?: {
   };
 }
 
-// Declared escape hatches of system crons are audited once per process and
-// (handler, kind, tenant), never again: the declaration, the system actor and the
-// reason are identical on every run, so repeats carry no information.
+// A long-lived worker must leave an audit event inside every retention window
+// (90 days), or its crons vanish from the log once the first event is pruned.
+const PROCESS_REAUDIT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+// Declared escape hatches of system crons are audited once per day and process for each
+// (handler, kind, tenant, target): the declaration, the system actor and the reason are
+// identical on every run, so repeats carry no information. The target is part of the
+// key because one run can write several global tables.
 export type EscapeHatchProcessDedup = {
   readonly kinds: ReadonlySet<EscapeHatchKind>;
-  readonly seen: Set<string>;
+  readonly lastAuditedAt: Map<string, number>;
 };
 
 export function createEscapeHatchProcessDedup(
   kinds: readonly EscapeHatchKind[],
 ): EscapeHatchProcessDedup {
-  return { kinds: new Set(kinds), seen: new Set() };
+  return { kinds: new Set(kinds), lastAuditedAt: new Map() };
 }
 
 // Default window for createEscapeHatchReporter callers that don't pass their own.
@@ -72,9 +77,14 @@ const processPendingAudits: AuditPromises = new Set();
 const scopePendingAudits = new AsyncLocalStorage<AuditPromises>();
 
 function trackPendingAudit(write: Promise<void>): void {
+  const scope = scopePendingAudits.getStore();
   processPendingAudits.add(write);
-  scopePendingAudits.getStore()?.add(write);
-  void write.finally(() => processPendingAudits.delete(write));
+  scope?.add(write);
+  // Settled writes leave the scope so a long-lived stream does not accumulate them.
+  void write.finally(() => {
+    processPendingAudits.delete(write);
+    scope?.delete(write);
+  });
 }
 
 // Awaits the audit writes started inside `run` once it has returned, so callers place it around
@@ -87,6 +97,31 @@ export async function withEscapeHatchAuditScope<T>(run: () => Promise<T>): Promi
   try {
     return await scopePendingAudits.run(pending, run);
   } finally {
+    await Promise.allSettled([...pending]);
+  }
+}
+
+// Stream variant: the scope has to be entered on every pull because an async generator body
+// runs in the caller's async context, and the wait happens once the stream ends or is closed.
+export async function* withEscapeHatchAuditScopeStream<T>(
+  run: () => AsyncGenerator<T>,
+): AsyncGenerator<T> {
+  if (scopePendingAudits.getStore() !== undefined) {
+    yield* run();
+    // skip: an enclosing scope already waits for the pending audits
+    return;
+  }
+  const pending: AuditPromises = new Set();
+  const source = run();
+  try {
+    while (true) {
+      const next = await scopePendingAudits.run(pending, () => source.next());
+      // skip: the source is exhausted
+      if (next.done) return;
+      yield next.value;
+    }
+  } finally {
+    await scopePendingAudits.run(pending, () => source.return(undefined));
     await Promise.allSettled([...pending]);
   }
 }
@@ -164,10 +199,20 @@ export function createEscapeHatchReporter(opts: {
     if (opts.meter) emitEscapeHatchUse(opts.meter, opts.handler, kind);
     const { processDedup } = opts;
     if (processDedup?.kinds.has(kind)) {
-      const processKey = JSON.stringify([opts.handler, kind, opts.tenantId]);
-      // skip: this (handler, kind, tenant) was already audited by this process
-      if (processDedup.seen.has(processKey)) return;
-      processDedup.seen.add(processKey);
+      const processKey = JSON.stringify([
+        opts.handler,
+        kind,
+        opts.tenantId,
+        target?.id ?? null,
+        target?.tenantId ?? null,
+      ]);
+      const nowMs = now();
+      const lastAuditedAt = processDedup.lastAuditedAt.get(processKey);
+      // skip: audited by this process within the re-audit interval
+      if (lastAuditedAt !== undefined && nowMs - lastAuditedAt < PROCESS_REAUDIT_INTERVAL_MS) {
+        return;
+      }
+      processDedup.lastAuditedAt.set(processKey, nowMs);
       reportEscapeHatchUse(eventFor(kind, reason, target), deps);
       // skip: audited above, the window dedup below only serves the other kinds
       return;

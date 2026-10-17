@@ -432,7 +432,7 @@ describe("files-tenant-data :: tenant destroy", () => {
 describe("files-tenant-data :: destroy hooks respect deadlineAt", () => {
   const farFutureDeadline = Date.now() + 24 * 60 * 60 * 1000;
 
-  test("fileRefTenantDestroyHook yields done:false at an expired deadline and purges rows with time left", async () => {
+  test("fileRefTenantDestroyHook still purges one chunk at an expired deadline, reports done:false, and finishes on the next tick", async () => {
     await seedTenant(tenantA);
     const key = buildStorageKey(tenantA.tenantId, "fileRef", 1, "attachment", "photo.jpg", "u1");
     await seedFileRef(tenantA.tenantId, key);
@@ -447,15 +447,15 @@ describe("files-tenant-data :: destroy hooks respect deadlineAt", () => {
     });
 
     const expired = await fileRefTenantDestroyHook(hookCtx(0));
-    expect(expired).toMatchObject({ done: false });
-    expect(await selectMany(db, fileRefsTable, { tenantId: tenantA.tenantId })).toHaveLength(2);
+    expect(expired).toEqual({ done: false, processed: 2 });
+    expect(await selectMany(db, fileRefsTable, { tenantId: tenantA.tenantId })).toHaveLength(0);
 
     const finished = await fileRefTenantDestroyHook(hookCtx(farFutureDeadline));
-    expect(finished).toEqual({ done: true, processed: 2 });
+    expect(finished).toEqual({ done: true, processed: 0 });
     expect(await selectMany(db, fileRefsTable, { tenantId: tenantA.tenantId })).toHaveLength(0);
   });
 
-  test("fileRefStorageDestroyHook keeps every key at an expired deadline and wipes them with time left", async () => {
+  test("fileRefStorageDestroyHook still deletes one chunk at an expired deadline, reports done:false, and finishes on the next tick", async () => {
     await seedTenant(tenantA);
     const keys = [`${tenantA.tenantId}/a.bin`, `${tenantA.tenantId}/b.bin`];
     for (const key of keys) await provider.write(key, new Uint8Array([1]));
@@ -468,11 +468,29 @@ describe("files-tenant-data :: destroy hooks respect deadlineAt", () => {
     });
 
     const expired = await fileRefStorageDestroyHook(tenantA.tenantId, hookCtx(0));
-    expect(expired).toMatchObject({ done: false });
-    expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(2);
+    expect(expired).toEqual({ done: false, processed: 2 });
+    expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(0);
 
     const finished = await fileRefStorageDestroyHook(tenantA.tenantId, hookCtx(farFutureDeadline));
-    expect(finished).toEqual({ done: true, processed: 2 });
+    expect(finished).toEqual({ done: true, processed: 0 });
+    expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(0);
+  });
+
+  test("fileRefStorageDestroyHook still deletes a chunk when list() itself uses up the whole deadline", async () => {
+    await seedTenant(tenantA);
+    const keys = [`${tenantA.tenantId}/a.bin`, `${tenantA.tenantId}/b.bin`];
+    for (const key of keys) await provider.write(key, new Uint8Array([1]));
+
+    // The hook only consults the deadline after list(), so an already expired deadline is
+    // exactly the state a list() that used up the whole budget leaves behind.
+    const result = await fileRefStorageDestroyHook(tenantA.tenantId, {
+      tenantId: tenantA.tenantId,
+      db: stack.db,
+      deadlineAt: Date.now() - 1,
+      fileProviderResolver: async () => provider,
+    });
+
+    expect(result).toEqual({ done: false, processed: 2 });
     expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(0);
   });
 

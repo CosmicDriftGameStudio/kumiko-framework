@@ -128,12 +128,10 @@ function isKnownName(
 ): Resolution {
   const { variables } = scope;
   const root = rootName(name);
-  if (Object.hasOwn(itemFields, name) || Object.hasOwn(itemFields, root)) {
-    return { known: true, used: "" };
-  }
+  // Declared variables and item fields are scalars: a dotted path under one never renders a value.
+  if (Object.hasOwn(itemFields, name)) return { known: true, used: "" };
   if (scope.systemPlaceholders.has(root)) return { known: true, used: "" };
   if (Object.hasOwn(variables, name)) return { known: true, used: name };
-  if (Object.hasOwn(variables, root)) return { known: true, used: root };
   return { known: false, used: "" };
 }
 
@@ -151,6 +149,11 @@ function enclosingEachName(element: ScanElement): string | null {
   return element.closest("tr[data-each]")?.getAttribute("data-each") ?? null;
 }
 
+const NAME_ATTRIBUTE_BY_TAG: Readonly<Record<string, string>> = {
+  span: "data-variable",
+  div: "data-steps",
+};
+
 function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
   withParsedDocument(body, (root) => {
     for (const element of Array.from(root.querySelectorAll("tr[data-each]"))) {
@@ -160,12 +163,13 @@ function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
       else scope.unknown.add(listName);
     }
     for (const element of Array.from(
-      root.querySelectorAll("span[data-variable], a[href], img[data-resource]"),
+      root.querySelectorAll("span[data-variable], div[data-steps], a[href], img[data-resource]"),
     )) {
       const itemFields = listItemFields(scope.variables, enclosingEachName(element));
       const tag = element.tagName.toLowerCase();
-      if (tag === "span") {
-        recordName(element.getAttribute("data-variable") ?? "", itemFields, scope);
+      const nameAttribute = NAME_ATTRIBUTE_BY_TAG[tag];
+      if (nameAttribute !== undefined) {
+        recordName(element.getAttribute(nameAttribute) ?? "", itemFields, scope);
       } else if (tag === "a") {
         const href = element.getAttribute("href") ?? "";
         if (isDocumentPlaceholderHref(href)) recordName(href.slice(2, -2), itemFields, scope);
@@ -179,7 +183,7 @@ function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
 
 const HANDLEBARS_EXPRESSION = /\{\{([^{}]*)\}\}/g;
 
-// Meta text supports only plain `{{name}}` / `{{name.field}}`; every other
+// Meta text supports only plain `{{name}}` references; every other
 // Handlebars construct is reported as unknown so it can never reach the compiler.
 function scanMetaPlaceholders(text: string, scope: PlaceholderScope): void {
   const leftover = text.replace(HANDLEBARS_EXPRESSION, (_match, inner: string) => {
@@ -193,7 +197,9 @@ function scanMetaPlaceholders(text: string, scope: PlaceholderScope): void {
 
 function metaTexts(meta: TemplateMeta | null): readonly string[] {
   if (meta === null || !("subject" in meta)) return [];
-  return [meta.subject, ...(meta.previewText === undefined ? [] : [meta.previewText])];
+  return [meta.subject, meta.previewText, meta.headerChip, meta.tone, meta.footerNote].filter(
+    (text): text is string => text !== undefined,
+  );
 }
 
 export function validateTemplatePlaceholders(input: {

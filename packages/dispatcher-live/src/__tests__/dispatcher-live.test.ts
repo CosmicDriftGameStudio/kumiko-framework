@@ -472,7 +472,7 @@ describe("createLiveDispatcher", () => {
       expect(result.isSuccess).toBe(false);
       if (!result.isSuccess) {
         expect(result.error.code).toBe("network_error");
-        expect(result.error.httpStatus).toBe(0);
+        expect(result.error.httpStatus).toBe(400);
       }
     });
 

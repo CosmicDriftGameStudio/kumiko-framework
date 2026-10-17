@@ -51,6 +51,7 @@ export type {
   ExtraRouteEntry,
   ExtraRouteRejectionOptions,
   ExtraRouteRejectionStatus,
+  RoleDispatchArgs,
   SignatureExtraRoute,
   SignatureExtraRouteDeps,
   SignatureExtraRouteVerifyDeps,
@@ -102,7 +103,13 @@ export {
 } from "./route-registrars.js";
 export { createApiRoutes } from "./routes.js";
 export type { KumikoServer, ServerOptions } from "./server.js";
-export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server.js";
+export {
+  buildServer,
+  makeDispatchSystemQuery,
+  makeDispatchSystemWrite,
+  makeDispatchWriteAs,
+  withFileProviderResolver,
+} from "./server.js";
 export type {
   ResolvedSessionCookies,
   SessionCookieBase,

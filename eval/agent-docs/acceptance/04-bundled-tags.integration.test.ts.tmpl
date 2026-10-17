@@ -1,0 +1,70 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { tasksFeature } from "../features/tasks";
+import { APP_FEATURES } from "../run-config";
+
+const TASK_CREATE = "tasks:write:task:create";
+
+type Created = { id: string };
+type AssignmentList = { rows: { tagId: string; entityId: string }[] };
+
+function mountedTagsFeature(): FeatureDefinition {
+  const found = APP_FEATURES.find((feature) => feature.name === "tags");
+  if (found === undefined) throw new Error("the tags feature is not mounted in APP_FEATURES");
+  return found;
+}
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupAppTestStack([mountedTagsFeature(), tasksFeature]);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("eval acceptance: tags on tasks", () => {
+  test("the task edit screen carries a tag section", () => {
+    const editScreen = tasksFeature.screens["task-edit"];
+    expect(editScreen).toBeDefined();
+    expect(JSON.stringify(editScreen)).toContain('"extension"');
+  });
+
+  test("a task can be tagged and untagged, per tenant", async () => {
+    const owner = await seedTenant(stack);
+    const other = await seedTenant(stack);
+    const task = await owner.api.writeOk<Created>(TASK_CREATE, { title: "Tag me" });
+    const tag = await owner.api.writeOk<Created>("tags:write:create-tag", { name: "urgent" });
+
+    await owner.api.writeOk("tags:write:assign-tag", {
+      tagId: tag.id,
+      entityType: "task",
+      entityId: task.id,
+    });
+    const byTask = { filter: { field: "entityId", op: "eq", value: task.id } };
+    const assigned = await owner.api.queryOk<AssignmentList>(
+      "tags:query:tag-assignment:list",
+      byTask,
+    );
+    expect(assigned.rows.map((row) => row.tagId)).toEqual([tag.id]);
+    const foreign = await other.api.queryOk<AssignmentList>(
+      "tags:query:tag-assignment:list",
+      byTask,
+    );
+    expect(foreign.rows).toEqual([]);
+
+    await owner.api.writeOk("tags:write:remove-tag", {
+      tagId: tag.id,
+      entityType: "task",
+      entityId: task.id,
+    });
+    const removed = await owner.api.queryOk<AssignmentList>(
+      "tags:query:tag-assignment:list",
+      byTask,
+    );
+    expect(removed.rows).toEqual([]);
+  });
+});

@@ -99,6 +99,7 @@ beforeAll(async () => {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       mfaVerifyHandler: AuthMfaHandlers.verify,
+      switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
       invite: {
         acceptHandler: AuthHandlers.inviteAccept,
         acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,

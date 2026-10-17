@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderBunfigFiles, TEST_TIMEOUT_MS } from "../bunfig";
 import { renderTestSetup, SCAFFOLD_E2E_PORT, SCAFFOLD_INTEGRATION_PARALLEL } from "../scaffold";
 
@@ -79,5 +81,19 @@ describe("renderTestSetup", () => {
       expect(setup.rulesMarkdown).toContain(fragment);
     }
     expect(setup.rulesMarkdown.trimEnd().split("\n").length).toBeLessThanOrEqual(25);
+  });
+
+  // The sample compiles and runs against a real app; the generated text must stay identical to
+  // it, or `kumiko new app` would hand out a test nobody ever executes.
+  test("the generated integration test matches the ui-walkthrough sample", () => {
+    const sample = readFileSync(
+      join(
+        import.meta.dir,
+        "../../../../samples/apps/ui-walkthrough/src/__tests__/tasks.integration.test.ts",
+      ),
+      "utf8",
+    );
+    const generated = setup.files["src/__tests__/tasks.integration.test.ts"] ?? "";
+    expect(generated.replaceAll("tasksFeature", "taskFeature")).toBe(sample);
   });
 });

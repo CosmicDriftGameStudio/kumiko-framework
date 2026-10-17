@@ -4,6 +4,11 @@
 type LocalizedString = { readonly en: string };
 
 export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = {
+  "user-data-rights:feature.label": { en: "Privacy" },
+  "user-data-rights:notify.export-ready.label": { en: "Data export ready" },
+  "user-data-rights:notify.export-failed.label": { en: "Data export failed" },
+  "user-data-rights:notify.deletion-requested.label": { en: "Deletion requested" },
+  "user-data-rights:notify.deletion-executed.label": { en: "Deletion completed" },
   "user-data-rights:nav.exportJobs": { en: "GDPR exports" },
   "screen:export-job-list.title": { en: "GDPR exports" },
   "screen:export-job-detail.title": { en: "Export job" },

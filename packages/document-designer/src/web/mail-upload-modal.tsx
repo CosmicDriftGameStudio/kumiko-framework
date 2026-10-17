@@ -6,7 +6,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { fetchStoredFileName } from "./file-name.js";
 import { uniqueResourceKey } from "./mail-draft.js";
 
@@ -32,6 +32,12 @@ function useResourceUpload(target: UploadTarget): {
   const resourceUpload = useMutation(TemplateResolverHandlers.resourceUpload);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // takenKeys only refreshes after the fire-and-forget row refetch, so keys handed out
+  // here must be remembered or a quick second upload of the same file name collides.
+  const uploadedKeys = useRef<{ templateId: string; keys: Set<string> }>({
+    templateId: target.templateId,
+    keys: new Set(),
+  });
 
   const upload = async (
     fileRefId: string | null,
@@ -46,7 +52,10 @@ function useResourceUpload(target: UploadTarget): {
         setError(t("documentDesigner.mail.upload.noFileName"));
         return;
       }
-      const key = uniqueResourceKey(fileName, target.takenKeys);
+      if (uploadedKeys.current.templateId !== target.templateId) {
+        uploadedKeys.current = { templateId: target.templateId, keys: new Set() };
+      }
+      const key = uniqueResourceKey(fileName, [...target.takenKeys, ...uploadedKeys.current.keys]);
       const result = await resourceUpload.mutate({
         sourceFileRefId: fileRefId,
         templateId: target.templateId,
@@ -58,6 +67,7 @@ function useResourceUpload(target: UploadTarget): {
         setError(dispatcherErrorText(result.error, t));
         return;
       }
+      uploadedKeys.current.keys.add(key);
       target.onUploaded({ key, purpose });
     } finally {
       setBusy(false);

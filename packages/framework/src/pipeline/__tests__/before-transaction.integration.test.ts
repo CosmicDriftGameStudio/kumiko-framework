@@ -40,6 +40,7 @@ const RESERVE_WRITES = `${FEATURE}:write:reserve-writes`;
 const RESERVE_APPENDS = `${FEATURE}:write:reserve-appends`;
 const RESERVE_OUTSIDE = `${FEATURE}:write:reserve-outside`;
 const NESTED_OUTER = `${FEATURE}:write:nested-outer`;
+const PREPARE_FOR_TENANT = `${FEATURE}:write:prepare-for-tenant`;
 
 const beforeCalls: string[] = [];
 const handlerCalls: string[] = [];
@@ -48,6 +49,7 @@ const reservationOutsideHandles: boolean[] = [];
 const reservationOutsideReads: number[] = [];
 
 const titlePayload = z.object({ title: z.string(), failInHandler: z.boolean().optional() });
+const forTenantPayload = z.object({ targetTenant: z.number(), write: z.boolean() });
 
 const beforeTxFeature = defineFeature(FEATURE, (r) => {
   r.entity("note", noteEntity);
@@ -92,6 +94,24 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
         }
         return { isSuccess: true as const, data: { token: event.prepared.token } };
       },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "prepare-for-tenant",
+      schema: forTenantPayload,
+      access: { roles: ["Admin", "SystemAdmin"] },
+      beforeTransaction: async (event, ctx) => {
+        const target = ctx.forTenant?.(testTenantId(event.payload.targetTenant));
+        if (!target) throw new Error("forTenant is expected in the beforeTransaction phase");
+        if (event.payload.write) {
+          await noteExecutor.create({ title: "from-phase" }, ctx.user, target.db);
+        }
+        const rows = await selectMany<{ title: string }>(target.db, noteTable, {});
+        return { isSuccess: true as const, data: { titles: rows.map((row) => row.title) } };
+      },
+      handler: async (event) => ({ isSuccess: true as const, data: event.prepared }),
     }),
   );
 
@@ -214,6 +234,13 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
 let stack: TestStack;
 const admin = createTestUser({ id: 1, tenantId: testTenantId(9501), roles: ["Admin"] });
 const viewer = createTestUser({ id: 2, tenantId: testTenantId(9501), roles: ["Viewer"] });
+const systemAdmin = createTestUser({
+  id: 3,
+  tenantId: testTenantId(9501),
+  roles: ["SystemAdmin"],
+});
+const foreignAdmin = createTestUser({ id: 4, tenantId: testTenantId(9502), roles: ["Admin"] });
+const FOREIGN_TENANT = 9502;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [beforeTxFeature] });
@@ -301,6 +328,56 @@ describe("beforeTransaction", () => {
     expect(error.httpStatus).toBe(500);
     expect(error.message).toContain("ctx.write is not available before the transaction");
     expect(handlerCalls).toEqual([]);
+    expect(await noteTitles()).toEqual([]);
+  });
+
+  test("a SystemAdmin reads a foreign tenant's rows through forTenant in the phase", async () => {
+    await stack.http.writeOk(
+      "before-tx:write:plain-create",
+      { title: "foreign-row" },
+      foreignAdmin,
+    );
+
+    const data = await stack.http.writeOk<{ titles: string[] }>(
+      PREPARE_FOR_TENANT,
+      { targetTenant: FOREIGN_TENANT, write: false },
+      systemAdmin,
+    );
+
+    expect(data.titles).toEqual(["foreign-row"]);
+  });
+
+  test("a write through the phase's forTenant db throws and persists nothing", async () => {
+    const error = await stack.http.writeErr(
+      PREPARE_FOR_TENANT,
+      { targetTenant: FOREIGN_TENANT, write: true },
+      systemAdmin,
+    );
+
+    expect(error.httpStatus).toBe(500);
+    expect(error.message).toContain("without an open transaction");
+    expect(await noteTitles()).toEqual([]);
+  });
+
+  test("a write through the phase's forTenant db on the own tenant throws too", async () => {
+    const error = await stack.http.writeErr(
+      PREPARE_FOR_TENANT,
+      { targetTenant: 9501, write: true },
+      admin,
+    );
+
+    expect(error.message).toContain("without an open transaction");
+    expect(await noteTitles()).toEqual([]);
+  });
+
+  test("a non-SystemAdmin cannot reach a foreign tenant through forTenant in the phase", async () => {
+    const error = await stack.http.writeErr(
+      PREPARE_FOR_TENANT,
+      { targetTenant: FOREIGN_TENANT, write: true },
+      admin,
+    );
+
+    expect(error.httpStatus).toBe(403);
     expect(await noteTitles()).toEqual([]);
   });
 

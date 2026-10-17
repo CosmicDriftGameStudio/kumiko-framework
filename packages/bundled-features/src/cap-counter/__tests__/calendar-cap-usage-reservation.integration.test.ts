@@ -409,6 +409,21 @@ describe("systemScope handlers", () => {
     expect(counter["lastSoftWarnedAt"]).not.toBeNull();
   });
 
+  test("withCapEnforcement rejects an amount that would cross the hard cap and leaves the counter untouched", async () => {
+    const user = adminFor(3115);
+    await stack.http.writeOk(WRAPPED_STORAGE_QN, { amount: 100 }, user);
+
+    // storage hard cap is 105 for limit 100: 100 + 6 would end at 106.
+    const rejected = await stack.http.writeErr(WRAPPED_STORAGE_QN, { amount: 6 }, user);
+
+    expect(rejected.code).toBe("cap_exceeded");
+    expect(rejected.httpStatus).toBe(429);
+    expect(await readCounterValue(user, STORAGE_CAP)).toBe(100);
+
+    await stack.http.writeOk(WRAPPED_STORAGE_QN, { amount: 5 }, user);
+    expect(await readCounterValue(user, STORAGE_CAP)).toBe(105);
+  });
+
   test("a context for another tenant stamps reservation and counter with that tenant", async () => {
     const caller = adminFor(3113);
     const otherTenantId = testTenantId(3114);

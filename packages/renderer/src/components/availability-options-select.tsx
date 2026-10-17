@@ -1,6 +1,6 @@
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import type { OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { useQuery } from "../hooks/use-query.js";
 import { usePrimitives } from "../primitives.js";
 import { resolveOptionsQueryPayload } from "./query-options-select.js";
@@ -61,26 +61,28 @@ export function mergeOptionAvailability(
   });
 }
 
-// Combobox primitives cannot disable a single option, so unavailable ones are
-// dropped; an already selected value stays listed so it can still be removed.
+// Unavailable options are dropped unless the target already held them when the
+// form mounted; those stay listed but disabled, because the write path keeps
+// values the caller cannot grant and an unchecked one could never be re-checked.
 export function filterUnavailableOptions(
   options: readonly SelectOptionEntry[],
   rows: readonly unknown[],
-  currentValues: readonly string[],
+  heldValues: ReadonlySet<string>,
 ): readonly SelectOptionEntry[] {
   const unavailable = new Set<string>();
   for (const row of rows) {
     if (isAvailabilityRow(row) && row.disabled === true) unavailable.add(row.value);
   }
-  return options.filter(
-    (option) => !unavailable.has(option.value) || currentValues.includes(option.value),
-  );
+  return options.flatMap((option): readonly SelectOptionEntry[] => {
+    if (!unavailable.has(option.value)) return [option];
+    return heldValues.has(option.value) ? [{ ...option, disabled: true }] : [];
+  });
 }
 
 type AvailabilityOptionsMultiSelectProps = {
   readonly field: EditFieldViewModel;
   readonly query: string;
-  readonly currentValues: readonly string[];
+  readonly initialValues: readonly string[];
   readonly children: (options: readonly SelectOptionEntry[]) => ReactNode;
 };
 
@@ -89,12 +91,13 @@ type AvailabilityOptionsMultiSelectProps = {
 export function AvailabilityOptionsMultiSelect({
   field,
   query,
-  currentValues,
+  initialValues,
   children,
 }: AvailabilityOptionsMultiSelectProps): ReactNode {
   const { data } = useQuery<AvailabilityResult>(query, {});
+  const heldAtMount = useRef(new Set(initialValues));
   return children(
-    filterUnavailableOptions(staticSelectOptions(field), data?.rows ?? [], currentValues),
+    filterUnavailableOptions(staticSelectOptions(field), data?.rows ?? [], heldAtMount.current),
   );
 }
 

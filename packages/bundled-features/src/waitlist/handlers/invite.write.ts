@@ -1,4 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -18,7 +19,13 @@ import { AuthErrors, AuthHandlers } from "../../auth-email-password/index.js";
 import { TenantHandlers, tenantTable } from "../../tenant/index.js";
 import { DEFAULT_OWN_TENANT_INVITE_ROLE, WAITLIST_STATUS, WaitlistErrors } from "../constants.js";
 import { isOpenWaitlistStatus } from "../entity.js";
-import { adminAccess, platformActor, waitlistDb, waitlistExecutor } from "../lib.js";
+import {
+  adminAccess,
+  isTenantMember,
+  platformActor,
+  waitlistDb,
+  waitlistExecutor,
+} from "../lib.js";
 import type { WaitlistInviteOptions } from "../options.js";
 import { WaitlistIdSchema } from "../payloads.js";
 
@@ -29,6 +36,11 @@ export type WaitlistInviteData = {
 };
 
 type InviteTarget = { readonly tenantId: TenantId; readonly role: string };
+
+// pg_advisory_xact_lock namespace (int4): 'wlin' as ASCII, disjoint from the submit lock.
+const INVITE_LOCK_NAMESPACE = 0x776c696e;
+const INVITE_LOCK_REASON =
+  "takes the per-entry advisory lock so parallel invites cannot both create a tenant and invitation; TenantDb has no lock API";
 
 const DEFAULT_INVITE: WaitlistInviteOptions = {
   mode: "own-tenant",
@@ -48,10 +60,11 @@ type EntryRow = {
   readonly name: string;
   readonly company: string | null;
   readonly linkedTenantId: string | null;
+  readonly locale: string | undefined;
 };
 
 function readEntryRow(row: Record<string, unknown>): EntryRow {
-  const { id, version, email, name, company, linkedTenantId } = row;
+  const { id, version, email, name, company, linkedTenantId, locale } = row;
   if (
     typeof id !== "string" ||
     typeof version !== "number" ||
@@ -68,6 +81,7 @@ function readEntryRow(row: Record<string, unknown>): EntryRow {
     name,
     company: typeof company === "string" && company !== "" ? company : null,
     linkedTenantId: typeof linkedTenantId === "string" ? linkedTenantId : null,
+    locale: typeof locale === "string" && locale !== "" ? locale : undefined,
   };
 }
 
@@ -122,8 +136,17 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
       "Invites a pending or already-invited waitlist entry: creates its tenant (or uses the configured shared tenant), mails the entrant a fresh accept link with the configured role and marks the entry invited; rejected entries cannot be invited. The invitee never receives a global role.",
     // Sends an invite link by email, which cannot be recalled.
     agent: { risk: "high" },
+    escapeHatch: { grants: ["unsafeRaw"], reason: INVITE_LOCK_REASON },
     handler: async (event, ctx) => {
       const db = waitlistDb(ctx);
+      if (!ctx.systemDb) {
+        throw new InternalError({ message: "waitlist:invite requires ctx.systemDb" });
+      }
+      await acquireNamespacedAdvisoryLock(
+        ctx.systemDb.unsafeRaw(INVITE_LOCK_REASON),
+        INVITE_LOCK_NAMESPACE,
+        event.payload.id,
+      );
       const row = await waitlistExecutor.detail({ id: event.payload.id }, platformActor(), db);
       if (!row) return writeFailure(new NotFoundError("waitlistEntry", event.payload.id));
       const entry = readEntryRow(row);
@@ -134,13 +157,22 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
       const target = await resolveInviteTarget(invite, entry, ctx);
       if ("isSuccess" in target) return target;
 
+      if (await isTenantMember(db, entry.email, target.tenantId)) {
+        return writeFailure(new UnprocessableError(WaitlistErrors.notInvitable));
+      }
+
       // inviteCreate is admin-only (no system role); the system variant with an
       // empty globalRoles list is the only in-process path, and a waitlist
       // invite must never grant a global role.
       const invited = await ctx.writeAs(
         createSystemUser(target.tenantId),
         AuthHandlers.systemInviteCreate,
-        { email: entry.email.toLowerCase(), role: target.role, globalRoles: [] },
+        {
+          email: entry.email.toLowerCase(),
+          role: target.role,
+          globalRoles: [],
+          ...(entry.locale !== undefined && { locale: entry.locale }),
+        },
       );
       if (!invited.isSuccess) {
         // Re-inviting a person who already accepted would reset their live invitation.

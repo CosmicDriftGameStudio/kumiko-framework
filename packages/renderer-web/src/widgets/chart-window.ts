@@ -42,6 +42,8 @@ export function addUtcMonths(atMs: number, months: number): number {
 
 // Same window as a "1/3/5 years" switch over a plan: `months` ahead of today,
 // pulled back when the data ends earlier, never before the first bucket.
+// An anchor so far before the data that the window ends ahead of the first
+// bucket falls back to the full window instead of an inverted one.
 export function rangeWindow(
   months: number,
   anchorMs: number,
@@ -49,6 +51,7 @@ export function rangeWindow(
   lastMs: number,
 ): ChartWindow {
   const endMs = Math.min(lastMs, addUtcMonths(anchorMs, months));
+  if (endMs < firstMs) return { startMs: firstMs, endMs: lastMs };
   return { startMs: Math.max(firstMs, addUtcMonths(endMs, -months)), endMs };
 }
 
@@ -162,6 +165,28 @@ export function snapBrushWindow(
   return { startMs: times[startIndex] ?? startMs, endMs: times[endIndex] ?? endMs };
 }
 
+/** Moves a snapped window by `shiftMs`: only the start snaps, the width in
+ *  bucket indices stays constant so uneven bucket gaps cannot resize it. */
+export function snapMovedBrushWindow(
+  times: readonly number[],
+  originStartMs: number,
+  originEndMs: number,
+  shiftMs: number,
+): ChartWindow {
+  const lastIndex = times.length - 1;
+  if (lastIndex < 1) return { startMs: originStartMs + shiftMs, endMs: originEndMs + shiftMs };
+  const widthInBuckets = nearestIndex(times, originEndMs) - nearestIndex(times, originStartMs);
+  const startIndex = Math.min(
+    nearestIndex(times, originStartMs + shiftMs),
+    Math.max(0, lastIndex - widthInBuckets),
+  );
+  const endIndex = Math.min(lastIndex, startIndex + widthInBuckets);
+  return {
+    startMs: times[startIndex] ?? originStartMs + shiftMs,
+    endMs: times[endIndex] ?? originEndMs + shiftMs,
+  };
+}
+
 const MONTH_TICK_STEPS = [1, 2, 3, 6, 12, 24, 36, 60, 120] as const;
 const DAY_TICK_STEPS = [1, 2, 7, 14] as const;
 const DAY_MS = 86_400_000;
@@ -186,14 +211,18 @@ function monthTicks(window: ChartWindow, step: number, timeZone: string): readon
 // day. The step phase uses the local day number, not epoch-ms modulo.
 function dayTicks(window: ChartWindow, step: number, timeZone: string): readonly number[] {
   const ticks: number[] = [];
-  const firstDay = Temporal.Instant.fromEpochMilliseconds(window.startMs)
+  const localDayNumberOf = (day: Temporal.ZonedDateTime): number =>
+    Math.round((day.epochMilliseconds + day.offsetNanoseconds / 1e6) / DAY_MS);
+  let cursor = Temporal.Instant.fromEpochMilliseconds(window.startMs)
     .toZonedDateTimeISO(timeZone)
     .startOfDay();
-  for (let cursor = firstDay; ; cursor = cursor.add({ days: 1 }).startOfDay()) {
-    const atMs = cursor.epochMilliseconds;
-    if (atMs >= window.endMs) break;
-    const localDayNumber = Math.round((atMs + cursor.offsetNanoseconds / 1e6) / DAY_MS);
-    if (atMs > window.startMs && localDayNumber % step === 0) ticks.push(atMs);
+  while (localDayNumberOf(cursor) % step !== 0) cursor = cursor.add({ days: 1 }).startOfDay();
+  for (
+    ;
+    cursor.epochMilliseconds < window.endMs;
+    cursor = cursor.add({ days: step }).startOfDay()
+  ) {
+    if (cursor.epochMilliseconds > window.startMs) ticks.push(cursor.epochMilliseconds);
   }
   return ticks;
 }

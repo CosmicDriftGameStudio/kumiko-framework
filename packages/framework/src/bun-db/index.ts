@@ -37,6 +37,7 @@ export {
   insertMany,
   insertOnConflictDoNothing,
   insertOne,
+  instantToTimestamptzParam,
   isTimestamptzType,
   requireEntityTableMeta,
   runInSavepoint,

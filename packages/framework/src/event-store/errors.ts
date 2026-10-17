@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Failure modes of the event-store's append() path. Surfaced as typed
 // errors so the executor layer can map them to the framework's
 // WriteResult error contract (version_conflict).
@@ -35,6 +36,34 @@ export class IdempotentAppendConflictError extends Error {
     this.name = "IdempotentAppendConflictError";
     this.tenantId = tenantId;
     this.idempotencyKey = idempotencyKey;
+  }
+}
+
+// Thrown when a back-dated seed write would put a stream's next version
+// before its predecessor in time. loadAggregateAsOf and projection rebuilds
+// order by created_at, so such a stream would read and replay wrongly.
+export class SeedTimeOrderError extends Error {
+  public readonly aggregateType: string;
+  public readonly aggregateId: string;
+  public readonly version: number;
+  public readonly seedCreatedAt: Temporal.Instant;
+  public readonly predecessorCreatedAt: Temporal.Instant;
+  constructor(
+    aggregateType: string,
+    aggregateId: string,
+    version: number,
+    seedCreatedAt: Temporal.Instant,
+    predecessorCreatedAt: Temporal.Instant,
+  ) {
+    super(
+      `Seed write for ${aggregateType} ${aggregateId} v${version} is dated ${seedCreatedAt.toString()}, before its predecessor (${predecessorCreatedAt.toString()}). Write a stream's events in ascending time.`,
+    );
+    this.name = "SeedTimeOrderError";
+    this.aggregateType = aggregateType;
+    this.aggregateId = aggregateId;
+    this.version = version;
+    this.seedCreatedAt = seedCreatedAt;
+    this.predecessorCreatedAt = predecessorCreatedAt;
   }
 }
 

@@ -27,4 +27,35 @@ describe("dispatchMagicLinkMail appUrl locale negotiation", () => {
     expect(seen[0]).toContain("https://app.example.com/de/activate");
     expect(seen[0]).not.toContain("/de-AT/");
   });
+
+  test("formats expiry in the template locale when the requested locale has no subject key", async () => {
+    async function capture(locale: string) {
+      let seen:
+        | { data: Record<string, unknown> | undefined; locale: string | undefined }
+        | undefined;
+      await dispatchMagicLinkMail(
+        async (_type, options) => {
+          seen = { data: options.data, locale: options.locale };
+          return { kind: "dispatched", deliveries: [] };
+        },
+        { handlerName: "test", notificationType: "test.mail" },
+        {
+          email: "a@example.com",
+          appUrl: "https://app.example.com/activate",
+          token: "tok",
+          issuedAt: "2099-01-01T00:00:00Z",
+          expiresAt: "2099-01-01T03:00:00Z",
+          locale,
+        },
+      );
+      return seen;
+    }
+
+    const requestedFr = await capture("fr");
+    const requestedEn = await capture("en");
+
+    expect(requestedFr?.locale).toBe("en");
+    expect(requestedFr?.data?.["validFor"]).toBe(requestedEn?.data?.["validFor"]);
+    expect(requestedFr?.data?.["validUntil"]).toBe(requestedEn?.data?.["validUntil"]);
+  });
 });

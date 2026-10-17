@@ -129,6 +129,7 @@ export {
   type PgErrorInfo,
 } from "./pg-error.js";
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.js";
+export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.js";
 export { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
 export type { SelectOptions, WhereObject, WhereValue } from "./query-api.js";
 export {

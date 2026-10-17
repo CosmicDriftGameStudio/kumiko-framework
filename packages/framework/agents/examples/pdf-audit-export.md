@@ -2,7 +2,7 @@
 
 # pdf-audit-export
 
-Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and stores the bytes as a FileRef via createFileRefFromBytes.
+Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and uploads the bytes before the transaction (uploadFileBytesBeforeTransaction) and stores them as a FileRef (createFileRefFromUploadedBytes).
 
 ## README
 
@@ -13,7 +13,8 @@ A write handler exports tenant data as a PDF and keeps it as a FileRef.
 ## What it shows
 
 - `renderTablePdf` (`@cosmicdrift/kumiko-bundled-features/renderer-pdf`) draws a table document in pure JavaScript: repeating header, weighted columns, page footer. The handler passes ready-formatted strings.
-- `createFileRefFromBytes` (`@cosmicdrift/kumiko-framework/files`) stores the bytes like an upload (validation, tenant-prefixed storage key, `fileRef.created` event); the tenant comes from the caller.
+- The export is a `beforeTransaction` handler: it reads the rows (reads work in that phase), renders the PDF and calls `uploadFileBytesBeforeTransaction` (`@cosmicdrift/kumiko-framework/files`), which validates the bytes and writes them to the tenant-prefixed storage key. The upload runs before the transaction because storage I/O inside it would hold a pool connection for as long as the upload takes.
+- The handler itself calls `createFileRefFromUploadedBytes(ctx, event.prepared)` and creates the `file_refs` row and the `fileRef.created` event in the transaction. If the transaction does not commit, the phase's `release` deletes the uploaded bytes again (only when no row exists for the storage key). A crash between upload and commit leaves the bytes in storage; nothing sweeps them.
 - The result is a normal FileRef: `GET /api/files/:id` serves it with `Content-Type: application/pdf`, other tenants get 404.
 
 ## Source
@@ -147,6 +148,21 @@ describe("export-audit", () => {
     const { text } = await extractText(proxy, { mergePages: true });
     expect(text).toContain("Keine Prüfungen im Zeitraum");
   });
+
+  test("a period with more inspections than the export holds is rejected instead of cut off", async () => {
+    const assetName = "Großanlage";
+    for (let day = 0; day < 101; day += 1) {
+      const inspectedOn = new Date(Date.UTC(2025, 0, 1 + day)).toISOString().slice(0, 10);
+      await addInspection(inspectedOn, "ok", `Prüfer-${day}`, assetName);
+    }
+
+    const err = await stack.http.writeErr(
+      "pdf-audit-export:write:export-audit",
+      { assetName, from: "2025-01-01", to: "2025-12-31" },
+      userA,
+    );
+    expect(err.httpStatus).toBe(422);
+  });
 });
 ```
 
@@ -156,9 +172,10 @@ describe("export-audit", () => {
 // PDF Audit Export Sample
 //
 // A write handler turns tenant data into a PDF and keeps it as a regular
-// FileRef: renderTablePdf draws the table (pure JS, no browser), then
-// createFileRefFromBytes stores the bytes through the same validation,
-// storage layout and fileRef.created event as an upload.
+// FileRef: renderTablePdf draws the table (pure JS, no browser). The storage
+// write runs in the beforeTransaction phase, so the transaction holds no pool
+// connection while the bytes upload; the handler then only creates the
+// fileRef row from event.prepared.
 
 import { renderTablePdf } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
 import {
@@ -168,8 +185,13 @@ import {
   createSelectField,
   createTextField,
   defineFeature,
+  defineWriteHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createFileRefFromBytes } from "@cosmicdrift/kumiko-framework/files";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  createFileRefFromUploadedBytes,
+  uploadFileBytesBeforeTransaction,
+} from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
 
 export const INSPECTION_RESULTS = ["ok", "defect"] as const;
@@ -199,7 +221,8 @@ function toFileNameSegment(text: string): string {
   return text.replaceAll(/[^A-Za-z0-9_-]+/g, "-");
 }
 
-const AUDIT_ROW_LIMIT = 200;
+// One row above the limit tells "exactly full" from "cut off"; entity lists cap at 200 rows.
+const AUDIT_ROW_LIMIT = 100;
 
 const access = { access: { roles: ["Admin", "User"] } } as const;
 
@@ -220,51 +243,64 @@ export const pdfAuditExportFeature = defineFeature("pdf-audit-export", (r) => {
   );
 
   r.writeHandler(
-    "export-audit",
-    z.object({ assetName: z.string().min(1), from: z.iso.date(), to: z.iso.date() }),
-    async (event, ctx) => {
-      const { assetName, from, to } = event.payload;
-      const inspections = await inspectionExecutor.list(
-        {
-          filters: [
-            { field: "assetName", op: "eq", value: assetName },
-            { field: "inspectedOn", op: "gte", value: from },
-            { field: "inspectedOn", op: "lte", value: to },
+    defineWriteHandler({
+      name: "export-audit",
+      schema: z.object({ assetName: z.string().min(1), from: z.iso.date(), to: z.iso.date() }),
+      access: access.access,
+      beforeTransaction: async (event, ctx) => {
+        const { assetName, from, to } = event.payload;
+        const inspections = await inspectionExecutor.list(
+          {
+            filters: [
+              { field: "assetName", op: "eq", value: assetName },
+              { field: "inspectedOn", op: "gte", value: from },
+              { field: "inspectedOn", op: "lte", value: to },
+            ],
+            sort: "inspectedOn",
+            sortDirection: "asc",
+            limit: AUDIT_ROW_LIMIT + 1,
+          },
+          event.user,
+          ctx.db,
+        );
+        // A protocol that silently drops inspections would look complete.
+        if (inspections.rows.length > AUDIT_ROW_LIMIT) {
+          return writeFailure(
+            new UnprocessableError("audit_period_too_large", {
+              details: { limit: AUDIT_ROW_LIMIT },
+            }),
+          );
+        }
+
+        const { pdfBytes } = await renderTablePdf({
+          title: `Prüfprotokoll ${assetName}`,
+          meta: [
+            { label: "Zeitraum", value: `${formatGermanDate(from)} bis ${formatGermanDate(to)}` },
+            { label: "Prüfungen", value: String(inspections.rows.length) },
           ],
-          sort: "inspectedOn",
-          sortDirection: "asc",
-          limit: AUDIT_ROW_LIMIT,
-        },
-        event.user,
-        ctx.db,
-      );
+          columns: [{ header: "Datum" }, { header: "Ergebnis" }, { header: "Prüfer", weight: 2 }],
+          rows: inspections.rows.map((row) => [
+            formatGermanDate(String(row["inspectedOn"])),
+            RESULT_LABELS[z.enum(INSPECTION_RESULTS).parse(row["result"])],
+            String(row["inspector"] ?? ""),
+          ]),
+          emptyText: "Keine Prüfungen im Zeitraum",
+          footerText: `Prüfbericht ${assetName}`,
+          pageLabel: "Seite {page} von {pages}",
+        });
 
-      const { pdfBytes } = await renderTablePdf({
-        title: `Prüfprotokoll ${assetName}`,
-        meta: [
-          { label: "Zeitraum", value: `${formatGermanDate(from)} bis ${formatGermanDate(to)}` },
-          { label: "Prüfungen", value: String(inspections.rows.length) },
-        ],
-        columns: [{ header: "Datum" }, { header: "Ergebnis" }, { header: "Prüfer", weight: 2 }],
-        rows: inspections.rows.map((row) => [
-          formatGermanDate(String(row["inspectedOn"])),
-          RESULT_LABELS[z.enum(INSPECTION_RESULTS).parse(row["result"])],
-          String(row["inspector"] ?? ""),
-        ]),
-        emptyText: "Keine Prüfungen im Zeitraum",
-        footerText: `Prüfbericht ${assetName}`,
-        pageLabel: "Seite {page} von {pages}",
-      });
-
-      const created = await createFileRefFromBytes(ctx, {
-        fileName: `audit-${toFileNameSegment(assetName)}.pdf`,
-        mimeType: "application/pdf",
-        data: pdfBytes,
-      });
-      if (!created.isSuccess) return created;
-      return { isSuccess: true as const, data: { fileRefId: created.data.id } };
-    },
-    access,
+        return uploadFileBytesBeforeTransaction(ctx, {
+          fileName: `audit-${toFileNameSegment(assetName)}.pdf`,
+          mimeType: "application/pdf",
+          data: pdfBytes,
+        });
+      },
+      handler: async (event, ctx) => {
+        const created = await createFileRefFromUploadedBytes(ctx, event.prepared);
+        if (!created.isSuccess) return created;
+        return { isSuccess: true as const, data: { fileRefId: created.data.id } };
+      },
+    }),
   );
 });
 ```

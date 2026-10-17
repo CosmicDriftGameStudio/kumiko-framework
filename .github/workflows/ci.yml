@@ -92,6 +92,41 @@ jobs:
             echo "::error::${reason:-could not fetch origin/main to verify the Version PR}"
           fi
 
+  # No gitleaks-action: it needs a license for organizations, so the pinned
+  # release binary is verified by SHA256 and run directly.
+  secrets-scan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          # The commit range below needs the merge-base a shallow clone lacks.
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+
+      - name: Scan the PR commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --config .gitleaks.toml \
+            --log-opts="${BASE_SHA}..${HEAD_SHA}" .
+
   test:
     # GitHub-hosted: public repo → gratis + 4 Cores (statt 1-CPU cdgs-runner).
     # Kein Cluster-Zugriff nötig (pure typecheck/lint/test).
@@ -293,45 +328,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
-      - name: Verify generate.ts is idempotent
-        # Re-run and assert kein Diff. Wenn jemand das schema.generated.ts
-        # ändert ohne generate.ts re-runned zu haben → CI fail.
-        run: |
-          # Im Job-Container gehört der Workspace einer anderen uid als dem
-          # run-Step-User → rohes git verweigert das Repo (dubious ownership →
-          # "git diff --no-index"-Usage). Scoped auf genau diesen Workspace,
-          # NICHT global safe.directory '*' im Image (Least-Privilege).
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          bun samples/apps/use-all-bundled/schema/generate.ts
-          git diff --exit-code samples/apps/use-all-bundled/schema/schema.generated.ts
       - name: Verify migration-guide.md is generated, not hand-edited
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           bun scripts/gen-migration-guide.ts
           git diff --exit-code docs/reference/migration-guide.md
       - name: Coverage lint (M5)
-        # Diffs bundled-features exports gegen FEATURE_IMPORT_REGISTRY +
-        # known held-back. Fail wenn ein neuer feature-export ohne mount
-        # oder ein stale registry-entry.
+        # Diffs bundled-features exports gegen die gemounteten Features von
+        # use-all-bundled + known held-back. Fail wenn ein neuer feature-export
+        # ohne mount oder ein stale held-back-Eintrag.
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Coverage lint (M5)" -- bun samples/apps/use-all-bundled/scripts/check-coverage.ts
-
-      - name: Schema check (Empfehlung 3)
-        # kumiko-schema-check diff't mounted features (runtime) gegen
-        # FEATURE_IMPORT_REGISTRY (statisch). Studio's 9.8-Drama:
-        # registry 18 features hinter APP_FEATURES → migrations fehlten.
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema check (Empfehlung 3)" -- bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/schema/generate.ts
 
       - name: Schema validate (migration content)
         # kumiko-schema validate: entity↔snapshot + validateBoot + SQL-replay
-        # ↔snapshot. Catches migration drift that schema.generated / schema-check
-        # miss (#1521). Same stub KEK as Boot smoke (encrypted entity fields).
+        # ↔snapshot. Catches migration drift that schema.generated / the
+        # coverage lint miss (#1521). Same stub KEK as Boot smoke (encrypted entity fields).
         working-directory: samples/apps/use-all-bundled
         env:
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (migration content)" -- bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
 
       - name: Schema validate (demo)
-        # demo/ has no schema/generate.ts registry (schema-check needs one),
+        # demo/ has no schema/generate.ts registry (the coverage lint needs one),
         # so only validate is wired here — entity↔snapshot + validateBoot +
         # SQL-replay↔snapshot against demo/kumiko/migrations. Without this,
         # demo/ silently re-drifts on the next entity change (kumiko-framework#2309).
@@ -361,6 +379,7 @@ jobs:
           REDIS_URL: redis://127.0.0.1:1
           JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+          DEMO_ADMIN_PASSWORD: smoke-admin-password-0001
           # KMS-active path: createPgKmsAdapter is lazy (no connect in ctor);
           # boot exits before any KMS query. Catches RunProdAppOptions wiring
           # regressions the plaintext-only smoke would miss (#2317).

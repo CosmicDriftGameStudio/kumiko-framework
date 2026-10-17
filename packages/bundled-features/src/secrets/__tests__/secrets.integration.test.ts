@@ -39,6 +39,7 @@ const PLAIN_KEY = declared.keys.plain.name;
 const SYSTEM_ONLY_KEY = declared.keys.systemOnly.name;
 
 let stack: TestStack;
+let secretsContext: ReturnType<typeof createSecretsContext>;
 
 beforeAll(async () => {
   const provider: MasterKeyProvider = createEnvMasterKeyProvider({
@@ -50,9 +51,14 @@ beforeAll(async () => {
 
   stack = await setupTestStack({
     features: [createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] }), declared.feature],
-    extraContext: ({ db, registry }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider: provider, registry: registry }),
-    }),
+    extraContext: ({ db, registry }) => {
+      secretsContext = createSecretsContext({
+        db,
+        masterKeyProvider: provider,
+        registry: registry,
+      });
+      return { secrets: secretsContext };
+    },
   });
   // Post-ES: the pre-ES audit table is gone — read-audit rides on the
   // events-table as tenantSecretRead domain-events. Only the projection
@@ -147,10 +153,23 @@ describe("secrets feature — only declared keys are writable", () => {
     expect(rows).toHaveLength(0);
   });
 
-  test("delete with an undeclared key is rejected as unknown", async () => {
+  test("delete of an undeclared key that was never stored is a plain not_found", async () => {
     const err = await stack.http.writeErr("secrets:write:delete", { key: "never.declared" }, admin);
     expect(err.code).toBe("not_found");
-    expect(err.i18nKey).toBe("secrets.errors.unknownKey");
+    expect(err.details).toMatchObject({ entity: "tenant-secret" });
+  });
+
+  test("a legacy row under an undeclared key stays deletable for TenantAdmin", async () => {
+    const legacyKey = "incident-hook";
+    await secretsContext.set(admin.tenantId, legacyKey, "legacy-token");
+
+    await stack.http.writeOk("secrets:write:delete", { key: legacyKey }, admin);
+
+    const rows = await selectMany(stack.db, tenantSecretsTable, {
+      tenantId: admin.tenantId,
+      key: legacyKey,
+    });
+    expect(rows).toHaveLength(0);
   });
 
   test("a declared key without writeRoles stays writable for TenantAdmin", async () => {
@@ -184,6 +203,39 @@ describe("secrets feature — declared namespaces", () => {
     );
     expect(err.code).toBe("not_found");
     expect(err.i18nKey).toBe("secrets.errors.unknownKey");
+  });
+});
+
+describe("secrets feature — namespace writeRoles", () => {
+  const operatorKey = declared.keys.systemOnlyNamespace.keyFor("deploy");
+
+  test("TenantAdmin cannot set under a namespace restricted to SystemAdmin", async () => {
+    const err = await stack.http.writeErr(
+      "secrets:write:set",
+      { key: operatorKey, value: "x" },
+      admin,
+    );
+    expect(err.code).toBe("access_denied");
+    expect(err.i18nKey).toBe("secrets.errors.writeDenied");
+    expect(err.details).toMatchObject({ requiredRoles: ["SystemAdmin"] });
+  });
+
+  test("TenantAdmin cannot delete under a namespace restricted to SystemAdmin, SystemAdmin can", async () => {
+    await stack.http.writeOk(
+      "secrets:write:set",
+      { key: operatorKey, value: "operator-value" },
+      systemAdmin,
+    );
+    const err = await stack.http.writeErr("secrets:write:delete", { key: operatorKey }, admin);
+    expect(err.code).toBe("access_denied");
+    expect(err.i18nKey).toBe("secrets.errors.writeDenied");
+
+    await stack.http.writeOk("secrets:write:delete", { key: operatorKey }, systemAdmin);
+    const rows = await selectMany(stack.db, tenantSecretsTable, {
+      tenantId: admin.tenantId,
+      key: operatorKey,
+    });
+    expect(rows).toHaveLength(0);
   });
 });
 

@@ -15,7 +15,7 @@ import {
   type RenderedMessage,
   renderedPdfAttachmentRefSchema,
 } from "../delivery/index.js";
-import { decryptStoredPii } from "../shared/index.js";
+import { decryptStoredPii, extensionForResourceContentType } from "../shared/index.js";
 import { guardEmailMessage } from "./pii-guard.js";
 import type { EmailAttachment, EmailTransport } from "./types.js";
 
@@ -39,7 +39,8 @@ const UNSUBSCRIBE_HEADER_NAMES: ReadonlySet<string> = new Set([
   "list-unsubscribe-post",
 ]);
 
-// Only the framework's own unsubscribe route can honor a one-click POST.
+// Only the framework's own unsubscribe route can honor a one-click POST; an app's
+// own unsubscribe page still gets the plain List-Unsubscribe link (RFC 2369).
 function listUnsubscribeHeaders(
   data: Readonly<Record<string, unknown>> | undefined,
 ): Readonly<Record<string, string>> | undefined {
@@ -52,7 +53,9 @@ function listUnsubscribeHeaders(
     return undefined;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
-  if (url.pathname !== DELIVERY_UNSUBSCRIBE_PATH) return undefined;
+  if (url.pathname !== DELIVERY_UNSUBSCRIBE_PATH) {
+    return { "List-Unsubscribe": `<${url.toString()}>` };
+  }
   return {
     "List-Unsubscribe": `<${url.toString()}>`,
     "List-Unsubscribe-Post": DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
@@ -110,14 +113,12 @@ export function fileAttachmentsFrom(
     );
 }
 
-const INLINE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/gif": "gif",
-  "image/webp": "webp",
-};
-
 type AttachmentSource = { readonly ref: EmailAttachmentRef; readonly origin: AttachmentOrigin };
+
+function inlineFileName(cid: string, contentType: string): string {
+  const extension = extensionForResourceContentType(contentType);
+  return extension === undefined ? cid : `${cid}.${extension}`;
+}
 
 async function resolveAttachments(
   sources: readonly AttachmentSource[],
@@ -151,11 +152,7 @@ async function resolveAttachments(
       throw new Error(`email channel: attachment file ${ref.fileRefId} was not found`);
     }
     const fileName =
-      ref.kind === "file"
-        ? ref.fileName
-        : INLINE_EXTENSION_BY_CONTENT_TYPE[found.contentType]
-          ? `${ref.cid}.${INLINE_EXTENSION_BY_CONTENT_TYPE[found.contentType]}`
-          : ref.cid;
+      ref.kind === "file" ? ref.fileName : inlineFileName(ref.cid, found.contentType);
     resolved.push({ ...ref, fileName, content: found.content, contentType: found.contentType });
   }
   return resolved;

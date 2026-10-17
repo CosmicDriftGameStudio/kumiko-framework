@@ -8,7 +8,16 @@ const variables = {
   lines: templateVariable.list({ label: templateVariable.text() }),
 };
 
-function validate(body: string, meta: { subject: string; previewText?: string } | null = null) {
+function validate(
+  body: string,
+  meta: {
+    subject: string;
+    previewText?: string;
+    headerChip?: string;
+    tone?: string;
+    footerNote?: string;
+  } | null = null,
+) {
   return validateTemplatePlaceholders({ kind: "mail", body, meta, variables });
 }
 
@@ -28,6 +37,13 @@ describe("validateTemplatePlaceholders", () => {
   test("unknown variables and link placeholders are reported", () => {
     const result = validate('<span data-variable="nope"></span><a href="{{gone}}">x</a>');
     expect(result.unknown).toEqual(["gone", "nope"]);
+  });
+
+  test("a dotted path under a declared variable or list item field is unknown", () => {
+    const result = validate(
+      '<span data-variable="total.amount"></span><a href="{{name.first}}">x</a><table><tr data-each="lines"><td><span data-variable="label.sub"></span></td></tr></table>',
+    );
+    expect(result.unknown).toEqual(["label.sub", "name.first", "total.amount"]);
   });
 
   test("a resource key without an uploaded file is a separate warning, not an unknown", () => {
@@ -67,6 +83,27 @@ describe("validateTemplatePlaceholders", () => {
     expect(validate("<p>x</p>", { subject: "Hi {{nope}}" }).unknown).toEqual(["nope"]);
     expect(validate("<p>x</p>", { subject: "{{#each lines}}" }).unknown).not.toEqual([]);
     expect(validate("<p>x</p>", { subject: "{{{name}}}" }).unknown).not.toEqual([]);
+  });
+
+  test("chip, tone and footer note are checked like the subject", () => {
+    const result = validate("<p>x</p>", {
+      subject: "S",
+      headerChip: "{{name}}",
+      tone: "{{nope}}",
+      footerNote: "{{#if name}}",
+    });
+    expect(result.used).toEqual(["name"]);
+    expect(result.unknown).toContain("nope");
+    expect(result.unknown).toContain("{{#if name}}");
+  });
+
+  test("a steps block counts its variable as used and reports an unknown one", () => {
+    expect(validate('<div data-steps="name"><span data-step="a">A</span></div>').used).toEqual([
+      "name",
+    ]);
+    expect(validate('<div data-steps="stage"><span data-step="a">A</span></div>').unknown).toEqual([
+      "stage",
+    ]);
   });
 
   test("prototype names are not declared variables", () => {

@@ -7,7 +7,7 @@
 // outage can be simulated without touching the shared test DB other suites
 // depend on.
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import net from "node:net";
 import postgres from "postgres";
 import { createDbConnection } from "../../db/connection.js";
@@ -56,6 +56,10 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature], systemHooks: [], dbName: testDbName });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

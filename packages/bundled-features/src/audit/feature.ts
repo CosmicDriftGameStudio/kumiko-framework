@@ -76,7 +76,7 @@ export function createAuditFeature(): FeatureDefinition {
             db: ctx.db.unsafeRaw(),
             registry: ctx.registry,
             configResolver: ctx.configResolver,
-            userId: ctx._userId ?? SYSTEM_USER_ID,
+            userId: SYSTEM_USER_ID,
           });
         },
       });

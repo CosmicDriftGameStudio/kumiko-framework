@@ -72,8 +72,8 @@ import {
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
   FILE_STORAGE_PROVIDER_ENV,
   findTierResolverUsage,
-  isTierResolverPlugin,
   type Registry,
+  requireTierResolverPlugin,
   type SessionUser,
   type TenantId,
   type ValidateBootOptions,
@@ -337,7 +337,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // die früher nur runProdApp fing und sonst erst den Prod-Pod im
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
   // Socket oder Watcher (codegen-Write) aufgeht.
-  validateBoot(features, bootOptions);
+  // Resolved before validateBoot: an app-supplied masterKey provider must satisfy the
+  // encrypted-field gate here exactly as it does in runProdApp.
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  validateBoot(features, {
+    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
+    ...bootOptions,
+  });
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 
@@ -402,7 +408,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // throwaway-Registry hier extrahiert nur die config-Keys, weil der
   // configResolver vor dem Server-Boot konstruiert wird (stack.registry
   // gibt's erst onAfterSetup) — createKumikoServer baut intern seine eigene.
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   // App-wide cipher for `encrypted: true` entity fields (symmetrisch zu
   // runProdApp) — executors resolve it lazily.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
@@ -481,6 +486,17 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   let tokenVerifier: TokenVerifier | undefined;
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
+  if (
+    effectiveAuth &&
+    mfaFeature &&
+    registry?.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined
+  ) {
+    throw new Error(
+      `[runDevApp] auth-mfa is mounted but ${AuthHandlers.switchTenantMfaGate} is not registered: ` +
+        "createAuthEmailPasswordFeature registers it only when mfaStatusChecker is set, and without it " +
+        "POST /auth/switch-tenant would mint sessions without the second factor",
+    );
+  }
   const patAuthFragment = patFeature
     ? {
         tokenVerifier: (rawToken: string) => {
@@ -613,11 +629,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       // on the resolver being live (e.g. seed that writes a SystemAdmin's
       // tier-assignment can immediately read tier-cuts).
       if (tierResolverUsage) {
-        const plugin = tierResolverUsage.options;
-        if (!isTierResolverPlugin(plugin)) {
-          throw new Error("tier-resolver registration options must provide a build() factory");
-        }
-        tierResolverHolder.resolver = await plugin.build({
+        tierResolverHolder.resolver = await requireTierResolverPlugin(tierResolverUsage).build({
           db: stack.db,
           registry: stack.registry,
           cacheSync: stack.cacheSync,

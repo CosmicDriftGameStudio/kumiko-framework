@@ -416,6 +416,32 @@ describe("audit: list query", () => {
     expect(page3.nextBefore).toBeNull();
   });
 
+  test("pagination: an explicit createdAt sort pages in id order without skipping a row", async () => {
+    for (let i = 0; i < 5; i++) {
+      await createWidget(admin, `S${i}`);
+    }
+    const all = await stack.http.queryOk<AuditResponse>(
+      AuditQueries.list,
+      { limit: 100, sort: "createdAt" },
+      admin,
+    );
+
+    const seen: string[] = [];
+    let before: string | null = null;
+    for (let page = 0; page < 50; page++) {
+      const res: AuditResponse = await stack.http.queryOk<AuditResponse>(
+        AuditQueries.list,
+        { limit: 2, sort: "createdAt", ...(before !== null && { before }) },
+        admin,
+      );
+      seen.push(...res.rows.map((r) => r.id));
+      before = res.nextBefore;
+      if (before === null) break;
+    }
+
+    expect(seen).toEqual(all.rows.map((r) => r.id));
+  });
+
   test("pagination: ascending sort pages forward without overlap", async () => {
     for (let i = 0; i < 5; i++) {
       await createWidget(admin, `W${i}`);

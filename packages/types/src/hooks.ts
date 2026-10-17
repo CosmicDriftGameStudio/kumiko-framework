@@ -38,6 +38,10 @@ export type DeleteContext = {
   readonly entityName?: string | undefined;
   // See SaveContext.event — same semantics.
   readonly event?: StoredEvent | undefined;
+  // The executor skipped the record-lock guard for this delete (unsafeSkipLockGuard,
+  // framework system write with a writePurpose, forget). Cascade handling of locked
+  // children follows the same exemption.
+  readonly lockGuardBypassed?: boolean | undefined;
 };
 
 export type LifecycleResult = SaveContext | DeleteContext;

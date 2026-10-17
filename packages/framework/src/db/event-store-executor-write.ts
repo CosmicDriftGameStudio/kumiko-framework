@@ -7,15 +7,16 @@ import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.j
 import {
   findUnavailableSelectOptions,
   isRecordLocked,
+  isUnchangedValue,
   type UnavailableSelectOption,
 } from "../engine/screen-helpers.js";
-import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
 import type { EntityId, SessionUser, TenantId } from "../engine/types/index.js";
 import {
   AccessDeniedError,
   VersionConflictError as FrameworkVersionConflict,
   IdempotentReplayError,
   InternalError,
+  isSubjectErasedConflict,
   NotFoundError,
   PreconditionFailedError,
   RecordLockedError,
@@ -52,6 +53,7 @@ import {
   ownershipSubject,
   tryMapUniqueViolation,
 } from "./event-store-executor-context.js";
+import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.js";
 import { projectionRegistryOf } from "./projection-registry-binding.js";
 import { runInSavepointIfSupported } from "./query.js";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
@@ -73,32 +75,11 @@ async function projectEntityEvent(
   await runInSavepointIfSupported(runner, (sp) => runProjectionsForEvent(event, registry, sp));
 }
 
-// Art. 17 erasure runs as the framework operator, not as a row owner; a
-// per-role ownership map can never cover it, and a silent deny means the
-// erasure never happened.
-function isFrameworkSystemUser(user: SessionUser): boolean {
-  return user.id === SYSTEM_USER_ID && user.roles.includes(SYSTEM_ROLE);
-}
-
 // The five write verbs (create/update/delete/forget/restore) of the event-
 // store-executor. Split out of event-store-executor.ts (#1005, Welle 2) —
 // behavior-preserving relocation, not a redesign: every closure below is
 // unchanged from the original, just relocated behind an explicit
 // ExecutorContext instead of capturing the factory's local scope directly.
-
-// updateOptions.skipUnchanged (#464) — opt-in: a resubmitted-but-identical
-// key is dropped before encryption so pii/encrypted fields don't get a fresh
-// AEAD ciphertext (new nonce) for no real change, and the event's `changes`
-// don't carry a phantom diff. Opt-in, not the executor's default, because
-// direct executor.update() callers rely on the current behavior to FORCE a
-// re-encrypt of an unchanged plaintext — KEK-rotation (auth-mfa reencrypt.job)
-// and the user-data-rights #494 backfill both resubmit the current value on
-// purpose to land a fresh event/ciphertext. Only the generic entity update
-// handler (entity-handlers.ts) sets this flag; those two call their own
-// executor directly and never see it.
-function isUnchangedValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
 
 function selectOptionNotAvailableFailure(entries: readonly UnavailableSelectOption[]) {
   const [first] = entries;
@@ -217,11 +198,7 @@ export function createWriteVerbs(
     user: SessionUser,
     options: LockGuardOption | undefined,
   ): WriteFailure | undefined {
-    if (
-      options?.unsafeSkipLockGuard === true ||
-      (options?.writePurpose !== undefined && isFrameworkSystemUser(user)) ||
-      !isRecordLocked(entity.lockedWhen, row)
-    ) {
+    if (isLockGuardBypassed(user, options) || !isRecordLocked(entity.lockedWhen, row)) {
       return undefined;
     }
     return writeFailure(new RecordLockedError({ entityName, entityId: id }));
@@ -254,6 +231,57 @@ export function createWriteVerbs(
       };
     }
     return { row: row as DbRow };
+  }
+
+  // A forgotten subject has no key any more: restore re-encrypts the stored row and reports
+  // that as a failure result like any other write conflict instead of throwing.
+  async function appendRestoredEvent(
+    runner: ReturnType<typeof tenantDbWriteRunner>,
+    user: SessionUser,
+    id: EntityId,
+    previousPlain: DbRow,
+    streamTenantId: TenantId | undefined,
+    currentVersion: number,
+  ): Promise<
+    { readonly event: Awaited<ReturnType<typeof append>> } | { readonly failure: WriteFailure }
+  > {
+    try {
+      const previous = await encryptForStorage(previousPlain, user, {
+        keyTenantId: streamTenantId,
+      });
+      const event = await runInSavepointIfSupported(runner, (sp) =>
+        append(sp, {
+          aggregateId: String(id),
+          aggregateType: entityName,
+          tenantId: streamTenantFor(user, streamTenantId),
+          expectedVersion: currentVersion,
+          type: entityEventName(entityName, "restored"),
+          eventVersion,
+          payload: { previous },
+          metadata: buildEventMetadata(user),
+        }),
+      );
+      return { event };
+    } catch (e) {
+      if (isSubjectErasedConflict(e)) return { failure: writeFailure(e) };
+      if (e instanceof EventStoreVersionConflict) {
+        return {
+          failure: writeFailure(
+            new FrameworkVersionConflict({
+              entityId: id,
+              expectedVersion: currentVersion,
+              currentVersion: -1,
+            }),
+          ),
+        };
+      }
+      if (e instanceof EventStoreIdempotentAppendConflict) {
+        return {
+          failure: writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey })),
+        };
+      }
+      throw e;
+    }
   }
 
   async function expectedStreamVersion(
@@ -603,9 +631,15 @@ export function createWriteVerbs(
       const lockedUpdate = recordLockedFailure(previous, payload.id, user, updateOptions);
       if (lockedUpdate) return lockedUpdate;
 
-      const unavailableOnUpdate = selectOptionNotAvailableFailure(
-        findUnavailableSelectOptions(entity.fields, mergedNew, previous),
-      );
+      // Statutory retention/erasure writes may change a condition field (e.g. null a PII
+      // reference) and must not be blocked by the select rule — same exemption as the lock.
+      const isStatutorySystemWrite =
+        updateOptions?.writePurpose !== undefined && isFrameworkSystemUser(user);
+      const unavailableOnUpdate = isStatutorySystemWrite
+        ? undefined
+        : selectOptionNotAvailableFailure(
+            findUnavailableSelectOptions(entity.fields, mergedNew, previous),
+          );
       if (unavailableOnUpdate) return unavailableOnUpdate;
 
       const streamTenant = streamTenantFor(user, streamTenantId);
@@ -650,6 +684,9 @@ export function createWriteVerbs(
         // Compound-Types Auto-Convert (alle in einem Pass).
         // subjectSource: partial changes may carry a pii field without its
         // ownerField — the merged row still names the subject.
+        // skipUnchanged (#464) is opt-in: an identical resubmitted key is dropped before
+        // encryption so pii/encrypted fields get no fresh ciphertext for no real change.
+        // Direct callers (KEK rotation, #494 backfill) rely on the default to force a re-encrypt.
         const submittedChanges = updateOptions?.skipUnchanged
           ? Object.fromEntries(
               Object.entries(changes).filter(
@@ -891,6 +928,7 @@ export function createWriteVerbs(
           data: existing,
           entityName,
           event: echoEvent,
+          ...(isLockGuardBypassed(user, options) && { lockGuardBypassed: true }),
         },
       };
     },
@@ -997,6 +1035,7 @@ export function createWriteVerbs(
           data: existing,
           entityName,
           event: echoEvent,
+          lockGuardBypassed: true,
         },
       };
     },
@@ -1055,38 +1094,16 @@ export function createWriteVerbs(
       // pii, and envelope encryption is not idempotent: decrypt, then
       // re-encrypt as delete does.
       const previousPlain = await decryptForRead(data);
-      const previousForStorage = await encryptForStorage(previousPlain, user, {
-        keyTenantId: streamTenantId,
-      });
-      let event: Awaited<ReturnType<typeof append>>;
-      try {
-        event = await runInSavepointIfSupported(runner, (sp) =>
-          append(sp, {
-            aggregateId: String(payload.id),
-            aggregateType: entityName,
-            tenantId: streamTenantFor(user, streamTenantId),
-            expectedVersion: currentVersion,
-            type: entityEventName(entityName, "restored"),
-            eventVersion,
-            payload: { previous: previousForStorage },
-            metadata: buildEventMetadata(user),
-          }),
-        );
-      } catch (e) {
-        if (e instanceof EventStoreVersionConflict) {
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: payload.id,
-              expectedVersion: currentVersion,
-              currentVersion: -1,
-            }),
-          );
-        }
-        if (e instanceof EventStoreIdempotentAppendConflict) {
-          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
-        }
-        throw e;
-      }
+      const appended = await appendRestoredEvent(
+        runner,
+        user,
+        payload.id,
+        previousPlain,
+        streamTenantId,
+        currentVersion,
+      );
+      if ("failure" in appended) return appended.failure;
+      const event = appended.event;
 
       // Live==Rebuild via applyEntityEvent. Restore only writes isDeleted=false
       // plus the version bump, so there is no sensitive-field drift and no

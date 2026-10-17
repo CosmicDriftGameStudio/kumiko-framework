@@ -90,6 +90,17 @@ describe("buildEntityTable — entity.indexes", () => {
     expect(idx?.config.unique).toBe(true);
   });
 
+  test("an index where that is not a sql expression throws instead of building a full index", () => {
+    const entity = createEntity({
+      softDelete: true,
+      fields: {
+        slug: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
+      indexes: [{ unique: true, columns: ["slug"], where: "slug IS NOT NULL" }],
+    });
+    expect(() => buildEntityTable("page", entity)).toThrow(/index "[^"]+": where must be a sql/);
+  });
+
   test("ohne indexes — keine zusätzlichen Indices, kein Error", () => {
     const entity = createEntity({
       fields: {

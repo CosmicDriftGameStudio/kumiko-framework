@@ -1,5 +1,5 @@
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import type { TenantDb } from "../db/tenant-db.js";
+import { runInOwnTransaction, type TenantDb } from "../db/tenant-db.js";
 import {
   type AnyFileFieldDef,
   isFileField,
@@ -75,6 +75,9 @@ export type StoreFileInput = {
 export type StoreFileDeps = {
   readonly user: SessionUser;
   readonly tenantDb: TenantDb;
+  // Set when tenantDb is not inside a transaction: event append, row and custom projections of
+  // fileRef.created then commit together or not at all, so a failing projection leaves no row.
+  readonly rowInOwnTransaction?: boolean;
   readonly registry: Registry | undefined;
   readonly defaultMaxUploadSize: string;
   readonly writeBytes: (storageKey: string, data: Uint8Array, mimeType: string) => Promise<void>;
@@ -258,13 +261,27 @@ export async function storeFileAsFileRef(
   // A failed create deletes the bytes again; a later rollback of an enclosing transaction or a
   // crash cannot, so those bytes stay in storage (no job sweeps an original without a fileRef row).
   // Losing a row on append-failure is acceptable; a committed row with a missing binary is not.
-  const row = await createFileRefRow(deps, upload.uploaded);
-  if ("failure" in row) {
+  // A throwing projection on fileRef.created fails the create by exception, not by WriteFailure.
+  const deleteUploadedBytes = async (): Promise<void> => {
     try {
       await deps.deleteBytes(upload.uploaded.storageKey);
     } catch {
       // skip: the create failure is the error worth reporting; the leftover bytes stay in storage.
     }
+  };
+  let row: Awaited<ReturnType<typeof createFileRefRow>>;
+  try {
+    row = deps.rowInOwnTransaction
+      ? await runInOwnTransaction(deps.tenantDb, (txDb) =>
+          createFileRefRow({ user: deps.user, tenantDb: txDb }, upload.uploaded),
+        )
+      : await createFileRefRow(deps, upload.uploaded);
+  } catch (e) {
+    await deleteUploadedBytes();
+    throw e;
+  }
+  if ("failure" in row) {
+    await deleteUploadedBytes();
     return { kind: "failed", failure: row.failure };
   }
   return { kind: "created", fileRef: row.fileRef };

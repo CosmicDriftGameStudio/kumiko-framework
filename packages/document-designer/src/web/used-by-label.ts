@@ -10,6 +10,20 @@ function translateOrRaw(t: Translate, key: string, raw: string): string {
   return translated === key ? raw : translated;
 }
 
+const NOTIFICATION_SLUG = /^([^:]+):notify:([^:]+)$/;
+
+// A seeded system mail has no stored title, so its notification label from the
+// owning feature names it; the slug stays the last resort.
+export function templateTitle(
+  t: Translate,
+  row: Pick<OverviewRowView, "title" | "slug" | "kind">,
+): string {
+  if (row.title !== row.slug) return row.title;
+  const match = row.kind === "mail" ? NOTIFICATION_SLUG.exec(row.slug) : null;
+  if (match === null) return row.slug;
+  return usageParts(t, { feature: match[1] ?? "", notification: match[2] ?? "" }).notification;
+}
+
 export function usageParts(
   t: Translate,
   usage: OverviewUsageView,

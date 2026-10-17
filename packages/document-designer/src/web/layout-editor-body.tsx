@@ -14,7 +14,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { cn, ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer-web";
-import { type ReactNode, useDeferredValue, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { BRANDING_QUERY_QN } from "../constants.js";
 import { composeLayoutHtml } from "./compose-layout.js";
 import { EditorHeader } from "./editor-header.js";
@@ -44,11 +44,14 @@ import type {
   UpsertResponse,
   ValidationIssue,
 } from "./layout-types.js";
-import { layoutUsers } from "./layout-users.js";
 import { systemLabelMap } from "./mail-draft.js";
 import { OriginBar } from "./origin-bar.js";
 import type { OverviewRowView } from "./overview-row.js";
 import { asRowStatus } from "./status-label.js";
+import { useDebouncedValue } from "./use-debounced-value.js";
+
+// Server-side validation compiles the whole layout (mjml), so wait for a pause in typing.
+const VALIDATE_DEBOUNCE_MS = 400;
 
 type EditorTab = "draft" | "mjml";
 type Region = "header" | "signature" | "footer";
@@ -113,6 +116,7 @@ export function LayoutEditorBody({
   isSystemAdmin,
   source,
   overviewRows,
+  usedByCount,
   overrides,
   onKindChange,
   onReload,
@@ -122,6 +126,7 @@ export function LayoutEditorBody({
   readonly isSystemAdmin: boolean;
   readonly source: LayoutSourceView;
   readonly overviewRows: readonly OverviewRowView[];
+  readonly usedByCount: number;
   readonly overrides: TenantOverrideCounts | null;
   readonly onKindChange: (kind: LayoutKind) => void;
   readonly onReload: () => Promise<void>;
@@ -166,19 +171,19 @@ export function LayoutEditorBody({
   const content = mjmlMode
     ? mjml
     : composeLayoutHtml({ header, signature: isMail ? signature : "", footer });
-  const deferredContent = useDeferredValue(content);
+  const debouncedContent = useDebouncedValue(content, VALIDATE_DEBOUNCE_MS);
   const validation = useQuery<LayoutValidation>(TemplateResolverQueries.validate, {
     slug,
     kind,
     contentFormat: mjmlMode ? "mjml" : "html",
-    content: deferredContent,
+    content: debouncedContent,
     locale: source.locale,
     scope: isSystemAdmin ? "system" : "tenant",
   });
   const checked = validation.data;
 
   const shownRow = isSystemAdmin ? source.system : (source.tenant ?? source.system);
-  const userCount = layoutUsers(overviewRows, kind, slug).length;
+  const userCount = usedByCount;
   const placeholders = checked?.systemPlaceholders ?? [];
   const placeholderLabels = systemLabelMap(t, placeholders);
 
@@ -242,7 +247,10 @@ export function LayoutEditorBody({
   const accentColor = branding.data?.accentColor ?? "";
   const showAccentLine =
     isMail && appearanceEditable && appearance.accentLine === "branding" && isHexColor(accentColor);
-  const blocks = isMail ? MAIL_DOCUMENT_BLOCKS : PDF_DOCUMENT_BLOCKS;
+  // A layout region has no per-mail variables, so a steps block there could never show a stage.
+  const blocks = (isMail ? MAIL_DOCUMENT_BLOCKS : PDF_DOCUMENT_BLOCKS).filter(
+    (block) => block !== "steps",
+  );
 
   // The layout's "logo" resource is the branding logo, so the editor shows it instead of a chip.
   const logoFile = branding.data?.logoFile ?? "";

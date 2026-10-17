@@ -1,5 +1,6 @@
 import type { AnyDb } from "../query.js";
 import { asRawClient } from "../query.js";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
 
 export type PiiBackfillStateRow = {
   readonly cursor: string;
@@ -48,8 +49,8 @@ export async function persistPiiBackfillState(
       fingerprint,
       update.cursor.toString(),
       update.markCompleted,
-      [...update.addFailedEventIds],
-      [...update.removeFailedEventIds],
+      toPostgresArrayLiteral(update.addFailedEventIds),
+      toPostgresArrayLiteral(update.removeFailedEventIds),
     ],
   );
 }

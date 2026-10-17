@@ -88,8 +88,9 @@ const tenantMembershipCrud = createEventStoreExecutor(
   },
 );
 
-// Every hook still runs each tick (they are idempotent), so a later hook is not
-// starved by an earlier one that keeps reporting done:false.
+// Every hook runs each tick (they are idempotent) but all share one ctx.deadlineAt: an
+// earlier hook that keeps reporting done:false can use up the budget, so later chunking
+// hooks time out with nothing processed until it finishes.
 function newOutcomeAccumulator(): {
   add: (result: TenantDestroyHookResult | void) => void;
   outcome: () => StageRunOutcome;

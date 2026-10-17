@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
+  defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
 } from "../entity-handlers.js";
@@ -99,11 +100,26 @@ describe("entity convention handlers: escapeHatch option", () => {
     ).not.toThrow();
   });
 
-  test("a list handler with escapeHatch keeps non-SystemAdmin access", () => {
+  test("a query handler with escapeHatch and non-SystemAdmin access throws at definition", () => {
     expect(() =>
       defineEntityListHandler("thing", thingEntity, {
         access: { roles: ["Admin"] },
         escapeHatch: { reason: "tenant admin cross-tenant list" },
+      }),
+    ).toThrow(/query handler with escapeHatch.*SystemAdmin-only/);
+    expect(() =>
+      defineEntityDetailHandler("thing", thingEntity, {
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "tenant admin cross-tenant detail" },
+      }),
+    ).toThrow(/SystemAdmin-only/);
+  });
+
+  test("a query handler with escapeHatch and SystemAdmin-only roles is accepted", () => {
+    expect(() =>
+      defineEntityListHandler("thing", thingEntity, {
+        ...sysadminAccess,
+        escapeHatch: { reason: "operator cross-tenant list" },
       }),
     ).not.toThrow();
   });

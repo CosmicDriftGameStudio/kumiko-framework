@@ -32,6 +32,15 @@ function mergeWithAllFieldsUrlPrefillable(
   });
 }
 
+// Other test files in the same bun process emit async warnings while a console spy is active,
+// so assertions only count the prefill warnings this code produces.
+function warningsMentioning(
+  spy: { readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> } },
+  fragment: string,
+): ReadonlyArray<ReadonlyArray<unknown>> {
+  return spy.mock.calls.filter((args) => args.some((arg) => String(arg).includes(fragment)));
+}
+
 describe("mergeSearchParamsIntoInitial — urlPrefillFields allowlist", () => {
   const fields: Record<string, FieldDef> = {
     leaseId: { type: "text" },
@@ -292,8 +301,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
       const fields: Record<string, FieldDef> = { price: { type: "money" } };
       const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" });
       expect(result["price"]).toBe(19.99);
-      expect(warnSpy).toHaveBeenCalled();
-      expect(warnSpy.mock.calls[0]?.[0]).toContain("price");
+      expect(warningsMentioning(warnSpy, 'money field "price"')).toHaveLength(1);
     } finally {
       warnSpy.mockRestore();
     }
@@ -339,7 +347,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
       };
       const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1e999" });
       expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
-      expect(warnSpy).not.toHaveBeenCalled();
+      expect(warningsMentioning(warnSpy, 'money field "price"')).toHaveLength(0);
     } finally {
       warnSpy.mockRestore();
     }
@@ -416,8 +424,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
           lines: JSON.stringify([{ accountId: "bank", amount: 12.99 }]),
         });
         expect(result["lines"]).toEqual([]);
-        expect(warnSpy).toHaveBeenCalled();
-        expect(warnSpy.mock.calls[0]?.[0]).toContain("lines");
+        expect(warningsMentioning(warnSpy, 'field "lines"')).toHaveLength(1);
       } finally {
         warnSpy.mockRestore();
       }

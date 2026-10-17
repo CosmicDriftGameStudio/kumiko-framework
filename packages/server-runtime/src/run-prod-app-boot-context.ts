@@ -199,6 +199,23 @@ function createBootConfigResolver(
   });
 }
 
+// The delivery service reads tenant config too (tenant name/locale in mail
+// layouts), so apps without auth still get a resolver for it; the ctx entry
+// stays auth-only.
+function resolveDeliveryConfigResolver(
+  opts: {
+    readonly hasAuth: boolean;
+    readonly registry: Registry;
+    readonly envSource: Record<string, string | undefined>;
+  },
+  hasDeliveryFeature: boolean,
+  crypto: BootCrypto,
+): ReturnType<typeof createBootConfigResolver> | undefined {
+  return opts.hasAuth || hasDeliveryFeature
+    ? createBootConfigResolver(opts.registry, opts.envSource, crypto)
+    : undefined;
+}
+
 export function buildBootExtraContext(opts: {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
@@ -225,9 +242,8 @@ export function buildBootExtraContext(opts: {
   const hasTenantFeature = opts.features.some((f) => f.name === TENANT_FEATURE);
   const escapeHatchAuditSink = resolveEscapeHatchAuditSink(opts.features, opts.db);
   const secrets = resolveBootSecrets(opts.db, opts.features, crypto, opts.registry);
-  const configResolver = opts.hasAuth
-    ? createBootConfigResolver(opts.registry, opts.envSource, crypto)
-    : undefined;
+  const bootConfigResolver = resolveDeliveryConfigResolver(opts, hasDeliveryFeature, crypto);
+  const configResolver = opts.hasAuth ? bootConfigResolver : undefined;
   return {
     templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),
@@ -242,7 +258,7 @@ export function buildBootExtraContext(opts: {
         ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
         ...(opts.log && { log: opts.log }),
         ...(hasTenantFeature && { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
-        configResolver,
+        configResolver: bootConfigResolver,
         deliverQueuedInline: opts.deliverQueuedInline,
       }),
     }),

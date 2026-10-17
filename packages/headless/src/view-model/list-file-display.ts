@@ -1,10 +1,9 @@
 import type { FieldDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { ImageFieldDef, ImagesFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import type { ListColumnFileDisplay, ListColumnViewModel } from "./types.js";
 
-function firstVariantKey(fieldDef: FieldDefinition): string | undefined {
-  const variants = propertyOf(fieldDef, "variants");
-  return typeof variants === "object" && variants !== null ? Object.keys(variants)[0] : undefined;
+function firstVariantKey(fieldDef: ImageFieldDef | ImagesFieldDef): string | undefined {
+  return Object.keys(fieldDef.variants ?? {})[0];
 }
 
 function fromFormatSpec(

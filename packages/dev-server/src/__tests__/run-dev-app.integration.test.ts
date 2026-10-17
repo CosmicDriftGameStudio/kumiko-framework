@@ -21,6 +21,7 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -28,6 +29,7 @@ import {
   defineQueryHandler,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import {
   resetBlindIndexKeyForTests,
@@ -130,6 +132,53 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
       },
     });
     expect(handle).toBeDefined();
+  });
+});
+
+describe("runDevApp — masterKey satisfies the encrypted-field boot gate", () => {
+  function encryptedFeature() {
+    return defineFeature("dev-master-key-probe", (r) => {
+      r.entity(
+        "note",
+        createEntity({
+          table: "dev_master_key_probe_note",
+          fields: {
+            body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+          },
+        }),
+      );
+    });
+  }
+
+  afterEach(() => {
+    configureEntityFieldEncryption(undefined);
+  });
+
+  test("an app-supplied provider boots without any env KEK", async () => {
+    handle = await runDevApp({
+      features: [encryptedFeature()],
+      port: 0,
+      envSource: { ...process.env, KUMIKO_SECRETS_MASTER_KEY_V1: undefined },
+      validateBootOptions: { env: {} },
+      masterKey: createEnvMasterKeyProvider({
+        env: {
+          KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+          KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+        },
+      }),
+    });
+    expect(handle).toBeDefined();
+  });
+
+  test("no provider and no env KEK still fails the gate", async () => {
+    await expect(
+      runDevApp({
+        features: [encryptedFeature()],
+        port: 0,
+        envSource: { ...process.env, KUMIKO_SECRETS_MASTER_KEY_V1: undefined },
+        validateBootOptions: { env: {} },
+      }),
+    ).rejects.toThrow(/no usable master key/);
   });
 });
 

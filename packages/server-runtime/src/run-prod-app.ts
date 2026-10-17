@@ -84,6 +84,7 @@ import {
   type SseBroker,
   type TokenVerifier,
   TRUSTED_PROXY_HOPS_ENV,
+  withFileProviderResolver,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
@@ -104,7 +105,7 @@ import {
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
-  isTierResolverPlugin,
+  requireTierResolverPlugin,
   type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
@@ -1012,11 +1013,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   if (resolvedEffectiveFeatures === undefined) {
     const tierResolverUsage = findTierResolverUsage(features);
     if (tierResolverUsage) {
-      const plugin = tierResolverUsage.options;
-      if (!isTierResolverPlugin(plugin)) {
-        throw new Error("tier-resolver registration options must provide a build() factory");
-      }
-      resolvedEffectiveFeatures = await plugin.build({ db, registry, cacheSync });
+      resolvedEffectiveFeatures = await requireTierResolverPlugin(tierResolverUsage).build({
+        db,
+        registry,
+        cacheSync,
+      });
     }
   }
 
@@ -1128,6 +1129,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // über die auth-routes.
   // Secure-by-default (#1372): sessionStore provider → resolveSessionStore.
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
+  if (mfaFeature && registry.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined) {
+    throw new Error(
+      `[runProdApp] auth-mfa is mounted but ${AuthHandlers.switchTenantMfaGate} is not registered: ` +
+        "createAuthEmailPasswordFeature registers it only when mfaStatusChecker is set, and without it " +
+        "POST /auth/switch-tenant would mint sessions without the second factor",
+    );
+  }
   // Hoisted above buildProdSessionAuth: that call also wires MFA-enable/
   // disable → PAT-revoke (bindRevokeAllPatTokensFromFeature), so it needs
   // patFeature too.
@@ -1384,7 +1392,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   });
   const seedDispatcher =
     (options.seeds?.length ?? 0) > 0 || options.seedsDir !== undefined
-      ? createDispatcher(registry, { db, redis, entityCache, registry, ...extraContext })
+      ? createDispatcher(
+          registry,
+          withFileProviderResolver(
+            registry,
+            { db, redis, entityCache, registry, ...extraContext },
+            cacheSync,
+          ),
+        )
       : undefined;
   if (seedDispatcher) {
     for (const seed of options.seeds ?? []) {

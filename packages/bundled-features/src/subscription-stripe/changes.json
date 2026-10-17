@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A stale Stripe customer id no longer turns the customer portal into a 500",
+    "detail": "createPortalSession now maps Stripe's \"No such customer\" rejection (account switch, customer deleted in the dashboard) to an UnprocessableError with the i18n key billing-foundation.errors.providerCustomerUnknown, translated in German and Spanish, instead of letting the raw Stripe error surface as a server error."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "Stripe checkout sets submit_type, locale, submit text and consentId; cancel can run to period end",

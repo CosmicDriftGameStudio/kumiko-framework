@@ -25,10 +25,26 @@ export type CreateEventSourceLiveEventsOptions = {
    *  createSseRoute im Kumiko-Server mountet). Override wenn der
    *  Mountpath divergiert. */
   readonly url?: string;
-  /** Fires when the server refuses the SSE handshake because the session
-   *  ended (same 401 codes as the dispatcher path). */
+  /** Fires once per connection when the session ended: the server refused the SSE
+   *  handshake, or opened the stream with a `session-ended` frame (stale auth
+   *  cookie downgraded to anonymous). Same codes as the dispatcher path. */
   readonly onSessionEnded?: () => void;
 };
+
+// Wire name of the first frame on a stream downgraded from a stale auth cookie (sse-route.ts).
+const SESSION_ENDED_EVENT = "session-ended";
+
+function sessionEndedFrameCode(event: unknown): string | undefined {
+  const data = propertyOf(event, "data");
+  if (typeof data !== "string") return undefined;
+  try {
+    const code = propertyOf(JSON.parse(data), "code");
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    // skip: malformed frame, not evidence of a session end
+    return undefined;
+  }
+}
 
 function hasErrorCode(body: unknown): body is { readonly error: { readonly code: string } } {
   if (typeof body !== "object" || body === null || !("error" in body)) return false;
@@ -101,12 +117,24 @@ export function createEventSourceLiveEvents(
     const { onSessionEnded } = options;
     // skip: no session-end consumer, a refused handshake needs no probe
     if (onSessionEnded === undefined) return;
+    let sessionEndedSignalled = false;
+    const signalSessionEnded = (): void => {
+      // skip: the frame and the error probe can both report the same session end
+      if (sessionEndedSignalled) return;
+      sessionEndedSignalled = true;
+      onSessionEnded();
+    };
+    connection.addEventListener(SESSION_ENDED_EVENT, (e) => {
+      const code = sessionEndedFrameCode(e);
+      if (code !== undefined && isSessionEndedError({ code, httpStatus: 401 }))
+        signalSessionEnded();
+    });
     connection.addEventListener("error", () => {
       // skip: CONNECTING means a dropped stream the browser retries itself;
       // only a refused handshake (non-200) closes the EventSource for good.
       if (connection.readyState !== EventSource.CLOSED) return;
       void isSessionEndedRejection(url).then((sessionEnded) => {
-        if (sessionEnded) onSessionEnded();
+        if (sessionEnded) signalSessionEnded();
       });
     });
   };

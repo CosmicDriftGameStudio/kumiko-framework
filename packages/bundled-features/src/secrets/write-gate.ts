@@ -37,15 +37,21 @@ function namespaceAcceptsKey(namespace: SecretNamespaceDefinition, key: string):
 // Only keys declared via r.secret() or under a declared r.secretNamespace()
 // are writable through the API, so a tenant admin cannot plant arbitrary rows
 // next to the feature-owned ones. writeRoles narrows the handler access
-// further for a key or a whole namespace.
+// further for a key or a whole namespace. Delete passes allowUndeclared: it
+// creates nothing, and legacy rows under since-undeclared keys must stay removable.
 export function checkSecretKeyWrite(
   registry: Registry,
   userRoles: readonly string[],
   key: string,
+  options: { readonly allowUndeclared?: boolean } = {},
 ): SecretKeyWriteCheck {
   const keyDef = registry.getSecretKey(key);
   const namespace = keyDef ? undefined : registry.findSecretNamespace(key);
-  if (!keyDef && !(namespace && namespaceAcceptsKey(namespace, key))) {
+  if (
+    !keyDef &&
+    !(namespace && namespaceAcceptsKey(namespace, key)) &&
+    options.allowUndeclared !== true
+  ) {
     return unknownKeyFailure(key);
   }
   const writeRoles = keyDef?.writeRoles ?? namespace?.writeRoles;

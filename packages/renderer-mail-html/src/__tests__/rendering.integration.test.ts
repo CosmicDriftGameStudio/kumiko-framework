@@ -219,13 +219,20 @@ describe("renderer-mail-html :: seeded template", () => {
     ).rejects.toMatchObject({ code: "invalid_payload" });
   });
 
-  test("unsubscribeUrl shows a footer link only when set", async () => {
+  test("unsubscribeUrl shows a localized footer link only when set", async () => {
     const without = await renderMail(tenantId(1));
-    expect(without.html).not.toContain("Unsubscribe");
+    expect(without.html).not.toContain("Abmelden");
     const withLink = await renderMail(tenantId(1), PLAIN_VARIABLES, {
       unsubscribeUrl: "https://example.com/unsub",
     });
     expect(withLink.html).toContain('href="https://example.com/unsub"');
+    expect(withLink.html).toContain("Abmelden");
+  });
+
+  test("the in-code layout declares the mail locale as document language", async () => {
+    const result = await renderMail(tenantId(1));
+    expect(result.html).toContain('lang="de"');
+    expect(result.html).not.toContain('lang="und"');
   });
 });
 
@@ -377,8 +384,16 @@ describe("renderer-mail-html :: layout resolution", () => {
     const result = await renderMail(tenantId(11), PLAIN_VARIABLES, {
       unsubscribeUrl: "https://example.com/unsub",
     });
-    expect(result.html).toContain('href="https://example.com/unsub"');
+    expect(result.html.split('href="https://example.com/unsub"')).toHaveLength(2);
     expect(result.html).toContain("Abmelden");
+  });
+
+  test("a tenant layout whose footer region lacks the unsubscribe link still gets it from the frame", async () => {
+    const result = await renderMail(tenantId(4), PLAIN_VARIABLES, {
+      unsubscribeUrl: "https://example.com/unsub",
+    });
+    expect(result.html).toContain("TENANT_LAYOUT_MARKER");
+    expect(result.html).toContain('href="https://example.com/unsub"');
   });
 
   test("layout appearance meta sets width, background and font", async () => {
@@ -394,7 +409,7 @@ describe("renderer-mail-html :: layout resolution", () => {
     );
     const result = await renderMail(tenantId(21));
     expect(result.html).toContain("max-width:640px");
-    expect(result.html).toContain("background:#112233");
+    expect(result.html).toContain("background-color:#112233");
     expect(result.html).toContain("Georgia");
     expect(result.html).not.toContain("#f5f5f5");
     const source = await stack.http.queryOk<{ meta: unknown }>(
@@ -436,7 +451,7 @@ describe("renderer-mail-html :: layout resolution", () => {
   test("a layout without appearance meta renders the previous look", async () => {
     const result = await renderMail(tenantId(4));
     expect(result.html).toContain("max-width:600px");
-    expect(result.html).toContain("background:#f5f5f5");
+    expect(result.html).toContain("background-color:#f5f5f5");
   });
 
   test.each([

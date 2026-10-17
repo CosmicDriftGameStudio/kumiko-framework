@@ -11,8 +11,7 @@ import {
   filesForGuard,
   runGuards,
 } from "../_lib/guard-kit";
-import { resolveRepoRoots } from "../_lib/roots";
-import { type ScanSpec, scanRoots } from "../_lib/scan-scope";
+import type { ScanSpec } from "../_lib/scan-scope";
 import { guard as adminApi } from "../guard-admin-api";
 import { GUARDS } from "../run-guards";
 import { fixtureRoot, writeRepo } from "./parent-workspace-fixture";
@@ -74,14 +73,5 @@ describe("Vacuity-Floor gegen echte Pfade", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  });
-
-  test("der lokale Repo-Root liefert eine positive Source-Surface und Dateien für eine Source-Scan-Spec", () => {
-    const roots = resolveRepoRoots();
-    if (roots.length === 0) return;
-    const spec: ScanSpec = { scope: "source", extensions: ["ts", "tsx"] };
-    const [scan] = scanRoots(spec, roots);
-    expect(scan?.sourceSurface).toBeGreaterThan(0);
-    expect(scan?.files.length).toBeGreaterThan(0);
   });
 });

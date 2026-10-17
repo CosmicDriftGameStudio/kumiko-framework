@@ -77,24 +77,28 @@ export async function dispatchMagicLinkMail(
   // mailT already root-falls-back; appUrl must use the same negotiated tag
   // or language-in-path apps 404 on e.g. /de-AT/activate.
   const urlLocale = resolveMailLocale(locale);
+  // Template, expiry formatting and app-name fallback must share one locale,
+  // otherwise an English template shows e.g. French "3 heures".
+  const templateLocale = authMailTemplateLocale(spec.notificationType, locale);
   const { validFor, validUntil } = tokenMailExpiry(
     {
       expiresAt: params.expiresAt,
       ...(params.issuedAt !== undefined && { issuedAt: params.issuedAt }),
       ...(params.timeZone !== undefined && { timeZone: params.timeZone }),
     },
-    locale,
+    templateLocale,
   );
   await notify(spec.notificationType, {
     route: { email: params.email },
     data: {
-      appName: params.appName ?? spec.fallbackAppName ?? mailT(locale, "auth.mail.appNameDefault"),
+      appName:
+        params.appName ?? spec.fallbackAppName ?? mailT(templateLocale, "auth.mail.appNameDefault"),
       actionUrl: appendToken(resolveAppUrl(params.appUrl, urlLocale), params.token),
       validFor,
       validUntil,
       ...(params.role !== undefined && { role: params.role }),
     },
-    locale: authMailTemplateLocale(spec.notificationType, locale),
+    locale: templateLocale,
     priority: "critical",
   });
 }

@@ -8,12 +8,14 @@ import {
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { AuthHandlers } from "../../auth-email-password/index.js";
 import { tenantInvitationsTable } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -36,6 +38,8 @@ import {
   userRowOf,
 } from "./waitlist-test-stack.js";
 
+registerMailTranslations("de", localeDeBundle);
+
 let stack: TestStack;
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
@@ -57,6 +61,7 @@ async function requestUserDeletion(userId: string): Promise<void> {
   expect(result.isSuccess).toBe(true);
 }
 let adminNoticeRecipient: string | null = null;
+let recipientResolverFails = false;
 
 const TENANT_ADMIN: SessionUser = {
   id: crypto.randomUUID(),
@@ -68,7 +73,10 @@ beforeAll(async () => {
   stack = await createWaitlistTestStack({
     appName: "Acme",
     // Async on purpose: apps read the recipient from config, which only resolves async.
-    notifyRecipient: async () => adminNoticeRecipient,
+    notifyRecipient: async () => {
+      if (recipientResolverFails) throw new Error("config down");
+      return adminNoticeRecipient;
+    },
   });
 });
 
@@ -78,6 +86,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   adminNoticeRecipient = null;
+  recipientResolverFails = false;
   await resetWaitlistTestState(stack);
 });
 
@@ -205,6 +214,16 @@ describe("waitlist submit", () => {
     expect(mailsTo("ops@example.com")).toHaveLength(1);
     expect(await entries()).toHaveLength(2);
   });
+
+  test("a rejecting notifyRecipient resolver never fails the submit", async () => {
+    adminNoticeRecipient = "ops@example.com";
+    recipientResolverFails = true;
+    const res = await submit(validBody("resolver-down@example.com"));
+    expect(res.status).toBe(200);
+    expect(await entries()).toHaveLength(1);
+    expect(mailsTo("resolver-down@example.com")).toHaveLength(1);
+    expect(mailsTo("ops@example.com")).toHaveLength(0);
+  });
 });
 
 describe("waitlist control characters", () => {
@@ -308,6 +327,29 @@ describe("waitlist invite and reject", () => {
     await submit(validBody(email));
     expect(await entries()).toHaveLength(2);
   });
+  test("parallel invites on one entry create a single tenant and a single invitation", async () => {
+    const email = "double-click@example.com";
+    const id = await submitAndGetId(email);
+
+    const results = await Promise.all([
+      stack.http.writeOk<{ tenantId: string }>(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN),
+      stack.http.writeOk<{ tenantId: string }>(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN),
+    ]);
+
+    expect(results[1].tenantId).toBe(results[0].tenantId);
+    expect(await selectMany(stack.db, tenantTable, {})).toHaveLength(1);
+    expect(await selectMany(stack.db, tenantInvitationsTable, {})).toHaveLength(1);
+  });
+
+  test("the invitation mail uses the locale stored on the entry, not the admin's request locale", async () => {
+    const email = "locale-de@example.com";
+    const id = await submitAndGetId(email, { locale: "de" });
+
+    await stack.http.writeOk(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN);
+
+    const inviteMail = mailsTo(email).at(-1);
+    expect(inviteMail?.subject).toContain("Einladung zum Workspace");
+  });
 });
 
 describe("waitlist reject revokes the invitation", () => {
@@ -340,6 +382,49 @@ describe("waitlist reject revokes the invitation", () => {
     expect(failure.httpStatus).toBe(422);
     const [entry] = (await entries()).filter((row) => row["id"] === id);
     expect(entry?.["status"]).toBe("invited");
+  });
+});
+
+describe("waitlist submit options", () => {
+  async function submitOn(target: TestStack, email: string, ip: string) {
+    return target.http.raw(
+      "POST",
+      "/api/write",
+      { type: WaitlistHandlers.submit, payload: validBody(email) },
+      { "x-forwarded-for": ip },
+    );
+  }
+
+  test("emailRateLimits: [] boots and leaves repeated submits for one address unlimited", async () => {
+    const openStack = await createWaitlistTestStack({ appName: "Acme", emailRateLimits: [] });
+    try {
+      const statuses: number[] = [];
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const res = await submitOn(openStack, "open@example.com", `198.51.100.${attempt + 1}`);
+        statuses.push(res.status);
+      }
+      expect(statuses).toEqual([200, 200, 200, 200]);
+    } finally {
+      await openStack.cleanup();
+    }
+  });
+
+  test("a notifyRecipient that throws still stores the entry and answers success", async () => {
+    const failingStack = await createWaitlistTestStack({
+      appName: "Acme",
+      notifyRecipient: async () => {
+        throw new Error("config read failed");
+      },
+    });
+    try {
+      const res = await submitOn(failingStack, "resolver-fail@example.com", "198.51.100.50");
+      expect(res.status).toBe(200);
+      const rows = await selectMany(failingStack.db, waitlistEntryTable, {});
+      expect(rows.map((row) => row["email"])).toEqual(["resolver-fail@example.com"]);
+      expect(mailsTo("resolver-fail@example.com")).toHaveLength(1);
+    } finally {
+      await failingStack.cleanup();
+    }
   });
 });
 
@@ -409,6 +494,26 @@ describe("waitlist keeps an accepted invitation intact", () => {
     expect(await invitationStatuses()).toEqual(["accepted"]);
     const [entry] = (await entries()).filter((row) => row["id"] === id);
     expect(entry?.["status"]).toBe("invited");
+  });
+
+  test("invite is refused for a member whose invitation a tenant admin reset to pending", async () => {
+    const email = "admin-reinvite-then-invite@example.com";
+    const { id, tenantId } = await inviteAndAccept(email);
+    const tenantAdmin: SessionUser = { id: SYSTEM_ADMIN.id, tenantId, roles: ["TenantAdmin"] };
+    await stack.http.writeOk(AuthHandlers.inviteCreate, { email, role: "Editor" }, tenantAdmin);
+    const adminToken = tokenFromLastMailTo(email);
+    const mailsBefore = mailsTo(email).length;
+
+    const failure = await stack.http.writeErr(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN);
+
+    expect(failure.httpStatus).toBe(422);
+    expect(failure.details).toMatchObject({ reason: "waitlist_not_invitable" });
+    expect(await invitationStatuses()).toEqual(["pending"]);
+    expect(await selectMany(stack.db, tenantInvitationsTable, {})).toMatchObject([
+      { role: "Editor" },
+    ]);
+    expect(mailsTo(email)).toHaveLength(mailsBefore);
+    expect(tokenFromLastMailTo(email)).toBe(adminToken);
   });
 
   test("reject is refused for a member whose invitation a tenant admin reset to pending", async () => {

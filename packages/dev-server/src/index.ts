@@ -77,7 +77,7 @@ export type {
   ScaffoldAppResult,
   ScaffoldFeatureEntry,
 } from "./scaffold-app.js";
-export { scaffoldApp } from "./scaffold-app.js";
+export { SCAFFOLD_BIOME_VERSION, scaffoldApp } from "./scaffold-app.js";
 export type {
   ScaffoldAppFeatureOptions,
   ScaffoldAppFeatureResult,

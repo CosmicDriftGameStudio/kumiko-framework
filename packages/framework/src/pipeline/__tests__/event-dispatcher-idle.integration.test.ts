@@ -7,7 +7,7 @@
 // system column `xmax`: unchanged across an idle runOnce() means no lock
 // was ever taken on it.
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
@@ -61,6 +61,10 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

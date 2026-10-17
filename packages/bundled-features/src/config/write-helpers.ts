@@ -28,8 +28,10 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
 import { ConfigErrors } from "./constants.js";
+import { decryptStoredValue } from "./resolver.js";
 import { configValuesTable } from "./table.js";
 
 export type ConfigRowLookup = {
@@ -60,6 +62,27 @@ export async function findConfigRow(
     version: row.version,
     value: row.value ?? null,
   };
+}
+
+// Idempotency check for declarative writers: does the stored row already hold
+// `serializedValue` (JSON of the plaintext)? Encrypted rows are decrypted
+// first, since their ciphertext differs on every encrypt.
+export async function configRowHoldsValue(
+  row: ConfigRowLookup | null,
+  keyDef: ConfigKeyDefinition | undefined,
+  cipher: EnvelopeCipher | undefined,
+  qualifiedKey: string,
+  serializedValue: string,
+): Promise<boolean> {
+  if (row?.value === null || row?.value === undefined) return false;
+  if (!keyDef?.encrypted && !keyDef?.piiEncrypted) return row.value === serializedValue;
+  if (!keyDef) return false;
+  try {
+    return (await decryptStoredValue(row.value, keyDef, cipher, qualifiedKey)) === serializedValue;
+  } catch {
+    // Unreadable (rotated key, missing cipher/KMS): the caller rewrites the row, which is the repair.
+    return false;
+  }
 }
 
 // Three-stage pre-write gate that set + reset both need: resolve the key

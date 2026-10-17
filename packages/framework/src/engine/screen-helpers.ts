@@ -207,7 +207,7 @@ export function availableSelectOptions(
   );
 }
 
-function isSameValue(a: unknown, b: unknown): boolean {
+export function isUnchangedValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
@@ -225,7 +225,7 @@ export function findUnavailableSelectOptions(
     if (typeof value !== "string" || value === "") continue;
     if (previous) {
       const watched = [name, ...def.conditionalOptions.map((rule) => rule.when.field)];
-      if (watched.every((key) => isSameValue(values[key], previous[key]))) continue;
+      if (watched.every((key) => isUnchangedValue(values[key], previous[key]))) continue;
     }
     const allowed = availableSelectOptions(def, values);
     if (!allowed.includes(value)) unavailable.push({ field: name, value, allowed });

@@ -5,6 +5,7 @@ import { templatePdfAttachmentLinkSchema } from "./linked-resources.js";
 import { templateSlugSchema } from "./template-meta.js";
 
 const MAX_RESOURCES = 20;
+const MAX_LOCALES = 50;
 const MAX_RESOURCE_BYTES = 2 * 1024 * 1024;
 const MAX_BASE64_LENGTH = Math.ceil(MAX_RESOURCE_BYTES / 3) * 4;
 
@@ -52,6 +53,9 @@ export const templateBundleSchema = z
       .record(bundleLocaleSchema, bundleLocaleEntrySchema)
       .refine((locales) => Object.keys(locales).length >= 1, {
         message: "a bundle needs at least one locale",
+      })
+      .refine((locales) => Object.keys(locales).length <= MAX_LOCALES, {
+        message: `a bundle holds at most ${MAX_LOCALES} locales`,
       }),
     resources: z
       .record(

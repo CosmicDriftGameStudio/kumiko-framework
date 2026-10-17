@@ -51,7 +51,15 @@ export const TEXT_BLOCK_KIND = "text-block" as const;
 // Kinds a content collection must not write: a tenant row of these kinds would
 // shadow the system notification template or layout without the meta and
 // placeholder gates that upsertTenant applies.
-export const COLLECTION_REFUSED_KINDS: readonly string[] = ["mail", "mail-layout", "pdf-layout"];
+export const COLLECTION_REFUSED_KINDS = [
+  "mail",
+  "mail-layout",
+  "pdf-layout",
+] as const satisfies readonly TemplateKind[];
+
+export function isCollectionRefusedKind(kind: string): boolean {
+  return COLLECTION_REFUSED_KINDS.some((refused) => refused === kind);
+}
 
 export const CONTENT_FORMATS = ["markdown", "mjml", "html", "plain"] as const;
 export type ContentFormat = (typeof CONTENT_FORMATS)[number];
@@ -61,6 +69,7 @@ export type TemplateScope = (typeof TEMPLATE_SCOPES)[number];
 
 export const TEMPLATE_STATUSES = ["draft", "active", "archived"] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
+export const ACTIVE_TEMPLATE_STATUS = "active" satisfies TemplateStatus;
 
 export {
   PDF_DEFAULT_MARGIN_MM,
@@ -76,6 +85,7 @@ export {
 export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 export const DEFAULT_MAIL_LAYOUT_SLUG = "default";
+export const DEFAULT_PDF_LAYOUT_SLUG = "default";
 
 // The mail transport enforces no size limit of its own; 10 MiB is a common provider ceiling.
 export const MAIL_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;

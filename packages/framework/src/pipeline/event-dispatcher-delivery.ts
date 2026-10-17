@@ -139,11 +139,7 @@ export async function acquireConsumerState(
     const cooldownDeadline = Temporal.Now.instant().subtract({
       milliseconds: rearmCooldownMs,
     });
-    const cooldownElapsed =
-      Temporal.Instant.compare(
-        state.updatedAt as unknown as InstanceType<typeof Temporal.Instant>,
-        cooldownDeadline,
-      ) <= 0;
+    const cooldownElapsed = Temporal.Instant.compare(state.updatedAt, cooldownDeadline) <= 0;
     if (cooldownElapsed && state.rearmCount < maxRearmCount) {
       const rearmed = await rearmDeadConsumer(tx, name, instanceId);
       const rearmedState =

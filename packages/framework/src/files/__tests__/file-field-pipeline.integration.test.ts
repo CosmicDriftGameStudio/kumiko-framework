@@ -103,9 +103,18 @@ const PNG_BYTES = new Uint8Array([
   ...Array(10).fill(0),
 ]);
 
-async function uploadFile(fileName: string, body: Uint8Array, mimeType: string): Promise<string> {
+async function uploadFile(
+  fileName: string,
+  body: Uint8Array,
+  mimeType: string,
+  target?: { readonly entityType: string; readonly fieldName: string },
+): Promise<string> {
   const token = await stack.jwt.sign(user);
   const fd = new FormData();
+  if (target !== undefined) {
+    fd.append("entityType", target.entityType);
+    fd.append("fieldName", target.fieldName);
+  }
   fd.append("file", new File([Buffer.from(body)], fileName, { type: mimeType }));
   const { body: multipartBody, contentType } = await buildMultipartBody(fd);
   const res = await stack.app.request("/api/files", {
@@ -117,6 +126,14 @@ async function uploadFile(fileName: string, body: Uint8Array, mimeType: string):
   expect(res.status).toBe(201);
   const json = (await res.json()) as { id: string };
   return json.id;
+}
+
+async function fileStatus(fileId: string): Promise<number> {
+  const token = await stack.jwt.sign(user);
+  const res = await stack.app.request(`/api/files/${fileId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.status;
 }
 
 describe("file/image field through the CRUD pipeline", () => {
@@ -170,6 +187,31 @@ describe("file/image field through the CRUD pipeline", () => {
       user,
     );
     expect(detail.attachment).toBe(newFile);
+  });
+
+  test("a file moved to another field and later removed there is disposed", async () => {
+    const fileId = await uploadFile("moved.pdf", PDF_BYTES, "application/pdf", {
+      entityType: "document",
+      fieldName: "attachment",
+    });
+    const created = await stack.http.writeOk<{ id: string }>(
+      "pipeline-documents:write:document:create",
+      { title: "Moved", attachment: fileId },
+      user,
+    );
+    await stack.http.writeOk(
+      "pipeline-documents:write:document:update",
+      { id: created.id, version: 1, changes: { attachment: null, docs: [fileId] } },
+      user,
+    );
+    expect(await fileStatus(fileId)).toBe(200);
+
+    await stack.http.writeOk(
+      "pipeline-documents:write:document:update",
+      { id: created.id, version: 2, changes: { docs: [] } },
+      user,
+    );
+    expect(await fileStatus(fileId)).toBe(404);
   });
 
   test("invalid UUID rejected by validation (code=validation_error, not some other failure)", async () => {

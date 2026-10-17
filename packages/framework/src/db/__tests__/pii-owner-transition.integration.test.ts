@@ -8,11 +8,13 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
+import { subjectIdToKey } from "../../crypto/kms-adapter.js";
 import {
   configurePiiSubjectKms,
   decryptPiiValueForSubject,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
+  piiCiphertextSubject,
 } from "../../crypto/pii-field-encryption.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
@@ -165,8 +167,8 @@ async function projectedValue(target: Target, id: string): Promise<string> {
 }
 
 function subjectOf(ciphertext: string | undefined): string {
-  const match = /^kumiko-pii:v\d+:(.+):[^:]+$/.exec(ciphertext ?? "");
-  return match?.[1] ?? `<not ciphertext: ${ciphertext}>`;
+  if (ciphertext === undefined) return "<no value>";
+  return subjectIdToKey(piiCiphertextSubject(ciphertext));
 }
 
 async function plaintextOf(ciphertext: string | undefined, field: string): Promise<string> {

@@ -1,5 +1,70 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.364.0
+
+### Minor Changes
+
+- dfb2523: Agent guide and generated indexes ship in the framework package
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Agent guide and generated indexes ship in the framework package
+  detail: The framework package now contains AGENTS.md plus an agents/ directory with generated feature, widget and example indexes, built from feature-manifest.json, the renderer-web exports and samples/recipes. The new agent-docs-drift guard in kumiko check fails when the committed files differ from the generator output. New apps get an AGENTS.md and a CLAUDE.md that point at the packaged guide.
+  -->
+- a0dcd31: Add the licenses, security and outdated dependency checks to kumiko-guards
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: kumiko-guards gains licenses, security and outdated subcommands
+  detail: bunx kumiko-guards licenses classifies installed packages against a licence allow/gray/deny policy, security runs bun audit (critical and high block, exceptions expiring within 14 days block), outdated fails on deprecated direct dependencies, warns with the reason for every package the registry did not answer and fails when it answered for none. All three scan the repo cwd sits in (installed packages from node_modules of the repo, its workspace members and every ancestor directory; the repo's bun.lock or the nearest ancestor's) and fail loudly when nothing is found. Each takes --report. They are not part of the default run or the checks bundle because they use the network. Exceptions need reason, reviewer and expiry; the package ships defaults and merges dependency-license-exceptions.json from the repo root and every ancestor whose node_modules was scanned, and dependency-security-exceptions.json from the repo root and the audited lockfile directory.
+  -->
+- 2b255c2: kumiko-pre-push scans the pushed commits with gitleaks
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: kumiko-pre-push runs a gitleaks scan of origin/main..HEAD before the checks
+  detail: When the gitleaks binary is installed, the hook runs `gitleaks git --redact --log-opts=origin/main..HEAD` in the repo root and blocks the push on a finding. A `.gitleaks.toml` in the repo root is picked up by gitleaks itself. Without the binary or without origin/main the hook only prints a warning and continues (install with `brew install gitleaks`).
+  -->
+
+### Patch Changes
+
+- cfbffba: Boot-validator and guard messages say how to fix the problem
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot-validator and guard messages name the fix
+  detail: Boot-validator and guard messages that only described the problem now also say what to do about it. The German configEdit and retention messages are in English. Validation and guard behavior is unchanged.
+  -->
+- 15039ce: comment-lang: fewer false positives, division detection after keywords and non-null, push checks HEAD
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: comment-lang needs two lower-case markers, scans HEAD in touched mode and recognises division after keywords
+  detail: The short German markers now match case-sensitively in lower case and need two hits, so a licence header such as "MIT License" no longer counts; an umlaut alone still does. The scanner treats a slash after contextual keywords (from, type, get, of, ...) and after the non-null postfix as division instead of a regex, so a German comment after "width! / 2" is no longer hidden. --touched compares the diff of mergeBase to HEAD and scans the file contents from HEAD, so the pre-push hook checks the commits being pushed rather than local uncommitted edits.
+  -->
+- 15039ce: guard-upgrade-state keeps legacy pendingManual steps and reports malformed ones
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: guard-upgrade-state keeps legacy pendingManual steps and reports malformed ones
+  detail: Marker entries written before pendingManual carried an id were dropped silently, so a repo with open manual steps passed the guard. The guard now derives the id from version and title like kumiko-upgrade does, and a structurally broken pendingManual entry is reported instead of filtered out.
+  -->
+- 7e36bfe: The text-field-stance guard test only counts the guard's own warnings, so unrelated async warnings from other test files in the same run no longer fail it.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: text-field-stance guard test no longer fails on unrelated warnings in a shared test run
+  detail: The test spied on console.warn globally and asserted zero calls. In a run that shares one process across test files, async warnings from other files (job-runner stop, mail egress) landed in the spy and turned main red. The assertion now only counts calls with the guard's own warn prefix. No change to the guard itself.
+  -->
+- @cosmicdrift/kumiko-repo-manifest@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes

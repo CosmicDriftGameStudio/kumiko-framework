@@ -88,6 +88,10 @@ export type SystemDispatchArgs = {
   readonly tenantId: TenantId;
 };
 
+export type RoleDispatchArgs = SystemDispatchArgs & {
+  readonly roles: readonly string[];
+};
+
 export type SignatureExtraRouteDeps = {
   // biome-ignore lint/suspicious/noExplicitAny: Hono's generic-Param ist im Framework-Boundary unsichtbar
   readonly app: Hono<any, any>;

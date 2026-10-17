@@ -52,8 +52,10 @@ export function createDeferringNotify(deps: DeferringNotifyDeps): NotifyFn {
     // Fail the write now: after the commit the problem would only surface in the render job.
     if (registry) assertNotificationVariables(registry, notificationType, options.data);
     if (options.immediate === true) return notifyNow(notificationType, options);
+    // The hook runs after the handler returned; a caller reusing `data` meanwhile must not change what is sent.
+    const optionsAtCallTime = structuredClone(options);
     scheduleAfterCommit(async () => {
-      await notifyAfterCommit(notificationType, options);
+      await notifyAfterCommit(notificationType, optionsAtCallTime);
     });
     return { kind: "deferred" };
   }

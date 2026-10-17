@@ -121,9 +121,8 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     escapeHatch: {
       grants: ["unsafeRaw"],
       reason:
-        "Anonymous invite-accept has no session in the invited tenant yet — checks existing " +
-        "membership via ctx.queryAs(SYSTEM, tenant:query:memberships) of the invitation's tenant. " +
-        "Also reads the pending invitation by id (the invitee is not yet a member of the " +
+        "Anonymous invite-accept has no session in the invited tenant yet — reads the pending " +
+        "invitation by id (the invitee is not yet a member of the " +
         "invitation's tenant), adds the membership and accepts the invitation in the " +
         "invitation's tenant, which differs from the caller's tenant, and reads the MFA " +
         "enrollment of that tenant via the mfaStatusChecker callback.",

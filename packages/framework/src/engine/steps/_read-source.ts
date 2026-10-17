@@ -1,6 +1,6 @@
 import type { DbRunner } from "../../db/connection.js";
 import type { WhereObject } from "../../db/query.js";
-import { type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.js";
+import { requestedTenantIds, type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.js";
 import { InternalError } from "../../errors/classes.js";
 import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
 import type { PipelineCtx } from "../types/step.js";
@@ -36,7 +36,9 @@ export function warnOnNarrowedForeignTenantFilter(
   // skip: no tenantId filter requested.
   if (requested === undefined) return;
   const allowed: readonly string[] = [ctx.db.tenantId, SYSTEM_TENANT_ID];
-  const requestedList = Array.isArray(requested) ? requested : [requested];
+  const requestedList = requestedTenantIds(requested);
+  // skip: unrecognised operator form, narrowing cannot be judged.
+  if (requestedList === undefined) return;
   // skip: every requested tenant is within the caller's scope.
   if (requestedList.every((t) => typeof t === "string" && allowed.includes(t))) return;
   ctx.log?.warn(

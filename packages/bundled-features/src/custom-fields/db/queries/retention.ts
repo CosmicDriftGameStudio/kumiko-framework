@@ -1,5 +1,5 @@
 import { asRawClient, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner, toPostgresArrayLiteral } from "@cosmicdrift/kumiko-framework/db";
 
 export async function selectHostRowsWithCustomFields(
   db: DbRunner,
@@ -38,6 +38,6 @@ export async function applyRetentionRemovals(
        ELSE custom_fields
      END
      WHERE id = $3`,
-    [deleteKeys, anonymizeKeys, rowId],
+    [toPostgresArrayLiteral(deleteKeys), toPostgresArrayLiteral(anonymizeKeys), rowId],
   );
 }

@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-types/event-store-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { requestContext } from "../api/request-context.js";
+import { instantToTimestamptzParam } from "../bun-db/query.js";
 import { encryptEventPayloadPii } from "../crypto/event-pii.js";
 import type { DbRunner } from "../db/index.js";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
@@ -23,7 +24,11 @@ import {
 import { insertOne, selectMany } from "../db/query.js";
 import type { TenantId } from "../engine/types/index.js";
 import { isStreamArchived } from "./archive.js";
-import { IdempotentAppendConflictError, VersionConflictError } from "./errors.js";
+import {
+  IdempotentAppendConflictError,
+  SeedTimeOrderError,
+  VersionConflictError,
+} from "./errors.js";
 import { eventsTable } from "./events-schema.js";
 import { toStoredEvent } from "./row-to-stored-event.js";
 import { currentSeedCreatedAt } from "./seed-clock.js";
@@ -90,15 +95,17 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   });
   const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
   const seedCreatedAt = currentSeedCreatedAt();
-  if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
-    await assertSeedTimeNotBeforePredecessor(db, toStore, seedCreatedAt);
-  }
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
 
   try {
     const row = await runAtomicEventWrite(db, async (runner) => {
       await claimXactId(runner);
+      // Inside the write transaction so a concurrent live append cannot slip
+      // between the check and the insert.
+      if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
+        await assertSeedTimeNotBeforePredecessor(runner, toStore, seedCreatedAt);
+      }
       const inserted =
         toStore.expectedVersion === 0
           ? await insertFirstEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt)
@@ -159,8 +166,12 @@ async function assertSeedTimeNotBeforePredecessor(
     version: event.expectedVersion,
   });
   if (predecessor && predecessor.createdAt.epochMilliseconds > seedCreatedAt.epochMilliseconds) {
-    throw new Error(
-      `Seed write for ${event.aggregateType} ${event.aggregateId} v${event.expectedVersion + 1} is dated ${seedCreatedAt.toString()}, before its predecessor (${predecessor.createdAt.toString()}). Write a stream's events in ascending time.`,
+    throw new SeedTimeOrderError(
+      event.aggregateType,
+      event.aggregateId,
+      event.expectedVersion + 1,
+      seedCreatedAt,
+      predecessor.createdAt,
     );
   }
 }
@@ -212,7 +223,7 @@ async function insertSubsequentEvent(
     metadata: event.metadata,
     createdBy: event.metadata.userId,
     expectedVersion: event.expectedVersion,
-    createdAt: seedCreatedAt?.toString(),
+    createdAt: seedCreatedAt && instantToTimestamptzParam(seedCreatedAt),
   });
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   const createdAt =
@@ -287,6 +298,36 @@ export async function loadAggregate(
     { orderBy: { col: "version", direction: "asc" } },
   );
   return rows.map(toStoredEvent);
+}
+
+// Events and the stream's latest version from ONE read, so both come from the same
+// snapshot: a commit landing between two separate statements would leave the caller
+// pinning a version its loaded events never covered. The aggregateType filter is applied
+// after the read because a foreign type sharing the aggregateId still occupies versions
+// the next append has to stack on. Archived streams load empty but keep their real version.
+export async function loadAggregateForWriting(
+  db: DbRunner,
+  aggregateId: string,
+  tenantId: TenantId,
+  options: { readonly aggregateType: string },
+): Promise<{ readonly events: readonly StoredEvent[]; readonly streamVersion: number }> {
+  if (options.aggregateType === "") {
+    throw new Error("loadAggregateForWriting: aggregateType must be a non-empty string");
+  }
+  if (await isStreamArchived(db, tenantId, aggregateId)) {
+    return { events: [], streamVersion: await getStreamVersion(db, aggregateId, tenantId) };
+  }
+  const rows = await selectMany<SelectedEvent>(
+    db,
+    eventsTable,
+    { aggregateId, tenantId },
+    { orderBy: { col: "version", direction: "asc" } },
+  );
+  const all = rows.map(toStoredEvent);
+  return {
+    events: all.filter((e) => e.aggregateType === options.aggregateType),
+    streamVersion: all.at(-1)?.version ?? 0,
+  };
 }
 
 // Load events up to a point in time. Used for asOf queries that reconstruct

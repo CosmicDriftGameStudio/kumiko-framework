@@ -16,6 +16,11 @@ import {
   createDeliveryFeature,
   createDeliveryTestContext,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import {
+  BRANDING_QN,
+  createManagedPagesFeature,
+  pageEntity,
+} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
@@ -228,6 +233,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createConfigFeature(),
       createTenantFeature(),
+      createManagedPagesFeature({ resolveApexTenant: () => null }),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
@@ -249,6 +255,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
   await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
+  await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await seedNotificationTemplates(stack.db, stack.registry);
@@ -668,6 +675,47 @@ describe("preview-pdf", () => {
     const { html } = onlyStubRequest();
     expect(html).toContain('<p data-align="center">Mitte</p>');
     expect(html).toContain("[data-align=center]{text-align:center}");
+  });
+
+  test("a steps block prints as a table with the stages up to the sample value filled", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        content:
+          '<div data-steps="stage"><span data-step="ordered">Bestellt</span><span data-step="shipped">Versandt</span><span data-step="delivered">Zugestellt</span></div>',
+        variableSchema: { stage: { type: "text", example: "shipped" } },
+      }),
+      adminTenantA,
+    );
+
+    const { html } = onlyStubRequest();
+    expect(html).toContain('<table role="presentation"');
+    expect(html.match(/border-radius:2px;background-color:#1f5468/g)).toHaveLength(2);
+    expect(html.match(/border-radius:2px;background-color:#ECEDEA/g)).toHaveLength(1);
+    expect(html).toMatch(/font-weight:600">Versandt/);
+    expect(html).not.toContain("stepIs");
+  });
+
+  test("a steps block prints in the branding accent colour of the tenant", async () => {
+    const adminTenantF = tenantAdmin(46);
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.accentColor, value: "#ab12cd", scope: "tenant" },
+      adminTenantF,
+    );
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        content:
+          '<div data-steps="stage"><span data-step="ordered">Bestellt</span><span data-step="shipped">Versandt</span></div>',
+        variableSchema: { stage: { type: "text", example: "ordered" } },
+      }),
+      adminTenantF,
+    );
+
+    const { html } = onlyStubRequest();
+    expect(html.match(/border-radius:2px;background-color:#ab12cd/g)).toHaveLength(1);
+    expect(html).not.toContain("background-color:#1f5468");
   });
 
   test("a user without an admin role is refused and nothing is printed", async () => {

@@ -1,8 +1,8 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles.js";
-import type { DbConnection, PgClient } from "../db/connection.js";
-import { createTenantDb } from "../db/tenant-db.js";
+import type { DbConnection, PgListenClient } from "../db/connection.js";
+import { createProjectingTenantDb } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
 import { buildAppSchema } from "../engine/build-app-schema.js";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.js";
@@ -105,6 +105,7 @@ import {
   ExtraRouteEntries,
   type ExtraRouteEntry,
   ExtraRouteRejection,
+  type RoleDispatchArgs,
   type SystemDispatchArgs,
 } from "./extra-route.js";
 import { computeStrongEtag, etagMatches } from "./http-cache.js";
@@ -204,13 +205,12 @@ export type ServerOptions = {
       jobTrigger?: boolean;
       accessInvalidation?: boolean;
     };
-    // Raw postgres.js client for LISTEN/NOTIFY wake-up (Sprint E.4). When
+    // LISTEN-capable client (postgres-js or Bun.SQL) for NOTIFY wake-up. When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
     // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
     // stays on as a safety net. Typically wired from
-    // `createDbConnection(url).client` so both Drizzle-queries and the
-    // dispatcher share the same underlying postgres.js pool.
-    pgClient?: PgClient;
+    // `createConnection(url).client`.
+    pgClient?: PgListenClient;
   };
   // Observability: tracer + meter used for auto-instrumentation across
   // HTTP, dispatcher, pipeline, DB. Omitted => NoopProvider (zero overhead,
@@ -361,6 +361,26 @@ export function withFileProviderResolver(
       ...(cacheSync ? { cacheSync } : {}),
     }),
   };
+}
+
+// A payload-bucket handler without a resolver would answer every call with a
+// 500 at request time; fail at boot instead.
+function assertNoPayloadRateLimitsWithoutResolver(registry: Registry): void {
+  const offenders: string[] = [];
+  for (const feature of registry.features.values()) {
+    for (const [name, handler] of Object.entries(feature.writeHandlers)) {
+      if (handler.additionalRateLimits !== undefined) {
+        offenders.push(`${feature.name}:write:${name}`);
+      }
+    }
+  }
+  // skip: every handler's payload buckets are covered by the resolver
+  if (offenders.length === 0) return;
+  throw new Error(
+    `Handlers declare additionalRateLimits but no RateLimitResolver is configured: ${offenders.join(", ")}. ` +
+      "Wire a Redis client on context.redis (or pass context.rateLimit), or drop the payload buckets " +
+      "(for the waitlist: emailRateLimits: []).",
+  );
 }
 
 export function buildServer(options: ServerOptions): KumikoServer {
@@ -540,15 +560,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Master for the payload-bucket HMAC: the current signing secret (the
   // keyring's signKid for rotation setups). buildServer always has one, so
   // the digest is available whenever a handler declares additionalRateLimits.
-  const payloadDigest = createPayloadDigest(
-    typeof options.jwtSecret === "string"
-      ? options.jwtSecret
-      : (options.jwtSecret.keys[options.jwtSecret.signKid] ?? ""),
-  );
+  const payloadDigest = createPayloadDigest(payloadDigestMasterSecret(options.jwtSecret));
   const rateLimitResolver =
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
   if (!rateLimitResolver) {
+    assertNoPayloadRateLimitsWithoutResolver(options.registry);
     // The systemScope default limit only exists once a resolver does, and an app that
     // declared no explicit rateLimit anywhere never gets one auto-wired (wantsL3 stays
     // false) — so its cross-tenant handlers are silently unlimited.
@@ -1096,10 +1113,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         canWriteRecord: createRecordWriteCheck({
           registry: options.registry,
           canReadRecord,
-          tenantDbFor: (tenantId) =>
-            createTenantDb(fileDb, tenantId, "tenant", undefined, undefined, undefined, {
-              projectionRegistry: options.registry,
-            }),
+          tenantDbFor: (tenantId) => createProjectingTenantDb(fileDb, tenantId, options.registry),
         }),
         ...(routeOptions.accessGuard ? { accessGuard: routeOptions.accessGuard } : {}),
         ...(routeOptions.privilegedRoles ? { privilegedRoles: routeOptions.privilegedRoles } : {}),
@@ -1263,9 +1277,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         route.method,
         route.path,
         honoHandler,
-        route.entry === ExtraRouteEntries.signature
-          ? bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES)
-          : [],
+        bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES),
       );
     }
   }
@@ -1400,6 +1412,17 @@ export function makeDispatchSystemWrite(
 ): (args: SystemDispatchArgs) => Promise<WriteResult> {
   return ({ handlerQn, payload, tenantId }) =>
     dispatcher.write(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
+}
+
+// Privilege-scope: the system user gets exactly the roles the caller names —
+// no implicit SystemAdmin — so a seed can write data gated on app roles.
+// Same trust requirement as makeDispatchSystemWrite: never expose to a raw
+// request, only to code that already proved its own authenticity.
+export function makeDispatchWriteAs(
+  dispatcher: Dispatcher,
+): (args: RoleDispatchArgs) => Promise<WriteResult> {
+  return ({ handlerQn, payload, tenantId, roles }) =>
+    dispatcher.write(handlerQn, payload, createSystemUser(tenantId, roles));
 }
 
 export function makeDispatchSystemQuery(
@@ -1732,4 +1755,15 @@ function entitiesWithSearchableScreen(registry: Registry): readonly string[] {
     }
   }
   return [...entities];
+}
+
+function payloadDigestMasterSecret(jwtSecret: ServerOptions["jwtSecret"]): string {
+  if (typeof jwtSecret === "string") return jwtSecret;
+  const signingSecret = jwtSecret.keys[jwtSecret.signKid];
+  if (signingSecret === undefined) {
+    throw new Error(
+      `[kumiko] jwtSecret.signKid "${jwtSecret.signKid}" not found in jwtSecret.keys`,
+    );
+  }
+  return signingSecret;
 }

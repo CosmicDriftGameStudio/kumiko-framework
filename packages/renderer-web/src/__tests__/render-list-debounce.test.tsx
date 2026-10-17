@@ -234,4 +234,43 @@ describe("RenderList — Search-Debounce", () => {
     rerender(tree("ab"));
     expect(input.value).toBe("ab");
   });
+
+  test("Echo eines älteren Emits nach einem neueren Emit überschreibt die Eingabe nicht", () => {
+    const onSearchChange = mock();
+    const tree = (searchValue: string) => (
+      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <RenderList
+            screen={screenDef}
+            entity={entity}
+            rows={[]}
+            featureName="t"
+            searchable
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
+          />
+        </PrimitivesProvider>
+      </LocaleProvider>
+    );
+    const { rerender } = render(tree(""));
+    const input = screen.getByPlaceholderText(
+      /kumiko\.list\.search-placeholder|suchen/i,
+    ) as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: "a" } });
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    fireEvent.change(input, { target: { value: "ab" } });
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(onSearchChange.mock.calls).toEqual([["a"], ["ab"]]);
+
+    // The router answers the first emit only after the second one went out.
+    rerender(tree("a"));
+    expect(input.value).toBe("ab");
+    rerender(tree("ab"));
+    expect(input.value).toBe("ab");
+  });
 });

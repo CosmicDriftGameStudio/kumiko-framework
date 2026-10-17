@@ -6,7 +6,7 @@
 
 import { cn } from "@cosmicdrift/kumiko-renderer-web";
 import { Extension, Node } from "@tiptap/core";
-import { UndoRedo } from "@tiptap/extensions";
+import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { type ReactNode, useMemo, useState } from "react";
@@ -28,7 +28,9 @@ export type PlaceholderLineEditorProps = {
   readonly readOnly?: boolean;
   /** Drops the input frame so the line sits flat inside a label/value row. */
   readonly flat?: boolean;
-  readonly onEditorReady?: (handle: DocumentEditorHandle) => void;
+  /** Hint shown while the line is empty. */
+  readonly placeholder?: string;
+  readonly onEditorReady?: (handle: DocumentEditorHandle | null) => void;
   readonly "aria-label": string;
 };
 
@@ -53,6 +55,7 @@ function LineEditorBody({
   systemVariables,
   readOnly,
   flat,
+  placeholder,
   onEditorReady,
   ariaLabel,
 }: {
@@ -63,7 +66,8 @@ function LineEditorBody({
   readonly systemVariables: readonly string[];
   readonly readOnly: boolean;
   readonly flat: boolean;
-  readonly onEditorReady: ((handle: DocumentEditorHandle) => void) | undefined;
+  readonly placeholder: string | undefined;
+  readonly onEditorReady: ((handle: DocumentEditorHandle | null) => void) | undefined;
   readonly ariaLabel: string;
 }): ReactNode {
   const extensions = useMemo(
@@ -96,8 +100,9 @@ function LineEditorBody({
       }),
       UndoRedo,
       BlockLineBreaks,
+      ...(placeholder === undefined ? [] : [Placeholder.configure({ placeholder })]),
     ],
-    [variableLabels, systemVariables, flat],
+    [variableLabels, systemVariables, flat, placeholder],
   );
 
   const editor = useEditor({
@@ -115,6 +120,7 @@ function LineEditorBody({
       transformPastedHTML: (html) => singleLine(html.replace(/<[^>]*>/g, " ")),
     },
     onCreate: ({ editor: created }) => onEditorReady?.(createEditorHandle(created)),
+    onDestroy: () => onEditorReady?.(null),
     onUpdate: ({ editor: e }) => onChange(contentToLine(e.getJSON().content?.[0]?.content)),
   });
 
@@ -126,6 +132,7 @@ function LineEditorBody({
         flat ? "min-h-10" : "min-h-9 rounded-md border border-input px-3",
         "[&_.ProseMirror]:w-full [&_.ProseMirror]:whitespace-nowrap [&_.ProseMirror]:outline-none",
         "[&_p]:m-0",
+        "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
         readOnly && "opacity-60",
       )}
     />
@@ -140,6 +147,7 @@ export default function PlaceholderLineEditor({
   systemVariables = NO_NAMES,
   readOnly = false,
   flat = false,
+  placeholder,
   onEditorReady,
   "aria-label": ariaLabel,
 }: PlaceholderLineEditorProps): ReactNode {
@@ -158,7 +166,7 @@ export default function PlaceholderLineEditor({
 
   return (
     <LineEditorBody
-      key={`${epoch}-${readOnly}-${JSON.stringify(stableLabels)}`}
+      key={`${epoch}-${readOnly}-${JSON.stringify(stableLabels)}-${stableSystem.join("\n")}`}
       id={id}
       initialValue={value}
       onChange={(next) => {
@@ -169,6 +177,7 @@ export default function PlaceholderLineEditor({
       systemVariables={stableSystem}
       readOnly={readOnly}
       flat={flat}
+      placeholder={placeholder}
       onEditorReady={onEditorReady}
       ariaLabel={ariaLabel}
     />

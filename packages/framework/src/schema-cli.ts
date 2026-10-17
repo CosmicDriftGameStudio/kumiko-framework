@@ -523,8 +523,19 @@ export async function runSchemaCli(
         out.log("");
         await reportLeftoverDroppedTables(db, migrationsDir, out);
         return pending === 0 ? 0 : 1;
+      } catch (e) {
+        // Message only, never dbUrl: it can carry the password.
+        out.err(`  ✗ schema status failed: ${e instanceof Error ? e.message : String(e)}`);
+        out.err(
+          '  Check that DATABASE_URL is reachable and the database exists (the scaffold\'s docker-compose creates "app").',
+        );
+        return 1;
       } finally {
-        await close();
+        try {
+          await close();
+        } catch {
+          // The connection already failed and was reported above; a failing close must not throw again.
+        }
       }
     }
 

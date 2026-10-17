@@ -585,6 +585,32 @@ describe("registerEntityCrud", () => {
     expect(risk("note:update")).toBe("mid");
   });
 
+  test("agents: a per-verb hint merges into write.agent instead of replacing it", () => {
+    const { r, writes } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntity, {
+      write: { access: { roles: ["Admin"] }, agent: { expose: true } },
+      agents: { delete: { risk: "high" } },
+      verbs: { list: false, detail: false },
+    });
+
+    const del = writes.find((w) => w.name === "note:delete");
+    if (!del) throw new Error("note:delete missing");
+    expect(del.agent).toEqual({ expose: true, risk: "high" });
+  });
+
+  test("agents: a per-verb hint merges into read.agent instead of replacing it", () => {
+    const { r, queries } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntity, {
+      read: { access: { roles: ["Admin"] }, agent: { expose: true } },
+      agents: { list: { risk: "low" } },
+      verbs: { create: false, update: false, delete: false, restore: false },
+    });
+
+    const list = queries.find((q) => q.name === "note:list");
+    if (!list) throw new Error("note:list missing");
+    expect(list.agent).toEqual({ expose: true, risk: "low" });
+  });
+
   test("agent hints on the per-handler options raise the resolved risk", () => {
     const del = defineEntityDeleteHandler("note", noteEntity, {
       access: { roles: ["Admin"] },

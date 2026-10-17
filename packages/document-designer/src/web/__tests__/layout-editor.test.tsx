@@ -140,6 +140,17 @@ describe("LayoutEditor", () => {
     expect(screen.queryByTestId("document-designer-paper")).toBeNull();
   });
 
+  test("the users of a layout are asked for server-side instead of cut from a page of all templates", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], tenantSource, calls);
+    await screen.findByTestId("document-designer-paper");
+    const overviewCall = calls.find((call) => call.type === "template-resolver:query:overview");
+    expect(overviewCall?.payload).toMatchObject({
+      layoutSlug: "default",
+      filters: [{ field: "kind", op: "in", value: ["mail"] }],
+    });
+  });
+
   test("a tenant admin gets no MJML tab and a disabled save while nothing changed", async () => {
     renderEditor(["TenantAdmin"], tenantSource, []);
     await screen.findByTestId("document-designer-paper");
@@ -314,6 +325,25 @@ describe("LayoutEditor", () => {
     expect(
       calls.find((call) => call.type === "template-resolver:write:upsert-tenant")?.payload,
     ).toMatchObject({ meta: { width: 640 }, status: "draft" });
+  });
+
+  test("a tenant admin's save reloads the layout without asking for the platform-only override counts", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], tenantSource, calls);
+    const width = await screen.findByLabelText("Width");
+    fireEvent.click(width);
+    fireEvent.click(await screen.findByRole("option", { name: "640 px" }));
+    const save = screen.getByTestId("document-designer-save");
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(
+        calls.filter((call) => call.type === "template-resolver:query:layout-source"),
+      ).toHaveLength(2),
+    );
+    expect(calls.some((call) => call.type === "template-resolver:query:tenant-overrides")).toBe(
+      false,
+    );
   });
 
   test("an invalid outer background blocks saving and publishing and says why", async () => {

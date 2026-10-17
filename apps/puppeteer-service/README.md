@@ -17,6 +17,8 @@ HTTP-Service für PDF + Image-Rendering via Puppeteer. Wird von `renderer-puppet
 }
 ```
 
+Der Service lädt keine http(s)-Ressourcen (Egress-Guard). Das HTML muss alle Ressourcen als `data:`-URIs einbetten, auch bei `image-snapshot`; externe `<img>`/`<link>` werden verworfen.
+
 ```
 Authorization: Bearer <PUPPETEER_AUTH_TOKEN>
 Content-Type: application/json

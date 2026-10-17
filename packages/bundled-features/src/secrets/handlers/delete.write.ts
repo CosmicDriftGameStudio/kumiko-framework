@@ -18,7 +18,9 @@ export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS)
     access,
     handler: async (event, ctx) => {
       const secrets = requireSecretsContext(ctx, "secrets:write:delete");
-      const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, event.payload.key);
+      const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, event.payload.key, {
+        allowUndeclared: true,
+      });
       if (!gate.ok) return gate.failure;
       const removed = await secrets.delete(event.user.tenantId, event.payload.key, {
         deletedBy: event.user.id,

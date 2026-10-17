@@ -111,6 +111,37 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
     expect(captured[0]?.values).toContain(SYSTEM);
   });
 
+  test("operator form { in: [own] } narrows to own only, like the plain list", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    await tdb.selectMany(table, { tenantId: { in: [own] } });
+
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).not.toContain(SYSTEM);
+  });
+
+  test("operator form { in: [foreign] } falls back to the full scope without leaking", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    await tdb.selectMany(table, { tenantId: { in: [foreign] } });
+
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).toContain(SYSTEM);
+    expect(captured[0]?.values).not.toContain(foreign);
+  });
+
+  test("operator form { eq: own } narrows to own only", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    await tdb.selectMany(table, { tenantId: { eq: own } });
+
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).not.toContain(SYSTEM);
+  });
+
   test("mixed [own, foreign] drops the foreign id, keeps own", async () => {
     const captured: Captured[] = [];
     const tdb = createTenantDb(recordingDb(captured), own);

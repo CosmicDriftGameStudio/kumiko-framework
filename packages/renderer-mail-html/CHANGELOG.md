@@ -1,5 +1,139 @@
 # @cosmicdrift/kumiko-renderer-mail-html
 
+## 0.364.0
+
+### Minor Changes
+
+- c181b3f: Document designer editors follow the approved board
+  
+  Mail-layout templates accept appearance meta (width, font, outer background, accent line, button style) that the mail renderer applies, and the layout-source query returns it. The layout editor uses the shared editor shell with one paper and one shared toolbar (`DocumentContentEditor` gains `toolbarHost`). Mail and PDF editors share frame, info bar, rails and footer.
+  
+  The unused `sender` key of mail template meta is gone from the editor; stored rows that still carry it are read without it, so they stay editable.
+  
+  Invalid template meta now reports per-field messages (`templateResolver.errors.template.meta.<field>.required|invalid`) instead of the parser text; the editors show them at the field. The `tenant-overrides` query additionally returns one row per customising tenant (name, status, version, changed at/by) and, with `diffTenantId`, the diff to the system version. A language without a version shows an empty state in the mail editor instead of a disabled editor.
+  
+  The `compileDocumentBody` option `resourceImageMaxWidthPx` caps resource images in mails (180 px). The `send-test` command takes `prefixSubject` (default true) to skip the `[TEST]` subject prefix, the template preview returns `mailLayout` (slug, scope, version of the layout used), and `RenderedMail` carries the layout ref.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Document designer editors follow the approved board
+  -->
+- b5a6395: templateVariable.richText declares a notification variable that carries sanitized HTML
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: templateVariable.richText for notification variables that carry formatted HTML
+  detail: Notification variables are escaped, so a value holding HTML (for example a document written in a rich text editor) showed up as literal tags in the mail. A variable declared with templateVariable.richText({ required }) is run through the document sanitizer at render time and inserted as HTML; bold, italic, lists and safe links stay, script, event handlers and javascript links are not emitted as markup. If the sanitizer rejects a value, it is rendered as escaped text and a warning with the violation codes is logged. All other variable types stay escaped.
+  -->
+
+### Patch Changes
+
+- c181b3f: Structured mail layouts show the mail body
+  
+  The structured layout frame wraps the body in mj-text instead of mj-raw. With mj-raw the body HTML sat directly in the column table, browsers moved it into the column wrapper with font-size 0, and every mail on a tenant layout had an invisible body.
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: Structured mail layouts show the mail body
+  -->
+- 7482ee2: Mail renderer keeps wall-clock dates and system attachments
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: Mail renderer keeps wall-clock dates and system attachments
+  detail: The date helper keeps the calendar date of offset datetimes, tenant overrides of system mails keep inherited attachments, markdown templates use the system layout and delivery envelope keys are not exposed as variables.
+  -->
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [a0dcd31]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [15039ce]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8be3807]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [c181b3f]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [b13c0d4]
+- Updated dependencies [fd5009a]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [7482ee2]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [baf641a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [68078ee]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-bundled-features@0.364.0
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-headless@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes

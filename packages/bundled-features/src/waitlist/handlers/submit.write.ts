@@ -36,10 +36,13 @@ const SUBMIT_ROLES = access.roles(
   "TenantAdmin",
 );
 
+const OPEN_STATUSES = [WAITLIST_STATUS.Pending, WAITLIST_STATUS.Invited];
+
 export type WaitlistSubmitData = { readonly kind: "submitted" };
 
-// Identical for new, duplicate and honeypot submits: the response must not
-// reveal whether the email is already on the list.
+// Identical body for new, duplicate and honeypot submits so the response does not
+// state whether the email is already on the list. Timing still differs: only the
+// new-entry path writes and sends mail.
 const SUBMITTED: WriteResult<WaitlistSubmitData> = {
   isSuccess: true,
   data: { kind: "submitted" },
@@ -60,13 +63,32 @@ function isHoneypotFilled(payload: WaitlistSubmitInput): boolean {
 
 async function hasOpenEntryForEmail(email: string, ctx: HandlerContext): Promise<boolean> {
   const found = await waitlistExecutor.list(
-    { filter: { field: "email", op: "eq", value: email }, limit: 50 },
+    {
+      filter: { field: "email", op: "eq", value: email },
+      filters: [{ field: "status", op: "in", value: OPEN_STATUSES }],
+      limit: 1,
+    },
     platformActor(),
     waitlistDb(ctx),
   );
-  return found.rows.some(
-    (row) => row["status"] === WAITLIST_STATUS.Pending || row["status"] === WAITLIST_STATUS.Invited,
-  );
+  return found.rows.length > 0;
+}
+
+// The resolver usually reads config; run it outside the handler transaction's
+// critical section so a failing statement cannot abort the transaction that holds
+// the entry, and a slow resolver does not extend the per-email advisory lock.
+async function resolveAdminRecipient(
+  opts: WaitlistOptions,
+  ctx: HandlerContext,
+): Promise<string | null> {
+  try {
+    return (await opts.notifyRecipient?.(ctx)) || null;
+  } catch (err) {
+    ctx.log?.warn("[waitlist:submit] admin notice recipient resolution failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 async function sendBestEffort(
@@ -87,14 +109,16 @@ async function sendBestEffort(
 }
 
 export function createSubmitHandler(opts: WaitlistOptions) {
+  const emailRateLimits = opts.emailRateLimits ?? DEFAULT_SUBMIT_EMAIL_RATE_LIMITS;
   return defineWriteHandler<"submit", typeof WaitlistSubmitSchema, WaitlistSubmitData>({
     name: "submit",
     schema: WaitlistSubmitSchema,
     access: { roles: SUBMIT_ROLES, personalData: "public-intake" },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
-    additionalRateLimits: opts.emailRateLimits ?? DEFAULT_SUBMIT_EMAIL_RATE_LIMITS,
+    // An empty array means "disabled"; boot validation rejects an empty additionalRateLimits.
+    ...(emailRateLimits.length > 0 && { additionalRateLimits: emailRateLimits }),
     description:
-      "Public waitlist sign-up: registers an interest entry and sends the submitter a confirmation mail. Always reports success, whether the address is new or already on the list.",
+      "Public waitlist sign-up: registers an interest entry and sends the submitter a confirmation mail. Reports success whether the address is new or already on the list; the response body is identical, response timing can still differ.",
     escapeHatch: { grants: ["unsafeRaw"], reason: SUBMIT_LOCK_REASON },
     handler: async (event, ctx) => {
       const payload = event.payload;
@@ -106,6 +130,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
           message: "waitlist:submit requires ctx.systemDb — is r.systemScope() set?",
         });
       }
+      const adminRecipient = await resolveAdminRecipient(opts, ctx);
       await acquireNamespacedAdvisoryLock(
         ctx.systemDb.unsafeRaw(SUBMIT_LOCK_REASON),
         SUBMIT_LOCK_NAMESPACE,
@@ -140,7 +165,6 @@ export function createSubmitHandler(opts: WaitlistOptions) {
       );
 
       await sendBestEffort(ctx, "admin notice", async (notify) => {
-        const adminRecipient = await opts.notifyRecipient?.(ctx);
         // skip: no admin recipient configured
         if (!adminRecipient) return;
         await notify(WAITLIST_NOTIFICATION_TYPES.adminNotice, {

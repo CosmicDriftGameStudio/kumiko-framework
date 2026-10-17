@@ -154,6 +154,39 @@ describe("createEventSourceLiveEvents — session end", () => {
     expect(sessionEndedCount).toBe(1);
   });
 
+  test("a session-ended frame ends the session exactly once, without any probe", async () => {
+    let sessionEndedCount = 0;
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {
+        sessionEndedCount += 1;
+      },
+    });
+    liveEvents("invoice", () => {});
+
+    const source = FakeEventSource.instances.at(-1);
+    source?.dispatch("session-ended", { code: "invalid_token" });
+    source?.dispatch("session-ended", { code: "invalid_token" });
+    await nextTick();
+
+    expect(sessionEndedCount).toBe(1);
+    expect(probedUrls).toEqual([]);
+  });
+
+  test("a session-ended frame with a non-session code leaves the session alone", async () => {
+    let sessionEnded = false;
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {
+        sessionEnded = true;
+      },
+    });
+    liveEvents("invoice", () => {});
+
+    FakeEventSource.instances.at(-1)?.dispatch("session-ended", { code: "something_else" });
+    await nextTick();
+
+    expect(sessionEnded).toBe(false);
+  });
+
   test("a refused handshake that is not a session 401 leaves the session alone", async () => {
     stubSseProbe(503, { error: { code: "unavailable", httpStatus: 503 } });
     let sessionEnded = false;

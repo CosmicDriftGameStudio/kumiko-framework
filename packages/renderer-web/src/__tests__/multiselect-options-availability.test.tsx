@@ -6,13 +6,16 @@ import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
+import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 
 const AVAILABILITY_QUERY = "demo:query:role-availability";
 
-function rolesScreen(display?: "checkboxes"): ActionFormScreenDefinition {
+function rolesScreen(
+  display?: "checkboxes",
+  options: { readonly readOnly?: boolean; readonly prefilled?: boolean } = {},
+): ActionFormScreenDefinition {
   return {
     id: "set-roles",
     type: "actionForm",
@@ -25,12 +28,20 @@ function rolesScreen(display?: "checkboxes"): ActionFormScreenDefinition {
         ...(display !== undefined && { display }),
       },
     },
-    layout: { sections: [{ fields: ["roles"] }] },
+    layout: {
+      sections: [
+        { fields: [options.readOnly === true ? { field: "roles", readOnly: true } : "roles"] },
+      ],
+    },
+    ...(options.prefilled === true && { urlPrefillFields: ["roles"] }),
   };
 }
 
-function schemaFor(display?: "checkboxes"): FeatureSchema {
-  return { featureName: "demo", entities: {}, screens: [rolesScreen(display)] };
+function schemaFor(
+  display?: "checkboxes",
+  options?: { readonly readOnly?: boolean; readonly prefilled?: boolean },
+): FeatureSchema {
+  return { featureName: "demo", entities: {}, screens: [rolesScreen(display, options)] };
 }
 
 function dispatcherWith(query: Dispatcher["query"]): Dispatcher {
@@ -95,5 +106,54 @@ describe("multiSelect optionsAvailabilityQuery", () => {
 
     await waitFor(() => expect(screen.getByText("User")).toBeDefined());
     expect(screen.getByText("TenantAdmin")).toBeDefined();
+  });
+
+  test("a prefilled value on a disabled option stays listed, disabled", async () => {
+    const dispatcher = dispatcherWith(
+      (async () => availabilityRows) as unknown as Dispatcher["query"],
+    );
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "demo:screen:set-roles" },
+            navigate: () => {},
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: { roles: "User,TenantAdmin" },
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={schemaFor("checkboxes", { prefilled: true })}
+            qn="demo:screen:set-roles"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Admin")).toBeDefined());
+    const held = screen.getByRole("checkbox", { name: "TenantAdmin" });
+    expect(held.getAttribute("aria-checked")).toBe("true");
+    expect(held.hasAttribute("disabled")).toBe(true);
+  });
+
+  test("a readOnly field never queries availability", async () => {
+    const queried: string[] = [];
+    const dispatcher = dispatcherWith((async (type: string) => {
+      queried.push(type);
+      return availabilityRows;
+    }) as unknown as Dispatcher["query"]);
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor("checkboxes", { readOnly: true })}
+          qn="demo:screen:set-roles"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("TenantAdmin")).toBeDefined());
+    expect(queried).not.toContain(AVAILABILITY_QUERY);
   });
 });

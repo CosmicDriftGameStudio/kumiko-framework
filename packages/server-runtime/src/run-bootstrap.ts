@@ -39,6 +39,16 @@ function maskEmailForLog(email: string): string {
   return at <= 0 ? "***" : `${email[0]}***${email.slice(at)}`;
 }
 
+// An admin invite that can never grant its global role leaves the first deployment without
+// a SystemAdmin; a green Job would hide that.
+function unprovisionedGlobalRoleInvites(report: BootstrapReport): BootstrapReport["invites"] {
+  return report.invites.filter(
+    (invite) =>
+      invite.globalRoles.length > 0 &&
+      (invite.outcome === "role-mismatch" || invite.outcome === "cancelled"),
+  );
+}
+
 function logBootstrapReport(report: BootstrapReport): void {
   for (const tenant of report.tenants) {
     // biome-ignore lint/suspicious/noConsole: the report IS the deliverable of a one-shot process
@@ -57,7 +67,9 @@ function logBootstrapReport(report: BootstrapReport): void {
 
 /** Returns the report, or undefined in KUMIKO_DRY_RUN_ENV=boot mode. Without
  *  an injected `envSource` (a real process) it exits the process when done,
- *  so a k8s Job never hangs on a leftover socket. */
+ *  so a k8s Job never hangs on a leftover socket. A SystemAdmin invite that
+ *  came out `role-mismatch` or `cancelled` fails the run (exit code 1, or a
+ *  thrown error with an injected `envSource`). */
 export async function runBootstrap(
   options: RunBootstrapOptions,
 ): Promise<BootstrapReport | undefined> {
@@ -83,7 +95,13 @@ export async function runBootstrap(
   let report: BootstrapReport;
   try {
     report = await bootstrapTenants(
-      { db: boot.db, redis: boot.redis, dispatcher: boot.entrypoint.dispatcher },
+      {
+        db: boot.db,
+        redis: boot.redis,
+        dispatcher: boot.entrypoint.dispatcher,
+        registry: boot.registry,
+        ...(boot.configCipher && { configCipher: boot.configCipher }),
+      },
       {
         tenants: options.tenants,
         ...(options.systemAdmins && { systemAdmins: options.systemAdmins }),
@@ -95,6 +113,14 @@ export async function runBootstrap(
   }
 
   logBootstrapReport(report);
+  const unprovisioned = unprovisionedGlobalRoleInvites(report);
+  if (unprovisioned.length > 0) {
+    const message = `[${PROCESS_NAME}] ${unprovisioned.length} invite(s) cannot grant their global role (${unprovisioned.map((invite) => `${maskEmailForLog(invite.email)}: ${invite.outcome}`).join(", ")})`;
+    if (options.envSource !== undefined) throw new Error(message);
+    // biome-ignore lint/suspicious/noConsole: the failure reason of a one-shot process
+    console.error(message);
+    process.exit(1);
+  }
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint
   console.log(`[${PROCESS_NAME}] done.`);
   if (options.envSource === undefined) {

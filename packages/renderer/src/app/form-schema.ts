@@ -7,6 +7,7 @@ import type {
 import {
   evalFieldCondition,
   findUnavailableSelectOptions,
+  isUnchangedValue,
   NO_WIDGET_FIELD_TYPES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type EditFormMode, I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
@@ -50,8 +51,7 @@ function isRequiredValueMissing(
   if (NO_WIDGET_FIELD_TYPES.includes(field.type) && !isEmbeddedListField(field)) return false;
   if (isPresent(record[spec.field])) return false;
   return !(
-    unchangedFrom !== undefined &&
-    JSON.stringify(record[spec.field]) === JSON.stringify(unchangedFrom[spec.field])
+    unchangedFrom !== undefined && isUnchangedValue(record[spec.field], unchangedFrom[spec.field])
   );
 }
 
@@ -102,14 +102,23 @@ export function buildFormSchema(
       // @cast-boundary form-values
       const record = values as Record<string, unknown>;
       const selectFieldsToCheck: Record<string, FieldDefinition> = {};
+      // The server validates the merged row, so a locked select still fails there; the
+      // client reports it on the condition field the user can actually change.
+      const lockedSelectFields: Record<string, FieldDefinition> = {};
       for (const spec of fields) {
         const field = entity.fields[spec.field];
         if (!field) continue;
         // Hidden on create, read-only on update: the user cannot resolve a presence error.
-        if (excludedFromWrite.has(spec.field)) continue;
+        if (excludedFromWrite.has(spec.field)) {
+          lockedSelectFields[spec.field] = field;
+          continue;
+        }
         // Not operable by the user — a presence error would be unresolvable,
         // same reason as the NO_WIDGET_FIELD_TYPES check below.
-        if (spec.readOnly !== undefined && evalFieldCondition(spec.readOnly, record)) continue;
+        if (spec.readOnly !== undefined && evalFieldCondition(spec.readOnly, record)) {
+          lockedSelectFields[spec.field] = field;
+          continue;
+        }
         selectFieldsToCheck[spec.field] = field;
         if (!isRequiredValueMissing(spec, field, record, unchangedFrom)) continue;
         ctx.addIssue({
@@ -123,14 +132,22 @@ export function buildFormSchema(
       // Against `unchangedFrom` the helper still checks a stored value whose
       // discriminator changed — the server validates the merged row.
       for (const issue of findUnavailableSelectOptions(
-        selectFieldsToCheck,
+        { ...lockedSelectFields, ...selectFieldsToCheck },
         record,
         unchangedFrom,
       )) {
+        const lockedDef = lockedSelectFields[issue.field];
+        const blamedField =
+          lockedDef !== undefined && lockedDef.type === "select"
+            ? (lockedDef.conditionalOptions?.find(
+                (rule) =>
+                  rule.options.includes(issue.value) && !evalFieldCondition(rule.when, record),
+              )?.when.field ?? issue.field)
+            : issue.field;
         ctx.addIssue({
           code: "custom",
-          path: [issue.field],
-          message: `"${issue.field}" is not available for the current selection.`,
+          path: [blamedField],
+          message: `"${blamedField}" is not available for the current selection.`,
           params: { [I18N_KEY_PARAM]: OPTION_NOT_AVAILABLE_I18N_KEY, allowed: issue.allowed },
         });
       }

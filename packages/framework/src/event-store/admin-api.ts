@@ -8,6 +8,7 @@
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.
 
+import { instantToTimestamptzParam } from "../bun-db/query.js";
 import type { DbRunner } from "../db/index.js";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
 import { claimXactId, runAtomicEventWrite } from "../db/queries/event-store.js";
@@ -84,7 +85,7 @@ function rawEventParams(event: RawEventToAppend, newVersion: number, eventVersio
     eventVersion,
     payload: event.payload,
     metadata: event.metadata,
-    createdAt: event.createdAt.toString(),
+    createdAt: instantToTimestamptzParam(event.createdAt),
     createdBy: event.createdBy,
   };
 }
@@ -145,7 +146,7 @@ export async function appendRawBatch(
       eventVersion,
       e.payload,
       e.metadata,
-      e.createdAt.toString(),
+      instantToTimestamptzParam(e.createdAt),
       e.createdBy,
     );
     return `($${baseIdx + 1}::uuid, $${baseIdx + 2}, $${baseIdx + 3}::uuid, $${baseIdx + 4}, $${baseIdx + 5}, $${baseIdx + 6}, $${baseIdx + 7}::jsonb, $${baseIdx + 8}::jsonb, $${baseIdx + 9}::timestamptz, $${baseIdx + 10})`;

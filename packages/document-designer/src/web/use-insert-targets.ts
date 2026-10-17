@@ -2,10 +2,17 @@
 import type { DocumentEditorHandle } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useRef } from "react";
 
-export type InsertField = "subject" | "previewText" | "body" | "title" | "author";
+export type InsertField =
+  | "subject"
+  | "previewText"
+  | "headerChip"
+  | "footerNote"
+  | "body"
+  | "title"
+  | "author";
 
 export type InsertTargets = {
-  readonly register: (field: InsertField) => (handle: DocumentEditorHandle) => void;
+  readonly register: (field: InsertField) => (handle: DocumentEditorHandle | null) => void;
   readonly markFocused: (field: InsertField) => () => void;
   readonly insertPlaceholder: (name: string) => void;
   readonly insertResource: (key: string) => void;
@@ -18,7 +25,8 @@ export function useInsertTargets(): InsertTargets {
   const lastFocused = useRef<InsertField>("body");
   return {
     register: (field) => (handle) => {
-      handles.current[field] = handle;
+      if (handle === null) delete handles.current[field];
+      else handles.current[field] = handle;
     },
     markFocused: (field) => () => {
       lastFocused.current = field;

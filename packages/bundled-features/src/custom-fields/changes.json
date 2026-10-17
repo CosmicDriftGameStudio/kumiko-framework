@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "update-tenant-field no longer hides `type` from the handler schema",
+    "detail": "The `type` field is part of the documented payload; the 422 check against changing the stored type remains the protection."
+  },
+  {
     "version": "0.359.0",
     "type": "improvement",
     "title": "update-tenant-field keeps the stored type when serializedField.type is omitted",

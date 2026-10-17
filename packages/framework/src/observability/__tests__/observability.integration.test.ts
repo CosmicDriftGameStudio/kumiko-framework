@@ -637,3 +637,47 @@ describe("Observability (integration) — ctx.metricsFor", () => {
     expect(neverEvents).toHaveLength(0);
   });
 });
+
+describe("Observability (integration) — job ctx.metricsFor", () => {
+  let stack: TestStack;
+  let provider: RecordingProvider;
+  let jobDone = false;
+
+  const jobMetricsLibFeature = defineFeature("job-metrics-lib", (r) => {
+    r.metric("job_call_total", { type: "counter" });
+  });
+
+  const jobMetricsConsumerFeature = defineFeature("job-metrics-consumer", (r) => {
+    r.job("record", { trigger: { manual: true } }, async (_payload, ctx) => {
+      ctx.metricsFor("job-metrics-lib").inc("job_call_total");
+      ctx.metricsFor("unregistered-lib").inc("never_total");
+      jobDone = true;
+    });
+  });
+
+  beforeEach(async () => {
+    jobDone = false;
+    provider = createRecordingProvider();
+    stack = await setupTestStack({
+      features: [jobMetricsLibFeature, jobMetricsConsumerFeature],
+      observability: provider,
+      jobs: { consumerLane: "worker" },
+    });
+  });
+
+  afterEach(async () => {
+    await stack.cleanup();
+  });
+
+  it("counts under the library feature and ignores unregistered names", async () => {
+    await stack.jobRunner!.dispatch("job-metrics-consumer:job:record", {});
+    await stack.drainJobs();
+    expect(jobDone).toBe(true);
+
+    const counted = provider.metricEvents.filter(
+      (e) => e.type === "counter.inc" && e.name === "kumiko_job_metrics_lib_job_call_total",
+    );
+    expect(counted).toHaveLength(1);
+    expect(provider.metricEvents.filter((e) => e.name.includes("never_total"))).toHaveLength(0);
+  });
+});

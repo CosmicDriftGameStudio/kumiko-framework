@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, toPostgresArrayLiteral } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
   setupTestStack,
@@ -64,8 +64,8 @@ const rawSqlSumBatchCap: CapSpec = {
   usageBatch: async (db, tenantIds) => {
     const raw = asRawClient(db.unsafeRaw() as DbConnection);
     const rows = await raw.unsafe<{ tenant_id: string; total: number }>(
-      "SELECT tenant_id, COALESCE(SUM(amount), 0)::int AS total FROM cap_overview_raw_usage_probe WHERE tenant_id = ANY($1) GROUP BY tenant_id",
-      [tenantIds],
+      "SELECT tenant_id, COALESCE(SUM(amount), 0)::int AS total FROM cap_overview_raw_usage_probe WHERE tenant_id = ANY($1::text[]) GROUP BY tenant_id",
+      [toPostgresArrayLiteral(tenantIds)],
     );
     return new Map(rows.map((r) => [r.tenant_id, r.total]));
   },

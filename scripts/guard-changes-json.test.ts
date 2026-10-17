@@ -3,7 +3,13 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gitEnv } from "@cosmicdrift/kumiko-guards";
-import { findChangelogViolations, findChangesetViolations, isReleaseBranch } from "./guard-changes-json";
+import {
+  findChangelogViolations,
+  findChangesetViolations,
+  findPrivateRepoReferences,
+  isReleaseBranch,
+  isTextOnlyChangesEdit,
+} from "./guard-changes-json";
 
 // Fixture git spawns get gitEnv() (never inherited GIT_DIR/GIT_WORK_TREE) plus
 // GIT_CEILING_DIRECTORIES/GIT_CONFIG_GLOBAL pinned to the fixture tree, so a
@@ -161,8 +167,79 @@ describe("findChangelogViolations", () => {
     expect(violations[0].detail).toContain("no changes.json found");
   });
 
+  it("flags a private repo path and a private repo link in any entry field", () => {
+    const root = buildFixtureRoot([
+      [
+        "some-feature",
+        [
+          {
+            version: "0.2.0",
+            type: "breaking",
+            title: "moved the thing",
+            migration: "see kumiko-enterprise/packages/ai-agent/src/entity.ts",
+          },
+          {
+            version: "0.1.0",
+            type: "fix",
+            title: "fixed the thing",
+            detail: "tracked in https://github.com/CosmicDriftGameStudio/solon/issues/12",
+          },
+        ],
+      ],
+    ]);
+
+    const violations = findChangelogViolations(root, []);
+    expect(violations.filter((v) => v.detail.includes("private repo"))).toHaveLength(2);
+    expect(violations.some((v) => v.detail.includes('entry #0 field "migration"'))).toBe(true);
+    expect(violations.some((v) => v.detail.includes('entry #1 field "detail"'))).toBe(true);
+  });
+
+  it("allows bare private repo names without a path or link", () => {
+    const root = buildFixtureRoot([
+      [
+        "some-feature",
+        [
+          {
+            version: "0.1.0",
+            type: "breaking",
+            title: "affects solon and kumiko-enterprise",
+            migration: "Known consumers: solon, offlot-app and kumiko-enterprise's run-state projection.",
+          },
+        ],
+      ],
+    ]);
+
+    expect(findChangelogViolations(root, [])).toEqual([]);
+  });
+
   it("passes the real repo", () => {
     expect(findChangelogViolations(join(import.meta.dir, ".."), [])).toEqual([]);
+  });
+});
+
+describe("findPrivateRepoReferences", () => {
+  it("matches private repo paths in all their written forms", () => {
+    expect(findPrivateRepoReferences("see infra/guards and solon/e2e/api.ts")).toEqual(["infra/guards", "solon/e2e/api.ts"]);
+    expect(findPrivateRepoReferences("kumiko-platform docs/plans/rls-evaluation.md")).toEqual([
+      "kumiko-platform docs/plans/rls-evaluation.md",
+    ]);
+    expect(findPrivateRepoReferences("solon e2e/_helpers/api.ts")).toEqual(["solon e2e/_helpers/api.ts"]);
+    expect(findPrivateRepoReferences("../infra/guards/x")).toEqual(["infra/guards/x"]);
+    expect(findPrivateRepoReferences("./solon/docs")).toEqual(["solon/docs"]);
+    expect(findPrivateRepoReferences("apps/solon/src")).toEqual(["solon/src"]);
+    expect(findPrivateRepoReferences("website/src/x and offlot-web/src/y")).toEqual(["website/src/x", "offlot-web/src/y"]);
+    expect(findPrivateRepoReferences("github.com/CosmicDriftGameStudio/offlot-app/pull/3")).toEqual([
+      "github.com/CosmicDriftGameStudio/offlot-app/",
+    ]);
+  });
+
+  it("leaves bare names and public or look-alike names alone", () => {
+    expect(findPrivateRepoReferences("affects solon and kumiko-enterprise")).toEqual([]);
+    expect(findPrivateRepoReferences("moved from infra guards to the public package")).toEqual([]);
+    expect(findPrivateRepoReferences("kumiko-framework/docs")).toEqual([]);
+    expect(findPrivateRepoReferences("@cosmicdrift/kumiko-guards/infra")).toEqual([]);
+    expect(findPrivateRepoReferences("@cosmicdrift/solon-x/src")).toEqual([]);
+    expect(findPrivateRepoReferences("space-conquest-status/README.md")).toEqual([]);
   });
 });
 
@@ -177,6 +254,26 @@ describe("findChangesetViolations", () => {
     expect(violations).toEqual([
       { file: ".changeset/missing.md", detail: "missing kumiko-changes metadata block" },
     ]);
+  });
+
+  it("flags a private repo path in a changeset's kumiko-changes block", () => {
+    const root = makeTempRoot("changeset-guard-");
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+    mkdirSync(join(root, "packages", "framework"), { recursive: true });
+    writeFileSync(
+      join(root, "packages", "framework", "package.json"),
+      JSON.stringify({ name: "@cosmicdrift/kumiko-framework" }),
+    );
+    writeFileSync(
+      join(root, ".changeset", "leak.md"),
+      '---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nFix it\n\n<!-- kumiko-changes\nfeature: framework\ntype: fix\ntitle: Fix it\ndetail: Known case in solon/e2e/x.ts\n-->\n',
+    );
+
+    const violations = findChangesetViolations(root, [".changeset/leak.md"], {});
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe(".changeset/leak.md");
+    expect(violations[0]?.detail).toContain('field "detail" references a private repo (solon/e2e/x.ts)');
   });
 
   it("flags a feature that does not resolve and one missing from the frontmatter", () => {
@@ -226,6 +323,81 @@ describe("findChangesetViolations", () => {
         detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead",
       },
     ]);
+  });
+
+  describe("text-only changes.json edits", () => {
+    const file = "packages/some-feature/src/changes.json";
+    const baseEntries = [
+      { version: "0.2.0", type: "fix", title: "second", detail: "old text" },
+      { version: "0.1.0", type: "breaking", title: "first", migration: "old migration" },
+    ];
+
+    function buildRepoWithBase(): string {
+      const root = buildFixtureRoot([["some-feature", baseEntries]]);
+      const env = fixtureGitEnv(root);
+      const git = (...args: string[]) => {
+        const result = Bun.spawnSync(["git", ...args], { cwd: root, env });
+        expect(result.exitCode).toBe(0);
+      };
+      git("init", "-q");
+      git("add", ".");
+      git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base");
+      git("update-ref", "refs/remotes/origin/main", "HEAD");
+      return root;
+    }
+
+    function editEntries(root: string, entries: unknown): void {
+      writeFileSync(join(root, file), JSON.stringify(entries, null, 2));
+    }
+
+    it("allows rewriting string fields of existing entries", () => {
+      const root = buildRepoWithBase();
+      editEntries(root, [
+        { version: "0.2.0", type: "fix", title: "second", detail: "new text" },
+        { version: "0.1.0", type: "breaking", title: "first, shorter", migration: "new migration" },
+      ]);
+
+      expect(isTextOnlyChangesEdit(root, file)).toBe(true);
+      expect(findChangesetViolations(root, [file], {})).toEqual([]);
+    });
+
+    it("rejects an added entry", () => {
+      const root = buildRepoWithBase();
+      editEntries(root, [{ version: "0.3.0", type: "fix", title: "third" }, ...baseEntries]);
+
+      expect(isTextOnlyChangesEdit(root, file)).toBe(false);
+      expect(findChangesetViolations(root, [file], {})).toHaveLength(1);
+    });
+
+    it("rejects a changed version", () => {
+      const root = buildRepoWithBase();
+      editEntries(root, [{ ...baseEntries[0], version: "0.2.1" }, baseEntries[1]]);
+
+      expect(isTextOnlyChangesEdit(root, file)).toBe(false);
+      expect(findChangesetViolations(root, [file], {})).toHaveLength(1);
+    });
+
+    it("rejects a changed codemod", () => {
+      const root = buildFixtureRoot([["some-feature", [{ ...baseEntries[1], codemod: "a" }]]]);
+      const env = fixtureGitEnv(root);
+      for (const args of [
+        ["init", "-q"],
+        ["add", "."],
+        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base"],
+        ["update-ref", "refs/remotes/origin/main", "HEAD"],
+      ]) {
+        expect(Bun.spawnSync(["git", ...args], { cwd: root, env }).exitCode).toBe(0);
+      }
+      editEntries(root, [{ ...baseEntries[1], codemod: "b" }]);
+
+      expect(isTextOnlyChangesEdit(root, file)).toBe(false);
+    });
+
+    it("keeps the strict rule when origin/main is not available", () => {
+      const root = buildFixtureRoot([["some-feature", baseEntries]]);
+
+      expect(isTextOnlyChangesEdit(root, file)).toBe(false);
+    });
   });
 
   it("allows direct changes.json edits on a release push branch", () => {

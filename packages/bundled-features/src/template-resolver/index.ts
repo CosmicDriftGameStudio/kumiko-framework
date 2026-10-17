@@ -16,6 +16,7 @@ export {
   CONTENT_FORMATS,
   type ContentFormat,
   DEFAULT_MAIL_LAYOUT_SLUG,
+  DEFAULT_PDF_LAYOUT_SLUG,
   DOCUMENT_HTML_KINDS,
   type DocumentHtmlKind,
   FALLBACK_LOCALE,
@@ -110,9 +111,11 @@ export {
 } from "./qualified-names.js";
 export { mapRecordToVariables } from "./record-mapping.js";
 export {
+  type PreparedTemplateImage,
+  prepareTemplateResourceBeforeTransaction,
   readTemplateResourceMaxBytes,
   type StoredTemplateResource,
-  storeTemplateResource,
+  storePreparedTemplateResource,
 } from "./store-template-resource.js";
 export {
   type TemplateResourceRow,
@@ -124,9 +127,11 @@ export {
   isMailTemplateMeta,
   type LayoutTemplateMeta,
   MAIL_CATEGORIES,
+  MAIL_TONES,
   type MailCategory,
   type MailLayoutMeta,
   type MailTemplateMeta,
+  type MailTone,
   type PdfTemplateMeta,
   parseTemplateMeta,
   pdfAttachmentFileNamePatternSchema,

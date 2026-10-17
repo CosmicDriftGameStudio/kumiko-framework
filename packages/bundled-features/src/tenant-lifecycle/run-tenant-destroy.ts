@@ -290,6 +290,7 @@ export async function runNextDestructionStage(args: {
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
+  readonly deadlineAt?: number;
 }): Promise<StageTickResult> {
   const events = await loadAggregate(args.db, args.tenantId, args.tenantId);
   const { completed, abandoned, attemptsByStage } = replayStageState(events);
@@ -316,7 +317,7 @@ export async function runNextDestructionStage(args: {
     escapeHatchAuditSink: args.escapeHatchAuditSink,
     escapeHatchAuditLog: args.escapeHatchAuditLog,
     actor: args.actor,
-    deadlineAt: Date.now() + DESTRUCTION_STAGE_TICK_BUDGET_MS,
+    deadlineAt: args.deadlineAt ?? Date.now() + DESTRUCTION_STAGE_TICK_BUDGET_MS,
   };
 
   let version = lastEventVersion(events);
@@ -456,9 +457,16 @@ export async function runTenantDestructionSweep(args: {
 
   let advanced = 0;
   const destroying = await selectMany<{ id: string }>(args.db, tenantTable, destroyingWhere);
+  // One budget per sweep tick, split evenly so a large tenant cannot eat the
+  // window and starve the ones behind it. Each slice starts when its tenant
+  // starts: anchoring to a shared tick deadline would hand tenants after an
+  // overrun a zero slice, and a no-progress stage counts as a failed attempt.
+  const sliceMs = DESTRUCTION_STAGE_TICK_BUDGET_MS / Math.max(1, destroying.length);
   for (const row of destroying) {
+    const tenantDeadlineAt = Date.now() + sliceMs;
     try {
       const result = await runNextDestructionStage({
+        deadlineAt: tenantDeadlineAt,
         db: args.db,
         registry: args.registry,
         tenantId: row.id as TenantId,

@@ -11,7 +11,7 @@ import {
   parseTemplateDraft,
   servedVersionOf,
 } from "../template-draft.js";
-import { collectTemplateUsage } from "../template-usage.js";
+import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.js";
 import { storedRecord } from "./template-gates.js";
 
 const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as const;
@@ -52,6 +52,8 @@ export type OverviewResponse = {
   readonly rows: readonly OverviewRow[];
   readonly nextCursor: null;
   readonly total: number;
+  /** True when the tenant has more template rows than the overview reads; rows and total are then incomplete. */
+  readonly truncated: boolean;
 };
 
 const SORT_FIELDS = ["title", "slug", "kind", "origin", "status", "modifiedAt"] as const;
@@ -97,6 +99,27 @@ function effectiveRowsOf(rows: readonly TemplateResourceRow[]): EffectiveRows | 
     return { origin: "system", rows: liveSystem.length > 0 ? liveSystem : systemRows };
   }
   return tenantRows.length > 0 ? { origin: "tenant", rows: tenantRows } : null;
+}
+
+export function effectiveMailLayoutSlugs(
+  rows: readonly TemplateResourceRow[],
+): EffectiveMailLayoutSlugs {
+  const byLocale = new Map<string, TemplateResourceRow[]>();
+  for (const row of rows) {
+    if (row.kind !== "mail") continue;
+    const key = `${row.slug}\u0000${row.locale}`;
+    byLocale.set(key, [...(byLocale.get(key) ?? []), row]);
+  }
+  const bySlug = new Map<string, Map<string, string>>();
+  for (const group of byLocale.values()) {
+    const effective = effectiveRowsOf(group)?.rows[0];
+    // All-archived: the renderer falls back to the code-registered template.
+    if (effective === undefined || effective.status === "archived") continue;
+    const locales = bySlug.get(effective.slug) ?? new Map<string, string>();
+    locales.set(effective.locale, layoutSlugOf(effective));
+    bySlug.set(effective.slug, locales);
+  }
+  return bySlug;
 }
 
 function modifiedAtOf(row: TemplateResourceRow): string {
@@ -203,15 +226,18 @@ function withUsage(
   draft: OverviewDraft,
   layoutSlugByDocument: ReadonlyMap<string, string>,
   registry: Parameters<typeof collectTemplateUsage>[0],
+  effectiveLayouts: EffectiveMailLayoutSlugs,
 ): OverviewRow {
   let usedBy: OverviewUsage[] = [];
   if (draft.kind === "mail" || draft.kind === "mail-layout") {
-    usedBy = collectTemplateUsage(registry, draft.slug, draft.kind).map((entry) => ({
-      qualifiedName: entry.qualifiedName,
-      feature: entry.feature,
-      notification: entry.notification,
-      trigger: entry.trigger,
-    }));
+    usedBy = collectTemplateUsage(registry, draft.slug, draft.kind, effectiveLayouts).map(
+      (entry) => ({
+        qualifiedName: entry.qualifiedName,
+        feature: entry.feature,
+        notification: entry.notification,
+        trigger: entry.trigger,
+      }),
+    );
   } else if (draft.kind === "pdf-layout") {
     usedBy = [...layoutSlugByDocument]
       .filter(([, layoutSlug]) => layoutSlug === draft.slug)
@@ -228,9 +254,11 @@ function filterRows(
   rows: readonly OverviewRow[],
   search: string | undefined,
   filters: readonly OverviewFilter[],
+  layoutSlug: string | undefined,
 ): OverviewRow[] {
   const needle = search?.trim().toLowerCase() ?? "";
   return rows.filter((row) => {
+    if (layoutSlug !== undefined && row.layoutSlug !== layoutSlug) return false;
     if (needle !== "" && !`${row.title} ${row.slug}`.toLowerCase().includes(needle)) return false;
     return filters.every((filter) => filter.value.includes(String(row[filter.field])));
   });
@@ -247,6 +275,7 @@ export const overviewQuery = defineQueryHandler({
   schema: z.object({
     search: z.string().optional(),
     filters: z.array(filterSchema).optional(),
+    layoutSlug: z.string().optional(),
     sort: z.string().optional(),
     sortDirection: z.enum(["asc", "desc"]).optional(),
     limit: z.number().int().min(1).max(200).default(50),
@@ -255,25 +284,38 @@ export const overviewQuery = defineQueryHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant: where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
+    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
   handler: async (query, ctx) => {
     const payload = query.payload;
-    const rows = await selectMany<TemplateResourceRow>(
+    const fetchedRows = await selectMany<TemplateResourceRow>(
       ctx.db,
       templateResourcesTable,
       { kind: { in: [...OVERVIEW_KINDS] } },
-      { limit: OVERVIEW_ROW_LIMIT },
+      { orderBy: { col: "id", direction: "asc" }, limit: OVERVIEW_ROW_LIMIT + 1 },
     );
+    const truncated = fetchedRows.length > OVERVIEW_ROW_LIMIT;
+    const rows = truncated ? fetchedRows.slice(0, OVERVIEW_ROW_LIMIT) : fetchedRows;
+    if (truncated) {
+      ctx.log?.warn("template overview: row limit reached, result is incomplete", {
+        limit: OVERVIEW_ROW_LIMIT,
+      });
+    }
 
     const visibleRows = rows.filter((row) => !isHiddenSystemDraft(query.user, row));
     const { drafts, layoutSlugByDocument } = buildDrafts(
       groupBySlugAndKind(visibleRows),
       query.user,
     );
+    const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows);
     const overviewRows = drafts.map((draft) =>
-      withUsage(draft, layoutSlugByDocument, ctx.registry),
+      withUsage(draft, layoutSlugByDocument, ctx.registry, effectiveLayouts),
     );
-    const filtered = filterRows(overviewRows, payload.search, payload.filters ?? []);
+    const filtered = filterRows(
+      overviewRows,
+      payload.search,
+      payload.filters ?? [],
+      payload.layoutSlug,
+    );
 
     const sortField: SortField =
       payload.sort !== undefined && isSortField(payload.sort) ? payload.sort : "modifiedAt";
@@ -285,6 +327,7 @@ export const overviewQuery = defineQueryHandler({
       rows: filtered.slice(offset, offset + payload.limit),
       nextCursor: null,
       total: filtered.length,
+      truncated,
     } satisfies OverviewResponse;
   },
 });

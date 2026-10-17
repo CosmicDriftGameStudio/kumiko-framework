@@ -58,8 +58,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // setupTestStack's cleanup handles eventDispatcher.stop(), which in
-  // turn unlistens.
+  await stack.cleanup();
 });
 
 // --- Tests ---

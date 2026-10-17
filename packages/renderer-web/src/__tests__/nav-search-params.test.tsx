@@ -136,6 +136,22 @@ describe("useBrowserNavApi — navigate with searchParams", () => {
     expect(window.location.search).toBe("");
   });
 
+  test("navigating to the current path keeps the query, searchParams {} clears it", () => {
+    setLocation("/orders", "?orders.f.status=open");
+    const initialHistoryLength = window.history.length;
+    const { result } = renderHook(() => useBrowserNavApi());
+    act(() => {
+      result.current.navigate({ screenId: "orders" });
+    });
+    expect(window.location.search).toBe("?orders.f.status=open");
+    expect(window.history.length).toBe(initialHistoryLength);
+    act(() => {
+      result.current.navigate({ screenId: "orders" }, { searchParams: {} });
+    });
+    expect(window.location.search).toBe("");
+    expect(window.history.length).toBe(initialHistoryLength + 1);
+  });
+
   test("replace and hrefFor take the same searchParams", () => {
     setLocation("/orders", "");
     const initialHistoryLength = window.history.length;

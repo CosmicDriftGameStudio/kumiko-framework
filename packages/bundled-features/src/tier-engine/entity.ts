@@ -1,4 +1,9 @@
-import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createSelectField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { type TierAssignmentSource, TierAssignmentSources } from "./constants.js";
 
 // tier-assignment — pro Plattform-Tenant genau ein Aggregat. Aggregate-ID
 // wird deterministisch aus tenantId abgeleitet (uuidv5, siehe aggregate-id.ts).
@@ -35,9 +40,9 @@ export const tierAssignmentEntity = createEntity({
     }),
     // Origin of the assignment, see TierAssignmentSources. Optional for back-compat with
     // rows without source. Protects manual grants from being overwritten by the billing sync.
-    source: createTextField({
+    source: createSelectField({
+      options: Object.values(TierAssignmentSources),
       required: false,
-      maxLength: 20,
       personal: false,
       reason: "technical_reference",
     }),
@@ -48,6 +53,6 @@ export type TierAssignmentRow = {
   readonly id: string;
   readonly version: number;
   readonly tier: string;
-  readonly source: string | null;
+  readonly source: TierAssignmentSource | null;
   readonly tenantId: string;
 };

@@ -15,26 +15,42 @@ const FONT_FAMILIES = {
   serif: "Georgia, 'Times New Roman', serif",
 } as const;
 
-const BUTTON_COLOR = "#1f5468";
+const DEFAULT_BUTTON_COLOR = "#1f5468";
 const BUTTON_BASE = "display:inline-block;padding:10px 20px;font-weight:600;text-decoration:none";
 
-const BUTTON_STYLES = {
-  "filled-rounded": `${BUTTON_BASE};border-radius:6px;background-color:${BUTTON_COLOR};color:#ffffff`,
-  "filled-square": `${BUTTON_BASE};background-color:${BUTTON_COLOR};color:#ffffff`,
-  outline: `${BUTTON_BASE};border:2px solid ${BUTTON_COLOR};border-radius:6px;color:${BUTTON_COLOR}`,
-} as const;
+type ButtonStyle = NonNullable<MailLayoutMeta["buttonStyle"]>;
+
+function buttonStyleCss(style: ButtonStyle, color: string): string {
+  switch (style) {
+    case "filled-rounded":
+      return `${BUTTON_BASE};border-radius:6px;background-color:${color};color:#ffffff`;
+    case "filled-square":
+      return `${BUTTON_BASE};background-color:${color};color:#ffffff`;
+    case "outline":
+      return `${BUTTON_BASE};border:2px solid ${color};border-radius:6px;color:${color}`;
+  }
+}
 
 export function isHexColor(value: string): boolean {
   return HEX_COLOR_PATTERN.test(value);
 }
 
-export function mailLayoutAppearance(meta: MailLayoutMeta | unknown): MailLayoutAppearance {
+// The branding accent colors the buttons only where the layout opted into the branding accent line.
+export function mailLayoutAppearance(
+  meta: MailLayoutMeta | unknown,
+  brandingAccentColor?: string,
+): MailLayoutAppearance {
   const parsed = readMailLayoutMeta(meta);
+  const accentLine = (parsed.accentLine ?? "none") === "branding";
+  const buttonColor =
+    accentLine && brandingAccentColor !== undefined && isHexColor(brandingAccentColor)
+      ? brandingAccentColor
+      : DEFAULT_BUTTON_COLOR;
   return {
     width: parsed.width ?? 600,
     fontFamily: FONT_FAMILIES[parsed.font ?? "sans"],
     outerBackground: parsed.outerBackground ?? "#f5f5f5",
-    accentLine: (parsed.accentLine ?? "none") === "branding",
-    buttonStyle: BUTTON_STYLES[parsed.buttonStyle ?? "filled-rounded"],
+    accentLine,
+    buttonStyle: buttonStyleCss(parsed.buttonStyle ?? "filled-rounded", buttonColor),
   };
 }

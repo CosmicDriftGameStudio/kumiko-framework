@@ -10,6 +10,12 @@ type GatedScreen = Pick<ScreenDefinition, "visibleWhen" | "fallback">;
 
 function gatedFeature(gate: GatedScreen, upgradeGate: GatedScreen = {}) {
   return defineFeature("demo", (r) => {
+    r.queryHandler(
+      "tier:scoped-status",
+      z.object({ tierId: z.string() }),
+      async () => ({ enabled: true }),
+      { access: OPEN, outputSchema: z.object({ enabled: z.boolean() }) },
+    );
     r.queryHandler("tier:status", z.object({}), async () => ({ enabled: true }), {
       access: OPEN,
       outputSchema: z.object({ enabled: z.boolean() }),
@@ -64,6 +70,15 @@ describe("validateBoot — screen visibleWhen", () => {
     });
     expect(() => validateBoot([feature])).toThrow(
       /Screen "items" \(projectionList\) visibleWhen references field "enable" which is not present in query "demo:query:tier:status"'s outputSchema/,
+    );
+  });
+
+  test("rejects a visibleWhen query whose input requires fields", () => {
+    const feature = gatedFeature({
+      visibleWhen: { query: "demo:query:tier:scoped-status", field: "enabled", eq: true },
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /visibleWhen query "demo:query:tier:scoped-status" requires input; visibleWhen queries run with an empty payload/,
     );
   });
 

@@ -1,5 +1,204 @@
 [
   {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A throwing command in a batch without a database connection releases its cap reservation",
+    "detail": "The sequential fallback of dispatchBatch (no DB connection) did not release the reserved capacity when a command threw instead of returning a failure result. It now releases the reservation before rethrowing."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Write handlers can declare a beforeTransaction phase, and file bytes can be uploaded before the transaction",
+    "detail": "defineWriteHandler accepts beforeTransaction(event, ctx), which the dispatcher runs after the pre-handler gates and any reserveBeforeTransaction and before the transaction opens, so a slow external call holds no pool connection. Its data reaches the handler as event.prepared; a failure result or throw rejects the write, and its release runs whenever the transaction does not commit. ctx.write, appendEvent, notify and the other write surfaces throw inside the phase, and a handler with the phase cannot run as a nested ctx.write. uploadFileBytesBeforeTransaction writes the bytes in that phase and createFileRefFromUploadedBytes creates the fileRef row in the handler; the release keeps the bytes when the row exists. Original files whose row never committed stay in storage, no job sweeps them."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Boot-validator and guard messages name the fix",
+    "detail": "Boot-validator and guard messages that only described the problem now also say what to do about it. The German configEdit and retention messages are in English. Validation and guard behavior is unchanged."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "CacheSyncBus.publish takes { remoteOnly } to skip same-process listeners",
+    "detail": "`publish(topic, message, { remoteOnly: true })` delivers only to other processes. Use it when the publisher has already applied the change locally and a local fanout would trigger a redundant reload."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "changes.json no longer ships paths into private repositories",
+    "detail": "Older changelog entries named file paths and a docs path of private repositories. They now name only the repository. The changelog guard rejects a `<private-repo>/<path>` reference or a github.com link into a private repository."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "coerceRow no longer claims the raw driver row already has the converted shape",
+    "detail": "coerceRow now accepts a Record<string, unknown> driver row and returns the explicitly requested row type, with the single cast at that boundary. The raw event-consumer, pending-event and projection-rebuild queries return untyped rows instead of a caller-chosen generic. The eventMigrations JSDoc and the expand/contract guide now state that pii and encrypted fields reach transforms as field-bound ciphertext and must not be renamed or derived from."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "collectTableMetas rejects two features registering the same table name",
+    "detail": "Two entities or storeTables with the same table name produced duplicate metas that only failed later in `schema generate` with a message about a hand-added meta. collectTableMetas now throws at the first registration with both origins, so setupTestStack fails the same way. The duplicate-name error of the migration generator no longer assumes a hand-added meta."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "System-cron escape hatch audits are deduplicated per target and repeat daily",
+    "detail": "The per-process dedup of declared system-cron hatches keyed only on handler, kind and tenant, so a run writing several global tables was audited for the first table only, and a worker running longer than the audit retention left no event. The key now includes the target and the process audits again after 24 hours."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "A detail() cache hit with an ownership predicate costs one database statement",
+    "detail": "The ownership re-check and the live stream-version read for a cached detail row now run as a single query, so a cache hit is no more expensive than a cache miss for entities with SQL ownership rules."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A later cookieDomain or secureCookies:false no longer leaves stale __Host- auth and csrf cookies behind",
+    "detail": "expireLegacySessionCookieVariants covers both directions. With unprefixed names and secure cookies, setAuthCookies and clearSessionCookies now also expire __Host-kumiko_auth and __Host-kumiko_csrf as Secure, Path=/, host-only. Before, the browser kept sending the stale __Host-kumiko_csrf in X-CSRF-Token and every write failed with csrf_token_mismatch until it expired."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Expired fileRef purge no longer stalls on rows that keep failing",
+    "detail": "The soft-delete cleanup always selected the oldest 500 expired fileRefs, so 500 permanently failing rows (unsafe key, missing list permission) blocked every newer expired fileRef of that tenant. A run now walks the expired rows page by page along (deletedAt, id) and ends on an empty page; failed rows are retried on the next run."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Extra routes outside /api get the request body cap for every entry",
+    "detail": "extraRoutes with entry anonymous or user outside /api now run behind the maxRequestBytes body limit like signature routes already did, so an unauthenticated caller can no longer stream an oversized body into a public form or callback route."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "FileContext.refFromFileRef reads files whose fileRef moved to another tenant",
+    "detail": "A tenant handover moves the fileRef row but not the bytes, so the storageKey keeps the previous tenant's prefix and the tenant-bound `ctx.files.ref(key)` rejected it. FileContext gains `refFromFileRef({ storageKey })` for keys read from a fileRef row the caller has already tenant-checked: it skips the tenant-prefix check and still rejects unsafe keys. The variant route and ctx.derivatives.variant use it, so variants of handed-over files render again. `ref(key)` keeps the prefix check for freely supplied keys."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "A save with file fields loads its fileRef rows once",
+    "detail": "The tenant check and the pending-upload binding of a save each read every named fileRef row inside the write transaction. They now share one query over the ids, restricted to the writer's tenant and live rows. Values that are not UUIDs are still skipped."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Agent guide and generated indexes ship in the framework package",
+    "detail": "The framework package now contains AGENTS.md plus an agents/ directory with generated feature, widget and example indexes, built from feature-manifest.json, the renderer-web exports and samples/recipes. The new agent-docs-drift guard in kumiko check fails when the committed files differ from the generator output. New apps get an AGENTS.md and a CLAUDE.md that point at the packaged guide."
+  },
+  {
+    "version": "0.364.0",
+    "type": "breaking",
+    "title": "Handler field references support business keys and array fields",
+    "migration": "handlerFieldReference(schema, field) now returns { entity, by, multiple } instead of the entity string. Replace reference with reference.entity; skip or handle fields where by is set (value is a business key, not an id) or multiple is true (value is an array)."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "An empty jsonText match list no longer returns every row",
+    "detail": "A where filter `{ jsonText: [] }` on a jsonb column used to add no condition, so the query returned all rows. It now matches no rows, like `in: []`. A `null` or non-object entry in the list throws the descriptive jsonText error instead of a bare TypeError."
+  },
+  {
+    "version": "0.364.0",
+    "type": "improvement",
+    "title": "Facet field docs name the reference exception",
+    "detail": "The docs of projectionList.facets and relatedList.facets said every facet field must be a declared column. A facet of type \"reference\" is exempt: it filters by id through the bound query's filters and needs a registered entity instead. Behavior is unchanged."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "list() reads rows and stream versions in one statement",
+    "detail": "The entity list read the rows first and the stream versions in a second statement, so a concurrent write could pair old row data with a newer version, and an update built on that version would pass the optimistic lock. The stream version is now a correlated subquery of the list statement, the same way detail() reads it."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Existing tenant indexes pick up searchable fields added to the registry default",
+    "detail": "The lazy default configuration now also applies to an index whose stored searchable, filterable and sortable attributes are a strict subset of the current default (an older default after a deploy added fields). Indexes holding any attribute outside the current default are treated as an explicit configure() and stay untouched, as before."
+  },
+  {
+    "version": "0.364.0",
+    "type": "breaking",
+    "title": "Writes without an open transaction run as their own command; ctx.db writes there throw",
+    "detail": "Write handlers accept transaction \"perCommand\". Such a handler runs without a transaction of its own, so every ctx.write and ctx.writeAs it issues runs as its own top-level command with its own transaction, gates and afterCommit hooks. A perCommand handler cannot run as a nested ctx.write, cannot be part of a multi-command batch (422 per_command_handler_in_batch) and cannot combine with beforeTransaction or reserveBeforeTransaction (boot error). ctx.write and ctx.writeAs from stream handlers and top-level query handlers now take the same route, so afterCommit hooks of the called write, which never fired before, fire now. ctx.db writes (entity executor, insertOne, updateMany, deleteMany, db.global() writes) and event appends (appendEvent, unsafeAppendEvent, tryAppendEvent, fetchForWriting, archiveStream, restoreStream, snapshotAggregate) throw in stream handlers, top-level query handlers, perCommand handlers and in beforeTransaction and reserveBeforeTransaction. ctx.dbOutsideTransaction and ctx.outsideTransaction stay available, and ctx.db.unsafeRaw stays open as the audited escape hatch.",
+    "migration": "Stream and query code that writes through ctx.db or an executor bound to ctx.db calls a write handler through ctx.write or ctx.writeAs instead, or writes deliberately through ctx.dbOutsideTransaction. Check code that relied on afterCommit hooks of a write called from a stream or query handler not firing. bookCapUsage from a stream or query handler needs outsideTransaction true or a command. runInOwnTransaction(ctx.db, ...) stays locked in these contexts; runInOwnTransaction(ctx.dbOutsideTransaction, ...) is the way to a deliberate own transaction. Measured consumers: one stream handler (AI agent turn: conversation, activity and tool-call records through an executor on ctx.db, plus cap booking) and one query handler (AI text run: cap booking on ctx.db, log via ctx.write). No other consumer app has stream or query writes. The beforeTransaction/reserveBeforeTransaction lock affects no released code."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "decryptForRead and eager-loaded refs decrypt file, image, files and images fields that hold legacy ciphertext",
+    "detail": "Only the encrypt side skips file-reference fields. The decrypt side uses collectPiiSubjectFields again and passes plaintext through unchanged, so rows written by the old backfill, which encrypted the file uuid, are read as plaintext instead of failing with pii_ciphertext_leak."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Cascade deletes honour the record-lock exemptions and ignore soft-deleted children",
+    "detail": "The cascade hook blocked a parent delete on a locked child even when the executor delete had skipped the lock guard (unsafeSkipLockGuard, a framework system write with a writePurpose, forget). DeleteContext now carries lockGuardBypassed and the hook follows it. Soft-deleted children no longer count as locked."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "reserveBeforeTransaction contexts now reject writes that would escape the transaction",
+    "detail": "The context passed to reserveBeforeTransaction now throws on ctx.write, writeAs, event appends, scheduleAfterCommit, notify and jobRunner, like the beforeTransaction phase does. dbOutsideTransaction, outsideTransaction and forTenant stay available because reservations deliberately write outside the transaction."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Restore no longer writes plaintext PII from pre-KMS rows into the event log",
+    "detail": "Restore now decrypts the soft-deleted row and re-encrypts it like delete before storing previous, so rows written before the subject KMS was configured no longer leak plaintext personal fields into the restored event. Restoring such a row for an erased subject now fails like delete."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "bindReferencedFiles binds only refs of the record's tenant in one bulk load",
+    "detail": "File refs for a page are loaded with a single query restricted to the writer's tenant and live rows; system-owned refs are not bound to records."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Boot validator covers option, prefill, emptyState, anonymous rate-limit and searchable-access gaps",
+    "detail": "Rejects optionsQuery combined with optionsAvailabilityQuery, invalid dashboard valueFormat kinds, from-today panels without ranges or brush, params on emptyState navigate/drawer, unknown submitPrefilled keys, per-user rate limits on tenantless anonymous handlers, unknown conditional select option values, and searchable fields (including embedded sub-fields) the reader cannot access."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Malformed requestId or batch command shapes return 400 instead of failing later",
+    "detail": "The dispatch and batch routes parse requestId and each command before dispatching, returning a validation error for malformed shapes, and the JSON body reader no longer relies on a type assertion."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "files/images maxCount is validated on write",
+    "detail": "The generated write schema applies .max(maxCount) to files and images fields, so payloads with more ids than allowed are rejected with a validation error."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "render/parse roundtrip keeps secrets valid when writeRoles is empty",
+    "detail": "renderSecret and renderSecretNamespace omit writeRoles when the list is empty so the rendered source parses back to the same definition."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "A stale auth cookie on the SSE stream ends the web session with a session-ended frame",
+    "detail": "With anonymousAccess, a stale or revoked auth cookie downgrades /api/sse to an anonymous 200, so the web client never noticed the session end and live updates stopped silently. The stream now opens with a session-ended frame carrying the rejection code and expires the auth cookies; the renderer-web live-events client calls onSessionEnded once for it."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Unit tests no longer leak a console.warn spy into later files",
+    "detail": "The search payload precedence tests spy on console.warn per test and restore it, so later files in the same --no-isolate worker start with the real console.warn. The mail editor missing-language test waits for the placeholder rail instead of reading it before the validate query settled."
+  },
+  {
+    "version": "0.364.0",
+    "type": "fix",
+    "title": "Calling transaction() on a tx or savepoint handle fails with an InternalError",
+    "detail": "`RawClient.begin` is now typed optional, and `transaction()` checks it like `runInNewTransaction` does, so a nested call raises an InternalError (\"runner has no begin()\") instead of a TypeError. The migrate runner requires `begin` on its client and rejects handles without it before running any SQL."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "Fewer unchecked casts in bundled features, dev-server, server-runtime, testing and cli",
@@ -123,7 +322,7 @@
     "type": "breaking",
     "title": "Unbound uploads are private to the uploader (security)",
     "detail": "The default file access guard denies every operation on a file with no entityType or no entityId unless the caller is the uploader or has a role in privilegedRoles; the file routes answer 404 as for any denied file. Before, files without entityType were readable by the whole tenant and pending uploads until a record claimed them. bindPendingFileRefs now also runs for updates and binds the file ids named in the update's changes for file, image, files and images fields (same entityType and fieldName, entityId null, insertedById = caller), so createFileRefFromBytes with attachTo but no entityId plus a following update write attaches the file to the record.",
-    "migration": "Code that shows a file without entityType to other users (tenant logo, avatar, mail attachment, import preview, AI-agent output) must upload it with entityType and fieldName of a file field on a record and save the record, so readers of that record can read it; or keep it uploader-only, run the read as a role in privilegedRoles, or set a custom accessGuard in the files feature options. Apps that set accessGuard keep their own decision. Code that reads another user's pending upload before the record is saved must bind the file first or run as the uploader. Known case: solon's document upload (`document/web/upload-file.ts`) posts without entityType and the later document record (created by the ingest job, not the uploader) stores the id in its `fileId` field, so other users no longer read the original; solon must upload with entityType and fieldName of `fileId` and bind the file when the record is created, because a different creator cannot claim the pending upload."
+    "migration": "Code that shows a file without entityType to other users (tenant logo, avatar, mail attachment, import preview, AI-agent output) must upload it with entityType and fieldName of a file field on a record and save the record, so readers of that record can read it; or keep it uploader-only, run the read as a role in privilegedRoles, or set a custom accessGuard in the files feature options. Apps that set accessGuard keep their own decision. Code that reads another user's pending upload before the record is saved must bind the file first or run as the uploader. Known case: solon's document upload posts without entityType and the later document record (created by the ingest job, not the uploader) stores the id in its `fileId` field, so other users no longer read the original; solon must upload with entityType and fieldName of `fileId` and bind the file when the record is created, because a different creator cannot claim the pending upload."
   },
   {
     "version": "0.361.0",
@@ -156,7 +355,7 @@
     "type": "breaking",
     "title": "Schema generate rejects a table listed twice in ENTITY_METAS",
     "detail": "When ENTITY_METAS contained the same tableName twice, the migration diff kept only the last definition and compared it against the previous snapshot entry, so a new index was written to .snapshot.json but no CREATE INDEX reached the migration SQL. kumiko-schema generate, kumiko-schema validate and programmatic generateMigration now throw (generate and validate exit 1 with a message naming every duplicated table) before any file is written.",
-    "migration": "Remove hand-added metas for tables a feature already registers from kumiko/schema.ts. Known: phronexsis kumiko/schema.ts appends IN_APP_MESSAGES_META next to collectTableMetas(FEATURES); drop it (and its comment), then run kumiko-schema generate — the existing in_app_messages_tenant_user_created_idx comes out as CREATE INDEX IF NOT EXISTS (no-op) and the two legacy indexes as commented review drops. The duplicate in_app_messages entry in .snapshot.json disappears with that generate."
+    "migration": "Remove hand-added metas for tables a feature already registers from kumiko/schema.ts. Known: phronexsis's schema file appends IN_APP_MESSAGES_META next to collectTableMetas(FEATURES); drop it (and its comment), then run kumiko-schema generate — the existing in_app_messages_tenant_user_created_idx comes out as CREATE INDEX IF NOT EXISTS (no-op) and the two legacy indexes as commented review drops. The duplicate in_app_messages entry in .snapshot.json disappears with that generate."
   },
   {
     "version": "0.361.0",
@@ -182,7 +381,7 @@
     "type": "breaking",
     "title": "Secure host-only session cookies use the __Host- prefix",
     "detail": "Auth, csrf and tenant cookies are named __Host-kumiko_auth, __Host-kumiko_csrf and __Host-kumiko_tenant when they are written Secure and without a Domain (the tenant cookie is always host-only). With auth.cookieDomain or without Secure the auth and csrf names stay kumiko_auth and kumiko_csrf. New auth option secureCookies forces Secure (default NODE_ENV === \"production\"). Login deletes the legacy unprefixed host-only cookies, logout and deleteTenantCookie delete the prefixed and the legacy names. The server reads only the resolved names, so a request that carries only the legacy kumiko_auth is anonymous. AUTH_COOKIE_NAME, CSRF_COOKIE_NAME and TENANT_COOKIE_NAME are removed from the framework and dispatcher-live; the base names and sessionCookieName() are exported from @cosmicdrift/kumiko-types/session-cookies and @cosmicdrift/kumiko-framework/api, getSessionCookies(c) returns the resolved names of a request. The testing package's CSRF_COOKIE_NAME stays and resolves to the unprefixed name (e2e servers run without Secure).",
-    "migration": "Every user logs in once after the deploy, because the old kumiko_auth cookie is no longer read. Custom clients, proxies or scripts that read or forward the cookies by literal name break: read the names through sessionCookieName() / resolveSessionCookieNames() (types package) or getSessionCookies(c) on the server, and handle both the prefixed and the plain name in browser code (readCsrfToken() already does). Replace imports of AUTH_COOKIE_NAME, CSRF_COOKIE_NAME and TENANT_COOKIE_NAME with AUTH_COOKIE_BASE, CSRF_COOKIE_BASE and TENANT_COOKIE_BASE plus sessionCookieName(); e2e helpers that imported CSRF_COOKIE_NAME from @cosmicdrift/kumiko-dispatcher-live import it from @cosmicdrift/kumiko-testing/e2e instead (known: solon e2e/_helpers/api.ts and e2e/session-ended.spec.ts, kumiko-enterprise ai-agent-live-transcription.integration.test.ts uses AUTH_COOKIE_NAME). A reverse proxy that strips or rewrites cookie names must pass the __Host- names unchanged. Staging or preview deployments over plain http need no change (Secure is off there); set auth.secureCookies (also accepted by runProdApp) explicitly when TLS terminates before the app and NODE_ENV is not \"production\". A standalone createAuthRoutes mount outside buildServer must also mount sessionCookiesMiddleware with the same resolved names, otherwise the readers fall back to the domain-less default."
+    "migration": "Every user logs in once after the deploy, because the old kumiko_auth cookie is no longer read. Custom clients, proxies or scripts that read or forward the cookies by literal name break: read the names through sessionCookieName() / resolveSessionCookieNames() (types package) or getSessionCookies(c) on the server, and handle both the prefixed and the plain name in browser code (readCsrfToken() already does). Replace imports of AUTH_COOKIE_NAME, CSRF_COOKIE_NAME and TENANT_COOKIE_NAME with AUTH_COOKIE_BASE, CSRF_COOKIE_BASE and TENANT_COOKIE_BASE plus sessionCookieName(); e2e helpers that imported CSRF_COOKIE_NAME from @cosmicdrift/kumiko-dispatcher-live import it from @cosmicdrift/kumiko-testing/e2e instead (known: solon's e2e helpers and specs, and a kumiko-enterprise integration test that uses AUTH_COOKIE_NAME). A reverse proxy that strips or rewrites cookie names must pass the __Host- names unchanged. Staging or preview deployments over plain http need no change (Secure is off there); set auth.secureCookies (also accepted by runProdApp) explicitly when TLS terminates before the app and NODE_ENV is not \"production\". A standalone createAuthRoutes mount outside buildServer must also mount sessionCookiesMiddleware with the same resolved names, otherwise the readers fall back to the domain-less default."
   },
   {
     "version": "0.360.0",
@@ -254,7 +453,7 @@
     "type": "breaking",
     "title": "Entity PII fields need whenAbsent: \"tenant\" when the owner field is nullable",
     "detail": "personal: { of: \"<owner>\", whenAbsent: \"tenant\" } makes rows without an owner editable, deletable and forgettable with an active KMS, without plaintext PII. The subject is resolved in this order: the owner on the previous row, the owner the same event sets, then the tenant key (tenant:<tenantId>). Before, an update, delete or forget of an ownerless row failed with SubjectResolutionError (HTTP 500) once a KMS was configured. backfill-pii follows the same chain and checks the projection row for the owner before it falls back to the tenant key; an updated event whose previous.owner is null but whose changes.owner is set no longer loses the owner. Entity fields have no plaintext fallback, so \"tenant\" is the only value. bundled jobs: cron and system runs (triggeredById null) now store payload, error and log messages as ciphertext under the system tenant key instead of plaintext.",
-    "migration": "Boot now aborts for a personal: { of: \"<owner>\" } field whose owner field is not required and that declares no whenAbsent: [Feature X] Field \"f\" on entity \"e\" is personal: { of: \"ownerId\" }, but \"ownerId\" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: \"ownerId\", whenAbsent: \"tenant\" } } to encrypt those rows under the tenant key, or make \"ownerId\" required: true. Entity fields have no plaintext fallback (fw#3654). Fix: add whenAbsent: \"tenant\", or make the owner field required: true if every row has one. whenAbsent on personal: { of: \"id\" } throws at declaration. Known consumer sites: kumiko-enterprise kumiko-credit entity.ts and bauspar-entity.ts (ownerUserId), ai-agent entity.ts (authorId, ownerId) and attachment-store.ts (authorId), ai-conversation entity.ts (authorId), pattern-storage entity.ts (authorId), offlot-app src/features/lead/schema/entity.ts (enquiryId). Existing plaintext job-run rows of cron runs stay readable; new ones are ciphertext."
+    "migration": "Boot now aborts for a personal: { of: \"<owner>\" } field whose owner field is not required and that declares no whenAbsent: [Feature X] Field \"f\" on entity \"e\" is personal: { of: \"ownerId\" }, but \"ownerId\" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: \"ownerId\", whenAbsent: \"tenant\" } } to encrypt those rows under the tenant key, or make \"ownerId\" required: true. Entity fields have no plaintext fallback (fw#3654). Fix: add whenAbsent: \"tenant\", or make the owner field required: true if every row has one. whenAbsent on personal: { of: \"id\" } throws at declaration. Known consumers: kumiko-enterprise (entities with an ownerUserId, authorId or ownerId owner field) and offlot-app (a lead entity with enquiryId). Existing plaintext job-run rows of cron runs stay readable; new ones are ciphertext."
   },
   {
     "version": "0.357.0",
@@ -336,7 +535,7 @@
     "version": "0.354.0",
     "type": "breaking",
     "title": "enrichWithReferences and enrichRowWithReferences require a viewer { user, parentVisibility }",
-    "migration": "Custom handlers pass `{ user: query.user, parentVisibility: { entities: ctx.registry.getAllEntities() } }` as the fifth argument. No direct callers are known in the workspace apps. Apps can now point reference fields at team- or row-scoped entities (for example solon unitId/propertyId)."
+    "migration": "Custom handlers pass `{ user: query.user, parentVisibility: { entities: ctx.registry.getAllEntities() } }` as the fifth argument. No direct callers are known in the workspace apps. Apps can now point reference fields at team- or row-scoped entities (for example solon's unitId and propertyId)."
   },
   {
     "version": "0.354.0",
@@ -658,7 +857,7 @@
     "type": "breaking",
     "title": "Key Manager slots are required, LEGACY_SLOTS default removed",
     "detail": "Key Manager slots are required: no more LEGACY_SLOTS default\n`resolvePlatformKeks`, `resolveKmsWiringAsync` and `requireKmsWiringAsync` no longer fall back to the three platform slots; `slots` is a required option. `runSchemaCli` called with `features` now requires `kmsSlots` and exits 1 with a hint before any DB connect or migration apply when it is missing. `kmsSlots: []` stays valid for apps that wire no Key Manager slots. The scaffolded `bin/kumiko.ts` passes `kmsSlots` derived from the composed env schema.",
-    "migration": "Pass `slots` (for example `kmsSlotsOf(<app>ComposedEnv.schema)`) to `resolvePlatformKeks`, `resolveKmsWiringAsync` and `requireKmsWiringAsync`. In `bin/kumiko.ts`, `runSchemaCli(..., { features })` needs `kmsSlots: kmsSlotsOf(<app>ComposedEnv.schema)` (or `[]` when the app wires no Key Manager slots. With `[]` every `*_CIPHERTEXT` env var is ignored, so an app that ships a ciphertext must pass its slots); without it the CLI exits 1 before applying migrations.\nWorkspace state at release: show-pony `bin/kumiko.ts` and its docs copy `kumiko-platform/apps/docs/_samples/show-pony/bin/kumiko.ts` still call `runSchemaCli` with `features` only. publicstatus, solon, offlot-app, money-horse, phronexsis and kumiko-studio already pass `kmsSlots` / `slots`."
+    "migration": "Pass `slots` (for example `kmsSlotsOf(<app>ComposedEnv.schema)`) to `resolvePlatformKeks`, `resolveKmsWiringAsync` and `requireKmsWiringAsync`. In `bin/kumiko.ts`, `runSchemaCli(..., { features })` needs `kmsSlots: kmsSlotsOf(<app>ComposedEnv.schema)` (or `[]` when the app wires no Key Manager slots. With `[]` every `*_CIPHERTEXT` env var is ignored, so an app that ships a ciphertext must pass its slots); without it the CLI exits 1 before applying migrations.\nWorkspace state at release: show-pony `bin/kumiko.ts` and its copy in the kumiko-platform docs samples still call `runSchemaCli` with `features` only. publicstatus, solon, offlot-app, money-horse, phronexsis and kumiko-studio already pass `kmsSlots` / `slots`."
   },
   {
     "version": "0.342.0",
@@ -2065,7 +2264,7 @@
     "type": "breaking",
     "title": "TenantDataHookCtx/UserDataHookCtx.db is a tenant-filtered TenantDb; unfiltered hook access needs r.useExtension({ escapeHatch }) (fw#2914 Zugang 3).",
     "detail": "EXT_TENANT_DATA `destroy` hooks (`TenantDataHookCtx.db`) and EXT_USER_DATA `export`/`delete` hooks (`UserDataHookCtx.db`) no longer receive the unfiltered `DbRunner` that was bound to the extension's owning handler. Both are now a `TenantDb` in \"tenant\" mode, built via the public `createTenantDb(...)`, bound to the hook's `tenantId`: reads/writes go through `ctx.db.selectMany/fetchOne/insertOne/updateMany/deleteMany`, already scoped to that tenant plus `SYSTEM_TENANT_ID` reference rows. `r.useExtension(EXT_USER_DATA | EXT_TENANT_DATA, entityName, { ... })` gains an `escapeHatch?: { reason: string }` option, validated non-empty at registration time (throws at boot for an empty/whitespace reason). Declaring it grants `ctx.db.unsafeRaw(reason)` inside that entity's hooks — same reason string — which returns the real, unfiltered `DbRunner`; without it, `ctx.db.unsafeRaw(reason)` throws `AccessDeniedError`. Every granted use reports an `\"unsafe-raw\"` escape-hatch audit event (`{ handler: \"userData:<entity>\"|\"tenantData:<entity>\", kind, reason, tenantId, actor }`) through the caller's `_escapeHatchAuditSink` when wired, else a `security:escape-hatch-used` warn-log — same #2861 pattern PR #2934 already applied to the job runner, and the same one fw#2914's earlier JobContext.db and read-step changes already applied elsewhere in the framework. `run-forget-cleanup.ts`/`run-user-export.ts` (user-data-rights) thread `escapeHatchAuditSink`/`actor` from their owning `r.job`'s `ctx._escapeHatchAuditSink`/`ctx.systemUser.id` down to each hook's `TenantDb`, so a declared use is attributed to the real job run, not `\"<unattributed>\"`.\n`asRawClient(ctx.db)` inside a hook now throws immediately: `asRawClient` rejects a `TenantDb`-shaped argument (\"received a tenant-scoped TenantDb (ctx.db). Raw SQL helpers do not apply the tenant filter — use a ctx.db.<method>, or ctx.db.unsafeRaw(reason) with escapeHatch: { reason } ...\"). The framework's `DbRunner`-typed free functions (`selectMany(db, table, where)`, `fetchOne`, `insertOne`, `updateMany`, `deleteMany`, `createTenantDb(db, tenantId, mode)`, etc. from `@cosmicdrift/kumiko-framework/bun-db`/`/db`) now reject `ctx.db` as their first argument at compile time too — `TenantDb` does not structurally satisfy `DbRunner` (no `.unsafe`/`.begin`).\nA table built via `createEntity`+`buildEntityTable`+`r.entity(...)` carries the pre-existing `EXECUTOR_ONLY` brand, so `ctx.db.insertOne/updateMany/deleteMany(table, ...)` against it is a compile error by design (\"a managed projection is only writable through the executor\"); a hook that needs to write such a table directly (bulk hard-delete, jsonb key removal, an UPDATE expression `updateMany`'s literal-value `set` can't express) needs the `escapeHatch` + `ctx.db.unsafeRaw(reason)` route, filtering by tenant/owner in the SQL text itself — the escape hatch removes automatic tenant-filtering, not the hook author's responsibility to filter. A table built via `defineUnmanagedTable` carries no such brand and stays writable through `ctx.db`'s typed methods directly.\nThis PR's own `custom-fields` user-data-rights wiring (`wire-user-data-rights.ts`) uses the escape hatch for exactly this reason: `selectCustomFieldsHostRows` runs against a dynamic host table name unknown at compile time, so it can't use `ctx.db`'s typed methods. CI's `AST-Guards (shared runner)` step (`@cosmicdriftgamestudio/kumiko-guards@^0.36.0`, pinned) does not yet recognize this call shape — `isEscapeHatchDeclaredFunction` in `guard-escape-hatch-declared.ts` only matches a property/method literally named `handler`, or a direct call to `hook`/`writeHandler`/`queryHandler`/`streamHandler`; `r.useExtension(EXT_USER_DATA, entityName, { export: exportHook, escapeHatch })` matches neither, because `useExtension` isn't in `ESCAPE_HATCH_CALL_METHODS` and the hook property here is `export`/`delete`, never `handler`. This also isn't fixable by baselining from kumiko-framework: `security-baselines/<repo>.json` ships inside the pinned `@cosmicdriftgamestudio/kumiko-guards` npm package itself, and `run-guards.ts`'s own comment states it is rewritten only by \"the infra baseline-maintenance run over all repos on main\" — never by a consuming repo's local run, and never persisted through a consuming repo's `bun install`. The fix belongs in the guard's owning repo (presumably `infra`, per this workspace's root `CLAUDE.md`): add `useExtension` to `ESCAPE_HATCH_CALL_METHODS`, or otherwise recognize the framework's actual hook-property names (`export`/`delete`/`destroy`), then release a new `@cosmicdriftgamestudio/kumiko-guards` version and bump the range in kumiko-framework's `package.json`. Until that lands, this PR's `AST-Guards (shared runner)` CI check stays red on this one finding; every other check is green.",
-    "migration": "A hook that only reads/writes its own tenant through `ctx.db` method calls (`ctx.db.selectMany/fetchOne/insertOne/updateMany/deleteMany`) needs no change — it now gets the same tenant filter every other `TenantDb` consumer already had. A hook that treated `ctx.db` as a raw connection (`asRawClient(ctx.db)`, `ctx.db` passed as the first argument to a free-function `selectMany`/`fetchOne`/`insertOne`/`updateMany`/`deleteMany`/`createTenantDb`, a cast to `DbRunner`/`DbConnection`, or `\"raw\" in db ? db.raw : db`) must add `escapeHatch: { reason: \"<why>\" }` to its `r.useExtension(EXT_USER_DATA | EXT_TENANT_DATA, entityName, { ... })` registration and fetch the runner explicitly with `ctx.db.unsafeRaw(\"<why>\")` (same reason string) at the point of use. Prefer converting to `ctx.db`'s typed methods first — reach for `unsafeRaw` only when the target table is `EXECUTOR_ONLY`-branded (a managed `r.entity(...)` table; typed writes reject it by design — see the `EXECUTOR_ONLY`/`WritableTable` note in Detail) or the SQL needs an expression the typed API can't produce (e.g. a jsonb `-` key-removal `UPDATE`). No codemod — cross-hook raw-SQL usage is expected to be rare enough, and tenant-filter-relevant enough, to review by hand per hook. Hand-built `TenantDataHookCtx`/`UserDataHookCtx` objects in tests need `db: createTenantDb(conn, tenantId, \"tenant\", undefined, undefined, undefined, { unsafeRaw: { reason: \"<why>\" } })` instead of a plain connection.\n\nAudit at release — kumiko-enterprise, 7 files across 5 packages, none touched by this PR (out of scope; must be migrated in kumiko-enterprise itself before it bumps its pinned `@cosmicdrift/kumiko-framework`/`@cosmicdrift/kumiko-types` version, or `tsc` fails):\n- `packages/kumiko-credit/src/hooks/userdata-hook-shared.ts` (`forgetMatchingRows`/`anonymizeMatchingRows`, shared by bauspar + credit's delete hooks): `createTenantDb(ctx.db, ctx.tenantId, \"system\")` and `selectMany(ctx.db, table, where)` both take `ctx.db` as a raw-`DbRunner`-typed argument — needs `escapeHatch` on both entities' `r.useExtension(...)` plus `createTenantDb(ctx.db.unsafeRaw(\"<why>\"), ctx.tenantId, \"system\")`; the `selectMany` call can drop the free-function form entirely and become `ctx.db.selectMany(table, where)` (already tenant-scoped to `ctx.tenantId`, no need for \"system\" mode there).\n- `packages/kumiko-credit/src/hooks/bauspar.userdata-hook.ts` and `.../credit.userdata-hook.ts`: each has its own inline `selectMany(ctx.db, table, { ... })` (export hook) — same fix, `ctx.db.selectMany(table, { ... })`.\n- `packages/ai-agent/src/hooks/ai-agent-turn.userdata-hook.ts`, `packages/ai-conversation/src/hooks/designer-conversation-turn.userdata-hook.ts`, `packages/pattern-storage/src/hooks/pattern-file.userdata-hook.ts`, `packages/prompt-store/src/hooks/prompt-template-version.userdata-hook.ts`: each has the same `createTenantDb(ctx.db, ctx.tenantId, \"system\")` + two `selectMany(ctx.db, table, { ... })` inline pair as `userdata-hook-shared.ts` above — same fix per file.\n\n`packages/ai-foundation/src/providers/provenance.ts` (`recordAiCall`) and `packages/ai-pipeline/src/steps/shared.ts` (`recordStepProvenance`) were checked and need NO change: neither registers an EXT_USER_DATA/EXT_TENANT_DATA hook (they run off `HandlerContext`/`WorkflowPipelineCtx`, unrelated to this PR — that context's `.db` was already `TenantDb` from an earlier fw#2914 change), and both already use exactly the pattern this PR expects from hooks too: `withUnsafeRawGrant(ctx.dbOutsideTransaction ?? ctx.db, { reason: PROVENANCE_UNSAFE_RAW_REASON }).unsafeRaw(reason)`.\n\nGuard-version gap: once each of these 7 files declares `escapeHatch` on its `r.useExtension(...)` registration, expect the same `AST-Guards (shared runner)` failure this PR hits on `wire-user-data-rights.ts` (see Detail above) — the currently-pinned `@cosmicdriftgamestudio/kumiko-guards@^0.36.0` doesn't recognize `escapeHatch` on a `useExtension` call. That guard bump has to land (and kumiko-enterprise's pinned guards range has to move) before or alongside this migration, not after."
+    "migration": "A hook that only reads/writes its own tenant through `ctx.db` method calls (`ctx.db.selectMany/fetchOne/insertOne/updateMany/deleteMany`) needs no change — it now gets the same tenant filter every other `TenantDb` consumer already had. A hook that treated `ctx.db` as a raw connection (`asRawClient(ctx.db)`, `ctx.db` passed as the first argument to a free-function `selectMany`/`fetchOne`/`insertOne`/`updateMany`/`deleteMany`/`createTenantDb`, a cast to `DbRunner`/`DbConnection`, or `\"raw\" in db ? db.raw : db`) must add `escapeHatch: { reason: \"<why>\" }` to its `r.useExtension(EXT_USER_DATA | EXT_TENANT_DATA, entityName, { ... })` registration and fetch the runner explicitly with `ctx.db.unsafeRaw(\"<why>\")` (same reason string) at the point of use. Prefer converting to `ctx.db`'s typed methods first — reach for `unsafeRaw` only when the target table is `EXECUTOR_ONLY`-branded (a managed `r.entity(...)` table; typed writes reject it by design — see the `EXECUTOR_ONLY`/`WritableTable` note in Detail) or the SQL needs an expression the typed API can't produce (e.g. a jsonb `-` key-removal `UPDATE`). No codemod — cross-hook raw-SQL usage is expected to be rare enough, and tenant-filter-relevant enough, to review by hand per hook. Hand-built `TenantDataHookCtx`/`UserDataHookCtx` objects in tests need `db: createTenantDb(conn, tenantId, \"tenant\", undefined, undefined, undefined, { unsafeRaw: { reason: \"<why>\" } })` instead of a plain connection.\n\nAudit at release: kumiko-enterprise has seven user-data hook files across five packages that take `ctx.db` as a raw `DbRunner` argument (`createTenantDb(ctx.db, ctx.tenantId, \"system\")` and free-function `selectMany(ctx.db, table, where)`). Each needs `escapeHatch` on its `r.useExtension(...)` plus `createTenantDb(ctx.db.unsafeRaw(\"<why>\"), ctx.tenantId, \"system\")`, and the reads become `ctx.db.selectMany(table, where)` (already tenant-scoped, no \"system\" mode needed). They must be migrated in kumiko-enterprise itself before it bumps its pinned `@cosmicdrift/kumiko-framework`/`@cosmicdrift/kumiko-types` version, or `tsc` fails.\n\nGuard-version gap: a consumer that declares `escapeHatch` on a `r.useExtension(...)` registration needs a `@cosmicdriftgamestudio/kumiko-guards` release newer than `^0.36.0`; the shared AST guard run of older versions does not recognize it. Bump the guards range before or alongside this migration, not after."
   },
   {
     "version": "0.279.0",
@@ -2196,7 +2395,7 @@
     "type": "fix",
     "title": "Projection/MSP rebuild aborts instead of silently dropping row level security from the live table (fw#2907).",
     "detail": "New `assertLiveTableHasNoRowLevelSecurity(tx, tableName, projectionName?)` in `db/queries/shadow-swap.ts` checks `pg_class.relrowsecurity`/`relforcerowsecurity` and `pg_policy` (public schema) for the live table before the shadow swap. `rebuildProjection` and `rebuildMultiStreamProjection` now call it before `buildShadowTable`, alongside the existing `assertLiveColumnsMatchMeta` fence, and `swapShadowIntoLive` re-checks it again right before the cutover under the fence. Previously the shadow, built from `EntityTableMeta` (which carries no RLS/policy information), would swap over a live table with RLS enabled/forced or any policy and silently drop all of it. `replayMigrationsDir`'s shape-neutral ALTER-clause recognizer (`db/replay-migration-sql.ts`) now also accepts `FORCE`/`NO FORCE ROW LEVEL SECURITY` instead of throwing \"unparsed table-DDL statement\".",
-    "migration": "No action for tables without RLS. A table with RLS enabled/forced or any policy can no longer be rebuilt online — rebuild fails with the table name; drop the RLS/policies or keep the table out of rebuild (see kumiko-platform docs/plans/rls-evaluation.md)."
+    "migration": "No action for tables without RLS. A table with RLS enabled/forced or any policy can no longer be rebuilt online — rebuild fails with the table name; drop the RLS/policies or keep the table out of rebuild."
   },
   {
     "version": "0.271.0",

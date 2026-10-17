@@ -35,7 +35,7 @@ export type PageCanvasProps = {
   readonly systemLabels: Readonly<Record<string, string>>;
   readonly variableNames: readonly string[];
   readonly resourcePreviews: Readonly<Record<string, DocumentResourcePreview>>;
-  readonly onEditorReady: (handle: DocumentEditorHandle) => void;
+  readonly onEditorReady: (handle: DocumentEditorHandle | null) => void;
   readonly resourceSrc?: (key: string) => string | undefined;
 };
 

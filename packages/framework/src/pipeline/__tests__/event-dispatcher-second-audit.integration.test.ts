@@ -14,7 +14,7 @@
 //      moment delivery latency regresses from TCP-round-trip to
 //      pollIntervalMs.
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.js";
 import { defineFeature } from "../../engine/index.js";
 import { eventsTable } from "../../event-store/index.js";
@@ -63,6 +63,10 @@ beforeAll(async () => {
     systemHooks: [],
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

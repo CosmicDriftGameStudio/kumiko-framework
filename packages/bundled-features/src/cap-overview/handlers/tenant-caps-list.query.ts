@@ -176,7 +176,8 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       );
 
       const tenants = await decryptTenantNames(
-        await selectMany<TenantRow>(db, tenantTable, {}),
+        // Destroyed tenants decrypt to the erased sentinel, which a picker or list would show verbatim.
+        await selectMany<TenantRow>(db, tenantTable, { destroyedAt: null }),
         "cap-overview:tenant-caps:list",
       );
       const assignments = await selectMany<TierAssignmentRow>(db, tierAssignmentTable, {});

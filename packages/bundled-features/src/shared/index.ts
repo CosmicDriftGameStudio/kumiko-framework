@@ -41,6 +41,14 @@ export {
 export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.js";
 export { requireForTenant } from "./require-for-tenant.js";
 export {
+  extensionForResourceContentType,
+  isResourceImageContentType,
+  isResourceImageFormat,
+  RESOURCE_IMAGE_FORMATS,
+  type ResourceImageContentType,
+  type ResourceImageFormat,
+} from "./resource-image-formats.js";
+export {
   type RowBoundGrantResult,
   redeemRowBoundGrant,
   signRowBoundGrant,

@@ -1,4 +1,4 @@
-import { basename, join, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { ZodError } from "zod";
 import type { HandbuchConfig } from "../handbuch/config";
@@ -39,6 +39,11 @@ function describeError(error: unknown): string {
 
 function appSlug(configPath: string): string {
   return basename(configPath).replace(/\.json$/, "") || "handbuch";
+}
+
+function containsPath(parentDir: string, candidate: string): boolean {
+  const rel = relative(parentDir, candidate);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
 async function runBuild(ctx: CliCommandContext, args: ReadonlyArray<string>): Promise<number> {
@@ -82,11 +87,27 @@ async function runBuild(ctx: CliCommandContext, args: ReadonlyArray<string>): Pr
     return 2;
   }
 
+  // buildHandbuch wipes outDir recursively, so a mistyped --out must never be
+  // (or contain) a directory the build reads from or the user works in.
+  const outDir = resolve(ctx.cwd, values.out ?? join(rootDir, ".handbuch", appSlug(configPath)));
+  const protectedDirs = [
+    ctx.cwd,
+    rootDir,
+    resolve(rootDir, config.repo),
+    ...(config.flowSources ?? []).map((source) => resolve(rootDir, source.repo)),
+  ];
+  if (protectedDirs.some((dir) => containsPath(outDir, dir))) {
+    return usageError(
+      ctx,
+      `Refusing to build into ${outDir}: it is or contains the working directory, --root or a source repo, and is deleted before the build.`,
+    );
+  }
+
   const optionalDir = (value: string | undefined) => (value ? resolve(ctx.cwd, value) : undefined);
   try {
     const result = await buildHandbuch(config, {
       rootDir,
-      outDir: resolve(ctx.cwd, values.out ?? join(rootDir, ".handbuch", appSlug(configPath))),
+      outDir,
       shotsDir: optionalDir(values.shots),
       textsDir: optionalDir(values.texts),
       flowShotsDir: optionalDir(values["web-shots"]),

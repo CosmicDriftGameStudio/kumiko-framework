@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-dev-server",
-  "version": "0.363.0",
+  "version": "0.364.0",
   "description": "Dev-tooling for Kumiko apps: local dev-server bootstrap (runDevApp), scaffolding, codegen. Its compose-stacks/env-schema subpaths are consumed at prod boot too — see @cosmicdrift/kumiko-server-runtime for the prod runner itself.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -60,7 +60,6 @@
     "kumiko-dev": "./bin/kumiko-dev.ts",
     "kumiko-init-deploy": "./bin/kumiko-init-deploy.ts",
     "kumiko-schema": "./bin/kumiko-schema.ts",
-    "kumiko-schema-check": "./bin/kumiko-schema-check.ts",
     "kumiko-upgrade": "./bin/kumiko-upgrade.ts"
   },
   "dependencies": {

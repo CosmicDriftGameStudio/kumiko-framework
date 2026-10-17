@@ -1,5 +1,123 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.364.0
+
+### Minor Changes
+
+- dfb2523: Agent guide and generated indexes ship in the framework package
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Agent guide and generated indexes ship in the framework package
+  detail: The framework package now contains AGENTS.md plus an agents/ directory with generated feature, widget and example indexes, built from feature-manifest.json, the renderer-web exports and samples/recipes. The new agent-docs-drift guard in kumiko check fails when the committed files differ from the generator output. New apps get an AGENTS.md and a CLAUDE.md that point at the packaged guide.
+  -->
+
+### Patch Changes
+
+- 15039ce: runDevApp resolves the masterKey provider before boot validation
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: runDevApp resolves the masterKey provider before boot validation
+  detail: runDevApp validated encrypted fields before building the boot cipher, so an app that supplies masterKey and has no KUMIKO_SECRETS_MASTER_KEY_V1 in the environment booted in production but failed locally with no usable master key. The provider now reaches validateBoot like in runProdApp and runWorkerApp.
+  -->
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [a0dcd31]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [e9b032f]
+- Updated dependencies [15039ce]
+- Updated dependencies [cfbffba]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [6b1567e]
+- Updated dependencies [2b255c2]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8be3807]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [c181b3f]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [b13c0d4]
+- Updated dependencies [fd5009a]
+- Updated dependencies [dfb2523]
+- Updated dependencies [8fb6aa6]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [5a39305]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [7482ee2]
+- Updated dependencies [f1b4367]
+- Updated dependencies [fd5009a]
+- Updated dependencies [15039ce]
+- Updated dependencies [c181b3f]
+- Updated dependencies [15039ce]
+- Updated dependencies [8be3807]
+- Updated dependencies [22f40e1]
+- Updated dependencies [5a2bea5]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [7482ee2]
+- Updated dependencies [8e81d73]
+- Updated dependencies [baf641a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [92a9c52]
+- Updated dependencies [15039ce]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8be3807]
+- Updated dependencies [8e81d73]
+- Updated dependencies [15039ce]
+- Updated dependencies [68078ee]
+- Updated dependencies [15039ce]
+- Updated dependencies [15039ce]
+- Updated dependencies [b5a6395]
+- Updated dependencies [fd5009a]
+- Updated dependencies [55f003d]
+- Updated dependencies [8e81d73]
+- Updated dependencies [fd5009a]
+- Updated dependencies [8e81d73]
+- Updated dependencies [8e81d73]
+  - @cosmicdrift/kumiko-bundled-features@0.364.0
+  - @cosmicdrift/kumiko-framework@0.364.0
+  - @cosmicdrift/kumiko-types@0.364.0
+  - @cosmicdrift/kumiko-server-runtime@0.364.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.364.0
+  - @cosmicdrift/kumiko-renderer-web@0.364.0
+  - @cosmicdrift/kumiko-headless@0.364.0
+
 ## 0.363.0
 
 ### Minor Changes

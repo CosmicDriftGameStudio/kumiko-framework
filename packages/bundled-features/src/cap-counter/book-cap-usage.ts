@@ -280,6 +280,12 @@ export type ReadRollingCapUsageOptions = {
   readonly windowDays: number;
 };
 
+// A release is written up to a reservation TTL after its increment; once the increment left the
+// window the release must not subtract from other increments still inside it.
+function isBefore(isoInstant: string, cutoff: Temporal.Instant): boolean {
+  return Temporal.Instant.compare(Temporal.Instant.from(isoInstant), cutoff) < 0;
+}
+
 async function sumRollingEventAmounts(
   db: TenantDb,
   tenantId: TenantId,
@@ -289,20 +295,26 @@ async function sumRollingEventAmounts(
   const aggregateId = rollingCapAggregateId(tenantId, options.capName);
   const cutoff = Temporal.Now.instant().subtract({ hours: options.windowDays * 24 });
 
-  const rows = await db.selectMany<{ payload: { amount?: number } }>(eventsTable, {
-    tenantId,
-    aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-    aggregateId,
-    type,
-    createdAt: { gte: cutoff },
-  });
+  const rows = await db.selectMany<{ payload: { amount?: number; incrementedAt?: string } }>(
+    eventsTable,
+    {
+      tenantId,
+      aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
+      aggregateId,
+      type,
+      createdAt: { gte: cutoff },
+    },
+  );
 
   let total = 0;
   for (const row of rows) {
     // @cast-boundary engine-payload — events.payload is jsonb (typed as
     // unknown by drizzle's $type<Record<string,unknown>>); narrowing the
     // shape here mirrors enforceRollingCap's own read-side contract.
-    const payload = row["payload"] as { amount?: number };
+    const payload = row["payload"] as { amount?: number; incrementedAt?: string };
+    if (typeof payload.incrementedAt === "string" && isBefore(payload.incrementedAt, cutoff)) {
+      continue;
+    }
     if (typeof payload.amount === "number") {
       total += payload.amount;
     }

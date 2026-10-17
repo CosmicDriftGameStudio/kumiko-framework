@@ -152,7 +152,8 @@ const editScreen: EntityEditScreenDefinition = {
 const open = {
   access: {
     openToAll: {
-      reason: "scaffolded demo handler: every signed-in user of the demo tenant manages their tasks",
+      reason:
+        "scaffolded demo handler: every signed-in user of the demo tenant manages their tasks",
     },
   },
 } as const;

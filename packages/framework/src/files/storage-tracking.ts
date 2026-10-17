@@ -13,6 +13,7 @@
 
 import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect.js";
 import { type DbRunner, entityEventName, executeRawQueryRead } from "../db/index.js";
+import { toPostgresArrayLiteral } from "../db/queries/postgres-array-literal.js";
 import { incrementCounter } from "../db/query.js";
 import { defineFeature, qn, type Registry, toKebab } from "../engine/index.js";
 import {
@@ -191,13 +192,13 @@ export async function transferTenantStorageUsage(args: {
   const rows = await executeRawQueryRead<{ id: string; type: string; payload: string }>(
     db,
     `SELECT "id"::text AS id, "type", "payload"::text AS payload FROM kumiko_events
-     WHERE "tenant_id" = $1 AND "aggregate_type" = $2 AND "aggregate_id" = ANY($3)
-       AND "type" = ANY($4) AND "id" <= $5`,
+     WHERE "tenant_id" = $1 AND "aggregate_type" = $2 AND "aggregate_id" = ANY($3::uuid[])
+       AND "type" = ANY($4::text[]) AND "id" <= $5`,
     [
       sourceTenantId,
       FILE_REF_AGGREGATE_TYPE,
-      fileRefIds,
-      TRACKED_FILE_REF_EVENT_TYPES,
+      toPostgresArrayLiteral(fileRefIds),
+      toPostgresArrayLiteral(TRACKED_FILE_REF_EVENT_TYPES),
       cursor.lastProcessedEventId,
     ],
   );
