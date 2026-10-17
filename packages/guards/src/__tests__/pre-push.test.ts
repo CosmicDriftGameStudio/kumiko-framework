@@ -1,8 +1,10 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -642,6 +644,84 @@ describe("kumiko-pre-push", () => {
       expect(output).not.toContain("FATAL: guard-upgrade-state.ts not found");
       expect(output).toContain(".kumiko/upgrade-state.json present — running upgrade-state guard");
       expect(result.exitCode).not.toBe(0);
+    });
+  });
+
+  describe("gitleaks secret scan", () => {
+    // A dev machine may have gitleaks on PATH: replace each PATH dir that has it
+    // by a symlink mirror without it, so the other tools there (git, bun) stay reachable.
+    function pathWithoutGitleaks(): string {
+      return (process.env["PATH"] ?? "")
+        .split(":")
+        .map((dir, index) => {
+          if (!dir || !existsSync(join(dir, "gitleaks"))) return dir;
+          const mirror = join(tmp, `path-mirror-${index}`);
+          mkdirSync(mirror);
+          for (const name of readdirSync(dir)) {
+            if (name === "gitleaks") continue;
+            try {
+              symlinkSync(join(dir, name), join(mirror, name));
+            } catch {
+              // Duplicate or unreadable entry: not needed by the hook.
+            }
+          }
+          return mirror;
+        })
+        .join(":");
+    }
+
+    function writeStandaloneRepoWithOriginMain(): string {
+      const dir = join(tmp, "repo");
+      writeStandaloneRepo(dir);
+      runGit(["update-ref", "refs/remotes/origin/main", "HEAD"], dir, tmp);
+      return dir;
+    }
+
+    test("missing binary warns and lets the push through", () => {
+      const dir = writeStandaloneRepoWithOriginMain();
+
+      const { output, exitCode } = runHook(dir, tmp, { PATH: pathWithoutGitleaks() });
+
+      expect(exitCode).toBe(0);
+      expect(output).toContain(
+        "gitleaks not installed — secret scan skipped. Install: brew install gitleaks",
+      );
+    });
+
+    test("a finding from gitleaks blocks the push before the main check", () => {
+      const dir = writeStandaloneRepoWithOriginMain();
+      const stubDir = join(tmp, "stub-bin");
+      mkdirSync(stubDir);
+      writeExecutable(
+        join(stubDir, "gitleaks"),
+        '#!/usr/bin/env sh\necho "GITLEAKS_ARGS=$*"\nexit 1\n',
+      );
+
+      const { output, exitCode } = runHook(dir, tmp, {
+        PATH: `${stubDir}:${process.env["PATH"] ?? ""}`,
+      });
+
+      expect(exitCode).toBe(1);
+      expect(output).toContain(
+        "GITLEAKS_ARGS=git --no-banner --redact --log-opts=origin/main..HEAD .",
+      );
+      expect(output).toContain("gitleaks found secrets — refusing push");
+      expect(output).not.toContain("bun run test (standalone)");
+    });
+
+    test("missing origin/main warns instead of failing", () => {
+      const dir = join(tmp, "repo");
+      writeStandaloneRepo(dir);
+      const stubDir = join(tmp, "stub-bin");
+      mkdirSync(stubDir);
+      writeExecutable(join(stubDir, "gitleaks"), "#!/usr/bin/env sh\nexit 1\n");
+
+      const { output, exitCode } = runHook(dir, tmp, {
+        PATH: `${stubDir}:${process.env["PATH"] ?? ""}`,
+      });
+
+      expect(exitCode).toBe(0);
+      expect(output).toContain("origin/main not found — secret scan skipped");
     });
   });
 });
