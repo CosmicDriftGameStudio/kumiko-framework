@@ -156,9 +156,9 @@ export async function buildServerBundle(
 
   // Ein Bun.build-Call mit allen Entries + splitting → das Framework wird
   // einmal als shared chunk abgelegt statt pro Entry inlined.
-  const optionalSiblingEntries = ["worker.ts", "bootstrap.ts"]
-    .map((file) => join(dirname(serverEntry), file))
-    .filter((path) => existsSync(path));
+  const optionalSiblingEntries = ["worker", "bootstrap"]
+    .map((baseName) => discoverSiblingEntry(dirname(serverEntry), baseName))
+    .filter((path): path is string => path !== undefined);
   const entrypoints = [serverEntry, ...(kumikoCli ? [kumikoCli] : []), ...optionalSiblingEntries];
   const result = await Bun.build({
     entrypoints,
@@ -212,10 +212,15 @@ export async function buildServerBundle(
 }
 
 export function discoverServerEntry(cwd: string): string | undefined {
-  const tsEntry = join(cwd, "bin/main.ts");
-  if (existsSync(tsEntry)) return tsEntry;
-  const jsEntry = join(cwd, "bin/main.js");
-  if (existsSync(jsEntry)) return jsEntry;
+  return discoverSiblingEntry(join(cwd, "bin"), "main");
+}
+
+// `.ts` wins over `.js`, same precedence for the server entry and its siblings.
+function discoverSiblingEntry(dir: string, baseName: string): string | undefined {
+  for (const extension of [".ts", ".js"]) {
+    const candidate = join(dir, `${baseName}${extension}`);
+    if (existsSync(candidate)) return candidate;
+  }
   return undefined;
 }
 

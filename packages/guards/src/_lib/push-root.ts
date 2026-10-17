@@ -1,11 +1,13 @@
 import { basename } from "node:path";
 import { findLocalRepo, localRepoDirName } from "./roots";
 
-// A worktree's folder name proves nothing (`kumiko-*` siblings share prefixes), so it is judged by its canonical checkout's directory name.
+// A worktree's folder name proves nothing (`kumiko-*` siblings share prefixes), so a path that
+// resolves to a repo is judged by its canonical checkout's directory name; the folder name only
+// counts for paths that are not a repo (yet).
 function pushRootMatchesCliScope(pushRepoRoot: string, cliScope: string): boolean {
-  if (basename(pushRepoRoot) === cliScope) return true;
   const local = findLocalRepo(pushRepoRoot);
-  return local !== undefined && (local.name === cliScope || localRepoDirName(local) === cliScope);
+  if (local === undefined) return basename(pushRepoRoot) === cliScope;
+  return local.name === cliScope || localRepoDirName(local) === cliScope;
 }
 
 // A push root left over from an earlier hook run or a debug session must not redirect a guard at the wrong repo, so it only counts when KUMIKO_CLI_SCOPE names it.

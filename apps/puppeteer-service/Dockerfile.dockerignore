@@ -1,0 +1,11 @@
+# Build context is the repo root, so BuildKit reads this file (not a
+# context-level .dockerignore) and the paths are relative to the root.
+**/node_modules
+**/.yarn/cache
+**/.yarn/install-state.gz
+**/dist
+**/*.test.ts
+apps/puppeteer-service/src/__tests__
+.git
+.vscode
+**/*.md

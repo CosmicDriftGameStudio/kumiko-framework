@@ -651,7 +651,8 @@ export function EmbeddedListInput({
     // preventDefault() during the bubble phase still stops that form's
     // default submit, same as it stops Tab's default focus-move below.
     event.preventDefault();
-    const firstColumn = columns[0];
+    // readOnly cells render a non-focusable div, so focusing columns[0] would drop focus.
+    const firstColumn = columns.find((c) => c.derived !== true && c.readOnly !== true);
     if (firstColumn !== undefined) {
       setPendingFocusCellId(cellId(rows.length, firstColumn.field));
     }

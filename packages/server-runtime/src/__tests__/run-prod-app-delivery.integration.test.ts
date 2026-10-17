@@ -262,17 +262,22 @@ async function announceImmediately(
   return result.deliveries;
 }
 
-// The deferred notify returns no attempt id; the only attempt of a channel in this
-// DB is the one the test just caused.
-async function soleAttemptIdOf(channel: string): Promise<string> {
+// The deferred notify returns no attempt id; the attempt it caused is the channel row
+// that was not there before. Other tests in this DB leave rows of the same channel.
+async function attemptIdsOf(channel: string): Promise<ReadonlySet<string>> {
   const { db, close } = createDbConnection(TEST_DB_URL);
   try {
     const rows = await selectMany<{ id: string }>(db, deliveryAttemptsTable, { channel });
-    expect(rows).toHaveLength(1);
-    return rows[0]?.id ?? "";
+    return new Set(rows.map((row) => row.id));
   } finally {
     await close();
   }
+}
+
+async function newAttemptIdOf(channel: string, before: ReadonlySet<string>): Promise<string> {
+  const created = [...(await attemptIdsOf(channel))].filter((id) => !before.has(id));
+  expect(created).toHaveLength(1);
+  return created[0] ?? "";
 }
 
 async function attemptRow(
@@ -309,10 +314,11 @@ describe("runProdApp: chat channels deliver without app wiring", () => {
     });
     expect(set.status).toBe(200);
 
+    const slackBefore = await attemptIdsOf("slack");
     await announceDeferred(app, { slack: "ops" });
 
     await stub.firstRequest;
-    const attemptId = await soleAttemptIdOf("slack");
+    const attemptId = await newAttemptIdOf("slack", slackBefore);
     await waitFor(async () => (await attemptRow(attemptId))?.status === "sent");
 
     expect(stub.paths).toEqual(["/slack-hook"]);
@@ -327,10 +333,11 @@ describe("runProdApp: chat channels deliver without app wiring", () => {
     });
     expect(set.status).toBe(200);
 
+    const telegramBefore = await attemptIdsOf("telegram");
     await announceDeferred(app, { telegram: "424242" });
 
     await stub.firstRequest;
-    const attemptId = await soleAttemptIdOf("telegram");
+    const attemptId = await newAttemptIdOf("telegram", telegramBefore);
     await waitFor(async () => (await attemptRow(attemptId))?.status === "sent");
     expect((await attemptRow(attemptId))?.error).toBeNull();
     expect(stub.paths).toHaveLength(1);

@@ -331,6 +331,17 @@ describe("buildFormSchema", () => {
       );
     });
 
+    test("a read-only select the user cannot change is reported on its condition field", () => {
+      const readOnlyScreen = screenWith(["kind", { field: "interval", readOnly: true }]);
+      const result = buildFormSchema(entity, readOnlyScreen, "update", loaded).safeParse({
+        kind: "http",
+        interval: "3600",
+      });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      expect(result.error.issues[0]?.path).toEqual(["kind"]);
+    });
+
     test("an unavailable option is flagged on create", () => {
       expect(
         buildFormSchema(entity, screen, "create").safeParse({ kind: "http", interval: "3600" })

@@ -6,8 +6,12 @@ import { errorTextWithFieldIssues } from "./field-issue-text.js";
 import { buildMeta, parseJsonRecord } from "./mail-draft.js";
 import type { MailDraft, TemplateRowView, UpsertResponse } from "./mail-types.js";
 
+// "saved-not-published": the system version was written but publishing it failed, so the
+// stored state changed and the editor must reload even though an error is shown.
+export type SaveOutcome = "saved" | "saved-not-published" | "failed";
+
 export type MailPersistence = {
-  readonly save: (draft: MailDraft, publish: boolean) => Promise<boolean>;
+  readonly save: (draft: MailDraft, publish: boolean) => Promise<SaveOutcome>;
   readonly busy: boolean;
   readonly error: string | null;
   readonly clearError: () => void;
@@ -28,7 +32,7 @@ export function useMailPersistence(args: {
   const publishSystem = useMutation(TemplateResolverHandlers.publishSystem);
   const [error, setError] = useState<string | null>(null);
 
-  const save = async (draft: MailDraft, publish: boolean): Promise<boolean> => {
+  const save = async (draft: MailDraft, publish: boolean): Promise<SaveOutcome> => {
     setError(null);
     const base = {
       slug: args.slug,
@@ -45,16 +49,16 @@ export function useMailPersistence(args: {
       : await upsertTenant.mutate({ ...base, status: publish ? "active" : "draft" });
     if (!saved.isSuccess) {
       setError(errorTextWithFieldIssues(saved.error, t));
-      return false;
+      return "failed";
     }
     if (args.isSystemAdmin && publish) {
       const published = await publishSystem.mutate({ id: saved.data.id });
       if (!published.isSuccess) {
         setError(errorTextWithFieldIssues(published.error, t));
-        return false;
+        return "saved-not-published";
       }
     }
-    return true;
+    return "saved";
   };
 
   return {

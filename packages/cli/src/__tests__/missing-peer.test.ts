@@ -9,11 +9,14 @@ describe("missingPeerMessage", () => {
     );
   });
 
-  test("names bundled-features for a missing subpath import", () => {
+  test("asks for an upgrade, not an install, when the installed package lacks a subpath", () => {
     const error = new Error(
       "Cannot find module '@cosmicdrift/kumiko-bundled-features/agent-tools' from '/app/x.ts'",
     );
-    expect(missingPeerMessage(error)).toContain("@cosmicdrift/kumiko-bundled-features");
+    const message = missingPeerMessage(error);
+    expect(message).toContain("Installed @cosmicdrift/kumiko-bundled-features lacks agent-tools");
+    expect(message).toContain("Upgrade");
+    expect(message).not.toContain("bun add");
   });
 
   test("ignores unrelated errors", () => {

@@ -13,6 +13,7 @@
 // Tests die ein anderes Setup brauchen (z.B. custom primitives, echte
 // browser-Nav) bauen ihren Wrapper selbst — siehe nav.test.tsx.
 
+import { afterEach, beforeEach } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   createStore,
@@ -228,6 +229,23 @@ export function createFakeDraftStorage(): DraftStorage {
       store.delete(screenId);
     },
   };
+}
+
+export function setViewportWidth(width: number): void {
+  (
+    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
+  ).happyDOM.setInnerWidth(width);
+}
+
+/** Call inside a `describe`: restores the viewport width to its pre-test value after each test. */
+export function restoreViewportWidthAfterEach(): void {
+  let originalWidth = 0;
+  beforeEach(() => {
+    originalWidth = window.innerWidth;
+  });
+  afterEach(() => {
+    setViewportWidth(originalWidth);
+  });
 }
 
 export * from "@testing-library/react";

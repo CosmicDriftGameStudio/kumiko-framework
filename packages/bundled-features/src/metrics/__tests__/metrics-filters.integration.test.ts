@@ -104,6 +104,14 @@ describe("metrics filter passthrough", () => {
     expect(res.status).toBe(400);
   });
 
+  test.each(["1.5", 1.5, "2147483648", 2147483648])(
+    "an integer column rejects %p as a validation error, not a Postgres 500",
+    async (sizeClass) => {
+      const res = await stack.http.query(byKindName, { sizeClass }, tenantAdminA);
+      expect(res.status).toBe(400);
+    },
+  );
+
   test("the metric where stays in force: archived rows never count", async () => {
     expect((await count({ folderId: FOLDER_A2 })).value).toBe(1);
   });

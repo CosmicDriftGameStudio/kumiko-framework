@@ -106,6 +106,21 @@ describe("FileListField (images/files edit widget)", () => {
     expect(tileFileIds()).toEqual([`/api/files/${ID_A}`, `/api/files/${ID_C}`]);
   });
 
+  test("a repeated id gets its own row: removing index 1 keeps the first one", () => {
+    const errorSpy = spyOn(console, "error");
+    try {
+      const { emitted } = renderField(imagesField({ value: [ID_A, ID_A] }));
+      const tile = document.querySelector("#kumiko-edit-gallery-1")?.parentElement;
+      if (!tile) throw new Error("tile 1 missing");
+      fireEvent.click(within(tile).getByRole("button", { name: "Remove" }));
+      expect(emitted).toEqual([[ID_A]]);
+      expect(tileFileIds()).toEqual([`/api/files/${ID_A}`]);
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   test("move up/down reorder, and the edge buttons are hidden", () => {
     const { emitted } = renderField(imagesField({ value: [ID_A, ID_B, ID_C] }));
     expect(screen.queryByTestId("kumiko-edit-gallery-0-move-up")).toBeNull();

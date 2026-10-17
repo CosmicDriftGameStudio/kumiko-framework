@@ -7,10 +7,17 @@
 // unauthenticated — K8s probes carry no token, the Prometheus scraper runs in
 // the same namespace via NetworkPolicy.
 
+import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { TimeoutError } from "puppeteer";
 import type { ServiceConfig } from "./config";
 import { type RenderRequest, render, renderRequestSchema } from "./render";
+
+// Hashing first gives timingSafeEqual equal-length inputs without leaking the token length.
+function isAuthorized(authHeader: string | undefined, authToken: string): boolean {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(authHeader ?? ""), digest(`Bearer ${authToken}`));
+}
 
 type Metrics = {
   rendersTotal: { pdf: number; image: number };
@@ -54,8 +61,7 @@ export function createApp(config: ServiceConfig): { app: Hono; metrics: Metrics 
   });
 
   app.post("/render", async (c) => {
-    const auth = c.req.header("Authorization");
-    if (auth !== `Bearer ${config.authToken}`) {
+    if (!isAuthorized(c.req.header("Authorization"), config.authToken)) {
       return c.json({ error: "unauthorized" }, 401);
     }
 

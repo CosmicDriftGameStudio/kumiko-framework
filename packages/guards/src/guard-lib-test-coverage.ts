@@ -74,7 +74,7 @@ function exportedCallables(sf: SourceFile): Export[] {
   return out;
 }
 
-// NodeNext-Importe schreiben ".js"/".jsx", obwohl die Quelle ".ts"/".tsx" ist
+// NodeNext imports write ".js"/".jsx" although the source is ".ts"/".tsx"
 // (and likewise .mjs/.cjs for .mts/.cts) — the extension must therefore be
 // stripped for all four pair variants when comparing module paths, otherwise
 // the link breaks.

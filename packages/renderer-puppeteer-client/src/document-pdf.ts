@@ -21,7 +21,7 @@ import {
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
-  DEFAULT_MAIL_LAYOUT_SLUG,
+  DEFAULT_PDF_LAYOUT_SLUG,
   type LayoutRegions,
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,
@@ -393,7 +393,7 @@ async function assembleDocument(
           locale,
         );
   const meta = readPdfTemplateMeta(template.meta);
-  const layoutSlug = meta?.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG;
+  const layoutSlug = meta?.layoutSlug ?? DEFAULT_PDF_LAYOUT_SLUG;
   const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale);
 
   try {

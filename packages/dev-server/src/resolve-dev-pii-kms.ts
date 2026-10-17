@@ -12,6 +12,8 @@ import { isPersistentDevDb } from "./is-persistent-dev-db.js";
 export type DevPiiKmsResolution = {
   readonly kms: KmsAdapter | undefined;
   readonly blindIndexKey: string | undefined;
+  /** True only when the ephemeral default minted the key, not when the app passed one. */
+  readonly generatedBlindIndexKey: boolean;
   readonly mode: "app-kms" | "ephemeral-default" | "plaintext";
 };
 
@@ -26,7 +28,9 @@ type DevPiiKmsOptions = {
 export function captureEphemeralDevPiiKms(resolution: DevPiiKmsResolution): () => void {
   if (resolution.mode !== "ephemeral-default") return () => {};
   const ownKms = configuredPiiSubjectKms();
-  const ownBlindIndexKey = configuredBlindIndexKey();
+  const ownBlindIndexKey = resolution.generatedBlindIndexKey
+    ? configuredBlindIndexKey()
+    : undefined;
   return () => {
     if (ownKms !== undefined && configuredPiiSubjectKms() === ownKms) {
       configurePiiSubjectKms(undefined);
@@ -42,14 +46,25 @@ export function resolveDevPiiKms(
   env: Record<string, string | undefined> = process.env,
 ): DevPiiKmsResolution {
   if (options.kms !== undefined && options.kms !== false) {
-    return { kms: options.kms, blindIndexKey: options.blindIndexKey, mode: "app-kms" };
+    return {
+      kms: options.kms,
+      blindIndexKey: options.blindIndexKey,
+      generatedBlindIndexKey: false,
+      mode: "app-kms",
+    };
   }
   if (options.kms === false || isPersistentDevDb(env)) {
-    return { kms: undefined, blindIndexKey: options.blindIndexKey, mode: "plaintext" };
+    return {
+      kms: undefined,
+      blindIndexKey: options.blindIndexKey,
+      generatedBlindIndexKey: false,
+      mode: "plaintext",
+    };
   }
   return {
     kms: new InMemoryKmsAdapter(),
     blindIndexKey: options.blindIndexKey ?? randomBytes(32).toString("base64"),
+    generatedBlindIndexKey: options.blindIndexKey === undefined,
     mode: "ephemeral-default",
   };
 }

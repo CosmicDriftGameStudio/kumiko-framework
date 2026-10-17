@@ -149,9 +149,8 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     validation?.canPublish === true &&
     (dirty || creating || row?.status !== "active");
 
-  const persist = async (publish: boolean): Promise<boolean> => persistence.save(draft, publish);
   const saveAndReload = async (publish: boolean): Promise<void> => {
-    if (await persist(publish)) await onReload();
+    if ((await persistence.save(draft, publish)) !== "failed") await onReload();
   };
   const saveDraft = (): void => void saveAndReload(false);
 
@@ -422,7 +421,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
         }}
         onRemove={removeResource}
         onLeaveSave={async (target) => {
-          if (await persist(false)) perform(target);
+          if ((await persistence.save(draft, false)) === "saved") perform(target);
         }}
         onLeaveDiscard={(target) => {
           setDialog({ kind: "none" });

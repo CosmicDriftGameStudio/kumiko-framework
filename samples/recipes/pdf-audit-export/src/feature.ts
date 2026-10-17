@@ -16,6 +16,7 @@ import {
   defineFeature,
   defineWriteHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createFileRefFromUploadedBytes,
   uploadFileBytesBeforeTransaction,
@@ -49,7 +50,8 @@ function toFileNameSegment(text: string): string {
   return text.replaceAll(/[^A-Za-z0-9_-]+/g, "-");
 }
 
-const AUDIT_ROW_LIMIT = 200;
+// One row above the limit tells "exactly full" from "cut off"; entity lists cap at 200 rows.
+const AUDIT_ROW_LIMIT = 100;
 
 const access = { access: { roles: ["Admin", "User"] } } as const;
 
@@ -85,11 +87,19 @@ export const pdfAuditExportFeature = defineFeature("pdf-audit-export", (r) => {
             ],
             sort: "inspectedOn",
             sortDirection: "asc",
-            limit: AUDIT_ROW_LIMIT,
+            limit: AUDIT_ROW_LIMIT + 1,
           },
           event.user,
           ctx.db,
         );
+        // A protocol that silently drops inspections would look complete.
+        if (inspections.rows.length > AUDIT_ROW_LIMIT) {
+          return writeFailure(
+            new UnprocessableError("audit_period_too_large", {
+              details: { limit: AUDIT_ROW_LIMIT },
+            }),
+          );
+        }
 
         const { pdfBytes } = await renderTablePdf({
           title: `Prüfprotokoll ${assetName}`,

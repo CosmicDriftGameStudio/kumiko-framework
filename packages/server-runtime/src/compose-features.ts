@@ -31,7 +31,10 @@ import {
   mfaStatusCheckerFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
+import {
+  createFilesTenantDataFeature,
+  FILES_TENANT_DATA_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
@@ -41,10 +44,8 @@ import {
 import { TENANT_LIFECYCLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { dedupeFeatures, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { FILES_FEATURE } from "@cosmicdrift/kumiko-framework/files";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-
-const FILES_FEATURE = "files";
-const FILES_TENANT_DATA_FEATURE = "files-tenant-data";
 
 export type ComposeFeaturesOptions = {
   /** When true, prepends config + user + tenant + auth-email-password

@@ -53,6 +53,25 @@ export function parsePublishedPackages(raw: string | undefined): PublishablePack
   return packages;
 }
 
+/** Drops packages the workspace publishes under another dist-tag: they never become `latest`,
+ *  so waiting for them would run into the timeout. Names unknown to the workspace stay. */
+export function withoutNonLatestPackages(
+  published: readonly PublishablePackage[],
+  packagesDir: string,
+): PublishablePackage[] {
+  const nonLatestNames = new Set<string>();
+  for (const relPath of new Glob("*/package.json").scanSync(packagesDir)) {
+    const pkg = JSON.parse(readFileSync(`${packagesDir}/${relPath}`, "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    if (typeof pkg.name === "string" && publishesUnderNonLatestTag(pkg)) {
+      nonLatestNames.add(pkg.name);
+    }
+  }
+  return published.filter((pkg) => !nonLatestNames.has(pkg.name));
+}
+
 export function collectPublishablePackages(packagesDir: string): PublishablePackage[] {
   const packages: PublishablePackage[] = [];
   for (const relPath of new Glob("*/package.json").scanSync(packagesDir)) {
@@ -158,9 +177,11 @@ export function parseTimeoutMs(raw: string | undefined): number {
 if (import.meta.main) {
   // Changesets path: only what this run actually published. The rescue path
   // has no such output and falls back to every publishable workspace package.
+  const published = parsePublishedPackages(process.env.PUBLISHED_PACKAGES);
   const packages =
-    parsePublishedPackages(process.env.PUBLISHED_PACKAGES) ??
-    collectPublishablePackages(PACKAGES_DIR);
+    published === null
+      ? collectPublishablePackages(PACKAGES_DIR)
+      : withoutNonLatestPackages(published, PACKAGES_DIR);
   const timeoutMs = parseTimeoutMs(process.env.NPM_VISIBILITY_TIMEOUT_MS);
 
   const { ok, missing } = await waitForNpmVisibility(packages, { timeoutMs });

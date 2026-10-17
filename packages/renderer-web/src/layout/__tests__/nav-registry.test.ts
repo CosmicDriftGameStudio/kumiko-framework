@@ -92,6 +92,35 @@ describe("buildNavRegistrySliceForApp", () => {
     expect(slice.byParent("ai-foundation:nav:group")).toEqual([]);
   });
 
+  test("allowedNavQns without an existing parent on the allowlist: child surfaces top-level", () => {
+    const app: AppSchema = {
+      features: [
+        feature([
+          { id: "main", label: "Main" },
+          { id: "list", label: "List", parent: "main" },
+        ]),
+      ],
+    };
+    const slice = buildNavRegistrySliceForApp(app, new Set(["tasks:nav:list"]));
+    expect(slice.topLevel.map((n) => n.id)).toEqual(["tasks:nav:list"]);
+    expect(slice.byParent("tasks:nav:main")).toEqual([]);
+  });
+
+  test("filterAppSchemaNavsByAllowlist then slice: child of a filtered-out existing parent stays visible at top-level", () => {
+    const app: AppSchema = {
+      features: [
+        feature([
+          { id: "main", label: "Main" },
+          { id: "list", label: "List", parent: "main" },
+        ]),
+      ],
+    };
+    const slice = buildNavRegistrySliceForApp(
+      filterAppSchemaNavsByAllowlist(app, new Set(["tasks:nav:list"])),
+    );
+    expect(slice.topLevel.map((n) => n.id)).toEqual(["tasks:nav:list"]);
+  });
+
   test("qualifiziert Navs pro Feature (multi-feature)", () => {
     const app: AppSchema = {
       features: [

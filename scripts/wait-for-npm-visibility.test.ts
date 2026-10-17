@@ -8,6 +8,7 @@ import {
   parsePublishedPackages,
   parseTimeoutMs,
   waitForNpmVisibility,
+  withoutNonLatestPackages,
 } from "./wait-for-npm-visibility";
 
 describe("parseTimeoutMs", () => {
@@ -107,6 +108,23 @@ describe("collectPublishablePackages", () => {
         .map((pkg) => pkg.name)
         .sort(),
     ).toEqual(["@cosmicdrift/kumiko-framework", "@cosmicdrift/kumiko-types"]);
+  });
+
+  test("a published list loses non-latest packages but keeps names the workspace does not know", () => {
+    const dir = makePackagesDir([
+      { name: "@cosmicdrift/kumiko-framework", version: "0.236.1" },
+      { name: "@cosmicdrift/kumiko-next", version: "1.0.0", publishConfig: { tag: "next" } },
+    ]);
+    expect(
+      withoutNonLatestPackages(
+        [
+          { name: "@cosmicdrift/kumiko-framework", version: "0.236.1" },
+          { name: "@cosmicdrift/kumiko-next", version: "1.0.0" },
+          { name: "@cosmicdrift/elsewhere", version: "2.0.0" },
+        ],
+        dir,
+      ).map((pkg) => pkg.name),
+    ).toEqual(["@cosmicdrift/kumiko-framework", "@cosmicdrift/elsewhere"]);
   });
 });
 

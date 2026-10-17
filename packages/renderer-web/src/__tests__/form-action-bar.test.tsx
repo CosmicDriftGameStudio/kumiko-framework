@@ -3,7 +3,7 @@
 // als Sticky-Bar im Header. Der Titel ist ein Heading oben. Strukturelle
 // Assertions (Klassen/DOM) — der visuelle Beweis läuft über den Runner.
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -16,7 +16,14 @@ import {
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { BareFormProvider, defaultPrimitives } from "../primitives/index.js";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
+import {
+  createMockDispatcher,
+  render,
+  restoreViewportWidthAfterEach,
+  screen,
+  setViewportWidth,
+  waitFor,
+} from "./test-utils.js";
 
 const { Form, Section, Button } = defaultPrimitives;
 
@@ -439,20 +446,8 @@ describe("DefaultForm pinned footer (fillHeight + stickyActions, fw#3381)", () =
   });
 });
 
-function setViewportWidth(width: number): void {
-  (
-    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-  ).happyDOM.setInnerWidth(width);
-}
-
 describe("DefaultForm pinned footer below sm", () => {
-  let wideInnerWidth = 0;
-  beforeEach(() => {
-    wideInnerWidth = window.innerWidth;
-  });
-  afterEach(() => {
-    setViewportWidth(wideInnerWidth);
-  });
+  restoreViewportWidthAfterEach();
 
   function renderNarrow(unsavedCount: number | undefined, withDiscard: boolean) {
     setViewportWidth(390);

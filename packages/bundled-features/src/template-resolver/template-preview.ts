@@ -27,6 +27,7 @@ import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource
 import { collectDocumentResourceKeys } from "./compile-document-body.js";
 import {
   DEFAULT_MAIL_LAYOUT_SLUG,
+  DEFAULT_PDF_LAYOUT_SLUG,
   MAIL_PREVIEW_MAX_BYTES,
   SYSTEM_TENANT_ID,
   type TemplateScope,
@@ -54,7 +55,6 @@ import {
 const SAMPLE_LINK = "https://example.com";
 const SAMPLE_DATE = "2026-01-15";
 const SAMPLE_LIST_ROWS = 3;
-const DEFAULT_PDF_LAYOUT_SLUG = "default";
 
 function sampleScalar(name: string, def: TemplateScalarVariableDef): unknown {
   if (def.example !== undefined) return def.example;

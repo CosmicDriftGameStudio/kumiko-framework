@@ -10,7 +10,7 @@ export {
   createFileRefFromUploadedBytes,
   uploadFileBytesBeforeTransaction,
 } from "./create-file-ref-from-bytes.js";
-export { createFilesFeature } from "./feature.js";
+export { createFilesFeature, FILES_FEATURE } from "./feature.js";
 export type { FileContext, FileHandle } from "./file-handle.js";
 // `createFileHandle` is an implementation detail — construct handles via
 // `createFileContext(provider).ref(key)`, which is the AppContext surface.

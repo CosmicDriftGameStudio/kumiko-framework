@@ -122,6 +122,18 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
     expect(found(code)).toEqual([expect.stringContaining("raises the timeout")]);
   });
 
+  test("an identifier test body or a timeout-free options variable is not a timeout", () => {
+    expect(
+      found(
+        "declare const runCase: () => void;\nconst opts = { retry: 2 };\n" +
+          'test("a", { tag: "@x" }, runCase);\ntest("a", () => {}, opts);',
+      ),
+    ).toEqual([]);
+    expect(found("const opts = { timeout: 5 };\ntest('a', () => {}, opts);")).toEqual([
+      expect.stringContaining("raises the timeout"),
+    ]);
+  });
+
   test("reports the base callee, not a multi-line each() expression", () => {
     expect(found('test.each<readonly [string]>(\n  [["a"]],\n)("a", () => {}, 5000);')).toEqual([
       "test.each(…, timeout) raises the timeout instead of fixing the cause",

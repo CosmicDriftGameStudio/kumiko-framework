@@ -100,6 +100,12 @@ describe("dateRange facet → query params", () => {
     });
   });
 
+  test("a garbage bound next to a valid one is dropped without swapping the valid one", () => {
+    expect(payload({ "createdAt.from": ["nonsense"], "createdAt.to": ["2020-06-01"] })).toEqual({
+      to: "2020-06-01T21:59:59.999999999Z",
+    });
+  });
+
   test("bounds follow the viewer's zone", () => {
     expect(payload({ "createdAt.from": ["2020-06-10"] }, "UTC")).toEqual({
       from: "2020-06-10T00:00:00Z",
