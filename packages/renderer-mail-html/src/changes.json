@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Structured mail layouts render as a card with a footer band",
+    "detail": "The structured frame now draws a rounded white card with a border on the outer background. The top line sits inside the card, the footer region goes into a grey band at the bottom of the card, and the platform line from the footer resolver sits below the card. The in-code layout uses 640 px width and #ecedea as outer background and shows the tenant logo at 28 px height beside the tenant name, or an initial tile in the accent colour when no logo is set. Mail headings carry inline sizes (h1 30 px bold) and small text renders at 13 px. Existing structured layouts change their look accordingly; mjml layouts are unchanged."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Mail meta headerChip, tone and footerNote",
+    "detail": "A mail template can set meta.headerChip (a chip right of the brand row), meta.tone (accent, info, success, warning, danger or neutral; colours the chip, the top line of the card and the steps block) and meta.footerNote (a line above the site and unsubscribe links in the card band). All three accept placeholders and are rendered escaped; an unknown tone falls back to the accent colour. The band links the tenant site from the branding siteUrl next to the unsubscribe link. createRendererMailHtmlFeature({ brandSuffix }) adds a word after the tenant name in the brand row."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "createRendererMailHtmlFeature takes a footer resolver for imprint, privacy and platform line",
+    "detail": "createRendererMailHtmlFeature({ footer }) resolves a footer per mail from locale and renderer context: an optional text line plus imprint and privacy links. The renderer appends it below every layout, the in-code one, mjml layouts and structured tenant layouts, so a tenant cannot edit or delete it. Values are escaped and only http(s) and mailto links are kept. The imprint URL also fills the {{imprint}} system placeholder, and a layout region that already links {{imprint}} or {{unsubscribeUrl}} is not doubled. The unsubscribe link is labelled in the mail language (de, en, es, English otherwise). Without a resolver only the unsubscribe link is added, as before."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Without a stored layout mails use the tenant branding logo and accent colour",
+    "detail": "When no tenant or system layout exists, the renderer no longer falls back to a bare MJML frame. It renders the structured frame with the branding logo in the header (or the tenant name when no logo is set), the accent line and buttons in the branding accent colour, and the platform footer. Layout HTML now carries lang from the mail locale instead of lang=\"und\"."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Structured mail layouts show the mail body",

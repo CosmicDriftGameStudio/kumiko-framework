@@ -1,5 +1,89 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.365.0
+
+### Patch Changes
+
+- 7e1b974: Console-spy tests only count the messages of the code under test
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Console-spy tests only count the messages of the code under test
+  detail: Unit tests that asserted a silent console.warn/error ran in a process shared with other test files and picked up unrelated async warnings. They now filter the spied calls to the messages the tested code produces. No runtime change.
+  -->
+- b6b75fa: List search keeps the newest typed text; file lists tolerate duplicate ids; date ranges and locked selects validate correctly
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: List search keeps the newest typed text; file lists tolerate duplicate ids; date ranges and locked selects validate correctly
+  detail: A late echo of an older debounced search emit no longer overwrites newer typing. Duplicate file ids no longer collide as React keys. An inverted date range is swapped only when both bounds parse. Select rules on writeExcluded or readOnly fields are now checked by the form schema.
+  -->
+- efa6253: Statutory system writes skip the select-option check; isUnchangedValue is shared with the form
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Retention and erasure writes skip the select-option rule
+  detail: Framework system-user updates that name a writePurpose (retention, erasure) are no longer blocked by conditional select options. The null-clear comparison helper isUnchangedValue moved to engine/screen-helpers and is exported from ui-types so the renderer form and the executor share one definition.
+  -->
+- Updated dependencies [cd16f29]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [7aa3223]
+- Updated dependencies [efa6253]
+- Updated dependencies [7e1b974]
+- Updated dependencies [ec7d696]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [fbc6938]
+- Updated dependencies [5a1cdc1]
+- Updated dependencies [efa6253]
+- Updated dependencies [80e2132]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [59bbd15]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [a546703]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [5c276e6]
+- Updated dependencies [21c5cbc]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [0f8bff5]
+- Updated dependencies [067aa7b]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [72a5c9c]
+  - @cosmicdrift/kumiko-framework@0.365.0
+  - @cosmicdrift/kumiko-types@0.365.0
+  - @cosmicdrift/kumiko-headless@0.365.0
+
 ## 0.364.0
 
 ### Patch Changes

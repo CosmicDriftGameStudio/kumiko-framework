@@ -1,5 +1,122 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.365.0
+
+### Patch Changes
+
+- efa6253: defineAppE2eConfig respects .env.local and .env.<NODE_ENV> as well as .env
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: E2E webServer env no longer overrides keys from .env.local or .env.<NODE_ENV>
+  detail: Keys defined in the app's .env.local or .env.<NODE_ENV> (not only .env) are now left to the server's own dotenv loading instead of being overridden by the template service defaults.
+  -->
+- 45abe9d: E2e helpers read links and tokens out of captured mails
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: extractMailLink and extractMailLinkToken in kumiko-testing/e2e
+  detail: mailLinks, extractMailLink(mail, fragment) and extractMailLinkToken(mail, fragment, param) read href values from a captured HTML mail and decode HTML entities such as &#x3D; and &amp; once, so e2e specs no longer need their own mail helper.
+  -->
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [cd16f29]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [7aa3223]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [7e1b974]
+- Updated dependencies [e4ecaba]
+- Updated dependencies [ec7d696]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [8a59aa4]
+- Updated dependencies [9424924]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [81169ec]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [fbc6938]
+- Updated dependencies [5a1cdc1]
+- Updated dependencies [efa6253]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [80e2132]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [59bbd15]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [45abe9d]
+- Updated dependencies [5e5d83b]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [a546703]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [5c276e6]
+- Updated dependencies [21c5cbc]
+- Updated dependencies [26854dd]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [0f8bff5]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [067aa7b]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [cd16f29]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [72a5c9c]
+  - @cosmicdrift/kumiko-bundled-features@0.365.0
+  - @cosmicdrift/kumiko-framework@0.365.0
+  - @cosmicdrift/kumiko-types@0.365.0
+  - @cosmicdrift/kumiko-dev-server@0.365.0
+
 ## 0.364.0
 
 ### Patch Changes

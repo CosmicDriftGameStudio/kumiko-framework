@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "pdf-audit-export rejects oversized periods; sample docs and licence fixes",
+    "detail": "The audit export fails with 422 audit_period_too_large above 100 rows instead of silently truncating. The samples LICENSE names the right Licensed Work."
+  },
+  {
     "version": "0.339.0",
     "type": "improvement",
     "title": "Workspace link of kumiko-samples shows the published layout through checked-in symlinks",

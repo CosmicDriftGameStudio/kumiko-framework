@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-dispatcher-live
 
+## 0.365.0
+
+### Patch Changes
+
+- b6b75fa: An unexpected JSON response shape keeps the HTTP status of the response
+  
+  <!-- kumiko-changes
+  feature: dispatcher-live
+  type: fix
+  title: Responses that match no envelope report their real httpStatus instead of 0
+  detail: A 401 from a foreign middleware or a proxy 500 with a plain JSON body used to arrive as httpStatus 0, so logic that reacts to 401 or 5xx never fired. The error keeps the code network_error but now carries the response status.
+  -->
+- Updated dependencies [7aa3223]
+- Updated dependencies [80e2132]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [59bbd15]
+- Updated dependencies [82dc9a4]
+  - @cosmicdrift/kumiko-types@0.365.0
+  - @cosmicdrift/kumiko-headless@0.365.0
+
 ## 0.364.0
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "set-tenant-tier accepts an optional source so a manual grant can return to billing control",
+    "detail": "The handler payload takes source (manual, billing or default, default manual). Writing the row with source billing makes the subscription tier sync treat it as billing-driven again, so the next webhook overwrites the tier. The handler stays SystemAdmin only."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "tier-assignment source is a select field of TierAssignmentSources",
+    "detail": "The source column keeps its text storage, but the entity now validates it against manual, billing and default, so a typo can no longer bypass the manual-grant protection of the billing sync. TierAssignmentSource and isTierAssignmentSource are exported; the billing sync narrows the stored value with the guard."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Tier cache: stale single reload cannot overwrite a newer full resync",

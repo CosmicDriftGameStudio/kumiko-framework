@@ -10,6 +10,89 @@ verified: 2026-10-17
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.365.0
+
+### @cosmicdrift/kumiko-dev-server
+
+**The kumiko-schema-check bin and the resolveGeneratePath, usesDerivedSchemaLayout and implicitAuthModeFeatureNames exports are removed**
+
+kumiko-schema-check diffed APP_FEATURES against a hand-kept FEATURE_IMPORT_REGISTRY. Apps with kumiko/schema.ts derive their entities from the mounted features and have no registry that could drift, so the check was a no-op there. The helpers resolveGeneratePath, usesDerivedSchemaLayout and implicitAuthModeFeatureNames are no longer exported from @cosmicdrift/kumiko-dev-server/cli.
+
+**Migration:** Apps with kumiko/schema.ts need nothing. Run kumiko-schema validate to check migrations against the mounted features, and remove kumiko-schema-check from package scripts and CI. Apps that keep a FEATURE_IMPORT_REGISTRY diff it against APP_FEATURES in their own coverage script.
+
+### @cosmicdrift/kumiko-renderer-puppeteer-client
+
+**image-snapshot HTML must embed every resource as a data URI**
+
+An earlier release note said image-snapshot requests were unchanged. Since the puppeteer-service egress guard, the service fetches no http(s) resources for any request kind, so external img, link and font references in an image-snapshot are dropped without an error.
+
+**Migration:** Embed images, fonts and stylesheets in image-snapshot HTML as data: URIs before sending payload.content.
+
+### cap-counter
+
+**Handlers wrapped with withCapEnforcement or withRollingCapEnforcement are rejected when called through a nested ctx.write**
+
+Since the wrappers reserve through reserveBeforeTransaction, the dispatcher rejects a nested ctx.write, ctx.writeAs or handler-to-handler call of such a handler with an internal error ("has a pre-transaction phase ... cannot run as a nested write") instead of running it. Before the reservation lifecycle change the wrapped handler ran normally when called nested.
+
+**Migration:** Dispatch rolling- and calendar-capped handlers only as top-level commands (HTTP write or batch). A handler that calls one through ctx.write declares the cap on itself instead, or the call moves out of the handler into a client or job that dispatches a top-level command.
+
+### framework-core
+
+**Boot checks from the review round 1 release reject configurations that used to boot**
+
+These checks shipped as fixes without migration notes. Each one throws for a configuration that was accepted before:
+- a where-rule subquery on a table whose columns cannot be derived
+- a drawer prefill that targets a sensitive field or a field the form does not render
+- two secret fields with the same id
+- access.personalData "public-intake" combined with rateLimit: { disabled: true }
+- a recordOwned field on an entity with idType "serial"
+- dedupeFeatures for same-named features with different registrations
+The agent-tools manifest check in buildToolCatalog throws when the catalog is built for a request, not at boot.
+
+**Migration:** Boot every app against the new version before rolling it out, and send one agent tool request if the app mounts agent-tools. Give where-rule subqueries a table with derivable columns, prefill only rendered non-sensitive fields, make secret field ids unique, give public-intake handlers a rateLimit that is not disabled, switch recordOwned entities to idType "uuid" or change the field's personal stance, and rename or align duplicated features.
+
+**Boot rejects visibleWhen queries with required input, non-sql index where clauses, lockedWhen on read-restricted fields and same-named features with a different surface**
+
+These checks used to be absent or silent and now stop the app at boot:
+- A screen or dashboard panel visibleWhen that names a query whose input schema does not accept an empty payload. The client gate runs it with an empty payload, so the screen stayed hidden.
+- An entity index where that is not a sql expression. It used to be dropped, which built a full (unique) index.
+- A lockedWhen field that declares access.read.
+- Two features with the same name whose screens, navs, jobs, events, translations, config keys, notifications, metrics or hooks differ. The second one used to be dropped.
+
+**Migration:** Boot each app once against the new version. For a visibleWhen query, make its input fields optional or point visibleWhen at an input-free query. Write index where clauses with sql`...`. Remove access.read from the lockedWhen field or lock on a field every role can read. Give differing same-named features distinct names or make their surfaces identical.
+
+**Entity list and detail handlers with escapeHatch must declare SystemAdmin-only access**
+
+defineEntityListHandler, defineEntityDetailHandler and registerEntityCrud read options with escapeHatch now throw at definition unless access is { roles: ["SystemAdmin"] }, like write handlers already did. A cross-tenant read reachable by any tenant role leaked foreign rows.
+
+**Migration:** Give every list/detail handler that declares escapeHatch access: { roles: ["SystemAdmin"] }, or drop the escapeHatch if the handler should stay tenant-scoped.
+
+**moneyAmount returns ColumnBuilder<bigint> instead of ColumnBuilder<number>**
+
+The column was always created with bigint mode, so the driver returned a bigint while the type said number. The type now matches the runtime value. Code that assigned the column value to a number or did number arithmetic on it no longer typechecks.
+
+**Migration:** Treat values read from a moneyAmount column as bigint (for example compare with 0n, or convert explicitly with Number() where the amount is known to fit). No schema change.
+
+### template-resolver
+
+**copy-locale copies the system default's files in a beforeTransaction phase and can no longer run as a nested write**
+
+When a tenant copies a locale from the system default, the image and attachment files are now read and written to the tenant's storage in a beforeTransaction phase. The transaction only creates the fileRef rows, and the uploaded binaries are released when it does not commit. Before, the storage I/O held the database transaction open.
+
+**Migration:** Dispatch copy-locale as a top-level command, or from a perCommand handler via ctx.write. A handler that called it nested moves that call into a client or job, or becomes a perCommand handler.
+
+**onEditorReady receives null when the editor is destroyed**
+
+DocumentTiptapEditor and PlaceholderLineEditor call onEditorReady(null) on destroy, so a held handle no longer points at a destroyed editor. The callback type is (handle: DocumentEditorHandle | null) => void. The document designer drops the handle of an unmounted field, so placeholder insertion no longer targets a destroyed editor.
+
+**Migration:** A custom onEditorReady callback must accept null and drop its stored handle when it receives it.
+
+**resource-upload, import-bundle and import-bundle-system upload in a beforeTransaction phase and can no longer run as nested writes**
+
+The three handlers now validate and upload their files before the write transaction opens and only create the fileRef and template rows inside it, so no database connection sits idle in a transaction during storage I/O. A rolled-back transaction releases the uploaded bytes. Because they now have a pre-transaction phase, the dispatcher rejects a nested ctx.write, ctx.writeAs or handler-to-handler call of them ("has a pre-transaction phase"). The exported storeTemplateResource is replaced by prepareTemplateResourceBeforeTransaction (beforeTransaction half) and storePreparedTemplateResource (in-transaction half).
+
+**Migration:** Dispatch resource-upload, import-bundle and import-bundle-system as top-level commands, or from a perCommand handler via ctx.write. A handler that called them nested moves that call into a client or job, or becomes a perCommand handler. Code that called storeTemplateResource calls prepareTemplateResourceBeforeTransaction in a beforeTransaction phase and passes the result to storePreparedTemplateResource in the handler.
+
 ## 0.364.0
 
 ### @cosmicdrift/kumiko-renderer-puppeteer-client

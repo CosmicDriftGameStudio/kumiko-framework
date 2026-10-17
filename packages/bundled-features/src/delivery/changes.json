@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Rendered-PDF attachment variables must be JSON-serializable",
+    "detail": "BigInt values or cycles in rendered-pdf variables now fail validation instead of throwing a TypeError that a retrying job hits again."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Delivery checks opt-outs for addresses resolved on the retry path and logs idempotency release failures",
+    "detail": "The kill switch, preference and rate-limit result per recipient channel is computed once in the prefetch and reused when delivering; the rate limit now runs before the address is resolved. When the prefetch resolve failed and the address is resolved again, the suppression list is reloaded for exactly that address, so an unsubscribed address no longer receives the mail. A failing idempotency-key release is logged and swallowed instead of masking the delivery outcome."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "A failed final delivery attempt frees the idempotency key",

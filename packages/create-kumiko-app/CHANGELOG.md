@@ -1,5 +1,90 @@
 # create-kumiko-app
 
+## 0.365.0
+
+### Patch Changes
+
+- 8a59aa4: New projects read the prod admin password from DEMO_ADMIN_PASSWORD
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: New projects read the prod admin password from DEMO_ADMIN_PASSWORD
+  detail: The scaffolded bin/main.ts no longer seeds the prod admin with a fixed password. It reads DEMO_ADMIN_PASSWORD (declared in the env schema, min 12 chars), and boot fails without it. Existing apps are untouched; apps from an older scaffold should change bin/main.ts the same way.
+  -->
+- 9424924: A freshly scaffolded app passes `bun run lint` without rework
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: A freshly scaffolded app passes bun run lint without rework
+  detail: New projects now get a .gitignore, an exactly pinned @biomejs/biome and lint-clean generated files (import order, formatting). Existing apps are untouched.
+  -->
+- Updated dependencies [cd16f29]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [7aa3223]
+- Updated dependencies [efa6253]
+- Updated dependencies [7e1b974]
+- Updated dependencies [ec7d696]
+- Updated dependencies [efa6253]
+- Updated dependencies [8a59aa4]
+- Updated dependencies [9424924]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [fbc6938]
+- Updated dependencies [5a1cdc1]
+- Updated dependencies [efa6253]
+- Updated dependencies [80e2132]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [59bbd15]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [45abe9d]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [a546703]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [5c276e6]
+- Updated dependencies [21c5cbc]
+- Updated dependencies [26854dd]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [0f8bff5]
+- Updated dependencies [067aa7b]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [72a5c9c]
+  - @cosmicdrift/kumiko-framework@0.365.0
+  - @cosmicdrift/kumiko-dev-server@0.365.0
+  - @cosmicdrift/kumiko-testing@0.365.0
+  - @cosmicdrift/kumiko-server-runtime@0.365.0
+
 ## 0.364.0
 
 ### Patch Changes

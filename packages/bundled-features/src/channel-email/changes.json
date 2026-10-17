@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "SMTP display names drop address-like characters, inline images get matching extensions",
+    "detail": "Control characters, angle brackets and at signs in a From display name are replaced by spaces so it cannot smuggle a second address; inline image file names derive their extension from the shared image format list."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "List-Unsubscribe accepts an app-owned unsubscribe URL",
+    "detail": "When unsubscribeUrl in the mail data points to an http(s) URL outside the framework unsubscribe route, the email channel sets List-Unsubscribe to that URL without the one-click List-Unsubscribe-Post header, because the framework cannot vouch for a foreign endpoint accepting POST. Other schemes set no header."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "A mail whose file attachment is missing fails at once instead of retrying",
+    "detail": "A missing or foreign-tenant file ref ends the delivery attempt as failed (send_failed) without a retry. The send job no longer throws, so the idempotency key is released and the caller can resend. A template test mail whose template file is missing now answers not_sent instead of channel_error."
+  },
+  {
     "version": "0.363.0",
     "type": "breaking",
     "title": "A notification without a mail template fails on the email channel",

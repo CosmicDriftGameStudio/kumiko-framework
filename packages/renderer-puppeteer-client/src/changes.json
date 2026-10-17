@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "PDF steps block uses the branding accent colour",
+    "detail": "The steps block in a PDF document is coloured with the accent colour from the tenant branding, like in mails, and falls back to #1f5468 when no branding colour is set."
+  },
+  {
+    "version": "0.365.0",
+    "type": "breaking",
+    "title": "image-snapshot HTML must embed every resource as a data URI",
+    "detail": "An earlier release note said image-snapshot requests were unchanged. Since the puppeteer-service egress guard, the service fetches no http(s) resources for any request kind, so external img, link and font references in an image-snapshot are dropped without an error.",
+    "migration": "Embed images, fonts and stylesheets in image-snapshot HTML as data: URIs before sending payload.content."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "image-snapshot width and height come from the image header; PDF default layout slug is shared",
+    "detail": "The service screenshots the full page, so the image can be taller than the requested viewport; the response now reports the size read from the PNG or JPEG header. DEFAULT_PDF_LAYOUT_SLUG is exported from template-resolver and used by both the PDF renderer and the editor preview, so they cannot pick different layouts. image-snapshot HTML must embed all resources as data: URIs because the service fetches no http(s) resources."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Render requests retry only network errors, 502 and 503, and the timeout covers the body",

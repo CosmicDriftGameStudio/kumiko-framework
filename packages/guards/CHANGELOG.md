@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.365.0
+
+### Patch Changes
+
+- 82dc9a4: public-exports-changelog: --base ratchets drops against the merge-base baseline, coverage matches whole identifiers
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: public-exports-changelog --base=<ref> checks drops against the baseline of the merge-base and matches exported names as whole identifiers
+  detail: Check mode with --base=<ref> reads .kumiko-public-exports-baseline.json from the merge-base and sends every drop against it through the changelog/changeset ratchet, so a PR can no longer hide a removal by editing or deleting the baseline. An unknown ref is an error; a base without a baseline is a bootstrap. A changelog entry or open changeset covers a drop only when every dropped name appears in it as a whole identifier (getUserById no longer covers getUser). An unparsable changes.json is reported on stderr with its path. check-wt.sh, the worktree pre-push branch and the legacy check step pass the base.
+  -->
+- b6b75fa: test-timeouts no longer flags identifier test bodies, push-root judges repo paths by their checkout, security baseline errors carry a readable detail
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: guard-test-timeouts ignores identifier test bodies and timeout-free options; push-root no longer trusts a lookalike folder name
+  detail: An identifier passed as a test argument only counts as a timeout when its type is a number or has a timeout property, so Playwright's test(title, details, body) and options like { retry: 2 } pass. A push root that resolves to a git repo is judged by its canonical checkout name, not by its folder name. An unexpected security baseline shape keeps the reason unexpected_baseline_shape and adds a readable detail.
+  -->
+- @cosmicdrift/kumiko-repo-manifest@0.365.0
+
 ## 0.364.0
 
 ### Minor Changes

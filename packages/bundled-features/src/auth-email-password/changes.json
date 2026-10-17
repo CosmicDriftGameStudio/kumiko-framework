@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Magic-link mail expiry and app name use the template locale",
+    "detail": "The expiry text, the app-name fallback and the notify locale follow the locale the auth mail template actually renders in, while the link keeps the request locale."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "systemInviteCreate takes an optional locale tag",
+    "detail": "The payload accepts a locale (BCP 47 tag) that wins over the request locale when rendering the invitation mail, so system callers such as the waitlist can invite in the recipient's language."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Auth mails carry designer labels",
+    "detail": "The feature registers <feature>:feature.label and notify labels for password-reset, account-unlock, email-verification, signup-activation and invite, so the document designer lists them by name. German and Spanish ship in the locale packages."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "A loginUrl builder that throws no longer crashes the app tree",

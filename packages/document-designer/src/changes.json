@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Seeded mails show readable titles and the editor opens in the UI language",
+    "detail": "A mail template without a stored title is named by its notification label (<feature>:notify.<name>.label) in the overview and the editor header instead of its slug. The mail editor opens on the UI language, or its base language, when the template has it, and falls back to the previous choice otherwise. The layout select offers the built-in standard layout when no default layout is stored, and the preview text field shows a hint while empty."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Layout editor no longer asks for the platform override counts after a tenant save",
+    "detail": "Saving or resetting a layout as tenant admin refetched the tenant-overrides query, which only the platform admin may read, so every save logged a 403. The reload now refetches it only for the platform admin."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Mail editor rail edits header chip, tone and footer note",
+    "detail": "The properties rail of the mail editor has a section \"Kopf und Fuß\" with the header chip and the footer note as placeholder lines and the tone as a select (accent, info, success, warning, danger, neutral). The values are saved in the mail meta and show in the preview right away. A tone stored as placeholder stays as its own option; the accent tone is stored as no tone. template-resolver/web exports MAIL_TONES and MailTone."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Debounced layout validation, collision-free resource keys and reload after a half-finished system publish",
+    "detail": "The layout editor sent a validate query (with an MJML compile) on every change; it now waits 400 ms after the last edit. A second upload with the same file name before the row refetch finished reused the first key; keys handed out earlier are now remembered. When a SystemAdmin saved a mail version but publishing it failed, the editor kept the old state with the error shown; it now reloads so the stored version is visible."
+  },
+  {
     "version": "0.364.0",
     "type": "improvement",
     "title": "Editors and overview show an open draft beside the active version",

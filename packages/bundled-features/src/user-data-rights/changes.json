@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "GDPR mails carry designer labels",
+    "detail": "Feature and notify labels for export-ready, export-failed, deletion-requested and deletion-executed name the GDPR mails in the document designer."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Regression tests prove that forget also shreds the previous email in user.updated events",

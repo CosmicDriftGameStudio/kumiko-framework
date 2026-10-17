@@ -1,5 +1,258 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.365.0
+
+### Patch Changes
+
+- 8a59aa4: New projects read the prod admin password from DEMO_ADMIN_PASSWORD
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: New projects read the prod admin password from DEMO_ADMIN_PASSWORD
+  detail: The scaffolded bin/main.ts no longer seeds the prod admin with a fixed password. It reads DEMO_ADMIN_PASSWORD (declared in the env schema, min 12 chars), and boot fails without it. Existing apps are untouched; apps from an older scaffold should change bin/main.ts the same way.
+  -->
+- 9424924: A freshly scaffolded app passes `bun run lint` without rework
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: A freshly scaffolded app passes bun run lint without rework
+  detail: New projects now get a .gitignore, an exactly pinned @biomejs/biome and lint-clean generated files (import order, formatting). Existing apps are untouched.
+  -->
+- 82dc9a4: createAuthRoutes requires the switch-tenant MFA gate when MFA verify is wired
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: MFA verify without a switch-tenant gate fails at boot, and the gate result carries the session roles
+  detail: createAuthRoutes throws when mfaVerifyHandler is set without switchTenantMfaGateHandler, and runDevApp and runProdApp check that the gate handler is registered before wiring, so a missing gate can no longer let switch-tenant skip MFA. The gate handler returns the roles with its clear result and the route mints the target session from them. assertRetiredCookieDomains is no longer exported, and the auth-session signup variant is composed from SignupOutcome. Setups that set mfaVerifyHandler must also register the switch-tenant gate handler.
+  -->
+- 45abe9d: Structured mails render as a card with a brand row, a toned chip and top line, a steps block and a footer band
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: improvement
+  title: Structured mail layouts render as a card with a footer band
+  detail: The structured frame now draws a rounded white card with a border on the outer background. The top line sits inside the card, the footer region goes into a grey band at the bottom of the card, and the platform line from the footer resolver sits below the card. The in-code layout uses 640 px width and #ecedea as outer background and shows the tenant logo at 28 px height beside the tenant name, or an initial tile in the accent colour when no logo is set. Mail headings carry inline sizes (h1 30 px bold) and small text renders at 13 px. Existing structured layouts change their look accordingly; mjml layouts are unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: improvement
+  title: Mail meta headerChip, tone and footerNote
+  detail: A mail template can set meta.headerChip (a chip right of the brand row), meta.tone (accent, info, success, warning, danger or neutral; colours the chip, the top line of the card and the steps block) and meta.footerNote (a line above the site and unsubscribe links in the card band). All three accept placeholders and are rendered escaped; an unknown tone falls back to the accent colour. The band links the tenant site from the branding siteUrl next to the unsubscribe link. createRendererMailHtmlFeature({ brandSuffix }) adds a word after the tenant name in the brand row.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Steps block in mail and PDF templates
+  detail: The document editor offers a steps block in the toolbar block menu. It stores a fixed list of stages (value=label, at most 8) and the variable that names the current stage. Mail and PDF render it as a row of bars and labels; stages up to the current one are coloured, the current label is bold. Invalid blocks are dropped by the sanitizer and render nothing. Layout regions do not offer the block.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeRendererStack passes a mail brand suffix resolver
+  detail: composeRendererStack({ mailBrandSuffix }) hands the resolver to createRendererMailHtmlFeature as brandSuffix.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Mail editor rail edits header chip, tone and footer note
+  detail: The properties rail of the mail editor has a section "Kopf und Fuß" with the header chip and the footer note as placeholder lines and the tone as a select (accent, info, success, warning, danger, neutral). The values are saved in the mail meta and show in the preview right away. A tone stored as placeholder stays as its own option; the accent tone is stored as no tone. template-resolver/web exports MAIL_TONES and MailTone.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: PDF steps block uses the branding accent colour
+  detail: The steps block in a PDF document is coloured with the accent colour from the tenant branding, like in mails, and falls back to #1f5468 when no branding colour is set.
+  -->
+- 45abe9d: Mails carry the tenant logo, the accent colour and a platform footer a tenant layout cannot remove
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: improvement
+  title: createRendererMailHtmlFeature takes a footer resolver for imprint, privacy and platform line
+  detail: createRendererMailHtmlFeature({ footer }) resolves a footer per mail from locale and renderer context: an optional text line plus imprint and privacy links. The renderer appends it below every layout, the in-code one, mjml layouts and structured tenant layouts, so a tenant cannot edit or delete it. Values are escaped and only http(s) and mailto links are kept. The imprint URL also fills the {{imprint}} system placeholder, and a layout region that already links {{imprint}} or {{unsubscribeUrl}} is not doubled. The unsubscribe link is labelled in the mail language (de, en, es, English otherwise). Without a resolver only the unsubscribe link is added, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: improvement
+  title: Without a stored layout mails use the tenant branding logo and accent colour
+  detail: When no tenant or system layout exists, the renderer no longer falls back to a bare MJML frame. It renders the structured frame with the branding logo in the header (or the tenant name when no logo is set), the accent line and buttons in the branding accent colour, and the platform footer. Layout HTML now carries lang from the mail locale instead of lang="und".
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: A paragraph or heading that only holds an empty placeholder is left out of the rendered document
+  detail: compileDocumentBodyToHandlebars wraps a p or h1 to h4 whose only content is one placeholder in an if block, so an empty optional value no longer leaves a blank line in mails and PDFs. Zero numbers and money values still render. Blocks with static text, images or several placeholders are unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Mail layout buttons follow the branding accent colour
+  detail: mailLayoutAppearance takes the tenant branding accent colour. When the layout uses the branding accent line, buttons in the mail body use that colour instead of the fixed dark teal. Invalid colours fall back to the previous default.
+  -->
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: fix
+  title: List-Unsubscribe accepts an app-owned unsubscribe URL
+  detail: When unsubscribeUrl in the mail data points to an http(s) URL outside the framework unsubscribe route, the email channel sets List-Unsubscribe to that URL without the one-click List-Unsubscribe-Post header, because the framework cannot vouch for a foreign endpoint accepting POST. Other schemes set no header.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeRendererStack passes a mail footer resolver to the mail renderer
+  detail: composeRendererStack({ mailFooter }) hands the resolver to createRendererMailHtmlFeature, so apps on the composed stack set imprint, privacy and platform line in one place.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: A placeholder inside a button label is kept
+  detail: The document schema allows placeholder chips inside a button label. Before, saving or seeding a body such as a button reading "View {{pageName}}" split the button: the label stopped at the placeholder and the rest landed in a new paragraph outside the button.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: compileDocumentBodyToHandlebars takes a height cap for resource images
+  detail: The new resourceImageMaxHeightPx option adds max-height and width:auto to resource images. The mail renderer caps images in a layout header at 64 px, so a square logo stays small while a wide wordmark keeps its 180 px width cap.
+  -->
+- 26854dd: Remove the kumiko-schema-check bin
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: The kumiko-schema-check bin and the resolveGeneratePath, usesDerivedSchemaLayout and implicitAuthModeFeatureNames exports are removed
+  detail: kumiko-schema-check diffed APP_FEATURES against a hand-kept FEATURE_IMPORT_REGISTRY. Apps with kumiko/schema.ts derive their entities from the mounted features and have no registry that could drift, so the check was a no-op there. The helpers resolveGeneratePath, usesDerivedSchemaLayout and implicitAuthModeFeatureNames are no longer exported from @cosmicdrift/kumiko-dev-server/cli.
+  migration: Apps with kumiko/schema.ts need nothing. Run kumiko-schema validate to check migrations against the mounted features, and remove kumiko-schema-check from package scripts and CI. Apps that keep a FEATURE_IMPORT_REGISTRY diff it against APP_FEATURES in their own coverage script.
+  -->
+- b6b75fa: Server bundle finds worker.js and bootstrap.js next to a bin/main.js, and the dev PII restore keeps an app-supplied blind-index key
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: buildServerBundle resolves worker and bootstrap entries as .ts or .js; runDevApp stop keeps an explicit blindIndexKey
+  detail: An app with bin/main.js and bin/worker.js used to get no dist-server/worker.js without any warning, because only worker.ts and bootstrap.ts were looked up. Siblings now resolve like the server entry, .ts first and then .js. In the ephemeral PII default, stopping runDevApp unset a blindIndexKey that the app passed itself; it now unsets only the key the default generated.
+  -->
+- 0f8bff5: kumiko-schema status reports connection errors; kumiko-schema-check knows the scaffold layout
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: kumiko-schema status reports connection errors; kumiko-schema-check knows the scaffold layout
+  detail: schema status now prints a one-line error with a hint and exits 1 when the database is unreachable or missing, instead of an uncaught stacktrace (the URL is never printed). kumiko-schema-check exits 0 with a pointer to kumiko-schema validate for apps whose kumiko/schema.ts derives ENTITY_METAS from APP_FEATURES. New scaffolds create the app database in docker-compose.
+  -->
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [cd16f29]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [7aa3223]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [7e1b974]
+- Updated dependencies [e4ecaba]
+- Updated dependencies [ec7d696]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [81169ec]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [fbc6938]
+- Updated dependencies [5a1cdc1]
+- Updated dependencies [efa6253]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [80e2132]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [59bbd15]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [45abe9d]
+- Updated dependencies [5e5d83b]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [a546703]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [5c276e6]
+- Updated dependencies [21c5cbc]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [0f8bff5]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [067aa7b]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [cd16f29]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [72a5c9c]
+  - @cosmicdrift/kumiko-bundled-features@0.365.0
+  - @cosmicdrift/kumiko-framework@0.365.0
+  - @cosmicdrift/kumiko-types@0.365.0
+  - @cosmicdrift/kumiko-server-runtime@0.365.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.365.0
+  - @cosmicdrift/kumiko-renderer-web@0.365.0
+  - @cosmicdrift/kumiko-headless@0.365.0
+
 ## 0.364.0
 
 ### Minor Changes

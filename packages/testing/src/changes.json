@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "E2E webServer env no longer overrides keys from .env.local or .env.<NODE_ENV>",
+    "detail": "Keys defined in the app's .env.local or .env.<NODE_ENV> (not only .env) are now left to the server's own dotenv loading instead of being overridden by the template service defaults."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "extractMailLink and extractMailLinkToken in kumiko-testing/e2e",
+    "detail": "mailLinks, extractMailLink(mail, fragment) and extractMailLinkToken(mail, fragment, param) read href values from a captured HTML mail and decode HTML entities such as &#x3D; and &amp; once, so e2e specs no longer need their own mail helper."
+  },
+  {
     "version": "0.357.0",
     "type": "improvement",
     "title": "defineAppE2eConfig accepts permissions, launchOptions, a custom server command and Bun preloads",

@@ -1,5 +1,93 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.365.0
+
+### Patch Changes
+
+- 72a5c9c: The narrow pinned footer's overflow menu no longer captures Escape and focus while closed
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Escape closes a drawer again when its form has a narrow pinned footer, and the overflow menu focuses its first action
+  detail: The overflow popover content used to stay mounted while closed, so its dismiss layer took Escape away from the surrounding drawer or dialog and its focus scope never moved focus on open. The popover content now mounts only while open. The overflow actions stay mounted in a hidden host, so dialogs they own keep working.
+  -->
+- 82dc9a4: Chart tick, tooltip, marker and brush fixes; dashboard visibility gates no longer remount the grid
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Chart ticks, tooltip, markers and brush behave correctly; filter changes no longer reset panel state
+  detail: Fractional y-axis ticks no longer show float noise such as 0.6000000000000001, and the stacked-area grid lines share the tick values of the y labels. A lone bucket with a zero total shows the empty content again. The hover card is tracked by time, so it stays on its date when the window shifts and closes once that date is gone; it also stays inside narrow plots, and the outside-click listeners are no longer re-attached on every bucket change. With markerLabels the numbered marker list is hidden on wide containers together with the pins. Line legend entries get their own key and test id (chart-legend-line-<key>) so a line sharing a key with a series no longer collides. Moving the brush window keeps its width in buckets across uneven month lengths, and a range anchored before the first bucket falls back to the full window. Axis ticks are memoized and day ticks step by calendar days. Dashboard visibility gate queries now run as keyed siblings of the grid, so a filter change that adds or removes a gate no longer remounts all panels and drops local state such as the chart range selection.
+  -->
+- b6b75fa: Step bar, language switcher, embedded list and image resize accessibility and resource fixes
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Step bar, language switcher, embedded list and image resize accessibility and resource fixes
+  detail: Step bar sets aria-controls only while open. The language-switcher menu stays inside footer and other landmarks. The embedded list input focuses the first editable column. resizeImage always closes its bitmap.
+  -->
+- Updated dependencies [cd16f29]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [7aa3223]
+- Updated dependencies [efa6253]
+- Updated dependencies [7e1b974]
+- Updated dependencies [ec7d696]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [fbc6938]
+- Updated dependencies [5a1cdc1]
+- Updated dependencies [efa6253]
+- Updated dependencies [80e2132]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [59bbd15]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [a546703]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [5c276e6]
+- Updated dependencies [21c5cbc]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [0f8bff5]
+- Updated dependencies [067aa7b]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [72a5c9c]
+  - @cosmicdrift/kumiko-framework@0.365.0
+  - @cosmicdrift/kumiko-types@0.365.0
+  - @cosmicdrift/kumiko-renderer@0.365.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.365.0
+  - @cosmicdrift/kumiko-headless@0.365.0
+
 ## 0.364.0
 
 ### Patch Changes

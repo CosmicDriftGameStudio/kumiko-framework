@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "revokeAllPatTokensForUser detects begin() the same way as the transaction helpers",
+    "detail": "The transaction probe looked for begin() directly on the handle, so a pool wrapped by a legacy Drizzle connection fell back to a non-atomic update plus append. It now uses runnerCanBeginTransaction from bun-db, which unwraps the client first."
+  },
+  {
     "version": "0.347.0",
     "type": "improvement",
     "title": "API-token screens hide behind the tier gate and can fall back to an upgrade screen via lockedFallbackScreen",

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Bootstrap fails when a global-role invite cannot be provisioned; delivery notify works without auth",
+    "detail": "runBootstrap now fails with a non-zero exit when an invite with global roles ends role-mismatch or cancelled. The delivery notify factory gets a config resolver also when the app has no auth feature."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Seeds can create fileRefs through handlers that use createFileRefFromBytes",
+    "detail": "The seed dispatcher built its handler context without the file provider resolver, so a write handler invoked via systemWriteAs failed with \"createFileRefFromBytes: ctx.files is unavailable\". The seed context now carries the same file provider as the HTTP path."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "composeFeatures adds template-resolver, renderer-foundation and renderer-mail-html for auth apps",

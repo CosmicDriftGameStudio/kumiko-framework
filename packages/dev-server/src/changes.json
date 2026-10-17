@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "New projects read the prod admin password from DEMO_ADMIN_PASSWORD",
+    "detail": "The scaffolded bin/main.ts no longer seeds the prod admin with a fixed password. It reads DEMO_ADMIN_PASSWORD (declared in the env schema, min 12 chars), and boot fails without it. Existing apps are untouched; apps from an older scaffold should change bin/main.ts the same way."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "A freshly scaffolded app passes bun run lint without rework",
+    "detail": "New projects now get a .gitignore, an exactly pinned @biomejs/biome and lint-clean generated files (import order, formatting). Existing apps are untouched."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "composeRendererStack passes a mail brand suffix resolver",
+    "detail": "composeRendererStack({ mailBrandSuffix }) hands the resolver to createRendererMailHtmlFeature as brandSuffix."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "composeRendererStack passes a mail footer resolver to the mail renderer",
+    "detail": "composeRendererStack({ mailFooter }) hands the resolver to createRendererMailHtmlFeature, so apps on the composed stack set imprint, privacy and platform line in one place."
+  },
+  {
+    "version": "0.365.0",
+    "type": "breaking",
+    "title": "The kumiko-schema-check bin and the resolveGeneratePath, usesDerivedSchemaLayout and implicitAuthModeFeatureNames exports are removed",
+    "detail": "kumiko-schema-check diffed APP_FEATURES against a hand-kept FEATURE_IMPORT_REGISTRY. Apps with kumiko/schema.ts derive their entities from the mounted features and have no registry that could drift, so the check was a no-op there. The helpers resolveGeneratePath, usesDerivedSchemaLayout and implicitAuthModeFeatureNames are no longer exported from @cosmicdrift/kumiko-dev-server/cli.",
+    "migration": "Apps with kumiko/schema.ts need nothing. Run kumiko-schema validate to check migrations against the mounted features, and remove kumiko-schema-check from package scripts and CI. Apps that keep a FEATURE_IMPORT_REGISTRY diff it against APP_FEATURES in their own coverage script."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "buildServerBundle resolves worker and bootstrap entries as .ts or .js; runDevApp stop keeps an explicit blindIndexKey",
+    "detail": "An app with bin/main.js and bin/worker.js used to get no dist-server/worker.js without any warning, because only worker.ts and bootstrap.ts were looked up. Siblings now resolve like the server entry, .ts first and then .js. In the ephemeral PII default, stopping runDevApp unset a blindIndexKey that the app passed itself; it now unsets only the key the default generated."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "runDevApp resolves the masterKey provider before boot validation",
