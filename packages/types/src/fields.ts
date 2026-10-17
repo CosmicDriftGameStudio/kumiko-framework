@@ -77,7 +77,9 @@ export type FieldAccess = {
 //                                  `whenAbsent: "tenant"` encrypts rows whose
 //                                  owner is empty under the tenant key instead
 //                                  of failing; a nullable owner needs it
-//                                  (fw#3654).
+//                                  (fw#3654). `whenAbsent: "self"` encrypts
+//                                  them under the row's own record key instead,
+//                                  so a record-forget shreds the value.
 //   - `personal: "tenant"`       → `tenantOwned: true`. the current tenant
 //                                  (ctx.tenantId at write time).
 //                                  tenantBranding.brandColor.
@@ -166,7 +168,7 @@ export type ResolvedPiiFlags = {
 // these into `ResolvedPiiFlags` — see packages/framework/src/engine/factories.ts.
 // Entity fields have no plaintext fallback for an ownerless row: stored PII
 // must stay shreddable (fw#3654).
-export type EntityPiiAbsentSubject = "tenant";
+export type EntityPiiAbsentSubject = "tenant" | "self";
 export type PersonalSubject =
   | "self"
   | { readonly of: string; readonly whenAbsent?: EntityPiiAbsentSubject }

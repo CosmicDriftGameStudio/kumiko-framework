@@ -42,6 +42,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
+  isRecordKeyedField,
   isSelfPiiField,
   type KmsAdapter,
   resolveSubjectForField,
@@ -160,10 +161,17 @@ async function purgeMatchingRows(
 // (purgeMatchingRows's hardDelete select) is enough; the with-files path's
 // full row works the same way.
 //
-// userOwned/tenantOwned are explicitly excluded: hardDelete only destroys
+// userOwned/tenantOwned are explicitly excluded (except a whenAbsent: "self" field
+// of an ownerless row, which resolves to this row's own record key): hardDelete only destroys
 // THIS row's own data, but the owning user's/tenant's key may still protect
 // OTHER live rows that reference the same subject — erasing it here would
 // be a silent cross-row data-loss bug, not a retention fix.
+function mayResolveToOwnRecordKey(field: EntityDefinition["fields"][string]): boolean {
+  if ("tenantOwned" in field && field.tenantOwned === true) return false;
+  if ("userOwned" in field && field.userOwned !== undefined) return isRecordKeyedField(field);
+  return ("recordOwned" in field && field.recordOwned === true) || isSelfPiiField(field);
+}
+
 function collectHardDeleteEraseSubjects(
   entity: EntityDefinition,
   entityName: string,
@@ -173,13 +181,11 @@ function collectHardDeleteEraseSubjects(
   const subjectsByKey = new Map<string, SubjectId>();
   for (const fieldName of collectPiiSubjectFields(entity)) {
     const field = entity.fields[fieldName];
-    if (!field) continue;
-    const isRecordOwned = "recordOwned" in field && field.recordOwned === true;
-    const isUserOwned = "userOwned" in field && field.userOwned !== undefined;
-    const isTenantOwned = "tenantOwned" in field && field.tenantOwned === true;
-    if (isUserOwned || isTenantOwned) continue; // never erase — see header comment
-    if (!isRecordOwned && !isSelfPiiField(field)) continue;
+    if (!field || !mayResolveToOwnRecordKey(field)) continue;
     const subject = resolveSubjectForField(entity, fieldName, row, { tenantId, entityName });
+    // whenAbsent: "self" resolves to the owner's key while the row has an owner — never erased here
+    const isUserOwned = "userOwned" in field && field.userOwned !== undefined;
+    if (isUserOwned && subject?.kind !== "record") continue;
     if (subject) subjectsByKey.set(subjectIdToKey(subject), subject);
   }
   return Array.from(subjectsByKey.values());

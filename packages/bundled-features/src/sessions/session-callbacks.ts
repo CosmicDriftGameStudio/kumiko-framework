@@ -18,7 +18,12 @@ import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { encryptForDirectWrite } from "../shared/index.js";
 import { tenantMembershipsTable } from "../tenant/index.js";
-import { isPrincipalBlocked, type UserStatus, userTable } from "../user/index.js";
+import {
+  isPrincipalBlocked,
+  isPrincipalRowBlocked,
+  type UserStatus,
+  userTable,
+} from "../user/index.js";
 import {
   DEFAULT_SESSION_EXPIRY_MS,
   LAST_SEEN_REFRESH_MS,
@@ -190,16 +195,18 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // missing row is a legitimate "no tenant roles" outcome. Both branches
       // return the bare "live" string (no re-derived roles) — the middleware
       // falls back to the JWT's frozen roles claim.
-      let user: { status: UserStatus; roles: string | null } | undefined;
+      let user: { status: UserStatus; isDeleted: boolean; roles: string | null } | undefined;
       try {
-        user = await fetchOne<{ status: UserStatus; roles: string | null }>(db, userTable, {
-          id: expectedUserId,
-        });
+        user = await fetchOne<{ status: UserStatus; isDeleted: boolean; roles: string | null }>(
+          db,
+          userTable,
+          { id: expectedUserId },
+        );
       } catch {
         return "live";
       }
       if (!user) return "live";
-      if (isPrincipalBlocked(user.status)) return "blocked";
+      if (isPrincipalRowBlocked(user)) return "blocked";
 
       // Same fail-open reasoning as the userTable lookup above — a transient
       // DB error on the membership read must not lock the user out. A

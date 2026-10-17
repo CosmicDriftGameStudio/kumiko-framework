@@ -2,10 +2,8 @@ import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { buildSessionRoles } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-// kumiko-lint-ignore cross-feature-import shared lifecycle-status gate with session auth
-import { isPrincipalBlocked } from "../sessions/index.js";
 import { tenantMembershipsTable } from "../tenant/index.js";
-import { type UserStatus, userTable } from "../user/index.js";
+import { isPrincipalRowBlocked, type UserStatus, userTable } from "../user/index.js";
 
 // Live role resolution for a (userId, tenantId), mirroring login.write.ts:
 // global roles (users.roles) ∪ tenant-membership roles (forbidden roles
@@ -28,10 +26,14 @@ export async function resolvePatRoles(
   });
   const membership = memberships[0];
   if (!membership) return null;
-  const userRow = await fetchOne<{ roles: string | null; status: UserStatus }>(db, userTable, {
+  const userRow = await fetchOne<{
+    roles: string | null;
+    status: UserStatus;
+    isDeleted: boolean;
+  }>(db, userTable, {
     id: userId,
   });
-  if (userRow && isPrincipalBlocked(userRow.status)) return null;
+  if (userRow && isPrincipalRowBlocked(userRow)) return null;
   const globalRoles = parseRoles(userRow?.roles ?? null);
   return buildSessionRoles(globalRoles, parseRoles(membership.roles));
 }

@@ -172,6 +172,33 @@ describe("resolveSubjectForField", () => {
       ).toEqual({ kind: "tenant", tenantId: UUID_A });
     });
 
+    test('whenAbsent "self" keys an ownerless row on its own record subject', () => {
+      const selfEntity = createEntity({
+        fields: {
+          body: createTextField({ personal: { of: "authorId", whenAbsent: "self" }, find: "none" }),
+          authorId: createTextField({ personal: "ref" }),
+        },
+        table: "resolver_self_owner",
+      });
+      expect(
+        resolveSubjectForField(selfEntity, "body", { id: UUID_B, authorId: null }, opts),
+      ).toEqual({ kind: "record", entity: ENTITY_NAME, id: UUID_B });
+      expect(
+        resolveSubjectForField(selfEntity, "body", { id: UUID_B, authorId: UUID_A }, opts),
+      ).toEqual({ kind: "user", userId: UUID_A });
+      expect(() =>
+        resolveSubjectForField(
+          selfEntity,
+          "body",
+          { id: UUID_B, authorId: null },
+          { ...opts, ignoreWhenAbsent: true },
+        ),
+      ).toThrow(SubjectResolutionError);
+      expect(() => resolveSubjectForField(selfEntity, "body", { authorId: null }, opts)).toThrow(
+        /no id to use as the record subject/,
+      );
+    });
+
     test("without whenAbsent an empty owner throws and names the fix", () => {
       expect(() => resolveSubjectForField(commentEntity, "body", { id: UUID_A }, opts)).toThrow(
         /declare \{ personal: \{ of: "authorId", whenAbsent: "tenant" \} \}/,
@@ -293,6 +320,37 @@ describe("resolveEventSubject (fw#2801)", () => {
       { tenantId: EVENT_TENANT, aggregateType: "note", aggregateId: UUID_B },
     );
     expect(subject).toEqual({ kind: "tenant", tenantId: EVENT_TENANT });
+  });
+
+  test('personal: { of, whenAbsent: "self" } with a missing owner → record subject of the envelope aggregate', () => {
+    const subject = resolveEventSubject(
+      "note",
+      { personal: { of: "authorId", whenAbsent: "self" } },
+      { authorId: null },
+      { tenantId: EVENT_TENANT, aggregateType: "note", aggregateId: UUID_B },
+    );
+    expect(subject).toEqual({ kind: "record", entity: "note", id: UUID_B });
+  });
+
+  test('personal: { of, whenAbsent: "self" } with an owner → user subject', () => {
+    const subject = resolveEventSubject(
+      "note",
+      { personal: { of: "authorId", whenAbsent: "self" } },
+      { authorId: UUID_A },
+      { tenantId: EVENT_TENANT, aggregateType: "note", aggregateId: UUID_B },
+    );
+    expect(subject).toEqual({ kind: "user", userId: UUID_A });
+  });
+
+  test('personal: { of, whenAbsent: "self" } rejects an aggregateType that is no shreddable record entity', () => {
+    expect(() =>
+      resolveEventSubject(
+        "note",
+        { personal: { of: "authorId", whenAbsent: "self" } },
+        { authorId: null },
+        { tenantId: EVENT_TENANT, aggregateType: "not a/valid type", aggregateId: UUID_B },
+      ),
+    ).toThrow(/does not match/);
   });
 
   test('personal: "tenant" → subject from the envelope tenantId', () => {

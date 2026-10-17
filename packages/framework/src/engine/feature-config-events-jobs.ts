@@ -87,14 +87,14 @@ function assertOwnerFieldYieldsPresentString(args: {
   if (neverYieldsString(owner)) {
     throw new Error(
       `[Feature ${featureName}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${ownerField}", whose payload schema is not a string — the subject id must be a non-empty string, so every append would fail. ` +
-        `Use a string owner field, or declare whenAbsent ("tenant" | "plaintext").`,
+        `Use a string owner field, or declare whenAbsent ("tenant" | "self" | "plaintext").`,
     );
   }
   if (isAbsentable(owner)) {
     throw new Error(
       `[Feature ${featureName}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${ownerField}", which the payload schema allows to be null/undefined. ` +
         `Declare what happens then: { personal: { of: "${ownerField}", whenAbsent: "tenant" } } encrypts under the envelope tenant key, ` +
-        `whenAbsent: "plaintext" acknowledges that the value ships unencrypted and cannot be crypto-shredded (fw#2776).`,
+        `whenAbsent: "self" under the event's own record key, whenAbsent: "plaintext" acknowledges that the value ships unencrypted and cannot be crypto-shredded (fw#2776).`,
     );
   }
 }

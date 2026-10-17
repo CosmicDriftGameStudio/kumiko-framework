@@ -20,13 +20,23 @@ export function isPrincipalBlocked(status: UserStatus): boolean {
   return BLOCKED_STATUSES.has(status);
 }
 
+// A soft-deleted row (executor.delete) keeps its last status, so isDeleted must block on its own.
+export function isPrincipalRowBlocked(row: {
+  readonly status: UserStatus;
+  readonly isDeleted: boolean;
+}): boolean {
+  return row.isDeleted || isPrincipalBlocked(row.status);
+}
+
 // Registered via r.useExtension(EXT_PRINCIPAL_STATUS, "user", principalStatusPlugin)
 // so resolveActiveMembershipFn can reject a blocked principal without knowing about `user`'s table.
 export const principalStatusPlugin: PrincipalStatusPlugin = {
   async resolveStatus(userId, { db }): Promise<PrincipalStatus> {
-    const row = await fetchOne<{ status: UserStatus }>(db, userTable, { id: userId });
+    const row = await fetchOne<{ status: UserStatus; isDeleted: boolean }>(db, userTable, {
+      id: userId,
+    });
     if (!row) return "unknown";
-    return isPrincipalBlocked(row.status) ? "blocked" : "active";
+    return isPrincipalRowBlocked(row) ? "blocked" : "active";
   },
 
   // ctx.queryAsMember's global-roles/timezone/locale source — same fields

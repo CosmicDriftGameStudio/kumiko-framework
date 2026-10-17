@@ -31,6 +31,45 @@ export function isSensitiveLabelField(entity: EntityDefinition, field: string): 
   );
 }
 
+// A `sensitive` (find: "secret") field is never comparable either, even while its value is still
+// legacy plaintext.
+function holdsCiphertextOrSecret(entity: EntityDefinition, field: string): boolean {
+  const def = entity.fields[field];
+  if (def === undefined) return false;
+  return ("sensitive" in def && def.sensitive === true) || isSensitiveLabelField(entity, field);
+}
+
+// Only a PII field with a blind index (`find: "exact" | "fuzzy"`) can be matched without reading
+// the stored value: the `<field>Bidx` HMAC arm of an equality filter.
+function isBlindIndexEqualityTarget(entity: EntityDefinition, field: string): boolean {
+  const def = entity.fields[field];
+  return (
+    def?.type === "text" &&
+    def.lookupable === true &&
+    def.sensitive !== true &&
+    !collectEncryptedFieldNames(entity).has(field)
+  );
+}
+
+// Filtering ciphertext (or a secret) turns hit/count into a value oracle, and for legacy plaintext
+// rows an `in`/range comparison into a prefix oracle. Blind-index equality is the one exception.
+export function isListFilterAllowed(
+  entity: EntityDefinition,
+  field: string,
+  filter: { readonly op: string; readonly value: unknown },
+): boolean {
+  if (!holdsCiphertextOrSecret(entity, field)) return true;
+  return (
+    isBlindIndexEqualityTarget(entity, field) &&
+    filter.op === "eq" &&
+    typeof filter.value === "string"
+  );
+}
+
+export function isListSortAllowed(entity: EntityDefinition, field: string): boolean {
+  return !holdsCiphertextOrSecret(entity, field);
+}
+
 // `searchable: true` on a text field means it is indexed plaintext
 // somewhere findable by term — a plain text field's own column, or (for a
 // personal-data field) the derived search index mirroring it.

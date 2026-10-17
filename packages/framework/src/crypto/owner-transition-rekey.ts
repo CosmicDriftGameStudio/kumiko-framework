@@ -14,6 +14,8 @@ export function isPlainUserOwnedField(field: EntityDefinition["fields"][string])
 // owner. Returns the unchanged-by-the-caller values that must be written again
 // so they encrypt under the new owner. Owner → absent is not a transition:
 // the value stays with the last owner so that owner's forget still erases it.
+// Absent → owner moves a whenAbsent value (tenant or record key) to the owner's
+// key; the created event stays keyed under the whenAbsent subject.
 export function personalFieldsRekeyedOnOwnerTransition(
   entity: EntityDefinition,
   previous: Record<string, unknown>,

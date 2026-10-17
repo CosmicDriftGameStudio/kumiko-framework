@@ -2613,6 +2613,29 @@ describe("boot-validator", () => {
       );
     });
 
+    test("filter auf personal Feld → Throw, der List-Handler lehnt ihn zur Laufzeit ab", () => {
+      const fields = {
+        name: { type: "text", filterable: true },
+        note: { type: "text", filterable: true, tenantOwned: true },
+      };
+      expect(() =>
+        validateBoot([makeFeature({ field: "note", op: "eq", value: "x" }, fields)]),
+      ).toThrow(/filter references field "note" which is encrypted, personal or secret/);
+    });
+
+    test("eq-Filter auf personal Feld mit Blind-Index → kein Throw, andere Ops → Throw", () => {
+      const fields = {
+        name: { type: "text", filterable: true },
+        mail: { type: "text", filterable: true, tenantOwned: true, lookupable: true },
+      };
+      expect(() =>
+        validateBoot([makeFeature({ field: "mail", op: "eq", value: "a@example.com" }, fields)]),
+      ).not.toThrow();
+      expect(() =>
+        validateBoot([makeFeature({ field: "mail", op: "in", value: ["a@example.com"] }, fields)]),
+      ).toThrow(/filter references field "mail" which is encrypted, personal or secret/);
+    });
+
     test("filter.op=lt auf text-Feld → Throw (op-vs-Type-Compat)", () => {
       expect(() => validateBoot([makeFeature({ field: "status", op: "lt", value: "x" })])).toThrow(
         /filter\.op "lt" is not allowed on field "status" \(type "text"\)/,

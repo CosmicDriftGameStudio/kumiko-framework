@@ -274,6 +274,46 @@ describe("validateBoot — PII annotations", () => {
       expect(() => validateBoot([commentFeature(true, false)])).not.toThrow();
     });
 
+    test('nullable owner with whenAbsent "self" passes; the fix hint names both values', () => {
+      const feature = defineFeature("test", (r) => {
+        r.entity({
+          name: "comment",
+          ...createEntity({
+            fields: {
+              body: createLongTextField({
+                personal: { of: "authorId", whenAbsent: "self" },
+                find: "none",
+              }),
+              authorId: { ...unannotatedText },
+            },
+          }),
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+      expect(() => validateBoot([commentFeature(false, false)])).toThrow(
+        /whenAbsent: "tenant".*whenAbsent: "self"/,
+      );
+    });
+
+    test('whenAbsent "self" on a serial-id entity throws — the record key could never be shredded', () => {
+      const feature = defineFeature("test", (r) => {
+        r.entity({
+          name: "comment",
+          ...createEntity({
+            idType: "serial",
+            fields: {
+              body: createLongTextField({
+                personal: { of: "authorId", whenAbsent: "self" },
+                find: "none",
+              }),
+              authorId: { ...unannotatedText },
+            },
+          }),
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/"body".*whenAbsent: "self"/);
+    });
+
     test("required owner without whenAbsent passes", () => {
       expect(() => validateBoot([commentFeature(false, true)])).not.toThrow();
     });
@@ -296,7 +336,7 @@ describe("validateBoot — PII annotations", () => {
           },
         });
       });
-      expect(() => validateBoot([feature])).toThrow(/only support whenAbsent: "tenant"/);
+      expect(() => validateBoot([feature])).toThrow(/only support whenAbsent: "tenant" or "self"/);
     });
   });
 

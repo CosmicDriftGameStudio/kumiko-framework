@@ -50,7 +50,22 @@ const userOwnedEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 
+// Entity C: whenAbsent "self" → an ownerless row is keyed on itself (erased by
+// hardDelete), a row with an owner sits under the owner's key (left alone).
+const selfFallbackEntity = createEntity({
+  table: "read_c9_self_fallback",
+  fields: {
+    ownerUserId: createTextField({ personal: "ref" }),
+    note: createTextField({
+      personal: { of: "ownerUserId", whenAbsent: "self" },
+      find: "none",
+    }),
+  },
+  retention: { keepFor: "30d", strategy: "hardDelete" },
+});
+
 const c9Feature = defineFeature("c9-retention-kms-fixtures", (r) => {
+  r.entity({ name: "c9-self-fallback", ...selfFallbackEntity });
   r.entity({ name: "c9-record-owned", ...recordOwnedEntity });
   r.entity({ name: "c9-user-owned", ...userOwnedEntity });
 });
@@ -62,7 +77,12 @@ let pastIso: string;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createDataRetentionFeature(), c9Feature] });
-  for (const e of [tenantRetentionOverrideEntity, recordOwnedEntity, userOwnedEntity]) {
+  for (const e of [
+    tenantRetentionOverrideEntity,
+    recordOwnedEntity,
+    userOwnedEntity,
+    selfFallbackEntity,
+  ]) {
     await unsafeCreateEntityTable(stack.db, e);
   }
   now = getTemporal().Now.instant();
@@ -74,7 +94,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["read_c9_record_owned", "read_c9_user_owned"]) {
+  for (const t of ["read_c9_record_owned", "read_c9_user_owned", "read_c9_self_fallback"]) {
     await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
   }
   kms = new InMemoryKmsAdapter();
@@ -155,6 +175,38 @@ describe("runRetentionCleanup :: hardDelete crypto-shredding (Refs #2057)", () =
     expect(userRows).toHaveLength(0);
     expect(userRowId).toBeTruthy();
     // The owner's key must survive — it is not this row's own subject.
+    await expect(kms.getKey({ kind: "user", userId: ownerUserId })).resolves.toBeInstanceOf(Buffer);
+  });
+
+  test("whenAbsent self: erases the record key of an ownerless row, leaves the owner key of an owned row", async () => {
+    const tenantId = testTenantId(9);
+    const ownerUserId = crypto.randomUUID();
+    const insert = async (owner: string | null): Promise<string> => {
+      const rows = (await asRawClient(stack.db).unsafe(
+        `INSERT INTO read_c9_self_fallback (tenant_id, owner_user_id, note, inserted_at) VALUES ($1, $2, $3, $4::timestamptz) RETURNING id::text AS id`,
+        [tenantId, owner, "pii:placeholder", pastIso],
+      )) as { id: string }[];
+      const id = rows[0]?.id;
+      if (!id) throw new Error("insert returned no id");
+      return id;
+    };
+    const ownerlessId = await insert(null);
+    await insert(ownerUserId);
+    await kms.createKey({ kind: "record", entity: "c9-self-fallback", id: ownerlessId });
+    await kms.createKey({ kind: "user", userId: ownerUserId });
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId,
+      preloadedTenantPreset: null,
+      now,
+    });
+
+    expect(result.hardDeleted).toBe(2);
+    await expect(
+      kms.getKey({ kind: "record", entity: "c9-self-fallback", id: ownerlessId }),
+    ).rejects.toThrow(KeyErasedError);
     await expect(kms.getKey({ kind: "user", userId: ownerUserId })).resolves.toBeInstanceOf(Buffer);
   });
 });

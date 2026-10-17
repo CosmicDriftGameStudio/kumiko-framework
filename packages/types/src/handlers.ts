@@ -1124,10 +1124,11 @@ export type QualifiedEventName<
 //
 // `whenAbsent` decides what happens when the named owner field carries no
 // id (system- or cron-triggered writes): "tenant" re-targets the envelope
-// tenant key, "plaintext" is an explicit acknowledgement that the value
-// ships unencrypted and cannot be crypto-shredded. Undeclared is not a
-// third option — the append fails closed instead of leaking (fw#2776).
-export type EventPiiAbsentSubject = "plaintext" | "tenant";
+// tenant key, "self" the event's own aggregate stream (record key),
+// "plaintext" is an explicit acknowledgement that the value ships
+// unencrypted and cannot be crypto-shredded. Undeclared is not another
+// option — the append fails closed instead of leaking (fw#2776).
+export type EventPiiAbsentSubject = "plaintext" | "tenant" | "self";
 
 export type EventPiiSubject =
   | {

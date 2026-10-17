@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
@@ -112,9 +113,19 @@ const memoEntity = createEntity({
 });
 const memoTable = buildEntityTable("memo", memoEntity);
 
+// whenAbsent: "self" — an ownerless row is keyed on the record itself.
+const slipEntity = createEntity({
+  fields: {
+    ownerId: createTextField({ personal: "ref" }),
+    body: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
+  },
+});
+const slipTable = buildEntityTable("slip", slipEntity);
+
 const notesFeature = defineFeature("notes", (r) => {
   r.entity({ name: "note", ...noteEntity });
   r.entity({ name: "memo", ...memoEntity });
+  r.entity({ name: "slip", ...slipEntity });
 });
 
 // personal: { of: "id" } → recordOwned (kumiko-framework#2786): the row
@@ -165,6 +176,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, contactEntity, "contact");
   await unsafeCreateEntityTable(testDb.db, noteEntity, "note");
   await unsafeCreateEntityTable(testDb.db, memoEntity, "memo");
+  await unsafeCreateEntityTable(testDb.db, slipEntity, "slip");
   await unsafeCreateEntityTable(testDb.db, surveyEntity, "survey");
 });
 
@@ -178,6 +190,7 @@ beforeEach(async () => {
   await raw.unsafe(`TRUNCATE "${contactTable.tableName}"`);
   await raw.unsafe(`TRUNCATE "${noteTable.tableName}"`);
   await raw.unsafe(`TRUNCATE "${memoTable.tableName}"`);
+  await resetTestTables(testDb.db, [slipTable]);
   await raw.unsafe(`TRUNCATE "${surveyTable.tableName}"`);
   // Plaintext era: NO KMS while the legacy events are appended.
   resetPiiSubjectKmsForTests();
@@ -1319,5 +1332,95 @@ describe("backfillEventPiiEncryption: catalog subject kinds match live append (f
     >;
     expect(String(backfilled["note"])).toContain(`record:signal:${preKmsId}`);
     expect(String(live["note"])).toContain(`record:signal:${liveId}`);
+  });
+});
+
+describe("backfillEventPiiEncryption: whenAbsent self (fw#3811)", () => {
+  const REKEY = { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true } as const;
+
+  async function slipBody(id: string): Promise<string> {
+    const events = await loadAggregate(testDb.db, id, TENANT);
+    return String((events[0]?.payload as Record<string, unknown> | undefined)?.["body"]);
+  }
+
+  // Written while the field still declared whenAbsent: "tenant".
+  async function appendTenantKeyedSlip(slipId: string, ownerId: string | null): Promise<void> {
+    armKms();
+    const legacy = await encryptPiiValueForSubject(
+      kms,
+      { kind: "tenant", tenantId: TENANT },
+      "Alice",
+      { requestId: "test" },
+      "body",
+    );
+    await appendPlain(slipId, "slip", "slip.created", { id: slipId, ownerId, body: legacy });
+  }
+
+  test("plaintext of an ownerless row is encrypted under the record key", async () => {
+    const slipId = generateId();
+    await appendPlain(slipId, "slip", "slip.created", { id: slipId, ownerId: null, body: "Alice" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toEqual([]);
+    const body = await slipBody(slipId);
+    expect(body).toStartWith(`${PII_CIPHERTEXT_PREFIX}record:slip:${slipId}:`);
+    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe("Alice");
+  });
+
+  test("tenant-keyed value of an ownerless row moves under the record key; a second run changes nothing", async () => {
+    const slipId = generateId();
+    await appendTenantKeyedSlip(slipId, null);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(result.rekeyedFields).toBe(1);
+    const body = await slipBody(slipId);
+    expect(body).toStartWith(`${PII_CIPHERTEXT_PREFIX}record:slip:${slipId}:`);
+    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe("Alice");
+
+    const second = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+    expect(second.updatedEvents).toBe(0);
+    expect(await slipBody(slipId)).toBe(body);
+  });
+
+  test("tenant-keyed value of a row whose event names an owner moves under that user, not the record", async () => {
+    const user = generateId();
+    const slipId = generateId();
+    await appendTenantKeyedSlip(slipId, user);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(await slipBody(slipId)).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${user}:`);
+  });
+
+  test("record already forgotten: the value becomes the erased sentinel", async () => {
+    const slipId = generateId();
+    await appendTenantKeyedSlip(slipId, null);
+    await kms.createKey({ kind: "record", entity: "slip", id: slipId });
+    await kms.eraseKey({ kind: "record", entity: "slip", id: slipId });
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(result.erasedFields).toBe(1);
+    expect(await slipBody(slipId)).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("dryRun predicts the re-key and writes nothing", async () => {
+    const slipId = generateId();
+    await appendTenantKeyedSlip(slipId, null);
+    const before = await slipBody(slipId);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      ...REKEY,
+      dryRun: true,
+    });
+
+    expect(result.rekeyedFields).toBe(1);
+    expect(await slipBody(slipId)).toBe(before);
   });
 });

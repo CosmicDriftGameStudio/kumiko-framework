@@ -136,6 +136,14 @@ describe("createTextField — personal/find resolution", () => {
     expect(f.userOwned).toEqual({ ownerField: "ownerId", whenAbsent: "tenant" });
   });
 
+  test('personal: { of, whenAbsent: "self" } → userOwned carries whenAbsent', () => {
+    const f = createTextField({
+      personal: { of: "ownerId", whenAbsent: "self" },
+      find: "none",
+    });
+    expect(f.userOwned).toEqual({ ownerField: "ownerId", whenAbsent: "self" });
+  });
+
   test('personal: { of: "id", whenAbsent } throws — a row always has an id', () => {
     expect(() =>
       createTextField({ personal: { of: "id", whenAbsent: "tenant" }, find: "none" }),
