@@ -63,9 +63,9 @@ if [ "$installed_version" != "$version" ]; then
   exit 1
 fi
 
-# The scaffold writes no .gitignore, and biome.json's vcs.useIgnoreFile makes
-# `bun run lint` fail without one.
-cat >.gitignore <<'GITIGNORE'
+# Versions up to 0.364.0 write no .gitignore, and biome.json's vcs.useIgnoreFile
+# makes `bun run lint` fail without one.
+[ -e .gitignore ] || cat >.gitignore <<'GITIGNORE'
 node_modules/
 dist/
 dist-server/
@@ -75,7 +75,7 @@ test-results/
 playwright-report/
 GITIGNORE
 
-# The scaffolded biome range resolves to a newer biome than the scaffolded
+# Versions up to 0.364.0: the scaffolded biome range resolves to a newer biome than the scaffolded
 # files were formatted with; bring the baseline to green before the agent starts.
 ./node_modules/.bin/biome migrate --write
 ./node_modules/.bin/biome check --write .
