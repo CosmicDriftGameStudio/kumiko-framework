@@ -45,6 +45,7 @@ const emailTransport = createInMemoryTransport();
 let stack: TestStack;
 let tenantA: TenantId;
 let tenantB: TenantId;
+let failNextMfaCheck = false;
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
@@ -55,6 +56,8 @@ beforeAll(async () => {
     challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
     requiredPolicy: "admins",
   });
+  const realMfaStatusChecker = mfaStatusCheckerFromFeature(authMfaFeature);
+  if (!realMfaStatusChecker) throw new Error("auth-mfa feature exposes no status checker");
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
@@ -70,7 +73,13 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature({
         invite: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/invite/accept" },
         signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/complete" },
-        mfaStatusChecker: mfaStatusCheckerFromFeature(authMfaFeature),
+        mfaStatusChecker: async (ctx, userId, tenantId, roles) => {
+          if (failNextMfaCheck) {
+            failNextMfaCheck = false;
+            throw new Error("mfa status backend unavailable");
+          }
+          return realMfaStatusChecker(ctx, userId, tenantId, roles);
+        },
       }),
     ],
     extraContext: (deps) => ({
@@ -125,6 +134,7 @@ beforeEach(async () => {
     tenantTable,
     userMfaEntity.table,
   ]);
+  failNextMfaCheck = false;
   emailTransport.sent.length = 0;
   await stack.redis.flushNamespace();
   tenantA = crypto.randomUUID() as TenantId;
@@ -199,8 +209,7 @@ describe("switch-tenant runs the login's MFA gate", () => {
     expect(body.token).toBeUndefined();
     const verify = await stack.http.raw("POST", "/api/auth/mfa/verify", {
       challengeToken: body.challengeToken,
-      // Next TOTP step: the enrollment confirm burned the current one.
-      code: currentTotpCode(base32Decode(secret), Date.now() + 30_000),
+      code: currentTotpCode(base32Decode(secret)),
     });
     expect(verify.status).toBe(200);
     const verified = await verify.json();
@@ -256,7 +265,7 @@ describe("switch-tenant gate boundaries", () => {
 });
 
 describe("invite-signup-complete runs the login's MFA gate", () => {
-  async function inviteAndComplete(email: string, role: string): Promise<Response> {
+  async function inviteToken(email: string, role: string): Promise<string> {
     const { id: inviterId } = await seedUser(stack.db, {
       email: `inviter-${role}@example.com`,
       displayName: "Inviter",
@@ -271,10 +280,18 @@ describe("invite-signup-complete runs the login's MFA gate", () => {
     const sent = emailTransport.sent.at(-1);
     const token = sent?.text?.match(/[?&]token=([^&"'<\s\]]+)/)?.[1];
     if (token === undefined) throw new Error("invite-create sent no token mail");
+    return decodeURIComponent(token);
+  }
+
+  function completeInvite(token: string): Promise<Response> {
     return stack.http.raw("POST", "/api/auth/invite-signup-complete", {
-      token: decodeURIComponent(token),
+      token,
       password: "invitee-new-pw-1234",
     });
+  }
+
+  async function inviteAndComplete(email: string, role: string): Promise<Response> {
+    return completeInvite(await inviteToken(email, role));
   }
 
   test("an admin invitation creates the account but answers with the MFA setup step, no session", async () => {
@@ -288,6 +305,26 @@ describe("invite-signup-complete runs the login's MFA gate", () => {
     expect(await selectMany(stack.db, userTable, { email: "new-admin@example.com" })).toHaveLength(
       1,
     );
+  });
+
+  test("a throwing MFA check leaves the invite link retryable", async () => {
+    const email = "retry-invitee@example.com";
+    const token = await inviteToken(email, "Admin");
+    failNextMfaCheck = true;
+
+    const failed = await completeInvite(token);
+    const retried = await completeInvite(token);
+
+    expect(failed.status).toBeGreaterThanOrEqual(500);
+    expect(retried.status).toBe(200);
+    expect((await retried.json()).mfaSetupRequired).toBe(true);
+    const users = await selectMany(stack.db, userTable, { email });
+    expect(users).toHaveLength(1);
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: users[0]?.["id"],
+      tenantId: tenantA,
+    });
+    expect(memberships).toHaveLength(1);
   });
 
   test("a member invitation still gets its session directly", async () => {
@@ -342,6 +379,26 @@ describe("signup-confirm runs the login's MFA gate", () => {
     const loginBody = await login.json();
     expect(loginBody.mfaSetupRequired).toBe(true);
     expect(loginBody.token).toBeUndefined();
+  });
+
+  test("a throwing MFA check leaves the signup link retryable", async () => {
+    const email = "retry-signup@example.com";
+    const password = "signup-new-pw-1234";
+    const token = await requestSignupToken(email);
+    failNextMfaCheck = true;
+
+    const failed = await stack.http.raw("POST", "/api/auth/signup-confirm", { token, password });
+    const retried = await stack.http.raw("POST", "/api/auth/signup-confirm", { token, password });
+
+    expect(failed.status).toBeGreaterThanOrEqual(500);
+    expect(retried.status).toBe(200);
+    expect((await retried.json()).mfaSetupRequired).toBe(true);
+    const users = await selectMany(stack.db, userTable, { email });
+    expect(users).toHaveLength(1);
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: users[0]?.["id"],
+    });
+    expect(memberships).toHaveLength(1);
   });
 
   test("a signed-in user cannot call the signup-confirm handler through /api/write", async () => {

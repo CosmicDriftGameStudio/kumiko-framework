@@ -118,8 +118,8 @@ export type WebhookDispatchDeps = {
   readonly requestTimeoutMs?: number;
 };
 
-// One hanging tenant-controlled receiver must not stall the shared
-// step-dispatcher consumer for every tenant.
+// Bounds a single hanging tenant-controlled receiver to this long. The consumer
+// is sequential and shared, so N hanging requests still delay other tenants by N times this.
 export const WEBHOOK_REQUEST_TIMEOUT_MS = 10_000;
 
 // Never includes the secret name or value — spec.auth.secret is a

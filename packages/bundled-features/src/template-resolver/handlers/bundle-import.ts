@@ -137,10 +137,10 @@ async function storeBundleResources(
   return { isSuccess: true, data: linked };
 }
 
-// Validates every locale first, stores the resource files, then writes one row
-// per locale, so a bad locale never leaves files or half a bundle behind. An image
-// that fails re-encoding stops the import before any row is written; files stored
-// for the resources before it stay as unlinked FileRefs, like a replaced upload.
+// Validates every locale first, so a bad locale is refused before anything is written.
+// Resource files are stored before the row loop and live outside the DB transaction: an
+// image that fails re-encoding, or a row write that fails later, rolls the rows and fileRefs
+// back but leaves already stored binaries unreferenced, like a replaced upload.
 export async function importTemplateBundle(
   args: BundleImport & { readonly status: BundleImportStatus },
 ): Promise<WriteResult<{ ids: Record<string, string> }>> {

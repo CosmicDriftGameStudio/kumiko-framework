@@ -51,7 +51,15 @@ export const TEXT_BLOCK_KIND = "text-block" as const;
 // Kinds a content collection must not write: a tenant row of these kinds would
 // shadow the system notification template or layout without the meta and
 // placeholder gates that upsertTenant applies.
-export const COLLECTION_REFUSED_KINDS: readonly string[] = ["mail", "mail-layout", "pdf-layout"];
+export const COLLECTION_REFUSED_KINDS = [
+  "mail",
+  "mail-layout",
+  "pdf-layout",
+] as const satisfies readonly TemplateKind[];
+
+export function isCollectionRefusedKind(kind: string): boolean {
+  return COLLECTION_REFUSED_KINDS.some((refused) => refused === kind);
+}
 
 export const CONTENT_FORMATS = ["markdown", "mjml", "html", "plain"] as const;
 export type ContentFormat = (typeof CONTENT_FORMATS)[number];

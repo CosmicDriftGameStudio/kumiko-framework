@@ -55,14 +55,31 @@ export const fileAttachmentRefSchema = z
   })
   .strict();
 
+// BigInt values and cycles make JSON.stringify throw; that must surface as a validation issue,
+// not a raw TypeError that a retrying job hits again on the same data.
+function isJsonSerializable(value: unknown): boolean {
+  try {
+    JSON.stringify(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function jsonByteLength(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+}
+
 export const renderedPdfAttachmentRefSchema = z
   .object({
     kind: z.literal("rendered-pdf"),
     templateSlug: templateSlugSchema,
     variables: z
       .record(z.string(), z.unknown())
+      .refine(isJsonSerializable, { message: "variables must be JSON-serializable" })
       .refine(
-        (value) => Buffer.byteLength(JSON.stringify(value)) <= MAX_RENDERED_PDF_VARIABLES_BYTES,
+        (value) =>
+          !isJsonSerializable(value) || jsonByteLength(value) <= MAX_RENDERED_PDF_VARIABLES_BYTES,
         {
           message: `variables must not exceed ${MAX_RENDERED_PDF_VARIABLES_BYTES} bytes as JSON`,
         },

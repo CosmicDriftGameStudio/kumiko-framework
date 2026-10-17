@@ -23,7 +23,8 @@ export const tenantOptionsQuery = defineQueryHandler({
       "cap-overview:tenant-options — SystemAdmin dashboard tenant-filter options",
     );
     const tenants = await decryptTenantNames(
-      await selectMany<TenantRow>(db, tenantTable, {}),
+      // Destroyed tenants decrypt to the erased sentinel, which the picker would show verbatim.
+      await selectMany<TenantRow>(db, tenantTable, { destroyedAt: null }),
       "cap-overview:tenant-options",
     );
     const sorted = [...tenants].sort((a, b) => a.name.localeCompare(b.name));

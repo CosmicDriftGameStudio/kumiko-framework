@@ -314,14 +314,22 @@ describe("step-dispatcher payload crypto-shredding", () => {
       return realEraseKey(...args);
     };
 
-    await stack.http.writeOk(
-      "step-pii-probe:write:notify-webhook",
-      { url: "https://hooks.example/hook", token: "t" },
-      admin,
-    );
-    await drain().catch(() => undefined);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    await drain();
+    try {
+      await stack.http.writeOk(
+        "step-pii-probe:write:notify-webhook",
+        { url: "https://hooks.example/hook", token: "t" },
+        admin,
+      );
+      // runOnce does not rethrow projection failures: the injected erase failure
+      // is proven by the erase attempt having happened with the key still alive.
+      await drain();
+      expect(eraseCalls).toBe(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await drain();
+      expect(eraseCalls).toBe(2);
+    } finally {
+      kms.eraseKey = realEraseKey;
+    }
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(await eventsOfType(DISPATCHED)).toHaveLength(1);

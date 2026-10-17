@@ -36,13 +36,11 @@ import { tenantMembershipsTable } from "../tenant/membership-table.js";
 // kumiko-lint-ignore cross-feature-import bootstrap checks for an existing tenant
 import { tenantTable } from "../tenant/schema/tenant.js";
 // kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import type { GLOBAL_ROLE_OPTIONS } from "../user/constants.js";
+import type { GlobalRole } from "../user/constants.js";
 // kumiko-lint-ignore cross-feature-import bootstrap skips already activated users
 import { userTable } from "../user/schema/user.js";
 import { AuthHandlers } from "./constants.js";
 import { hasLiveInviteToken } from "./invite-token-store.js";
-
-type GlobalRole = (typeof GLOBAL_ROLE_OPTIONS)[number];
 
 export type BootstrapInvite = {
   readonly email: string;

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createTestUser,
   setupTestStack,
@@ -6,6 +7,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -37,13 +39,14 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
+  configurePiiSubjectKms(new InMemoryKmsAdapter());
 
   for (const [id, key] of [
     [tenantWithProfile, "with-profile"],
     [tenantWithoutProfile, "without-profile"],
     [disabledTenantWithoutProfile, "disabled-without-profile"],
   ] as const) {
-    await stack.http.writeOk(TenantHandlers.create, { id, key, name: key }, opsAdmin);
+    await stack.http.writeOk(TenantHandlers.create, { id, key, name: `Name of ${key}` }, opsAdmin);
   }
   await stack.http.writeOk(TenantHandlers.disable, { id: disabledTenantWithoutProfile }, opsAdmin);
   await seedComplianceProfile(stack.db, { tenantId: tenantWithProfile, profileKey: "eu-dsgvo" });
@@ -51,6 +54,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  resetPiiSubjectKmsForTests();
 });
 
 describe("tenants-missing-profile (#2089)", () => {
@@ -63,6 +67,9 @@ describe("tenants-missing-profile (#2089)", () => {
     expect(ids).toContain(tenantWithoutProfile);
     expect(ids).not.toContain(tenantWithProfile);
     expect(ids).not.toContain(disabledTenantWithoutProfile);
+    expect(result.tenants.find((t) => t.id === tenantWithoutProfile)?.name).toBe(
+      "Name of without-profile",
+    );
   });
 
   test("TenantAdmin gets 403", async () => {

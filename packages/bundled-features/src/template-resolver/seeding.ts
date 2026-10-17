@@ -155,6 +155,8 @@ export async function seedSystemTemplate(
       current?.title === rowFields.title &&
       current?.variableSchema === rowFields.variableSchema &&
       current?.meta === rowFields.meta &&
+      current?.status === rowFields.status &&
+      current?.parentTemplateId === rowFields.parentTemplateId &&
       (linkedResources === undefined || current?.linkedResources === linkedResources)
     ) {
       return { id: String(row.id) };

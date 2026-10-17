@@ -228,6 +228,44 @@ describe("template-resolver :: archive-system / publish-system", () => {
     expect((await resolve(10, slug)).id).toBe(systemRowId);
   });
 
+  test("after archive-system, diff-to-system and reset-to-system both report no system template", async () => {
+    const overrideSlug = "lifecycle-archived-system";
+    const system = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertSystem,
+      plainMailPayload(overrideSlug),
+      systemAdmin,
+    );
+    const override = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      plainMailPayload(overrideSlug, { content: "<p>Eigener Text</p>" }),
+      tenantAdmin,
+    );
+    await stack.http.queryOk(
+      TemplateResolverQueries.diffToSystem,
+      { id: override.id },
+      tenantAdmin,
+    );
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.archiveSystem,
+      { id: system.id },
+      systemAdmin,
+    );
+
+    const diffErr = await stack.http.queryErr(
+      TemplateResolverQueries.diffToSystem,
+      { id: override.id },
+      tenantAdmin,
+    );
+    const resetErr = await stack.http.writeErr(
+      TemplateResolverHandlers.resetToSystem,
+      { id: override.id },
+      tenantAdmin,
+    );
+    expect(diffErr.code).toBe("not_found");
+    expect(JSON.stringify(resetErr)).toContain("no_system_template");
+  });
+
   test("a tenant row id is NotFound for the system handlers", async () => {
     const draft = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,

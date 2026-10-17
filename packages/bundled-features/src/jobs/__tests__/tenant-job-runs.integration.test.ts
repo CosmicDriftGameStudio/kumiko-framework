@@ -619,4 +619,33 @@ describe("tenant run outcome under concurrency", () => {
       );
     }
   });
+
+  test("the run that finishes later in lock order keeps the row, with the later finishedAt", async () => {
+    const logger = createJobRunLogger({
+      db,
+      registry: createRegistry([appFeature, createJobsFeature()]),
+    });
+    const { onJobComplete, onJobFailed } = logger;
+    if (onJobComplete === undefined || onJobFailed === undefined) {
+      throw new Error("job run logger has no finish callbacks");
+    }
+    const jobName = "app:job:generate-texts";
+    const subject = serializeJobSubject({ campaignId: "order-1" });
+    const outcome = { tenantId: tenantA, finalAttempt: true, tenantVisibleRun: { subject } };
+
+    await onJobComplete(jobName, "order-a", 1, [], outcome);
+    const [first] = await selectMany(db, tenantJobRunsTable, { tenantId: tenantA, subject });
+    await onJobFailed(jobName, "order-b", "boom", [], outcome);
+    const rows = await selectMany(db, tenantJobRunsTable, { tenantId: tenantA, subject });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("failed");
+    expect(rows[0]?.bullJobId).toBe("order-b");
+    expect(
+      Temporal.Instant.compare(
+        rows[0]?.finishedAt ?? Temporal.Instant.fromEpochMilliseconds(0),
+        first?.finishedAt ?? Temporal.Now.instant(),
+      ),
+    ).toBeGreaterThanOrEqual(0);
+  });
 });

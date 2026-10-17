@@ -158,7 +158,7 @@ export default function PlaceholderLineEditor({
 
   return (
     <LineEditorBody
-      key={`${epoch}-${readOnly}-${JSON.stringify(stableLabels)}`}
+      key={`${epoch}-${readOnly}-${JSON.stringify(stableLabels)}-${stableSystem.join("\n")}`}
       id={id}
       initialValue={value}
       onChange={(next) => {

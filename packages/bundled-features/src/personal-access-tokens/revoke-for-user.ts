@@ -1,21 +1,19 @@
-import { transaction, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  runnerCanBeginTransaction,
+  transaction,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   PAT_REVOKED_AGGREGATE_TYPE,
   PAT_REVOKED_EVENT_QN,
   patRevokedSchema,
 } from "./pat-revoked-event.js";
 import { apiTokenTable } from "./schema/api-token.js";
-
-// A pool has begin(); a tx/savepoint handle does not and is already atomic.
-function canBeginTransaction(db: DbRunner): boolean {
-  return typeof propertyOf(db, "begin") === "function";
-}
 
 // Cross-tenant revoke: password-change and MFA-enable/disable are account-
 // level security events, not scoped to one tenant. Mirrors sessions'
@@ -24,7 +22,8 @@ function canBeginTransaction(db: DbRunner): boolean {
 export async function revokeAllPatTokensForUser(db: DbRunner, userId: string): Promise<number> {
   // Update and event commit together: otherwise a failed append leaves the
   // tokens revoked with no event, and a retry matches no live row.
-  return canBeginTransaction(db)
+  // A pool has begin(); a tx/savepoint handle does not and is already atomic.
+  return runnerCanBeginTransaction(db)
     ? transaction(db, (tx) => revokeAndAppend(tx, userId))
     : revokeAndAppend(db, userId);
 }

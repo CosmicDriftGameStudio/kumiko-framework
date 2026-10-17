@@ -135,6 +135,30 @@ describe("template-resolver :: validate query", () => {
     expect(result.missingRequired).toEqual(["name"]);
   });
 
+  test("scope system is ignored for a TenantAdmin, so an mjml layout cannot be saved", async () => {
+    const payload = {
+      ...layoutPayload(
+        "layout-validate-scope",
+        "mail-layout",
+        "<mjml><mj-body>{{{content}}}</mj-body></mjml>",
+        "mjml",
+      ),
+      scope: "system" as const,
+    };
+    const asTenantAdmin = await stack.http.queryOk<{ canSave: boolean }>(
+      TemplateResolverQueries.validate,
+      payload,
+      tenantAdmin,
+    );
+    const asSystemAdmin = await stack.http.queryOk<{ canSave: boolean }>(
+      TemplateResolverQueries.validate,
+      payload,
+      systemAdmin,
+    );
+    expect(asTenantAdmin.canSave).toBe(false);
+    expect(asSystemAdmin.canSave).toBe(true);
+  });
+
   test("a sanitizer problem blocks saving", async () => {
     const result = await stack.http.queryOk<{ canSave: boolean }>(
       TemplateResolverQueries.validate,

@@ -5,11 +5,17 @@
 // template-resolver features here would be too heavy: these tests target the read-helper
 // layer, not the event-store pipeline.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import {
+  configurePiiSubjectKms,
+  encryptPiiValueForSubject,
+  InMemoryKmsAdapter,
+} from "../../crypto/index.js";
+import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.js";
 import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
@@ -274,6 +280,33 @@ describe("SeedMigrationContext.findTenants (integration)", () => {
     const tenants = await ctx.findTenants();
     expect(tenants.map((t) => t.tenantKey)).toEqual(["alpha", "beta"]); // ORDER BY inserted_at ASC
     expect(tenants[0]).toMatchObject({ name: "Alpha", tenantKey: "alpha" });
+  });
+});
+
+describe("SeedMigrationContext.findTenants under an active PII KMS (integration)", () => {
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("returns the plaintext name of a tenant stored as ciphertext", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    const tenantId = "00000000-0000-4000-8000-000000000003";
+    const ciphertext = await encryptPiiValueForSubject(
+      kms,
+      { kind: "tenant", tenantId },
+      "Gamma GmbH",
+      { requestId: "test" },
+      "name",
+    );
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO read_tenants (id, name, key) VALUES ('${tenantId}'::uuid, '${ciphertext}', 'gamma')`,
+    );
+    const ctx = createSeedMigrationContext({ dispatcher, dbRunner: testDb.db });
+
+    const tenants = await ctx.findTenants();
+
+    expect(tenants).toMatchObject([{ name: "Gamma GmbH", tenantKey: "gamma" }]);
   });
 });
 
