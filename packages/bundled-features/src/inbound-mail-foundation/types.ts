@@ -23,9 +23,9 @@ import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "
  *   secrets  — tenant-secret-reads (IMAP-Passwort, OAuth-Refresh-Token)
  *   _userId  — Audit-Identity für secret-reads. Handler-Pfad: dispatcher
  *              setzt Caller-User-ID; Worker-Pfad: System-Identity.
- *   metricsFor — Metrics-Handle eines Features nach Name, gleiches Verhalten
- *              wie HandlerContext.metricsFor: nicht registrierte Metriken
- *              sind ein stilles No-op statt eines Throws.
+ *   metricsFor — metrics handle of a feature by name, same behavior as
+ *              HandlerContext.metricsFor: unregistered metrics are a silent
+ *              no-op instead of a throw.
  */
 export type InboundMailContext = {
   readonly config?: ConfigAccessor;

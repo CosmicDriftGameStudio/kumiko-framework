@@ -167,6 +167,8 @@ const lifecyclePayload = z.object({
     "settle-then-release",
     "release-then-settle-twice",
     "settle-once",
+    "settle-parallel",
+    "release-then-settle-parallel",
   ]),
 });
 
@@ -189,10 +191,20 @@ const settleLifecycleHandler: WriteHandlerDef = {
         periodStartIso: PERIOD,
         actualAmount: payload.actual,
       });
-    if (payload.scenario === "release-then-settle-twice") {
+    if (
+      payload.scenario === "release-then-settle-twice" ||
+      payload.scenario === "release-then-settle-parallel"
+    ) {
       await releaseCapReservation(ctx, reservation.reservationId);
     }
-    await settle();
+    if (
+      payload.scenario === "settle-parallel" ||
+      payload.scenario === "release-then-settle-parallel"
+    ) {
+      await Promise.all([settle(), settle()]);
+    } else {
+      await settle();
+    }
     if (payload.scenario === "settle-twice" || payload.scenario === "release-then-settle-twice") {
       await settle();
     }
@@ -456,6 +468,38 @@ describe("settle tombstone", () => {
     expect(await settledTombstones(3131)).toHaveLength(1);
   });
 
+  test("two parallel settles of one open reservation book the actual amount once", async () => {
+    const user = adminFor(3134);
+
+    await stack.http.writeOk(
+      SETTLE_LIFECYCLE_QN,
+      { capName: "parallel-cap", amount: 3, actual: 5, scenario: "settle-parallel" },
+      user,
+    );
+
+    expect(await readCounterValue(user, "parallel-cap")).toBe(5);
+    expect(await reservationRows(3134)).toHaveLength(0);
+    expect(await settledTombstones(3134)).toHaveLength(1);
+  });
+
+  test("two parallel settles after a release book the full amount once", async () => {
+    const user = adminFor(3135);
+
+    await stack.http.writeOk(
+      SETTLE_LIFECYCLE_QN,
+      {
+        capName: "parallel-released-cap",
+        amount: 3,
+        actual: 2,
+        scenario: "release-then-settle-parallel",
+      },
+      user,
+    );
+
+    expect(await readCounterValue(user, "parallel-released-cap")).toBe(2);
+    expect(await settledTombstones(3135)).toHaveLength(1);
+  });
+
   test("a release after a settle gives nothing back", async () => {
     const user = adminFor(3132);
 
@@ -618,6 +662,8 @@ describe("systemScope handlers", () => {
       tenantId: ownerId,
     });
     expect(rows.map((row) => row.id)).toEqual([reservationId]);
+    expect(await readCounterValue(adminFor(3116), "foreign-cap")).toBeUndefined();
+    expect(await readCounterValue(adminFor(3117), "foreign-cap")).toBeUndefined();
   });
 });
 

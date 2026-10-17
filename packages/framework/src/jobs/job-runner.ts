@@ -47,10 +47,10 @@ import {
   type Tracer,
   withEscapeHatchAuditScope,
 } from "../observability/index.js";
-import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/dispatch-shared.js";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.js";
 import { RedisKeys } from "../pipeline/redis-keys.js";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.js";
+import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.js";
 import {
   buildPersonalDataGate,
   isPersonalDataGated,
