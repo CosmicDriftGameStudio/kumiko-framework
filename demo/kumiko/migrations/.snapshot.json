@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-15T21:16:51.744Z",
+  "generatedAt": "2026-10-17T00:57:39.931Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -839,6 +839,21 @@
           "name": "status",
           "pgType": "text",
           "notNull": true
+        },
+        {
+          "name": "draft",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "active_version",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "active_since",
+          "pgType": "timestamptz",
+          "notNull": false
         }
       ],
       "indexes": [
