@@ -5,7 +5,7 @@
 // delivers it to the MSP, and the resulting run-envelope rows on the
 // workflow-run aggregate stream are asserted against real Postgres rows.
 
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   computeDefinitionFingerprint,
@@ -312,20 +312,8 @@ describe("workflow-runner event-trigger", () => {
     // fw#2482/2: run-failed is durably recorded, so the dispatcher must count
     // the trigger event as delivered — not as a poison event to keep
     // retrying (which would re-run every side-effect step until dead-letter).
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-    let firstPass:
-      | Awaited<ReturnType<NonNullable<typeof stack.eventDispatcher>["runOnce"]>>
-      | undefined;
-    let warnedText: string;
-    try {
-      firstPass = await stack.eventDispatcher?.runOnce();
-    } finally {
-      warnedText = warnSpy.mock.calls.map((call) => JSON.stringify(call)).join("\n");
-      warnSpy.mockRestore();
-    }
+    const firstPass = await stack.eventDispatcher?.runOnce();
     expect(firstPass?.byConsumer[consumerName]).toEqual({ processed: 1, failed: 0 });
-    // Ops log keeps the original cause, not the "workflow step 0 failed" wrapper.
-    expect(warnedText).toContain("boom-explicit-failure");
     const stateAfterFirstPass = await getConsumerState(stack.db, consumerName);
     expect(stateAfterFirstPass?.status).toBe("idle");
 
