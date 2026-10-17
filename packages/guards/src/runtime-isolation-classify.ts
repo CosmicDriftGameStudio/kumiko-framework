@@ -44,7 +44,7 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
   const rel = repoRelativePath.replace(/\\/g, "/");
   if (/\/(__tests__|testing)\//.test(rel)) return "test";
   if (/\/testing\.tsx?$/.test(rel)) return "test";
-  if (/\.(test|integration|e2e)\.[tj]sx?$/.test(rel)) return "test";
+  if (/\.(test|integration|e2e|spec)\.[tj]sx?$/.test(rel)) return "test";
   if (/(?:^|\/)scripts\//.test(rel)) return "tooling";
   if (/(?:^|\/)bin\//.test(rel)) return "tooling";
   if (/\/drizzle\/[^/]+\.ts$/.test(rel)) return "tooling";

@@ -5,6 +5,7 @@
 "@cosmicdrift/kumiko-testing": minor
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-guards": patch
 ---
 
 Error boundaries keep a render error from blanking the whole page

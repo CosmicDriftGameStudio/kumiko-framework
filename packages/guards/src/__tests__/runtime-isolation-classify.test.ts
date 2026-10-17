@@ -48,6 +48,10 @@ describe("classifyByPath — test-runtime patterns", () => {
   test("matches *.e2e.tsx", () => {
     expect(classifyByPath("samples/apps/foo.e2e.tsx")).toBe("test");
   });
+
+  test("matches Playwright *.spec.ts", () => {
+    expect(classifyByPath("packages/renderer-web/e2e/smoke.spec.ts")).toBe("test");
+  });
 });
 
 describe("classifyByPath — tooling-runtime patterns", () => {
