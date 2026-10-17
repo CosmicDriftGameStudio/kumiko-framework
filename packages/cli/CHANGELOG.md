@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.365.0
+
+### Patch Changes
+
+- b6b75fa: handbuch build refuses to wipe the working directory or a source repo, and a too-old framework install is no longer reported as missing
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko handbuch build refuses a dangerous --out; missing-peer message tells an outdated install from a missing one
+  detail: handbuch build deletes the output directory before building, so `--out .` or `--out <root>` removed the checkout. The command now exits 2 when --out is, or contains, the working directory, --root or a configured source repo. When an installed @cosmicdrift package lacks a requested subpath, the error asks for an upgrade instead of recommending bun add.
+  -->
+- Updated dependencies [8a59aa4]
+- Updated dependencies [9424924]
+- Updated dependencies [efa6253]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [45abe9d]
+- Updated dependencies [45abe9d]
+- Updated dependencies [26854dd]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [0f8bff5]
+- Updated dependencies [45abe9d]
+  - @cosmicdrift/kumiko-dev-server@0.365.0
+  - @cosmicdrift/kumiko-testing@0.365.0
+  - @cosmicdrift/kumiko-guards@0.365.0
+  - @cosmicdrift/kumiko-repo-manifest@0.365.0
+
 ## 0.364.0
 
 ### Patch Changes

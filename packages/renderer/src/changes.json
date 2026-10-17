@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "List search keeps the newest typed text; file lists tolerate duplicate ids; date ranges and locked selects validate correctly",
+    "detail": "A late echo of an older debounced search emit no longer overwrites newer typing. Duplicate file ids no longer collide as React keys. An inverted date range is swapped only when both bounds parse. Select rules on writeExcluded or readOnly fields are now checked by the form schema."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "A failed refetch of a visibleWhen gate no longer unmounts a screen that is already showing",

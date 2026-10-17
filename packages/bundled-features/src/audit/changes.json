@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Escape-hatch retention keeps the operator floor and deletes in bounded batches",
+    "detail": "An explicitly configured retention key now acts as a lower bound for tenant compliance-profile cutoffs, so a tenant profile can no longer delete events younger than the operator allows. A key left at its default does not count. Pruning runs in batches of 5000 events, each in its own transaction, until a batch comes back short."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Audit retention events always use the system user",
+    "detail": "Events written by the audit feature no longer fall back to the calling user id and always record the system user."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Audit list pages by id unless sorted by type",

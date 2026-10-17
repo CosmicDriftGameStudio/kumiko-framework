@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Post-save seed hooks use the after-commit notify factory",
+    "detail": "afterCommit seed hooks now get a notify function bound to the signup dispatcher's job runner when the dispatcher provides one, falling back to the regular factory. The afterCommit hook context is built only when the hook actually runs."
+  },
+  {
     "version": "0.357.0",
     "type": "improvement",
     "title": "The member roles form only offers roles the signed-in admin may assign",

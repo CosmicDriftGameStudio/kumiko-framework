@@ -1,5 +1,131 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.365.0
+
+### Patch Changes
+
+- 82dc9a4: createAuthRoutes requires the switch-tenant MFA gate when MFA verify is wired
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: MFA verify without a switch-tenant gate fails at boot, and the gate result carries the session roles
+  detail: createAuthRoutes throws when mfaVerifyHandler is set without switchTenantMfaGateHandler, and runDevApp and runProdApp check that the gate handler is registered before wiring, so a missing gate can no longer let switch-tenant skip MFA. The gate handler returns the roles with its clear result and the route mints the target session from them. assertRetiredCookieDomains is no longer exported, and the auth-session signup variant is composed from SignupOutcome. Setups that set mfaVerifyHandler must also register the switch-tenant gate handler.
+  -->
+- b6b75fa: Bootstrap fails when a global-role invite cannot be provisioned; delivery notify works without auth
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Bootstrap fails when a global-role invite cannot be provisioned; delivery notify works without auth
+  detail: runBootstrap now fails with a non-zero exit when an invite with global roles ends role-mismatch or cancelled. The delivery notify factory gets a config resolver also when the app has no auth feature.
+  -->
+- 067aa7b: Seeds can create fileRefs through handlers that use createFileRefFromBytes
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Seeds can create fileRefs through handlers that use createFileRefFromBytes
+  detail: The seed dispatcher built its handler context without the file provider resolver, so a write handler invoked via systemWriteAs failed with "createFileRefFromBytes: ctx.files is unavailable". The seed context now carries the same file provider as the HTTP path.
+  -->
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [cd16f29]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [7aa3223]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [7e1b974]
+- Updated dependencies [e4ecaba]
+- Updated dependencies [ec7d696]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [81169ec]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [fbc6938]
+- Updated dependencies [5a1cdc1]
+- Updated dependencies [efa6253]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [80e2132]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [efa6253]
+- Updated dependencies [59bbd15]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [efa6253]
+- Updated dependencies [45abe9d]
+- Updated dependencies [45abe9d]
+- Updated dependencies [5e5d83b]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [a546703]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [5c276e6]
+- Updated dependencies [21c5cbc]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [b6b75fa]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [0f8bff5]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [067aa7b]
+- Updated dependencies [fbc6938]
+- Updated dependencies [efa6253]
+- Updated dependencies [efa6253]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [cd16f29]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [2a33c8d]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [72a5c9c]
+- Updated dependencies [efa6253]
+- Updated dependencies [84d7f1a]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [eef5ff1]
+- Updated dependencies [82dc9a4]
+- Updated dependencies [72a5c9c]
+  - @cosmicdrift/kumiko-bundled-features@0.365.0
+  - @cosmicdrift/kumiko-framework@0.365.0
+  - @cosmicdrift/kumiko-types@0.365.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.365.0
+  - @cosmicdrift/kumiko-renderer-web@0.365.0
+  - @cosmicdrift/kumiko-headless@0.365.0
+
 ## 0.364.0
 
 ### Patch Changes

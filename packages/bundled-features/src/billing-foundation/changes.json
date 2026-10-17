@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Termination record re-reads the stream after the provider call",
+    "detail": "The cancel-at-provider call can take long, so the termination event is appended with a freshly fetched stream version instead of the one read before it."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Contract mails carry designer labels",
+    "detail": "Feature and notify labels for contract-confirmation, contract-termination-receipt and contract-termination-operator-notice name the contract mails in the document designer."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Stale subscription created events are ignored and manual-grant skips are logged",

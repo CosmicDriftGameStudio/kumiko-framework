@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Cap overview lists no destroyed tenants",
+    "detail": "tenant-options and tenant-caps-list now filter destroyed tenants and keep reading tenant names through the PII-aware path."
+  },
+  {
     "version": "0.338.0",
     "type": "breaking",
     "title": "caps:usage and my-caps default to admin roles; widen with usageVisibleTo",

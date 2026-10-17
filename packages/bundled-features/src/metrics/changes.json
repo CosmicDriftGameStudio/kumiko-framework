@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Metric integer filters reject fractions and out-of-range values; feature-name constants exported",
+    "detail": "Filters on smallint, integer and bigint columns now fail validation for decimals and values outside the column range instead of a Postgres cast error. FILES_FEATURE and FILES_TENANT_DATA_FEATURE are exported and reused by compose-features."
+  },
+  {
     "version": "0.349.0",
     "type": "improvement",
     "title": "Metrics accept payload filters that narrow the aggregate without replacing the tenant scope",

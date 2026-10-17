@@ -1,5 +1,53 @@
 # @cosmicdrift/kumiko-types
 
+## 0.365.0
+
+### Minor Changes
+
+- 59bbd15: Job handlers get ctx.metricsFor like request handlers
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Job handlers get ctx.metricsFor like request handlers
+  detail: JobContext now exposes ctx.metricsFor(featureName) with the same contract as HandlerContext, so shared code can count under one stable feature name from jobs too. Unregistered names stay a silent no-op.
+  -->
+
+### Patch Changes
+
+- 7aa3223: Bun.SQL provider parity
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Bun.SQL provider parity fixes for DB_PROVIDER=bun
+  detail: Array params bind as Postgres array literals, transaction handles are detected correctly, Instant params are stored at millisecond precision, integer params reject fractions, and migrations hold their advisory lock on one pinned connection. LISTEN/NOTIFY uses Bun.SQL listen() on its own connection, which the pool idle timeout does not close, so the Bun provider no longer opens a postgres-js peer.
+  -->
+- 80e2132: Erasure jobs delete the bytes of files that a tenant handover moved into the tenant
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Soft-delete cleanup and hardDelete retention delete the bytes of handed-over files
+  detail: A tenant handover moves a fileRef row to the new tenant, but its storageKey keeps the previous tenant's prefix. The soft-delete cleanup and the data-retention hardDelete went through `ctx.files.ref()` and `ctx.files.list()`, which reject keys outside the job's tenant, so the bytes and derivatives of such files were never deleted and the soft-delete cleanup kept the row forever. Both now delete through the new `deleteFileRefBytes(files, row, context)` from `@cosmicdrift/kumiko-framework/derivatives`, built on the new `FileContext.listFromFileRef(row)` (the row's key plus its derivatives, under the same trust as `refFromFileRef`). Form-draft discard deletes draft files through `refFromFileRef` as well.
+  -->
+- eef5ff1: pruneEvents accepts batchSize and handler contexts carry an after-commit notify factory
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: pruneEvents batchSize and _notifyAfterCommitFactory on the handler context
+  detail: pruneEvents takes an optional batchSize that deletes the lowest event ids first, so callers can loop until deletedCount is below the batch size with one short transaction per batch. The handler context exposes _notifyAfterCommitFactory, a notify factory bound to the dispatcher's job runner for use after the transaction has committed.
+  -->
+- 82dc9a4: DASHBOARD_STAT_TONES constant and DashboardStatTone type
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: DASHBOARD_STAT_TONES is the single source for dashboard stat tones
+  detail: screen.ts exports DASHBOARD_STAT_TONES and DashboardStatTone; DashboardStatPanel.tone derives from it, and the web renderer builds its runtime tone check and StatTone type from the same constant, so a new tone can no longer be silently dropped from toneField values.
+  -->
+
 ## 0.364.0
 
 ### Minor Changes

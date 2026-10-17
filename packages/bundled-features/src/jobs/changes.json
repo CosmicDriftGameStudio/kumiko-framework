@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Finished tenant run reads its timestamp under the lock",
+    "detail": "The run that finishes last in lock order now carries the latest finishedAt, so a stale timestamp can no longer make the newest run the row that gets pruned."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Older migration notes that say \"kumiko migrate generate\" mean kumiko-schema generate",
+    "detail": "Migration notes of the delivery, jobs, metrics and sessions features name a command that does not exist, `kumiko migrate generate`. Run `kumiko-schema generate <name>` and then `kumiko-schema apply` instead. The published notes stay as they were."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "jobs list query caps the page size at 200",

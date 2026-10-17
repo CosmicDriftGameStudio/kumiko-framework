@@ -1,5 +1,310 @@
 [
   {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "ctx.forTenant is available read-only in the beforeTransaction phase",
+    "detail": "A beforeTransaction phase can now resolve ctx.forTenant(tenantId) for its own tenant and, as a SystemAdmin, for a foreign tenant, to read rows or build tenant-scoped inputs such as uploads. The returned db denies every write; a foreign tenant stays gated by the SystemAdmin check. reserveBeforeTransaction, perCommand and in-transaction handlers are unchanged."
+  },
+  {
+    "version": "0.365.0",
+    "type": "breaking",
+    "title": "Boot checks from the review round 1 release reject configurations that used to boot",
+    "detail": "These checks shipped as fixes without migration notes. Each one throws for a configuration that was accepted before:\n- a where-rule subquery on a table whose columns cannot be derived\n- a drawer prefill that targets a sensitive field or a field the form does not render\n- two secret fields with the same id\n- access.personalData \"public-intake\" combined with rateLimit: { disabled: true }\n- a recordOwned field on an entity with idType \"serial\"\n- dedupeFeatures for same-named features with different registrations\nThe agent-tools manifest check in buildToolCatalog throws when the catalog is built for a request, not at boot.",
+    "migration": "Boot every app against the new version before rolling it out, and send one agent tool request if the app mounts agent-tools. Give where-rule subqueries a table with derivable columns, prefill only rendered non-sensitive fields, make secret field ids unique, give public-intake handlers a rateLimit that is not disabled, switch recordOwned entities to idType \"uuid\" or change the field's personal stance, and rename or align duplicated features."
+  },
+  {
+    "version": "0.365.0",
+    "type": "breaking",
+    "title": "Boot rejects visibleWhen queries with required input, non-sql index where clauses, lockedWhen on read-restricted fields and same-named features with a different surface",
+    "detail": "These checks used to be absent or silent and now stop the app at boot:\n- A screen or dashboard panel visibleWhen that names a query whose input schema does not accept an empty payload. The client gate runs it with an empty payload, so the screen stayed hidden.\n- An entity index where that is not a sql expression. It used to be dropped, which built a full (unique) index.\n- A lockedWhen field that declares access.read.\n- Two features with the same name whose screens, navs, jobs, events, translations, config keys, notifications, metrics or hooks differ. The second one used to be dropped.",
+    "migration": "Boot each app once against the new version. For a visibleWhen query, make its input fields optional or point visibleWhen at an input-free query. Write index where clauses with sql`...`. Remove access.read from the lockedWhen field or lock on a field every role can read. Give differing same-named features distinct names or make their surfaces identical."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Bun.SQL provider parity fixes for DB_PROVIDER=bun",
+    "detail": "Array params bind as Postgres array literals, transaction handles are detected correctly, Instant params are stored at millisecond precision, integer params reject fractions, and migrations hold their advisory lock on one pinned connection. LISTEN/NOTIFY uses Bun.SQL listen() on its own connection, which the pool idle timeout does not close, so the Bun provider no longer opens a postgres-js peer."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "cardColumnRoles skips hideOnNarrow images",
+    "detail": "The first image column that is not hideOnNarrow becomes the card preview; narrow-hidden image columns neither become the preview nor the title."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Console-spy tests only count the messages of the code under test",
+    "detail": "Unit tests that asserted a silent console.warn/error ran in a process shared with other test files and picked up unrelated async warnings. They now filter the spied calls to the messages the tested code produces. No runtime change."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "AGENTS.md covers the gaps from the agent-docs eval; new dashboard-stats recipe",
+    "detail": "AGENTS.md now explains personalData \"tenant-members\" for openToAll writes, personal { of: \"id\" } for records that are the person, counting with list filter and totalCount instead of filtering one page, the dashboard stat panels, that schema:generate needs a name and that a newly mounted bundled feature needs a migration, and that r.crud needs write.access and read.access. The new dashboard-stats recipe shows a dashboard with a stat-group and a stat backed by one counting query. No runtime change."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Same-named features that differ in screens, navs, jobs, events or hooks no longer merge silently",
+    "detail": "dedupeFeatures now compares the keys of screens, navs, jobs, events, translations, config keys, notifications, metrics and hooks in addition to entities and handlers, so a second same-named feature with different surface throws instead of being dropped."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Moved file ids are not disposed",
+    "detail": "disposeRemovedFileRefs now collects the file ids still stored in any file field of the saved record before soft-deleting removed ones, so an id moved from one field to another stays readable."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "A .docx upload must contain a word/ entry, not just the bytes \"word/\"",
+    "detail": "validateFileContent now reads the ZIP central directory and requires an entry name that starts with word/. ZIPs with entries such as password/a.txt or xl/word/sheet.xml, or the bytes appearing anywhere in the file, are rejected as content_mismatch."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "zipWithEntries test helper in @cosmicdrift/kumiko-framework/testing",
+    "detail": "Builds a minimal ZIP with a real central directory for upload tests. Hand-made docx fixtures that only had a local header and the word/ bytes no longer pass the content check; build them with zipWithEntries(\"word/document.xml\") instead."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Executor update and delete with writePurpose erasure, and forget, write the erased sentinel for subjects whose key is gone",
+    "detail": "Re-encrypting a pre-KMS plaintext row after eraseKey threw subject-erased, so the erase flows could not finish their own follow-up writes. Update and delete with writePurpose erasure, and forget always, now replace the PII fields of an erased subject in changes and previous with the sentinel; fields of other subjects in the same row stay encrypted. Without writePurpose and for restore the subject-erased conflict stays. The forget-subject door close and the forget cleanup pass writePurpose erasure to the user lifecycle update."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Error docsUrl falls back to the framework page of the error code for uncovered app reasons",
+    "detail": "An error whose details.reason is an app reason not covered by errorDocs, such as the not_found reason of every NotFoundError, now carries docsUrl pointing at the framework page of its error code (for example /errors/not_found) instead of no docsUrl. Reasons covered by errorDocs keep the app link; framework reasons are unchanged."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Escape-hatch audits are collected for the whole stream",
+    "detail": "Dispatched streams run inside the escape-hatch audit scope for the full lifetime of the stream, and settled pending audits are dropped from the scope, so writes made while a stream is open are no longer missed."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Soft-delete cleanup and hardDelete retention delete the bytes of handed-over files",
+    "detail": "A tenant handover moves a fileRef row to the new tenant, but its storageKey keeps the previous tenant's prefix. The soft-delete cleanup and the data-retention hardDelete went through `ctx.files.ref()` and `ctx.files.list()`, which reject keys outside the job's tenant, so the bytes and derivatives of such files were never deleted and the soft-delete cleanup kept the row forever. Both now delete through the new `deleteFileRefBytes(files, row, context)` from `@cosmicdrift/kumiko-framework/derivatives`, built on the new `FileContext.listFromFileRef(row)` (the row's key plus its derivatives, under the same trust as `refFromFileRef`). Form-draft discard deletes draft files through `refFromFileRef` as well."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Removing a file that was moved to another file field of the same record deletes its fileRef",
+    "detail": "The fileRef stayed bound to the field it was first uploaded to. Once it was moved to a second field and then removed from that field, the dispose step skipped it and the file stayed readable. Dispose now accepts a binding to any file field of the same record."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "MFA verify without a switch-tenant gate fails at boot, and the gate result carries the session roles",
+    "detail": "createAuthRoutes throws when mfaVerifyHandler is set without switchTenantMfaGateHandler, and runDevApp and runProdApp check that the gate handler is registered before wiring, so a missing gate can no longer let switch-tenant skip MFA. The gate handler returns the roles with its clear result and the route mints the target session from them. assertRetiredCookieDomains is no longer exported, and the auth-session signup variant is composed from SignupOutcome. Setups that set mfaVerifyHandler must also register the switch-tenant gate handler."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "fetchForWriting reads one consistent stream version, nested ctx.write calls run in order, ctx.notify works through ctx.query",
+    "detail": "fetchForWriting derives the stream version from the same events it loads instead of a second read. Parallel ctx.write calls on one transaction are serialized, so a failing write rolls back only its own savepoint and no longer takes a concurrent successful write with it. ctx.notify called inside a handler reached through ctx.query is deferred onto the outer write's after-commit list instead of being delivered before that write commits. ctx.notify snapshots its options when it is called, so later mutation by the handler does not change the delivered notification. The JSDoc of AggregateStreamHandle.appendOne now states that it must not be mixed with other appends to the same aggregate in one handler."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "registerEntityCrud merges per-verb agent hints into write.agent and read.agent",
+    "detail": "agents[verb] used to replace write.agent or read.agent wholesale, so write: { agent: { expose: true } } with agents: { delete: { risk: \"high\" } } dropped expose on delete. The two are now merged with the per-verb value winning. An escapeHatch update/delete/restore on a row whose tenantId is not a valid TenantId throws an InternalError instead of silently appending to the operator's own tenant stream."
+  },
+  {
+    "version": "0.365.0",
+    "type": "breaking",
+    "title": "Entity list and detail handlers with escapeHatch must declare SystemAdmin-only access",
+    "detail": "defineEntityListHandler, defineEntityDetailHandler and registerEntityCrud read options with escapeHatch now throw at definition unless access is { roles: [\"SystemAdmin\"] }, like write handlers already did. A cross-tenant read reachable by any tenant role leaked foreign rows.",
+    "migration": "Give every list/detail handler that declares escapeHatch access: { roles: [\"SystemAdmin\"] }, or drop the escapeHatch if the handler should stay tenant-scoped."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Upload route creates the fileRef row in its own transaction, cleans up bytes on failure and excludes system files from unclaimedUploadReaders",
+    "detail": "The file routes and the API server use createProjectingTenantDb so projections on fileRef.created run. When the row insert or a projection throws, the upload route rolls the row back, deletes the stored bytes and answers 500. Files uploaded by the system user are no longer readable through unclaimedUploadReaders."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Cron schedulers of a running job runner survive orphan cleanup by an older runner, and stop() waits for a timed-out boot gate",
+    "detail": "The runner re-stamps its own cron schedulers in the orphan-cleanup seen hash every quarter of the grace period (one hset for all ids, cleared in stop()), so a mixed-version window longer than an hour no longer lets an older runner delete a scheduler a live runner holds. The stamps are written before the schedulers are upserted. A boot gate that exceeds its timeout is abandoned, not aborted: its handler keeps running, and stop() now waits for it (bounded) before closing connections."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "buildServer throws at boot when a handler declares additionalRateLimits but no RateLimitResolver can be built",
+    "detail": "Without a Redis client or context.rateLimit every call to such a handler (auth-email-password signup and token requests, waitlist submit) answered 500 at request time. buildServer now throws at boot and names the handlers.",
+    "migration": "Wire a Redis client on context.redis (or pass context.rateLimit). For the waitlist without Redis, pass emailRateLimits: []."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "PII backfill keeps ownerless events under the tenant key and re-keys values left under a previous owner",
+    "detail": "With resolveOwnerFromProjection the projection owner is now used only when the event does not carry the owner key at all; an explicit null owner resolves through whenAbsent like the live write path. The owner re-key stage (rekeyTenantKeyedOwnerFields) also moves user-keyed values to the projection's current owner when that is another user, so after an owner change X to Y that predates re-keying on transition, forgetting Y erases the value. Known divergence: a row that went ownerless, then owned by X, then ownerless again keeps its created-event value under the tenant key, while the live path keeps it with X."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "pruneEvents batchSize and _notifyAfterCommitFactory on the handler context",
+    "detail": "pruneEvents takes an optional batchSize that deletes the lowest event ids first, so callers can loop until deletedCount is below the batch size with one short transaction per batch. The handler context exposes _notifyAfterCommitFactory, a notify factory bound to the dispatcher's job runner for use after the transaction has committed."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "requireTierResolverPlugin narrows a tier-resolver registration or fails the boot",
+    "detail": "requireTierResolverPlugin(usage) returns the TierResolverPlugin of a tenantTierResolver registration and throws \"tier-resolver registration options must provide a build() factory\" otherwise. runProdApp, the worker boot and runDevApp share it, so the boot error is identical in all three entry points."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Back-dated seed writes fail with a typed SeedTimeOrderError",
+    "detail": "append() throws the exported SeedTimeOrderError (aggregateType, aggregateId, version, seedCreatedAt, predecessorCreatedAt) when a back-dated event would precede its stream predecessor, so seeders can tell it from other failures without parsing the message. The check now runs inside the insert transaction, so a concurrent live append can no longer land between check and insert."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "kumiko-upgrade --resolve rejects --dry-run, and the installed version is found from workspace members and prerelease lockfile pins",
+    "detail": "kumiko-upgrade --resolve --dry-run used to write the marker anyway; it now exits with an error and writes nothing. The installed version is now looked up from the working directory up to the repo root (the first directory with .git or a package.json with workspaces), so running inside a workspace member of a hoisted-linker monorepo finds it, while a parent workspace outside the repo is still ignored. bun.lock pins like 0.364.0-next.1 resolve to their x.y.z core instead of being dropped."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Non-sql index where throws instead of building a full index",
+    "detail": "buildEntityTable no longer drops a malformed EntityIndexDef.where silently, which produced a full (unique) index that blocked reuse of soft-deleted values. moneyAmount is typed as a bigint column."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Job handlers get ctx.metricsFor like request handlers",
+    "detail": "JobContext now exposes ctx.metricsFor(featureName) with the same contract as HandlerContext, so shared code can count under one stable feature name from jobs too. Unregistered names stay a silent no-op."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "A failed scheduler seen stamp at start no longer lets an older runner remove fresh cron schedulers for good",
+    "detail": "When the initial seen stamp failed, a concurrent older runner could delete the new runner's cron schedulers as orphans, and the periodic refresh only re-stamped them. The refresh now stamps and upserts the lane's cron schedulers again until both succeeded once."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Job runner start survives a failed scheduler-seen stamp",
+    "detail": "The initial scheduler-seen stamp is best-effort like the periodic refresh and the orphan cleanup: a Redis error is logged as a warning and the runner still starts and registers its cron schedulers."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "lockedWhen on a field with access.read fails at boot",
+    "detail": "Roles that cannot read the lock field receive records without it, and the client then showed every record as locked. validateLockedWhen now rejects a lock field that declares access.read."
+  },
+  {
+    "version": "0.365.0",
+    "type": "breaking",
+    "title": "moneyAmount returns ColumnBuilder<bigint> instead of ColumnBuilder<number>",
+    "detail": "The column was always created with bigint mode, so the driver returned a bigint while the type said number. The type now matches the runtime value. Code that assigned the column value to a number or did number arithmetic on it no longer typechecks.",
+    "migration": "Treat values read from a moneyAmount column as bigint (for example compare with 0n, or convert explicitly with Number() where the amount is known to fit). No schema change."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "The pdf-audit-export recipe uploads the PDF before the transaction",
+    "detail": "The shipped pdf-audit-export example now renders and uploads the PDF in a beforeTransaction phase with uploadFileBytesBeforeTransaction and creates the fileRef row in the handler with createFileRefFromUploadedBytes, so the upload holds no pool connection. No runtime change."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "The pii-personal-migration codemod skips .d.ts files in migration mode too",
+    "detail": "An earlier release note said the codemod now skips .d.ts files in --report-stance mode. That mode already skipped them. What changed is that migration mode skips .d.ts files as well, matching --report-stance."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "No false narrowing warning for where.tenantId given as { in } or { eq }",
+    "detail": "The read.findOne and read.findMany steps unwrap operator-form tenant filters ({ in: [...] } and { eq }) before comparing them with the caller's tenant scope, and stay silent for operator forms they do not understand."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "custom-handlers and tags-basic recipes follow the coding rules",
+    "detail": "The custom-handlers recipe parses the detail row with Zod instead of casts and filters counter:active on the server (filter + totalCount) instead of in JS over one page. The tags-basic test isolates tests by tenant instead of raw DELETE statements. No runtime change."
+  },
+  {
+    "version": "0.365.0",
+    "type": "improvement",
+    "title": "Recipe integration tests isolate per tenant instead of raw DELETE FROM resets",
+    "detail": "The recipe integration tests that agents learn from no longer reset tables with raw DELETE FROM statements. Each test now runs in its own tenant with its own users, or uses unique ids. The kumiko-schema-check header comment is now English. No runtime change."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Rebuilding an entity with a personal file or image field no longer fails on ciphertext from old backfill events",
+    "detail": "The earlier PII backfill encrypted file and image uuid values in stored events. Replaying those created and updated events wrote the ciphertext into the uuid column and failed with invalid input syntax. applyEntityEvent now decrypts such values through the subject KMS, writes null for an erased subject, and throws a clear InternalError when no KMS is configured. Table rows were never affected because Postgres rejects the ciphertext on a uuid column."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "SVG and HTML fragments are not resolved as application/xml",
+    "detail": "For uploads without a concrete content type, markup without an XML declaration is only treated as application/xml when its root element is not a known HTML or SVG element (namespace prefixes ignored). SVG logos and HTML snippets no longer route to XML ingest providers."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "EventStoreExecutor.restore returns a subject_erased conflict instead of throwing",
+    "detail": "When the stored row has to be re-encrypted for a subject whose key was erased, restore now returns a failed WriteResult with the subject_erased ConflictError. The row stays soft-deleted and no restored event is appended. Code that called restore directly and caught the exception checks isSuccess instead."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Retired-table scan handles DROP TABLE lists, schema-qualified names and RENAME",
+    "detail": "The scan of prior migrations for retired framework tables now marks every table in a DROP TABLE comma list as dropped, ignores a schema prefix such as \"public\".\"table\", and treats ALTER TABLE ... RENAME TO as dropping the old and creating the new name."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "kumiko-schema status reports connection errors; kumiko-schema-check knows the scaffold layout",
+    "detail": "schema status now prints a one-line error with a hint and exits 1 when the database is unreachable or missing, instead of an uncaught stacktrace (the URL is never printed). kumiko-schema-check exits 0 with a pointer to kumiko-schema validate for apps whose kumiko/schema.ts derives ENTITY_METAS from APP_FEATURES. New scaffolds create the app database in docker-compose."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Retention and erasure writes skip the select-option rule",
+    "detail": "Framework system-user updates that name a writePurpose (retention, erasure) are no longer blocked by conditional select options. The null-clear comparison helper isUnchangedValue moved to engine/screen-helpers and is exported from ui-types so the renderer form and the executor share one definition."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Mid-stream token expiry returns 401 unauthenticated",
+    "detail": "A stream dispatched with a token that expires while the stream is open now ends with UnauthenticatedError (401) instead of AccessDeniedError (403), so clients show the session-ended hint. Access revocation mid-stream still returns 403 access_denied."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "A where.tenantId of { in: [...] } or { eq } narrows TenantDb reads instead of being ignored",
+    "detail": "TenantDb.readWhere only understood a plain id or an array. An operator form fell back to the full read scope (own tenant plus reference rows), so { in: [ownTenant] } still returned SYSTEM reference rows. It now unwraps { in } and { eq } with the same helper the read steps use for their narrowing warning. Ids outside the caller's scope are still dropped and never widen the read."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "tenantlessAnonymous is blocked by an X-Tenant header only, not by the kumiko_tenant cookie",
+    "detail": "An earlier release note said a tenantlessAnonymous handler never runs when the client supplies X-Tenant or kumiko_tenant. Only the X-Tenant header blocks it. An ambient kumiko_tenant cookie does not, because the tenant resolver ignores the cookie on this path anyway."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "Test-stack rate limiting follows appContext.redis when rateLimitNowMs is set",
+    "detail": "With rateLimitNowMs the test stack builds its own rate-limit resolver; it now uses the redis instance passed via the app context instead of always the internal test redis, so buckets prefilled or cleared through the app redis take effect."
+  },
+  {
+    "version": "0.365.0",
+    "type": "fix",
+    "title": "The ZIP plausibility check picks the end record whose comment length reaches the end of the file",
+    "detail": "The scan took the last end-of-central-directory signature, so a signature inside the archive comment could point the check at forged entry names. A candidate now only counts when its offset plus 22 bytes plus its comment length equals the file length. A docx upload with bytes appended after the end record is therefore rejected as content_mismatch."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "A throwing command in a batch without a database connection releases its cap reservation",
