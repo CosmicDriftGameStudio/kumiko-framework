@@ -2,8 +2,14 @@
 // changes here so every replica drops its copy. publish() reaches subscribers
 // in this process synchronously and subscribers in other processes
 // asynchronously.
+export type CacheSyncPublishOptions = {
+  // Skip delivery to subscribers in this process: for publishers that already applied the
+  // change locally and only need other processes to react.
+  readonly remoteOnly?: boolean;
+};
+
 export type CacheSyncBus = {
-  publish(topic: string, message: unknown): void;
+  publish(topic: string, message: unknown, options?: CacheSyncPublishOptions): void;
   subscribe(topic: string, listener: (message: unknown) => void): () => void;
   // Fires after the transport re-established its subscription following a
   // connection loss; messages sent meanwhile are lost, so caches reload.

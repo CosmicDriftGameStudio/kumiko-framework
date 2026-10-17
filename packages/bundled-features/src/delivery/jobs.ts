@@ -207,7 +207,7 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
     tenantId,
     ctx.secrets,
     ctx.config,
-    (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
+    (fileTenantId) => fileContextForTenant(ctx, ctx.systemUser.tenantId, fileTenantId),
   );
 
   let rendered: RenderedMessage;
@@ -246,7 +246,7 @@ export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
     tenantId,
     ctx.secrets,
     ctx.config,
-    (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
+    (fileTenantId) => fileContextForTenant(ctx, ctx.systemUser.tenantId, fileTenantId),
   );
 
   try {

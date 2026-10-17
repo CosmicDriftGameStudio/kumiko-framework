@@ -52,7 +52,8 @@ export const previewPdfQuery = defineQueryHandler({
           registry: ctx.registry,
           tenantId: query.user.tenantId,
           ...(ctx.config !== undefined && { config: ctx.config }),
-          filesForTenant: (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
+          filesForTenant: (fileTenantId) =>
+            fileContextForTenant(ctx, query.user.tenantId, fileTenantId),
         },
       );
       const printed = await postRender(loadClientConfigOrUnavailable(), {

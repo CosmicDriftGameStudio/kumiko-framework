@@ -105,7 +105,7 @@ export async function storeTemplateResource(args: {
   const created = await createFileRefFromBytes(
     {
       db,
-      files: fileContextForTenant(ctx, tenantId),
+      files: fileContextForTenant(ctx, ctx.user.tenantId, tenantId),
       registry: ctx.registry,
       user: { ...user, tenantId },
     },
@@ -242,7 +242,7 @@ async function createAttachmentFileRef(args: {
   const created = await createFileRefFromBytes(
     {
       db,
-      files: fileContextForTenant(ctx, tenantId),
+      files: fileContextForTenant(ctx, ctx.user.tenantId, tenantId),
       registry: ctx.registry,
       user: { ...user, tenantId },
     },

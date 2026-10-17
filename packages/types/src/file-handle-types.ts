@@ -16,5 +16,9 @@ export type FileHandle = {
 // GDPR jobs all hit the same store by construction.
 export type FileContext = {
   ref(key: string): FileHandle;
+  // For a storageKey read from a fileRef row the caller already tenant-checked. `ref` enforces
+  // the context's tenant prefix, but a tenant handover moves the row without moving the bytes,
+  // so the key keeps the previous tenant's prefix.
+  refFromFileRef(row: { readonly storageKey: string }): FileHandle;
   list(prefix: string): Promise<readonly string[]>;
 };

@@ -63,7 +63,9 @@ export type FrameworkColorName = (typeof FRAMEWORK_COLOR_NAMES)[number];
 export type ThemeColorValue = string | { readonly light: string; readonly dark?: string };
 
 export type AppTheme = {
-  /** Scheme for visitors without a stored choice. "auto" follows the OS setting. */
+  /** Scheme for visitors without a stored choice. "auto" follows the OS setting.
+   *  The FOUC inline script cannot read this value; copy it into the script as a
+   *  literal fallback (see the header comment in tokens.ts). */
   readonly defaultColorScheme?: DefaultColorScheme;
   readonly colors?: Readonly<Partial<Record<FrameworkColorName | (string & {}), ThemeColorValue>>>;
   /** Base radius; the sm/md/lg/xl scale derives from it. */

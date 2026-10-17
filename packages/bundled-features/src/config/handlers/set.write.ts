@@ -4,7 +4,7 @@ import {
   encryptPiiValueForSubject,
   type KmsContext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, scopeTenantDbToTenant } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   defineWriteHandler,
@@ -111,7 +111,7 @@ export const setWrite = defineWriteHandler({
           scope,
           tenantId,
           userId,
-          db,
+          db: scopeTenantDbToTenant(db, tenantId),
         });
       } catch (error) {
         if (isKumikoError(error)) return writeFailure(error);

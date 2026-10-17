@@ -22,16 +22,19 @@ type FileRefRow = {
   readonly size: number | bigint | string;
 };
 
-// Tenant-bound on purpose: the FileContext of the current request only reaches its own key space.
+// Tenant-bound on purpose: without a resolver `ctx.files` only reaches the storage of the
+// context's own tenant (`contextTenantId`), so a request for another tenant's files is
+// undefined instead of silently reading through the wrong tenant's storage.
 export function fileContextForTenant(
   ctx: {
     readonly _fileProviderResolver?: FileProviderResolver | undefined;
     readonly files?: FileContext | undefined;
   },
+  contextTenantId: string,
   tenantId: string,
 ): FileContext | undefined {
   const resolver = ctx._fileProviderResolver;
-  if (resolver === undefined) return ctx.files;
+  if (resolver === undefined) return tenantId === contextTenantId ? ctx.files : undefined;
   return fileContextFromResolver(resolver, tenantId);
 }
 
@@ -81,6 +84,6 @@ export async function readFileRefContent(args: {
   if (files === undefined) {
     throw new Error("readFileRefContent: no file storage is available for the file's tenant");
   }
-  const content = await files.ref(row.storageKey).read();
+  const content = await files.refFromFileRef(row).read();
   return { content, contentType: row.mimeType, tenantId: row.tenantId, size };
 }

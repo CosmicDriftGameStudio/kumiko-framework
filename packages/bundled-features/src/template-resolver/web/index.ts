@@ -6,6 +6,13 @@
 // DOM deps.
 
 export {
+  PDF_DEFAULT_MARGIN_MM,
+  PDF_FOOTER_MARGIN_MM,
+  PDF_HEADER_MARGIN_MM,
+  PDF_ORIENTATIONS,
+  PDF_PAGE_FORMATS,
+} from "../constants.js";
+export {
   TemplateResolverErrors,
   TemplateResolverHandlers,
   TemplateResolverQueries,

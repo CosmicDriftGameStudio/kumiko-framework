@@ -394,7 +394,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       tenantId: user.tenantId,
     });
     const result = await derivatives.variant(id, spec, name);
-    const data = await files.ref(result.storageKey).read();
+    const data = await files.refFromFileRef(result).read();
     // No Content-Length/Content-Disposition: fileRef.size is the ORIGINAL's
     // size, and a variant is rendered for display, not for download.
     // storageKey embeds specHash(spec), so the URL is content-stable until

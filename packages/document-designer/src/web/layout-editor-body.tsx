@@ -307,6 +307,7 @@ export function LayoutEditorBody({
         userCount={userCount}
         overrides={overrides}
         onReset={() => void onReload()}
+        onResetError={setSaveError}
       />
       <EditorBody
         left={

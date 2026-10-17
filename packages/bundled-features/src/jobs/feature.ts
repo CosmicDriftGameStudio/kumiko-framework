@@ -36,7 +36,8 @@ import { tenantJobRunsTableMeta } from "./tenant-job-run-table.js";
 
 export type JobsFeatureOptions = {
   // How long a job run (and its logs) stays in store_job_runs/
-  // store_job_run_logs before the daily retention-cleanup job deletes it.
+  // store_job_run_logs before the daily retention-cleanup job deletes it. Also the age after
+  // which a tenant-visible "queued" row counts as lost and is dropped by the stale-run sweep.
   readonly retentionDays?: number;
   // How long a run can sit at status "running" before the hourly
   // stale-run-sweep job marks it "failed" (#2246 — a process kill mid-run
@@ -51,7 +52,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
   const staleRunTimeoutHours = options.staleRunTimeoutHours ?? DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS;
   return defineFeature("jobs", (r) => {
     r.describe(
-      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079). A job that declares `tenantVisibleRun` also keeps its run state per tenant and subject in `store_tenant_job_runs` (queued, running, plus the latest completed or failed run, no payload, error text or logs), which the tenant reads through `jobs:query:tenant-runs` (fw#3616); the stale-run sweep fails its stuck `running` rows and drops its stuck `queued` rows.",
+      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079). A job that declares `tenantVisibleRun` also keeps its run state per tenant and subject in `store_tenant_job_runs` (queued, running, plus the latest completed or failed run, no payload, error text or logs), which the tenant reads through `jobs:query:tenant-runs` (fw#3616); the stale-run sweep fails its stuck `running` rows and drops `queued` rows older than `retentionDays`.",
     );
     r.uiHints({
       displayLabel: "Jobs · Audit & Operator UI",
@@ -61,7 +62,9 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     r.systemScope();
     r.storeTable(jobRunsTableMeta, {
       reason: "direct_write.job_runs",
-      // payload/error carry personal:{of:"triggeredById"} (job-run-table.ts).
+      // payload/error carry personal:{of:"triggeredById"} (job-run-table.ts): encrypted under the
+      // triggering user's DEK, or the system tenant key when triggeredById is null
+      // (whenAbsent: "tenant", fw#3654).
       // job-run-logger.ts manually encrypts both before every insert/update
       // (encryptStartedPayload/encryptFailureError) since this store bypasses
       // the executor's automatic PII pipeline (#2243).
@@ -115,7 +118,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     r.job(
       "stale-run-sweep",
       { trigger: { cron: "0 * * * *" }, concurrency: "skip" },
-      createStaleRunSweepJob(staleRunTimeoutHours),
+      createStaleRunSweepJob(staleRunTimeoutHours, retentionDays),
     );
 
     const handlers = {

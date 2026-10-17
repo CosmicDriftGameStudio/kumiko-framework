@@ -86,7 +86,11 @@ function createLocalFanout(): LocalFanout {
 export function createLocalCacheSyncBus(): ClosableCacheSyncBus {
   const fanout = createLocalFanout();
   return {
-    publish: fanout.deliver,
+    publish(topic, message, options) {
+      // skip: a single-process bus has no remote subscribers to reach
+      if (options?.remoteOnly) return;
+      fanout.deliver(topic, message);
+    },
     subscribe: fanout.subscribe,
     onResync: fanout.onResync,
     async close() {},
@@ -140,8 +144,8 @@ export function createCacheSyncBusOverSignal(
   });
 
   return {
-    publish(topic, message) {
-      fanout.deliver(topic, message);
+    publish(topic, message, options) {
+      if (!options?.remoteOnly) fanout.deliver(topic, message);
       const envelope: CacheSyncEnvelope = { origin, topic, message };
       signal.publish(opts.channel, envelope);
     },

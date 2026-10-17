@@ -3,8 +3,9 @@ import { createTenantDb, type DbConnection, type TenantDb } from "@cosmicdrift/k
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { readFileRefContent } from "../file-foundation/index.js";
+import { type FileRefContent, readFileRefContent } from "../file-foundation/index.js";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
@@ -85,6 +86,22 @@ function createPdfRenderer(
   };
 }
 
+// A decorative inline image (logo) that cannot be read must not fail the whole mail.
+async function readInlineImageOrNull(
+  fileRefId: string,
+  read: () => Promise<FileRefContent | null>,
+): Promise<FileRefContent | null> {
+  try {
+    return await read();
+  } catch (err) {
+    createFallbackLogger("delivery").warn("inline image could not be read, sending without it", {
+      fileRefId,
+      errorName: err instanceof Error ? err.name : typeof err,
+    });
+    return null;
+  }
+}
+
 // Inline images and file attachments the renderer took from a template may come from the system
 // tenant (system template or tenant override of one). A file ref from notify data stays limited to
 // the job's own tenant, since a caller picks it. Inline content that is not an image is dropped, so
@@ -99,13 +116,16 @@ export function createEmailAttachmentReader(
   const renderPdf = createPdfRenderer(db, registry, tenantId, config, filesForTenant);
   return async (ref: EmailAttachmentRef, origin: AttachmentOrigin = "message") => {
     if (ref.kind === "rendered-pdf") return renderPdf(ref);
-    const found = await readFileRefContent({
-      db,
-      filesForTenant,
-      fileRefId: ref.fileRefId,
-      allowedTenantIds:
-        ref.kind === "file" && origin === "message" ? [tenantId] : [tenantId, SYSTEM_TENANT_ID],
-    });
+    const readRef = () =>
+      readFileRefContent({
+        db,
+        filesForTenant,
+        fileRefId: ref.fileRefId,
+        allowedTenantIds:
+          ref.kind === "file" && origin === "message" ? [tenantId] : [tenantId, SYSTEM_TENANT_ID],
+      });
+    const found =
+      ref.kind === "inline" ? await readInlineImageOrNull(ref.fileRefId, readRef) : await readRef();
     if (found === null) return null;
     if (ref.kind === "inline" && !found.contentType.startsWith(INLINE_IMAGE_CONTENT_TYPE_PREFIX)) {
       return null;

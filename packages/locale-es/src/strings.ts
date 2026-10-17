@@ -1144,6 +1144,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Este archivo no es una imagen compatible. Usa PNG, JPEG, WebP o GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Los archivos de recursos de las plantillas del sistema solo los puede importar o exportar un usuario del inquilino del sistema.",
+  "templateResolver.errors.template.bundleLocalesDiffer":
+    "Los idiomas de esta plantilla difieren en el formato del contenido o en las variables, por lo que no se pueden exportar como un solo paquete.",
   "templateResolver.errors.collection.kindNotAllowed":
     "Las plantillas «{detail}» se editan en su propio editor, no mediante una colección.",
   "templateResolver.errors.noSystemTemplate":

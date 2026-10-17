@@ -347,6 +347,13 @@ export function createSystemDbView(
   return buildUncheckedSystemDb(db, dbOutsideTransaction, report, { kind: "source-tenant-db" });
 }
 
+// Narrows a (possibly "system"-mode) TenantDb to a "tenant"-mode handle for one tenant on the
+// same connection/transaction. For code that must run caller-supplied callbacks (e.g. config
+// validators) without handing them a cross-tenant view.
+export function scopeTenantDbToTenant(db: TenantDb, tenantId: TenantId): TenantDb {
+  return createTenantDb(tenantDbRunner(db), tenantId, "tenant");
+}
+
 // @cast-boundary tenant-db-row
 export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): readonly T[] {
   return rows as unknown as readonly T[];

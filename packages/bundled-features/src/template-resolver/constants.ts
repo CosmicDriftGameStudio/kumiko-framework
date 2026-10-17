@@ -65,6 +65,14 @@ export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
 export const PDF_PAGE_FORMATS = ["A4", "Letter"] as const;
 export type PdfPageFormat = (typeof PDF_PAGE_FORMATS)[number];
 
+export const PDF_ORIENTATIONS = ["portrait", "landscape"] as const;
+export type PdfOrientation = (typeof PDF_ORIENTATIONS)[number];
+
+// Page margins in mm; the header/footer values apply when the layout contributes that region and the template sets no margin itself.
+export const PDF_DEFAULT_MARGIN_MM = 15;
+export const PDF_HEADER_MARGIN_MM = 30;
+export const PDF_FOOTER_MARGIN_MM = 20;
+
 // Colors end up inside MJML attributes, so only a strict hex is ever written there.
 export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 

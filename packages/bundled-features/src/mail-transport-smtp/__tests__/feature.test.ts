@@ -70,6 +70,9 @@ function fakeSecrets(): SecretsContext {
     has: async () => true,
     set: async () => {},
     delete: async () => true,
+    withRunner: () => {
+      throw new Error("withRunner is not used by this test");
+    },
   };
 }
 

@@ -9,6 +9,7 @@ import {
 import { reraiseAsKumikoError } from "../errors/index.js";
 import { getFileRefExecutor } from "./create-file-ref.js";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
+import type { FileRefRows } from "./load-save-file-refs.js";
 
 export function fileRefIdsOf(value: unknown): readonly string[] {
   if (typeof value === "string") return isUuid(value) ? [value] : [];
@@ -42,8 +43,9 @@ export async function bindPendingFileRefs(args: {
   readonly result: SaveContext;
   readonly user: SessionUser;
   readonly db: TenantDb;
+  readonly fileRefRows: FileRefRows;
 }): Promise<void> {
-  const { registry, result, user, db } = args;
+  const { registry, result, user, db, fileRefRows } = args;
   // skip: saves of unnamed aggregates declare no file fields
   if (result.entityName === undefined) return;
   const entityName = result.entityName;
@@ -59,8 +61,8 @@ export async function bindPendingFileRefs(args: {
     // changes, not data: an update's row carries every stored file id, including
     // ones bound earlier; only the ids this save names can be pending uploads.
     for (const fileRefId of fileRefIdsOf(result.changes[fieldName])) {
-      const row = await executor.detail({ id: fileRefId }, user, db);
-      if (row === null || !isPendingUploadFor(row, entityName, fieldName, user)) continue;
+      const row = fileRefRows.get(fileRefId);
+      if (row === undefined || !isPendingUploadFor(row, entityName, fieldName, user)) continue;
       const version = typeof row["version"] === "number" ? row["version"] : undefined;
       const bound = await executor.update(
         { id: fileRefId, version, changes: { entityId: String(result.id) } },

@@ -19,6 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   buildMultipartBody,
+  expectErrorIncludes,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
@@ -392,6 +393,19 @@ describe("template-resolver :: send-test write", () => {
     );
     expect(blocked.status).toBe(429);
     expect(emailTransport.sent).toHaveLength(10);
+  });
+
+  test("a failing transport returns template_test_mail_failed without leaking the cause", async () => {
+    emailTransport.failNext = { message: "smtp refused user@secret.test" };
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE },
+      adminOf(37),
+    );
+    expectErrorIncludes(err, "template_test_mail_failed");
+    expectErrorIncludes(err, "channel_error");
+    expect(JSON.stringify(err)).not.toContain("secret.test");
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("the role User is refused", async () => {

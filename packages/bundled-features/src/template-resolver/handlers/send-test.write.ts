@@ -28,6 +28,11 @@ function testMailFailed(code: "channel_error" | "not_sent") {
   );
 }
 
+function errorCodeOf(error: unknown): string | undefined {
+  const code = error instanceof Error ? Reflect.get(error, "code") : undefined;
+  return typeof code === "string" ? code : undefined;
+}
+
 // The only recipient is the caller's own address, resolved server-side, so the handler can never mail a third party.
 export const sendTestWrite = defineWriteHandler({
   name: "send-test",
@@ -75,7 +80,7 @@ export const sendTestWrite = defineWriteHandler({
         ctx.registry,
         event.user.tenantId,
         ctx.config,
-        (tenantId) => fileContextForTenant(ctx, tenantId),
+        (tenantId) => fileContextForTenant(ctx, ctx.user.tenantId, tenantId),
       ),
     };
     const address = (await channel.resolve?.(event.user.id, channelContext)) ?? null;
@@ -88,7 +93,7 @@ export const sendTestWrite = defineWriteHandler({
     }
 
     const subject = `${prefixSubject ? TEST_MAIL_SUBJECT_PREFIX : ""}${preview.subject ?? ""}`;
-    let sent: boolean;
+    let sentStatus: string;
     try {
       const result = await channel.send(
         address,
@@ -108,11 +113,23 @@ export const sendTestWrite = defineWriteHandler({
           attachments: mailAttachments,
         },
       );
-      sent = result.status === "sent";
-    } catch {
+      sentStatus = result.status;
+    } catch (error) {
+      // Class and code only: the message can carry the address or a provider response body.
+      ctx.log?.warn("template test mail: channel threw", {
+        tenantId: event.user.tenantId,
+        errorClass: error instanceof Error ? error.name : typeof error,
+        errorCode: errorCodeOf(error),
+      });
       return testMailFailed("channel_error");
     }
-    if (!sent) return testMailFailed("not_sent");
+    if (sentStatus !== "sent") {
+      ctx.log?.warn("template test mail: channel did not send", {
+        tenantId: event.user.tenantId,
+        status: sentStatus,
+      });
+      return testMailFailed("not_sent");
+    }
     return { isSuccess: true as const, data: { subject, checks: preview.checks } };
   },
 });

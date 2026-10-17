@@ -1,14 +1,12 @@
 // @runtime client
+import {
+  PDF_ORIENTATIONS,
+  PDF_PAGE_FORMATS,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { isOneOf, isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
-export const PAGE_FORMATS = ["A4", "Letter"] as const;
-export const ORIENTATIONS = ["portrait", "landscape"] as const;
-export type PageFormat = (typeof PAGE_FORMATS)[number];
-export type Orientation = (typeof ORIENTATIONS)[number];
-
-// Mirrors the renderer's fallback margin; used to complete a partly filled set,
-// because the server schema only accepts all four sides together.
-export const DEFAULT_MARGIN_MM = 15;
+export type PageFormat = (typeof PDF_PAGE_FORMATS)[number];
+export type Orientation = (typeof PDF_ORIENTATIONS)[number];
 
 export type MarginSide = "top" | "right" | "bottom" | "left";
 export const MARGIN_SIDES = [
@@ -71,8 +69,8 @@ export function parsePdfMeta(raw: string | null): PdfMetaDraft {
   const metadata = propertyOf(parsed, "metadata");
   return {
     layoutSlug: stringOr(parsed["layoutSlug"], ""),
-    pageFormat: isOneOf(PAGE_FORMATS, pageFormat) ? pageFormat : EMPTY_PDF_META.pageFormat,
-    orientation: isOneOf(ORIENTATIONS, orientation) ? orientation : EMPTY_PDF_META.orientation,
+    pageFormat: isOneOf(PDF_PAGE_FORMATS, pageFormat) ? pageFormat : EMPTY_PDF_META.pageFormat,
+    orientation: isOneOf(PDF_ORIENTATIONS, orientation) ? orientation : EMPTY_PDF_META.orientation,
     printBackground: booleanOr(parsed["printBackground"], true),
     layoutHeaderFooter: booleanOr(parsed["layoutHeaderFooter"], true),
     margins: {
@@ -87,10 +85,6 @@ export function parsePdfMeta(raw: string | null): PdfMetaDraft {
   };
 }
 
-function hasAnyMargin(margins: PdfMetaDraft["margins"]): boolean {
-  return MARGIN_SIDES.some((side) => margins[side] !== "");
-}
-
 /** Builds the meta object for the server; defaults and empty fields are left out. */
 export function serializePdfMeta(draft: PdfMetaDraft): Record<string, unknown> {
   const meta: Record<string, unknown> = {};
@@ -99,14 +93,12 @@ export function serializePdfMeta(draft: PdfMetaDraft): Record<string, unknown> {
   if (draft.orientation !== "portrait") meta["orientation"] = draft.orientation;
   if (!draft.printBackground) meta["printBackground"] = false;
   if (!draft.layoutHeaderFooter) meta["layoutHeaderFooter"] = false;
-  if (hasAnyMargin(draft.margins)) {
-    meta["margins"] = Object.fromEntries(
-      MARGIN_SIDES.map((side) => [
-        side,
-        draft.margins[side] === "" ? DEFAULT_MARGIN_MM : draft.margins[side],
-      ]),
-    );
-  }
+  // Unset sides stay out so the renderer's per-side fallbacks (header/footer margins) still apply.
+  const setMargins = MARGIN_SIDES.flatMap((side) => {
+    const mm = draft.margins[side];
+    return mm === "" ? [] : [[side, mm] as const];
+  });
+  if (setMargins.length > 0) meta["margins"] = Object.fromEntries(setMargins);
   if (draft.fileName.trim() !== "") meta["fileName"] = draft.fileName.trim();
   const metadata: Record<string, string> = {};
   if (draft.title.trim() !== "") metadata["title"] = draft.title.trim();

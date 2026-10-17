@@ -91,6 +91,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [resourceError, setResourceError] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
   const [editorEpoch, setEditorEpoch] = useState(0);
   const [includeAttachments, setIncludeAttachments] = useState(true);
   const [prefixSubject, setPrefixSubject] = useState(true);
@@ -250,7 +251,11 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           isSystemAdmin={isSystemAdmin}
           creating={creating}
           controls={controls}
-          onReload={() => void onReload()}
+          onReload={() => {
+            setResetError(null);
+            void onReload();
+          }}
+          onResetError={setResetError}
         />
       )}
       {testMail.state.kind === "sent" && (
@@ -261,6 +266,11 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
       {testMail.state.kind === "error" && (
         <Banner variant="error" testId="mail-test-error">
           {testMail.state.text}
+        </Banner>
+      )}
+      {resetError !== null && (
+        <Banner variant="error" testId="mail-reset-error">
+          {resetError}
         </Banner>
       )}
       {resourceError !== null && (

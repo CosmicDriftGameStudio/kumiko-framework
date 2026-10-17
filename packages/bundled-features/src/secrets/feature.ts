@@ -83,21 +83,22 @@ export function requireSecretsContext(
         "createSecretsContext({db, masterKeyProvider, registry}) via extraContext.secrets at boot.",
     });
   }
-  const raw = ctx.secrets;
   const userId = ctx._userId;
   if (!userId) {
     throw new InternalError({
       message: `[${handlerName}] ctx._userId missing — cannot audit secret reads without a caller identity.`,
     });
   }
-  return {
+  const withAudit = (raw: SecretsContext): SecretsContext => ({
+    withRunner: (runner) => withAudit(raw.withRunner(runner)),
     get: (tenantId, key, overrideAudit) =>
       raw.get(tenantId, key, overrideAudit ?? { userId, handlerName }),
     // No audit injection: has() is metadata-only and never logs a read.
     has: raw.has.bind(raw),
     set: raw.set.bind(raw),
     delete: raw.delete.bind(raw),
-  };
+  });
+  return withAudit(ctx.secrets);
 }
 
 export type SecretsFeatureOptions = {

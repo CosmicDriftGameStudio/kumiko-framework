@@ -147,7 +147,7 @@ export const publicVariantQuery = defineQueryHandler({
     const spec = resolveFieldVariant(ctx.registry, entityType, fieldName, query.payload.variant);
     if (!spec) return null;
     const result = await derivatives.variant(query.payload.fileRefId, spec, query.payload.variant);
-    const bytes = await files.ref(result.storageKey).read();
+    const bytes = await files.refFromFileRef(result).read();
 
     // ponytail: fully buffered (no streaming), +33% over the wire from
     // base64 — HttpRouteHandlerDeps only exposes {app, systemQuery} (no

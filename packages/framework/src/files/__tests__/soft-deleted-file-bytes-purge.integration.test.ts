@@ -3,12 +3,15 @@
 // deleted stays for the next run.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "../../db/query.js";
+import { createTenantDb } from "../../db/tenant-db.js";
 import { SOFT_DELETE_CLEANUP_JOB } from "../../engine/soft-delete-cleanup.js";
 import { runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
-import { createFilesFeature, deriveKey, fileRefsTable } from "../index.js";
+import { createFileContext, createFilesFeature, deriveKey, fileRefsTable } from "../index.js";
+import { purgeExpiredFileRefsWithBytes } from "../purge-expired-file-ref-bytes.js";
+import { FILE_REF_ENTITY_NAME } from "../types.js";
 
 const DERIVATIVE_SUFFIX = "thumb-0123456789abcdef";
 const PNG_BYTES = new Uint8Array([
@@ -24,12 +27,12 @@ const PNG_BYTES = new Uint8Array([
 ]);
 
 const memory: InMemoryFileProvider = createInMemoryFileProvider();
-let failDeleteForKey: string | undefined;
+let failDeleteForKeys: ReadonlySet<string> = new Set();
 // Same storage, but delete() can be told to fail for one key.
 const provider: InMemoryFileProvider = {
   ...memory,
   async delete(key) {
-    if (key === failDeleteForKey) throw new Error("simulated storage outage");
+    if (failDeleteForKeys.has(key)) throw new Error("simulated storage outage");
     await memory.delete(key);
   },
 };
@@ -60,7 +63,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  failDeleteForKey = undefined;
+  failDeleteForKeys = new Set();
 });
 
 type SoftDeletedFile = { id: string; storageKey: string; derivativeKey: string };
@@ -95,6 +98,15 @@ async function uploadAndDelete(name: string): Promise<SoftDeletedFile> {
   });
   expect(deleted.status).toBe(200);
   return { id, storageKey, derivativeKey };
+}
+
+function fileRefProjectionTable() {
+  for (const projection of stack.registry.getAllProjections().values()) {
+    if (projection.isImplicit === true && projection.source === FILE_REF_ENTITY_NAME) {
+      return projection.table;
+    }
+  }
+  throw new Error("fileRef projection table not registered");
 }
 
 async function rowExists(id: string): Promise<boolean> {
@@ -134,7 +146,7 @@ describe("soft-delete cleanup of fileRef bytes", () => {
   test("a failed byte delete keeps that row and bytes, other due rows are still purged", async () => {
     const broken = await uploadAndSoftDelete("broken.png", 400);
     const healthy = await uploadAndSoftDelete("healthy.png", 400);
-    failDeleteForKey = broken.storageKey;
+    failDeleteForKeys = new Set([broken.storageKey]);
 
     await runCleanup();
 
@@ -145,10 +157,36 @@ describe("soft-delete cleanup of fileRef bytes", () => {
     expect(provider.keys()).not.toContain(healthy.derivativeKey);
 
     // The next run retries the kept row once storage works again.
-    failDeleteForKey = undefined;
+    failDeleteForKeys = new Set();
     await runCleanup();
     expect(await rowExists(broken.id)).toBe(false);
     expect(provider.keys()).not.toContain(broken.storageKey);
     expect(provider.keys()).not.toContain(broken.derivativeKey);
+  });
+
+  const expiredBefore = Temporal.Now.instant().subtract({ hours: 30 * 24 });
+
+  test("rows that keep failing do not hide later expired rows within a run", async () => {
+    const poison = [
+      await uploadAndSoftDelete("poison-1.png", 410),
+      await uploadAndSoftDelete("poison-2.png", 409),
+      await uploadAndSoftDelete("poison-3.png", 408),
+    ];
+    const healthy = await uploadAndSoftDelete("behind-poison.png", 400);
+    failDeleteForKeys = new Set(poison.map((file) => file.storageKey));
+
+    await purgeExpiredFileRefsWithBytes({
+      db: createTenantDb(stack.db, admin.tenantId),
+      table: fileRefProjectionTable(),
+      where: { isDeleted: true, deletedAt: { lt: expiredBefore }, tenantId: admin.tenantId },
+      expiredBefore,
+      files: createFileContext(() => Promise.resolve(provider), admin.tenantId),
+      log: undefined,
+      pageSize: 2,
+    });
+
+    expect(await rowExists(healthy.id)).toBe(false);
+    expect(provider.keys()).not.toContain(healthy.storageKey);
+    expect(await Promise.all(poison.map((file) => rowExists(file.id)))).toEqual([true, true, true]);
   });
 });

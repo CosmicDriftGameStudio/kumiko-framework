@@ -17,6 +17,7 @@ import {
   WORKFLOW_RETRY_SCHEDULED_TYPE,
 } from "./_step-dispatch-constants.js";
 import { describeWorkflowStepError } from "./describe-workflow-step-error.js";
+import { unwrapWorkflowStepError } from "./workflow-step-error.js";
 
 const log = createFallbackLogger("workflow-retry");
 
@@ -56,7 +57,7 @@ defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
         workflowName: ctx.workflow.workflowName,
         stepIndex: ctx.workflow.stepIndex,
         attempt,
-        error: String(error),
+        error: String(unwrapWorkflowStepError(error)),
       });
 
       const backoffMs = calculateBackoff(attempt, args.backoff);
