@@ -7,6 +7,7 @@ import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import type { AppContext } from "../../engine/types/index.js";
 import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
 import {
   createJobRunner,
   ORPHAN_SCHEDULER_GRACE_MS,
@@ -154,5 +155,50 @@ describe("orphan job schedulers", () => {
         expect(await schedulerKeys(s.workerQueue)).toEqual([s.keptId]);
       },
     );
+  });
+
+  test("a running runner keeps its schedulers alive across a mixed-version restart longer than the grace period", async () => {
+    const prefix = uniquePrefix();
+    const withKept = defineFeature("orphan", (r) => {
+      r.job("kept", { trigger: { cron: "0 0 1 1 *" } }, async () => {});
+    });
+    const withoutKept = defineFeature("orphan", (r) => {
+      r.job("other", { trigger: { manual: true } }, async () => {});
+    });
+    const keptId = schedulerIdForJobName("orphan:job:kept");
+    const newer = createJobRunner({
+      registry: createRegistry([withKept]),
+      context: {} as AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix: prefix,
+      schedulerSeenRefreshMs: 50,
+    });
+    const older = createJobRunner({
+      registry: createRegistry([withoutKept]),
+      context: {} as AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix: prefix,
+    });
+    const workerQueue = rawQueue(prefix, "worker");
+    const seenKey = workerQueue.toKey("kumiko-scheduler-seen");
+    try {
+      await newer.start();
+      const client = await workerQueue.client;
+      const staleStamp = Date.now() - ORPHAN_SCHEDULER_GRACE_MS - 60_000;
+      await client.hset(seenKey, { [keptId]: String(staleStamp) });
+      await waitFor(async () => Number(await client.hget(seenKey, keptId)) > staleStamp);
+
+      await older.start();
+
+      expect(await schedulerKeys(workerQueue)).toEqual([keptId]);
+    } finally {
+      await older.stop();
+      await newer.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
   });
 });

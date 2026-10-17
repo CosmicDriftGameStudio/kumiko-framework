@@ -101,6 +101,35 @@ export type SeedTenantHooks = {
   readonly context: AppContext;
 };
 
+function buildSeedHookNotify(
+  context: AppContext,
+  scopedUser: SessionUser,
+  targetTenantId: TenantId,
+  notifyTiming: "deferUntilCommit" | "inline",
+): AppContext["notify"] {
+  const notifyFactory = context._notifyFactory;
+  if (!notifyFactory) return context.notify;
+  const notifyAfterCommit = (context._notifyAfterCommitFactory ?? notifyFactory)(
+    scopedUser,
+    targetTenantId,
+  );
+  if (notifyTiming === "inline") return notifyAfterCommit;
+  // Still inside the caller's write tx: delivery DB work must not wait for an app-pool slot.
+  const notifyInsideTransaction = (context._notifyInTransactionFactory ?? notifyFactory)(
+    scopedUser,
+    targetTenantId,
+  );
+  const scheduleAfterCommit = context.scheduleAfterCommit;
+  if (!scheduleAfterCommit) return notifyInsideTransaction;
+  return createDeferringNotify({
+    registry: context.registry,
+    tenantId: targetTenantId,
+    notifyAfterCommit,
+    notifyNow: notifyInsideTransaction,
+    scheduleAfterCommit,
+  });
+}
+
 // Shared by seedTenant/seedTenantMembership/auth-email-password's
 // seedUserWithPassword: fires the same entity-scoped postSave hooks the
 // real dispatcher would (registry.getEntityPostSaveHooks by entityName),
@@ -120,32 +149,6 @@ export type SeedTenantHooks = {
 // (HandlerContext from a live write), afterCommit hooks are queued onto the
 // dispatcher's sink and flush post-commit. Without a sink (fixture / plain
 // Connection) they still fire immediately — there is no outer TX to wait for.
-//
-function buildSeedHookNotify(
-  context: AppContext,
-  scopedUser: SessionUser,
-  targetTenantId: TenantId,
-  notifyTiming: "deferUntilCommit" | "inline",
-): AppContext["notify"] {
-  const notifyFactory = context._notifyFactory;
-  if (!notifyFactory) return context.notify;
-  if (notifyTiming === "inline") return notifyFactory(scopedUser, targetTenantId);
-  // Still inside the caller's write tx: delivery DB work must not wait for an app-pool slot.
-  const notifyInsideTransaction = (context._notifyInTransactionFactory ?? notifyFactory)(
-    scopedUser,
-    targetTenantId,
-  );
-  const scheduleAfterCommit = context.scheduleAfterCommit;
-  if (!scheduleAfterCommit) return notifyInsideTransaction;
-  return createDeferringNotify({
-    registry: context.registry,
-    tenantId: targetTenantId,
-    notifyAfterCommit: notifyFactory(scopedUser, targetTenantId),
-    notifyNow: notifyInsideTransaction,
-    scheduleAfterCommit,
-  });
-}
-
 // `runner` comes from the caller, which already holds a declared DbRunner —
 // a TenantDb exposes no runner back out to feature code.
 function scopeSeedHookContext(
@@ -219,13 +222,16 @@ export async function fireEntityPostSave(
     target === undefined
       ? hooks.context
       : scopeSeedHookContext(hooks.context, target.tenantId, target.db, "deferUntilCommit");
-  const afterCommitContext =
-    target === undefined
-      ? hooks.context
-      : scopeSeedHookContext(hooks.context, target.tenantId, target.db, "inline");
   await lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.inTransaction);
   const runAfterCommit = () =>
-    lifecycle.runPostSave(pseudoType, entityData, afterCommitContext, HookPhases.afterCommit);
+    lifecycle.runPostSave(
+      pseudoType,
+      entityData,
+      target === undefined
+        ? hooks.context
+        : scopeSeedHookContext(hooks.context, target.tenantId, target.db, "inline"),
+      HookPhases.afterCommit,
+    );
   if (scopedContext.scheduleAfterCommit) {
     scopedContext.scheduleAfterCommit(runAfterCommit);
   } else {

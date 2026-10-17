@@ -18,6 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createDefaultCacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
 import {
   createTestRedis,
   createTestUser,
@@ -675,6 +676,34 @@ describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
       expect(runtimeA.effectiveFeatures().has("widget")).toBe(false);
     } finally {
       await Promise.all([runtimeA.close(), runtimeB.close()]);
+    }
+  });
+
+  test("runtimes built on a shared cache-sync bus leave it open on close and still converge", async () => {
+    const sharedBus = createDefaultCacheSyncBus();
+    const closing = await createFeatureToggleRuntime(
+      stack.db,
+      stack.registry,
+      undefined,
+      sharedBus,
+    );
+    const sender = await createFeatureToggleRuntime(stack.db, stack.registry, undefined, sharedBus);
+    const receiver = await createFeatureToggleRuntime(
+      stack.db,
+      stack.registry,
+      undefined,
+      sharedBus,
+    );
+    try {
+      await closing.close();
+      await waitFor(() => {
+        sender.broadcastToggle("widget", false);
+        return !receiver.effectiveFeatures().has("widget");
+      });
+      expect(receiver.effectiveFeatures().has("widget")).toBe(false);
+    } finally {
+      await Promise.all([sender.close(), receiver.close()]);
+      await sharedBus.close();
     }
   });
 

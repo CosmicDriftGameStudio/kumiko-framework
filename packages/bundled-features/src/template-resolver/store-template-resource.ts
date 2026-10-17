@@ -16,7 +16,7 @@ import { createFileRefFromBytes } from "@cosmicdrift/kumiko-framework/files";
 import { fileContextForTenant } from "../file-foundation/index.js";
 import type { FileAttachmentRef } from "../renderer-foundation/index.js";
 import { requireForTenant } from "../shared/index.js";
-import { SYSTEM_TENANT_ID } from "./constants.js";
+import { ACTIVE_TEMPLATE_STATUS, SYSTEM_TENANT_ID } from "./constants.js";
 import {
   DEFAULT_RESOURCE_MAX_BYTES,
   MAX_FILE_ATTACHMENTS_PER_TEMPLATE,
@@ -60,6 +60,96 @@ export type StoredTemplateResource = {
   readonly size: number;
 };
 
+function keyInUse(): WriteResult<never> {
+  return writeFailure(
+    new UnprocessableError(TemplateResolverErrors.attachmentInvalid, {
+      i18nKey: "templateResolver.errors.attachment.invalid",
+      details: { code: "key_in_use" },
+    }),
+  );
+}
+
+// The failed link write rolls the fileRef row back but not the binary, which would stay unreferenced.
+async function discardStoredBytes(
+  ctx: HandlerContext,
+  tenantId: TenantId,
+  storageKey: string,
+): Promise<void> {
+  try {
+    await fileContextForTenant(ctx, ctx.user.tenantId, tenantId)?.ref(storageKey).delete();
+  } catch (cause) {
+    ctx.log?.warn("template resource: could not delete orphaned storage object", {
+      storageKey,
+      error: cause instanceof Error ? cause.message : String(cause),
+    });
+  }
+}
+
+function isAttachmentKey(links: Readonly<Record<string, LinkedResourceEntry>>, key: string) {
+  const occupant = links[key];
+  return occupant !== undefined && typeof occupant !== "string";
+}
+
+async function linkImage(args: {
+  readonly ctx: HandlerContext;
+  readonly user: SessionUser;
+  readonly tenantId: TenantId;
+  readonly row: TemplateResourceRow;
+  readonly key: string;
+  readonly links: Readonly<Record<string, LinkedResourceEntry>>;
+  readonly created: { readonly id: string; readonly storageKey: string };
+}): Promise<WriteResult<null>> {
+  const { ctx, user, tenantId, row, key, links, created } = args;
+  const { db, streamTenantId } = requireForTenant(ctx, tenantId);
+  // The replaced FileRef stays: copy-locale and tenant overrides can share ids and
+  // there is no reference count to tell when the last user is gone.
+  const updated = await executor.update(
+    {
+      id: row.id,
+      version: row.version,
+      changes: { linkedResources: JSON.stringify({ ...links, [key]: created.id }) },
+    },
+    user,
+    db,
+    { streamTenantId },
+  );
+  if (updated.isSuccess) return { isSuccess: true, data: null };
+  await discardStoredBytes(ctx, tenantId, created.storageKey);
+  return updated;
+}
+
+type NormalizedUpload = {
+  readonly image: Awaited<ReturnType<typeof normalizeResourceImage>>;
+};
+
+async function normalizeUpload(
+  bytes: Uint8Array,
+  maxBytes: number,
+): Promise<{ readonly failure: WriteResult<never> } | NormalizedUpload> {
+  if (bytes.length > maxBytes) {
+    return {
+      failure: writeFailure(
+        new UnprocessableError(TemplateResolverErrors.resourceTooLarge, {
+          i18nKey: "templateResolver.errors.resource.tooLarge",
+          details: { maxBytes, size: bytes.length },
+        }),
+      ),
+    };
+  }
+  try {
+    return { image: await normalizeResourceImage(Buffer.from(bytes)) };
+  } catch (cause) {
+    return {
+      failure: writeFailure(
+        new UnprocessableError(TemplateResolverErrors.resourceUnsupportedImage, {
+          i18nKey: "templateResolver.errors.resource.unsupportedImage",
+          cause: cause instanceof Error ? cause : undefined,
+        }),
+      ),
+    };
+  }
+}
+
 // Normalizes the image, stores it as a file ref of the target tenant and, with templateId + key,
 // links it into that tenant's template. The caller is responsible for authorization; the function trusts tenantId.
 export async function storeTemplateResource(args: {
@@ -72,27 +162,11 @@ export async function storeTemplateResource(args: {
   readonly key?: string;
 }): Promise<WriteResult<StoredTemplateResource>> {
   const { ctx, user, tenantId, bytes, maxBytes, templateId, key } = args;
-  if (bytes.length > maxBytes) {
-    return writeFailure(
-      new UnprocessableError(TemplateResolverErrors.resourceTooLarge, {
-        i18nKey: "templateResolver.errors.resource.tooLarge",
-        details: { maxBytes, size: bytes.length },
-      }),
-    );
-  }
-  let image: Awaited<ReturnType<typeof normalizeResourceImage>>;
-  try {
-    image = await normalizeResourceImage(Buffer.from(bytes));
-  } catch (cause) {
-    return writeFailure(
-      new UnprocessableError(TemplateResolverErrors.resourceUnsupportedImage, {
-        i18nKey: "templateResolver.errors.resource.unsupportedImage",
-        cause: cause instanceof Error ? cause : undefined,
-      }),
-    );
-  }
+  const normalized = await normalizeUpload(bytes, maxBytes);
+  if ("failure" in normalized) return normalized.failure;
+  const { image } = normalized;
 
-  const { db, streamTenantId } = requireForTenant(ctx, tenantId);
+  const { db } = requireForTenant(ctx, tenantId);
   let row: TemplateResourceRow | undefined;
   if (templateId !== undefined) {
     row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
@@ -101,6 +175,9 @@ export async function storeTemplateResource(args: {
     });
     if (row === undefined) return writeFailure(new NotFoundError("template-resource", templateId));
   }
+
+  const existingLinks = row === undefined ? {} : parseLinkedResourceEntries(row.linkedResources);
+  if (key !== undefined && isAttachmentKey(existingLinks, key)) return keyInUse();
 
   const created = await createFileRefFromBytes(
     {
@@ -119,23 +196,16 @@ export async function storeTemplateResource(args: {
   if (!created.isSuccess) return created;
 
   if (row !== undefined && key !== undefined) {
-    // The replaced FileRef stays: copy-locale and tenant overrides can share ids and
-    // there is no reference count to tell when the last user is gone.
-    const linkedResources = {
-      ...parseLinkedResourceEntries(row.linkedResources),
-      [key]: created.data.id,
-    };
-    const updated = await executor.update(
-      {
-        id: row.id,
-        version: row.version,
-        changes: { linkedResources: JSON.stringify(linkedResources) },
-      },
+    const linked = await linkImage({
+      ctx,
       user,
-      db,
-      { streamTenantId },
-    );
-    if (!updated.isSuccess) return updated;
+      tenantId,
+      row,
+      key,
+      links: existingLinks,
+      created: created.data,
+    });
+    if (!linked.isSuccess) return linked;
   }
 
   return {
@@ -236,7 +306,7 @@ async function createAttachmentFileRef(args: {
   readonly bytes: Uint8Array;
   readonly key: string;
   readonly type: AttachmentType;
-}): Promise<WriteResult<{ readonly id: string }>> {
+}): Promise<WriteResult<{ readonly id: string; readonly storageKey: string }>> {
   const { ctx, user, tenantId, bytes, key, type } = args;
   const { db } = requireForTenant(ctx, tenantId);
   const created = await createFileRefFromBytes(
@@ -253,7 +323,9 @@ async function createAttachmentFileRef(args: {
       data: bytes,
     },
   );
-  return created.isSuccess ? { isSuccess: true, data: { id: created.data.id } } : created;
+  return created.isSuccess
+    ? { isSuccess: true, data: { id: created.data.id, storageKey: created.data.storageKey } }
+    : created;
 }
 
 // Stores a PDF/PNG/JPEG for a bundle import: validated like an upload, linked later by the importer.
@@ -306,6 +378,9 @@ export async function storeTemplateAttachment(args: {
     return attachmentLimitFailure();
   }
 
+  const occupant = linked[key];
+  if (occupant !== undefined && typeof occupant === "string") return keyInUse();
+
   const created = await createAttachmentFileRef({ ctx, user, tenantId, bytes, key, type });
   if (!created.isSuccess) return created;
 
@@ -320,7 +395,10 @@ export async function storeTemplateAttachment(args: {
     db,
     { streamTenantId },
   );
-  if (!updated.isSuccess) return updated;
+  if (!updated.isSuccess) {
+    await discardStoredBytes(ctx, tenantId, created.data.storageKey);
+    return updated;
+  }
 
   return {
     isSuccess: true as const,
@@ -384,7 +462,12 @@ export async function linkTemplatePdfAttachment(args: {
   const visibleTemplates = await selectMany<TemplateResourceRow>(
     db,
     templateResourcesTable,
-    { tenantId: [tenantId, SYSTEM_TENANT_ID], slug: link.data.templateSlug, kind: "document-pdf" },
+    {
+      tenantId: [tenantId, SYSTEM_TENANT_ID],
+      slug: link.data.templateSlug,
+      kind: "document-pdf",
+      status: ACTIVE_TEMPLATE_STATUS,
+    },
     { limit: 1 },
   );
   if (visibleTemplates.length === 0) {

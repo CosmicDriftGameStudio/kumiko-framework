@@ -205,14 +205,23 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   // A key that guarded nothing must not turn the caller's retry into a skipped duplicate.
   // Partial success keeps it: a retry would re-send to those who got it.
+  // A failing release is logged and swallowed: it must neither replace the dispatch error the
+  // caller retries on nor fail a notify() that already dispatched.
   async function releaseIdempotencyIfNothingDelivered(
     tenantId: TenantId,
     key: string | undefined,
     run: NotifyRun,
+    notificationType: string,
   ): Promise<void> {
     // skip: no key claimed, or a recipient already got the notification
     if (!key || run.deliveries.some(isDeliveredOrQueued)) return;
-    await idemRedis?.del(deliveryIdempotencyRedisKey(tenantId, key));
+    try {
+      await idemRedis?.del(deliveryIdempotencyRedisKey(tenantId, key));
+    } catch (releaseErr) {
+      logError.warn(`idempotency key release failed: ${redactedMessageOf(releaseErr)}`, {
+        notificationType,
+      });
+    }
   }
 
   // Only a single-channel route lets the queued job free the key on terminal failure
@@ -508,29 +517,53 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   const recipientChannelKey = (userId: string, channelName: string) => `${userId}|${channelName}`;
 
-  async function isChannelDeliverable(
+  type ChannelGate = "open" | "channel_disabled" | "preference_disabled" | "rate_limited";
+  type PrefetchedRecipients = {
+    readonly addresses: ReadonlyMap<string, string | null>;
+    readonly gates: ReadonlyMap<string, ChannelGate>;
+  };
+
+  // Kill switch, then the user's preference, then the rate limit — the order deliverToUser reports
+  // skips in. The rate limit consumes a token, so each recipient/channel pair is evaluated once.
+  async function evaluateChannelGate(
     run: NotifyRun,
     userId: string,
     tenantId: TenantId,
     notificationType: string,
     channelName: string,
-  ): Promise<boolean> {
-    if (isChannelKilled && (await isChannelKilled(tenantId, channelName))) return false;
-    return isChannelEnabled(run, userId, tenantId, notificationType, channelName);
+    priority: NotifyPriority,
+  ): Promise<ChannelGate> {
+    if (isChannelKilled && (await isChannelKilled(tenantId, channelName))) {
+      return "channel_disabled";
+    }
+    // Critical priority skips the preference check
+    if (
+      priority !== "critical" &&
+      !(await isChannelEnabled(run, userId, tenantId, notificationType, channelName))
+    ) {
+      return "preference_disabled";
+    }
+    if (rateLimit && !(await checkRateLimit(rateLimit, tenantId, channelName))) {
+      return "rate_limited";
+    }
+    return "open";
   }
 
   // Resolves every user's channel addresses up front so the opt-out lookup can
-  // cover them all at once. A resolve that throws stays out of the map: the
-  // delivery loop resolves it again and reports channel_error as before.
-  // Channels the kill switch or the user's preferences disable are never resolved
-  // here: resolve may have side effects and deliverToUser skips those channels.
-  async function prefetchUserAddresses(
+  // cover them all at once. A resolve that throws stays out of the address map:
+  // the delivery loop resolves it again and reports channel_error as before.
+  // Channels that are gated (kill switch, preferences, rate limit) are never resolved
+  // here: resolve may have side effects and deliverToUser skips those channels. The
+  // gate verdict is kept so deliverToUser does not query it a second time.
+  async function prefetchRecipients(
     run: NotifyRun,
     userIds: readonly string[],
     tenantId: TenantId,
     notificationType: string,
-  ): Promise<Map<string, string | null>> {
+    priority: NotifyPriority,
+  ): Promise<PrefetchedRecipients> {
     const addresses = new Map<string, string | null>();
+    const gates = new Map<string, ChannelGate>();
     const channelCtx = buildChannelContext(
       run.db,
       registry,
@@ -543,22 +576,25 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     for (const userId of userIds) {
       for (const channel of channels) {
         if (!channel.resolve) continue;
+        const key = recipientChannelKey(userId, channel.name);
         try {
-          if (
-            !(await isChannelDeliverable(run, userId, tenantId, notificationType, channel.name))
-          ) {
-            continue;
-          }
-          addresses.set(
-            recipientChannelKey(userId, channel.name),
-            await channel.resolve(userId, channelCtx),
+          const gate = await evaluateChannelGate(
+            run,
+            userId,
+            tenantId,
+            notificationType,
+            channel.name,
+            priority,
           );
+          gates.set(key, gate);
+          if (gate !== "open") continue;
+          addresses.set(key, await channel.resolve(userId, channelCtx));
         } catch {
           // skip: re-resolved (and logged) by deliverToUser
         }
       }
     }
-    return addresses;
+    return { addresses, gates };
   }
 
   // Check if user has disabled this notification+channel combo.
@@ -605,7 +641,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     tenantId: TenantId,
     priority: NotifyPriority,
     run: NotifyRun,
-    prefetchedAddresses: ReadonlyMap<string, string | null>,
+    prefetched: PrefetchedRecipients,
     suppressed: ReadonlySet<AddressOptOutKey>,
   ): Promise<void> {
     const channelCtx = buildChannelContext(
@@ -624,70 +660,35 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
       const message = buildMessage(notificationType, data, channel.name, run.locale);
 
-      // Kill switch: tenant admin disabled this channel entirely
-      if (isChannelKilled) {
-        const killed = await isChannelKilled(tenantId, channel.name);
-        if (killed) {
-          await logDelivery(run, {
-            tenantId,
-            notificationType,
-            channel: channel.name,
-            recipientId: userId,
-            recipientAddress: null,
-            status: "skipped",
-            error: "channel_disabled",
-            priority,
-          });
-          continue;
-        }
-      }
-
-      // Check preferences (critical priority skips preference check)
-      if (priority !== "critical") {
-        const enabled = await isChannelEnabled(
+      const prefetchKey = recipientChannelKey(userId, channel.name);
+      const gate =
+        prefetched.gates.get(prefetchKey) ??
+        (await evaluateChannelGate(
           run,
           userId,
           tenantId,
           notificationType,
           channel.name,
-        );
-        if (!enabled) {
-          await logDelivery(run, {
-            tenantId,
-            notificationType,
-            channel: channel.name,
-            recipientId: userId,
-            recipientAddress: null,
-            status: "skipped",
-            error: "preference_disabled",
-            priority,
-          });
-          continue;
-        }
-      }
-
-      // Rate limiting
-      if (rateLimit) {
-        const allowed = await checkRateLimit(rateLimit, tenantId, channel.name);
-        if (!allowed) {
-          await logDelivery(run, {
-            tenantId,
-            notificationType,
-            channel: channel.name,
-            recipientId: userId,
-            recipientAddress: null,
-            status: "skipped",
-            error: "rate_limited",
-            priority,
-          });
-          continue;
-        }
+          priority,
+        ));
+      if (gate !== "open") {
+        await logDelivery(run, {
+          tenantId,
+          notificationType,
+          channel: channel.name,
+          recipientId: userId,
+          recipientAddress: null,
+          status: "skipped",
+          error: gate,
+          priority,
+        });
+        continue;
       }
 
       try {
-        const prefetchKey = recipientChannelKey(userId, channel.name);
-        const address = prefetchedAddresses.has(prefetchKey)
-          ? prefetchedAddresses.get(prefetchKey)
+        const wasPrefetched = prefetched.addresses.has(prefetchKey);
+        const address = wasPrefetched
+          ? prefetched.addresses.get(prefetchKey)
           : await channel.resolve(userId, channelCtx);
         if (!address) {
           await logDelivery(run, {
@@ -703,7 +704,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           continue;
         }
 
-        if (priority !== "critical" && isAddressSuppressed(suppressed, address, channel.name)) {
+        // A fallback resolve yields an address the batched opt-out lookup never covered.
+        const suppressedForAddress = wasPrefetched
+          ? suppressed
+          : await loadSuppressedAddresses(run, tenantId, notificationType, priority, [address]);
+        if (
+          priority !== "critical" &&
+          isAddressSuppressed(suppressedForAddress, address, channel.name)
+        ) {
           await logDelivery(run, {
             tenantId,
             notificationType,
@@ -878,16 +886,16 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         userIds = to;
       }
 
-      const prefetchedAddresses =
+      const prefetched: PrefetchedRecipients =
         priority === "critical"
-          ? new Map<string, string | null>()
-          : await prefetchUserAddresses(run, userIds, tenantId, notificationType);
+          ? { addresses: new Map(), gates: new Map() }
+          : await prefetchRecipients(run, userIds, tenantId, notificationType, priority);
       const suppressed = await loadSuppressedAddresses(
         run,
         tenantId,
         notificationType,
         priority,
-        [...prefetchedAddresses.values()].filter((address): address is string => !!address),
+        [...prefetched.addresses.values()].filter((address): address is string => !!address),
       );
 
       for (const userId of userIds) {
@@ -898,7 +906,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           tenantId,
           priority,
           run,
-          prefetchedAddresses,
+          prefetched,
           suppressed,
         );
       }
@@ -955,17 +963,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       try {
         await dispatchNotification(notificationType, options, tenantId, priority, run);
       } catch (err) {
-        // A failing release must not replace the dispatch error the caller retries on.
-        await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run).catch(
-          (releaseErr: unknown) => {
-            logError.warn(`idempotency key release failed: ${redactedMessageOf(releaseErr)}`, {
-              notificationType,
-            });
-          },
-        );
+        await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run, notificationType);
         throw err;
       }
-      await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run);
+      await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run, notificationType);
       return dispatched(run);
     },
   };

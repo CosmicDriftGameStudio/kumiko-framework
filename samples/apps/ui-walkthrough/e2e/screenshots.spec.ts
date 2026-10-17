@@ -168,16 +168,24 @@ test("drawer-light", async ({ page }) => {
   await shot(page, "drawer-light");
 });
 
-async function openOctaviaEditForm(page: Page): Promise<void> {
+// The row-action menu only exists in the desktop table, so the record is
+// opened at desktop width and the test's own viewport restored afterwards.
+async function openVehicleRecordAtDesktop(
+  page: Page,
+  open: (page: Page) => Promise<void>,
+): Promise<void> {
   const testViewport = page.viewportSize();
   await page.setViewportSize(DESKTOP);
   await login(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
-  await page.getByText("Octavia").first().click();
+  await open(page);
   await page.locator(EDIT_FORM).waitFor();
   if (testViewport !== null) await page.setViewportSize(testViewport);
 }
+
+const openOctaviaEditForm = (page: Page) =>
+  openVehicleRecordAtDesktop(page, (current) => current.getByText("Octavia").first().click());
 
 test("formular-light", async ({ page }) => {
   await login(page);
@@ -208,19 +216,11 @@ test("wizard-light", async ({ page }) => {
   await shot(page, "wizard-light");
 });
 
-// The row-action menu only exists in the desktop table, so the record is
-// opened at desktop width and the test's own viewport restored afterwards.
-async function openVehicleWizardForExistingRecord(page: Page): Promise<void> {
-  const testViewport = page.viewportSize();
-  await page.setViewportSize(DESKTOP);
-  await login(page);
-  await page.goto("/vehicle-list");
-  await page.locator(LIST_TABLE).waitFor();
-  await page.getByRole("button", { name: "Weitere Aktionen" }).first().click();
-  await page.getByRole("menuitem", { name: "Schritt für Schritt" }).click();
-  await page.locator(EDIT_FORM).waitFor();
-  if (testViewport !== null) await page.setViewportSize(testViewport);
-}
+const openVehicleWizardForExistingRecord = (page: Page) =>
+  openVehicleRecordAtDesktop(page, async (current) => {
+    await current.getByRole("button", { name: "Weitere Aktionen" }).first().click();
+    await current.getByRole("menuitem", { name: "Schritt für Schritt" }).click();
+  });
 
 test("wizard-edit-desktop-light", async ({ page }) => {
   await openVehicleWizardForExistingRecord(page);
@@ -366,12 +366,6 @@ test.describe("mobile", () => {
     await page.getByTestId("render-edit-wizard-next").click();
     await page.getByTestId("render-edit-wizard-step-label").click();
     await shot(page, "wizard-edit-mobile-open-light");
-  });
-
-  test("wizard-footer-mobile-update-light", async ({ page }) => {
-    await openVehicleWizardForExistingRecord(page);
-    await page.getByTestId("render-edit-wizard-next").click();
-    await shot(page, "wizard-footer-mobile-update-light");
   });
 
   test("wizard-footer-mobile-create-light", async ({ page }) => {

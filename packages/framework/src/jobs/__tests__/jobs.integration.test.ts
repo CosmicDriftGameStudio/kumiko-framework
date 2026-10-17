@@ -1496,6 +1496,28 @@ describe("boot gates", () => {
     }
   });
 
+  test("stop() waits for a timed-out gate so it cannot write after shutdown", async () => {
+    const gateLifecycle: string[] = [];
+    const feature = defineFeature("abandonedgate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true, timeout: 100 }, async () => {
+        await sleep(400);
+        gateLifecycle.push("gate-finished");
+      });
+    });
+    const prefix = uniquePrefix();
+    const runner = createGateRunner(feature, prefix);
+    try {
+      await expect(runner.start()).rejects.toThrow(/did not finish within 100ms/);
+      expect(gateLifecycle).toEqual([]);
+
+      await runner.stop();
+
+      expect(gateLifecycle).toEqual(["gate-finished"]);
+    } finally {
+      await purge(prefix);
+    }
+  });
+
   test("a gate with retries still sees finalAttempt on its only run", async () => {
     const seen: boolean[] = [];
     const feature = defineFeature("retrygate", (r) => {

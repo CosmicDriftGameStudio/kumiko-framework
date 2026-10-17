@@ -61,6 +61,7 @@ export type TemplateScope = (typeof TEMPLATE_SCOPES)[number];
 
 export const TEMPLATE_STATUSES = ["draft", "active", "archived"] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
+export const ACTIVE_TEMPLATE_STATUS = "active" satisfies TemplateStatus;
 
 export {
   PDF_DEFAULT_MARGIN_MM,

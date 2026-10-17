@@ -587,6 +587,9 @@ type SharedContextFields = {
   // runner and the outside-tx pool, for code that builds a notify for another user or tenant
   // (seed hooks) without holding a raw outside-tx connection.
   readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
+  // Set by the dispatcher: _notifyFactory bound to the calling job runner, for post-commit
+  // delivery of a notify built for another user or tenant (seed hooks).
+  readonly _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   // Wired at boot when the `audit` feature is mounted; absent → structured warn log.
   readonly _escapeHatchAuditSink?: EscapeHatchAuditSink;
   // Tenant-scoped secrets accessor. Present when the app wired a
