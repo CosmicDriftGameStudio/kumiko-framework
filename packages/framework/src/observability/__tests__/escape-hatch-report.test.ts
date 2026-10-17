@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
 import type { Logger } from "../../logging/types.js";
-import { testTenantId } from "../../stack/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,

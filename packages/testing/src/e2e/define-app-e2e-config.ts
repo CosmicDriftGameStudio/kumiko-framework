@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { parseEnv } from "node:util";
-import { isRealProviderRun } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   defineConfig,
   devices,
@@ -13,6 +12,8 @@ import {
   type PlaywrightWorkerOptions,
   type Project,
 } from "@playwright/test";
+import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
+import { isRealProviderRun } from "../helpers/real-providers.js";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   DESKTOP_VIEWPORT,
@@ -26,7 +27,6 @@ import {
   TRUSTED_PROXY_HOPS_ENV,
 } from "./constants";
 import { isScreenshotRun, requireScreenshotDir, screenshotSpecsIgnore } from "./screenshot-dir";
-import { E2E_TIMEOUT_MS } from "./timeouts";
 
 // Apps pick Meilisearch over their in-memory search adapter just because
 // MEILI_URL is set, so a default here would point every consumer without a

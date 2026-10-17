@@ -11,12 +11,12 @@ import {
   defineFeature,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { mergeConfigResolverDefault } from "../run-dev-app.js";
 

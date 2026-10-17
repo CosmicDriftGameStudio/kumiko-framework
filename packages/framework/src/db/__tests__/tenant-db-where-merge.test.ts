@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine/index.js";
-import { testTenantId } from "../../stack/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import type { DbRunner } from "../connection.js";
 import type { TableColumns } from "../dialect.js";
 import { deriveEntityTableMeta } from "../entity-table-meta.js";

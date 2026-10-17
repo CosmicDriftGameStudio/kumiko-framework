@@ -4,6 +4,11 @@
 // the lock itself passes. A call site opts out per executor call.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query-api.js";
@@ -20,12 +25,7 @@ import {
   defineFeature,
 } from "../../engine/index.js";
 import { loadAggregate } from "../../event-store/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const ticketEntity = createEntity({
   table: "read_lock_tickets",

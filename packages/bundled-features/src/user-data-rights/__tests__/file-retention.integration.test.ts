@@ -24,15 +24,15 @@ import {
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import {
   createDataRetentionFeature,

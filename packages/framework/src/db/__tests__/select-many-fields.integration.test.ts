@@ -2,16 +2,16 @@
 // reaches the caller.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { createProjectionStateTable } from "../../pipeline/projection-state.js";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.js";
+import { createEntity, createTextField } from "../../engine/factories.js";
+import { createProjectionStateTable } from "../../pipeline/projection-state.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { asRawClient } from "../query.js";
 import { buildEntityTable } from "../table-builder.js";

@@ -14,7 +14,7 @@ import {
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { createFileDerivativesFeature } from "../feature.js";

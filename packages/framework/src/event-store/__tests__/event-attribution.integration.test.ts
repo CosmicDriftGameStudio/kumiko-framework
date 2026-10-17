@@ -15,6 +15,13 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { UNATTRIBUTED_ORIGIN, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import * as z from "zod";
 import { generateToken } from "../../api/tokens.js";
@@ -23,14 +30,7 @@ import { selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId as uuid } from "../../utils/index.js";
 import { appendRaw } from "../admin-api.js";
 import { append } from "../event-store.js";

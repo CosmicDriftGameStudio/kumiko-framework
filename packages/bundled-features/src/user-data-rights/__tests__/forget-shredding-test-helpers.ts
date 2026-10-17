@@ -14,7 +14,7 @@ import {
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 const BLIND_INDEX_KEY = Buffer.alloc(32, 7).toString("base64");

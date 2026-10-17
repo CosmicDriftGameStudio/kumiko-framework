@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createProjectionStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
-import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { runCli } from "../index";
 
 const PROJECTION_NAME = "cliprojtest:projection:items-per-group";

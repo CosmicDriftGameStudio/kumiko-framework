@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_LIST_LIMIT, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.js";

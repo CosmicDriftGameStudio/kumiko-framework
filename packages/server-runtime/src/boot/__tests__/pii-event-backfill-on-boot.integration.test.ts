@@ -18,16 +18,12 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { runPiiEventBackfill } from "@cosmicdrift/kumiko-framework/migrations";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { startPiiEventBackfillOnBoot } from "../pii-event-backfill-on-boot";
 
 const TABLE = "read_backfill_boot_contacts";

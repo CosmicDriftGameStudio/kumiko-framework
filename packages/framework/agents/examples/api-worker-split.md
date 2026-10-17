@@ -109,17 +109,17 @@ import {
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { makeDispatchSystemWrite } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
   type TestDb,
   type TestRedis,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { makeDispatchSystemWrite } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   createApiWorkerSplitFeature,
   fulfillmentEntity,

@@ -18,7 +18,7 @@ import {
   normalizeListColumn,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { bookEntity, createBookshopAdminFeature, createBookshopFeature } from "../feature";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {

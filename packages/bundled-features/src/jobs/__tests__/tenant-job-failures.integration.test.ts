@@ -20,16 +20,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
-  createTestUser,
   type TestDb,
   type TestRedis,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
 import * as z from "zod";
 import { JobQueries } from "../constants.js";

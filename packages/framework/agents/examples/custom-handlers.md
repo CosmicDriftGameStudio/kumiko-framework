@@ -65,15 +65,13 @@ bun kumiko test integration samples/custom-handlers
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { counterEntity, counterFeature } from "../feature";
 
 let stack: TestStack;

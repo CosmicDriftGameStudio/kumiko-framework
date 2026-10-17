@@ -22,17 +22,16 @@ import {
   createInMemoryFileProvider,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
 import { coverOrder, filesPostProcessingFeature, photoEntity, publishedPhotoIds } from "../feature";
 

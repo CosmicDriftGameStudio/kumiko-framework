@@ -43,13 +43,9 @@ bun test
 //                 → cancelled → draft (reopen)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { stateMachineFeature } from "../feature";
 
 let stack: TestStack;

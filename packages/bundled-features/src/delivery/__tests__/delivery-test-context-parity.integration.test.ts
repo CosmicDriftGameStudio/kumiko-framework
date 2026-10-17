@@ -11,14 +11,14 @@ import {
   type NotifyFn,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createChannelSlackFeature } from "../../channel-slack/feature.js";
 import { createConfigFeature } from "../../config/feature.js";

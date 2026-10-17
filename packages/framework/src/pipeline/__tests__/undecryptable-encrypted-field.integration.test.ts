@@ -4,14 +4,15 @@
 // setupTestStack; the corruption is applied to the read-model table only.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/index.js";
-import { configureEntityFieldEncryption } from "../../db/entity-field-encryption.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 import {
   createTestEnvelopeCipher,
   resetEntityFieldEncryptionCacheForTests,
-} from "../../testing/index.js";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { asRawClient } from "../../bun-db/index.js";
+import { configureEntityFieldEncryption } from "../../db/entity-field-encryption.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const admin = TestUsers.admin;
 

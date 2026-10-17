@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
 import {
   accessControlFeature,

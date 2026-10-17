@@ -8,12 +8,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { fieldDefinitionEntity } from "../entity.js";
 import { createCustomFieldsFeature } from "../feature.js";
 

@@ -15,6 +15,13 @@
 // code is touched to make this reproducible.
 
 import { afterAll, afterEach, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
+import { sharedWidgetEntity, sharedWidgetTable } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { DbTx } from "../../db/connection.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { recordConsumerPassFailure } from "../../db/queries/event-consumer.js";
@@ -28,14 +35,7 @@ import {
   type EventDispatcher,
   getConsumerState,
 } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

@@ -13,14 +13,14 @@ import {
   KeyErasedError,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
 import { runRetentionCleanup } from "../run-retention-cleanup.js";
 

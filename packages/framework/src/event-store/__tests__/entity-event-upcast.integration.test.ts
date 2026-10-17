@@ -2,6 +2,13 @@
 // rebuild through r.entity's eventMigrations.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
 import {
   configurePiiSubjectKms,
@@ -22,14 +29,7 @@ import {
 } from "../../engine/index.js";
 import type { EntityEventMigration } from "../../engine/types/index.js";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack/index.js";
-import { resetPiiSubjectKmsForTests } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { loadAggregate } from "../index.js";
 
 const textField = createTextField({ personal: false, reason: "test_fixture", required: false });

@@ -33,12 +33,12 @@ import {
   fileRefEntity,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { FormDraftHandlers, FormDraftQueries } from "../constants.js";
 import { formDraftEntity } from "../entity.js";

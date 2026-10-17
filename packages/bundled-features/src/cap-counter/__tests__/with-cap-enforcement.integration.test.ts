@@ -19,14 +19,13 @@ import {
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { capCounterAggregateId } from "../aggregate-id.js";
 import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.js";

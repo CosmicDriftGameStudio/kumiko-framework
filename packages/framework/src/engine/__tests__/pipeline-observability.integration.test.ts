@@ -14,14 +14,17 @@
 // and we wouldn't notice until a prod incident lacks the breadcrumbs.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import * as z from "zod";
+import {
+  createRecordingProvider,
+  type RecordingProvider,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { createRecordingProvider, type RecordingProvider } from "../../testing/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import { defineWriteHandler } from "../define-handler.js";
 import { createEntity, createTextField } from "../factories.js";

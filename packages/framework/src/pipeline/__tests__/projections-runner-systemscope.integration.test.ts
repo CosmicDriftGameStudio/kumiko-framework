@@ -3,6 +3,12 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import {
   integer as pgInteger,
   table as pgTable,
   text as pgText,
@@ -15,13 +21,7 @@ import {
   defineEntityCreateHandler,
   defineFeature,
 } from "../../engine/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const sysItemEntity = createEntity({
   table: "read_sysproj_items",

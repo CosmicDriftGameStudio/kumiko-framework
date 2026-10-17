@@ -17,16 +17,15 @@ import {
   createInMemoryFileProvider,
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

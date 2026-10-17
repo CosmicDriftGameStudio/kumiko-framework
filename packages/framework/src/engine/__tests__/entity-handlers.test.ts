@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createTestUser } from "../../stack/index.js";
+import { createTestUser } from "../../seeding/seed-users.js";
 import {
   createEntityExecutor,
   defineEntityCreateHandler,

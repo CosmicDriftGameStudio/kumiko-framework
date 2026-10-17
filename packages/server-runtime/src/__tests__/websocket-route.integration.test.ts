@@ -12,7 +12,8 @@ import {
   WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES,
 } from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { buildBunServeOptions } from "../bun-serve-options.js";
 
 const APP_ORIGIN = "https://app.example";

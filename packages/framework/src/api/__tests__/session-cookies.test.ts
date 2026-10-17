@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers, testTenantId } from "../../stack/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import { deleteTenantCookie, setTenantCookie } from "../anonymous-cookie.js";
 import { authMiddleware, CSRF_HEADER_NAME, getUser } from "../auth-middleware.js";
 import { csrfMiddleware } from "../csrf-middleware.js";

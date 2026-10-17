@@ -4,15 +4,15 @@
 // eine dangling/cross-tenant Reference. Schwerpunkt: Tenant-Isolation.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedRows } from "@cosmicdrift/kumiko-framework/testing";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { NotFoundError } from "../../errors/index.js";
+import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { NotFoundError } from "../../errors/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import { assertExistsIn } from "../assert-exists-in.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb } from "../tenant-db.js";

@@ -30,16 +30,15 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import {

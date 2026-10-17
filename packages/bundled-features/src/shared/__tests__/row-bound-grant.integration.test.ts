@@ -9,7 +9,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { executeRawQuery } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { redeemRowBoundGrant, signRowBoundGrant } from "../row-bound-grant.js";
 

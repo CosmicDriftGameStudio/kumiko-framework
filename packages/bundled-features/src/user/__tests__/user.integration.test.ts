@@ -1,21 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import {
   expectErrorIncludes,
   resetTestTables,
   updateRows,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.js";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";

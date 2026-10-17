@@ -8,8 +8,8 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { USER_STATUS, userTable } from "../../user/index.js";
 

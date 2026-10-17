@@ -22,14 +22,13 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";

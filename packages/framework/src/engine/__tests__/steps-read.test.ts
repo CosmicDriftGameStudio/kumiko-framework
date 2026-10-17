@@ -4,7 +4,7 @@ import type { DbRunner } from "../../db/connection.js";
 import { table, text, uuid } from "../../db/dialect.js";
 import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db.js";
 import { AccessDeniedError, InternalError } from "../../errors/index.js";
-import { testTenantId } from "../../stack/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import { getStep } from "../define-step.js";
 import { buildReadFindManyStep } from "../steps/read-find-many.js";
 import { buildReadFindOneStep } from "../steps/read-find-one.js";

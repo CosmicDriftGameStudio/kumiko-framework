@@ -31,5 +31,8 @@
     "zod": "^4.4.3",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-locale-es": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
   }
 }

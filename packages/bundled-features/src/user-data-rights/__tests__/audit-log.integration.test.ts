@@ -3,14 +3,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables, seedRow, seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow, seedRows } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

@@ -19,12 +19,13 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createFilesFeature } from "../../files/index.js";
 import { fileRefDeleteHook } from "../index.js";
 

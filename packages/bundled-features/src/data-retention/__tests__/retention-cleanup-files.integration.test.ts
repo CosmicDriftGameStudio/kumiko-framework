@@ -15,6 +15,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
+  bridgeStub,
   createEntity,
   createFilesField,
   createImageField,
@@ -31,13 +32,12 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createDataRetentionFeature } from "../feature.js";
 import { runRetentionCleanup } from "../run-retention-cleanup.js";
 

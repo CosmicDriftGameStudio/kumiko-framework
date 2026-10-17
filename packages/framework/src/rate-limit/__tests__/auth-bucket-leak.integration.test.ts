@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { setupTestStack, type TestStack } from "../../stack/index.js";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 
 const LIMIT = 2;
 const CLIENT_IP = "2001:db8::7";

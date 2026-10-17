@@ -9,13 +9,13 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { FormDraftHandlers } from "../constants.js";
 import { formDraftEntity } from "../entity.js";
 import { formDraftFeature } from "../feature.js";

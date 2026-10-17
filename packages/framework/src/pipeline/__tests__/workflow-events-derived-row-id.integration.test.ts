@@ -3,6 +3,12 @@
 // then checks live rows against the derived ids. workflowRunAggregateId does not
 // fold in the tenant, so two tenants can record the same run id.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { v5 as uuidv5 } from "uuid";
 import * as z from "zod";
 import type { DbTx } from "../../db/connection.js";
@@ -17,13 +23,7 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
 } from "../../engine/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const SALTED_ROW_ID_NAMESPACE = "9b2c6f0e-5d1a-4e83-a7b4-3c8d2e1f0a96";
 

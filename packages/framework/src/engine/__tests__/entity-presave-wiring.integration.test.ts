@@ -4,13 +4,13 @@
 // HTTP dispatcher (not a hand-fed handler context) so the fix is proven at
 // the layer app authors actually depend on.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query.js";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { asRawClient } from "../../db/query.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import { createEntity, createTextField } from "../factories.js";
 import { from } from "../ownership.js";

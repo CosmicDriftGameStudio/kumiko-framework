@@ -2,6 +2,12 @@
 // ctx.write through their own top-level command, and their ctx.db / event-store writes throw.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { selectMany } from "../../bun-db/index.js";
 import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
@@ -16,14 +22,7 @@ import {
 } from "../../engine/index.js";
 import { UnprocessableError, writeFailure } from "../../errors/index.js";
 import { eventsTable } from "../../event-store/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { resetTestTables } from "../../testing/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 
 const noteEntity = createEntity({
   table: "per_command_notes",

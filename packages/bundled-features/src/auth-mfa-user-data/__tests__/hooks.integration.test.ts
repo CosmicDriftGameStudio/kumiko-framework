@@ -4,14 +4,14 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureEntityFieldEncryption, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { base32Decode } from "../../auth-mfa/base32.js";
 import { AuthMfaHandlers } from "../../auth-mfa/constants.js";
 import { createAuthMfaFeature } from "../../auth-mfa/feature.js";

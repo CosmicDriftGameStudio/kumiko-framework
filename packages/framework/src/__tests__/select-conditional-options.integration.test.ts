@@ -3,6 +3,11 @@
 // update against the merged row.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor, WritePurposes } from "../db/event-store-executor.js";
 import { buildEntityTable } from "../db/table-builder.js";
@@ -16,12 +21,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 
 const monitorEntity = createEntity({
   table: "conditional_option_monitors",

@@ -13,12 +13,12 @@ import {
   createEnvMasterKeyProvider,
   type MasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createSecretsFeature } from "../feature.js";
 import {
   createSecretsContext,

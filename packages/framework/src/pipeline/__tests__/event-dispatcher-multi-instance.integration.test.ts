@@ -19,6 +19,13 @@
 // here first.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { sharedWidgetEntity, sharedWidgetTable } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { insertMany } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
@@ -30,14 +37,7 @@ import {
   type EventDispatcher,
   getConsumerState,
 } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId } from "../../utils/index.js";
 
 // --- Fixture ---

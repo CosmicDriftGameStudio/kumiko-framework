@@ -8,12 +8,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.js";
 import { createJobsFeature } from "../feature.js";
 import { DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS } from "../handlers/stale-run-sweep.job.js";

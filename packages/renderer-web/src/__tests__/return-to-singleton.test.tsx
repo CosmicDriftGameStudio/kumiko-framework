@@ -1,8 +1,5 @@
 // Split out of return-to.test.tsx: the singleton create->update path fires
-// fireEvent.change immediately followed by a click right after an async load
-// settles — the #457 shared single-process happy-dom pattern. Isolated the
-// same way as kumiko-screen-singleton-entity-edit.test.tsx (bunfig.ci-dom.toml,
-// pathIgnorePatterns in bunfig.dom.toml).
+// fireEvent.change immediately followed by a click right after an async load settles.
 import { describe, expect, mock, test } from "bun:test";
 import type {
   DashboardScreenDefinition,

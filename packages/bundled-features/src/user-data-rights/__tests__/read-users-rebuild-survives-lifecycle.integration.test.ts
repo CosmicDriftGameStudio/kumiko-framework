@@ -26,21 +26,20 @@ import {
   createProjectionStateTable,
   rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
   resetTestTables,
   updateRows,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import {

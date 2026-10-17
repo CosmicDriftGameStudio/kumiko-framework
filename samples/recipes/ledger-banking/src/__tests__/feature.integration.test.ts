@@ -12,13 +12,12 @@ import {
   transactionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { bankingFlow, type LedgerClient } from "../usage";
 
 // Each test runs in its own tenant, so rows from other tests never show up.

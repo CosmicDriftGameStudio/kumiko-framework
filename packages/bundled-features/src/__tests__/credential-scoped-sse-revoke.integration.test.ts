@@ -23,18 +23,18 @@ import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter, generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
   resetTestTables,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { AuthHandlers } from "../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.js";

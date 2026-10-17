@@ -3,12 +3,12 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { JobErrors, JobHandlers, JobQueries } from "../constants.js";
 import { createJobsFeature } from "../feature.js";

@@ -9,6 +9,18 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import net from "node:net";
+import {
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  testDatabaseUrl,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
 import { createDbConnection } from "../../db/connection.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -26,15 +38,7 @@ import {
   type EventConsumer,
   type EventDispatcher,
 } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

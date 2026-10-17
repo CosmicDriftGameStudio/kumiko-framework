@@ -309,7 +309,7 @@ Each `agents/examples/<name>.md` starts with the sample's README, then every
 source file with its path. `src/feature.ts` holds the feature;
 `src/__tests__/*.integration.test.ts` shows how it is tested. Samples inside
 the framework repo set up their stack with `setupTestStack` from
-`@cosmicdrift/kumiko-framework/stack` and create tables in the test. In an
+`@cosmicdrift/kumiko-testing/stack` and create tables in the test. In an
 app, `setupAppTestStack` and `seedTenant` do that for you; keep the
 assertions, take the setup from your scaffolded integration test. Table
 setup in sample tests (`unsafeCreateEntityTable`, `createEventsTable`) and

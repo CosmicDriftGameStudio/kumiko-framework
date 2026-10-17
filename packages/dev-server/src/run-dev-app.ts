@@ -82,7 +82,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { PageHeadResolver } from "@cosmicdrift/kumiko-headless/apex";
 import { applyBootSeeds } from "@cosmicdrift/kumiko-server-runtime/boot/apply-boot-seeds";
@@ -93,6 +92,7 @@ import {
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { assertPiiBootInvariants } from "@cosmicdrift/kumiko-server-runtime/pii-boot-gate";
 import { assertSessionBootInvariants } from "@cosmicdrift/kumiko-server-runtime/session-boot-gate";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { watchAndRegenerate } from "./codegen/index.js";
 import {
   type CreateKumikoServerOptions,

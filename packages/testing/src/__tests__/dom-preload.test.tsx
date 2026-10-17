@@ -10,7 +10,7 @@ describe("preload/dom", () => {
   test("happy-dom globals are registered", () => {
     expect(typeof window).toBe("object");
     expect(typeof document).toBe("object");
-    expect(globalThis.IS_REACT_ACT_ENVIRONMENT).toBe(true);
+    expect(Reflect.get(globalThis, "IS_REACT_ACT_ENVIRONMENT")).toBe(true);
   });
 
   test("testing-library/react can render into the registered DOM", () => {

@@ -4,14 +4,12 @@ import {
   type SessionUser,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createTemplateResolverApi, TemplateNotFoundError } from "../api.js";
 import { createTemplateResolverFeature } from "../feature.js";

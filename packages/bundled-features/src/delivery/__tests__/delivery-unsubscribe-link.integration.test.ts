@@ -10,14 +10,13 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createInMemoryTransport } from "../../channel-email/types.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { configValuesTable } from "../../config/table.js";

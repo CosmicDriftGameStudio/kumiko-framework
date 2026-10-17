@@ -6,12 +6,12 @@
 // keeps the sweep from breaking wrapper-retry child dedup.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import * as z from "zod";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import type { AppContext, TenantId } from "../../engine/types/index.js";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
-import { sleep, waitFor } from "../../testing/index.js";
 import { bootJobIdForJobName, createJobRunner } from "../job-runner.js";
 import { purgeRawRedisKeys } from "./purge-raw-redis-keys.js";
 

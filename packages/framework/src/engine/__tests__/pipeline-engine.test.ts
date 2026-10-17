@@ -6,7 +6,7 @@
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 import * as z from "zod";
-import { TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineWriteHandler } from "../define-handler.js";
 import { defineStep } from "../define-step.js";
 import { stepsPipeline } from "../pipeline.js";

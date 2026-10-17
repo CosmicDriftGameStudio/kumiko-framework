@@ -30,8 +30,9 @@ import {
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { registerEventTrigger } from "../event-trigger.js";

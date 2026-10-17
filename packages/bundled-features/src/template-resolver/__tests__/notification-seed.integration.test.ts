@@ -7,13 +7,13 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createTemplateResolverFeature } from "../feature.js";

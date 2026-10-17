@@ -4,10 +4,11 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createRegistry, defineFeature, type TenantId } from "../../engine/index.js";
 import { RateLimitError } from "../../errors/index.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import {
   type AnonymousExtraRoute,
   type ExtraRouteDefinition,

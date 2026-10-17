@@ -2,12 +2,16 @@
 // (original and derivatives) before it removes their rows; a row whose bytes could not be
 // deleted stays for the next run.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { selectMany } from "../../db/query.js";
 import { createTenantDb } from "../../db/tenant-db.js";
 import { SOFT_DELETE_CLEANUP_JOB } from "../../engine/soft-delete-cleanup.js";
 import { runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
 import { createFileContext, createFilesFeature, deriveKey, fileRefsTable } from "../index.js";
 import { purgeExpiredFileRefsWithBytes } from "../purge-expired-file-ref-bytes.js";

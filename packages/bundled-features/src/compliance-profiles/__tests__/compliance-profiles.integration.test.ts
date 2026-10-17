@@ -7,13 +7,12 @@ import {
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";

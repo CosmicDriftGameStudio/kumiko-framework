@@ -3,6 +3,13 @@
 // creates a second aggregate no longer leaves its read model stale, and the
 // dispatcher's own projection pass does not apply the same event twice.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -17,14 +24,7 @@ import {
   HookPhases,
 } from "../../engine/index.js";
 import { createSystemUser } from "../../engine/system-user.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const orderEntity = createEntity({
   table: "read_exproj_orders",

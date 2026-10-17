@@ -11,7 +11,8 @@
   "references": [
     { "path": "../framework" },
     { "path": "../locale-de" },
-    { "path": "../locale-es" }
+    { "path": "../locale-es" },
+    { "path": "../testing" }
   ],
   "include": ["./src"]
 }

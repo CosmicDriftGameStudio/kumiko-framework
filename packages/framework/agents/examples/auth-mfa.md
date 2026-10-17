@@ -110,15 +110,14 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   AuthMfaHandlers,
   base32Decode,

@@ -12,5 +12,8 @@
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
   }
 }

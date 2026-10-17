@@ -2,6 +2,13 @@
 // worker and real Redis.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  createTestRedis,
+  type TestDb,
+  type TestRedis,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
@@ -11,8 +18,6 @@ import type { AppContext } from "../../engine/types/index.js";
 import { createPrometheusMeter } from "../../observability/index.js";
 import { createDistributedLock } from "../../pipeline/distributed-lock.js";
 import { RedisKeys } from "../../pipeline/redis-keys.js";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../../stack/index.js";
-import { sleep, waitFor } from "../../testing/index.js";
 import { createJobRunner, type JobOutcomeMeta } from "../job-runner.js";
 
 let testRedis: TestRedis;

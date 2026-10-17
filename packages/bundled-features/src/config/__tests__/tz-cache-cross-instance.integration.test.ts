@@ -2,15 +2,15 @@
 // timezone write through pod A must reach pod B's in-process cache.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
-  createTestUser,
   setupTestStack,
   type TestDb,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
 import { createConfigResolver } from "../resolver.js";

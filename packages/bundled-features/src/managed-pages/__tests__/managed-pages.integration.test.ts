@@ -2,14 +2,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";

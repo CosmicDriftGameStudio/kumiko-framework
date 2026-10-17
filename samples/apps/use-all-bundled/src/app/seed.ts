@@ -32,8 +32,9 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { ADMIN_EMAIL, BETA_TENANT_ID, DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
 import { noteEntity } from "./notes-feature";

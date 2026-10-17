@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createRecordingProvider, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import type { SseBroker } from "../../api/sse-broker.js";
 import {
@@ -9,8 +10,7 @@ import {
 } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
 import { createSecret } from "../../secrets/types.js";
-import { createTestUser } from "../../stack/index.js";
-import { createRecordingProvider, waitFor } from "../../testing/index.js";
+import { createTestUser } from "../../seeding/seed-users.js";
 import { createDispatcher } from "../dispatcher.js";
 
 const streamCleanupState = { closed: false };

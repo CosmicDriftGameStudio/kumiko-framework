@@ -11,6 +11,7 @@ import { requestContext } from "../api/request-context.js";
 import type { DbConnection, DbRow } from "../db/connection.js";
 import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
+import { bridgeStub } from "../engine/bridge-stub.js";
 import { qnScope } from "../engine/qualified-name.js";
 import { createSystemUser } from "../engine/system-user.js";
 import {
@@ -56,7 +57,6 @@ import {
   isPersonalDataGated,
   parseWriteOrigin,
 } from "../pipeline/write-origin.js";
-import { bridgeStub } from "../testing/handler-context.js";
 import { createTzContext, isValidIanaTimeZone } from "../time/index.js";
 import { cronRepeatOptions } from "./cron-repeat-options.js";
 import { resolveMaxPerTenant } from "./max-per-tenant.js";

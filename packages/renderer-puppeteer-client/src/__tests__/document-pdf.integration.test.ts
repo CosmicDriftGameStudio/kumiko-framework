@@ -52,20 +52,18 @@ import {
   createInMemoryFileProvider,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";

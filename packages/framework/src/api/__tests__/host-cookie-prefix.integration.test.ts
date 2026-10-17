@@ -3,10 +3,11 @@
 // forced via auth.secureCookies so NODE_ENV stays "test".
 
 import { describe, expect, test } from "bun:test";
+import { getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { defineFeature, type TenantId } from "../../engine/index.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
-import { getSetCookies } from "../../testing/http-cookies.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { CSRF_HEADER_NAME } from "../auth-middleware.js";
 import type { AuthRoutesConfig } from "../auth-routes.js";
 import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE, HOST_COOKIE_PREFIX } from "../session-cookies.js";

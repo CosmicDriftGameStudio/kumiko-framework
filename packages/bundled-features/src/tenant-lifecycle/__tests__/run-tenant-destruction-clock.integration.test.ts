@@ -6,13 +6,14 @@ import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createManualClock,
   createTestEnvelopeCipher,
   resetTestTables,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileTable,

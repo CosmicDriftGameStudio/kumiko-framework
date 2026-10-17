@@ -12,14 +12,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
   type TestDb,
   type TestRedis,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createJobsFeature } from "../feature.js";
 import { createJobRunLogger } from "../job-run-logger.js";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";

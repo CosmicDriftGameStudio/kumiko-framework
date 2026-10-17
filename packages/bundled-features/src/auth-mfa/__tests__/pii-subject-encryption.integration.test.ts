@@ -12,17 +12,17 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  createTestEnvelopeCipher,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";

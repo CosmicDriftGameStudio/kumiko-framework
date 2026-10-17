@@ -10,9 +10,10 @@
 // so a >= assertion is flake-free without inflating the wait budget.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const exponentialDefaultStarts: number[] = [];
 const exponentialCustomStarts: number[] = [];

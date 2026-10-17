@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseSseFrames } from "@cosmicdrift/kumiko-dispatcher-live";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { Hono } from "hono";
 import * as z from "zod";
 import {
@@ -10,8 +11,7 @@ import {
   type TenantId,
 } from "../../engine/index.js";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { createTestUser, TestUsers } from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
 import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes.js";
 import { buildServer } from "../server.js";
 

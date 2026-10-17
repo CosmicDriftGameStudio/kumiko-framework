@@ -10,9 +10,9 @@
 //     failure; predecessor pre-flight per aggregate in the batch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { DbConnection } from "../../db/connection.js";
 import { asRawClient, selectMany } from "../../db/query.js";
-import { createTestDb, type TestDb } from "../../stack/index.js";
 import { generateId as uuid } from "../../utils/index.js";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api.js";
 import { IdempotentAppendConflictError, VersionConflictError } from "../errors.js";

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { withBootValidatorFixture } from "../../../testing/boot-validator-fixture.js";
 import { validateBoot } from "../../boot-validator.js";
 import { defineFeature } from "../../define-feature.js";
 import { createEntity, createTextField } from "../../index.js";

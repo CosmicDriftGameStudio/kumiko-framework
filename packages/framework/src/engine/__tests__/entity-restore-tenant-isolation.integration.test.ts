@@ -10,15 +10,14 @@
 // handler without `escapeHatch`, one with `escapeHatch: { reason }`.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import {
   createEntity,
   createTextField,

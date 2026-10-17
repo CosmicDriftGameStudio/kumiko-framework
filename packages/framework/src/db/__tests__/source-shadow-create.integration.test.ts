@@ -12,12 +12,16 @@
 // integration proof the unit test cannot give.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField } from "../../engine/index.js";
-import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack/index.js";
 
 const sourceEntity = createEntity({
   table: "ssc_source",

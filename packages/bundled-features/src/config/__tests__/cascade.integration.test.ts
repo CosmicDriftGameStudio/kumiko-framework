@@ -14,13 +14,12 @@ import {
   createUserConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers, ConfigQueries } from "../constants.js";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
 import { buildEnvConfigOverrides, type ConfigResolver, createConfigResolver } from "../resolver.js";

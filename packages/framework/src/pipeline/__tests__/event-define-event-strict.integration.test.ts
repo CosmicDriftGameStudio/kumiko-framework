@@ -11,18 +11,18 @@
 //   3. r.defineEvent returns `{ name: qualifiedName, schema }` — callers
 //      pass `def.name` to ctx.appendEvent without building the qn manually.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import * as z from "zod";
-import { selectMany } from "../../db/query.js";
-import { defineFeature } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
+import { sharedWidgetEntity } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity } from "../../testing/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
+import { selectMany } from "../../db/query.js";
+import { defineFeature } from "../../engine/index.js";
+import { eventsTable } from "../../event-store/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId } from "../../utils/index.js";
 
 // Capture of the qualified event name defineEvent returns so tests can

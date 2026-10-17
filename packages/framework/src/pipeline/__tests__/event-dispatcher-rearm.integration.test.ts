@@ -7,6 +7,17 @@
 // mechanism is a bounded number of extra chances, not unlimited retry.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  withoutAmbientTemporal,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
@@ -19,15 +30,8 @@ import {
   RecordingTracer,
 } from "../../observability/index.js";
 import { getConsumerState } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
-import { withoutAmbientTemporal } from "../../testing/without-ambient-temporal.js";
+import { TestUsers } from "../../seeding/seed-users.js";
+
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {

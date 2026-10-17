@@ -9,6 +9,12 @@
 //      can never silently hand half-migrated data to consumers.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -23,13 +29,7 @@ import {
 } from "../../engine/index.js";
 import type { StoredEvent } from "../../event-store/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { append } from "../index.js";
 import { upcastStoredEvent } from "../upcaster.js";
 

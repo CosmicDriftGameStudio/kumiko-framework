@@ -12,13 +12,13 @@ import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { tierAssignmentEntity } from "../entity.js";
 import { tierEngineFeature } from "../feature.js";

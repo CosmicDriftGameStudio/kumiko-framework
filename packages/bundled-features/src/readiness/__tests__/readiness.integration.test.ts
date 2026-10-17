@@ -10,15 +10,14 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigAccessorFactory } from "../../config/feature.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";

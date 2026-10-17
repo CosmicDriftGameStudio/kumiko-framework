@@ -93,7 +93,7 @@ export const taskFeature = defineFeature("tasks", (r) => {
 | `@cosmicdrift/kumiko-framework/files` | Signed-URL upload/download, tenant-scoped storage |
 | `@cosmicdrift/kumiko-framework/i18n` | i18next setup, per-feature translation registration |
 | `@cosmicdrift/kumiko-framework/ui` | React hooks (Zustand stores, SSE subscription, optimistic mutations) |
-| `@cosmicdrift/kumiko-framework/testing` | `setupTestStack`, `createTestDb`, request helpers |
+| `@cosmicdrift/kumiko-testing/stack` | `setupTestStack`, `createTestDb`, request helpers |
 | `@cosmicdrift/kumiko-framework/utils` | Safe JSON, qualified-name helpers |
 | `@cosmicdrift/kumiko-framework/errors` | Error classes, `writeFailure`, reason contracts |
 

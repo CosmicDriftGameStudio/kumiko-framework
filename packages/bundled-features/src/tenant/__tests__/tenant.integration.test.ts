@@ -2,19 +2,18 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
   rolesOf,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers, ConfigQueries } from "../../config/constants.js";
 import { createConfigAccessor, createConfigFeature } from "../../config/index.js";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver.js";

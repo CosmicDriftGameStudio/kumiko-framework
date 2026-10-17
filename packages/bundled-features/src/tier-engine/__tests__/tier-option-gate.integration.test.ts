@@ -12,15 +12,14 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { capCounterEntity } from "../../cap-counter/entity.js";
 import { capCounterFeature } from "../../cap-counter/feature.js";
 import { withCapEnforcement } from "../../cap-counter/with-cap-enforcement.js";

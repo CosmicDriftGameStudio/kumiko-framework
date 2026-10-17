@@ -19,7 +19,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/feature.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";

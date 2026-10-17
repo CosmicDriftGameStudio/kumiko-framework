@@ -11,14 +11,13 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { billingFeature, stripeApiKeyHandle } from "../feature";
 
 // Each test gets its own pair of tenants, so config rows from other tests never show up.

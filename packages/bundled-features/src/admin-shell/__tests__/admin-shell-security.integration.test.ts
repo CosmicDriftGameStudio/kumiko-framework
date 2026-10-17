@@ -8,13 +8,13 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createAuditFeature } from "../../audit/feature.js";
 import { ConfigQueries } from "../../config/constants.js";
 import { createConfigFeature } from "../../config/feature.js";

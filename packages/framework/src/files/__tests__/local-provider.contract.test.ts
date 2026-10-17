@@ -2,7 +2,7 @@ import { afterAll } from "bun:test";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describeFileProviderContract } from "../../testing/file-provider-contract.js";
+import { describeFileProviderContract } from "@cosmicdrift/kumiko-testing/helpers";
 import { createLocalProvider } from "../local-provider.js";
 
 const basePath = join(tmpdir(), `kumiko-local-provider-contract-${Date.now()}`);

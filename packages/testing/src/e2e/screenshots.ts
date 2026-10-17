@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { isRealProviderRun } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import { expect, type Page, errors as playwrightErrors, type Request } from "@playwright/test";
+import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
+import { isRealProviderRun } from "../helpers/real-providers.js";
 import { DESKTOP_VIEWPORT } from "./constants";
 import { pinEnglishLocale } from "./pin-english-locale";
 import { requireScreenshotDir, SCREENSHOT_DIR_ENV } from "./screenshot-dir";
 import { type SeedTenantFixture, test } from "./seeded-tenant-fixture";
-import { E2E_TIMEOUT_MS } from "./timeouts";
 
 export const DEFAULT_REDUCED_MOTION = "reduce" as const;
 

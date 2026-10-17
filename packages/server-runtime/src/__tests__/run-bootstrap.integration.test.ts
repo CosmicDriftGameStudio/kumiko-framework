@@ -20,9 +20,9 @@ import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/
 import { tenantInvitationsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { buildComposeAuthOptions, composeFeatures } from "../compose-features.js";
 import { runBootstrap } from "../run-bootstrap.js";
 

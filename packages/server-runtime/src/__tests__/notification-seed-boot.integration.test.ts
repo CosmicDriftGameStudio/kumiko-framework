@@ -12,12 +12,12 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { applyBootSeeds } from "../boot/apply-boot-seeds.js";
 

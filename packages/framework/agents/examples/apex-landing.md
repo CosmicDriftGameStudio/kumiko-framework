@@ -143,7 +143,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { renderLanding, SAMPLE_PLANS } from "../feature";
 
 const LANDING_URL = "https://tasklane.example/";

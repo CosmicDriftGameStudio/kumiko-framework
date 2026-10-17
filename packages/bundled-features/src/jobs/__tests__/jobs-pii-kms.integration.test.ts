@@ -21,6 +21,14 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRow,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
@@ -28,16 +36,8 @@ import {
   type TestDb,
   type TestRedis,
   type TestStack,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  resetPiiSubjectKmsForTests,
-  resetTestTables,
-  seedRow,
-  waitFor,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { JobHandlers, JobQueries } from "../constants.js";
 import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.js";
 import { createJobsFeature } from "../feature.js";

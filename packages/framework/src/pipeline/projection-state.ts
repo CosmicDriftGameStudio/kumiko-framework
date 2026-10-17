@@ -2,7 +2,7 @@
 import type { DbConnection } from "../db/connection.js";
 import { bigint, index, instant, table as pgTable, sql, text } from "../db/dialect.js";
 import { tableExists } from "../db/schema-inspection.js";
-import { unsafePushTables } from "../stack/index.js";
+import { unsafePushTables } from "../db/table-push.js";
 
 // Framework-level state for every registered projection. One row per qualified
 // projection name. Written by the rebuild machinery; read by the CLI + any

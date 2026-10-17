@@ -30,11 +30,11 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
 import * as jose from "jose";
 import * as z from "zod";
 import { composeRendererStack } from "../compose-stacks.js";

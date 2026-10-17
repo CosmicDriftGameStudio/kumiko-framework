@@ -3,14 +3,14 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { getSetCookieValue, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { getSetCookieValue, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,

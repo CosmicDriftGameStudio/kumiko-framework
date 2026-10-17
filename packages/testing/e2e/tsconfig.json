@@ -7,5 +7,5 @@
     "lib": ["ESNext", "DOM"]
   },
   "include": ["./**/*.ts", "../../../samples/e2e/e2e-ports.ts"],
-  "references": [{ "path": ".." }]
+  "references": [{ "path": "../tsconfig.app.json" }]
 }

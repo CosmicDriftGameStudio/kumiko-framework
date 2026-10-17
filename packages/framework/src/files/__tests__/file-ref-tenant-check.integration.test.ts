@@ -7,6 +7,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import {
   createEntity,
   createFileField,
   createFilesField,
@@ -18,14 +27,7 @@ import {
   defineFeature,
 } from "../../engine/index.js";
 import { createSystemUser } from "../../engine/system-user.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 import { createFilesFeature } from "../feature.js";
 import { createLocalProvider } from "../local-provider.js";
 

@@ -8,6 +8,11 @@
 //      consecutive versions without re-reading the DB.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query-api.js";
@@ -15,12 +20,7 @@ import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import { UnprocessableError, writeFailure } from "../../errors/index.js";
 import { append, loadAggregate } from "../../event-store/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // --- Feature ---
 

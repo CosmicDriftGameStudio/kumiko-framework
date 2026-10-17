@@ -8,6 +8,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
@@ -15,12 +20,7 @@ import {
   defineFeature,
   MAX_LIST_LIMIT,
 } from "../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 
 const widgetEntity = createEntity({
   table: "limit_widgets",

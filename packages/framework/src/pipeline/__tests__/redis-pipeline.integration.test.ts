@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createEntityCache } from "../entity-cache.js";
 import { createEventDedup } from "../event-dedup.js";

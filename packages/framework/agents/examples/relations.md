@@ -40,12 +40,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   memberEntity,
   memberTable,

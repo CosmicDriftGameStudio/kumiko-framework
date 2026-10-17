@@ -8,8 +8,8 @@
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import net from "node:net";
+import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import postgres from "postgres";
-import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
 
 const DATABASE_URL = testDatabaseUrl();
 const dbUrl = new URL(DATABASE_URL);

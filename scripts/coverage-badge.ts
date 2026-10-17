@@ -37,13 +37,7 @@ const integ = await parseLines("coverage/integration/lcov.info");
 // dom run (bunfig.dom.toml) — only suite executing the tsx-covered UI files.
 const dom = await parseLines("coverage/dom/lcov.info");
 
-// One lcov per isolated screen test (bunfig.ci-dom.toml, `test:dom:isolated`);
-// each run needs its own coverageDir or it overwrites the previous one.
-const domIsolated: LineMap[] = [];
-for (const lcovPath of new Bun.Glob("coverage/dom-isolated/*/lcov.info").scanSync(".")) {
-  domIsolated.push(await parseLines(lcovPath));
-}
-const sources = [unit, integ, dom, ...domIsolated];
+const sources = [unit, integ, dom];
 
 let totalLf = 0;
 let totalLh = 0;

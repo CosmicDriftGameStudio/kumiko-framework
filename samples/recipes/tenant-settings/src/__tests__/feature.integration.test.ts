@@ -11,14 +11,14 @@ import {
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   pushEntityProjectionTables,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { invoiceEntity, invoiceFeature } from "../feature";
 
 const tenantId = testTenantId(1);

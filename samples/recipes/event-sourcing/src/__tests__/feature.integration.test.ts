@@ -22,14 +22,14 @@ import {
   upcastStoredEvent,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { getAllProjectionProgress } from "@cosmicdrift/kumiko-framework/pipeline";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   approverDirectoryTable,
   invoiceDetailTable,

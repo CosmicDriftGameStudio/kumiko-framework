@@ -4,7 +4,7 @@
 // inside transaction(), where the retry guard is a no-op on a tx handle.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { captureClosedConnectionError } from "@cosmicdrift/kumiko-framework/testing";
+import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
 import { backfillUserStreamTenants } from "../stream-tenant-backfill.js";
 
 let closedConnectionError: unknown;

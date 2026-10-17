@@ -3,7 +3,7 @@
 // using a real captured driver error.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { captureClosedConnectionError } from "@cosmicdrift/kumiko-framework/testing";
+import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { selectStaleDraftsBatch } from "../cleanup.js";
 import { countDraftsByOwner } from "../draft-count.js";

@@ -2,11 +2,11 @@
 // attempt/final markers, without leaking the payload.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import type { AppContext } from "../../engine/types/index.js";
 import type { Logger } from "../../logging/types.js";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
 import { createJobRunner } from "../job-runner.js";
 
 let testRedis: TestRedis;

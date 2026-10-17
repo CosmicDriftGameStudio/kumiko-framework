@@ -57,14 +57,14 @@ import {
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
   type TestDb,
   type TestRedis,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createLaneRoutingFeature, renderedReceipts, sentConfirmations } from "../feature";
 
 const JWT = "lane-routing-sample-secret-minimum-32-chars!";

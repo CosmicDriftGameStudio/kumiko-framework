@@ -1,6 +1,11 @@
 // A hook's own escapeHatch, not the enclosing systemScope() handler's, gates ctx.systemDb.unsafeRaw.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
 import { selectMany } from "../../db/query.js";
 import { createTenantDb } from "../../db/tenant-db.js";
@@ -12,13 +17,7 @@ import {
   HookPhases,
 } from "../../engine/index.js";
 import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 
 const OTHER_TENANT_ID = testTenantId(2);
 const HOOK_ESCAPE_HATCH_REASON = "integration test — hook's own cross-tenant audit write";

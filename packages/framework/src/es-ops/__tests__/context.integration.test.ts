@@ -19,7 +19,7 @@ import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.js
 import { asRawClient, selectMany } from "../../db/query.js";
 import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.js";
 import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
-import { testTenantId } from "../../stack/test-users.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createSeedMigrationContext } from "../context.js";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema.js";

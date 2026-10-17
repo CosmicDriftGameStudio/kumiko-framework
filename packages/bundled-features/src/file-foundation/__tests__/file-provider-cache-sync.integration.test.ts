@@ -9,19 +9,19 @@ import {
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import {
-  createTestDb,
-  createTestUser,
-  setupTestStack,
-  type TestDb,
-  type TestStack,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
   waitFor,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  setupTestStack,
+  type TestDb,
+  type TestStack,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";

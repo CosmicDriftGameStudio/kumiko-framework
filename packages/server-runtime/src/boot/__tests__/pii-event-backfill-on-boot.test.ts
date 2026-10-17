@@ -7,7 +7,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { SKIP_PII_BACKFILL_ENV, startPiiEventBackfillOnBoot } from "../pii-event-backfill-on-boot";
 
 const piiFeature = defineFeature("backfill-boot-pii", (r) => {

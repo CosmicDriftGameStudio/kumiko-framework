@@ -7,13 +7,13 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { createConfigFeature } from "../../config/index.js";

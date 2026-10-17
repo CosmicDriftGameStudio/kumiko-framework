@@ -36,16 +36,16 @@ import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
   type TestDb,
   type TestRedis,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createJobsFeature } from "../feature.js";
 import { createJobRunLogger } from "../job-run-logger.js";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";

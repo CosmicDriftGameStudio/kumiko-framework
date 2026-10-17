@@ -24,13 +24,13 @@ import {
   EXT_USER_DATA_ORDER,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { customFieldsField } from "../../custom-fields/wire-for-entity.js";
 import {

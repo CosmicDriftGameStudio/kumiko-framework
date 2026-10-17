@@ -1,6 +1,14 @@
 // A failed Redis publish in the shared SSE-broadcast consumer must fail the handler, so the
 // dispatcher keeps the cursor and redelivers instead of silently dropping the fanout.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { sharedWidgetEntity, sharedWidgetTable } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestRedis,
+  setupTestStack,
+  type TestRedis,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createRedisSseBroker } from "../../api/redis-sse-broker.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { createTenantDb } from "../../db/tenant-db.js";
@@ -11,15 +19,7 @@ import {
   getConsumerState,
   SSE_BROADCAST_CONSUMER_NAME,
 } from "../../pipeline/index.js";
-import {
-  createTestRedis,
-  setupTestStack,
-  type TestRedis,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

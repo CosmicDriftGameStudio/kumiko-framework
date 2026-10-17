@@ -4,15 +4,14 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/feature.js";
 import { configValuesTable } from "../../config/table.js";
 import { createTenantFeature } from "../../tenant/feature.js";

@@ -1,6 +1,6 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.js";

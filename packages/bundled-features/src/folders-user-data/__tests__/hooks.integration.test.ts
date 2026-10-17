@@ -13,12 +13,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { folderAssignmentEntity, folderEntity } from "../../folders/entity.js";
 import { createFoldersFeature, FoldersHandlers } from "../../folders/index.js";
 import { folderAssignmentExportHook } from "../hooks.js";

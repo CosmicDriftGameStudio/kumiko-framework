@@ -6,6 +6,7 @@ import {
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  bridgeStub,
   createRegistry,
   createSystemUser,
   defineFeature,
@@ -13,18 +14,16 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
-  createTestUser,
   type TestDb,
   type TestRedis,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
 import { createConfigFeature } from "../../config/feature.js";
 import { createConfigResolver } from "../../config/resolver.js";

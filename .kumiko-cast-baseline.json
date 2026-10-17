@@ -285,21 +285,6 @@
       "Record<string, unknown>": 1,
       "ReindexEntityFailure[]": 1
     },
-    "packages/framework/src/stack/request-helper.ts": {
-      "{ isSuccess?: boolean; error?: WireErrorBody | string; }": 1
-    },
-    "packages/framework/src/stack/test-stack.ts": {
-      "PgClient | undefined": 1
-    },
-    "packages/framework/src/testing/db-cleanup.ts": {
-      "EntityTableMeta": 1
-    },
-    "packages/framework/src/testing/late-bound.ts": {
-      "T": 1
-    },
-    "packages/framework/src/testing/seed.ts": {
-      "EntityTableMeta": 4
-    },
     "packages/framework/src/upgrade-cli.ts": {
       "{ name?: string }": 1
     },
@@ -386,8 +371,23 @@
     "packages/renderer/src/tokens.tsx": {
       "Tokens": 1
     },
+    "packages/testing/src/helpers/db-cleanup.ts": {
+      "EntityTableMeta": 1
+    },
+    "packages/testing/src/helpers/late-bound.ts": {
+      "T": 1
+    },
+    "packages/testing/src/helpers/seed.ts": {
+      "EntityTableMeta": 4
+    },
     "packages/testing/src/preload/dom.ts": {
       "typeof import(\"@testing-library/react/pure\")": 1
+    },
+    "packages/testing/src/stack/request-helper.ts": {
+      "{ isSuccess?: boolean; error?: WireErrorBody | string; }": 1
+    },
+    "packages/testing/src/stack/test-stack.ts": {
+      "PgClient | undefined": 1
     },
     "packages/types/src/fields.ts": {
       "FieldDefinition[\"type\"][]": 1

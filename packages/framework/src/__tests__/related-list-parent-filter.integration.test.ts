@@ -9,18 +9,18 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineEntityListHandler,
   defineFeature,
 } from "../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 
 const itemEntity = createEntity({
   table: "akte_items",

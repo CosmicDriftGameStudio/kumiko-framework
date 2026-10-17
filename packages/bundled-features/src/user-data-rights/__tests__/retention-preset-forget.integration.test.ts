@@ -34,13 +34,13 @@ import {
   type FeatureDefinition,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import {
   ComplianceProfileHandlers,

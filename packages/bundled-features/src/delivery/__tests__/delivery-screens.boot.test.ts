@@ -6,7 +6,7 @@ import {
   isOpenToAllGranted,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { createConfigFeature } from "../../config/feature.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { DELIVERY_CHANNEL_EXTENSION, DELIVERY_LOG_SCREEN_ID } from "../constants.js";

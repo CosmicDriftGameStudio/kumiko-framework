@@ -29,7 +29,7 @@ import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
+import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";

@@ -19,14 +19,13 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { AuditQueries } from "../../audit/constants.js";
 import { createAuditFeature } from "../../audit/feature.js";

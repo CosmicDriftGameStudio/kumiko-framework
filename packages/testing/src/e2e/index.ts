@@ -1,9 +1,10 @@
+export { expect } from "@playwright/test";
+export { E2E_TIMEOUT_MS } from "../e2e-timeouts";
 export {
   isRealProviderRun,
   REAL_PROVIDERS_ENV,
   requireRealProviders,
-} from "@cosmicdrift/kumiko-framework/testing/real-providers";
-export { expect } from "@playwright/test";
+} from "../helpers/real-providers.js";
 export {
   apiCommand,
   apiQuery,
@@ -77,4 +78,3 @@ export {
   type SeedTenantFixture,
   test,
 } from "./seeded-tenant-fixture";
-export { E2E_TIMEOUT_MS } from "./timeouts";

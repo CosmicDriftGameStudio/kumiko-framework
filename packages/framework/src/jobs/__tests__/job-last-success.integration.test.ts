@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { buildServer } from "../../api/server.js";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
@@ -8,8 +10,6 @@ import {
   createPrometheusMeter,
   registerStandardMetrics,
 } from "../../observability/index.js";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
 import { createJobRunner, type JobRunnerOptions } from "../job-runner.js";
 
 const JWT = "job-last-success-test-secret-minimum-32-chars!!";

@@ -5,8 +5,8 @@ import { instant, table as pgTable, sql, text, uniqueIndex, uuid } from "../db/d
 import { upsertArchivedStream } from "../db/queries/event-store.js";
 import { deleteMany, fetchOne } from "../db/query.js";
 import { tableExists } from "../db/schema-inspection.js";
+import { unsafePushTables } from "../db/table-push.js";
 import type { TenantId } from "../engine/types/index.js";
-import { unsafePushTables } from "../stack/index.js";
 
 // Marten-aligned stream archival. Archived streams become read-only: fresh
 // appendEvent on an archived aggregate throws, and loadAggregate returns

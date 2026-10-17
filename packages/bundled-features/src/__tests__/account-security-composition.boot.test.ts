@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { authFoundationFeature } from "../auth-foundation/index.js";
 import {
   AuthMfaHandlers,

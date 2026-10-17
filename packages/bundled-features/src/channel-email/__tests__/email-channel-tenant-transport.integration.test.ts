@@ -17,15 +17,14 @@ import {
   createEnvMasterKeyProvider,
   type SecretsContext,
 } from "@cosmicdrift/kumiko-framework/secrets";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers } from "../../config/constants.js";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
 import { createConfigResolver } from "../../config/resolver.js";

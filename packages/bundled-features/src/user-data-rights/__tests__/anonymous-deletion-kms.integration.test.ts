@@ -13,17 +13,17 @@ import {
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

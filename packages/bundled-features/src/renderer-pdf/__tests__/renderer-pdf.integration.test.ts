@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { extractText, getDocumentProxy } from "unpdf";
 import {
   collectRendererPlugins,

@@ -43,7 +43,7 @@ import {
   createRegistry,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { generateE2ESpec, withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
+import { generateE2ESpec, withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { createShopFeature } from "../feature";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {

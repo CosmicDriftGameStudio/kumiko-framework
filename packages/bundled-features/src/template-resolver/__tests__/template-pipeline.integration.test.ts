@@ -5,15 +5,13 @@ import {
   SYSTEM_TENANT_ID,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createTemplateResolverFeature } from "../feature.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";

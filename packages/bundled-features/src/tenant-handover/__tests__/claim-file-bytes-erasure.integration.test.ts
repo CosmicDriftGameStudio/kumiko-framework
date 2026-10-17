@@ -25,13 +25,12 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createDataRetentionFeature } from "../../data-retention/feature.js";
 import { signTenantHandoverGrant } from "../grant.js";
 import { createTenantHandoverFeature } from "../index.js";

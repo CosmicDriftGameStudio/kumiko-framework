@@ -89,9 +89,15 @@ done
 
 [ "${#names[@]}" -gt 0 ] || fail "no package with publishConfig.exports found"
 
+# kumiko-testing ships TS source (no dist) and is reached from the shim paths and the `*/testing` subpaths of other packages; it is installed so Bun can load them, but not import-checked itself.
+testing_dir="$repo_root/packages/testing"
+testing_tarball="$(cd "$testing_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)"
+[ -n "$testing_tarball" ] || fail "pack produced no tarball for $testing_dir"
+mv "$testing_dir/$testing_tarball" "$scratch/$testing_tarball"
+
 consumer="$scratch/consumer"
 mkdir -p "$consumer"
-deps='{}'
+deps="$(jq -n --arg t "file:$scratch/$testing_tarball" '{"@cosmicdrift/kumiko-testing": $t}')"
 for i in "${!names[@]}"; do
   deps="$(jq --arg n "${names[$i]}" --arg t "file:${tarballs[$i]}" '.[$n] = $t' <<<"$deps")"
 done
@@ -197,11 +203,11 @@ else
 fi
 # Only diagnostics located in third-party node_modules are ignored (unscoped and
 # scoped alike, e.g. @types/*); every other error counts: entry file, config/option
-# errors without a path, and @cosmicdrift .d.ts.
+# errors without a path, and @cosmicdrift .d.ts. kumiko-testing ships TS source that needs bun-types, so its own diagnostics are covered by the repo typecheck instead.
 diagnostics="$(grep -E 'error TS[0-9]+' <<<"$typecheck_output" || true)"
 own_errors="$({
   grep -v 'node_modules/' <<<"$diagnostics" || true
-  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" || true
+  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" | grep -v 'node_modules/@cosmicdrift/kumiko-testing/' || true
 } | sed '/^$/d')"
 if [ -n "$own_errors" ]; then
   sed -n "1,40p" <<<"$own_errors" | sed -E 's#^.*node_modules/##' >&2

@@ -13,16 +13,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
-  testUserId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

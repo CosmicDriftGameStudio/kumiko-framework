@@ -13,14 +13,15 @@
 // regressing to the Welle-2.5 state.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import { createArchivedStreamsTable } from "../../event-store/index.js";
 import { createNoopProvider, createPrometheusMeter } from "../../observability/index.js";
 import { createEventConsumerStateTable } from "../../pipeline/index.js";
-import { createTestRedis, type TestRedis, TestUsers } from "../../stack/index.js";
-import { sleep, waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createAllInOneEntrypoint } from "../index.js";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];

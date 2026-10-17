@@ -21,8 +21,8 @@ import {
 import { ensureSnapshotVersionColumn, upsertSnapshot } from "../db/queries/event-store.js";
 import { selectMany } from "../db/query.js";
 import { tableExists } from "../db/schema-inspection.js";
+import { unsafePushTables } from "../db/table-push.js";
 import type { TenantId } from "../engine/types/index.js";
-import { unsafePushTables } from "../stack/index.js";
 import { isStreamArchived } from "./archive.js";
 import { loadEventsAfterVersion } from "./event-store.js";
 

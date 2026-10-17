@@ -4,6 +4,12 @@
 // validation, so the row could only be fed outside the replay and the ghost-row
 // guard aborted the rebuild.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { insertOne, selectMany, updateMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
@@ -16,13 +22,7 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
 } from "../../engine/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const runViewEntity = createEntity({
   table: "read_wf_run_views",

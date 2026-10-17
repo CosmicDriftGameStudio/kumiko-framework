@@ -28,13 +28,13 @@ import {
   deriveKey,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";

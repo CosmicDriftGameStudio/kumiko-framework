@@ -707,6 +707,15 @@
     "@cosmicdrift/kumiko-locale-es": "workspace:*",
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "jsqr": "^1.4.0",
-    "unpdf": "^1.8.1"
+    "unpdf": "^1.8.1",
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  },
+  "peerDependencies": {
+    "@cosmicdrift/kumiko-testing": ">=0.366.0 <1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@cosmicdrift/kumiko-testing": {
+      "optional": true
+    }
   }
 }

@@ -25,14 +25,14 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";

@@ -5,7 +5,7 @@
 // tenant already has tasks (persistent KUMIKO_DEV_DB_NAME survives reboots).
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { countTasksForTenant } from "../db/queries/task-counts";
 
 const DEMO_TASKS = [

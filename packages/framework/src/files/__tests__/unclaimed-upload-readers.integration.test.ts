@@ -5,6 +5,15 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { selectMany } from "../../bun-db/index.js";
 import {
@@ -16,14 +25,7 @@ import {
   defineFeature,
 } from "../../engine/index.js";
 import { createSystemUser, SYSTEM_ROLE } from "../../engine/system-user.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 import { createFileRefFromBytes } from "../create-file-ref-from-bytes.js";
 import { createFilesFeature, type FilesFeatureOptions } from "../feature.js";
 import { fileRefsTable } from "../file-ref-table.js";

@@ -6,6 +6,12 @@
 // streams never pay for extra metadata writes.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { buildEntityTable } from "../../db/table-builder.js";
@@ -15,13 +21,7 @@ import {
   isStreamArchived,
   loadAggregate as loadAggregateRaw,
 } from "../../event-store/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const itemEntity = createEntity({
   table: "read_arch_items",

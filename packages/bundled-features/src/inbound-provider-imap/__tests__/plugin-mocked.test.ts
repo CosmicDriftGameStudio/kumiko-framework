@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "b
 import type { lookup } from "node:dns/promises";
 import { EventEmitter } from "node:events";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
-import { sleep, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
 import {
   type InboundMailContext,

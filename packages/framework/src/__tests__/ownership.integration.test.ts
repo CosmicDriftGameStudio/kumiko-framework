@@ -5,6 +5,12 @@
 // `describe` block maps to a cell of the core-auth.md Policy-Matrix.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../db/query.js";
 import {
   createEntity,
@@ -15,15 +21,7 @@ import {
   from,
 } from "../engine/index.js";
 import type { SessionUser, TenantId } from "../engine/types/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
-import { expectErrorIncludes } from "../testing/index.js";
+import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.js";
 
 // ── Shared test entity ─────────────────────────────────────────────────────
 //

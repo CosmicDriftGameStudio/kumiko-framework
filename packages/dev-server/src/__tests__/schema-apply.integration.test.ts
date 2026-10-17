@@ -30,13 +30,13 @@ import {
   defineFeature,
   type ProjectionDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestDb,
   type TestDb,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { runSchemaApply } from "../schema-apply.js";
 
 let testDb: TestDb;

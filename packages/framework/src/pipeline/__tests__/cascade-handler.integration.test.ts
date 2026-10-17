@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import type { TableColumns } from "../../db/dialect.js";
 import {
@@ -14,7 +15,7 @@ import {
   defineFeature,
   type Registry,
 } from "../../engine/index.js";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createCascadeDeleteHook } from "../cascade-handler.js";
 

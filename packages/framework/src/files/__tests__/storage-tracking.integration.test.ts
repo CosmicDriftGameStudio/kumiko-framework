@@ -9,13 +9,17 @@
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { createTenantDb } from "../../db/tenant-db.js";
 import type { SessionUser } from "../../engine/index.js";
-import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
 import {
   createFilesFeature,
   createInMemoryFileProvider,

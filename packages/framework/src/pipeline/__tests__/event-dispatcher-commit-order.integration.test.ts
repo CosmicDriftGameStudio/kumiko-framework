@@ -13,6 +13,17 @@
 // the live dispatcher has no such fence — it has pending_gaps instead).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { DbConnection, DbTx } from "../../db/connection.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
@@ -24,14 +35,7 @@ import {
   type EventConsumer,
   type EventDispatcher,
 } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId } from "../../utils/index.js";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
 import { skipPoisonEvent } from "../event-dispatcher-admin.js";

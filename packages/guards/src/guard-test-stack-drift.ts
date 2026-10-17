@@ -41,6 +41,8 @@ const SCAN: ScanSpec = {
     "packages/framework/src/**/*.integration.test.ts",
     "packages/bundled-features/src/**/*.integration.ts",
     "packages/bundled-features/src/**/*.integration.test.ts",
+    "packages/testing/src/**/*.integration.ts",
+    "packages/testing/src/**/*.integration.test.ts",
   ],
 };
 

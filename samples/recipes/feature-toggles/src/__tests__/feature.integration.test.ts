@@ -6,14 +6,14 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   createProductAuditFeature,
   createProductFeature,

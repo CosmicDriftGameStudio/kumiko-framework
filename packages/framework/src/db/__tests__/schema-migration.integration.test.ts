@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient, selectMany } from "../../db/query.js";
@@ -12,7 +13,6 @@ import {
   defineFeature,
 } from "../../engine/index.js";
 import type { FeatureDefinition } from "../../engine/types/index.js";
-import { unsafePushTables } from "../../stack/index.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { buildEntityTable } from "../table-builder.js";
 

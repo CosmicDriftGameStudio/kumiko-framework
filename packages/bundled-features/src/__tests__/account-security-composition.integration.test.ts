@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { buildAppSchema, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { AuthHandlers } from "../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.js";
 import { authFoundationFeature } from "../auth-foundation/index.js";

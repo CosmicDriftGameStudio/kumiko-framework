@@ -8,16 +8,15 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Redis } from "ioredis";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import {

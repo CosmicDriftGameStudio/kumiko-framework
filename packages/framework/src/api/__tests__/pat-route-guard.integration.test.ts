@@ -7,10 +7,11 @@
 // that the guard function works in isolation.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { defineFeature, type SessionUser } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import type { TokenVerifier } from "../auth-middleware.js";
 import type { UserExtraRoute } from "../extra-route.js";
 
