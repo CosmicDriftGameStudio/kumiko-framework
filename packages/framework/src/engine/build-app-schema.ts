@@ -20,9 +20,9 @@
 //   Translations: verbatim feature.translations (raw r.translations keys,
 //                 unfiltered — see FeatureSchema.translations doc)
 //
-// Feature-Toggles: dieses Schema ist tenant-unabhängig und enthält alle Features.
-// Die per-Tenant-Filterung (r.toggleable) passiert in der Schema-Route über
-// stripDisabledFeaturesFromAppSchema.
+// Feature toggles: this schema is tenant-independent and lists every feature.
+// The schema route strips features the caller's tenant has switched off
+// (r.toggleable) via stripDisabledFeaturesFromAppSchema.
 
 import { ZodObject, type ZodType } from "zod";
 import type {
