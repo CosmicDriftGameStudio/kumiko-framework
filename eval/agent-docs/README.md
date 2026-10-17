@@ -45,14 +45,15 @@ VERSION=0.364.0
    done
    ```
 
-   The script deviates from a raw scaffold in four places, all
+   The script deviates from a raw scaffold in five places, all
    because of the environment, not to help the agent: dependency ranges are
    pinned to `VERSION`, a `.gitignore` is added (versions up to 0.364.0 write none and
    `bun run lint` fails without it; obsolete from versions above 0.364.0, the
    scaffold writes it), biome's config and formatting are
    migrated to the installed biome so lint starts green (obsolete from versions
-   above 0.364.0, the scaffold ships a pinned biome and lint-clean output), and `.env` gets a
-   random local master key.
+   above 0.364.0, the scaffold ships a pinned biome and lint-clean output), `.env` gets a
+   random local master key, and a random `DEMO_ADMIN_PASSWORD` (only versions above
+   0.364.0 have the variable).
 
 2. Start Postgres and Redis once for all projects, from any prepared project,
    under a fixed compose project name so the ports are not claimed twice:

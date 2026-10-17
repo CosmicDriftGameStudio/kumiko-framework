@@ -413,9 +413,9 @@ describe("scaffoldApp", () => {
 
     const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
     expect(main).toContain("composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH })");
-    expect(main).toContain(
-      "composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures })",
-    );
+    expect(main).toContain("composeEnvSchema({");
+    expect(main).toContain("core: frameworkCoreEnvSchema,");
+    expect(main).toContain("features: bootFeatures,");
   });
 
   // kumiko-framework#2330: the --yes recommended set mounts PII-annotated
@@ -650,6 +650,7 @@ describe("generated default app actually boots (kumiko-framework#3120)", () => {
       env: {
         ...process.env,
         KUMIKO_DRY_RUN_ENV: "boot",
+        DEMO_ADMIN_PASSWORD: "test-admin-password-0001",
         JWT_SECRET: "a".repeat(32),
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
         DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",

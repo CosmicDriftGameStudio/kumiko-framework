@@ -84,6 +84,12 @@ cp .env.example .env
 master_key="$(openssl rand -base64 32)"
 MASTER_KEY="$master_key" perl -pi -e 's/^KUMIKO_SECRETS_MASTER_KEY_V1=.*$/KUMIKO_SECRETS_MASTER_KEY_V1=$ENV{MASTER_KEY}/' .env
 unset master_key
+# Only versions above 0.364.0 declare DEMO_ADMIN_PASSWORD (prod admin seed).
+if grep -q '^DEMO_ADMIN_PASSWORD=' .env; then
+  admin_password="$(openssl rand -hex 24)"
+  ADMIN_PASSWORD="$admin_password" perl -pi -e 's/^DEMO_ADMIN_PASSWORD=.*$/DEMO_ADMIN_PASSWORD=$ENV{ADMIN_PASSWORD}/' .env
+  unset admin_password
+fi
 
 git init -q
 git add -A
