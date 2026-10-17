@@ -7,6 +7,7 @@ import {
   STYLESHEET_WATCH_ENV as DEV_SERVER_STYLESHEET_WATCH_ENV,
 } from "@cosmicdrift/kumiko-dev-server";
 import { TRUSTED_PROXY_HOPS_ENV as FRAMEWORK_TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
+import { SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import { REAL_PROVIDERS_ENV } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   E2E_WORKERS_ENV,
@@ -418,6 +419,10 @@ describe("template-owned settings cannot be overridden", () => {
 
   test("the reserved KUMIKO_TRUSTED_PROXY_HOPS literal matches kumiko-framework's own constant", () => {
     expect(TRUSTED_PROXY_HOPS_ENV).toBe(FRAMEWORK_TRUSTED_PROXY_HOPS_ENV);
+  });
+
+  test("the seed-mode literal matches kumiko-framework's own constant", () => {
+    expect(SEED_ENABLE_ENV).toBe(SEED_MODE_ENV);
   });
 });
 

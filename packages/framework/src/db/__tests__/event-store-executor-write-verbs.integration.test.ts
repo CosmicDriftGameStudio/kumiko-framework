@@ -5,10 +5,11 @@
 // verb entirely, and restore()'s two precondition failures.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, transaction } from "../../db/query.js";
+import { asRawClient, selectMany, transaction } from "../../db/query.js";
 import { createEntity, createTextField } from "../../engine/index.js";
 import { from } from "../../engine/ownership.js";
 import { createSystemUser } from "../../engine/system-user.js";
+import type { EntityId } from "../../engine/types/index.js";
 import type { EntityCache } from "../../pipeline/entity-cache.js";
 import {
   createTestDb,
@@ -906,5 +907,91 @@ describe("event-store-executor write-verbs — concurrent version race + cache",
     const result = await crud.restore({ id }, admin, tdb);
     expect(result.isSuccess).toBe(true);
     expect(store.has(key)).toBe(false);
+  });
+});
+
+// =============================================================================
+// Degraded (undecryptable) detail reads never reach the entity cache
+// =============================================================================
+
+const degradedEntity = createEntity({
+  table: "read_es_write_degraded",
+  fields: {
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+  },
+});
+const degradedTable = buildEntityTable("esWriteDegraded", degradedEntity);
+
+describe("event-store-executor write-verbs — degraded detail vs entity cache", () => {
+  const store = new Map<string, Record<string, unknown>>();
+  const calls = { get: 0, set: 0 };
+  const entityCache: EntityCache = {
+    get: async (tenantId, name, id) => {
+      calls.get += 1;
+      return store.get(`${tenantId}:${name}:${id}`) ?? null;
+    },
+    mget: async () => new Map(),
+    set: async (tenantId, name, id, data) => {
+      calls.set += 1;
+      store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    mset: async () => {},
+    del: async (tenantId, name, id) => {
+      store.delete(`${tenantId}:${name}:${id}`);
+    },
+  };
+  const crud = createEventStoreExecutor(degradedTable, degradedEntity, {
+    entityName: "esWriteDegraded",
+    entityCache,
+  });
+
+  beforeAll(async () => {
+    configureEntityFieldEncryption(
+      createTestEnvelopeCipher(Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64")),
+    );
+    await unsafeCreateEntityTable(testDb.db, degradedEntity, "esWriteDegraded");
+  });
+
+  afterAll(() => {
+    resetEntityFieldEncryptionCacheForTests();
+  });
+
+  beforeEach(async () => {
+    store.clear();
+    calls.get = 0;
+    calls.set = 0;
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_write_degraded RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  // Test-only corruption/repair of the read model; the typed query API refuses writes to executor-owned tables.
+  async function setStoredSecret(id: EntityId, value: string): Promise<void> {
+    await asRawClient(testDb.db).unsafe(
+      `UPDATE read_es_write_degraded SET secret = $2 WHERE id = $1`,
+      [id, value],
+    );
+  }
+
+  test("every read of a corrupt row misses the cache and hits the DB; after repair detail serves the real value", async () => {
+    const created = await crud.create({ email: "d@test.de", secret: "real" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = created.data.id;
+    const goodEnvelope = (await selectMany(testDb.db, degradedTable, { id }))[0]?.["secret"];
+    await setStoredSecret(id, "not-an-envelope");
+
+    const first = await crud.detail({ id }, admin, tdb);
+    const second = await crud.detail({ id }, admin, tdb);
+    expect([first?.["secret"], second?.["secret"]]).toEqual([null, null]);
+    expect(calls).toEqual({ get: 2, set: 0 });
+    expect(store.size).toBe(0);
+
+    // The executor's own update decrypts the stored row first, so a corrupt row is repaired
+    // at the read-model level (rebuild), not through update.
+    await setStoredSecret(id, String(goodEnvelope));
+    const repaired = await crud.detail({ id }, admin, tdb);
+    expect(repaired?.["secret"]).toBe("real");
+    expect(calls.set).toBe(1);
   });
 });

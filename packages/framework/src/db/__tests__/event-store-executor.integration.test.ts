@@ -6,6 +6,7 @@ import {
 } from "../../crypto/index.js";
 import { asRawClient } from "../../db/query.js";
 import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
+import type { EntityId } from "../../engine/types/index.js";
 import { FrameworkReasons } from "../../errors/index.js";
 import { append, loadEventsAfterVersion } from "../../event-store/index.js";
 import type { EntityCache } from "../../pipeline/entity-cache.js";
@@ -1204,6 +1205,22 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
     expect(decrypted["ownerSecret"]).toBe("kms-owner-secret");
   });
 
+  async function expectRestoreRefusedAndNothingStored(id: EntityId): Promise<void> {
+    const result = await kmsCrud.restore({ id }, adminUser, tdb);
+
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect(result.error.details).toMatchObject({ reason: FrameworkReasons.subjectErased });
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT is_deleted FROM read_es_exec_pii_soft WHERE id = '${id}'`,
+    )) as Array<{ is_deleted: boolean }>;
+    expect(rows[0]?.is_deleted).toBe(true);
+    const restoredEvents = (await asRawClient(testDb.db).unsafe(
+      `SELECT id FROM kumiko_events WHERE type = 'esExecPiiSoft.restored' AND aggregate_id = '${id}'`,
+    )) as Array<{ id: unknown }>;
+    expect(restoredEvents).toHaveLength(0);
+  }
+
   test("erased subject key: restore of a pre-KMS plaintext row fails with subject-erased and stores nothing", async () => {
     const created = await plainCrud.create(
       { email: "prekms@test.de", ownerId: adminUser.id },
@@ -1213,22 +1230,10 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
     if (!created.isSuccess) throw new Error("create failed");
     const deleted = await plainCrud.delete({ id: created.data.id }, adminUser, tdb);
     if (!deleted.isSuccess) throw new Error("delete failed");
-    // The subject already holds a key from other KMS writes; eraseKey on a subject
-    // that never had one is a no-op and would not block the restore.
     await kms.createKey({ kind: "user", userId: String(created.data.id) });
     await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
 
-    await expect(kmsCrud.restore({ id: created.data.id }, adminUser, tdb)).rejects.toMatchObject({
-      details: { reason: FrameworkReasons.subjectErased },
-    });
-    const rows = (await asRawClient(testDb.db).unsafe(
-      `SELECT is_deleted FROM read_es_exec_pii_soft WHERE id = '${created.data.id}'`,
-    )) as Array<{ is_deleted: boolean }>;
-    expect(rows[0]?.is_deleted).toBe(true);
-    const restoredEvents = (await asRawClient(testDb.db).unsafe(
-      `SELECT id FROM kumiko_events WHERE type = 'esExecPiiSoft.restored' AND aggregate_id = '${created.data.id}'`,
-    )) as Array<{ id: unknown }>;
-    expect(restoredEvents).toHaveLength(0);
+    await expectRestoreRefusedAndNothingStored(created.data.id);
   });
 
   test("erased subject: restore of a KMS row succeeds and stores the sentinel in previous", async () => {

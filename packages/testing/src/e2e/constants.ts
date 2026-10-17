@@ -13,6 +13,8 @@ export const PLAYWRIGHT_DEMO_ENV = {
 export const CSRF_COOKIE_NAME = sessionCookieName(CSRF_COOKIE_BASE, { secure: false });
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
 
+// Duplicated from kumiko-framework (SEED_MODE_ENV): the Playwright config runs under Node
+// and cannot import the framework barrel.
 export const SEED_ENABLE_ENV = "KUMIKO_TEST_SEED";
 export const SEED_TOKEN_ENV = "KUMIKO_TEST_SEED_TOKEN";
 export const SEED_TOKEN_HEADER = "x-kumiko-test-seed";

@@ -33,7 +33,11 @@ export function readZipEntryNames(bytes: Uint8Array): readonly string[] | null {
 function findEndOfCentralDirectory(view: DataView): number | null {
   const lowest = Math.max(0, view.byteLength - EOCD_MIN_LENGTH - EOCD_MAX_COMMENT_LENGTH);
   for (let offset = view.byteLength - EOCD_MIN_LENGTH; offset >= lowest; offset--) {
-    if (view.getUint32(offset, true) === EOCD_SIGNATURE) return offset;
+    if (view.getUint32(offset, true) !== EOCD_SIGNATURE) continue;
+    // A signature inside the archive comment is skipped: the real record's
+    // comment length reaches exactly to the end of the buffer.
+    const commentLength = view.getUint16(offset + 20, true);
+    if (offset + EOCD_MIN_LENGTH + commentLength === view.byteLength) return offset;
   }
   return null;
 }

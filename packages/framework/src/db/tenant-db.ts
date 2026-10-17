@@ -14,6 +14,7 @@ import {
   type TenantDbMode,
   type UncheckedSystemDb,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   asEntityTableMeta,
   asRawClient,
@@ -366,6 +367,16 @@ function hasGrant(decl: EscapeHatchDeclaration | undefined): boolean {
   return decl !== undefined && decl.reason.trim().length > 0;
 }
 
+// Tenant ids a where.tenantId filter asks for; undefined for operator forms
+// that cannot narrow to a tenant list (ne, like, ...).
+export function requestedTenantIds(requested: unknown): readonly unknown[] | undefined {
+  if (Array.isArray(requested)) return requested;
+  if (!isPlainObject(requested)) return [requested];
+  if (Array.isArray(requested["in"])) return requested["in"];
+  if ("eq" in requested) return [requested["eq"]];
+  return undefined;
+}
+
 function isForeignTenantId(tenantIdValue: unknown): boolean {
   return tenantIdValue !== undefined && tenantIdValue !== SYSTEM_TENANT_ID;
 }
@@ -564,7 +575,7 @@ export function createTenantDb(
     const allowed = [tenantId, SYSTEM_TENANT_ID];
     const requested = where?.["tenantId"];
     if (requested !== undefined) {
-      const requestedList = Array.isArray(requested) ? requested : [requested];
+      const requestedList = requestedTenantIds(requested) ?? [];
       const narrowed = requestedList.filter(
         (t): t is string => typeof t === "string" && allowed.includes(t),
       );

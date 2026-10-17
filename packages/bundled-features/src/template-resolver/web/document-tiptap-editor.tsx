@@ -616,6 +616,7 @@ export default function DocumentTiptapEditor({
       immediatelyRender: false,
       editorProps: { attributes: { id } },
       onCreate: ({ editor: created }) => onEditorReady?.(createEditorHandle(created)),
+      onDestroy: () => onEditorReady?.(null),
       onUpdate: ({ editor: e }) => onChange(e.getHTML()),
     },
     [extensions],
@@ -670,7 +671,8 @@ export default function DocumentTiptapEditor({
 
   // kumiko-lint-ignore no-raw-hooks DOM integration: tiptap exposes editability only imperatively via setEditable
   useEffect(() => {
-    if (editor && !editor.isDestroyed) editor.setEditable(!readOnly);
+    // setEditable emits "update" by default, which would report the mount as an edit.
+    if (editor && !editor.isDestroyed) editor.setEditable(!readOnly, false);
   }, [readOnly, editor]);
 
   // Read-only without chips: a textarea would insert {{name}} text and plaintext into a document body.

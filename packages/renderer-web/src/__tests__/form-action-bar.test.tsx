@@ -3,7 +3,7 @@
 // als Sticky-Bar im Header. Der Titel ist ein Heading oben. Strukturelle
 // Assertions (Klassen/DOM) — der visuelle Beweis läuft über den Runner.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -13,8 +13,9 @@ import {
   FOOTER_ACTION_ROLE_PROP,
   RenderEdit,
 } from "@cosmicdrift/kumiko-renderer";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { BareFormProvider, defaultPrimitives } from "../primitives/index.js";
 import {
   createMockDispatcher,
@@ -472,11 +473,12 @@ describe("DefaultForm pinned footer below sm", () => {
     expect(bar.className).toContain("h-14");
     expect(screen.getByTestId("f-overflow-badge")).toBeTruthy();
     expect(screen.queryByTestId("f-unsaved")).toBeNull();
-    expect(bar.textContent).not.toContain("Verwerfen");
-    const popover = screen.getByText("Verwerfen").closest("[data-state]") as HTMLElement;
-    expect(popover.getAttribute("data-state")).toBe("closed");
+    expect(screen.getByText("Verwerfen").closest(".hidden")).not.toBeNull();
+    expect(document.querySelector("[data-radix-popper-content-wrapper]")).toBeNull();
     await userEvent.click(screen.getByTestId("f-overflow"));
+    const popover = screen.getByText("Verwerfen").closest("[data-state]") as HTMLElement;
     expect(popover.getAttribute("data-state")).toBe("open");
+    expect(screen.getByText("Verwerfen").closest(".hidden")).toBeNull();
     expect(screen.getByTestId("f-overflow").getAttribute("aria-label")).toContain("2");
     expect(screen.getByRole("button", { name: "Speichern" })).toBeTruthy();
   });
@@ -517,6 +519,50 @@ describe("DefaultForm pinned footer below sm", () => {
     }
     render(narrowForm(<RendersNothing />));
     expect(screen.getByTestId("f-overflow").className).toContain("hidden");
+  });
+
+  test("Escape closes the surrounding drawer while the overflow popover is closed", async () => {
+    setViewportWidth(390);
+    const onOpenChange = mock((_open: boolean) => {});
+    render(
+      <DialogPrimitive.Root open onOpenChange={onOpenChange}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Content aria-describedby={undefined}>
+            <DialogPrimitive.Title>Drawer</DialogPrimitive.Title>
+            {narrowForm(<Button>Verwerfen</Button>)}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>,
+    );
+    await waitFor(() => expect(screen.getByTestId("f-overflow").className).not.toContain("hidden"));
+    await userEvent.keyboard("{Escape}");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  test("opening the overflow focuses its first action", async () => {
+    setViewportWidth(390);
+    render(narrowForm(<Button>Verwerfen</Button>));
+    await waitFor(() => expect(screen.getByTestId("f-overflow").className).not.toContain("hidden"));
+    await userEvent.click(screen.getByTestId("f-overflow"));
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("Verwerfen"));
+  });
+
+  test("a dialog owned by an overflow action still opens and survives the popover closing", async () => {
+    setViewportWidth(390);
+    function ActionWithDialog(): ReactNode {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <Button onClick={() => setOpen(true)}>Löschen</Button>
+          {open && <div role="alertdialog">Wirklich löschen?</div>}
+        </>
+      );
+    }
+    render(narrowForm(<ActionWithDialog />));
+    await waitFor(() => expect(screen.getByTestId("f-overflow").className).not.toContain("hidden"));
+    await userEvent.click(screen.getByTestId("f-overflow"));
+    await userEvent.click(await screen.findByRole("button", { name: "Löschen" }));
+    expect(await screen.findByRole("alertdialog")).toBeTruthy();
   });
 
   test("a lone primary action renders without an overflow trigger", () => {

@@ -44,6 +44,7 @@ describe("exported secret keys match the registered keys", () => {
   ])("%s webhook namespace", (_name, keys) => {
     const namespace = harness.stack.registry.findSecretNamespace(keys.webhookKeyFor("ops"));
     expect(namespace?.qualifiedPrefix).toBe(keys.webhookPrefix);
+    expect(keys.webhookKeyFor("ops")).toBe(`${namespace?.qualifiedPrefix}ops`);
   });
 
   test("telegram bot token", () => {

@@ -2,6 +2,12 @@
 // rebuild through r.entity's eventMigrations.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
+import {
+  configurePiiSubjectKms,
+  decryptPiiValueForSubject,
+  PII_CIPHERTEXT_PREFIX,
+} from "../../crypto/pii-field-encryption.js";
 import type { DbTx } from "../../db/connection.js";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -23,6 +29,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack/index.js";
+import { resetPiiSubjectKmsForTests } from "../../testing/index.js";
 import { loadAggregate } from "../index.js";
 
 const textField = createTextField({ personal: false, reason: "test_fixture", required: false });
@@ -152,5 +159,100 @@ describe("entity event versioning", () => {
         registry: registryWithoutMigration,
       }),
     ).rejects.toThrow();
+  });
+});
+
+// Documented limit of eventMigrations: pii ciphertext is bound to its field name (AAD), so a
+// transform that renames a pii field leaves a value that no longer decrypts under the new name.
+describe("eventMigrations renaming a pii field", () => {
+  const piiNoteV1 = createEntity({
+    table: "read_pii_notes",
+    fields: {
+      ownerId: createTextField({ personal: "ref" }),
+      name: createTextField({ personal: { of: "ownerId", whenAbsent: "tenant" }, find: "none" }),
+    },
+  });
+  const piiNoteTable = buildEntityTable("pii-note", piiNoteV1);
+  const renameNameToFullName: EntityEventMigration = {
+    fromVersion: 1,
+    toVersion: 2,
+    transform: (fields) => {
+      const { name, ...rest } = fields;
+      return name === undefined ? rest : { ...rest, fullName: name };
+    },
+  };
+  const piiNoteV2 = createEntity({
+    table: "read_pii_notes",
+    fields: {
+      ownerId: createTextField({ personal: "ref" }),
+      fullName: createTextField({
+        personal: { of: "ownerId", whenAbsent: "tenant" },
+        find: "none",
+      }),
+    },
+    eventVersion: 2,
+    eventMigrations: [renameNameToFullName],
+  });
+  const seenNamesTable = pgTable("read_pii_note_names", {
+    noteId: pgText("note_id").primaryKey(),
+    tenantId: pgText("tenant_id").notNull(),
+    fullName: pgText("full_name"),
+  });
+  const registryRenamed = createRegistry([
+    defineFeature("piiv2", (r) => {
+      r.entity("pii-note", piiNoteV2);
+      r.projection({
+        name: "note-names",
+        source: "pii-note",
+        table: seenNamesTable,
+        apply: {
+          "pii-note.created": async (
+            event: { aggregateId: string; tenantId: string; payload: unknown },
+            tx: unknown,
+          ) => {
+            const payload = event.payload as { fullName?: string };
+            await insertOne(tx as DbTx, seenNamesTable, {
+              noteId: event.aggregateId,
+              tenantId: event.tenantId,
+              fullName: payload.fullName ?? null,
+            });
+          },
+        },
+      });
+    }),
+  ]);
+
+  const kms = new InMemoryKmsAdapter();
+
+  beforeEach(async () => {
+    configurePiiSubjectKms(kms);
+    await unsafeCreateEntityTable(testDb.db, piiNoteV1, "pii-note");
+    await unsafePushTables(testDb.db, { seenNames: seenNamesTable });
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("rebuild with an active KMS", async () => {
+    const executor = createEventStoreExecutor(piiNoteTable, piiNoteV1, { entityName: "pii-note" });
+    const created = await executor.create({ name: "Erika Mustermann" }, admin, tdb);
+    expect(created.isSuccess).toBe(true);
+
+    await rebuildProjection("piiv2:projection:note-names", {
+      db: testDb.db,
+      registry: registryRenamed,
+    });
+
+    // The rebuild completes and the renamed key carries the unchanged ciphertext...
+    const [row] = await selectMany(testDb.db, seenNamesTable, {});
+    const stored = row?.fullName ?? "";
+    expect(stored.startsWith(PII_CIPHERTEXT_PREFIX)).toBe(true);
+    // ...which is still bound to the old field name: it decrypts as "name", not as "fullName".
+    const kmsContext = { requestId: "test" };
+    expect(await decryptPiiValueForSubject(kms, stored, kmsContext, "name")).toBe(
+      "Erika Mustermann",
+    );
+    await expect(decryptPiiValueForSubject(kms, stored, kmsContext, "fullName")).rejects.toThrow();
   });
 });

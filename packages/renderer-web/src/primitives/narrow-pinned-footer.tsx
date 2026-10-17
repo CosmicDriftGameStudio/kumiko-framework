@@ -13,9 +13,13 @@ import {
   isValidElement,
   type ReactElement,
   type ReactNode,
+  useCallback,
+  useEffect,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../lib/cn.js";
 import { Button as UiButton } from "../ui/button.js";
 
@@ -166,25 +170,71 @@ function useContainsEnabledAction(container: HTMLElement | null): boolean {
   return containsEnabledAction;
 }
 
+function createOverflowHolder(): HTMLDivElement {
+  const holder = document.createElement("div");
+  holder.style.display = "contents";
+  return holder;
+}
+
+// The overflow nodes are rendered once into a detached holder element that is moved into the
+// popover content while open and back into an always-mounted hidden host while closed. That keeps
+// dialogs owned by overflow actions mounted, without keeping the popover's DismissableLayer and
+// FocusScope (Escape handling, focus trap) alive while it is closed.
 function OverflowPopover({
   nodes,
+  holder,
   label,
   unsavedCount,
   testId,
   hasEnabledAction,
-  contentRef,
 }: {
   readonly nodes: readonly ReactNode[];
+  readonly holder: HTMLDivElement | null;
   readonly label: string;
   readonly unsavedCount: number | undefined;
   readonly testId: string | undefined;
   readonly hasEnabledAction: boolean;
-  readonly contentRef: (element: HTMLDivElement | null) => void;
 }): ReactNode {
   const [open, setOpen] = useState(false);
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const isDirty = unsavedCount !== undefined && unsavedCount > 0;
+  const setHost = useCallback(
+    (element: HTMLDivElement | null) => {
+      hostRef.current = element;
+      if (element !== null && holder !== null) element.appendChild(holder);
+    },
+    [holder],
+  );
+  // Radix recomposes its content ref now and then, calling this with null in between; reacting to
+  // that would move the holder out and drop the focus the popover just placed on its first action.
+  const setContent = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element !== null && holder !== null && holder.parentElement !== element) {
+        element.appendChild(holder);
+      }
+    },
+    [holder],
+  );
+  // Closes the popover once an action was picked. Native listener: the holder moves between DOM
+  // parents, and no React ancestor of its content is an interactive element to hang onClick on.
+  useEffect(() => {
+    if (holder === null) return;
+    const closeOnAction = (event: MouseEvent): void => {
+      if (event.target instanceof Element && event.target.closest("button") !== null) {
+        setOpen(false);
+      }
+    };
+    holder.addEventListener("click", closeOnAction);
+    return () => holder.removeEventListener("click", closeOnAction);
+  }, [holder]);
+  const popoverShown = open && hasEnabledAction;
+  useLayoutEffect(() => {
+    if (!popoverShown && holder !== null && hostRef.current !== null) {
+      hostRef.current.appendChild(holder);
+    }
+  }, [popoverShown, holder]);
   return (
-    <PopoverPrimitive.Root open={open && hasEnabledAction} onOpenChange={setOpen}>
+    <PopoverPrimitive.Root open={popoverShown} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger asChild>
         <UiButton
           type="button"
@@ -207,27 +257,20 @@ function OverflowPopover({
           )}
         </UiButton>
       </PopoverPrimitive.Trigger>
-      {/* A DropdownMenu can't host these nodes: they are arbitrary elements (footer slot,
-          action buttons owning dialogs). forceMount keeps those dialogs mounted while closed. */}
-      <PopoverPrimitive.Portal forceMount>
+      <div ref={setHost} className="hidden">
+        {holder !== null && createPortal(nodes, holder)}
+      </div>
+      <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
-          ref={contentRef}
-          forceMount
+          ref={setContent}
           side="top"
           align="center"
           sideOffset={8}
-          onClick={(event) => {
-            if (event.target instanceof Element && event.target.closest("button") !== null)
-              setOpen(false);
-          }}
           className={cn(
             "z-50 flex w-[calc(100vw-2rem)] flex-col gap-1 rounded-md border border-border bg-card p-1 shadow-md",
             "[&_button]:w-full [&_button]:justify-start [&_button]:text-left",
-            "data-[state=closed]:hidden",
           )}
-        >
-          {nodes}
-        </PopoverPrimitive.Content>
+        />
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>
   );
@@ -253,8 +296,10 @@ export function NarrowPinnedFooter({
 }): ReactNode {
   const { back, primary, overflow } = splitNarrowFooterNodes(nodes);
   const backElement = asFooterElement(back);
-  const [content, setContent] = useState<HTMLDivElement | null>(null);
-  const hasEnabledAction = useContainsEnabledAction(content);
+  const [holder] = useState<HTMLDivElement | null>(() =>
+    typeof document === "undefined" ? null : createOverflowHolder(),
+  );
+  const hasEnabledAction = useContainsEnabledAction(holder);
   const overflowTriggerVisible = overflow.length > 0 && hasEnabledAction;
   const isDirty = unsavedCount !== undefined && unsavedCount > 0;
   return (
@@ -272,11 +317,11 @@ export function NarrowPinnedFooter({
       {overflow.length > 0 && (
         <OverflowPopover
           nodes={overflow}
+          holder={holder}
           label={overflowLabel}
           unsavedCount={unsavedCount}
           testId={testId}
           hasEnabledAction={hasEnabledAction}
-          contentRef={setContent}
         />
       )}
       {primary !== undefined && (

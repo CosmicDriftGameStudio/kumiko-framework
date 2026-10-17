@@ -16,6 +16,7 @@ import {
   VersionConflictError as FrameworkVersionConflict,
   IdempotentReplayError,
   InternalError,
+  isSubjectErasedConflict,
   NotFoundError,
   PreconditionFailedError,
   RecordLockedError,
@@ -230,6 +231,57 @@ export function createWriteVerbs(
       };
     }
     return { row: row as DbRow };
+  }
+
+  // A forgotten subject has no key any more: restore re-encrypts the stored row and reports
+  // that as a failure result like any other write conflict instead of throwing.
+  async function appendRestoredEvent(
+    runner: ReturnType<typeof tenantDbWriteRunner>,
+    user: SessionUser,
+    id: EntityId,
+    previousPlain: DbRow,
+    streamTenantId: TenantId | undefined,
+    currentVersion: number,
+  ): Promise<
+    { readonly event: Awaited<ReturnType<typeof append>> } | { readonly failure: WriteFailure }
+  > {
+    try {
+      const previous = await encryptForStorage(previousPlain, user, {
+        keyTenantId: streamTenantId,
+      });
+      const event = await runInSavepointIfSupported(runner, (sp) =>
+        append(sp, {
+          aggregateId: String(id),
+          aggregateType: entityName,
+          tenantId: streamTenantFor(user, streamTenantId),
+          expectedVersion: currentVersion,
+          type: entityEventName(entityName, "restored"),
+          eventVersion,
+          payload: { previous },
+          metadata: buildEventMetadata(user),
+        }),
+      );
+      return { event };
+    } catch (e) {
+      if (isSubjectErasedConflict(e)) return { failure: writeFailure(e) };
+      if (e instanceof EventStoreVersionConflict) {
+        return {
+          failure: writeFailure(
+            new FrameworkVersionConflict({
+              entityId: id,
+              expectedVersion: currentVersion,
+              currentVersion: -1,
+            }),
+          ),
+        };
+      }
+      if (e instanceof EventStoreIdempotentAppendConflict) {
+        return {
+          failure: writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey })),
+        };
+      }
+      throw e;
+    }
   }
 
   async function expectedStreamVersion(
@@ -1042,38 +1094,16 @@ export function createWriteVerbs(
       // pii, and envelope encryption is not idempotent: decrypt, then
       // re-encrypt as delete does.
       const previousPlain = await decryptForRead(data);
-      const previousForStorage = await encryptForStorage(previousPlain, user, {
-        keyTenantId: streamTenantId,
-      });
-      let event: Awaited<ReturnType<typeof append>>;
-      try {
-        event = await runInSavepointIfSupported(runner, (sp) =>
-          append(sp, {
-            aggregateId: String(payload.id),
-            aggregateType: entityName,
-            tenantId: streamTenantFor(user, streamTenantId),
-            expectedVersion: currentVersion,
-            type: entityEventName(entityName, "restored"),
-            eventVersion,
-            payload: { previous: previousForStorage },
-            metadata: buildEventMetadata(user),
-          }),
-        );
-      } catch (e) {
-        if (e instanceof EventStoreVersionConflict) {
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: payload.id,
-              expectedVersion: currentVersion,
-              currentVersion: -1,
-            }),
-          );
-        }
-        if (e instanceof EventStoreIdempotentAppendConflict) {
-          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
-        }
-        throw e;
-      }
+      const appended = await appendRestoredEvent(
+        runner,
+        user,
+        payload.id,
+        previousPlain,
+        streamTenantId,
+        currentVersion,
+      );
+      if ("failure" in appended) return appended.failure;
+      const event = appended.event;
 
       // Live==Rebuild via applyEntityEvent. Restore only writes isDeleted=false
       // plus the version bump, so there is no sensitive-field drift and no

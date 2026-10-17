@@ -214,4 +214,39 @@ describe("orphan job schedulers", () => {
       await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
     }
   });
+
+  test("a failed initial stamp is repaired by the next refresh tick, which re-registers a scheduler removed meanwhile", async () => {
+    const prefix = uniquePrefix();
+    const feature = defineFeature("orphan", (r) => {
+      r.job("kept", { trigger: { cron: "0 0 1 1 *" } }, async () => {});
+    });
+    const keptId = schedulerIdForJobName("orphan:job:kept");
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context: {} as AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix: prefix,
+      schedulerSeenRefreshMs: 50,
+    });
+    const workerQueue = rawQueue(prefix, "worker");
+    const seenKey = workerQueue.toKey("kumiko-scheduler-seen");
+    try {
+      const client = await workerQueue.client;
+      // WRONGTYPE on the seen hash makes the initial stamp fail.
+      await client.set(seenKey, "not-a-hash");
+      await runner.start();
+
+      await client.del(seenKey);
+      await workerQueue.removeJobScheduler(keptId);
+
+      await waitFor(async () => (await schedulerKeys(workerQueue)).includes(keptId));
+      expect(await schedulerKeys(workerQueue)).toEqual([keptId]);
+    } finally {
+      await runner.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
+  });
 });
