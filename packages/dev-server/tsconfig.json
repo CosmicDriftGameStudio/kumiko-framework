@@ -10,7 +10,8 @@
   "references": [
     { "path": "../framework" },
     { "path": "../bundled-features" },
-    { "path": "../server-runtime" }
+    { "path": "../server-runtime" },
+    { "path": "../testing" }
   ],
   "include": ["./src"]
 }

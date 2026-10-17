@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { createTestUser } from "../../stack/index.js";
-import { rolesOf } from "../../testing/access-assertions.js";
+import { createTestUser } from "../../seeding/seed-users.js";
 import { hasAccess } from "../access.js";
 import { createSystemConfig, createTenantConfig, createUserConfig } from "../config-helpers.js";
 import { defineQueryHandler, defineWriteHandler } from "../define-handler.js";

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { taskFeature } from "../features/tasks";
 
 const TASK_CREATE = "tasks:write:task:create";

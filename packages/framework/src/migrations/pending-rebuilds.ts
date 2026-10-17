@@ -16,6 +16,7 @@ import { instant, table as pgTable, sql, text } from "../db/dialect.js";
 import { deleteMany, selectMany, upsertOnConflict } from "../db/query.js";
 import { readRebuildMarker } from "../db/rebuild-marker.js";
 import { tableExists } from "../db/schema-inspection.js";
+import { unsafePushTables } from "../db/table-push.js";
 import type { Registry } from "../engine/types/index.js";
 import type { JobRunner } from "../jobs/index.js";
 import type { Logger } from "../logging/types.js";
@@ -25,7 +26,6 @@ import {
   rebuildMultiStreamProjection,
   rebuildProjection,
 } from "../pipeline/index.js";
-import { unsafePushTables } from "../stack/index.js";
 import { buildProjectionTableIndex } from "./projection-table-index.js";
 
 export const pendingRebuildsTable = pgTable("kumiko_pending_rebuilds", {

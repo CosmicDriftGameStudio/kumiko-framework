@@ -53,15 +53,15 @@ import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled
 import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { deleteRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { deleteRows } from "@cosmicdrift/kumiko-framework/testing";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { buildComposeAuthOptions, composeFeatures } from "../compose-features.js";
 import type { RunProdAppAuthOptions } from "../run-prod-app.js";
 import { resolveAuthMail } from "../run-prod-app-boot-context.js";

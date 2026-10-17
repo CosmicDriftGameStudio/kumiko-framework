@@ -21,7 +21,8 @@
       "!**/__tests__/fixtures/migrate-db-raw",
       "!**/__tests__/fixtures/migrate-open-to-all",
       "!**/__tests__/fixtures/migrate-cross-tenant",
-      "!**/__tests__/fixtures/object-form"
+      "!**/__tests__/fixtures/object-form",
+      "!**/__tests__/fixtures/testing-move"
     ]
   },
   "assist": {

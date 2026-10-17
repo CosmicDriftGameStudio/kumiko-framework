@@ -11,7 +11,7 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { TEXT_BLOCK_KIND } from "../constants.js";
 import { createTemplateResolverFeature } from "../feature.js";
 import {

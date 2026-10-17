@@ -4,10 +4,11 @@
 // escape-hatch.integration.test.ts (fw#2855).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { executeRawQuery } from "../../db/queries/raw-sql.js";
 import { defineFeature } from "../../engine/index.js";
-import { createTestUser, setupTestStack, type TestStack } from "../../stack/index.js";
+import { createTestUser } from "../../seeding/seed-users.js";
 
 const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
   r.writeHandler({

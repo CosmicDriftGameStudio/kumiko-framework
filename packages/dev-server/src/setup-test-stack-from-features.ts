@@ -7,17 +7,17 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  setupTestStack,
-  type TestStack,
-  type TestStackOptions,
-} from "@cosmicdrift/kumiko-framework/stack";
 import { jobRunLoggerCallbacks } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
 import {
   type ComposeFeaturesOptions,
   composeFeatures,
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { addConfigAccessorFactory } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
+import {
+  setupTestStack,
+  type TestStack,
+  type TestStackOptions,
+} from "@cosmicdrift/kumiko-testing/stack";
 
 export type TestStackPreset = "config" | "template-resolver";
 

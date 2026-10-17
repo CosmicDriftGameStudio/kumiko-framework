@@ -2,6 +2,17 @@
 // not hold back delivery to the other consumers.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import { defineFeature } from "../../engine/index.js";
@@ -11,14 +22,7 @@ import {
   type EventDispatcher,
   getConsumerState,
 } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

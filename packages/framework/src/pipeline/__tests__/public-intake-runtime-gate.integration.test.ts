@@ -2,6 +2,12 @@
 // so the static boot check passes and only the runtime gate can stop the write.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import type { DbRunner } from "../../db/connection.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -18,13 +24,7 @@ import {
 } from "../../engine/index.js";
 import { SYSTEM_ROLE } from "../../engine/system-user.js";
 import type { TenantId } from "../../engine/types/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { seedRows } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const RATE_LIMIT = { per: "ip", limit: 1000, windowSeconds: 60 } as const;

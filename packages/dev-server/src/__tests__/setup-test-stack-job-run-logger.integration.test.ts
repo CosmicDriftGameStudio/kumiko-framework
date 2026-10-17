@@ -5,7 +5,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createJobsFeature, JobQueries } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestUser, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.js";
 

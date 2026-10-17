@@ -19,16 +19,16 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createDefaultCacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { createLateBoundHolder, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestRedis,
-  createTestUser,
   setupTestStack,
   type TestRedis,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder, seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { createFeatureTogglesFeature } from "../feature.js";

@@ -17,11 +17,8 @@ import {
   defineEntityDetailHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createTestUser,
-  pushEntityProjectionTables,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { pushEntityProjectionTables } from "@cosmicdrift/kumiko-testing/stack";
+import { createTestUser, testTenantId } from "../seeding/seed-users.js";
 
 const noteEntity = createEntity({
   table: "read_permalink_notes",

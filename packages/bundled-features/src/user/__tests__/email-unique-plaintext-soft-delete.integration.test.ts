@@ -13,14 +13,14 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
   createTestDb,
   type TestDb,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { userEntity, userTable } from "../schema/user.js";
 
 let testDb: TestDb;

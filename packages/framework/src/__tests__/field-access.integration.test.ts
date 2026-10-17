@@ -1,4 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  createTestDb,
+  createTestRedis,
+  type TestDb,
+  type TestRedis,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { buildServer } from "../api/server.js";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
@@ -11,15 +18,7 @@ import {
   defineFeature,
   type SessionUser,
 } from "../engine/index.js";
-import {
-  createTestDb,
-  createTestRedis,
-  createTestUser,
-  type TestDb,
-  type TestRedis,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
+import { createTestUser, TestUsers } from "../seeding/seed-users.js";
 
 // --- Entity with field-level access ---
 

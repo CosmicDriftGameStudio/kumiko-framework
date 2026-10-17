@@ -1,10 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   FeatureToggleHandlers,
   FeatureToggleQueries,

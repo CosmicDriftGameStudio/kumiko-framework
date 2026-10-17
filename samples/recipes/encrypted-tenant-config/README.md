@@ -63,7 +63,7 @@ custom boots pass their own cipher:
 
 ```ts illustration
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 
 const cipher = createTestEnvelopeCipher();
 const configResolver = createConfigResolver({ cipher });

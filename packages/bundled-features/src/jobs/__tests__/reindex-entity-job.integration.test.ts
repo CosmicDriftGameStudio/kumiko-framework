@@ -14,18 +14,19 @@ import {
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  bridgeStub,
   createEntity,
   createTextField,
   defineFeature,
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
+
 import { createJobsFeature } from "../feature.js";
 import { reindexEntityJob } from "../handlers/reindex-entity.job.js";
 

@@ -17,13 +17,12 @@ import {
   tagEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { noteEntity, noteFeature } from "../feature";
 import { type TagClient, tagFlow } from "../usage";
 

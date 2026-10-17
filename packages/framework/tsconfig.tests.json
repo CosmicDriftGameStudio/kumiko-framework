@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "./src",
+    "outDir": "./dist/tests-check"
+  },
+  "include": [
+    "./src/**/__tests__/**/*",
+    "./src/**/*.test.ts",
+    "./src/**/*.test.tsx",
+    "./src/stack/index.ts",
+    "./src/testing/index.ts",
+    "./src/testing/handler-context.ts",
+    "./src/testing/real-providers.ts",
+    "./src/testing/e2e-generator.ts"
+  ],
+  "exclude": [
+    "./src/__tests__/fixtures/migrate-db-raw",
+    "./src/__tests__/fixtures/migrate-open-to-all",
+    "./src/__tests__/fixtures/migrate-cross-tenant",
+    "./src/__tests__/fixtures/object-form",
+    "./src/__tests__/fixtures/testing-move"
+  ],
+  "references": [
+    { "path": "." },
+    { "path": "../types" },
+    { "path": "../http" },
+    { "path": "../testing" }
+  ]
+}

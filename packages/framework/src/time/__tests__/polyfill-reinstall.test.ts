@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { withoutAmbientTemporal } from "../../testing/without-ambient-temporal.js";
+import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { ensureTemporalPolyfill, getTemporal } from "../polyfill.js";
 
 describe("ensureTemporalPolyfill — re-install after teardown", () => {

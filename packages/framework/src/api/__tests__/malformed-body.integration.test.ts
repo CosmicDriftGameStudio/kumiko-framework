@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { Routes } from "../api-constants.js";
 
 const dispatchRoutes = [Routes.write, Routes.query, Routes.command, Routes.batch, Routes.stream];

@@ -15,13 +15,12 @@ import {
   formDraftFeature,
 } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { listingEntity, listingsFeature } from "../feature";
 
 let stack: TestStack;

@@ -17,14 +17,14 @@ import {
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   pushEntityProjectionTables,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { defineCreateWithTenantDefaults } from "../tenant-defaults.js";
 
 const invoiceEntity = createEntity({

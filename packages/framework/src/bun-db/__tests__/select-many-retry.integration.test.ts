@@ -3,8 +3,8 @@
 // closed-connection-retry.integration.test.ts.
 
 import { beforeAll, describe, expect, test } from "bun:test";
+import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
 import { buildEntityTable } from "../../db/table-builder.js";
-import { captureClosedConnectionError } from "../../testing/closed-connection-error.js";
 import { selectMany } from "../query.js";
 
 let closedConnectionError: unknown;

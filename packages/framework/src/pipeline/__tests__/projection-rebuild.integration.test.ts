@@ -11,6 +11,13 @@
 //   - never-rebuilt projection has sensible default state
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { DbConnection, DbTx } from "../../db/connection.js";
 import { integer, table as pgTable, uuid } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -34,14 +41,7 @@ import {
   listProjectionsWithState,
   rebuildProjection,
 } from "../../pipeline/index.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // --- Test fixtures ---
 

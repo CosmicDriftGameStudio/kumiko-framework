@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createChannelSlackFeature } from "../../channel-slack/feature.js";
 import { collectChannels, createDeliveryService } from "../delivery-service.js";
 import { deliveryAttemptsTable } from "../tables.js";

@@ -3,15 +3,14 @@
 // the projection insert/update. Modelled on event-store-system-stream.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { AccessDeniedError } from "../../errors/index.js";
 import {
   createTestDb,
   type TestDb,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { AccessDeniedError } from "../../errors/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb } from "../tenant-db.js";

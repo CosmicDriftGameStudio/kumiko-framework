@@ -72,7 +72,7 @@ const hooks = createLifecycleHooks({});`,
   test("permits an integration test that goes through setupTestStack", () => {
     const sf = parseSource(
       "/repo/packages/framework/src/feature.integration.test.ts",
-      `import { setupTestStack } from "@cosmicdrift/kumiko-framework/testing";
+      `import { setupTestStack } from "@cosmicdrift/kumiko-testing/helpers";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework";
 
 const stack = setupTestStack();
@@ -84,7 +84,7 @@ const dispatcher = createDispatcher({});`,
   test("recognises an aliased setupTestStack import as server entrypoint", () => {
     const sf = parseSource(
       "/repo/packages/framework/src/feature.integration.test.ts",
-      `import { setupTestStack as stack } from "@cosmicdrift/kumiko-framework/testing";
+      `import { setupTestStack as stack } from "@cosmicdrift/kumiko-testing/helpers";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework";
 
 const s = stack();

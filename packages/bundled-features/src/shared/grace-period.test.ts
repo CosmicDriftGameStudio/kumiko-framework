@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
+import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isWithinGracePeriod } from "./grace-period.js";
 

@@ -28,14 +28,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { signTenantHandoverGrant } from "../grant.js";
 import { createTenantHandoverFeature } from "../index.js";
 

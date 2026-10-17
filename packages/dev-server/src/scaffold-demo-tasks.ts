@@ -241,7 +241,7 @@ export function renderDemoSeedFile(): string {
   return `// Demo seed — a few tasks so \`bun dev\` shows a non-empty list.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
 const DEMO_TASKS = [
   { title: "Welcome to Kumiko", status: "todo", priority: 1, isUrgent: false },

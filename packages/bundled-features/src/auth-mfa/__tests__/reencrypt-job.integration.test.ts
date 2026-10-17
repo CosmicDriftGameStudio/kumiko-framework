@@ -21,14 +21,14 @@ import {
   createEnvelopeCipher,
   createEnvMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";

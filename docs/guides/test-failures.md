@@ -30,7 +30,7 @@ Bun tests and integration tests use `waitFor`. It tries first, so an
 already-true condition returns immediately, and retries with a backoff:
 
 ```ts illustration
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 
 await waitFor(() => {
   expect(events).toHaveLength(1);

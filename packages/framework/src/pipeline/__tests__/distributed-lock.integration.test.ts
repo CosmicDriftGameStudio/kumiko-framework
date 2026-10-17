@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { createDistributedLock } from "../distributed-lock.js";
 
 let testRedis: TestRedis;

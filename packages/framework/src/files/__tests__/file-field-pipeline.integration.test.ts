@@ -16,6 +16,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../../db/query.js";
 import {
   createEntity,
@@ -29,14 +38,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "../../engine/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 import { createFilesFeature } from "../feature.js";
 import { createLocalProvider } from "../local-provider.js";
 

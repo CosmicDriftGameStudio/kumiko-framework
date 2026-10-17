@@ -18,9 +18,9 @@ import {
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { resolveDeps } from "../dep-resolver";
 import { FEATURE_CONSTRUCTORS } from "../feature-constructors";
 import { runCreate } from "../index";

@@ -17,10 +17,6 @@ import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "
 // right after an async data-load settles — exactly the pattern that trips
 // the #457 shared single-process happy-dom event-delegation corruption once
 // enough prior DOM test files have mounted/unmounted in the same process.
-// Isolating just this describe block (not the whole 2600+ line parent file)
-// keeps the coverage/dom blast radius small while still using the codebase's
-// established remedy (bunfig.ci-dom.toml, pathIgnorePatterns in
-// bunfig.dom.toml) for that bug class.
 
 // Re-queries the button (not a held reference, which a re-render could have
 // detached) and confirms it is clickable first — a disabled native button

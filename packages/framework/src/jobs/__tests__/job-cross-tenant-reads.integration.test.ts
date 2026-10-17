@@ -1,18 +1,18 @@
 // JobContext.crossTenantReads: read-only, tenant-unfiltered, only with an unsafeRaw grant.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestRedis,
+  type TestRedis,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { table, text, uuid } from "../../db/dialect.js";
 import { insertOne } from "../../db/query.js";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
 import { createPrometheusMeter, registerStandardMetrics } from "../../observability/index.js";
-import {
-  createTestRedis,
-  type TestRedis,
-  testTenantId,
-  unsafePushTables,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import { createJobRunner, type JobRunner } from "../job-runner.js";
 
 const itemsTable = table("fw_cross_tenant_reads_items", {

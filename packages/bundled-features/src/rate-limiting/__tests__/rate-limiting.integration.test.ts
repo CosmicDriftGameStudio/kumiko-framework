@@ -7,12 +7,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createRateLimitingFeature } from "../feature.js";
 

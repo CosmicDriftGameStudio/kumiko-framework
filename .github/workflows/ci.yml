@@ -156,7 +156,7 @@ jobs:
           bun-version: "1.4.0"
 
       # real-providers-node-import.test.ts spawns node to prove the
-      # testing/real-providers subpath loads without Bun.
+      # helpers/real-providers subpath loads without Bun.
       - uses: actions/setup-node@v7
         with:
           node-version: "24.17.0"
@@ -225,16 +225,6 @@ jobs:
         with:
           name: coverage-dom
           path: coverage/dom/lcov.info
-          retention-days: 1
-
-      - name: Upload isolated dom coverage
-        # lcov of the per-file `test:dom:isolated` runs (bunfig.ci-dom.toml);
-        # their tests are excluded from the shared dom run above.
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-dom-isolated
-          path: coverage/dom-isolated
           retention-days: 1
 
   tz-matrix:
@@ -483,15 +473,8 @@ jobs:
           KUMIKO_INTEGRATION_COVERAGE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && '1' || '' }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration tests" -- bun run test:integration
 
-      # Split (#1940): rebuildProjection flakes under load in THIS job (bulk
-      # suite runs immediately above); stream-version/pipeline don't, so they stay hard-blocking here.
-      - name: Run integration perf gates (stream-version, pipeline — hard-blocking)
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration perf gates (stream-version, pipeline — hard-blocking)" -- bun run test:integration:perf:strict
-
-      # Advisory — must not redden the integration job.
-      - name: Run integration perf gates (rebuildProjection — advisory, flaky under load)
-        continue-on-error: true
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration perf gates (rebuildProjection — advisory, flaky under load)" -- bun run test:integration:perf:flaky
+      - name: Run integration perf gates (stream-version, pipeline, rebuildProjection)
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration perf gates (stream-version, pipeline, rebuildProjection)" -- bun run test:integration:perf:strict
 
       - name: Upload integration coverage
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
@@ -720,12 +703,6 @@ jobs:
         with:
           name: coverage-dom
           path: coverage/dom
-
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: coverage-dom-isolated
-          path: coverage/dom-isolated
 
       - name: Compute badge
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Compute badge" -- bun scripts/coverage-badge.ts

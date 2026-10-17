@@ -24,12 +24,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { getConsumerState } from "@cosmicdrift/kumiko-framework/pipeline";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   drainEventConsumers,
   setupTestStack,
   type TestStack,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { registerEventTrigger } from "../event-trigger.js";
 import { workflowRunnerFeature } from "../feature.js";

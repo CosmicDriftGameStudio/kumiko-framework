@@ -8,6 +8,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import {
   computeBlindIndex,
   configureBlindIndexKey,
   configuredBlindIndexKey,
@@ -27,7 +32,7 @@ import { createTenantDb } from "../db/tenant-db.js";
 import { createEntity, createTextField, defineFeature } from "../engine/index.js";
 import { createProjectionStateTable } from "../pipeline/index.js";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../stack/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../time/polyfill.js";
 
 const feature = defineFeature("kmsslotstest", () => {});

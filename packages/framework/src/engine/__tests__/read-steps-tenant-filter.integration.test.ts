@@ -8,11 +8,16 @@
 // escape-hatch-audit.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { table, text, uuid } from "../../db/dialect.js";
 import { insertOne } from "../../db/query.js";
 import { defineFeature, defineWriteHandler } from "../../engine/index.js";
-import { setupTestStack, type TestStack, TestUsers, unsafePushTables } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { stepsPipeline } from "../pipeline.js";
 import type { EscapeHatchUseEvent } from "../types/index.js";
 

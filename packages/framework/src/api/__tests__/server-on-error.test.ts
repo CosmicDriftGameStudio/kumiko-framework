@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { createRegistry } from "../../engine/index.js";
-import { TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/index.js";
 import { handleUncaughtRouteError } from "../routes.js";
 import { buildServer } from "../server.js";

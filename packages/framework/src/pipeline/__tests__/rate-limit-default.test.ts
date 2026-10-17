@@ -6,7 +6,7 @@ import type {
   RateLimitDecision,
   RateLimitResolver,
 } from "../../rate-limit/index.js";
-import { createTestUser, testTenantId } from "../../stack/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 import type { DispatchContext } from "../dispatch-shared.js";
 import { enforceRateLimit } from "../dispatch-shared.js";
 

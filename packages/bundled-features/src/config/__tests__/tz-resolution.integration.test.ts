@@ -6,13 +6,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
 import { createConfigResolver } from "../resolver.js";

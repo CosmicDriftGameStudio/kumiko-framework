@@ -18,14 +18,14 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "../db/queries/retention.js";
 import { fieldDefinitionEntity } from "../entity.js";

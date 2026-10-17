@@ -9,6 +9,7 @@
     "react": "^19.2.6"
   },
   "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*",
     "@types/react": "^19.2.14"
   }
 }

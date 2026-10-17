@@ -5,7 +5,12 @@
 // bleibt als Schnell-Pin bestehen).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
+import { updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { selectMany } from "../../bun-db/index.js";
 import {
@@ -14,13 +19,7 @@ import {
   defineEntityCreateHandler,
   defineFeature,
 } from "../../engine/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 import { buildEntityTable } from "../table-builder.js";
 
 const noteEntity = createEntity({

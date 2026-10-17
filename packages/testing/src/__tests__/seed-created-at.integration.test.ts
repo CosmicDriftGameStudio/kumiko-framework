@@ -28,7 +28,6 @@ import {
   eventConsumerStateTable,
   pruneEvents,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { drainEventConsumers } from "@cosmicdrift/kumiko-framework/stack";
 import { request as playwrightRequest } from "@playwright/test";
 import * as z from "zod";
 import { createHttpApi, loginViaApi } from "../e2e/auth-kit";
@@ -41,6 +40,7 @@ import {
 } from "../e2e/constants";
 import { seedTenantResponseSchema } from "../e2e/seed-contract";
 import { createE2eSeedRoutes, type E2eExtraSeeder } from "../e2e/seed-route";
+import { drainEventConsumers } from "../stack/index.js";
 
 const TOKEN = "seed-created-at-test-token";
 const DAY_MS = 24 * 60 * 60 * 1000;

@@ -8,20 +8,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { bridgeStub, type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigAccessorFactory } from "../../config/feature.js";
 import { createConfigFeature } from "../../config/index.js";

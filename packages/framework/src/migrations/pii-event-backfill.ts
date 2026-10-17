@@ -29,10 +29,10 @@ import {
 } from "../db/queries/pii-backfill-state.js";
 import { upsertOnConflict } from "../db/query.js";
 import { tableExists } from "../db/schema-inspection.js";
+import { unsafePushTables } from "../db/table-push.js";
 import type { Registry } from "../engine/types/index.js";
 import type { Logger } from "../logging/types.js";
 import { createFallbackLogger } from "../logging/utils.js";
-import { unsafePushTables } from "../stack/index.js";
 import {
   clearPendingRebuilds,
   createPendingRebuildsTable,

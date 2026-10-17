@@ -12,7 +12,7 @@
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
 import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { createFileDerivativesFeature } from "../feature.js";

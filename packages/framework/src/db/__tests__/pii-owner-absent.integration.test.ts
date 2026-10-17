@@ -5,7 +5,8 @@
 // for the raw-storage asserts.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
 import {
   configurePiiSubjectKms,
@@ -13,7 +14,7 @@ import {
 } from "../../crypto/pii-field-encryption.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId } from "../../utils/index.js";
 import { asRawClient } from "../query.js";
 

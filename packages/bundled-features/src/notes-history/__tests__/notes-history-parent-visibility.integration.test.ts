@@ -17,13 +17,12 @@ import {
   defineFeature,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { NotesHistoryHandlers } from "../constants.js";
 import { createNoteEntryEntity, noteMentionEntity } from "../entity.js";
 import { createNotesHistoryFeature } from "../feature.js";

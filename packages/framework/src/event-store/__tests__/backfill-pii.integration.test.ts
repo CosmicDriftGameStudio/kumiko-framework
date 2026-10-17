@@ -11,7 +11,12 @@ import { randomBytes } from "node:crypto";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import {
   configureBlindIndexKey,
@@ -35,7 +40,6 @@ import { defineFeature } from "../../engine/define-feature.js";
 import { createEntity, createFileField, createTextField } from "../../engine/factories.js";
 import { createRegistry } from "../../engine/registry.js";
 import type { Registry, TenantId } from "../../engine/types/index.js";
-import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack/index.js";
 import { generateId } from "../../utils/index.js";
 import { append, loadAggregate } from "../event-store.js";
 

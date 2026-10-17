@@ -5,17 +5,17 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
 import { asRawClient } from "../db/query.js";
 import { buildEntityTable } from "../db/table-builder.js";
 import { createEntity, createTextField, defineFeature, type TenantId } from "../engine/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack/index.js";
+import { TestUsers } from "../seeding/seed-users.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 

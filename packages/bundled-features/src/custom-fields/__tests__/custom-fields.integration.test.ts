@@ -26,12 +26,12 @@ import {
   createProjectionStateTable,
   rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { fieldDefinitionAggregateId } from "../aggregate-id.js";
 import { fieldDefinitionEntity } from "../entity.js";

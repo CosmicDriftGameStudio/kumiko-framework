@@ -2,9 +2,9 @@
 // Drives drain() directly — SIGTERM plumbing has its own unit test.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { sharedWidgetEntity } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { defineFeature } from "../../engine/index.js";
-import { setupTestStack, type TestStack } from "../../stack/index.js";
-import { sharedWidgetEntity } from "../../testing/index.js";
 import { createLifecycle, type Lifecycle } from "../lifecycle.js";
 
 const widgetFeature = defineFeature("lifecycle-probe", (r) => {

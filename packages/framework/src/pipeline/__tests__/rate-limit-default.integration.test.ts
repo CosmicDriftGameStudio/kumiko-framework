@@ -4,6 +4,7 @@
 // rate-limit/__tests__/dispatcher-l3.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createSystemUser, defineFeature } from "../../engine/index.js";
 import type {
@@ -11,7 +12,7 @@ import type {
   RateLimitDecision,
   RateLimitResolver,
 } from "../../rate-limit/index.js";
-import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 
 function fakeResolver(): {
   readonly resolver: RateLimitResolver;

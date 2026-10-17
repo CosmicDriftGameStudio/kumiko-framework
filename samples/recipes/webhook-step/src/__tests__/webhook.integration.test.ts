@@ -23,15 +23,14 @@ import {
   createEnvMasterKeyProvider,
   type MasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 
 import { incidentEntity, incidentTable, webhookDemoFeature } from "../feature";
 

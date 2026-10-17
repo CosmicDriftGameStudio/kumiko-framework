@@ -18,21 +18,19 @@ import {
   EXT_USER_DATA,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createTestUser,
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { configValueEntity } from "../../config/table.js";

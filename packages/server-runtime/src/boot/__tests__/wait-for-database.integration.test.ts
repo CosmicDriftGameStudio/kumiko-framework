@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { waitForDatabase } from "../wait-for-database";
 
 let testDb: TestDb;

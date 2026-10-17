@@ -3,7 +3,7 @@ import { asRawClient } from "../query.js";
 import { quoteTableIdent } from "./table-ops.js";
 
 // Re-exported for back-compat — the generic DDL helpers moved to ./ddl so
-// the prod-boot path (stack/table-helpers.ts, pipeline/event-consumer-state.ts)
+// the prod-boot path (db/table-push.ts, pipeline/event-consumer-state.ts)
 // doesn't import from a module named for test-only concerns.
 export { alterTableAddColumn, createIndexIfNotExists, executeDdlStatement } from "./ddl.js";
 

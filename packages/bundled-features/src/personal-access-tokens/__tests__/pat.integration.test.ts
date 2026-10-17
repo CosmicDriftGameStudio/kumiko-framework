@@ -10,20 +10,20 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
-import {
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
   deleteRows,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   updateRows,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";

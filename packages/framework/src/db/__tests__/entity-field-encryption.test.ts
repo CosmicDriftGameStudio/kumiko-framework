@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { createEntity, createTextField } from "../../engine/index.js";
 import type { Logger } from "../../logging/index.js";
-import { createTestEnvelopeCipher } from "../../testing/index.js";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,

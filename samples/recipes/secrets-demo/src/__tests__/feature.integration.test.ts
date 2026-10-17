@@ -27,17 +27,17 @@ import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createEnvMasterKeyProvider, createSecret } from "@cosmicdrift/kumiko-framework/secrets";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
   waitFor,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
 import { createBillingFeature, STRIPE_API_KEY } from "../feature";
 

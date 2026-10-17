@@ -1,4 +1,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { selectMany } from "../../db/query.js";
@@ -12,15 +18,7 @@ import {
 } from "../../engine/index.js";
 import { FrameworkReasons } from "../../errors/index.js";
 import { eventsTable } from "../../event-store/index.js";
-import {
-  createTestUser,
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.js";
 
 const noteEntity = createEntity({
   table: "read_fortenant_notes",

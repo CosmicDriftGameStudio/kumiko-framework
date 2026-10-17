@@ -139,14 +139,13 @@ import { USER_STATUS, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-
 import type { SendDeletionVerificationEmailFn } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { composeApexAccountApp } from "../feature";
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";

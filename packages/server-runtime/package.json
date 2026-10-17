@@ -94,6 +94,9 @@
     "ioredis": "^5.10.1",
     "temporal-polyfill": "^0.3.2"
   },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
     "access": "public",

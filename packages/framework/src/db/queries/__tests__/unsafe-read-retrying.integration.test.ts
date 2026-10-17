@@ -4,7 +4,7 @@
 // out of scope — unretried by design.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { captureClosedConnectionError } from "../../../testing/closed-connection-error.js";
+import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,

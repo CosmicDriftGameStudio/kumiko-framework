@@ -3,6 +3,8 @@
 // of failing with invalid uuid input (22P02).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { createTestDb, type TestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import {
   configurePiiSubjectKms,
@@ -14,8 +16,7 @@ import { createRegistry } from "../../engine/registry.js";
 import { append } from "../../event-store/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
 import { createProjectionStateTable } from "../../pipeline/projection-state.js";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
-import { resetPiiSubjectKmsForTests } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId } from "../../utils/index.js";
 import { selectMany } from "../query.js";

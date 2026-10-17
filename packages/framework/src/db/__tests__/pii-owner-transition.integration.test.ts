@@ -6,7 +6,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import {
   createTestEnvelopeCipher,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
 import { subjectIdToKey } from "../../crypto/kms-adapter.js";
 import {
@@ -18,7 +19,7 @@ import {
 } from "../../crypto/pii-field-encryption.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId } from "../../utils/index.js";
 import {
   configureEntityFieldEncryption,

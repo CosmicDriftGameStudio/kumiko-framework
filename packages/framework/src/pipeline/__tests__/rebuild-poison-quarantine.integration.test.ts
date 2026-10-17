@@ -15,6 +15,12 @@
 //   - SQL error (aborts the tx → proves the savepoint is load-bearing)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -32,13 +38,7 @@ import {
   rebuildMultiStreamProjection,
   rebuildProjection,
 } from "../../pipeline/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // --- Fixtures ---
 

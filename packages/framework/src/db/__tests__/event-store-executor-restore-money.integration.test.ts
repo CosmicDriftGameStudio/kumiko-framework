@@ -3,15 +3,15 @@
 // delete() builds `previous` from the rehydrated domain form; restore must match.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import * as z from "zod";
-import { createEntity, createMoneyField, defineFeature } from "../../engine/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
+import { createEntity, createMoneyField, defineFeature } from "../../engine/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";
 

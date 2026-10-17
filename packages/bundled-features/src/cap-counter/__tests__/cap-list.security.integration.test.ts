@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { CAP_COUNTER_LIST_SCREEN_ID, CapCounterHandlers, CapCounterQueries } from "../constants.js";
 import { capCounterEntity } from "../entity.js";
 import { capCounterFeature } from "../feature.js";

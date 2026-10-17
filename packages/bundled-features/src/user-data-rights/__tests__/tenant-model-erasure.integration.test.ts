@@ -21,6 +21,7 @@ import {
   entityEventName,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  bridgeStub,
   createEntity,
   createSystemUser,
   createTextField,
@@ -37,8 +38,8 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
+
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { buildEnvConfigOverrides, createConfigResolver } from "../../config/resolver.js";

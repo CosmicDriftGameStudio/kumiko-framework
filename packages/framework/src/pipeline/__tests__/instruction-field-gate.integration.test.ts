@@ -5,6 +5,12 @@
 // setupTestStack — never createTestDispatcher. See kumiko-framework#3358.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { buildEntityTable } from "../../db/table-builder.js";
@@ -19,13 +25,7 @@ import {
 } from "../../engine/index.js";
 import type { Registry } from "../../engine/types/index.js";
 import { resolveAgentExposure } from "../../engine/types/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const admin = TestUsers.admin;
 

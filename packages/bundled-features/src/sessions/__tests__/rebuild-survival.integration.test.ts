@@ -7,13 +7,13 @@ import {
   createProjectionStateTable,
   rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRow, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createUserFeature } from "../../user/feature.js";
 import { createSessionsFeature } from "../feature.js";

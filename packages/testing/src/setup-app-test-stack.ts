@@ -3,7 +3,7 @@ import {
   setupTestStackFromFeatures,
 } from "@cosmicdrift/kumiko-dev-server/setup-test-stack-from-features";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { pushEntityProjectionTables, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { pushEntityProjectionTables, type TestStack } from "./stack/index.js";
 
 export type SetupAppTestStackOptions = SetupTestStackFromFeaturesOptions & {
   readonly registryTables?: boolean;

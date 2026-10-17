@@ -17,6 +17,13 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import type { DbConnection, DbTx } from "../../db/connection.js";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
@@ -29,14 +36,7 @@ import {
   getConsumerState,
   rebuildMultiStreamProjection,
 } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---

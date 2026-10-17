@@ -5,12 +5,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../compliance-profiles/feature.js";
 import {
   tenantComplianceProfileEntity,

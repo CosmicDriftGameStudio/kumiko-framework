@@ -35,12 +35,12 @@ import {
   createEnvMasterKeyProvider,
   type EnvelopeCipher,
 } from "@cosmicdrift/kumiko-framework/secrets";
+import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../feature.js";
 import { reencryptJob } from "../handlers/reencrypt.job.js";
 import { createConfigResolver } from "../resolver.js";

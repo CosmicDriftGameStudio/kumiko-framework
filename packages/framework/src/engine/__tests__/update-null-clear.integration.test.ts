@@ -1,13 +1,13 @@
 // Update payloads and preSave hook output may clear an optional stored field
 // with `null`; a required field must keep rejecting it.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query.js";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { asRawClient } from "../../db/query.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import {
   createBooleanField,

@@ -17,7 +17,7 @@ type MintGate =
 
 const JWT_SIGN_FILES: Record<string, string> = {
   [AUTH_ROUTES_FILE]: "mintSessionAndRespond is the single production mint point",
-  "framework/src/stack/request-helper.ts": "test helper signs fixture sessions",
+  "testing/src/stack/request-helper.ts": "test helper signs fixture sessions",
   "dev-server/src/create-kumiko-server.ts":
     "dev server without auth config auto-signs the dev user",
 };

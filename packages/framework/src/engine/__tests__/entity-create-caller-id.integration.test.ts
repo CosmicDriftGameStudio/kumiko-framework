@@ -5,9 +5,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { TestUsers } from "../../seeding/seed-users.js";
 import {
   createEntity,
   createSystemUser,

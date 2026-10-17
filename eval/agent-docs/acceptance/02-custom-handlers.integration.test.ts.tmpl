@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
 import { tasksFeature } from "../features/tasks";
 

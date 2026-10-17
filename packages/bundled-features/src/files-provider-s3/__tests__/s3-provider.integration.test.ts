@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
-import { describeFileProviderContract } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { describeFileProviderContract } from "@cosmicdrift/kumiko-testing/helpers";
 import { createS3ProviderFromEnv } from "../env-helper.js";
 import { createS3Provider } from "../s3-provider.js";
 

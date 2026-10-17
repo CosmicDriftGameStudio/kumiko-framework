@@ -19,7 +19,7 @@ import {
   createTestDb,
   type TestDb,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { backfillUserStreamTenants } from "../db/queries/stream-tenant-backfill.js";
 import { userEntity, userTable } from "../schema/user.js";
 

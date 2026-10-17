@@ -4,6 +4,11 @@
 // rationale as derivatives-context.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { asRawClient } from "../../bun-db/index.js";
 import {
@@ -14,8 +19,7 @@ import {
 } from "../../engine/index.js";
 import { createFilesFeature } from "../../files/feature.js";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
-import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 
 const VARIANT_BYTES = new Uint8Array([9, 9, 9]);
 

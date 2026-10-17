@@ -7,11 +7,15 @@
 // column, otherwise → `double precision` (fractional values round-trip).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createNumberField } from "../../engine/index.js";
-import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack/index.js";
 
 const statsEntity = createEntity({
   table: "nff_stats",

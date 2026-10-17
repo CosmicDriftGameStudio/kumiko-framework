@@ -5,13 +5,13 @@
 // Follows tenant-db-where-merge.integration.test.ts's setupTestStack pattern.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { AccessDeniedError } from "../../errors/index.js";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { AccessDeniedError } from "../../errors/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import type { TableColumns } from "../dialect.js";
 import { defineUnmanagedTable } from "../entity-table-meta.js";
 import { insertOne } from "../query.js";

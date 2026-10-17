@@ -87,10 +87,17 @@
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-locale-es": "workspace:*",
         "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@testing-library/user-event": "^14.6.1",
         "jsqr": "^1.4.0",
         "unpdf": "^1.8.1",
       },
+      "peerDependencies": {
+        "@cosmicdrift/kumiko-testing": ">=0.366.0 <1.0.0",
+      },
+      "optionalPeers": [
+        "@cosmicdrift/kumiko-testing",
+      ],
     },
     "packages/cli": {
       "name": "@cosmicdrift/kumiko-cli",
@@ -158,6 +165,7 @@
         "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
         "bun-types": "^1.3.13",
         "ts-morph": "^28.0.0",
@@ -214,9 +222,16 @@
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "bun-types": "^1.3.13",
         "pino-pretty": "^13.1.3",
       },
+      "peerDependencies": {
+        "@cosmicdrift/kumiko-testing": ">=0.366.0 <1.0.0",
+      },
+      "optionalPeers": [
+        "@cosmicdrift/kumiko-testing",
+      ],
     },
     "packages/guards": {
       "name": "@cosmicdrift/kumiko-guards",
@@ -306,6 +321,9 @@
         "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "packages/renderer-web": {
       "name": "@cosmicdrift/kumiko-renderer-web",
@@ -383,6 +401,9 @@
         "ioredis": "^5.10.1",
         "temporal-polyfill": "^0.3.2",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "packages/testing": {
       "name": "@cosmicdrift/kumiko-testing",
@@ -391,25 +412,30 @@
         "kumiko-testing": "./bin/kumiko-testing.ts",
       },
       "dependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-        "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@happy-dom/global-registrator": "^20.11.2",
         "@playwright/test": "^1.62.1",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.2",
+        "ts-morph": "^28.0.0",
       },
       "peerDependencies": {
+        "@cosmicdrift/kumiko-bundled-features": ">=0.366.0 <1.0.0",
+        "@cosmicdrift/kumiko-dev-server": ">=0.366.0 <1.0.0",
         "@happy-dom/global-registrator": "^20.11.2",
         "@playwright/test": "^1.62.1",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.2",
       },
       "optionalPeers": [
+        "@cosmicdrift/kumiko-bundled-features",
+        "@cosmicdrift/kumiko-dev-server",
         "@happy-dom/global-registrator",
         "@playwright/test",
         "@testing-library/dom",
@@ -462,6 +488,9 @@
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "zod": "^4.4.3",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/apps/config-demo": {
       "name": "@cosmicdrift/kumiko-sample-config-demo",
@@ -505,6 +534,9 @@
         "lucide-react": "^1.14.0",
         "react": "^19.2.6",
         "react-dom": "^19.2.6",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/apps/styleguide": {
@@ -563,6 +595,9 @@
         "react-dom": "^19.2.6",
         "zod": "^4.4.3",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/apps/user-data-rights-demo": {
       "name": "@cosmicdrift/kumiko-sample-user-data-rights-demo",
@@ -572,6 +607,9 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/apps/workspaces": {
@@ -586,11 +624,17 @@
         "react": "^19.2.6",
         "react-dom": "^19.2.6",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/access-control": {
       "name": "@cosmicdrift/kumiko-sample-access-control",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/anonymous-access": {
@@ -598,11 +642,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/anonymous-access-multitenant": {
       "name": "@cosmicdrift/kumiko-sample-anonymous-access-multitenant",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/apex-landing": {
@@ -612,6 +662,7 @@
         "@cosmicdrift/kumiko-headless": "workspace:*",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@playwright/test": "^1.62.1",
       },
     },
@@ -621,6 +672,9 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/api-worker-split": {
       "name": "@cosmicdrift/kumiko-sample-api-worker-split",
@@ -629,11 +683,17 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/auth-claims": {
       "name": "@cosmicdrift/kumiko-sample-auth-claims",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/auth-foundation-providers": {
@@ -649,11 +709,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/basic-entity": {
       "name": "@cosmicdrift/kumiko-sample-basic-entity",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/boot-check": {
@@ -668,12 +734,18 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/compliance-profiles-demo": {
       "name": "@cosmicdrift/kumiko-sample-compliance-profiles-demo",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/cross-feature-events": {
@@ -682,11 +754,17 @@
         "@app/define": "file:./.kumiko",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/crypto-shredding-hr": {
       "name": "@cosmicdrift/kumiko-sample-crypto-shredding-hr",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/currencies-global": {
@@ -694,11 +772,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/currencies-per-tenant": {
       "name": "@cosmicdrift/kumiko-sample-currencies-per-tenant",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/custom-fields-basic": {
@@ -707,17 +791,26 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/custom-handlers": {
       "name": "@cosmicdrift/kumiko-sample-custom-handlers",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/dashboard-stats": {
       "name": "@cosmicdrift/kumiko-sample-dashboard-stats",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/delivery-notifications": {
@@ -726,6 +819,9 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/designer-demo": {
@@ -739,11 +835,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/embedded": {
       "name": "@cosmicdrift/kumiko-sample-embedded",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/embedded-entity-form": {
@@ -755,6 +857,7 @@
         "react": "^19.2.6",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@types/react": "^19.2.14",
       },
     },
@@ -764,11 +867,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/error-contract": {
       "name": "@cosmicdrift/kumiko-sample-error-contract",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/event-sourcing": {
@@ -777,6 +886,9 @@
         "@app/define": "file:./.kumiko",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/feature-toggles": {
       "name": "@cosmicdrift/kumiko-sample-feature-toggles",
@@ -784,11 +896,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/field-access": {
       "name": "@cosmicdrift/kumiko-sample-field-access",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/files-post-processing": {
@@ -798,6 +916,7 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "sharp": "^0.35.5",
       },
     },
@@ -812,6 +931,9 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/inbound-mail-triage": {
       "name": "@cosmicdrift/kumiko-sample-inbound-mail-triage",
@@ -819,11 +941,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/lane-routing": {
       "name": "@cosmicdrift/kumiko-sample-lane-routing",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/ledger-banking": {
@@ -832,12 +960,18 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/ledger-invoicing": {
       "name": "@cosmicdrift/kumiko-sample-ledger-invoicing",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/legal-pages": {
@@ -846,11 +980,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/lifecycle-hooks": {
       "name": "@cosmicdrift/kumiko-sample-lifecycle-hooks",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/managed-config": {
@@ -859,12 +999,18 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/managed-pages": {
       "name": "@cosmicdrift/kumiko-sample-managed-pages",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/notes-history-basic": {
@@ -873,11 +1019,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/ownership": {
       "name": "@cosmicdrift/kumiko-sample-ownership",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/pdf-audit-export": {
@@ -887,6 +1039,7 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "unpdf": "^1.8.1",
       },
     },
@@ -895,11 +1048,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/public-share-token": {
       "name": "@cosmicdrift/kumiko-sample-public-share-token",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/rate-limiting": {
@@ -907,11 +1066,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/realtime-sse": {
       "name": "@cosmicdrift/kumiko-sample-realtime-sse",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/record-detail-layout": {
@@ -924,6 +1089,7 @@
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@playwright/test": "^1.62.1",
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.14",
@@ -935,11 +1101,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/relations": {
       "name": "@cosmicdrift/kumiko-sample-relations",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/screens-nav": {
@@ -947,11 +1119,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/search": {
       "name": "@cosmicdrift/kumiko-sample-search",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/secrets-demo": {
@@ -959,6 +1137,9 @@
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/security-baseline": {
@@ -982,12 +1163,18 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/state-machine": {
       "name": "@cosmicdrift/kumiko-sample-state-machine",
       "dependencies": {
         "@app/define": "file:./.kumiko",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/tags-basic": {
@@ -996,11 +1183,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/tenant-isolation": {
       "name": "@cosmicdrift/kumiko-sample-tenant-isolation",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/tenant-settings": {
@@ -1009,6 +1202,9 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/tier-admin": {
       "name": "@cosmicdrift/kumiko-sample-tier-admin",
@@ -1016,11 +1212,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/timezones": {
       "name": "@cosmicdrift/kumiko-sample-timezones",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/user-data-rights": {
@@ -1029,6 +1231,9 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/user-profile": {
       "name": "@cosmicdrift/kumiko-sample-user-profile",
@@ -1036,12 +1241,18 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/webhook-step": {
       "name": "@cosmicdrift/kumiko-sample-webhook-step",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/wizard-form": {
@@ -1055,6 +1266,7 @@
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@playwright/test": "^1.62.1",
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.14",
@@ -1063,6 +1275,9 @@
     },
     "samples/recipes/workflow-engine": {
       "name": "@samples/workflow-engine",
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/recipes/writeform-section": {
       "name": "@cosmicdrift/kumiko-sample-writeform-section",
@@ -1074,6 +1289,7 @@
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@playwright/test": "^1.62.1",
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.14",

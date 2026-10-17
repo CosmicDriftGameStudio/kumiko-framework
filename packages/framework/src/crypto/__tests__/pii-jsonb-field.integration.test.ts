@@ -4,7 +4,8 @@
 // Real HTTP + setupTestStack; the DB is only read for the raw-storage asserts.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../../db/query.js";
 import {
   createEntity,
@@ -13,7 +14,7 @@ import {
   defineFeature,
 } from "../../engine/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
 import {
   configurePiiSubjectKms,

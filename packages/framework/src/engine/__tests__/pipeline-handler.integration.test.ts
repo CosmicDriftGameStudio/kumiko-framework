@@ -44,19 +44,19 @@
 // surface against an empty ctx mock; this file is the real-stack gate.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { table, text, timestamp, uuid } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { eventsTable } from "../../event-store/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { defineFeature } from "../define-feature.js";
 import { defineWriteHandler } from "../define-handler.js";
 import { createEntity, createTextField } from "../factories.js";

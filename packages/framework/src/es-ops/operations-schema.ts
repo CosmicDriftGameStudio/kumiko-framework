@@ -13,7 +13,7 @@
 import { index, integer, table as pgTable, sql, text, timestamp } from "../db/dialect.js";
 // sql now comes from native dialect
 import { type DbConnection, tableExists } from "../db/index.js";
-import { unsafePushTables } from "../stack/index.js";
+import { unsafePushTables } from "../db/table-push.js";
 
 export type EsOperationType = "seed-migration";
 // Phase 2+ extensions — append here when implemented:

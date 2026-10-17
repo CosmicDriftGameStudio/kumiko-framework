@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { UncheckedSystemDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { AccessDeniedError } from "../../errors/index.js";
-import { testTenantId } from "../../stack/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import type { DbRunner } from "../connection.js";
 import {
   createTenantDb,

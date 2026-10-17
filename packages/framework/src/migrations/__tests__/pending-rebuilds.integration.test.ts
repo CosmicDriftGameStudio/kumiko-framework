@@ -6,6 +6,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { integer, table as pgTable, text, uuid } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../../db/query.js";
@@ -26,13 +32,7 @@ import {
   createProjectionStateTable,
   getConsumerState,
 } from "../../pipeline/index.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import {
   clearPendingRebuilds,
   enqueueProjectionRebuild,

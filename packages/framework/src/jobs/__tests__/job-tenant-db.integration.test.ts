@@ -1,5 +1,11 @@
 // fw#2914 — JobContext.db is a tenant-filtered TenantDb; unfiltered access needs r.job({ escapeHatch }).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestRedis,
+  type TestRedis,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import type { DbRunner } from "../../db/connection.js";
 import { table, text, uuid } from "../../db/dialect.js";
@@ -7,13 +13,7 @@ import { insertOne, selectMany } from "../../db/query.js";
 import { createRegistry, defineFeature, type Registry } from "../../engine/index.js";
 import type { EscapeHatchUseEvent, JobContext } from "../../engine/types/index.js";
 import { AccessDeniedError } from "../../errors/index.js";
-import {
-  createTestRedis,
-  type TestRedis,
-  testTenantId,
-  unsafePushTables,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { testTenantId } from "../../seeding/seed-users.js";
 import { createJobRunner, type JobRunner } from "../job-runner.js";
 
 const itemsTable = table("fw2914_job_items", {

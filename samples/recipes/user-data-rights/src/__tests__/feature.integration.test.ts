@@ -36,13 +36,13 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { noteEntity, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;

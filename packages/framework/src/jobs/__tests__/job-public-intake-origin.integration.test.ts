@@ -1,6 +1,12 @@
 // Every job here is retries:0 so a gated failure surfaces on the first attempt.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
@@ -12,13 +18,7 @@ import { createEntity, createTextField, defineFeature } from "../../engine/index
 import { SYSTEM_ROLE } from "../../engine/system-user.js";
 import type { TenantId } from "../../engine/types/index.js";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // #983: ctx.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
 // manual dispatch from a handler/job is a dynamic context extension, same

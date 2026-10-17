@@ -8,16 +8,20 @@
 // if LISTEN is dead the timer cannot rescue the assertion.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
+import {
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // --- Fixture ---
 

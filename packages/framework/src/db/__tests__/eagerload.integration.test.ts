@@ -4,6 +4,16 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+  seedRows,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import {
   configurePiiSubjectKms,
   encryptPiiFieldValues,
   InMemoryKmsAdapter,
@@ -11,18 +21,7 @@ import {
 } from "../../crypto/index.js";
 import { createEntity, createTextField, from } from "../../engine/index.js";
 import type { EntityDefinition } from "../../engine/types/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import {
-  createTestEnvelopeCipher,
-  resetPiiSubjectKmsForTests,
-  seedRows,
-} from "../../testing/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 import {
   collectReferenceFields,
   type EagerLoadViewer,

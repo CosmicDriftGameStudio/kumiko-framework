@@ -24,7 +24,7 @@ import {
   uuid,
 } from "../db/dialect.js";
 import { tableExists } from "../db/schema-inspection.js";
-import { unsafePushTables } from "../stack/index.js";
+import { unsafePushTables } from "../db/table-push.js";
 import type { StoredEvent } from "./event-store.js";
 
 export const upcasterDeadLetterTable = pgTable(

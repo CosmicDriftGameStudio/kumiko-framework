@@ -1,5 +1,5 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { E2E_TIMEOUT_MS } from "./e2e/timeouts";
+import { E2E_TIMEOUT_MS } from "./e2e-timeouts";
 
 export const TEST_TIMEOUT_MS = {
   unit: 5000,

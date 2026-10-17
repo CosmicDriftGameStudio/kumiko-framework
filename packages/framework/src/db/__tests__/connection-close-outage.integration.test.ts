@@ -9,8 +9,8 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import net from "node:net";
-import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
-import { waitFor } from "../../testing/index.js";
+import { testDatabaseUrl, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+
 import { createDbConnection } from "../connection.js";
 
 function startBlackholeProxy(dbUrl: URL): {

@@ -30,13 +30,13 @@ import {
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { TierMap } from "../compose-app.js";
 import { tierAssignmentEntity } from "../entity.js";
 import { createTierEngineFeature } from "../feature.js";

@@ -27,17 +27,7 @@ import {
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import {
-  buildMultipartBody,
-  patchFileInstanceofForBunTest,
-} from "@cosmicdrift/kumiko-framework/testing";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   computeEditViewModel,
@@ -45,6 +35,15 @@ import {
   type EditViewModel,
 } from "@cosmicdrift/kumiko-headless";
 import { buildFileUploadFormData } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import * as z from "zod";
 import { createConfigFeature } from "../../config/index.js";

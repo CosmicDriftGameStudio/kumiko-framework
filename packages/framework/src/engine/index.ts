@@ -27,6 +27,7 @@ export {
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "./boot-validator.js";
+export { bridgeStub } from "./bridge-stub.js";
 export { type BuildAppSchemaOptions, buildAppSchema } from "./build-app-schema.js";
 export type { ConfigFeatureSchema } from "./build-config-feature-schema.js";
 export {

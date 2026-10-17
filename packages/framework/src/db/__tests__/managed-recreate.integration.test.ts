@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createTestDb, type TestDb } from "../../stack/index.js";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { ColumnMeta, EntityTableMeta } from "../entity-table-meta.js";
 import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator.js";
 import { MIGRATION_ADVISORY_LOCK_KEY, runMigrationsFromDir } from "../migrate-runner.js";

@@ -2,10 +2,10 @@
 // plus the Bun.SQL matcher and both drivers' extractPgError — see query.ts.
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { testDatabaseUrl, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import postgres from "postgres";
 import { constraintOf, extractPgError, isUniqueViolation } from "../../db/pg-error.js";
-import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
-import { waitFor } from "../../testing/wait-for.js";
+
 import {
   describeClosedConnectionFailure,
   isClosedConnectionError,

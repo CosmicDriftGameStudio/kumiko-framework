@@ -11,17 +11,16 @@
 // one option, no handler-name collisions to work around.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
 import { selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { eventsTable } from "../../event-store/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import {
   createEntity,
   createTextField,

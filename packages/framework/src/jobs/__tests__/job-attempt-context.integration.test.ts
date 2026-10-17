@@ -1,18 +1,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestRedis,
+  setupTestStack,
+  type TestRedis,
+  type TestStack,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import { createDistributedLock } from "../../pipeline/distributed-lock.js";
 import { RedisKeys } from "../../pipeline/redis-keys.js";
-import {
-  createTestRedis,
-  setupTestStack,
-  type TestRedis,
-  type TestStack,
-  TestUsers,
-} from "../../stack/index.js";
-import { waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createJobRunner } from "../job-runner.js";
 
 const retryRuns: [number, boolean][] = [];

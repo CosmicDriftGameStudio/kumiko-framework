@@ -5,11 +5,12 @@
 // response body, and server code (the executor) must still see it.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const admin = TestUsers.admin;
 const PLAINTEXT = "sk-live-super-secret-0001";

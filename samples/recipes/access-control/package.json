@@ -4,5 +4,8 @@
   "private": true,
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
   }
 }

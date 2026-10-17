@@ -24,8 +24,8 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { getSetCookieValue } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import {
   type CreateKumikoServerOptions,

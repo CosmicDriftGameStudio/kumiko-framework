@@ -228,7 +228,7 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { LEGAL_ROUTES, legalPagesFeature, templateResolverFeature } from "../feature";
 
 let stack: TestStack;

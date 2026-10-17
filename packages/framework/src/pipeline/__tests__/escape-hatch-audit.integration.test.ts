@@ -4,6 +4,7 @@
 // system-identity-switch.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
 import { executeRawQuery } from "../../db/queries/raw-sql.js";
@@ -11,7 +12,7 @@ import { createSystemUser, defineFeature } from "../../engine/index.js";
 import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
 import type { Logger } from "../../logging/types.js";
 import { ESCAPE_HATCH_USED_SIGNAL } from "../../observability/escape-hatch-report.js";
-import { createTestUser, setupTestStack, type TestStack } from "../../stack/index.js";
+import { createTestUser } from "../../seeding/seed-users.js";
 
 const globalStoreTable = defineUnmanagedTable({
   tableName: "store_fw2861_escape_hatch_audit_items",

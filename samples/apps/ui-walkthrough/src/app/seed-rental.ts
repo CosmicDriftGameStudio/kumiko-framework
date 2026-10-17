@@ -3,7 +3,7 @@
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { countRowsForTenant } from "../db/queries/row-counts";
 import { leaseExecutor, partyExecutor, positionExecutor } from "../features/rental/lease-support";
 

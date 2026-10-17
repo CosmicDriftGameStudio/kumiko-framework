@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
-import { waitFor } from "../../testing/wait-for.js";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { generateId } from "../../utils/index.js";
 import {
   createDefaultSseBroker,

@@ -1,12 +1,12 @@
 // extraContext.clock reaches ctx.tz in handlers (over HTTP) and in jobs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createManualClock } from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
-import { setupTestStack, type TestStack } from "../../stack/test-stack.js";
-import { TestUsers } from "../../stack/test-users.js";
-import { createManualClock } from "../../testing/manual-clock.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const clock = createManualClock(Temporal.Instant.from("2031-02-03T04:05:06Z"));
 const jobSeenNow: string[] = [];

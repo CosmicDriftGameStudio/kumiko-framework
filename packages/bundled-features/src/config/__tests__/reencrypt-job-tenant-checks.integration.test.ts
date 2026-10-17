@@ -29,13 +29,13 @@ import {
   createEnvelopeCipher,
   createEnvMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../feature.js";
 import { reencryptJob } from "../handlers/reencrypt.job.js";
 import { createConfigResolver } from "../resolver.js";

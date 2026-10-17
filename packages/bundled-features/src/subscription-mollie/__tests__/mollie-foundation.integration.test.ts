@@ -26,13 +26,12 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,

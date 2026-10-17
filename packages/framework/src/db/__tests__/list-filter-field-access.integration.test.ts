@@ -8,16 +8,16 @@
 // to the default id-ASC order.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../../db/query.js";
 import { defineFeature } from "../../engine/define-feature.js";
 import { createEntity, createTextField } from "../../engine/factories.js";
 import { from } from "../../engine/ownership.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 const filterNoteEntity = createEntity({
   table: "fa_filter_notes",

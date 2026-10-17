@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Glob } from "bun";
 import { Project } from "ts-morph";
+import * as z from "zod";
 
 // `*ForTests` helpers reach into module-private state — resetPiiSubjectKmsForTests()
 // clears the injected KMS, after which encryptForStorage sees no adapter and writes
@@ -13,10 +14,13 @@ import { Project } from "ts-morph";
 // A runtime NODE_ENV check would be the test hook in production code that this repo's
 // convention rules out, and it would fire on call instead of on import. The export
 // path is the mechanism, so the export path is what gets guarded.
+//
+// A package whose kumiko.runtime is "test" (kumiko-testing) is a pure test package:
+// every one of its subpaths is test-only, so it may re-export the helpers.
 
 const REPO = join(import.meta.dir, "..");
 const TEST_ONLY_SUFFIX = /ForTests$/;
-const TEST_ONLY_SUBPATH = /\/(testing|stack)$/;
+const TEST_ONLY_SUBPATH = /\/(testing|stack)(\/|$)/;
 
 // Every published package, not just the two this issue moved symbols out of —
 // the same drift is possible anywhere a barrel is edited.
@@ -32,6 +36,11 @@ interface Barrel {
   readonly entry: string;
 }
 
+const manifestSchema = z.object({
+  exports: z.record(z.string(), z.union([z.string(), z.object({ default: z.string().optional() })])).optional(),
+  kumiko: z.object({ runtime: z.string().optional() }).optional(),
+});
+
 function newProject(): Project {
   return new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
 }
@@ -40,11 +49,12 @@ function productionBarrels(): Barrel[] {
   const barrels: Barrel[] = [];
   for (const pkg of publishedPackages()) {
     const pkgJsonPath = join(REPO, "packages", pkg, "package.json");
-    const exportsMap: Record<string, unknown> = JSON.parse(readFileSync(pkgJsonPath, "utf8")).exports ?? {};
+    const manifest = manifestSchema.parse(JSON.parse(readFileSync(pkgJsonPath, "utf8")));
+    if (manifest.kumiko?.runtime === "test") continue;
+    const exportsMap = manifest.exports ?? {};
     for (const [subpath, target] of Object.entries(exportsMap)) {
       if (TEST_ONLY_SUBPATH.test(subpath)) continue;
-      const file =
-        typeof target === "string" ? target : (target as { default?: string } | null)?.default;
+      const file = typeof target === "string" ? target : target.default;
       if (!file?.endsWith(".ts")) continue;
       barrels.push({ pkg, subpath, entry: join(dirname(pkgJsonPath), file) });
     }

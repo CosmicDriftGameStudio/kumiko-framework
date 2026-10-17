@@ -1,4 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../../db/query.js";
@@ -16,12 +21,7 @@ import {
 import type { HandlerContext } from "../../engine/types/index.js";
 import type { PipelineCtx } from "../../engine/types/step.js";
 import { eventsTable } from "../../event-store/index.js";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // A nested ctx.write runs inside the outer handler's transaction. When it fails
 // after its event and projection are written (inTransaction hook throws, SQL

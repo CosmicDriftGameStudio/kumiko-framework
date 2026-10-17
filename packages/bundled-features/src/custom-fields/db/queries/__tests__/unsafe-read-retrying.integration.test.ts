@@ -4,7 +4,7 @@
 // (an UPDATE) stays out of scope — unretried by design.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { captureClosedConnectionError } from "@cosmicdrift/kumiko-framework/testing";
+import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
 import { selectSerializedFieldDefinition } from "../field-access.js";
 import { countTenantFieldDefinitions } from "../quota.js";
 import { selectHostRowsWithCustomFields } from "../retention.js";

@@ -21,7 +21,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
-import { createTestUser } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { createFeatureTogglesFeature } from "../feature.js";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
 

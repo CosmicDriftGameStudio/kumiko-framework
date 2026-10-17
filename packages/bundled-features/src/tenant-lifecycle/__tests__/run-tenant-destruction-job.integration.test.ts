@@ -9,18 +9,14 @@ import {
   createNoopProvider,
   createPrometheusMeter,
 } from "@cosmicdrift/kumiko-framework/observability";
-import {
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  testTenantId,
-} from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createTestEnvelopeCipher,
   resetTestTables,
   updateRows,
-} from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";

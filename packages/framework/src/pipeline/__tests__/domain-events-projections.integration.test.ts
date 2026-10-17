@@ -10,6 +10,12 @@
 // projections-runner fires on appendEvent, dispatcher routes appendEvent to
 // the aggregate stream), any of the assertions below go red.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import {
   integer as pgInteger,
@@ -22,13 +28,7 @@ import { insertOne, selectMany, updateMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import { loadAggregate } from "../../event-store/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 
 // --- Entity ---
 

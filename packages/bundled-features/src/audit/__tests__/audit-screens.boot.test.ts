@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import {
   isFieldsEditSection,
   normalizeEditField,
   normalizeListColumn,
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { createConfigFeature } from "../../config/feature.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { createUserFeature } from "../../user/feature.js";

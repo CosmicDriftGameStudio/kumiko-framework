@@ -23,17 +23,17 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
   setupTestStack,
   type TestDb,
   type TestRedis,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { startDevJobRunners } from "../job-run-logger.js";
 

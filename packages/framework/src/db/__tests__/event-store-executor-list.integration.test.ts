@@ -5,6 +5,7 @@
 // für Framework-Code der von jeder App genutzt wird.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import {
@@ -15,7 +16,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "../../engine/index.js";
 import { UnprocessableError } from "../../errors/index.js";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { encodeCursor } from "../cursor.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";

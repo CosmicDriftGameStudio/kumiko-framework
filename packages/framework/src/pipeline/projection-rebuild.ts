@@ -41,7 +41,7 @@ import { projectionStateTable } from "./projection-state.js";
 // Events replayed per catch-up batch. Each batch is a fresh READ COMMITTED
 // SELECT, so a batch shorter than this means the currently-committed tail is
 // drained.
-const REBUILD_BATCH_SIZE = 1000;
+export const REBUILD_BATCH_SIZE = 1000;
 
 // Cap on UNLOCKED catch-up batches before forcing the cutover fence. Bounds the
 // lock-free phase under sustained writes that never momentarily quiesce; the

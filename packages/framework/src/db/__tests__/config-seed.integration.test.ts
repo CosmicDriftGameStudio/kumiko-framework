@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import {
@@ -12,7 +13,6 @@ import {
 import type { ConfigSeedDef, Registry } from "../../engine/types/index.js";
 import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider.js";
 import { createEnvelopeCipher } from "../../secrets/envelope-cipher.js";
-import { unsafeCreateEntityTable } from "../../stack/index.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { seedConfigValues } from "../config-seed.js";
 import { buildEntityTable } from "../table-builder.js";

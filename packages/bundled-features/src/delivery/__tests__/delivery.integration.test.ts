@@ -22,16 +22,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { resetBlindIndexKeyForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
-  testTenantId,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetBlindIndexKeyForTests, waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
 import * as z from "zod";
 import { createInMemoryTransport, type EmailMessage } from "../../channel-email/types.js";
@@ -470,7 +468,7 @@ beforeAll(async () => {
   await seedNotificationTemplates(db, stack.registry);
 
   // Create tenant entity table + seed memberships for tenant broadcast tests
-  const { unsafeCreateEntityTable } = await import("@cosmicdrift/kumiko-framework/stack");
+  const { unsafeCreateEntityTable } = await import("@cosmicdrift/kumiko-testing/stack");
   await unsafeCreateEntityTable(db, tenantEntity, "tenant");
 
   // Create tenant + members via real API

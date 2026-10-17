@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  bridgeStub,
   createRegistry,
   createTenantConfig,
   defineFeature,
@@ -15,15 +16,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createArchivedStreamsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher, sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
   type TestDb,
   type TestRedis,
-  TestUsers,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub, createTestEnvelopeCipher, sleep } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers } from "../../config/constants.js";
 import { createConfigAccessor, createConfigFeature } from "../../config/feature.js";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver.js";

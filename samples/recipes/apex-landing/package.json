@@ -11,6 +11,7 @@
     "@cosmicdrift/kumiko-headless": "workspace:*"
   },
   "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*",
     "@playwright/test": "^1.62.1"
   }
 }

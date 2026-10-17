@@ -2,16 +2,15 @@
 // Only a system-mode db or a tenant-mode db bound to that stream tenant may use it, and only for the tenant of the row it loaded.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "../../db/query.js";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
 import {
   createTestDb,
   type TestDb,
-  TestUsers,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { selectMany } from "../../db/query.js";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { eventsTable } from "../../event-store/index.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb } from "../tenant-db.js";

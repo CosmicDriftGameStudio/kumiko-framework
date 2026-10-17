@@ -3,7 +3,13 @@
 // the search index. The event payload only carries the named event's own
 // field slice, so the consumer reads the live projection row instead.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.js";
 import {
@@ -13,13 +19,7 @@ import {
   createTenantDb,
 } from "../../db/index.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { SEARCH_CONSUMER_NAME } from "../system-hooks.js";
 
 const noteEntity = createEntity({

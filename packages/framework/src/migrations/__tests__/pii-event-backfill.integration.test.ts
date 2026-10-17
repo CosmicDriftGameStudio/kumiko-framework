@@ -4,6 +4,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { resetBlindIndexKeyForTests } from "../../crypto/blind-index.js";
 import {
   configureBlindIndexKey,
@@ -28,7 +29,7 @@ import {
 import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.js";
 import { createSnapshotsTable, saveSnapshot } from "../../event-store/index.js";
 import { getConsumerState } from "../../pipeline/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { createPendingRebuildsTable } from "../pending-rebuilds.js";
 import {
   type PiiEventBackfillResult,

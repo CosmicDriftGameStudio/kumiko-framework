@@ -14,10 +14,11 @@
 // 500. Mit F8: writeFailure(UniqueViolationError) → 409.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient, selectMany, transaction } from "../../db/query.js";
 import { createEntity, createTextField } from "../../engine/index.js";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";

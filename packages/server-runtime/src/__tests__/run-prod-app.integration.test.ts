@@ -55,10 +55,10 @@ import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import postgres from "postgres";
 import * as z from "zod";

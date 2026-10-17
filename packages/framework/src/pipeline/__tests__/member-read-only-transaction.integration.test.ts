@@ -2,10 +2,10 @@
 // the callback's value (including undefined), keep writes out, and leave the outer tx writable.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { DbTx } from "../../db/connection.js";
 import { asRawClient } from "../../db/query.js";
 import { AccessDeniedError, MemberReadTimeoutError } from "../../errors/index.js";
-import { createTestDb, type TestDb } from "../../stack/index.js";
 import type { DispatchContext } from "../dispatch-shared.js";
 import { runInMemberReadOnlyTransaction } from "../member-read-only-transaction.js";
 

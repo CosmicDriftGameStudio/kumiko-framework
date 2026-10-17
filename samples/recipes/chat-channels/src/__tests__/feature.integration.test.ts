@@ -29,14 +29,14 @@ import {
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { OPS_ANNOUNCEMENT_TYPE, opsFeature } from "../feature";
 
 const admin = createTestUser({ roles: ["Admin", "TenantAdmin"] });

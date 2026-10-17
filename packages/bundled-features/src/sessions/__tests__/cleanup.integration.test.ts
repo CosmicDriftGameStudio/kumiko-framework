@@ -9,13 +9,13 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { createSessionsFeature } from "../feature.js";

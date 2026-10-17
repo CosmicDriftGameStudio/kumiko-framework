@@ -22,14 +22,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createMultiStreamApplyContext } from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  createTestUser,
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createSecretsFeature } from "../../secrets/index.js";
 import { DELIVER_RETRIES, STEP_DISPATCHER_FEATURE } from "../constants.js";

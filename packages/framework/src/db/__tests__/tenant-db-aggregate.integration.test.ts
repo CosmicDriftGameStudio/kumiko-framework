@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafePushTables,
-} from "../../stack/index.js";
+} from "@cosmicdrift/kumiko-testing/stack";
+import { testTenantId } from "../../seeding/seed-users.js";
 import { defineUnmanagedTable } from "../entity-table-meta.js";
 import { insertOne } from "../query.js";
 import { createTenantDb } from "../tenant-db.js";

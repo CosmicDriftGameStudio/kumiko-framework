@@ -30,13 +30,12 @@ import {
   tenantStorageUsageTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
-  testTenantId,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { signTenantHandoverGrant } from "../grant.js";
 import { createTenantHandoverFeature } from "../index.js";
 

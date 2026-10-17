@@ -4,13 +4,13 @@
 // removes, delete-then-restore indexes the restored state).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Meilisearch } from "meilisearch";
 import * as z from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import type { ConsumerStateRow, StoredEventRow } from "../../pipeline/event-dispatcher-delivery.js";
 import { deliverEvents } from "../../pipeline/event-dispatcher-delivery.js";
 import { createSearchEventConsumer } from "../../pipeline/system-hooks.js";
-import { setupTestStack, type TestStack } from "../../stack/index.js";
 import { createMeilisearchAdapter, meilisearchTenantIndex } from "../meilisearch-adapter.js";
 import type { SearchAdapter } from "../types.js";
 

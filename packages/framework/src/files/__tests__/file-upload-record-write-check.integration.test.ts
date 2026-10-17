@@ -2,6 +2,15 @@
 // rights as saving that record: update handler access, row and field write rules, and no
 // lock. A rejected upload must not leave bytes behind.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../../db/query.js";
 import {
   createBooleanField,
@@ -15,14 +24,7 @@ import {
   from,
   type SessionUser,
 } from "../../engine/index.js";
-import {
-  createTestUser,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
 import { createFilesFeature, createInMemoryFileProvider } from "../index.js";
 
 const PNG_BYTES = new Uint8Array([

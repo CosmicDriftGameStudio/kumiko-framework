@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { createRedisLoginRateLimiter } from "../auth-routes.js";
 
 let testRedis: TestRedis;

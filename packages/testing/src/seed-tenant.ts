@@ -10,7 +10,6 @@ import {
   tenantChannel,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { isPlainObject } from "@cosmicdrift/kumiko-framework/utils";
 import {
   type BoundApi,
@@ -21,6 +20,7 @@ import {
   splitSeedRoles,
   withSession,
 } from "./seed-types";
+import type { TestStack } from "./stack/index.js";
 
 export type {
   BoundApi,

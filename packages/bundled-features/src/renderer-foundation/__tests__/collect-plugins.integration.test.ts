@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createRendererFoundationApi } from "../api.js";
 import { RENDERER_EXTENSION, type RenderKind } from "../constants.js";

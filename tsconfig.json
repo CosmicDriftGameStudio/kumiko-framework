@@ -101,6 +101,12 @@
       "path": "./packages/testing"
     },
     {
+      "path": "./packages/testing/tsconfig.app.json"
+    },
+    {
+      "path": "./packages/framework/tsconfig.tests.json"
+    },
+    {
       "path": "./packages/testing/e2e"
     },
     {

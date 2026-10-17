@@ -1,8 +1,9 @@
 // An app's own error reason links to the app docs on the wire when errorDocs covers it, else to the framework code page.
 import { afterAll, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { defineFeature } from "../../engine/define-feature.js";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { UnprocessableError, writeFailure } from "../index.js";
 
 const APP_REASON = "order_locked";

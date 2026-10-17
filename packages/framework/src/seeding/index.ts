@@ -3,4 +3,5 @@ export {
   type RunEventStoreSeedOptions,
   runEventStoreSeed,
 } from "./entity-seed.js";
+export { createTestUser, TestUsers, testTenantId, testUserId } from "./seed-users.js";
 export { DEFAULT_SEED_IF_EXISTS, type SeedIfExists } from "./types.js";

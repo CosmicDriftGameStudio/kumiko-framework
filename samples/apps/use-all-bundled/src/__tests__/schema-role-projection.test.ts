@@ -11,9 +11,9 @@ import {
   createRegistry,
   projectAppSchemaForRoles,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import type { AppSchema } from "@cosmicdrift/kumiko-framework/ui-types";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 
 beforeAll(() => {

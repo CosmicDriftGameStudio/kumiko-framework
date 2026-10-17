@@ -3,11 +3,15 @@
 // the upload back and leaves no bytes behind.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.js";
 import { insertOne, selectMany } from "../../db/query.js";
 import { defineFeature } from "../../engine/index.js";
-import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack/index.js";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
 import { createFilesFeature } from "../feature.js";
 import { fileRefsTable } from "../file-ref-table.js";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";

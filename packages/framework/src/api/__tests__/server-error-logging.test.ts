@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import { RateLimitError, UnprocessableError } from "../../errors/index.js";
-import { TestUsers } from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/index.js";
 import { buildServer } from "../server.js";
 

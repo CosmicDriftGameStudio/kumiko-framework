@@ -10,7 +10,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { scenarioWaitForTimeout, validateScenarios } from "../e2e/screenshots";
-import { E2E_TIMEOUT_MS } from "../e2e/timeouts";
+import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
 
 describe("scenarioWaitForTimeout", () => {
   test("a real-provider run waits longer than navigation but fails before the test timeout", () => {

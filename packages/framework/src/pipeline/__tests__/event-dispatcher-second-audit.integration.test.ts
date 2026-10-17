@@ -15,6 +15,13 @@
 //      pollIntervalMs.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { sharedWidgetEntity, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.js";
 import { defineFeature } from "../../engine/index.js";
 import { eventsTable } from "../../event-store/index.js";
@@ -26,14 +33,7 @@ import {
   RecordingTracer,
 } from "../../observability/index.js";
 import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline/index.js";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
-import { sharedWidgetEntity, waitFor } from "../../testing/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { generateId } from "../../utils/index.js";
 
 // --- Fixture ---

@@ -9,13 +9,13 @@ import {
   defineFeature,
   from,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
-  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/stack";
 import { NotesHistoryHandlers } from "../constants.js";
 import { noteEntryEntity, noteMentionEntity } from "../entity.js";
 import { createNotesHistoryFeature } from "../feature.js";

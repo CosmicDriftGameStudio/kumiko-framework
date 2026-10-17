@@ -7,7 +7,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/testing";
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestDb,
+  type TestDb,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import {
   computeBlindIndex,
   configureBlindIndexKey,
@@ -22,12 +27,7 @@ import { createEntity, createTextField } from "../../engine/factories.js";
 import { createRegistry } from "../../engine/registry.js";
 import { rebuildProjection } from "../../pipeline/index.js";
 import { createProjectionStateTable } from "../../pipeline/projection-state.js";
-import {
-  createTestDb,
-  type TestDb,
-  TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack/index.js";
+import { TestUsers } from "../../seeding/seed-users.js";
 import { nullBlindIndexesForSubject, subjectRowExistsInTenant } from "../blind-index-cleanup.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { asRawClient, fetchOne } from "../query.js";

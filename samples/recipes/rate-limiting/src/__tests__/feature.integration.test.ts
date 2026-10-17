@@ -11,7 +11,8 @@
 // in each layer's test.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createRateLimitShowcaseFeature } from "../feature";
 
 let stack: TestStack;
