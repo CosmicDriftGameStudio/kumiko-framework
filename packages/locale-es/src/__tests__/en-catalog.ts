@@ -1384,6 +1384,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.source.tenant": "Tenant",
   "documentDesigner.origin.system": "System template",
   "documentDesigner.origin.override": "Customised",
+  "documentDesigner.origin.draftBesideActive":
+    "Version {active} is sent, your draft (version {draft}) is not published yet.",
   "documentDesigner.status.active": "Active",
   "documentDesigner.status.draft": "Draft",
   "documentDesigner.status.archived": "Archived",
@@ -1606,10 +1608,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.discard.title": "Discard changes?",
   "documentDesigner.mail.discard.description": "Your unsaved changes are lost.",
   "documentDesigner.mail.discard.confirm": "Discard",
-  "documentDesigner.mail.activeSave.title": "Save as draft?",
-  "documentDesigner.mail.activeSave.description":
-    "Saving as a draft takes the active customisation offline until you publish. Publish instead?",
-  "documentDesigner.mail.activeSave.confirm": "Save as draft",
   "documentDesigner.mail.leave.title": "Unsaved changes",
   "documentDesigner.mail.leave.description":
     "Save your changes as a draft, discard them or stay on this page.",

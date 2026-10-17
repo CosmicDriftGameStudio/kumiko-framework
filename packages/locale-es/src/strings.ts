@@ -1420,6 +1420,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.source.tenant": "Organización",
   "documentDesigner.origin.system": "Plantilla del sistema",
   "documentDesigner.origin.override": "Personalizada",
+  "documentDesigner.origin.draftBesideActive":
+    "Se envía la versión {active}, tu borrador (versión {draft}) aún no está publicado.",
   "documentDesigner.status.active": "Activa",
   "documentDesigner.status.draft": "Borrador",
   "documentDesigner.status.archived": "Archivada",
@@ -1644,10 +1646,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.discard.title": "¿Descartar los cambios?",
   "documentDesigner.mail.discard.description": "Tus cambios sin guardar se perderán.",
   "documentDesigner.mail.discard.confirm": "Descartar",
-  "documentDesigner.mail.activeSave.title": "¿Guardar como borrador?",
-  "documentDesigner.mail.activeSave.description":
-    "Guardar como borrador desactiva la personalización activa hasta que publiques. ¿Publicar en su lugar?",
-  "documentDesigner.mail.activeSave.confirm": "Guardar como borrador",
   "documentDesigner.mail.leave.title": "Cambios sin guardar",
   "documentDesigner.mail.leave.description":
     "Guarda tus cambios como borrador, descártalos o permanece en esta página.",
