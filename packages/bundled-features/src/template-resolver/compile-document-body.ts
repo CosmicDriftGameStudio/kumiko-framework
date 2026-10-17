@@ -2,6 +2,7 @@ import type { TemplateVariableDef, TemplateVariables } from "@cosmicdrift/kumiko
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
 import { isResourceImageContentType } from "../shared/index.js";
+import { rewriteStepsBlock } from "./compile-steps-block.js";
 import { withParsedDocument } from "./document-sanitizer.js";
 import {
   DOCUMENT_TEXT_ALIGNMENTS,
@@ -84,6 +85,39 @@ function pathAndDef(
   return [path, def];
 }
 
+const VARIABLE_ONLY_BLOCK_SELECTOR = "p, h1, h2, h3, h4";
+
+function soleVariableName(block: ScanElement): string | null {
+  const names = new Set(
+    Array.from(block.querySelectorAll("span[data-variable]")).map(
+      (span) => span.getAttribute("data-variable") ?? "",
+    ),
+  );
+  const [name] = [...names];
+  if (names.size !== 1 || name === undefined || !isDocumentReferenceName(name)) return null;
+  const withoutVariables = block.cloneNode(true);
+  for (const span of Array.from(withoutVariables.querySelectorAll("span[data-variable]"))) {
+    span.remove();
+  }
+  const hasStaticContent =
+    (withoutVariables.textContent ?? "").trim() !== "" ||
+    withoutVariables.querySelector("img") !== null;
+  return hasStaticContent ? null : name;
+}
+
+// A line that holds nothing but one optional placeholder would otherwise leave
+// an empty paragraph (a visible gap) when the value is missing. includeZero
+// keeps an amount of 0.
+function wrapVariableOnlyBlock(block: ScanElement, state: CompileState): void {
+  const name = soleVariableName(block);
+  // skip: a line with static content or several placeholders stays as it is
+  if (name === null) return;
+  const [path] = pathAndDef(name, block, state);
+  const document = block.ownerDocument;
+  block.before(document.createTextNode(marker(state, `{{#if ${path} includeZero=true}}`)));
+  block.after(document.createTextNode(marker(state, "{{/if}}")));
+}
+
 function rewriteLink(element: ScanElement, state: CompileState): void {
   const href = element.getAttribute("href") ?? "";
   if (isDocumentPlaceholderHref(href)) {
@@ -127,6 +161,8 @@ export type CompileDocumentBodyOptions = {
   readonly resourceSrc?: (key: string) => string | undefined;
   // Mail clients ignore document CSS, so a full-width logo needs an inline width cap.
   readonly resourceImageMaxWidthPx?: number;
+  // Keeps a square logo in a mail header from growing to the full width cap.
+  readonly resourceImageMaxHeightPx?: number;
   // Mail clients ignore document CSS, so mail turns data-align into an inline style.
   readonly alignmentAsInlineStyle?: boolean;
   // Same reason: a[data-button] only looks like a button through editor/print CSS.
@@ -136,6 +172,10 @@ export type CompileDocumentBodyOptions = {
   readonly tableAsInlineStyle?: boolean;
   // Replaces the default button look; only values from the layout appearance belong here.
   readonly buttonInlineStyle?: string;
+  // Mail clients ignore document CSS, so headings get their size and weight inline.
+  readonly headingAsInlineStyle?: boolean;
+  // Bar color of reached stages in a steps block; ignored unless it is a #rrggbb hex.
+  readonly stepsColor?: string;
 };
 
 const MAIL_BUTTON_STYLE =
@@ -144,7 +184,12 @@ const MAIL_BUTTON_STYLE =
 const MAIL_TABLE_STYLE = "width:100%;border-collapse:collapse";
 const MAIL_TABLE_CELL_STYLE = "padding:6px 12px;vertical-align:top;border-bottom:1px solid #e5e5e5";
 const MAIL_TABLE_HEAD_STYLE = "font-size:12px;font-weight:600;color:#6b7280;text-align:left";
-const MAIL_SMALL_STYLE = "font-size:12px;color:#6b7280";
+const MAIL_SMALL_STYLE = "font-size:13px;color:#4A515E";
+const MAIL_HEADING_STYLES: Readonly<Record<string, string>> = {
+  h1: "margin:0 0 12px 0;font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-0.035em;color:#0B0D12",
+  h2: "margin:0 0 12px 0;font-size:24px;line-height:1.2;font-weight:700;letter-spacing:-0.02em;color:#0B0D12",
+  h3: "margin:20px 0 8px 0;font-size:17px;line-height:1.3;font-weight:600;color:#0B0D12",
+};
 
 // Appended after an existing style (data-align) so the alignment survives.
 function appendStyle(element: ScanElement, style: string): void {
@@ -182,6 +227,7 @@ function rewriteResourceImage(
   element: ScanElement,
   resourceSrc: CompileDocumentBodyOptions["resourceSrc"],
   maxWidthPx: number | undefined,
+  maxHeightPx: number | undefined,
 ): void {
   const key = element.getAttribute("data-resource") ?? "";
   const src = isDocumentResourceKey(key) ? resourceSrc?.(key) : undefined;
@@ -192,8 +238,11 @@ function rewriteResourceImage(
   }
   element.setAttribute("src", src);
   element.removeAttribute("data-resource");
-  if (maxWidthPx !== undefined)
-    element.setAttribute("style", `max-width:${maxWidthPx}px;height:auto`);
+  const caps = [
+    ...(maxWidthPx === undefined ? [] : [`max-width:${maxWidthPx}px`]),
+    ...(maxHeightPx === undefined ? [] : [`max-height:${maxHeightPx}px;width:auto`]),
+  ];
+  if (caps.length > 0) element.setAttribute("style", `${caps.join(";")};height:auto`);
 }
 
 function stripScriptsAndActiveContent(
@@ -202,7 +251,12 @@ function stripScriptsAndActiveContent(
 ): void {
   for (const element of Array.from(root.querySelectorAll("script"))) element.remove();
   for (const element of Array.from(root.querySelectorAll("img[data-resource]"))) {
-    rewriteResourceImage(element, options.resourceSrc, options.resourceImageMaxWidthPx);
+    rewriteResourceImage(
+      element,
+      options.resourceSrc,
+      options.resourceImageMaxWidthPx,
+      options.resourceImageMaxHeightPx,
+    );
   }
   for (const element of Array.from(root.querySelectorAll("*"))) stripActiveContent(element);
 }
@@ -214,6 +268,13 @@ function applyAlignmentInlineStyles(root: ScanElement): void {
   for (const element of Array.from(root.querySelectorAll("[data-size]"))) {
     element.removeAttribute("data-size");
     appendStyle(element, MAIL_SMALL_STYLE);
+  }
+}
+
+function applyHeadingInlineStyles(root: ScanElement): void {
+  for (const heading of Array.from(root.querySelectorAll("h1, h2, h3"))) {
+    const style = MAIL_HEADING_STYLES[heading.tagName.toLowerCase()];
+    if (style !== undefined) appendStyle(heading, style);
   }
 }
 
@@ -255,7 +316,18 @@ export function compileDocumentBodyToHandlebars(
   const compiled = withParsedDocument(scrubbed, (root) => {
     stripScriptsAndActiveContent(root, options);
     if (options.alignmentAsInlineStyle === true) applyAlignmentInlineStyles(root);
+    if (options.headingAsInlineStyle === true) applyHeadingInlineStyles(root);
     if (options.tableAsInlineStyle === true) applyTableInlineStyles(root);
+    for (const element of Array.from(root.querySelectorAll("div[data-steps]"))) {
+      rewriteStepsBlock(element, {
+        expression: (source) => marker(state, source),
+        pathOf: (name, at) => pathAndDef(name, at, state)[0],
+        color: options.stepsColor,
+      });
+    }
+    for (const block of Array.from(root.querySelectorAll(VARIABLE_ONLY_BLOCK_SELECTOR))) {
+      wrapVariableOnlyBlock(block, state);
+    }
     for (const element of Array.from(root.querySelectorAll("span[data-variable]"))) {
       rewriteVariable(element, state);
     }

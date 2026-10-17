@@ -59,6 +59,33 @@ test("mail-editor-preview", async ({ page }) => {
   await shot(page, "mail-editor-preview");
 });
 
+// Nothing is saved: the preview renders the unsaved draft, so the seeded template stays as it is.
+test("mail-editor-chrome-rail", async ({ page }) => {
+  await openEditor(page);
+  const chrome = page.getByTestId("mail-editor-chrome");
+  await chrome.scrollIntoViewIfNeeded();
+  const chip = page.locator("#mail-header-chip[contenteditable='true']");
+  await chip.click();
+  await page.keyboard.type("Neue Rechnung");
+  await page.getByTestId("combobox-mail-tone").click();
+  await page.getByRole("option", { name: "Erfolg (grün)" }).click();
+  const note = page.locator("#mail-footer-note[contenteditable='true']");
+  await note.click();
+  await page.keyboard.type("Sie erhalten diese Mail, weil Sie Kunde bei uns sind.");
+  await expect(page.getByTestId("combobox-mail-tone")).toContainText("Erfolg (grün)");
+  await chrome.scrollIntoViewIfNeeded();
+  await shot(page, "mail-editor-chrome-rail");
+
+  await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
+  const preview = page.frameLocator('[data-testid="mail-preview-iframe"]');
+  await expect(preview.getByText("Neue Rechnung")).toBeVisible();
+  await expect(preview.getByText("weil Sie Kunde bei uns sind")).toBeVisible();
+  // The dev server's live-reload stream (/_reload) stays open, so networkidle does not come back once the
+  // preview frame attaches here; the asserted preview text is the ready signal.
+  await page.evaluate(() => document.fonts.ready);
+  await captureScreenshot(page, "mail-editor-chrome-preview");
+});
+
 test("mail-editor-edit-en-missing", async ({ page }) => {
   await openEditor(page);
   await page.getByTestId("mail-locale-switch").getByText("en", { exact: true }).click();

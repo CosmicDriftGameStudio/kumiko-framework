@@ -57,6 +57,13 @@ describe("compileDocumentBodyToHandlebars", () => {
         resourceImageMaxWidthPx: 180,
       }),
     ).toContain('style="max-width:180px;height:auto"');
+    expect(
+      compileDocumentBodyToHandlebars(html, variables, {
+        resourceSrc,
+        resourceImageMaxWidthPx: 180,
+        resourceImageMaxHeightPx: 64,
+      }),
+    ).toContain('style="max-width:180px;max-height:64px;width:auto;height:auto"');
   });
 
   test("table cells get padding inline for mail only and keep their alignment", () => {
@@ -70,7 +77,7 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(out).toContain('<table style="width:100%;border-collapse:collapse">');
     expect(out).toContain('<th style="padding:6px 12px;');
     expect(out).toContain('<td style="text-align:right;padding:6px 12px;');
-    expect(out).toContain('<p style="text-align:right;font-size:12px;color:#6b7280">x</p>');
+    expect(out).toContain('<p style="text-align:right;font-size:13px;color:#4A515E">x</p>');
   });
 
   test("a data-button link gets button styling inline for mail only", () => {
@@ -91,6 +98,18 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(out).not.toContain("background-color:#1f5468");
   });
 
+  test("buttons take the branding accent only when the layout opts into the branding accent", () => {
+    expect(mailLayoutAppearance({ accentLine: "branding" }, "#ab12cd").buttonStyle).toContain(
+      "background-color:#ab12cd",
+    );
+    expect(mailLayoutAppearance({ accentLine: "none" }, "#ab12cd").buttonStyle).toContain(
+      "background-color:#1f5468",
+    );
+    expect(
+      mailLayoutAppearance({ accentLine: "branding" }, 'red;background:url("x")').buttonStyle,
+    ).not.toContain("url(");
+  });
+
   test("link placeholders become the link helper", () => {
     expect(compile('<a href="{{url}}">go</a>')).toContain('href="{{link url}}"');
   });
@@ -103,6 +122,45 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(out).toContain("{{/each}}");
     expect(out).toContain("{{label}}");
     expect(out).toContain("{{@root.name}}");
+  });
+
+  test("a line with only an empty optional placeholder renders nothing, a filled one renders", () => {
+    const template = Handlebars.create().compile(
+      compile('<p>Hello</p><p><span data-variable="name"></span></p>'),
+    );
+    expect(template({})).toBe("<p>Hello</p>");
+    expect(template({ name: "" })).toBe("<p>Hello</p>");
+    expect(template({ name: "Ada" })).toBe("<p>Hello</p><p>Ada</p>");
+  });
+
+  test("an amount of 0 keeps its placeholder-only line", () => {
+    const hbs = Handlebars.create();
+    hbs.registerHelper("money", (value: unknown) => `${String(value)} EUR`);
+    const template = hbs.compile(compile('<h2><span data-variable="total"></span></h2>'));
+    expect(template({ total: 0 })).toBe("<h2>0 EUR</h2>");
+    expect(template({})).toBe("");
+  });
+
+  test("lines with static text, an image or two placeholders are never wrapped", () => {
+    expect(compile('<p>Dear <span data-variable="name"></span></p>')).not.toContain("{{#if");
+    expect(
+      compileDocumentBodyToHandlebars(
+        '<p><img data-resource="logo" alt=""><span data-variable="name"></span></p>',
+        variables,
+        { resourceSrc: () => "cid:logo" },
+      ),
+    ).not.toContain("{{#if");
+    expect(
+      compile('<p><span data-variable="name"></span> <span data-variable="due"></span></p>'),
+    ).not.toContain("{{#if");
+  });
+
+  test("a placeholder-only line inside a list row checks the row field, not the root", () => {
+    const out = compile(
+      '<table><tr data-each="lines"><td><p><span data-variable="label"></span></p><p><span data-variable="name"></span></p></td></tr></table>',
+    );
+    expect(out).toContain("{{#if label includeZero=true}}<p>{{label}}</p>{{/if}}");
+    expect(out).toContain("{{#if @root.name includeZero=true}}<p>{{@root.name}}</p>{{/if}}");
   });
 
   test("a row for an undeclared list is dropped", () => {
@@ -181,5 +239,49 @@ describe("compileDocumentBodyToHandlebars :: richText", () => {
     );
     expect(out).toContain("{{richText note}}");
     expect(out).toContain("{{name}}");
+  });
+});
+
+describe("compileDocumentBodyToHandlebars :: steps block", () => {
+  const steps =
+    '<div data-steps="stage"><span data-step="reported">Gemeldet</span><span data-step="resolved">Behoben {{x}}</span></div>';
+
+  test("a steps block becomes an inline-styled table whose state comes from the stepIs helper", () => {
+    const out = compileDocumentBodyToHandlebars(steps, variables, { stepsColor: "#F2B53A" });
+    expect(out).toContain('<table role="presentation"');
+    expect(out).toContain(
+      '{{#stepIs stage 0 "reported,resolved" "reached"}}#F2B53A{{else}}#ECEDEA{{/stepIs}}',
+    );
+    expect(out).toContain(
+      '{{#stepIs stage 1 "reported,resolved" "current"}}600{{else}}400{{/stepIs}}',
+    );
+    expect(out).toContain(">Gemeldet</div>");
+    expect(out).not.toContain("data-steps");
+  });
+
+  test("labels stay inert text and an invalid color falls back to the default", () => {
+    const out = compileDocumentBodyToHandlebars(steps, variables, { stepsColor: "red;x:y" });
+    expect(out).toContain("Behoben &#123;&#123;x&#125;&#125;");
+    expect(out).toContain("#1f5468{{else}}");
+    expect(out).not.toContain("red;x");
+  });
+
+  test("a block with an invalid variable or duplicate keys renders nothing", () => {
+    expect(compile('<div data-steps="__proto__"><span data-step="a">A</span></div><p>z</p>')).toBe(
+      "<p>z</p>",
+    );
+    expect(
+      compile(
+        '<div data-steps="stage"><span data-step="a">A</span><span data-step="a">B</span></div>',
+      ),
+    ).toBe("");
+    expect(compile('<div data-steps="stage"><span data-step="a&quot;b">A</span></div>')).toBe("");
+  });
+
+  test("headings get their size inline for mail only", () => {
+    expect(compile("<h1>T</h1>")).toBe("<h1>T</h1>");
+    expect(
+      compileDocumentBodyToHandlebars("<h1>T</h1>", variables, { headingAsInlineStyle: true }),
+    ).toContain('<h1 style="margin:0 0 12px 0;font-size:30px');
   });
 });

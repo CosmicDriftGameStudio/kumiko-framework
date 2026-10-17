@@ -13,7 +13,7 @@ import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 import { type OverviewRowView, parseOverviewRow } from "./overview-row.js";
 import { statusLabel, statusTone } from "./status-label.js";
-import { usedByLabel } from "./used-by-label.js";
+import { templateTitle, usedByLabel } from "./used-by-label.js";
 
 const EMPTY_MARK = "–";
 
@@ -26,9 +26,10 @@ function withRow(
 }
 
 export function TitleCell({ row }: ColumnRendererProps): ReactNode {
+  const t = useTranslation();
   return withRow(row, (r) => (
     <div>
-      <div className="font-medium">{r.title}</div>
+      <div className="font-medium">{templateTitle(t, r)}</div>
       {/* Qualified notification slugs are long; capped so status, usage and date stay in view. */}
       <span
         className="block max-w-40 truncate font-mono text-xs text-muted-foreground"

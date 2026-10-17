@@ -149,6 +149,11 @@ function enclosingEachName(element: ScanElement): string | null {
   return element.closest("tr[data-each]")?.getAttribute("data-each") ?? null;
 }
 
+const NAME_ATTRIBUTE_BY_TAG: Readonly<Record<string, string>> = {
+  span: "data-variable",
+  div: "data-steps",
+};
+
 function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
   withParsedDocument(body, (root) => {
     for (const element of Array.from(root.querySelectorAll("tr[data-each]"))) {
@@ -158,12 +163,13 @@ function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
       else scope.unknown.add(listName);
     }
     for (const element of Array.from(
-      root.querySelectorAll("span[data-variable], a[href], img[data-resource]"),
+      root.querySelectorAll("span[data-variable], div[data-steps], a[href], img[data-resource]"),
     )) {
       const itemFields = listItemFields(scope.variables, enclosingEachName(element));
       const tag = element.tagName.toLowerCase();
-      if (tag === "span") {
-        recordName(element.getAttribute("data-variable") ?? "", itemFields, scope);
+      const nameAttribute = NAME_ATTRIBUTE_BY_TAG[tag];
+      if (nameAttribute !== undefined) {
+        recordName(element.getAttribute(nameAttribute) ?? "", itemFields, scope);
       } else if (tag === "a") {
         const href = element.getAttribute("href") ?? "";
         if (isDocumentPlaceholderHref(href)) recordName(href.slice(2, -2), itemFields, scope);
@@ -191,7 +197,9 @@ function scanMetaPlaceholders(text: string, scope: PlaceholderScope): void {
 
 function metaTexts(meta: TemplateMeta | null): readonly string[] {
   if (meta === null || !("subject" in meta)) return [];
-  return [meta.subject, ...(meta.previewText === undefined ? [] : [meta.previewText])];
+  return [meta.subject, meta.previewText, meta.headerChip, meta.tone, meta.footerNote].filter(
+    (text): text is string => text !== undefined,
+  );
 }
 
 export function validateTemplatePlaceholders(input: {

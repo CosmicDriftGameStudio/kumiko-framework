@@ -247,7 +247,10 @@ export function LayoutEditorBody({
   const accentColor = branding.data?.accentColor ?? "";
   const showAccentLine =
     isMail && appearanceEditable && appearance.accentLine === "branding" && isHexColor(accentColor);
-  const blocks = isMail ? MAIL_DOCUMENT_BLOCKS : PDF_DOCUMENT_BLOCKS;
+  // A layout region has no per-mail variables, so a steps block there could never show a stage.
+  const blocks = (isMail ? MAIL_DOCUMENT_BLOCKS : PDF_DOCUMENT_BLOCKS).filter(
+    (block) => block !== "steps",
+  );
 
   // The layout's "logo" resource is the branding logo, so the editor shows it instead of a chip.
   const logoFile = branding.data?.logoFile ?? "";

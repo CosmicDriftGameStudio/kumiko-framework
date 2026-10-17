@@ -35,7 +35,20 @@ export const APP_FEATURES = [
   createDocumentDesignerFeature(),
   // Mounted individually: composeRendererStack() would add a second template-resolver.
   createRendererFoundationFeature(),
-  createRendererMailHtmlFeature(),
+  createRendererMailHtmlFeature({
+    footer: ({ locale }) =>
+      locale.startsWith("de")
+        ? {
+            text: "Gesendet über das Nordlicht Mieterportal",
+            imprint: { label: "Impressum", url: "https://nordlicht-immobilien.de/impressum" },
+            privacy: { label: "Datenschutz", url: "https://nordlicht-immobilien.de/datenschutz" },
+          }
+        : {
+            text: "Sent via the Nordlicht tenant portal",
+            imprint: { label: "Imprint", url: "https://nordlicht-immobilien.de/imprint" },
+            privacy: { label: "Privacy", url: "https://nordlicht-immobilien.de/privacy" },
+          },
+  }),
   // The PDF preview of the template editor prints through the puppeteer-service
   // (PUPPETEER_SERVICE_URL / PUPPETEER_AUTH_TOKEN); the e2e config starts one.
   createRendererPuppeteerClientFeature(),

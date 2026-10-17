@@ -29,6 +29,7 @@ import {
   Italic as ItalicIcon,
   Link as LinkIcon,
   List,
+  ListChecks,
   ListOrdered,
   Minus,
   MousePointerClick,
@@ -47,6 +48,7 @@ import {
   isDocumentReferenceName,
   isDocumentResourceKey,
 } from "../document-schema.js";
+import { parseDocumentStepsInput } from "../document-steps.js";
 import {
   createDocumentEditorExtensions,
   DOCUMENT_BLOCK_ATTRIBUTE,
@@ -70,7 +72,7 @@ function previewsKey(previews: Readonly<Record<string, DocumentResourcePreview>>
     .join("\n");
 }
 
-type PanelKind = "link" | "placeholder" | "image" | "button" | "repeat" | "align";
+type PanelKind = "link" | "placeholder" | "image" | "button" | "repeat" | "align" | "steps";
 
 // Blocks that stay in the canvas toolbar; the rest moves into the overflow menu.
 const CANVAS_INLINE_BLOCKS: readonly DocumentToolbarBlock[] = ["image", "table"];
@@ -80,6 +82,7 @@ const BLOCK_PANEL: Partial<Record<DocumentToolbarBlock, PanelKind>> = {
   button: "button",
   repeat: "repeat",
   align: "align",
+  steps: "steps",
 };
 
 const ALIGNMENT_ICONS: Record<DocumentTextAlignment, ReactNode> = {
@@ -315,6 +318,9 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
   const [buttonText, setButtonText] = useState(() =>
     t("template-resolver.documentEditor.buttonDefaultText"),
   );
+  const [stepsText, setStepsText] = useState(() =>
+    t("template-resolver.documentEditor.stepsDefault"),
+  );
   const [chosenName, setChosenName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -364,7 +370,17 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
     insertAndClose({ type: "resource", attrs: { resource, alt: alt || null } });
   };
 
-  const needsVariables = kind === "button" || kind === "repeat" || kind === "placeholder";
+  const submitSteps = (): void => {
+    const steps = parseDocumentStepsInput(stepsText);
+    if (steps === null) {
+      setError(t("template-resolver.documentEditor.invalidSteps"));
+      return;
+    }
+    insertAndClose({ type: "steps", attrs: { variable: selectedName, steps } });
+  };
+
+  const needsVariables =
+    kind === "button" || kind === "repeat" || kind === "placeholder" || kind === "steps";
   const noVariables = needsVariables && selectable.length === 0;
   const idPrefix = `${editorId}-panel`;
 
@@ -467,6 +483,29 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
           onChange={setChosenName}
         />
       )}
+      {kind === "steps" && !noVariables && (
+        <>
+          <NameSelect
+            id={`${idPrefix}-steps-variable`}
+            label={t("template-resolver.documentEditor.stepsVariable")}
+            names={selectable}
+            value={selectedName}
+            onChange={setChosenName}
+          />
+          <Field
+            id={`${idPrefix}-steps-list`}
+            label={t("template-resolver.documentEditor.stepsList")}
+          >
+            <Input
+              kind="text"
+              id={`${idPrefix}-steps-list`}
+              name="steps"
+              value={stepsText}
+              onChange={setStepsText}
+            />
+          </Field>
+        </>
+      )}
       {error !== null && (
         <p role="alert" className="text-sm text-destructive">
           {error}
@@ -495,6 +534,7 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
             })}
           {...(kind === "repeat" &&
             !noVariables && { onInsert: () => insertAndClose(repeatTableContent(selectedName)) })}
+          {...(kind === "steps" && !noVariables && { onInsert: submitSteps })}
         />
       </div>
     </div>
@@ -531,6 +571,7 @@ export default function DocumentTiptapEditor({
   const imageBlockLabel = t("template-resolver.documentEditor.imageBlock");
   const pageBreakLabel = t("template-resolver.documentEditor.pageBreak");
   const buttonLabel = t("template-resolver.documentEditor.button");
+  const stepsLabel = t("template-resolver.documentEditor.steps");
   const stableLabels = useStableByKey(variableLabels, JSON.stringify(variableLabels));
   const stableSystem = useStableByKey(systemVariables, systemVariables.join("\n"));
   const stablePreviews = useStableByKey(resourcePreviews, previewsKey(resourcePreviews));
@@ -541,6 +582,7 @@ export default function DocumentTiptapEditor({
         image: imageLabel,
         pageBreak: pageBreakLabel,
         button: buttonLabel,
+        steps: stepsLabel,
         imageBlock: imageBlockLabel,
         variableLabels: stableLabels,
         systemVariables: stableSystem,
@@ -553,6 +595,7 @@ export default function DocumentTiptapEditor({
       imageBlockLabel,
       pageBreakLabel,
       buttonLabel,
+      stepsLabel,
       stableLabels,
       stableSystem,
       stablePreviews,
@@ -665,6 +708,7 @@ export default function DocumentTiptapEditor({
     repeat: { label: t("template-resolver.documentEditor.repeat"), icon: <Repeat size={16} /> },
     pageBreak: { label: pageBreakLabel, icon: <Scissors size={16} /> },
     align: { label: t("template-resolver.documentEditor.align"), icon: <AlignLeft size={16} /> },
+    steps: { label: stepsLabel, icon: <ListChecks size={16} /> },
   };
 
   const repeatTable = activeState?.repeatTable ?? null;

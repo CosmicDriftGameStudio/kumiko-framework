@@ -93,7 +93,17 @@ beforeAll(async () => {
       createManagedPagesFeature({ resolveApexTenant: () => null }),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
-      createRendererMailHtmlFeature(),
+      createRendererMailHtmlFeature({
+        footer: ({ locale }) => ({
+          text: "Sent via Demo <Platform>",
+          imprint: {
+            label: locale.startsWith("de") ? "Impressum" : "Imprint",
+            url: "https://demo.example/impressum",
+          },
+          privacy: { label: "Datenschutz", url: "javascript:alert(1)" },
+        }),
+        brandSuffix: () => "Status",
+      }),
       mailConfigDemo,
     ],
     {
@@ -123,6 +133,49 @@ beforeAll(async () => {
 afterAll(async () => {
   await stack.cleanup();
 });
+
+function configFor(tenantId: TenantId) {
+  const systemUser = createSystemUser(tenantId);
+  return createConfigAccessorFactory(
+    stack.registry,
+    resolver,
+  )({
+    user: { id: systemUser.id, tenantId },
+    db: createTenantDb(stack.db, tenantId, "tenant"),
+  });
+}
+
+async function renderIncidentDraft(tenantId: TenantId, stage: string) {
+  const result = await plugin.render(
+    {
+      kind: "mail",
+      payload: {
+        slug: SLUG,
+        locale: "de",
+        variables: {
+          stage,
+          eventLabel: "Neuer Incident <A&B>",
+          tone: "warning",
+          title: "API langsam",
+        },
+        unsubscribeUrl: "https://demo.example/unsub?t=1",
+        draft: {
+          content:
+            '<h1><span data-variable="title"></span></h1><div data-steps="stage"><span data-step="investigating">Untersucht</span><span data-step="identified">Identifiziert</span><span data-step="resolved">Behoben</span></div><p>Text</p>',
+          meta: {
+            subject: "{{title}}",
+            headerChip: "{{eventLabel}}",
+            tone: "{{tone}}",
+            footerNote: "Du erhältst diese Mail, weil du <Acme> abonniert hast.",
+          },
+        },
+      },
+    },
+    { db: stack.db, registry: stack.registry, tenantId, config: configFor(tenantId) },
+  );
+  if (result.kind !== "mail") throw new Error(`unexpected render kind ${result.kind}`);
+  return result.html;
+}
 
 async function renderInvoice(tenantId: TenantId) {
   const systemUser = createSystemUser(tenantId);
@@ -166,6 +219,51 @@ describe("renderer-mail-html :: ctx.config", () => {
   });
 });
 
+describe("renderer-mail-html :: in-code layout and platform footer", () => {
+  test("without a layout row the mail shows the tenant name on top and the branding accent", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.accentColor, value: "#ab12cd", scope: "tenant" },
+      configuredAdmin,
+    );
+    const html = await renderInvoice(configuredAdmin.tenantId);
+    expect(html).toContain('lang="de"');
+    expect(html.split("Muster AG").length).toBeGreaterThan(2);
+    expect(html).toContain("#ab12cd");
+  });
+
+  test("chip, tone, steps, brand row and the card footer render from the template and the branding", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.siteUrl, value: "https://status.muster.example", scope: "tenant" },
+      configuredAdmin,
+    );
+    const html = await renderIncidentDraft(configuredAdmin.tenantId, "identified");
+    expect(html).toContain("Neuer Incident &lt;A&amp;B&gt;</span>");
+    expect(html).not.toContain("&amp;amp;");
+    expect(html).not.toContain("<A&B>");
+    expect(html).toContain("background-color:#F2B53A");
+    expect(html).toContain(">M</span>");
+    expect(html).toContain(">Status</span>");
+    expect(html).toMatch(/font-size:30px[^"]*">API langsam<\/h1>/);
+    expect(html.match(/border-radius:2px;background-color:#F2B53A/g)).toHaveLength(2);
+    expect(html).toContain("weil du &lt;Acme&gt; abonniert hast.");
+    expect(html).toContain('href="https://status.muster.example"');
+    expect(html).toContain(">status.muster.example</a>");
+    expect(html).toContain(">Abmelden</a>");
+    expect(html.indexOf("Abmelden")).toBeLessThan(html.indexOf("Sent via Demo"));
+  });
+
+  test("the footer resolver adds escaped text and safe links, an unsafe link is dropped", async () => {
+    const html = await renderInvoice(untouchedTenant);
+    expect(html).toContain("Sent via Demo &lt;Platform&gt;");
+    expect(html).toContain('href="https://demo.example/impressum"');
+    expect(html).toContain("Impressum");
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("#ab12cd");
+  });
+});
+
 describe("renderer-mail-html :: layout accent line", () => {
   const layout = (accentLine: "branding" | "none") => ({
     slug: "default",
@@ -197,5 +295,11 @@ describe("renderer-mail-html :: layout accent line", () => {
       configuredAdmin,
     );
     expect(await renderInvoice(configuredAdmin.tenantId)).toContain("#ab12cd");
+  });
+
+  test("a tenant layout cannot drop the platform footer", async () => {
+    const html = await renderInvoice(configuredAdmin.tenantId);
+    expect(html).toContain("Kopf");
+    expect(html).toContain('href="https://demo.example/impressum"');
   });
 });

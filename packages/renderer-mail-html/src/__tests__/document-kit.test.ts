@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { compileDocumentBodyToHandlebars } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { compileDocumentSource, createDocumentHandlebars } from "../document-kit";
 
 function renderInvoiceLine(locale: string): string {
@@ -89,5 +90,39 @@ describe("renderer-mail-html :: richText helper", () => {
   test("a missing or non-string value renders nothing", () => {
     expect(render("{{richText body}}", {})).toBe("");
     expect(render("{{richText body}}", { body: 5 })).toBe("");
+  });
+});
+
+describe("renderer-mail-html :: steps block", () => {
+  const body =
+    '<div data-steps="stage"><span data-step="reported">Gemeldet</span><span data-step="investigating">Untersucht</span><span data-step="resolved">Behoben</span></div>';
+
+  function renderSteps(stage: unknown): string {
+    const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
+    const source = compileDocumentBodyToHandlebars(body, {}, { stepsColor: "#F2B53A" });
+    return compileDocumentSource(hbs, source)({ stage });
+  }
+
+  function barColors(html: string): readonly string[] {
+    return [...html.matchAll(/border-radius:2px;background-color:(#[0-9A-Fa-f]{6})/g)].map(
+      (match) => match[1] ?? "",
+    );
+  }
+
+  test("stages up to the current one are filled, the current label is bold", () => {
+    const html = renderSteps("investigating");
+    expect(barColors(html)).toEqual(["#F2B53A", "#F2B53A", "#ECEDEA"]);
+    expect(html).toMatch(/color:#0B0D12;font-weight:600">Untersucht/);
+    expect(html).toMatch(/color:#5A6170;font-weight:400">Behoben/);
+  });
+
+  test("an unknown or missing stage leaves every stage open", () => {
+    expect(barColors(renderSteps("closed"))).toEqual(["#ECEDEA", "#ECEDEA", "#ECEDEA"]);
+    expect(barColors(renderSteps(undefined))).toEqual(["#ECEDEA", "#ECEDEA", "#ECEDEA"]);
+    expect(barColors(renderSteps({ toString: () => "resolved" }))).toEqual([
+      "#ECEDEA",
+      "#ECEDEA",
+      "#ECEDEA",
+    ]);
   });
 });

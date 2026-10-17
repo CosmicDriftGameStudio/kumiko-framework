@@ -8,6 +8,7 @@ import { Extension, type Extensions, Node } from "@tiptap/core";
 import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
+import { createDocumentStepsNode } from "./document-steps.js";
 
 const PLACEHOLDER_HREF = /^\{\{(.+)\}\}$/;
 const REFERENCE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
@@ -71,6 +72,7 @@ export const DOCUMENT_NODE_NAMES = [
   "button",
   "divider",
   "pageBreak",
+  "steps",
 ] as const;
 
 export const DocumentVariable = Node.create({
@@ -131,7 +133,8 @@ export const DocumentResource = Node.create({
 export const DocumentButton = Node.create({
   name: "button",
   group: "block",
-  content: "text*",
+  // A placeholder in the label ("View {{pageName}}") must survive the round trip.
+  content: "(text | variable)*",
   marks: "",
   defining: true,
   addAttributes() {
@@ -178,6 +181,8 @@ export const DocumentPageBreak = Node.create({
     return ["div", { "data-page-break": "" }];
   },
 });
+
+export const DocumentSteps = createDocumentStepsNode(isDocumentReferenceName);
 
 // A repeat row is a table row carrying `each`: prosemirror-tables requires
 // the tableRow node type, so a separate node type is not an option.
@@ -340,6 +345,7 @@ export const documentExtensions: Extensions = [
   DocumentButton,
   DocumentDivider,
   DocumentPageBreak,
+  DocumentSteps,
   DocumentTextAlign,
   DocumentTextSize,
 ];

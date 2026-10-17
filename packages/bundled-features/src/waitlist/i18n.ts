@@ -1,6 +1,15 @@
 type LocalizedString = { readonly en: string; readonly de: string };
 
 export const WAITLIST_I18N: Readonly<Record<string, LocalizedString>> = {
+  "waitlist:feature.label": { en: "Waitlist", de: "Warteliste" },
+  "waitlist:notify.confirmation.label": {
+    en: "Waitlist confirmation",
+    de: "Bestätigung der Warteliste",
+  },
+  "waitlist:notify.admin-notice.label": {
+    en: "New waitlist entry",
+    de: "Neuer Eintrag auf der Warteliste",
+  },
   "screen:waitlist-list.title": { en: "Waitlist", de: "Warteliste" },
   "waitlist.nav.waitlist": { en: "Waitlist", de: "Warteliste" },
   "waitlist:entity:waitlistEntry:field:name": { en: "Name", de: "Name" },

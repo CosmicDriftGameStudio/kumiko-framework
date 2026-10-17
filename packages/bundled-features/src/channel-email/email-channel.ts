@@ -39,7 +39,8 @@ const UNSUBSCRIBE_HEADER_NAMES: ReadonlySet<string> = new Set([
   "list-unsubscribe-post",
 ]);
 
-// Only the framework's own unsubscribe route can honor a one-click POST.
+// Only the framework's own unsubscribe route can honor a one-click POST; an app's
+// own unsubscribe page still gets the plain List-Unsubscribe link (RFC 2369).
 function listUnsubscribeHeaders(
   data: Readonly<Record<string, unknown>> | undefined,
 ): Readonly<Record<string, string>> | undefined {
@@ -52,7 +53,9 @@ function listUnsubscribeHeaders(
     return undefined;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
-  if (url.pathname !== DELIVERY_UNSUBSCRIBE_PATH) return undefined;
+  if (url.pathname !== DELIVERY_UNSUBSCRIBE_PATH) {
+    return { "List-Unsubscribe": `<${url.toString()}>` };
+  }
   return {
     "List-Unsubscribe": `<${url.toString()}>`,
     "List-Unsubscribe-Post": DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,

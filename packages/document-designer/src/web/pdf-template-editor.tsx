@@ -53,6 +53,7 @@ import {
 } from "./types.js";
 import { useInsertTargets } from "./use-insert-targets.js";
 import { useOverviewRows } from "./use-overview-rows.js";
+import { templateTitle } from "./used-by-label.js";
 
 const SETTLE_MS = 500;
 const NO_VARIABLES: Readonly<Record<string, VariableInfo>> = {};
@@ -385,7 +386,7 @@ export function PdfTemplateEditor({
     (overridesQuery.data?.activeOverrides ?? 0) + (overridesQuery.data?.draftOverrides ?? 0);
   const resourceKeys = Object.keys(parseJsonObject(detail.linkedResources));
   const overviewRow = overview.rows.find((candidate) => candidate.slug === slug);
-  const title = overviewRow?.title ?? slug;
+  const title = overviewRow === undefined ? slug : templateTitle(t, overviewRow);
   const systemVersion = overviewRow?.systemVersion ?? null;
   const vocabulary = {
     names: variableNames,

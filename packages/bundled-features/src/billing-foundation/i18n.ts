@@ -4,6 +4,12 @@
 type LocalizedString = { readonly en: string };
 
 export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> = {
+  "billing-foundation:feature.label": { en: "Billing" },
+  "billing-foundation:notify.contract-confirmation.label": { en: "Contract confirmation" },
+  "billing-foundation:notify.contract-termination-receipt.label": { en: "Termination receipt" },
+  "billing-foundation:notify.contract-termination-operator-notice.label": {
+    en: "Termination notice to operator",
+  },
   "screen:billing-plans.title": { en: "Billing" },
   "billing-foundation.plans.billingDisabled": {
     en: "Billing is not active yet. Your current plan stays in place.",

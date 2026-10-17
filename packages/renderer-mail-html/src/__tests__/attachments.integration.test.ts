@@ -168,6 +168,7 @@ const adminTenantH = tenantAdmin(38);
 const adminTenantI = tenantAdmin(39);
 const adminTenantJ = tenantAdmin(40);
 const adminTenantK = tenantAdmin(41);
+const adminTenantL = tenantAdmin(42);
 
 // Job failures only surface as a bare error code; the job's error log names the failing step.
 const loggedErrors: string[] = [];
@@ -492,6 +493,26 @@ describe("mail attachments: inline logo and file attachment", () => {
 
     expect(mail.html).not.toContain("cid:logo");
     expect(mail.attachments ?? []).toHaveLength(0);
+  });
+
+  test("without any layout row the built-in header shows the branding logo", async () => {
+    const brandingFileRefId = await uploadResource(adminTenantL);
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.logoFile, value: brandingFileRefId },
+      adminTenantL,
+    );
+
+    const mail = await sendMail(adminTenantL, PLAIN);
+
+    expect(mail.html).toContain("Plain");
+    expect(mail.html).toContain('src="cid:logo"');
+    expect(mail.html).toContain('height="28"');
+    expect(mail.attachments).toHaveLength(1);
+    expect(mail.attachments?.[0]).toMatchObject({ kind: "inline", cid: "logo" });
+    expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(
+      Buffer.from(await storedBytes(brandingFileRefId)),
+    );
   });
 
   test("an image in the data-header of a tenant layout is sent as an inline attachment", async () => {
