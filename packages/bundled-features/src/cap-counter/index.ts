@@ -10,10 +10,18 @@ export {
   readRollingCapUsage,
 } from "./book-cap-usage.js";
 export {
+  type CalendarCapReservationHandle,
+  type CalendarCapReservationHandleSpec,
   type CalendarCapUsageReservation,
   type CalendarCapUsageReservationSpec,
+  calendarCapReservationHandle,
   reserveCalendarCapUsage,
 } from "./calendar-cap-usage-reservation.js";
+export {
+  CapReservationOverConsumedError,
+  CapReservationSettledError,
+  CapSettleBelowConsumedError,
+} from "./cap-reservation.js";
 export {
   CAP_COUNTER_FEATURE,
   CAP_COUNTER_ROLLING_AGGREGATE_TYPE,

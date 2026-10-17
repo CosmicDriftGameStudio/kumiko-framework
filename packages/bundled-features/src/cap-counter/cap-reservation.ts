@@ -5,7 +5,7 @@ import {
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import { reraiseAsKumikoError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   appendEventInTenantDb,
   getStreamVersionInTenantDb,
@@ -208,6 +208,8 @@ async function giveBackCalendar(
   if (row.periodStartIso === null) {
     throw new Error(`cap-counter: calendar reservation ${row.id} has no period to release against`);
   }
+  // Fully consumed by consumeCalendarCapReservation: nothing left to give back.
+  if (row.amount === 0) return NOTHING_TO_RELEASE;
   return applyCapDeltaOn(
     txDb,
     user,
@@ -249,27 +251,28 @@ async function giveBackReservation(
   const claimed = await claimReservationRow(txDb, user, row);
   if (!claimed) return NOTHING_TO_RELEASE;
   const given =
-    row.kind === "rolling"
-      ? await giveBackRolling(txDb, user, row)
-      : await giveBackCalendar(txDb, user, row);
+    claimed.kind === "rolling"
+      ? await giveBackRolling(txDb, user, claimed)
+      : await giveBackCalendar(txDb, user, claimed);
   if (!given.isSuccess) return given;
   await txDb.deleteMany(capReservationsTable, ownRow);
   return given;
 }
 
-// Waits for a confirm still holding the row; false means that confirm, a settle or another release
-// won (Postgres re-checks settled_at after the lock wait).
+// Waits for a confirm still holding the row; undefined means that confirm, a settle or another
+// release won (Postgres re-checks settled_at after the lock wait). The returned row is read after
+// the lock wait, so its amount already includes a concurrent consume.
 async function claimReservationRow(
   txDb: TenantDb,
   user: SessionUser,
   row: CapReservationRow,
-): Promise<boolean> {
-  const claimed = await txDb.updateMany(
+): Promise<CapReservationRow | undefined> {
+  const [claimed] = await txDb.updateMany<CapReservationRow>(
     capReservationsTable,
     { expiresAt: row.expiresAt },
     { id: row.id, tenantId: user.tenantId, settledAt: null },
   );
-  return claimed.length > 0;
+  return claimed;
 }
 
 export async function releaseCapReservation(
@@ -289,8 +292,30 @@ export async function releaseCapReservation(
 export type SettleCalendarCapOptions = {
   readonly capName: string;
   readonly periodStartIso: string;
+  // Total used, including units already consumed through a handle.
   readonly actualAmount: number;
+  // The amount the reservation was made for; defaults to the row's remaining amount, which is only
+  // right while nothing was consumed.
+  readonly reservedAmount?: number;
 };
+
+export class CapSettleBelowConsumedError extends UnprocessableError {
+  constructor(capName: string, consumed: number, actualAmount: number) {
+    super("cap_settle_below_consumed", {
+      message: `Cap "${capName}": cannot settle ${actualAmount}, ${consumed} units were already consumed.`,
+      details: { capName, consumed, actualAmount },
+    });
+  }
+}
+
+export class CapReservationSettledError extends UnprocessableError {
+  constructor(capName: string) {
+    super("cap_reservation_settled", {
+      message: `Cap "${capName}": the reservation is already settled, consume is no longer possible.`,
+      details: { capName },
+    });
+  }
+}
 
 function bookCalendarDelta(
   txDb: TenantDb,
@@ -318,8 +343,14 @@ async function settleInTransaction(
     ...ownRow,
     settledAt: null,
   });
-  if (open && (await claimReservationRow(txDb, user, open))) {
-    const booked = await bookCalendarDelta(txDb, user, options, options.actualAmount - open.amount);
+  const claimed = open && (await claimReservationRow(txDb, user, open));
+  if (claimed) {
+    const reserved = options.reservedAmount ?? claimed.amount;
+    const consumed = reserved - claimed.amount;
+    if (options.actualAmount < consumed) {
+      throw new CapSettleBelowConsumedError(options.capName, consumed, options.actualAmount);
+    }
+    const booked = await bookCalendarDelta(txDb, user, options, options.actualAmount - reserved);
     if (!booked.isSuccess) return booked;
     const now = Temporal.Now.instant();
     await txDb.updateMany(
@@ -380,6 +411,65 @@ export async function settleCalendarCapReservation(
     ),
   );
   if (!settled.isSuccess) throw reraiseAsKumikoError(settled.error);
+}
+
+export type ConsumeCalendarCapOptions = {
+  readonly capName: string;
+  readonly periodStartIso: string;
+  readonly units: number;
+};
+
+export class CapReservationOverConsumedError extends UnprocessableError {
+  constructor(capName: string, remaining: number, requested: number) {
+    super("cap_reservation_over_consumed", {
+      message: `Cap "${capName}": cannot consume ${requested} units, only ${remaining} still reserved.`,
+      details: { capName, remaining, requested },
+    });
+  }
+}
+
+async function consumeInTransaction(
+  txDb: TenantDb,
+  user: SessionUser,
+  id: string,
+  options: ConsumeCalendarCapOptions,
+): Promise<WriteResult> {
+  const ownRow = { id, tenantId: user.tenantId };
+  const open = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
+    ...ownRow,
+    settledAt: null,
+  });
+  const claimed = open && (await claimReservationRow(txDb, user, open));
+  if (claimed) {
+    if (options.units > claimed.amount) {
+      throw new CapReservationOverConsumedError(options.capName, claimed.amount, options.units);
+    }
+    await txDb.updateMany(capReservationsTable, { amount: claimed.amount - options.units }, ownRow);
+    return NOTHING_TO_RELEASE;
+  }
+  if (await txDb.fetchOne<CapReservationRow>(capReservationsTable, ownRow)) {
+    throw new CapReservationSettledError(options.capName);
+  }
+  // Row swept after its TTL: the reserved rest was given back, so each unit is booked directly.
+  return bookCalendarDelta(txDb, user, options, options.units);
+}
+
+// Turns reserved units into booked ones without touching the counter; the row keeps the unconsumed
+// rest so a release gives back exactly that.
+export async function consumeCalendarCapReservation(
+  ctx: CapCounterContext,
+  id: string,
+  options: ConsumeCalendarCapOptions,
+  outsideTransaction = true,
+): Promise<void> {
+  if (!Number.isInteger(options.units) || options.units < 1) {
+    throw new Error(`cap-counter: consume units must be a positive integer, got ${options.units}`);
+  }
+  const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
+  const consumed = await retryCounterWriteOnVersionConflict(() =>
+    runInOwnTransaction(writeDb, (txDb) => consumeInTransaction(txDb, user, id, options)),
+  );
+  if (!consumed.isSuccess) throw reraiseAsKumikoError(consumed.error);
 }
 
 // A failed release leaves its row behind; giving it back once the TTL passed bounds how long that

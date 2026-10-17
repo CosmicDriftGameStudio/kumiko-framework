@@ -1,6 +1,8 @@
 import type { CapCounterContext } from "./book-cap-usage.js";
 import {
   type CalendarCapReservation,
+  consumeCalendarCapReservation,
+  releaseCapReservation,
   releaseExpiredCapReservations,
   reserveCalendarCap,
   settleCalendarCapReservation,
@@ -20,10 +22,12 @@ export type CalendarCapUsageReservationSpec = Omit<CalendarCapDef, "amount" | "n
 };
 
 export type CalendarCapUsageReservation = {
+  readonly reservationId: string;
   readonly amount: number;
   // Counter value right after this reservation was booked.
   readonly counterValue: number;
   // Replaces the reserved amount with the actual one; rejects a second settle and one after release.
+  // actualAmount is the total used, including units consumed through a handle.
   settle(actualAmount: number): Promise<void>;
   // Gives the reserved amount back; a no-op once settled.
   release(): Promise<void>;
@@ -72,6 +76,7 @@ export async function reserveCalendarCapUsage(
   let state: ReservationState = "open";
 
   return {
+    reservationId: reservation.reservationId,
     amount: spec.amount,
     counterValue: reservation.counterValue,
     async settle(actualAmount) {
@@ -83,7 +88,12 @@ export async function reserveCalendarCapUsage(
         await settleCalendarCapReservation(
           ctx,
           reservation.reservationId,
-          { capName: spec.capName, periodStartIso: spec.periodStartIso, actualAmount },
+          {
+            capName: spec.capName,
+            periodStartIso: spec.periodStartIso,
+            actualAmount,
+            reservedAmount: spec.amount,
+          },
           outsideTransaction,
         );
       } catch (error) {
@@ -96,6 +106,47 @@ export async function reserveCalendarCapUsage(
       if (state !== "open") return;
       await reservation.release();
       state = "released";
+    },
+  };
+}
+
+export type CalendarCapReservationHandleSpec = Pick<
+  CalendarCapUsageReservationSpec,
+  "capName" | "periodStartIso" | "outsideTransaction"
+>;
+
+export type CalendarCapReservationHandle = {
+  // Moves units from reserved to booked, counter unchanged; rejects more than the still-reserved rest.
+  consume(units: number): Promise<void>;
+  // Gives back the unconsumed rest; a no-op once settled or already released.
+  release(): Promise<void>;
+};
+
+// Addresses a reservation by id so a job can consume it per unit; capName and period are needed
+// because the row may already be swept, in which case consume books the units directly.
+export function calendarCapReservationHandle(
+  ctx: CapCounterContext,
+  reservationId: string,
+  spec: CalendarCapReservationHandleSpec,
+): CalendarCapReservationHandle {
+  const outsideTransaction = spec.outsideTransaction ?? true;
+  let released = false;
+  return {
+    async consume(units) {
+      if (released) {
+        throw new Error(`cap-counter: reservation for "${spec.capName}" is already released`);
+      }
+      await consumeCalendarCapReservation(
+        ctx,
+        reservationId,
+        { capName: spec.capName, periodStartIso: spec.periodStartIso, units },
+        outsideTransaction,
+      );
+    },
+    async release() {
+      if (released) return;
+      await releaseCapReservation(ctx, reservationId, outsideTransaction);
+      released = true;
     },
   };
 }
