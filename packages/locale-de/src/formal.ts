@@ -208,6 +208,9 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "pat.created.hint":
     "Kopieren Sie diesen Token jetzt. Aus Sicherheitsgründen wird er nur dieses eine Mal angezeigt.",
   "kumiko.list.empty.hint": "Legen Sie den ersten an, um loszulegen.",
+  "kumiko.screen-access-denied.title": "Sie haben keinen Zugriff auf diese Seite.",
+  "kumiko.screen-missing.hint":
+    "Sie ist für Ihr Konto nicht freigeschaltet oder existiert nicht mehr.",
   "auth.mfa.setup.intro":
     "Scannen Sie den QR-Code mit einer Authenticator-App wie Google Authenticator oder 1Password.",
   "tier-admin.explainer":

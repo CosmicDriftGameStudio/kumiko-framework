@@ -40,6 +40,7 @@ import {
   type QualifiedContentCollection,
   qualifyScreenId,
   type ReturnHost,
+  ScreenMissingState,
   type SessionEndedSignal,
   SessionEndedSignalProvider,
   TokensProvider,
@@ -946,17 +947,18 @@ function RoutedScreen({
     };
   }, [nav]);
 
-  // KumikoScreen will nach wie vor ein single-feature schema. Wir
-  // füttern es mit dem owning Feature — es enthält Entity-Defs +
-  // Screen-Defs für den aktiven Render-Pfad. Kein Owner gefunden → wir
-  // nutzen das erste Feature als Fallback (KumikoScreen zeigt dann den
-  // "Screen not found"-Banner für das nicht-existente qn).
-  const schemaForScreen: FeatureSchema = feature ??
-    app.features[0] ?? {
-      featureName: "",
-      entities: {},
-      screens: [],
-    };
+  if (feature === undefined || activeScreen === undefined) {
+    const landingExists = findOwnerFeature(app.features, fallbackQn) !== undefined;
+    return (
+      <ScreenMissingState
+        {...(landingExists && { homeScreenId: lastSegment(fallbackQn) })}
+        screenQn={qn}
+      />
+    );
+  }
+
+  // KumikoScreen takes a single-feature schema: the feature owning the active screen.
+  const schemaForScreen: FeatureSchema = feature;
 
   return (
     <ErrorBoundary

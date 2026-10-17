@@ -25,7 +25,14 @@ export type FileUploadInputProps = {
   readonly fieldName?: string;
   readonly imageVariant?: string;
   readonly capture?: "environment" | "user";
+  /** Folder picker (web-only, `webkitdirectory`): hands the picked files with
+   *  `webkitRelativePath` to `onFilesPicked` and uploads nothing. */
+  readonly directory?: boolean;
+  readonly onFilesPicked?: (files: readonly File[]) => void;
 };
+
+// React's input typings have no `webkitdirectory`; spreading keeps it typed-cast-free.
+const DIRECTORY_INPUT_ATTRS = { webkitdirectory: "", multiple: true };
 
 export function FileUploadInput({
   kind,
@@ -39,6 +46,8 @@ export function FileUploadInput({
   fieldName,
   imageVariant,
   capture,
+  directory,
+  onFilesPicked,
 }: FileUploadInputProps): ReactNode {
   const t = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -46,6 +55,11 @@ export function FileUploadInput({
   const [error, setError] = useState<string | null>(null);
 
   async function onPick(e: ChangeEvent<HTMLInputElement>): Promise<void> {
+    if (directory === true) {
+      onFilesPicked?.(Array.from(e.target.files ?? []));
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     const file = e.target.files?.[0];
     if (file === undefined) return;
     setUploading(true);
@@ -92,6 +106,7 @@ export function FileUploadInput({
         className="hidden"
         {...(acceptAttr !== undefined && { accept: acceptAttr })}
         {...(capture !== undefined && { capture })}
+        {...(directory === true && DIRECTORY_INPUT_ATTRS)}
         onChange={(e) => void onPick(e)}
         disabled={disabled}
       />

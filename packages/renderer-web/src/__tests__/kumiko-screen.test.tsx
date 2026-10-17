@@ -88,7 +88,7 @@ async function clickSubmitOnceEnabled(
 }
 
 describe("KumikoScreen", () => {
-  test("unknown qn → not-found placeholder", () => {
+  test("unknown qn → unavailable empty state", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <KumikoScreen schema={schema} qn="tasks:screen:ghost" />

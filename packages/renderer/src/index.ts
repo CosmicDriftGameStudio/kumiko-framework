@@ -67,7 +67,12 @@ export type {
 } from "./app/feature-schema.js";
 export { isAppSchema, toAppSchema } from "./app/feature-schema.js";
 export type { KumikoScreenProps } from "./app/kumiko-screen.js";
-export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen.js";
+export {
+  KumikoScreen,
+  qualifyNavId,
+  qualifyScreenId,
+  ScreenMissingState,
+} from "./app/kumiko-screen.js";
 export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.js";
 export {
   buildDateRangePayload,

@@ -222,7 +222,6 @@ export function KumikoScreen({
   onRowClick,
   onCopyLink,
 }: KumikoScreenProps): ReactNode {
-  const { Banner, Text } = usePrimitives();
   const userRoles = useUserRoles();
   const outerHost = useReturnHost();
   const screen = useMemo(
@@ -242,19 +241,11 @@ export function KumikoScreen({
   );
 
   if (!screen) {
-    return (
-      <Banner padded variant="error" testId="kumiko-screen-not-found">
-        Screen not found: <Text variant="code">{qn}</Text>
-      </Banner>
-    );
+    return <ScreenMissingState screenQn={qn} />;
   }
 
   if (!screenAccessAllows(screen.access, userRoles)) {
-    return (
-      <Banner padded variant="error" testId="kumiko-screen-access-denied">
-        Access denied: <Text variant="code">{qn}</Text>
-      </Banner>
-    );
+    return <ScreenAccessDeniedBanner screenQn={qn} testId="kumiko-screen-access-denied" />;
   }
 
   const screenBody = renderScreenBody({
@@ -328,6 +319,75 @@ function ScreenVisibilityGate({
         <ScreenUnavailableBanner />
       )}
     </>
+  );
+}
+
+function ScreenMissingHomeButton({
+  homeScreenId,
+  testId,
+}: {
+  readonly homeScreenId: string;
+  readonly testId: string;
+}): ReactNode {
+  const { Button } = usePrimitives();
+  const t = useTranslation();
+  const nav = useNav();
+  return (
+    <Button
+      variant="secondary"
+      onClick={() => nav.navigate({ screenId: homeScreenId })}
+      testId={testId}
+    >
+      {t("kumiko.screen-missing.home")}
+    </Button>
+  );
+}
+
+/** Empty state for a screen QN that is not in the schema (feature disabled for
+ *  the tenant, stale link, miswired screen). The QN only goes to the console. */
+export function ScreenMissingState({
+  screenQn,
+  homeScreenId,
+  testId = "kumiko-screen-not-found",
+}: {
+  readonly screenQn: string;
+  readonly homeScreenId?: string;
+  readonly testId?: string;
+}): ReactNode {
+  const { Card, Text } = usePrimitives();
+  const t = useTranslation();
+  useEffect(() => {
+    console.warn(
+      `[kumiko] screen "${screenQn}" is not in the schema (feature disabled, stale link or miswired screen).`,
+    );
+  }, [screenQn]);
+  return (
+    <Card options={{ padded: true }} testId={testId}>
+      <Text testId={`${testId}-title`}>{t("kumiko.screen-missing.title")}</Text>
+      <Text variant="muted">{t("kumiko.screen-missing.hint")}</Text>
+      {homeScreenId !== undefined && (
+        <ScreenMissingHomeButton homeScreenId={homeScreenId} testId={`${testId}-home`} />
+      )}
+    </Card>
+  );
+}
+
+function ScreenAccessDeniedBanner({
+  screenQn,
+  testId,
+}: {
+  readonly screenQn: string;
+  readonly testId: string;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  const t = useTranslation();
+  useEffect(() => {
+    console.warn(`[kumiko] access to screen "${screenQn}" denied for the current roles.`);
+  }, [screenQn]);
+  return (
+    <Banner padded variant="error" testId={testId}>
+      {t("kumiko.screen-access-denied.title")}
+    </Banner>
   );
 }
 
@@ -2091,7 +2151,7 @@ function DrawerHost({
   readonly onClose: () => void;
   readonly onSuccess: () => void;
 }): ReactNode {
-  const { Drawer, Banner, Text, Dialog } = usePrimitives();
+  const { Drawer, Dialog } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useLocale().locale();
@@ -2146,13 +2206,15 @@ function DrawerHost({
         <PageHeaderSlotAvailableProvider value={false}>
           <InsideDrawerProvider value={true}>
             {drawerScreen === undefined ? (
-              <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
-                Screen not found: <Text variant="code">{drawerAction.screen}</Text>
-              </Banner>
+              <ScreenMissingState
+                screenQn={drawerAction.screen}
+                testId="kumiko-toolbar-drawer-not-found"
+              />
             ) : !allowed ? (
-              <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
-                Access denied: <Text variant="code">{drawerAction.screen}</Text>
-              </Banner>
+              <ScreenAccessDeniedBanner
+                screenQn={drawerAction.screen}
+                testId="kumiko-toolbar-drawer-access-denied"
+              />
             ) : (
               <ActionFormBody
                 schema={schema}

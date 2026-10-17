@@ -56,6 +56,40 @@ describe("FileUploadInput — camera capture (#1953)", () => {
   });
 });
 
+describe("FileUploadInput — directory mode", () => {
+  test("directory sets webkitdirectory + multiple and hands the files to onFilesPicked", () => {
+    const picked: File[][] = [];
+    const { container } = render(
+      <FileUploadInput
+        kind="file"
+        id="folder"
+        value={null}
+        onChange={noop}
+        directory
+        onFilesPicked={(files) => picked.push([...files])}
+      />,
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (input === null) throw new Error("file input missing");
+    expect(input.hasAttribute("webkitdirectory")).toBe(true);
+    expect(input.multiple).toBe(true);
+    const file = new File(["x"], "a.txt");
+    Object.defineProperty(file, "webkitRelativePath", { value: "dir/a.txt" });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(picked).toHaveLength(1);
+    expect(picked[0]?.[0]?.webkitRelativePath).toBe("dir/a.txt");
+  });
+
+  test("without directory the input has no webkitdirectory", () => {
+    const { container } = render(
+      <FileUploadInput kind="file" id="f" value={null} onChange={noop} />,
+    );
+    expect(container.querySelector('input[type="file"]')?.hasAttribute("webkitdirectory")).toBe(
+      false,
+    );
+  });
+});
+
 describe("FileUploadInput — translated labels", () => {
   test("buttons and the attached hint use the locale strings", () => {
     const { getByRole, getByText } = render(

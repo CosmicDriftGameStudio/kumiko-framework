@@ -711,6 +711,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.screen-error.detail": "Screen: {screen}. {message}",
   "kumiko.screen-error.screen": "Screen: {screen}",
   "kumiko.screen-error.title": "Dieser Screen konnte nicht dargestellt werden.",
+  "kumiko.screen-access-denied.title": "Du hast keinen Zugriff auf diese Seite.",
+  "kumiko.screen-missing.home": "Zur Startseite",
+  "kumiko.screen-missing.hint":
+    "Sie ist für dein Konto nicht freigeschaltet oder existiert nicht mehr.",
+  "kumiko.screen-missing.title": "Diese Seite ist nicht verfügbar",
   "kumiko.screen.unavailable": "Diese Seite ist derzeit nicht verfügbar.",
   "kumiko.dashboard.brush-end": "Fensterende",
   "kumiko.dashboard.brush-start": "Fensterbeginn",
