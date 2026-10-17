@@ -432,8 +432,7 @@ describe("public pages", () => {
     await stack.drainJobs();
     expect(mailsTo("page@example.com")).toHaveLength(1);
     const mailHtml = mailsTo("page@example.com")[0]?.html ?? "";
-    expect(mailHtml).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
-    expect(mailHtml).not.toContain("<script>alert");
+    expect(mailHtml).not.toContain("alert(1)");
   });
 
   test.each([
@@ -777,7 +776,7 @@ describe("terminate-contract (account path)", () => {
     ]);
     const notices = mailsTo(OPERATOR_EMAIL);
     expect(notices).toHaveLength(1);
-    expect(notices[0]?.html).toContain("Widerruf nach Ablauf der Widerrufsfrist");
+    expect(notices[0]?.html).toContain("Withdrawal after the withdrawal period");
   });
 
   test("a withdrawal on the last day of the withdrawal period still cancels immediately", async () => {
