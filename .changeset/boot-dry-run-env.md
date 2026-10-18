@@ -19,7 +19,7 @@ migration: Pass envSchema: composeEnvSchema({ core: frameworkCoreEnvSchema, feat
 feature: server-runtime
 type: improvement
 title: KUMIKO_DRY_RUN_ENV=boot prints an env table and exits 0 on missing values
-detail: The boot dry run lists every variable of the composed schema with its feature, whether it is required, and whether it is set, missing or invalid. Values are never printed. An invalid value exits 1. A missing required value exits 0 and says the feature wiring was not validated; with every variable present the dry run validates the wiring as before. NODE_ENV=production does not change this. The MFA secret binding and other env reads run after this exit, so an empty env no longer crashes the dry run.
+detail: The boot dry run lists every variable of the composed schema with its feature, whether it is required, and whether it is set, missing or invalid. DATABASE_URL, REDIS_URL and JWT_SECRET appear with source server-runtime when the schema does not declare them, since runProdApp reads them itself. Values are never printed, and a validation message that quotes the value is replaced. A keyring the master-key provider cannot use fails the dry run. An invalid value exits 1. A missing required value exits 0 and says the feature wiring was not validated; with every variable present the dry run validates the wiring as before. NODE_ENV=production does not change this. The MFA secret binding and other env reads run after this exit, so an empty env no longer crashes the dry run.
 -->
 
 <!-- kumiko-changes

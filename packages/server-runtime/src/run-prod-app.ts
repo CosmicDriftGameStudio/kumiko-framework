@@ -16,7 +16,7 @@
 //     (gleiche Logik wie runDevApp).
 //
 // App-Author schreibt:
-//   await runProdApp({ features, auth, anonymousAccess, seeds });
+//   await runProdApp({ features, envSchema, auth, anonymousAccess, seeds });
 //
 // Container/Coolify setzt:
 //   DATABASE_URL=postgresql://...
@@ -122,6 +122,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/entrypoint";
 import {
   type ComposedEnvSchema,
+  type EnvFieldInspection,
   inspectEnv,
   KumikoBootError,
   kmsSlotsOf,
@@ -217,6 +218,24 @@ export {
   resolveAuthMail,
 } from "./run-prod-app-boot-context.js";
 export { staticCachePolicy } from "./run-prod-app-static-files.js";
+
+// runProdApp reads these itself, so the boot dry run lists them even when
+// the app schema leaves them out (JWT_SECRET usually comes from auth-email-password).
+const RUNTIME_REQUIRED_ENV_KEYS = ["DATABASE_URL", "REDIS_URL", "JWT_SECRET"] as const;
+
+function inspectUndeclaredRuntimeEnv(
+  declaredShape: Readonly<Record<string, unknown>>,
+  env: Readonly<Record<string, string | undefined>>,
+): readonly EnvFieldInspection[] {
+  return RUNTIME_REQUIRED_ENV_KEYS.filter((name) => !(name in declaredShape)).map(
+    (name): EnvFieldInspection => ({
+      name,
+      klass: "required",
+      source: "server-runtime",
+      status: env[name] ? "set" : "missing",
+    }),
+  );
+}
 
 // Strict env-var read. Throws with a clear hint when missing — better
 // than discovering a Postgres-connection-refused 30s into the boot.
@@ -898,9 +917,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     return makeDryRunHandle();
   }
   if (runMode === "boot") {
-    const inspection = inspectEnv(effectiveEnvSchema, rawEnvSource, {
-      sources: composedEnvSchema.sources,
-    });
+    const inspection = [
+      ...inspectEnv(effectiveEnvSchema, rawEnvSource, { sources: composedEnvSchema.sources }),
+      ...inspectUndeclaredRuntimeEnv(effectiveEnvSchema.shape, rawEnvSource),
+    ];
     // biome-ignore lint/suspicious/noConsole: boot-mode output IS the deliverable
     console.log(renderEnvInspection(inspection));
     const invalid = inspection.filter((row) => row.status === "invalid");

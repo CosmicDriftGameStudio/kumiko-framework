@@ -11,6 +11,7 @@ import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 
 await runProdApp({
   features: [...],
+  envSchema,             // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   seedsDir: "./seeds",   // ← einzige Setup-Pflicht
   // ...
 });

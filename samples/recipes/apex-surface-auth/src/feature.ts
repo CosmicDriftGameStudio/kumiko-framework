@@ -59,7 +59,7 @@
 // SERVER-WIRING: die App aktiviert `anonymousAccess` (defaultTenantId = der
 // Apex-Host-Tenant), damit /api/write die anonymen Deletion-Handler erreicht:
 //
-//   runProdApp({ features: composeApexAccountApp({...}),
+//   runProdApp({ features: composeApexAccountApp({...}), envSchema,
 //                anonymousAccess: { defaultTenantId: APEX_TENANT_ID } })
 
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";

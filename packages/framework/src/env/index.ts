@@ -619,7 +619,11 @@ export function inspectEnv(
 function firstFieldIssue(field: z.ZodType, raw: string): string | undefined {
   try {
     const result = field.safeParse(raw);
-    return result.success ? undefined : (result.error.issues[0]?.message ?? "invalid value");
+    if (result.success) return undefined;
+    const message = result.error.issues[0]?.message ?? "invalid value";
+    // A custom refine message may interpolate the input; the table must not
+    // carry it, so such a message is replaced as a whole.
+    return raw.length > 0 && message.includes(raw) ? "invalid value" : message;
   } catch {
     // The thrown message may quote the value, so it is not passed on.
     return "a field refinement threw while checking the value";
