@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "composeGdprStack access, composePagesStack terms, migrate-step project name",
+    "detail": "composeGdprStack({ access }) is passed to compliance-profiles and composeOpsStack({ access }) to delivery as their handler roles. composePagesStack({ terms }) is passed to legal-pages. DevHostDispatch and DevHostDispatchResult are exported. The migrate-step.sh template and the managed pre-push template follow the show-pony version, with the compose project name taken from docker compose config."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "runDevApp binds the MFA token secrets",

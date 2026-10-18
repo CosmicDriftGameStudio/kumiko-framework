@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "S3 endpoint over http outside production",
+    "detail": "s3EndpointSchema rejects http on non-loopback hosts only when NODE_ENV=production, so compose hostnames such as minio work in smoke setups."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "s3EnvSchema and createS3EnvSchema declare the S3 provider variables",

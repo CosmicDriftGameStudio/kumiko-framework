@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Scaffold test:dom passes without test files",
+    "detail": "The scaffold sets test:dom to pass without test files and adds the devDependencies @testing-library/react, @testing-library/dom and @happy-dom/global-registrator."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "setupTestStack binds the MFA token secrets",

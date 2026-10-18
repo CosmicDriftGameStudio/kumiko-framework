@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "kumiko codemod lists and runs codemods",
+    "detail": "kumiko codemod lists the codemods without a name. kumiko codemod <name> runs one against the current directory as a dry run and applies it with --write."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "kumiko ops backfill-pii encrypts plaintext PII events of the app in kumiko.config.ts",

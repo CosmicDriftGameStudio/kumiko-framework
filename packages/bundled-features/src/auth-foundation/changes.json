@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Boot warning when anonymous routes run without anonymousAccess",
+    "detail": "A boot warning names anonymousAccess when host-routing, managed-pages or legal-pages is mounted without it; anonymous requests get no tenant until the option is set."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated authFoundationFeature constant is removed",

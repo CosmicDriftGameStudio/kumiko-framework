@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Dry-run env table and boot check respect required overrides and the fileStorage default",
+    "detail": "The env table of KUMIKO_DRY_RUN_ENV=boot shows a variable as required when the app schema overlays required() on an optional field, and the error says required. The schema-cli boot check applies runProdApp's fileStorage default instead of demanding FILE_STORAGE_PROVIDER."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "inspectEnv, renderEnvInspection and the dry-run mode parser",
