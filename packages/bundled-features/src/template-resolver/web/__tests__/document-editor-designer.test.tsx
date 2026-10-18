@@ -81,4 +81,31 @@ describe("DocumentTiptapEditor designer surface", () => {
     await click("Repeat header row");
     await waitFor(() => expect(currentHtml()).not.toContain("data-repeat-header"));
   });
+
+  test("labelled variables show their label in pickers, chips and the steps head, the raw name as tooltip", async () => {
+    await renderEditor({ variableLabels: VARIABLE_LABELS });
+    await click("Placeholder");
+    const chip = await screen.findByRole("button", { name: "Insert Invoice lines" });
+    expect(chip.textContent).toBe("Invoice lines");
+    expect(chip.getAttribute("title")).toBe("lines");
+    expect(screen.getByRole("button", { name: "Insert invoice.number" }).textContent).toBe(
+      "{{invoice.number}}",
+    );
+    fireEvent.click(chip);
+    await waitFor(() => expect(currentHtml()).toContain('<span data-variable="lines"></span>'));
+    const paperChip = document.querySelector("[data-variable-chip]");
+    expect(paperChip?.firstChild?.textContent).toBe("Invoice lines");
+    expect(paperChip?.getAttribute("title")).toBe("lines");
+
+    await click("Steps");
+    const stepsSelect = `${CONTENT_EDITOR_ELEMENT_ID}-panel-steps-variable`;
+    fireEvent.click(await screen.findByTestId(`combobox-${stepsSelect}`));
+    const option = await screen.findByTestId(`combobox-${stepsSelect}-option-lines`);
+    expect(option.textContent).toContain("Invoice lines");
+    fireEvent.click(option);
+    await click("Insert");
+    await waitFor(() => expect(currentHtml()).toContain('data-steps="lines"'));
+    const stepsHead = document.querySelector("[data-steps], [data-document-block]");
+    expect(stepsHead?.textContent).toContain("Steps · Invoice lines");
+  });
 });

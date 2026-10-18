@@ -46,11 +46,17 @@ export const APP_FEATURES = [
             imprint: { label: "Impressum", url: "https://nordlicht-immobilien.de/impressum" },
             privacy: { label: "Datenschutz", url: "https://nordlicht-immobilien.de/datenschutz" },
           }
-        : {
-            text: "Sent via the Nordlicht tenant portal",
-            imprint: { label: "Imprint", url: "https://nordlicht-immobilien.de/imprint" },
-            privacy: { label: "Privacy", url: "https://nordlicht-immobilien.de/privacy" },
-          },
+        : locale.startsWith("es")
+          ? {
+              text: "Enviado a través del portal de inquilinos Nordlicht",
+              imprint: { label: "Aviso legal", url: "https://nordlicht-immobilien.de/imprint" },
+              privacy: { label: "Privacidad", url: "https://nordlicht-immobilien.de/privacy" },
+            }
+          : {
+              text: "Sent via the Nordlicht tenant portal",
+              imprint: { label: "Imprint", url: "https://nordlicht-immobilien.de/imprint" },
+              privacy: { label: "Privacy", url: "https://nordlicht-immobilien.de/privacy" },
+            },
   }),
   // The PDF preview of the template editor prints through the puppeteer-service
   // (PUPPETEER_SERVICE_URL / PUPPETEER_AUTH_TOKEN); the e2e config starts one.

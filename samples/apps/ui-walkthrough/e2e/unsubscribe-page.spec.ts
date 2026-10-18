@@ -41,8 +41,15 @@ async function serveLogo(page: Page): Promise<void> {
   await page.route(LOGO_URL, (route) => route.fulfill({ path: LOGO_FILE }));
 }
 
+// fonts.ready also resolves when a face failed to load, so the check asks for a loaded face.
 async function shot(page: Page, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
+  const plexLoaded = await page.evaluate(() =>
+    [...document.fonts].some(
+      (face) => face.family.includes("IBM Plex Sans") && face.status === "loaded",
+    ),
+  );
+  expect(plexLoaded).toBe(true);
   await captureScreenshot(page, name);
 }
 

@@ -423,8 +423,10 @@ export type UnsubscribeResultPage =
 /** The result page the unsubscribe routes answer with, for apps serving their own
  *  (e.g. legacy) unsubscribe links. Texts come from the mail translations of `locale`;
  *  `chrome` (the mail renderer's readMailChrome) adds the tenant's brand row and footer.
- *  Its style block and an https logo need `style-src 'unsafe-inline'` and the logo's
- *  origin in `img-src` when the app sets its own CSP. */
+ *  Served under runProdApp's default CSP the style block and the same-origin font pass;
+ *  an https logo additionally needs its origin, e.g.
+ *  `securityHeaders: { csp: { extend: { "img-src": [logoOrigin] } } }`. A hand-written CSP
+ *  needs `style-src 'unsafe-inline'` as well. */
 export function renderUnsubscribeResultPage(
   page: UnsubscribeResultPage & {
     readonly locale?: string | undefined;
