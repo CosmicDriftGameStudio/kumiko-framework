@@ -27,8 +27,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
-import { runRetentionCleanup } from "../run-retention-cleanup.js";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.ts";
+import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 
 // hardDelete, default-reference (createdAt → alias insertedAt → Spalte inserted_at).
 const widgetEntity = createEntity({

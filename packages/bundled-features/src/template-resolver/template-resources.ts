@@ -7,10 +7,10 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { requireForTenant } from "../shared/index.js";
-import { executor } from "./handlers/shared.js";
-import type { LinkedResourceEntry } from "./linked-resources.js";
-import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
+import { requireForTenant } from "../shared/index.ts";
+import { executor } from "./handlers/shared.ts";
+import type { LinkedResourceEntry } from "./linked-resources.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 
 export type TemplateResourceFile = {
   readonly fileName: string;

@@ -44,31 +44,31 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory } from "../../config/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
+} from "../../compliance-profiles/index.ts";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory } from "../../config/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runExportJobs } from "../run-export-jobs.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
-import { runUserExport } from "../run-user-export.js";
-import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt.js";
-import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.js";
-import { exportJobEntity, exportJobsTable } from "../schema/export-job.js";
-import { createForgetSeeders, nowInstant } from "./forget-test-helpers.js";
+} from "../../data-retention/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runExportJobs } from "../run-export-jobs.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { runUserExport } from "../run-user-export.ts";
+import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt.ts";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.ts";
+import { exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
+import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const DOWNLOAD_BY_JOB = "user-data-rights:query:download-by-job";
 const LIST_ATTEMPTS = "user-data-rights:query:list-download-attempts";

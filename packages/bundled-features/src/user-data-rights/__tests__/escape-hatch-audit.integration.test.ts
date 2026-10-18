@@ -24,16 +24,16 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity } from "../../tenant/membership-table.js";
-import { createUserFeature, userEntity } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { createForgetSeeders } from "./forget-test-helpers.js";
+} from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
+import { createUserFeature, userEntity } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { createForgetSeeders } from "./forget-test-helpers.ts";
 
 const FORGET_USER = "ffffffff-ffff-4fff-8fff-000000000001";
 const TENANT_A = "00000000-0000-4000-8000-0000000000f9";

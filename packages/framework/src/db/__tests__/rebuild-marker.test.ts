@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createEntity, createImagesField, createTextField } from "../../engine/index.js";
-import { deriveEntityTableMeta, type EntityTableMeta } from "../entity-table-meta.js";
-import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator.js";
-import { readRebuildMarker, rebuildTablesFromDiff, writeRebuildMarker } from "../rebuild-marker.js";
+import { createEntity, createImagesField, createTextField } from "../../engine/index.ts";
+import { deriveEntityTableMeta, type EntityTableMeta } from "../entity-table-meta.ts";
+import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator.ts";
+import { readRebuildMarker, rebuildTablesFromDiff, writeRebuildMarker } from "../rebuild-marker.ts";
 
 function meta(
   tableName: string,

@@ -1,7 +1,7 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { RateLimitPer, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { RateLimitErrors } from "../constants.js";
+import { RateLimitErrors } from "../constants.ts";
 
 // Bucket keys are `<dimension>:<subject>[:<handler>]` (framework
 // rate-limit/bucket.ts) — only `tenant*` and `user*` carry a subject the

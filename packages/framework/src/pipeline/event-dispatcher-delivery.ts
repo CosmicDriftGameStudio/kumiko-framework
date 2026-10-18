@@ -1,7 +1,7 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { type RequestContextData, requestContext } from "../api/request-context.js";
-import type { DbConnection, DbRunner, DbTx } from "../db/connection.js";
+import { type RequestContextData, requestContext } from "../api/request-context.ts";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection.ts";
 import {
   insertConsumerIfAbsent,
   markConsumerProcessing,
@@ -10,35 +10,35 @@ import {
   selectConsumerForUpdateSkipLocked,
   selectProvablyIdleConsumerPairs,
   updateConsumerDeliveryOutcome,
-} from "../db/queries/event-consumer.js";
+} from "../db/queries/event-consumer.ts";
 import {
   type PendingIdRange,
   selectEventsHeadId,
   selectPendingAndNewEventRows,
-} from "../db/queries/event-store.js";
-import { coerceRow, extractTableInfo } from "../db/query.js";
-import { qnScope } from "../engine/qualified-name.js";
-import type { AppContext } from "../engine/types/index.js";
+} from "../db/queries/event-store.ts";
+import { coerceRow, extractTableInfo } from "../db/query.ts";
+import { qnScope } from "../engine/qualified-name.ts";
+import type { AppContext } from "../engine/types/index.ts";
 import {
   eventsTable,
   toStoredEvent as rowToStoredEvent,
   type StoredEvent,
-} from "../event-store/index.js";
+} from "../event-store/index.ts";
 import {
   emitDispatcherError,
   emitEventConsumerLag,
   emitEventConsumerPendingGaps,
   getFallbackMeter,
   type Meter,
-} from "../observability/index.js";
+} from "../observability/index.ts";
 import {
   ConsumerStatuses,
   eventConsumerStateTable,
   type PendingGapEntry,
   SHARED_INSTANCE_SENTINEL,
-} from "./event-consumer-state.js";
-import type { EventConsumer } from "./event-dispatcher.js";
-import { parseWriteOrigin } from "./write-origin.js";
+} from "./event-consumer-state.ts";
+import type { EventConsumer } from "./event-dispatcher.ts";
+import { parseWriteOrigin } from "./write-origin.ts";
 
 // Fails closed without throwing: a throw would poison the event for every consumer.
 const UNPARSEABLE_STORED_WRITE_ORIGIN = {
@@ -79,7 +79,7 @@ export type StoredEventRow = {
   readonly type: string;
   readonly eventVersion: number;
   readonly payload: Record<string, unknown>;
-  readonly metadata: import("../event-store/event-store.js").EventMetadata;
+  readonly metadata: import("../event-store/event-store.ts").EventMetadata;
   readonly createdAt: Temporal.Instant;
   readonly createdBy: string;
 };

@@ -6,19 +6,19 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DEFAULT_LEDGER_ACCESS } from "../constants.js";
+import { DEFAULT_LEDGER_ACCESS } from "../constants.ts";
 import {
   accountExecutor,
   scheduleExecutor,
   transactionExecutor,
   transactionTable,
-} from "../executor.js";
-import { findReversedIds, isoMonth, scheduleReference } from "../recurring.js";
+} from "../executor.ts";
+import { findReversedIds, isoMonth, scheduleReference } from "../recurring.ts";
 import {
   type ConfirmSchedulePeriodPayload,
   confirmSchedulePeriodPayloadSchema,
-} from "../schemas.js";
-import { readSubjectReference } from "../subject-reference.js";
+} from "../schemas.ts";
+import { readSubjectReference } from "../subject-reference.ts";
 
 // pg_advisory_xact_lock namespace (int4): 'lcsp' as ASCII, disjoint from the
 // framework's other fixed advisory-lock keys.

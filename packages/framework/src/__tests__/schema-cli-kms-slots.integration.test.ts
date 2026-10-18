@@ -18,22 +18,22 @@ import {
   configuredBlindIndexKey,
   decodeBlindIndexKey,
   resetBlindIndexKeyForTests,
-} from "../crypto/blind-index.js";
+} from "../crypto/blind-index.ts";
 import {
   configuredPiiSubjectKms,
   resetPiiSubjectKmsForTests,
-} from "../crypto/pii-field-encryption.js";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { writeRebuildMarker } from "../db/index.js";
-import { asRawClient } from "../db/query.js";
-import { tableExists } from "../db/schema-inspection.js";
-import { buildEntityTable } from "../db/table-builder.js";
-import { createTenantDb } from "../db/tenant-db.js";
-import { createEntity, createTextField, defineFeature } from "../engine/index.js";
-import { createProjectionStateTable } from "../pipeline/index.js";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
-import { TestUsers } from "../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../time/polyfill.js";
+} from "../crypto/pii-field-encryption.ts";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { writeRebuildMarker } from "../db/index.ts";
+import { asRawClient } from "../db/query.ts";
+import { tableExists } from "../db/schema-inspection.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
+import { createTenantDb } from "../db/tenant-db.ts";
+import { createEntity, createTextField, defineFeature } from "../engine/index.ts";
+import { createProjectionStateTable } from "../pipeline/index.ts";
+import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import { TestUsers } from "../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 
 const feature = defineFeature("kmsslotstest", () => {});
 

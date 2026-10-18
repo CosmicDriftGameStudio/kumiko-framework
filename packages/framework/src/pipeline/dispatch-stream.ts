@@ -1,16 +1,16 @@
-import { accessInvalidationCredentialFor } from "../api/sse-broker.js";
-import { scheduleTokenExpiry } from "../api/token-expiry-timer.js";
-import { hasAccess } from "../engine/access.js";
-import { tenantOverrideDenied } from "../engine/cross-tenant.js";
-import type { SessionUser } from "../engine/types/index.js";
+import { accessInvalidationCredentialFor } from "../api/sse-broker.ts";
+import { scheduleTokenExpiry } from "../api/token-expiry-timer.ts";
+import { hasAccess } from "../engine/access.ts";
+import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
+import type { SessionUser } from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   memberResolutionReadOnlyDenied,
   NotFoundError,
   UnauthenticatedError,
   validationErrorFromZod,
-} from "../errors/index.js";
-import { assertNoSecretLeak } from "../secrets/index.js";
+} from "../errors/index.ts";
+import { assertNoSecretLeak } from "../secrets/index.ts";
 import {
   buildHandlerContext,
   type DispatchContext,
@@ -19,8 +19,8 @@ import {
   isMemberResolutionPrincipal,
   runStreamInstrumented,
   type WriteOrigin,
-} from "./dispatch-shared.js";
-import { handlerAccessError } from "./handler-access-error.js";
+} from "./dispatch-shared.ts";
+import { handlerAccessError } from "./handler-access-error.ts";
 
 export type StreamOptions = {
   /** JWT exp (epoch seconds) the stream was opened with; the stream ends when it passes. */

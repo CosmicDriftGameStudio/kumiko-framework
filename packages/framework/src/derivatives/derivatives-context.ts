@@ -5,17 +5,17 @@ import type {
   ResolvedOverlayLayer,
   VariantSpec,
 } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { type AnyDb, fetchOne } from "../db/query.js";
+import { type AnyDb, fetchOne } from "../db/query.ts";
 import {
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_RENDERER,
-} from "../engine/extension-names.js";
-import type { Registry, TenantId } from "../engine/types/index.js";
-import { InternalError, NotFoundError } from "../errors/index.js";
-import type { FileContext } from "../files/file-handle.js";
-import { fileRefsTable } from "../files/file-ref-table.js";
-import { assertSafeStorageKey, normalizeMimeType } from "../files/types.js";
-import { variantSuffix } from "./variant-key.js";
+} from "../engine/extension-names.ts";
+import type { Registry, TenantId } from "../engine/types/index.ts";
+import { InternalError, NotFoundError } from "../errors/index.ts";
+import type { FileContext } from "../files/file-handle.ts";
+import { fileRefsTable } from "../files/file-ref-table.ts";
+import { assertSafeStorageKey, normalizeMimeType } from "../files/types.ts";
+import { variantSuffix } from "./variant-key.ts";
 
 export type DerivativesContextDeps = {
   readonly files: FileContext;

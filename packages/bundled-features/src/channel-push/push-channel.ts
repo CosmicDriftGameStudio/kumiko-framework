@@ -1,6 +1,6 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { DeliveryChannel } from "../delivery/index.js";
-import type { PushTransport } from "./types.js";
+import type { DeliveryChannel } from "../delivery/index.ts";
+import type { PushTransport } from "./types.ts";
 
 export type PushChannelOptions = {
   readonly transport: PushTransport;

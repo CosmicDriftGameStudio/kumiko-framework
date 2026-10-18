@@ -64,7 +64,7 @@ import {
   storageKeyStemPrefix,
   tenantStoragePrefixes,
 } from "@cosmicdrift/kumiko-framework/files";
-import { type ChunkedMigrationResult, runChunkedMigration } from "../shared/index.js";
+import { type ChunkedMigrationResult, runChunkedMigration } from "../shared/index.ts";
 
 const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
 

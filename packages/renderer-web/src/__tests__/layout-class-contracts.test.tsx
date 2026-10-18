@@ -3,9 +3,9 @@
 // other observable behaviour in happy-dom.
 
 import { describe, expect, test } from "bun:test";
-import { defaultPrimitives } from "../primitives/index.js";
-import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from "../ui/sidebar.js";
-import { fireEvent, render, screen, within } from "./test-utils.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from "../ui/sidebar.tsx";
+import { fireEvent, render, screen, within } from "./test-utils.tsx";
 
 const { DataTable, Form, GridCell, Grid } = defaultPrimitives;
 

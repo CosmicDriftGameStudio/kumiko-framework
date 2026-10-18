@@ -22,16 +22,16 @@ import {
   resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { decryptStoredPii } from "../../shared/index.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantTable } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../feature.js";
-import { DESTRUCTION_STAGES } from "../stages.js";
-import { driveDestructionToCompletion, seedDestroyingTenant } from "../testing.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { decryptStoredPii } from "../../shared/index.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../feature.ts";
+import { DESTRUCTION_STAGES } from "../stages.ts";
+import { driveDestructionToCompletion, seedDestroyingTenant } from "../testing.ts";
 
 const NAME = "Shred Me Holding";
 

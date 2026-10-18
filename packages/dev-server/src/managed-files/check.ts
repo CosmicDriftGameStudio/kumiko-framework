@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { mergeBunfig } from "@cosmicdrift/kumiko-testing/bunfig";
-import { parseJsonc } from "./jsonc.js";
-import { renderLineDiff } from "./line-diff.js";
-import { readManagedMarker, stripManagedMarker } from "./marker.js";
+import { parseJsonc } from "./jsonc.ts";
+import { renderLineDiff } from "./line-diff.ts";
+import { readManagedMarker, stripManagedMarker } from "./marker.ts";
 import {
   BIOME_PRESET,
   listManagedFiles,
@@ -14,7 +14,7 @@ import {
   type ManagedTemplateFile,
   renderManagedBunfig,
   TSCONFIG_PRESET,
-} from "./registry.js";
+} from "./registry.ts";
 
 export type ManagedFileState =
   | { readonly state: "ok" }

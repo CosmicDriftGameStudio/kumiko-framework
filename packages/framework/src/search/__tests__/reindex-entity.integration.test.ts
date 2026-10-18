@@ -24,7 +24,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const widgetEntity = createEntity({
   table: "read_reindex_widgets",

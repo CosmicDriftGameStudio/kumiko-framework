@@ -8,13 +8,13 @@ import type {
   EntityRelations,
   FieldDefinition,
   FieldsMap,
-} from "../engine/types/index.js";
-import { toSnakeCase } from "../utils/case.js";
-import { assertUnreachable } from "../utils/index.js";
-import type { Table } from "./event-store-executor-context.js";
-import { columnHandleName } from "./table-introspection.js";
+} from "../engine/types/index.ts";
+import { toSnakeCase } from "../utils/case.ts";
+import { assertUnreachable } from "../utils/index.ts";
+import type { Table } from "./event-store-executor-context.ts";
+import { columnHandleName } from "./table-introspection.ts";
 
-export { toSnakeCase } from "../utils/case.js";
+export { toSnakeCase } from "../utils/case.ts";
 
 import {
   bigint,
@@ -39,7 +39,7 @@ import {
   text,
   uniqueIndex,
   uuid,
-} from "./dialect.js";
+} from "./dialect.ts";
 
 // Partial-index predicate for soft-delete entities; table-builder and
 // entity-table-meta must render identical index definitions.

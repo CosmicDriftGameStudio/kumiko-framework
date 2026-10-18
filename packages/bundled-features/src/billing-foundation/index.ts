@@ -1,16 +1,16 @@
 // Public API of the subscription-foundation bundled-feature.
 
-export { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.js";
+export { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.ts";
 export {
   type BillingInfo,
   type BillingInfoQueryDeps,
   createBillingInfoQueryConfig,
-} from "./billing-info-query.js";
+} from "./billing-info-query.ts";
 export {
   isBillingEnabled,
   type ResolvedProvider,
   resolveProviderPlugin,
-} from "./checkout-core.js";
+} from "./checkout-core.ts";
 export {
   BILLING_FOUNDATION_FEATURE,
   BILLING_PLANS_PANEL_COMPONENT,
@@ -32,22 +32,22 @@ export {
   SubscriptionFoundationQueries,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   type ConsentPayload,
   consentPayloadSchema,
   type OrderItem,
-} from "./consumer-protection/consent-gate.js";
+} from "./consumer-protection/consent-gate.ts";
 export {
   CONSENT_LOCALES,
   type ConsentLocale,
   resolveConsentLocale,
-} from "./consumer-protection/consent-locale.js";
+} from "./consumer-protection/consent-locale.ts";
 export {
   type ContractTerminationRoutesOptions,
   createContractTerminationRoutes,
-} from "./consumer-protection/termination-pages.js";
-export { paymentEntity, subscriptionEntity } from "./entities.js";
+} from "./consumer-protection/termination-pages.ts";
+export { paymentEntity, subscriptionEntity } from "./entities.ts";
 export {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
@@ -69,17 +69,17 @@ export {
   type SubscriptionEventHeaders,
   type SubscriptionEventPayload,
   subscriptionEventPayloadSchema,
-} from "./events.js";
-export { createBillingFoundationFeature } from "./feature.js";
-export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant.js";
-export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.js";
-export { billingPlansPanel, createBillingPlansScreen } from "./screens.js";
+} from "./events.ts";
+export { createBillingFoundationFeature } from "./feature.ts";
+export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant.ts";
+export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.ts";
+export { billingPlansPanel, createBillingPlansScreen } from "./screens.ts";
 export {
   createSubscriptionTierSync,
   effectiveTierFromSubscription,
   SUBSCRIPTION_WEBHOOK_PATH,
   type SubscriptionTierSyncDeps,
-} from "./subscription-tier-sync.js";
+} from "./subscription-tier-sync.ts";
 export {
   type BillingFoundationOptions,
   type BillingPlanBenefit,
@@ -96,8 +96,8 @@ export {
   type RecurringInterval,
   type SubscriptionEvent,
   type SubscriptionProviderPlugin,
-} from "./types.js";
+} from "./types.ts";
 export {
   createSubscriptionWebhookRoute,
   type SubscriptionWebhookRouteOptions,
-} from "./webhook-handler.js";
+} from "./webhook-handler.ts";

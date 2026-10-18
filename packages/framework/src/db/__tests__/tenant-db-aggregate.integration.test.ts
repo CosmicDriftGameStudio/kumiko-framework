@@ -4,10 +4,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { testTenantId } from "../../seeding/seed-users.js";
-import { defineUnmanagedTable } from "../entity-table-meta.js";
-import { insertOne } from "../query.js";
-import { createTenantDb } from "../tenant-db.js";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import { defineUnmanagedTable } from "../entity-table-meta.ts";
+import { insertOne } from "../query.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 const itemsTable = defineUnmanagedTable({
   tableName: "store_aggregate_items_it",

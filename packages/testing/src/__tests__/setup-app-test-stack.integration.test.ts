@@ -12,7 +12,7 @@ import { resolveObservabilityWiring } from "@cosmicdrift/kumiko-framework/observ
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
 import { setupAppTestStack } from "../index";
-import { createTestDb, type TestDb, type TestStack } from "../stack/index.js";
+import { createTestDb, type TestDb, type TestStack } from "../stack/index.ts";
 import { noteFeature } from "./note-feature";
 
 const NOTES_TABLE = "public.read_testing_notes";

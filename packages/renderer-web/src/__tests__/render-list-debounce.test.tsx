@@ -18,7 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useLayoutEffect } from "react";
-import { defaultPrimitives } from "../primitives/index.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
 
 // Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.
 // Eine Spalte reicht — wir testen nur den Search-Debounce-Pfad, nicht

@@ -12,6 +12,18 @@ export function isIntegrationPerfFile(filePath: string): boolean {
   return base.includes("perf") && base.endsWith(".integration.test.ts");
 }
 
+// Files that spawn a cold `bun` subprocess per test under the per-test budget. A scaffolded
+// app's `kumiko check guards` builds a TypeScript program over the framework sources, which
+// takes ~2 s alone but blows the budget when three other --parallel workers own the runner's
+// cores. They run after the bulk lane without --parallel, like the perf gates.
+const SUBPROCESS_INTEGRATION_FILES: ReadonlySet<string> = new Set([
+  "packages/cli/src/__tests__/scaffold-check.integration.test.ts",
+]);
+
+export function isSubprocessIntegrationFile(filePath: string): boolean {
+  return SUBPROCESS_INTEGRATION_FILES.has(filePath);
+}
+
 export function integrationRunModeFromArgv(argv: readonly string[]): IntegrationRunMode {
   if (argv.includes("--perf")) return "perf";
   if (process.env[INTEGRATION_PERF_ENV] === "1") return "perf";
@@ -49,4 +61,6 @@ export function parseBunTestRunOutput(output: string): BunTestRunTotals | null {
 
 export type IntegrationDiscovery = {
   includedFiles: string[];
+  /** Bulk mode only: run after `includedFiles`, without --parallel. */
+  subprocessFiles?: string[];
 };

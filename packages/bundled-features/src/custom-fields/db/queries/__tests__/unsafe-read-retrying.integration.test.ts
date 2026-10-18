@@ -5,13 +5,13 @@
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
-import { selectSerializedFieldDefinition } from "../field-access.js";
-import { countTenantFieldDefinitions } from "../quota.js";
-import { selectHostRowsWithCustomFields } from "../retention.js";
+import { selectSerializedFieldDefinition } from "../field-access.ts";
+import { countTenantFieldDefinitions } from "../quota.ts";
+import { selectHostRowsWithCustomFields } from "../retention.ts";
 import {
   selectCustomFieldsHostRows,
   selectFieldDefinitionsForEntity,
-} from "../user-data-rights.js";
+} from "../user-data-rights.ts";
 
 let closedConnectionError: unknown;
 

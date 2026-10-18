@@ -13,7 +13,7 @@ import {
   type Project,
 } from "@playwright/test";
 import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
-import { isRealProviderRun } from "../helpers/real-providers.js";
+import { isRealProviderRun } from "../helpers/real-providers.ts";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   DESKTOP_VIEWPORT,

@@ -3,9 +3,9 @@ import type {
   ContractTerminationDeclarationType,
   ContractTerminationKind,
   ProviderCancelOutcome,
-} from "../events.js";
-import type { ConsentLocale } from "./consent-text.js";
-import { type OperatorNoticeReason, TERMINATION_TEXTS } from "./termination-texts.js";
+} from "../events.ts";
+import type { ConsentLocale } from "./consent-text.ts";
+import { type OperatorNoticeReason, TERMINATION_TEXTS } from "./termination-texts.ts";
 
 type TextRow = { readonly text: string };
 

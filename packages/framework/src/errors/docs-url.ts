@@ -1,5 +1,5 @@
-import type { KumikoError } from "./kumiko-error.js";
-import { AgentReasons, FrameworkReasons } from "./reasons.js";
+import type { KumikoError } from "./kumiko-error.ts";
+import { AgentReasons, FrameworkReasons } from "./reasons.ts";
 
 const DEFAULT_DOCS_BASE_URL = "https://docs.kumiko.rocks";
 const REASON_SLUG_RE = /^[a-z0-9_.-]+$/;

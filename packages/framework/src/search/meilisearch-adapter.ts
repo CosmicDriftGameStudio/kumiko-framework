@@ -1,7 +1,7 @@
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type EnqueuedTaskPromise, ErrorStatusCode, Meilisearch, type Task } from "meilisearch";
-import type { EntityId, TenantId } from "../engine/types/identifiers.js";
-import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.js";
+import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
+import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.ts";
 
 // meilisearch's waitTask() RESOLVES (never rejects) once the server task
 // reaches a terminal state, even "failed" — a rejected doc (e.g. an id over

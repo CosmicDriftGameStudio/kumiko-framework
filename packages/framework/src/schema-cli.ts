@@ -15,7 +15,7 @@ import {
   configurePiiSubjectKms,
   type KmsWiring,
   resolveKmsWiringAsync,
-} from "./crypto/index.js";
+} from "./crypto/index.ts";
 import {
   assertUniqueTableNames,
   assertValidMigrationName,
@@ -37,18 +37,18 @@ import {
   tableExists,
   writeRebuildMarker,
   writeSnapshotJson,
-} from "./db/index.js";
-import { validateBoot } from "./engine/boot-validator.js";
-import { createRegistry } from "./engine/registry.js";
-import type { FeatureDefinition } from "./engine/types/feature.js";
-import { createEventsTable } from "./event-store/index.js";
+} from "./db/index.ts";
+import { validateBoot } from "./engine/boot-validator.ts";
+import { createRegistry } from "./engine/registry.ts";
+import type { FeatureDefinition } from "./engine/types/feature.ts";
+import { createEventsTable } from "./event-store/index.ts";
 import {
   queueRebuildsFromMarkers,
   reportPendingRebuildRun,
   runPendingRebuilds,
-} from "./migrations/index.js";
-import { createEventConsumerStateTable, createProjectionStateTable } from "./pipeline/index.js";
-import { ensureTemporalPolyfill } from "./time/index.js";
+} from "./migrations/index.ts";
+import { createEventConsumerStateTable, createProjectionStateTable } from "./pipeline/index.ts";
+import { ensureTemporalPolyfill } from "./time/index.ts";
 
 export type SchemaCliOut = {
   readonly log: (line: string) => void;

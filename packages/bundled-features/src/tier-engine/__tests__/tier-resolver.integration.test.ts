@@ -20,9 +20,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { tierAssignmentEntity } from "../entity.js";
-import { createTierEngineFeature } from "../feature.js";
-import { createTierResolver } from "../tier-resolver.js";
+import { tierAssignmentEntity } from "../entity.ts";
+import { createTierEngineFeature } from "../feature.ts";
+import { createTierResolver } from "../tier-resolver.ts";
 
 type TestCaps = { readonly maxItems: number };
 type TestTier = "free" | "pro";

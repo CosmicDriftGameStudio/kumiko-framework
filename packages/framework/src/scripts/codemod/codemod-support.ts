@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { type ImportDeclaration, type ImportSpecifier, Node, type SourceFile } from "ts-morph";
-import { collectSourceFiles } from "./collect-source-files.js";
+import { collectSourceFiles } from "./collect-source-files.ts";
 
 export interface CodemodSite {
   readonly file: string;

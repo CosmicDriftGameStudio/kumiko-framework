@@ -17,22 +17,22 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createInMemoryTransport } from "../../channel-email/types.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { collectChannels, createDeliveryService } from "../delivery-service.js";
-import { createDeliveryFeature } from "../feature.js";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { collectChannels, createDeliveryService } from "../delivery-service.ts";
+import { createDeliveryFeature } from "../feature.ts";
 import {
   deliveryAttemptsTable,
   notificationAddressOptOutsTable,
   notificationPreferencesTable,
-} from "../tables.js";
-import { createDeliveryTestContext } from "../testing.js";
-import type { DeliveryService } from "../types.js";
-import { createUnsubscribeRoutes } from "../unsubscribe.js";
-import { createPlainFallbackEmailFeature } from "./plain-email-channel.js";
+} from "../tables.ts";
+import { createDeliveryTestContext } from "../testing.ts";
+import type { DeliveryService } from "../types.ts";
+import { createUnsubscribeRoutes } from "../unsubscribe.ts";
+import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-link-test-secret-32-chars-min!!";
 const BASE_URL = "https://app.example";

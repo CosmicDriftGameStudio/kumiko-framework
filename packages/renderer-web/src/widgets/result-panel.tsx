@@ -1,8 +1,8 @@
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn.js";
-import { DetailList } from "./detail-list.js";
-import { SectionCard } from "./section-card.js";
+import { cn } from "../lib/cn.ts";
+import { DetailList } from "./detail-list.tsx";
+import { SectionCard } from "./section-card.tsx";
 
 /** Ergebnis-Sektion eines Rechners: SectionCard mit Empty-Zustand (Banner)
  *  oder Kennzahl-Liste (DetailList) + optionalen Extras (Tabelle, Hinweise).

@@ -16,9 +16,9 @@
 // Path statt parallel-mock hier.
 
 import { describe, expect, test } from "bun:test";
-import { createBigIntField, createEntity, createNumberField } from "../../engine/index.js";
-import { buildInsertSchema } from "../../engine/schema-builder.js";
-import { buildEntityTable } from "../table-builder.js";
+import { createBigIntField, createEntity, createNumberField } from "../../engine/index.ts";
+import { buildInsertSchema } from "../../engine/schema-builder.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 function colByName(table: unknown, dbName: string) {
   const cols = (

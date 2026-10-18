@@ -11,11 +11,11 @@ import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
-import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.js";
-import { collectChannels, createDeliveryService } from "./delivery-service.js";
-import { createDeliveryNotifyFactory } from "./notify-factory.js";
-import type { DeliveryService } from "./types.js";
-import type { UnsubscribeLinkConfig } from "./unsubscribe-link.js";
+import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.ts";
+import { collectChannels, createDeliveryService } from "./delivery-service.ts";
+import { createDeliveryNotifyFactory } from "./notify-factory.ts";
+import type { DeliveryService } from "./types.ts";
+import type { UnsubscribeLinkConfig } from "./unsubscribe-link.ts";
 
 export type CreateDeliveryTestContextOptions = {
   readonly tenantUserIdsQuery?: string;

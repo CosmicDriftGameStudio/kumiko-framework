@@ -12,13 +12,13 @@ import {
   securePageHeaders,
   slashVariantOf,
   wrapInLayout,
-} from "../../page-render/index.js";
-import { SubscriptionFoundationHandlers } from "../constants.js";
-import { CONTRACT_TERMINATION_DECLARATION_TYPES, CONTRACT_TERMINATION_KINDS } from "../events.js";
-import type { ConsentLocale } from "./consent-text.js";
-import { formatReceivedAt } from "./termination-mail.js";
-import { requestContractTerminationSchema } from "./termination-request.js";
-import { type PageTexts, TERMINATION_TEXTS } from "./termination-texts.js";
+} from "../../page-render/index.ts";
+import { SubscriptionFoundationHandlers } from "../constants.ts";
+import { CONTRACT_TERMINATION_DECLARATION_TYPES, CONTRACT_TERMINATION_KINDS } from "../events.ts";
+import type { ConsentLocale } from "./consent-text.ts";
+import { formatReceivedAt } from "./termination-mail.ts";
+import { requestContractTerminationSchema } from "./termination-request.ts";
+import { type PageTexts, TERMINATION_TEXTS } from "./termination-texts.ts";
 
 export type ContractTerminationRoutesOptions = {
   readonly paths?: Readonly<Partial<Record<ConsentLocale, string>>>;

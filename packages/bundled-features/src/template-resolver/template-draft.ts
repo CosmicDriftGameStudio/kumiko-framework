@@ -1,7 +1,7 @@
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { CONTENT_FORMATS, type ContentFormat } from "./constants.js";
-import type { TemplateResourceRow } from "./table.js";
+import { CONTENT_FORMATS, type ContentFormat } from "./constants.ts";
+import type { TemplateResourceRow } from "./table.ts";
 
 const templateDraftSchema = z.object({
   content: z.string().nullable(),

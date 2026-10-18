@@ -1,19 +1,19 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ReservationHandle, ReservationRelease } from "@cosmicdrift/kumiko-types/handlers";
-import type { SessionUser, WriteHandlerDef } from "../engine/types/index.js";
-import { toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.js";
-import { createFallbackLogger } from "../logging/utils.js";
-import type { BatchCommand, DispatchContext } from "./dispatch-shared.js";
+import type { SessionUser, WriteHandlerDef } from "../engine/types/index.ts";
+import { toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
+import type { BatchCommand, DispatchContext } from "./dispatch-shared.ts";
 import {
   applyBeforeTransactionReadOnly,
   buildHandlerContext,
   denyTransactionBoundSurfaces,
   isMemberResolutionPrincipal,
-} from "./dispatch-shared.js";
-import { wrapToKumiko } from "./dispatcher-utils.js";
-import { runPreHandlerGates } from "./pre-handler-gates.js";
-import type { WriteOrigin } from "./write-origin.js";
-import { effectiveWriteOrigin, rootWriteOrigin } from "./write-origin.js";
+} from "./dispatch-shared.ts";
+import { wrapToKumiko } from "./dispatcher-utils.ts";
+import { runPreHandlerGates } from "./pre-handler-gates.ts";
+import type { WriteOrigin } from "./write-origin.ts";
+import { effectiveWriteOrigin, rootWriteOrigin } from "./write-origin.ts";
 
 type ReservationConfirm = ReservationHandle["confirmInTransaction"];
 

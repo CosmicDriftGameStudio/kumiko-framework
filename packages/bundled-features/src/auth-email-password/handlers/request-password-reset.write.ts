@@ -1,11 +1,11 @@
-import { AUTH_RESET_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
-import { AuthMailNotificationTypes } from "../mail-notifications.js";
-import { signResetToken } from "../reset-token.js";
+import { AUTH_RESET_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.ts";
+import { AuthMailNotificationTypes } from "../mail-notifications.ts";
+import { signResetToken } from "../reset-token.ts";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
-} from "./token-request-handler.js";
+} from "./token-request-handler.ts";
 
 export type RequestPasswordResetOptions = TokenRequestOptions;
 

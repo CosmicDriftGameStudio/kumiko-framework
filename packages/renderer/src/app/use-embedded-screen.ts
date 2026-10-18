@@ -1,8 +1,8 @@
-import { useUserRoles } from "../context/user-roles-context.js";
-import { useAppFeatures } from "./app-features-context.js";
-import type { FeatureSchema } from "./feature-schema.js";
-import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id.js";
-import { screenAccessAllows } from "./screen-access.js";
+import { useUserRoles } from "../context/user-roles-context.tsx";
+import { useAppFeatures } from "./app-features-context.tsx";
+import type { FeatureSchema } from "./feature-schema.ts";
+import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id.ts";
+import { screenAccessAllows } from "./screen-access.ts";
 
 export type EmbeddedScreenTarget = {
   readonly schema: FeatureSchema;

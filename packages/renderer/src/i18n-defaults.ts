@@ -8,7 +8,7 @@
 // App-Keys kollidieren. Sub-Pfade gruppieren nach Bereich (actions /
 // list / nav / form / validation).
 
-import type { TranslationsByLocale } from "./i18n.js";
+import type { TranslationsByLocale } from "./i18n.tsx";
 
 export const kumikoDefaultTranslations: TranslationsByLocale = {
   en: {

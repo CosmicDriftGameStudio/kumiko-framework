@@ -14,15 +14,15 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { listDownloadAttemptsQuery } from "../handlers/list-download-attempts.query.js";
-import { myAuditLogQuery } from "../handlers/my-audit-log.query.js";
-import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt.js";
+} from "../../compliance-profiles/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { listDownloadAttemptsQuery } from "../handlers/list-download-attempts.query.ts";
+import { myAuditLogQuery } from "../handlers/my-audit-log.query.ts";
+import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt.ts";
 
 const MY_AUDIT = "user-data-rights:query:my-audit-log";
 const LIST_ATTEMPTS = "user-data-rights:query:list-download-attempts";

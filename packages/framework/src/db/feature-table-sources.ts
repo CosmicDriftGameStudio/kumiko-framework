@@ -4,7 +4,7 @@
 // setupTestStack both go through collectTableMetas — see there).
 // A new table-bearing registrar must be added HERE, not in the consumer.
 
-import type { FeatureDefinition } from "../engine/types/index.js";
+import type { FeatureDefinition } from "../engine/types/index.ts";
 
 export type FeatureTableSource = {
   readonly table: unknown;

@@ -2,25 +2,25 @@ import type { SecretMintScreenDefinition } from "@cosmicdrift/kumiko-framework/u
 import type { SubmitResult, Translate } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
-import { RenderEdit } from "../components/render-edit.js";
-import { useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
+import { RenderEdit } from "../components/render-edit.tsx";
+import { useTranslation } from "../i18n.tsx";
+import { usePrimitives } from "../primitives.tsx";
 import {
   synthesizeActionFormEntity,
   synthesizeActionFormScreen,
   synthesizeSecretMintConfirmScreen,
-} from "./action-form-shim.js";
-import type { FeatureSchema } from "./feature-schema.js";
+} from "./action-form-shim.ts";
+import type { FeatureSchema } from "./feature-schema.ts";
 import {
   buildInitialValues,
   mergeSearchParamsIntoInitial,
   tenantCurrencyMoneyFieldNames,
   useMoneyCurrencyOverrides,
-} from "./kumiko-screen.js";
-import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.js";
-import { useInitialValuesHandoff, useNav } from "./nav.js";
-import { lastSegment } from "./qn.js";
-import { navigateToReturnOr, useReturnTarget } from "./return-to.js";
+} from "./kumiko-screen.tsx";
+import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
+import { useInitialValuesHandoff, useNav } from "./nav.tsx";
+import { lastSegment } from "./qn.ts";
+import { navigateToReturnOr, useReturnTarget } from "./return-to.tsx";
 
 export type SecretMintBodyProps = {
   readonly schema: FeatureSchema;

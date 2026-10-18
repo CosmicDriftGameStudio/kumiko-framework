@@ -1,4 +1,4 @@
-import type { AgentManifest } from "./types.js";
+import type { AgentManifest } from "./types.ts";
 
 // The deny list is deliberately not a manifest field (the manifest is prompt
 // payload), so the catalog builder learns it through this side channel to

@@ -5,7 +5,7 @@ import {
   requiredKeysFromFeature,
   requiredKeysFromScreen,
   selectFacetOptionKey,
-} from "../required-surface-keys.js";
+} from "../required-surface-keys.ts";
 
 describe("required-surface-keys helpers", () => {
   test("booleanFacetOptionKeys emits true/false option keys", () => {

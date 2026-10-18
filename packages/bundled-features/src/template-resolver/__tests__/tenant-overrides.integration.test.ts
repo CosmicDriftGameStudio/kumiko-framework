@@ -5,17 +5,17 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { TenantHandlers } from "../../tenant/index.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenant } from "../../tenant/seeding.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { TenantHandlers } from "../../tenant/index.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenant } from "../../tenant/seeding.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
 
 const SLUG = "overrides-count";
 const systemAdmin = TestUsers.systemAdmin;

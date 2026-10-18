@@ -174,29 +174,29 @@ import type {
   PageHeadSystemQuery,
 } from "@cosmicdrift/kumiko-headless/apex";
 import { Redis } from "ioredis";
-import { applyBootSeeds } from "./boot/apply-boot-seeds.js";
-import { resolveBootCrypto } from "./boot/boot-crypto.js";
-import { jobRunLoggerCallbacks } from "./boot/job-run-logger.js";
-import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
-import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.js";
-import { waitForDatabase, waitUntilDatabaseReachable } from "./boot/wait-for-database.js";
-import type { BillingBootOption } from "./boot-options/billing-option.js";
-import type { DemoModeOption } from "./boot-options/demo-mode.js";
-import type { FileStorageBootOption } from "./boot-options/file-storage-option.js";
-import type { KmsMode } from "./boot-options/kms-mode.js";
-import type { MailBootOption } from "./boot-options/mail-option.js";
-import { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.js";
-import { installShutdownSignals, type SignalsOption } from "./boot-options/process-signals.js";
-import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.js";
-import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.js";
-import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.js";
-import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.js";
-import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
-import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
-import { assertPiiBootInvariants } from "./pii-boot-gate.js";
-import { type RateLimitOption, resolveRateLimit } from "./rate-limit-defaults.js";
-import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.js";
-import { resolveUnsubscribeWiring, type UnsubscribeOption } from "./resolve-unsubscribe-wiring.js";
+import { applyBootSeeds } from "./boot/apply-boot-seeds.ts";
+import { resolveBootCrypto } from "./boot/boot-crypto.ts";
+import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
+import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
+import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
+import { waitForDatabase, waitUntilDatabaseReachable } from "./boot/wait-for-database.ts";
+import type { BillingBootOption } from "./boot-options/billing-option.ts";
+import type { DemoModeOption } from "./boot-options/demo-mode.ts";
+import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
+import type { KmsMode } from "./boot-options/kms-mode.ts";
+import type { MailBootOption } from "./boot-options/mail-option.ts";
+import { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.ts";
+import { installShutdownSignals, type SignalsOption } from "./boot-options/process-signals.ts";
+import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
+import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
+import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
+import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.ts";
+import { buildComposeAuthOptions, composeFeatures } from "./compose-features.ts";
+import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.ts";
+import { assertPiiBootInvariants } from "./pii-boot-gate.ts";
+import { type RateLimitOption, resolveRateLimit } from "./rate-limit-defaults.ts";
+import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.ts";
+import { resolveUnsubscribeWiring, type UnsubscribeOption } from "./resolve-unsubscribe-wiring.ts";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -204,30 +204,30 @@ import {
   loggerFromExtraContext,
   resolveAuthMail,
   wireProdPatAutoRevoke,
-} from "./run-prod-app-boot-context.js";
-import { buildStaticFallback, resolveCspScriptHashes } from "./run-prod-app-static-files.js";
-import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.js";
+} from "./run-prod-app-boot-context.ts";
+import { buildStaticFallback, resolveCspScriptHashes } from "./run-prod-app-static-files.ts";
+import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.ts";
 import {
   makeSeedCreateFileRef,
   type SeedCreateFileRef,
   withSeedErrorContext,
-} from "./seed-dispatcher.js";
-import { assertSessionBootInvariants } from "./session-boot-gate.js";
-import { shouldWireProdSessions } from "./session-wiring.js";
-import { stripNoRouteMatchHeader } from "./try-hono-first.js";
+} from "./seed-dispatcher.ts";
+import { assertSessionBootInvariants } from "./session-boot-gate.ts";
+import { shouldWireProdSessions } from "./session-wiring.ts";
+import { stripNoRouteMatchHeader } from "./try-hono-first.ts";
 
-export { buildBunServeOptions } from "./bun-serve-options.js";
+export { buildBunServeOptions } from "./bun-serve-options.ts";
 export {
   resolveUnsubscribeWiring,
   type UnsubscribeOption,
-} from "./resolve-unsubscribe-wiring.js";
+} from "./resolve-unsubscribe-wiring.ts";
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
   loggerFromExtraContext,
   resolveAuthMail,
-} from "./run-prod-app-boot-context.js";
-export { staticCachePolicy } from "./run-prod-app-static-files.js";
+} from "./run-prod-app-boot-context.ts";
+export { staticCachePolicy } from "./run-prod-app-static-files.ts";
 
 // runProdApp reads these itself, so the boot dry run lists them even when
 // the app schema leaves them out (JWT_SECRET usually comes from auth-email-password).

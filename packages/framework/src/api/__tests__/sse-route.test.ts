@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { authMiddleware } from "../auth-middleware.js";
-import { createJwtHelper } from "../jwt.js";
-import type { AccessInvalidationCredential, SseBroker, SseEvent } from "../sse-broker.js";
-import { createSseRoute, type SseRouteOptions } from "../sse-route.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { authMiddleware } from "../auth-middleware.ts";
+import { createJwtHelper } from "../jwt.ts";
+import type { AccessInvalidationCredential, SseBroker, SseEvent } from "../sse-broker.ts";
+import { createSseRoute, type SseRouteOptions } from "../sse-route.ts";
 
 const NO_ANONYMOUS_ENTITIES: SseRouteOptions = { anonymousLiveEntities: new Set() };
 

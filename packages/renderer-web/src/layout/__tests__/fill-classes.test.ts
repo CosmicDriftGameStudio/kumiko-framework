@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fillClasses } from "../fill-classes.js";
+import { fillClasses } from "../fill-classes.ts";
 
 describe("fillClasses", () => {
   test("inset carries min-w-0 with and without fill, so wide content scrolls inside the inset", () => {

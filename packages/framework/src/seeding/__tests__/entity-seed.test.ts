@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { runEventStoreSeed } from "../entity-seed.js";
+import { runEventStoreSeed } from "../entity-seed.ts";
 
 describe("runEventStoreSeed", () => {
   test('default ifExists="skip" returns existing id without update', async () => {

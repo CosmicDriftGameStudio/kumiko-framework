@@ -2,11 +2,11 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { findUserMfaRow } from "../db/queries.js";
-import { invalidTotpCode, mfaNotEnabled } from "../errors.js";
-import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes.js";
-import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
-import { verifyMfaFactor } from "../verify-factor.js";
+import { findUserMfaRow } from "../db/queries.ts";
+import { invalidTotpCode, mfaNotEnabled } from "../errors.ts";
+import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes.ts";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
+import { verifyMfaFactor } from "../verify-factor.ts";
 
 export type RegenerateRecoveryOptions = {
   readonly revokeAllOtherSessions?: (

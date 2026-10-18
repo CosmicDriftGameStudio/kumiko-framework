@@ -1,5 +1,5 @@
-import type { TenantId } from "../engine/types/identifiers.js";
-import { readZipEntryNames } from "./zip-entry-names.js";
+import type { TenantId } from "../engine/types/identifiers.ts";
+import { readZipEntryNames } from "./zip-entry-names.ts";
 
 // Lives here (not in file-ref-entity.ts) so engine code can name the entity without importing
 // a module that calls createEntity at load time.

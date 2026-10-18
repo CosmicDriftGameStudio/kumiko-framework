@@ -1,9 +1,9 @@
-import type { DbRunner } from "../../db/connection.js";
-import type { WhereObject } from "../../db/query.js";
-import { requestedTenantIds, type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.js";
-import { InternalError } from "../../errors/classes.js";
-import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
-import type { PipelineCtx } from "../types/step.js";
+import type { DbRunner } from "../../db/connection.ts";
+import type { WhereObject } from "../../db/query.ts";
+import { requestedTenantIds, type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.ts";
+import { InternalError } from "../../errors/classes.ts";
+import { SYSTEM_TENANT_ID } from "../types/identifiers.ts";
+import type { PipelineCtx } from "../types/step.ts";
 
 // unsafeRaw fails closed without the handler's escapeHatch (or systemScope) and reports the use.
 export function readSourceFor(

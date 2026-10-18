@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { isRealProviderRun, REAL_PROVIDERS_ENV, requireRealProviders } from "../real-providers.js";
+import { isRealProviderRun, REAL_PROVIDERS_ENV, requireRealProviders } from "../real-providers.ts";
 
 const CI = "CI";
 const FLAG = "KUMIKO_REAL_PROVIDERS";

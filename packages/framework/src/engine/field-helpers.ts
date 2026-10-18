@@ -1,4 +1,4 @@
-import type { AnyFileFieldDef, FieldDefinition } from "./types/fields.js";
+import type { AnyFileFieldDef, FieldDefinition } from "./types/fields.ts";
 
 // --- Currency ---
 

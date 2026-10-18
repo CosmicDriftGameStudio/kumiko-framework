@@ -1,16 +1,16 @@
 import { isEscapeHatchGrant } from "@cosmicdrift/kumiko-types/handlers";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { LifecycleHookType } from "../../constants.js";
+import type { LifecycleHookType } from "../../constants.ts";
 import type {
   AccessRule,
   EscapeHatchDeclaration,
   PayloadRateLimitOption,
   RateLimitDeclaration,
-} from "../../types/handlers.js";
-import type { HookPhase } from "../../types/hooks.js";
-import type { AuthClaimsPattern, HookPattern } from "../patterns.js";
-import { sourceLocationFromNode } from "../source-location.js";
+} from "../../types/handlers.ts";
+import type { HookPhase } from "../../types/hooks.ts";
+import type { AuthClaimsPattern, HookPattern } from "../patterns.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   containsRawRefSentinel,
   type ExtractOutput,
@@ -24,7 +24,7 @@ import {
   readNameOrRef,
   readNameOrRefOrList,
   readObjectPropertyInitializer,
-} from "./shared.js";
+} from "./shared.ts";
 
 export type HeaderReadResult<T> =
   | { readonly kind: "value"; readonly value: T }

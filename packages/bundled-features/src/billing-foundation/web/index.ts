@@ -12,24 +12,24 @@ export {
   SubscriptionFoundationQueries,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "../constants.js";
+} from "../constants.ts";
 export {
   CONSENT_LOCALES,
   type ConsentLocale,
   resolveConsentLocale,
-} from "../consumer-protection/consent-locale.js";
+} from "../consumer-protection/consent-locale.ts";
 export type {
   BillingPlanBenefit,
   BillingPlanCatalog,
   BillingPlansResult,
   BillingPlanView,
   LegalLinkSet,
-} from "../types.js";
-export { BillingPlansPanel } from "./billing-plans-panel.js";
+} from "../types.ts";
+export { BillingPlansPanel } from "./billing-plans-panel.tsx";
 export {
   CheckoutConsentDialog,
   type CheckoutConsentDialogProps,
   type CheckoutConsentPayload,
   CONSENT_TEXT_OUTDATED_CODE,
-} from "./checkout-consent-dialog.js";
-export { type BillingFoundationClientOptions, billingFoundationClient } from "./client-plugin.js";
+} from "./checkout-consent-dialog.tsx";
+export { type BillingFoundationClientOptions, billingFoundationClient } from "./client-plugin.tsx";

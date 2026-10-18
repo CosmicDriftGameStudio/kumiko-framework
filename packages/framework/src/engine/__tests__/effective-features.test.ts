@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { computeEffectiveFeatures, type ToggleReader } from "../effective-features.js";
-import type { FeatureDefinition, Registry } from "../types/index.js";
+import { computeEffectiveFeatures, type ToggleReader } from "../effective-features.ts";
+import type { FeatureDefinition, Registry } from "../types/index.ts";
 
 // Build a minimal registry stub that exposes only the pieces the resolver
 // actually reads (features map + getFeature lookup). Keeps the test focused

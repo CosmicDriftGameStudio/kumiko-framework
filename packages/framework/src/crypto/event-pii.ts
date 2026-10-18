@@ -15,14 +15,14 @@
 // missing subject KMS at encrypt-time, both visible states, not a gap.
 
 import type { EventPiiFields, EventPiiStance } from "@cosmicdrift/kumiko-types/handlers";
-import { requestContext } from "../api/request-context.js";
+import { requestContext } from "../api/request-context.ts";
 import {
   configuredPiiSubjectKms,
   encryptPiiJsonValueForSubject,
   encryptPiiValueForSubject,
-} from "./pii-field-encryption.js";
-import { type EventSubjectEnvelope, resolveEventSubject } from "./subject-resolver.js";
-import { SYSTEM_EVENT_PII_STANCES, SYSTEM_EVENT_PREFIX } from "./system-event-pii.js";
+} from "./pii-field-encryption.ts";
+import { type EventSubjectEnvelope, resolveEventSubject } from "./subject-resolver.ts";
+import { SYSTEM_EVENT_PII_STANCES, SYSTEM_EVENT_PREFIX } from "./system-event-pii.ts";
 
 export type EventPiiCatalog = ReadonlyMap<string, EventPiiFields>;
 

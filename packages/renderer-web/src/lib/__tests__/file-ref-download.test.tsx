@@ -6,7 +6,7 @@ import {
   FileDownloadFailedError,
   fileNameFromContentDisposition,
   saveBlobAsFile,
-} from "../file-ref-download.js";
+} from "../file-ref-download.ts";
 
 describe("fileNameFromContentDisposition", () => {
   test("prefers the decoded filename* form", () => {

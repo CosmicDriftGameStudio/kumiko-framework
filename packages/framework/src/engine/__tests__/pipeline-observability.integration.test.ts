@@ -24,11 +24,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
-import { defineWriteHandler } from "../define-handler.js";
-import { createEntity, createTextField } from "../factories.js";
-import { stepsPipeline } from "../pipeline.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
+import { defineWriteHandler } from "../define-handler.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import { stepsPipeline } from "../pipeline.ts";
 
 // Handler whose step bodies emit a span + a metric. The recording
 // provider afterwards lets us assert both landed.

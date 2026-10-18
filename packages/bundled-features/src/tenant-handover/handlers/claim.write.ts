@@ -5,14 +5,14 @@ import * as z from "zod";
 import {
   redeemRowBoundGrant,
   SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
-} from "../../shared/index.js";
+} from "../../shared/index.ts";
 import {
   TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE,
   TENANT_HANDOVER_CLAIMED_EVENT_QN,
-} from "../events.js";
-import { tenantHandoverPurpose } from "../grant.js";
-import { moveRootRow, moveTransferGraph } from "../move-entity-graph.js";
-import { resolveRootAnchorLocation } from "../root-anchor.js";
+} from "../events.ts";
+import { tenantHandoverPurpose } from "../grant.ts";
+import { moveRootRow, moveTransferGraph } from "../move-entity-graph.ts";
+import { resolveRootAnchorLocation } from "../root-anchor.ts";
 
 export type ClaimTenantHandoverOptions = {
   readonly grantSecret?: string;

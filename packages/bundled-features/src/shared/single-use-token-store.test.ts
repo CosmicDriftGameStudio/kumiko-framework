@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createRecordingRedisFake } from "./__tests__/recording-redis-fake.js";
-import { createSingleUseTokenStore } from "./single-use-token-store.js";
+import { createRecordingRedisFake } from "./__tests__/recording-redis-fake.ts";
+import { createSingleUseTokenStore } from "./single-use-token-store.ts";
 
 // Production Redis has active signup/invite tokens under these exact keys —
 // asserting the generated Redis key strings (not just behavior through a

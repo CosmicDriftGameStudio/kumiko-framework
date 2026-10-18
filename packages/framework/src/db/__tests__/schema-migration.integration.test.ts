@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { asRawClient, selectMany } from "../../db/query.js";
+import { asRawClient, selectMany } from "../../db/query.ts";
 import {
   createBooleanField,
   createDateField,
@@ -10,11 +10,11 @@ import {
   createNumberField,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import type { FeatureDefinition } from "../../engine/types/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { buildEntityTable } from "../table-builder.js";
-import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
+} from "../../engine/index.ts";
+import type { FeatureDefinition } from "../../engine/types/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 /**
  * Integration tests for the schema migration workflow.

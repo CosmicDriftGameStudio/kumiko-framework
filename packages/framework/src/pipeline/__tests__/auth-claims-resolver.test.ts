@@ -3,9 +3,9 @@ import type {
   AuthClaimsContext,
   AuthClaimsHookDef,
   SessionUser,
-} from "../../engine/types/index.js";
-import type { Logger } from "../../logging/types.js";
-import { resolveAuthClaims } from "../auth-claims-resolver.js";
+} from "../../engine/types/index.ts";
+import type { Logger } from "../../logging/types.ts";
+import { resolveAuthClaims } from "../auth-claims-resolver.ts";
 
 type TestLogger = {
   readonly log: Logger;

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { buildConfigFeatureSchema } from "../build-config-feature-schema.js";
-import { createTenantConfig } from "../config-helpers.js";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
-import type { AccessRule } from "../types/handlers.js";
-import type { NavDefinition } from "../types/nav.js";
-import type { ScreenDefinition, SecretsEditScreenDefinition } from "../types/screen.js";
+import { buildConfigFeatureSchema } from "../build-config-feature-schema.ts";
+import { createTenantConfig } from "../config-helpers.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
+import type { AccessRule } from "../types/handlers.ts";
+import type { NavDefinition } from "../types/nav.ts";
+import type { ScreenDefinition, SecretsEditScreenDefinition } from "../types/screen.ts";
 
 // Mirrors the real "secrets" bundled feature just enough to exercise the
 // generator: a single writeHandler "set" is all buildConfigFeatureSchema

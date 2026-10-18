@@ -3,17 +3,17 @@ import {
   type AccessInvalidationScope,
   readNonEmptyStringArray,
   type SseBroker,
-} from "../api/sse-broker.js";
+} from "../api/sse-broker.ts";
 import {
   collectSearchableSubjectFields,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-} from "../crypto/index.js";
-import type { DbConnection, DbRow } from "../db/connection.js";
-import { createTenantDb, entityTableFromRegistry, rehydrateCompoundTypes } from "../db/index.js";
-import { tenantChannel } from "../engine/constants.js";
+} from "../crypto/index.ts";
+import type { DbConnection, DbRow } from "../db/connection.ts";
+import { createTenantDb, entityTableFromRegistry, rehydrateCompoundTypes } from "../db/index.ts";
+import { tenantChannel } from "../engine/constants.ts";
 import type {
   AppContext,
   EntityDefinition,
@@ -22,11 +22,11 @@ import type {
   Registry,
   SessionUser,
   TenantId,
-} from "../engine/types/index.js";
-import { InternalError } from "../errors/index.js";
-import type { StoredEvent } from "../event-store/index.js";
-import type { SearchAdapter, SearchDocument } from "../search/types.js";
-import type { EventConsumer } from "./event-dispatcher.js";
+} from "../engine/types/index.ts";
+import { InternalError } from "../errors/index.ts";
+import type { StoredEvent } from "../event-store/index.ts";
+import type { SearchAdapter, SearchDocument } from "../search/types.ts";
+import type { EventConsumer } from "./event-dispatcher.ts";
 
 // --- Search Index Consumer (async, via event-dispatcher) ---
 //

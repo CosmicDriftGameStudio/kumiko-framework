@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   FEATURE_FACTORIES,
   transformFeatureFactorySource,
-} from "../scripts/codemod/feature-factory.js";
+} from "../scripts/codemod/feature-factory.ts";
 
 const APP_FILE = "/repo/samples/apps/demo/src/run-config.ts";
 const BUNDLED_FILE = "/repo/packages/bundled-features/src/tags/__tests__/sample.test.ts";

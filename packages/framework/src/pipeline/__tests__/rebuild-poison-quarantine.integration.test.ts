@@ -22,23 +22,23 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { createEntity, createTextField, defineApply, defineFeature } from "../../engine/index.js";
-import type { ProjectionDefinition } from "../../engine/types/index.js";
-import { append } from "../../event-store/index.js";
-import { listRebuildDeadLetters } from "../../event-store/rebuild-dead-letter.js";
+import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { createEntity, createTextField, defineApply, defineFeature } from "../../engine/index.ts";
+import type { ProjectionDefinition } from "../../engine/types/index.ts";
+import { append } from "../../event-store/index.ts";
+import { listRebuildDeadLetters } from "../../event-store/rebuild-dead-letter.ts";
 import {
   createProjectionStateTable,
   getConsumerState,
   getProjectionState,
   rebuildMultiStreamProjection,
   rebuildProjection,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Fixtures ---
 

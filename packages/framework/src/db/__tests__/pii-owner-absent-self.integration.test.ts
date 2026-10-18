@@ -6,18 +6,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
+import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   PII_CIPHERTEXT_PREFIX,
-} from "../../crypto/pii-field-encryption.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
-import { fetchOne, selectMany } from "../query.js";
-import { buildEntityTable } from "../table-builder.js";
+} from "../../crypto/pii-field-encryption.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
+import { fetchOne, selectMany } from "../query.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 const admin = TestUsers.admin;
 const OWNER = generateId();

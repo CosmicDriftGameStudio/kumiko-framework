@@ -1,12 +1,12 @@
 // sql now comes from native dialect
 
-import type { DbConnection, DbRunner } from "../db/connection.js";
-import { instant, table as pgTable, sql, text, uniqueIndex, uuid } from "../db/dialect.js";
-import { upsertArchivedStream } from "../db/queries/event-store.js";
-import { deleteMany, fetchOne } from "../db/query.js";
-import { tableExists } from "../db/schema-inspection.js";
-import { unsafePushTables } from "../db/table-push.js";
-import type { TenantId } from "../engine/types/index.js";
+import type { DbConnection, DbRunner } from "../db/connection.ts";
+import { instant, table as pgTable, sql, text, uniqueIndex, uuid } from "../db/dialect.ts";
+import { upsertArchivedStream } from "../db/queries/event-store.ts";
+import { deleteMany, fetchOne } from "../db/query.ts";
+import { tableExists } from "../db/schema-inspection.ts";
+import { unsafePushTables } from "../db/table-push.ts";
+import type { TenantId } from "../engine/types/index.ts";
 
 // Marten-aligned stream archival. Archived streams become read-only: fresh
 // appendEvent on an archived aggregate throws, and loadAggregate returns

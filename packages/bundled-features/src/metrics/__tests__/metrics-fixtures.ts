@@ -2,7 +2,7 @@ import { defineUnmanagedTable, insertOne } from "@cosmicdrift/kumiko-framework/d
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { defineMetric, type MetricDefinition } from "../types.js";
+import { defineMetric, type MetricDefinition } from "../types.ts";
 
 export const eventsTable = defineUnmanagedTable({
   tableName: "store_metrics_events_it",

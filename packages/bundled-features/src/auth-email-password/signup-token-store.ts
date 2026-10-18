@@ -16,7 +16,7 @@ import {
   createSingleUseTokenStore,
   hashSingleUseToken,
   type SignupHandoverBinding,
-} from "../shared/index.js";
+} from "../shared/index.ts";
 
 /** Email normalization — single source for every lookup layer (used
  *  internally by the store AND by callers that need a consistent form

@@ -5,7 +5,7 @@
 // `Temporal` here is the ambient global from TypeScript's lib
 // (lib.esnext.temporal) — at runtime the framework installs the polyfill.
 
-import type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz.js";
+import type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz.ts";
 
 // JSON form for wall-clock + TZ — see createLocatedTimestampField() in
 // @cosmicdrift/kumiko-framework, engine/factories.ts. Two fields, foolproof.

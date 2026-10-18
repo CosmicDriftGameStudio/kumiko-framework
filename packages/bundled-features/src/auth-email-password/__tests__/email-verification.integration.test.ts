@@ -11,25 +11,25 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { AuthErrors, AuthHandlers } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
-import { signResetToken } from "../reset-token.js";
-import { signVerificationToken } from "../verification-token.js";
-import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { AuthErrors, AuthHandlers } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { signResetToken } from "../reset-token.ts";
+import { signVerificationToken } from "../verification-token.ts";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 // Verify mails now go through delivery (ctx.notify → channel-email); the
 // in-memory transport captures what would be sent.
@@ -341,7 +341,7 @@ describe("POST /auth/verify-email", () => {
     const seed = await seedUser({ email: "cross@example.com", password: "pw-cross-1234" });
     // Sign a token with a different purpose but the SAME secret+userId —
     // the verify-token verify() must reject it.
-    const { signResetToken } = await import("../reset-token.js");
+    const { signResetToken } = await import("../reset-token.ts");
     const { token } = signResetToken(seed.id, 60, verifySecret);
 
     const res = await post("/api/auth/verify-email", { token });

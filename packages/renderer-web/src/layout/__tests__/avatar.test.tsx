@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
-import { Avatar } from "../avatar.js";
+import { Avatar } from "../avatar.tsx";
 
 const colorClass = (className: string): string | undefined =>
   className.split(/\s+/).find((c) => c.startsWith("bg-"));

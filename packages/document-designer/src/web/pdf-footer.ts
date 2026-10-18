@@ -1,7 +1,7 @@
 // @runtime client
-import type { FooterTone } from "./editor-shell.js";
-import type { ValidationResult } from "./types.js";
-import { variableLabelText } from "./used-by-label.js";
+import type { FooterTone } from "./editor-shell.tsx";
+import type { ValidationResult } from "./types.ts";
+import { variableLabelText } from "./used-by-label.ts";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 

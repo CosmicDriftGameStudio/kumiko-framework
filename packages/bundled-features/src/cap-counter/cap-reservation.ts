@@ -16,7 +16,7 @@ import type {
   ReservationHandle,
 } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { rollingCapAggregateId } from "./aggregate-id.js";
+import { rollingCapAggregateId } from "./aggregate-id.ts";
 import {
   applyCapDeltaOn,
   type BookCapUsageOptions,
@@ -26,15 +26,15 @@ import {
   resolveCapCounterScope,
   retryCounterWriteOnVersionConflict,
   retryOnStreamVersionConflict,
-} from "./book-cap-usage.js";
+} from "./book-cap-usage.ts";
 import {
   CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
   CAP_RESERVATION_TTL_MINUTES,
   CAP_SETTLED_TOMBSTONE_TTL_MINUTES,
   ROLLING_INCREMENTED_EVENT_QN,
   ROLLING_RELEASED_EVENT_QN,
-} from "./constants.js";
-import { capReservationsTable } from "./tables.js";
+} from "./constants.ts";
+import { capReservationsTable } from "./tables.ts";
 
 type CapReservationRow = {
   readonly id: string;

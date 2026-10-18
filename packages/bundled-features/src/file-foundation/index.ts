@@ -6,11 +6,11 @@ export {
   type FileProviderContext,
   type FileProviderPlugin,
   isFileProviderPlugin,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   type FileRefContent,
   FileRefTooLargeError,
   fileContextForTenant,
   fileContextFromResolver,
   readFileRefContent,
-} from "./read-file-ref-content.js";
+} from "./read-file-ref-content.ts";

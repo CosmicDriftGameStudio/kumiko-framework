@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.js";
+import { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.ts";
 
 const timeMs = async (fn: () => Promise<unknown>): Promise<number> => {
   const start = performance.now();

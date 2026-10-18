@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen } from "../../__tests__/test-utils.js";
-import { ComparisonTable, ResultTable } from "../result-panel.js";
+import { render, screen } from "../../__tests__/test-utils.tsx";
+import { ComparisonTable, ResultTable } from "../result-panel.tsx";
 
 const COLUMNS = [
   { header: "Jahr", cell: (row: { year: number; total: number }) => row.year },

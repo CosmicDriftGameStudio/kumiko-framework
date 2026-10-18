@@ -5,9 +5,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   access,
   createEntity,
@@ -16,10 +16,10 @@ import {
   createTextField,
   defineFeature,
   HookPhases,
-} from "../../engine/index.js";
-import type { HandlerContext } from "../../engine/types/index.js";
-import { UnprocessableError, writeFailure } from "../../errors/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import type { HandlerContext } from "../../engine/types/index.ts";
+import { UnprocessableError, writeFailure } from "../../errors/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
 // the inner via ctx.queryAs / ctx.writeAs. We verify:

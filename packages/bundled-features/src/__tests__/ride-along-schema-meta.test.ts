@@ -7,8 +7,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { collectTableMetas } from "@cosmicdrift/kumiko-framework/db";
-import { createDeliveryFeature } from "../delivery/feature.js";
-import { createSecretsFeature } from "../secrets/feature.js";
+import { createDeliveryFeature } from "../delivery/feature.ts";
+import { createSecretsFeature } from "../secrets/feature.ts";
 
 describe("ride-along schema metas reach the generator (framework#347)", () => {
   test("secrets read_tenant_secrets: envelope/metadata/last_rotated_at + (tenant,key) uniqueIndex", () => {

@@ -3,19 +3,19 @@ export {
   HostRoutingQueries,
   isTenantKeyCandidate,
   TENANT_KEY_MAX_LENGTH,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   createHostDispatch,
   type HostRoutingDispatchFn,
   type HostRoutingDispatchResult,
   type HostRoutingRequest,
-} from "./dispatch.js";
-export { createHostRoutingFeature } from "./feature.js";
-export { normalizeHostname } from "./host.js";
+} from "./dispatch.ts";
+export { createHostRoutingFeature } from "./feature.ts";
+export { normalizeHostname } from "./host.ts";
 export type {
   HostRoutingApexSurface,
   HostRoutingLocales,
   HostRoutingOptions,
   HostRoutingSurface,
   HostRoutingTenantMode,
-} from "./options.js";
+} from "./options.ts";

@@ -11,15 +11,15 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render, screen as rtlScreen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type ButtonProps,
   type CorePrimitives,
   type DataTableProps,
   PrimitivesProvider,
-} from "../../primitives.js";
-import { RenderList, type ToolbarActionButton } from "../render-list.js";
+} from "../../primitives.tsx";
+import { RenderList, type ToolbarActionButton } from "../render-list.tsx";
 
 const TestButton: ComponentType<ButtonProps> = ({
   children,

@@ -8,8 +8,8 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useEffect, useState } from "react";
-import DocumentTiptapEditor from "../document-tiptap-editor.js";
-import { defaultTranslations } from "../i18n.js";
+import DocumentTiptapEditor from "../document-tiptap-editor.tsx";
+import { defaultTranslations } from "../i18n.ts";
 
 const localeResolver = createStaticLocaleResolver({ locale: "en" });
 const LOADED_SYSTEM_VARIABLES = ["imprint", "tenantName"];

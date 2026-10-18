@@ -4,9 +4,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.js";
-import { deliveryRenderJob } from "../jobs.js";
-import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.js";
+import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.ts";
+import { deliveryRenderJob } from "../jobs.ts";
+import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 let harness: ChatHarness;
 let secretsSeenByRender: SecretsContext | undefined;

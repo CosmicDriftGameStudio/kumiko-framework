@@ -23,8 +23,8 @@ import {
   createTextField,
   createTimestampField,
   createTzField,
-} from "../../engine/index.js";
-import { buildEntityTable } from "../table-builder.js";
+} from "../../engine/index.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 describe("EntityTable<E> — Property-Names existieren", () => {
   const sampleEntity = createEntity({

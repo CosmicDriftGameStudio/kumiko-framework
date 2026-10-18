@@ -2,9 +2,9 @@ import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivati
 import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { ZodObject } from "zod";
-import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.js";
-import { access as accessPresets } from "../config-helpers.js";
-import { parseRefTarget } from "../parse-ref-target.js";
+import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.ts";
+import { access as accessPresets } from "../config-helpers.ts";
+import { parseRefTarget } from "../parse-ref-target.ts";
 import type {
   EmbeddedFieldDef,
   EntityDefinition,
@@ -15,8 +15,8 @@ import type {
   MultiSelectFieldDef,
   QueryHandlerDef,
   RateLimitPer,
-} from "../types/index.js";
-import { isSelectOptionTone } from "./select-option-tone.js";
+} from "../types/index.ts";
+import { isSelectOptionTone } from "./select-option-tone.ts";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 

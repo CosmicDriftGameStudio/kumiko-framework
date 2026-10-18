@@ -7,9 +7,9 @@ import { describe, expect, test } from "bun:test";
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.js";
-import { RenderField } from "../render-field.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { RenderField } from "../render-field.tsx";
 
 let captured: InputProps | undefined;
 const captureInput: ComponentType<InputProps> = (props) => {

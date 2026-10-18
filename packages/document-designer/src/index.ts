@@ -10,5 +10,5 @@ export {
   TEMPLATES_NAV_ID,
   TEMPLATES_SCREEN_ID,
   type TemplateEditorKind,
-} from "./constants.js";
-export { createDocumentDesignerFeature } from "./feature.js";
+} from "./constants.ts";
+export { createDocumentDesignerFeature } from "./feature.ts";

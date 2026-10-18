@@ -8,8 +8,8 @@ import {
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
-import { jobRunsTable } from "../job-run-table.js";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { jobRunsTable } from "../job-run-table.ts";
 
 const KMS_POOL_CONCURRENCY = 4;
 const DEFAULT_PAGE_SIZE = 50;

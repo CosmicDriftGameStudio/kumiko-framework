@@ -3,7 +3,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
-import { defaultPrimitives } from "../index.js";
+import { defaultPrimitives } from "../index.tsx";
 
 const { DataTable, Button } = defaultPrimitives;
 

@@ -6,10 +6,10 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
 
 let stack: TestStack;
 const TENANT: TenantId = testTenantId(1);

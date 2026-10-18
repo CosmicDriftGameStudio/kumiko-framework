@@ -17,7 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import postgres from "postgres";
-import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 

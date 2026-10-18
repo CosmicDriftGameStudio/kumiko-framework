@@ -7,8 +7,8 @@ import type {
   SystemScopePattern,
   ToggleablePattern,
   UiHintsPattern,
-} from "../patterns.js";
-import { sourceLocationFromNode } from "../source-location.js";
+} from "../patterns.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   type ExtractOutput,
   fail,
@@ -16,7 +16,7 @@ import {
   readBooleanProperty,
   readStringLiteralArgs,
   readVarargsOrArrayProp,
-} from "./shared.js";
+} from "./shared.ts";
 
 export function extractRequires(
   call: CallExpression,

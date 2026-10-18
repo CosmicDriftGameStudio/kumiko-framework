@@ -1,6 +1,6 @@
-import { readHandlerFieldReferences } from "../handler-field-references.js";
-import { parseRefTarget } from "../parse-ref-target.js";
-import type { FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types/index.js";
+import { readHandlerFieldReferences } from "../handler-field-references.ts";
+import { parseRefTarget } from "../parse-ref-target.ts";
+import type { FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types/index.ts";
 
 function validateHandlerGroup(
   feature: FeatureDefinition,

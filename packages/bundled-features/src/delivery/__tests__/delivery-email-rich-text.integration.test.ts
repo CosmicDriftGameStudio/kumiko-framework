@@ -19,18 +19,18 @@ import * as z from "zod";
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
-} from "../../auth-email-password/__tests__/auth-mail-stack.js";
-import { createEmailChannel } from "../../channel-email/email-channel.js";
-import { createInMemoryTransport } from "../../channel-email/types.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { configValuesTable } from "../../config/table.js";
-import { TenantQueries } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { DELIVERY_CHANNEL_EXTENSION } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { createDeliveryTestContext } from "../testing.js";
+} from "../../auth-email-password/__tests__/auth-mail-stack.ts";
+import { createEmailChannel } from "../../channel-email/email-channel.ts";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { TenantQueries } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { createDeliveryTestContext } from "../testing.ts";
 
 const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 const transport = createInMemoryTransport();

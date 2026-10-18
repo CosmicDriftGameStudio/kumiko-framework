@@ -9,7 +9,7 @@ import {
   buildFormSchema,
   OPTION_NOT_AVAILABLE_I18N_KEY,
   REQUIRED_FIELD_I18N_KEY,
-} from "../form-schema.js";
+} from "../form-schema.ts";
 
 function screenWith(fields: readonly EditFieldSpec[]): EntityEditScreenDefinition {
   return {

@@ -24,7 +24,7 @@ import {
   type ExportJobStatus,
   UserDataRightsHandlers,
   UserDataRightsQueries,
-} from "../constants.js";
+} from "../constants.ts";
 
 // Export-Job läuft async (worker-Lane-Cron, ~1 Min). Solange er pending/running
 // ist, pollt der Screen den Status, damit der Download ohne manuellen Reload

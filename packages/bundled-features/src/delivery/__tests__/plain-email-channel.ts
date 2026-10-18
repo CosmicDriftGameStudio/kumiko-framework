@@ -1,7 +1,7 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { escapeHtml } from "@cosmicdrift/kumiko-headless";
-import { createEmailChannel, type EmailChannelOptions } from "../../channel-email/email-channel.js";
-import { DELIVERY_CHANNEL_EXTENSION } from "../constants.js";
+import { createEmailChannel, type EmailChannelOptions } from "../../channel-email/email-channel.ts";
+import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
 
 // Delivery-mechanics tests (rate limit, idempotency, opt-out, PII) send ad-hoc
 // notification types over email. The real channel fails those permanently, so

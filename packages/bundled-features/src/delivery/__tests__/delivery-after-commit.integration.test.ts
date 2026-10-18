@@ -22,16 +22,16 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createChannelInAppFeature } from "../../channel-in-app/feature.js";
-import { inAppMessagesTable } from "../../channel-in-app/tables.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { TenantQueries } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { DELIVERY_CHANNEL_EXTENSION } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { createDeliveryTestContext } from "../testing.js";
+import { createChannelInAppFeature } from "../../channel-in-app/feature.ts";
+import { inAppMessagesTable } from "../../channel-in-app/tables.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { TenantQueries } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { createDeliveryTestContext } from "../testing.ts";
 
 const POOL_MAX = 2;
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";

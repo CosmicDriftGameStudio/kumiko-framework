@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { clamp } from "../clamp.js";
+import { clamp } from "../clamp.ts";
 
 describe("clamp", () => {
   test("value inside range passes through", () => {

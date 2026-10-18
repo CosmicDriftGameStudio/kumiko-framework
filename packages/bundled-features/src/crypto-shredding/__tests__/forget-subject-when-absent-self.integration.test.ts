@@ -16,7 +16,7 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createCryptoShreddingFeature } from "../feature.js";
+import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const CREATE = "forget-self-probe:write:slip:create";

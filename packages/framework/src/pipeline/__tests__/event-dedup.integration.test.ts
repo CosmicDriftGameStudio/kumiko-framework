@@ -8,10 +8,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { defineFeature, type SaveContext } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createEventDedup } from "../event-dedup.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { defineFeature, type SaveContext } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createEventDedup } from "../event-dedup.ts";
 
 // --- Feature ---
 

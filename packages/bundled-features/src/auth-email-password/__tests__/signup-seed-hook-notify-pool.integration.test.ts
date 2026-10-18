@@ -12,23 +12,23 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createChannelInAppFeature } from "../../channel-in-app/feature.js";
-import { inAppMessagesTable } from "../../channel-in-app/tables.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { TenantQueries } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { AuthHandlers } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
-import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createChannelInAppFeature } from "../../channel-in-app/feature.ts";
+import { inAppMessagesTable } from "../../channel-in-app/tables.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { TenantQueries } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { AuthHandlers } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const PARALLEL_SIGNUPS = 2;
 const NOTIFICATION_TYPE = "app:notify:signup-welcome";

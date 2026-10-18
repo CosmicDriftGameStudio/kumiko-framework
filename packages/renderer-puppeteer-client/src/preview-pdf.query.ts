@@ -6,11 +6,11 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { buildDocumentDraftPdfRequest } from "./document-pdf.js";
-import { postRender } from "./http-client.js";
-import { countPdfPages } from "./pdf-page-count.js";
-import { loadClientConfigOrUnavailable } from "./render.js";
-import { clientErrorForRenderFailure } from "./render-and-store.js";
+import { buildDocumentDraftPdfRequest } from "./document-pdf.ts";
+import { postRender } from "./http-client.ts";
+import { countPdfPages } from "./pdf-page-count.ts";
+import { loadClientConfigOrUnavailable } from "./render.ts";
+import { clientErrorForRenderFailure } from "./render-and-store.ts";
 
 // Each call prints a full PDF in Chromium, so the cap is generous for editing but not unlimited.
 const PREVIEW_PDF_RATE_LIMIT = { limit: 60, windowSeconds: 3600 } as const;

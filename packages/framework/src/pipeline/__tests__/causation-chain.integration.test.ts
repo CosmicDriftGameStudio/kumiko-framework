@@ -23,13 +23,13 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { requestContext } from "../../api/request-context.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { requestContext } from "../../api/request-context.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Feature ---
 

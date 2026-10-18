@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
-import { parseJobInstant } from "../job-instant.js";
+import { parseJobInstant } from "../job-instant.ts";
 
 describe("parseJobInstant — kumiko-framework#1525: no ambient Temporal global", () => {
   test("parses an ISO instant without relying on globalThis.Temporal", async () => {

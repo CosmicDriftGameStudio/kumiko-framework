@@ -28,17 +28,17 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createConfigFeature } from "../../config/index.js";
-import { configValuesTable } from "../../config/table.js";
-import { decryptStoredPii } from "../../shared/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { TenantHandlers, TenantQueries } from "../constants.js";
-import { createTenantFeature } from "../feature.js";
-import { tenantMembershipsTable } from "../membership-table.js";
-import { tenantEntity, tenantTable } from "../schema/tenant.js";
-import { seedTenantMembership } from "../seeding.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { decryptStoredPii } from "../../shared/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { TenantHandlers, TenantQueries } from "../constants.ts";
+import { createTenantFeature } from "../feature.ts";
+import { tenantMembershipsTable } from "../membership-table.ts";
+import { tenantEntity, tenantTable } from "../schema/tenant.ts";
+import { seedTenantMembership } from "../seeding.ts";
 
 const systemAdmin = TestUsers.systemAdmin;
 

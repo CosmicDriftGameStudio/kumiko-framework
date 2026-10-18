@@ -23,14 +23,14 @@ import {
   InboundMailAuthMethods,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
-} from "./constants.js";
+} from "./constants.ts";
 import {
   inboundRefreshTokenSecretOptions,
   type OAuthAccessTokenManager,
-} from "./oauth-access-token.js";
-import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state.js";
-import { resolveInboundProviderForKey } from "./provider-factory.js";
-import type { InboundMailContext } from "./types.js";
+} from "./oauth-access-token.ts";
+import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state.ts";
+import { resolveInboundProviderForKey } from "./provider-factory.ts";
+import type { InboundMailContext } from "./types.ts";
 
 const DEFAULT_STATE_TTL_MINUTES = 15;
 const DEFAULT_CONNECT_PATH = "/api/inbound-mail/connect";

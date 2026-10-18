@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { NotFoundError } from "../classes.js";
-import { AgentReasons as BarrelAgentReasons } from "../index.js";
-import { AgentReasons, FrameworkReasons } from "../reasons.js";
-import { buildInvalidTransitionDetails } from "../transition-details.js";
-import { reraiseAsKumikoError, toWriteErrorInfo, writeFailure } from "../write-error-info.js";
+import { NotFoundError } from "../classes.ts";
+import { AgentReasons as BarrelAgentReasons } from "../index.ts";
+import { AgentReasons, FrameworkReasons } from "../reasons.ts";
+import { buildInvalidTransitionDetails } from "../transition-details.ts";
+import { reraiseAsKumikoError, toWriteErrorInfo, writeFailure } from "../write-error-info.ts";
 
 describe("writeFailure", () => {
   test("wraps KumikoError into WriteFailure envelope", () => {

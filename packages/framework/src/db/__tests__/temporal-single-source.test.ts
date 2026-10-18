@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { coerceRow, type TableInfo } from "../query.js";
+import { coerceRow, type TableInfo } from "../query.ts";
 
 function timestamptzTableInfo(): TableInfo {
   return {

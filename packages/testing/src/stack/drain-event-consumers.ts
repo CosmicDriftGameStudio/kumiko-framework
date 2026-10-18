@@ -5,7 +5,7 @@ import {
   type ConsumerRecoveryState,
   getConsumerState,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import type { TestStack } from "./test-stack.js";
+import type { TestStack } from "./test-stack.ts";
 
 const DEFAULT_MAX_PASSES = 25;
 

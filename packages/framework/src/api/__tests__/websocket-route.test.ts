@@ -3,11 +3,11 @@
 // server-runtime's websocket-route.integration.test.ts.
 
 import { describe, expect, spyOn, test } from "bun:test";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { SessionUser, WebSocketRouteDefinition } from "../../engine/types/index.js";
-import type { AuthSessionChecker } from "../auth-middleware.js";
-import { requestContext } from "../request-context.js";
-import { buildServer } from "../server.js";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { SessionUser, WebSocketRouteDefinition } from "../../engine/types/index.ts";
+import type { AuthSessionChecker } from "../auth-middleware.ts";
+import { requestContext } from "../request-context.ts";
+import { buildServer } from "../server.ts";
 import {
   buildWebSocketSessionRevalidator,
   createWebSocketConnectionLimiter,
@@ -17,7 +17,7 @@ import {
   kumikoWebSocketHandler,
   WEBSOCKET_HEARTBEAT_INTERVAL_MS,
   WEBSOCKET_REVALIDATION_FAILURE_LIMIT,
-} from "../websocket-route.js";
+} from "../websocket-route.ts";
 
 const JWT_SECRET = "websocket-route-test-secret-min-32-characters";
 const MIB = 1024 * 1024;

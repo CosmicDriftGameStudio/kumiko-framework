@@ -33,34 +33,34 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { hashPassword } from "../../shared/index.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { hashPassword } from "../../shared/index.ts";
 import {
   collectAssignableAppRoles,
   createTenantFeature,
   TenantErrors,
   TenantHandlers,
-} from "../../tenant/index.js";
+} from "../../tenant/index.ts";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { AuthErrors, AuthHandlers, AuthQueries } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
-import { storeInviteToken } from "../invite-token-store.js";
-import { seedUser } from "../seeding.js";
-import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
+} from "../../tenant/invitation-table.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { AuthErrors, AuthHandlers, AuthQueries } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { storeInviteToken } from "../invite-token-store.ts";
+import { seedUser } from "../seeding.ts";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const ALICE_EMAIL = "alice@example.com";

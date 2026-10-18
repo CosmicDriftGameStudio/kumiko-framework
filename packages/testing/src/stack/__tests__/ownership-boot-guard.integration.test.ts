@@ -12,7 +12,7 @@ import {
   from,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { WhereRule } from "@cosmicdrift/kumiko-framework/engine/types";
-import { setupTestStack } from "../test-stack.js";
+import { setupTestStack } from "../test-stack.ts";
 
 // Bare `owner_id` inside the subquery binds to fwbootguard_shares, not to the
 // outer memo table — the predicate collapses into a tautology and grants every

@@ -4,7 +4,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { BRANDING_QN, LAYOUT_PRESETS } from "../branding.js";
+import { BRANDING_QN, LAYOUT_PRESETS } from "../branding.ts";
 
 // Tenant self-service branding editor. A `configEdit` screen (no entity
 // table) — the renderer loads config:query:values, maps the form fields via

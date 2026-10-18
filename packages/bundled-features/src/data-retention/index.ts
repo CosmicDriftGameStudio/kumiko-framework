@@ -6,7 +6,7 @@ export type {
   RetentionOverride,
   RetentionPreset,
   RetentionPresetKey,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   createDataRetentionFeature,
   RETENTION_PRESETS,
@@ -17,5 +17,5 @@ export {
   SELECTABLE_RETENTION_PRESETS,
   tenantRetentionOverrideEntity,
   tenantRetentionOverrideTable,
-} from "./feature.js";
-export { computeCutoff, type Instant } from "./keep-for.js";
+} from "./feature.ts";
+export { computeCutoff, type Instant } from "./keep-for.ts";

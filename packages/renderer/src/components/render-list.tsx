@@ -13,11 +13,11 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.js";
-import type { ListSort } from "../hooks/use-list-url-state.js";
-import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup.js";
-import { useTranslation } from "../i18n.js";
-import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.js";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
+import type { ListSort } from "../hooks/use-list-url-state.ts";
+import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup.ts";
+import { useTranslation } from "../i18n.tsx";
+import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -27,9 +27,9 @@ import {
   type DataTableRowGrouping,
   shouldRenderActionsIconOnly,
   usePrimitives,
-} from "../primitives.js";
-import { ListEmptyStateBody, type ListEmptyStateContent } from "./list-empty-state.js";
-import { needsActionConfirm } from "./render-edit-action-button.js";
+} from "../primitives.tsx";
+import { ListEmptyStateBody, type ListEmptyStateContent } from "./list-empty-state.tsx";
+import { needsActionConfirm } from "./render-edit-action-button.tsx";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //

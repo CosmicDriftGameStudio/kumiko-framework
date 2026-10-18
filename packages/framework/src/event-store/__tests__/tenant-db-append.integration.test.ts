@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { transaction } from "../../db/query.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { InternalError } from "../../errors/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { generateId as uuid } from "../../utils/index.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { transaction } from "../../db/query.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { InternalError } from "../../errors/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { generateId as uuid } from "../../utils/index.ts";
 import {
   appendEventInTenantDb,
   getStreamVersionInTenantDb,
   loadAggregate,
   VersionConflictError,
-} from "../index.js";
+} from "../index.ts";
 
 let testDb: BunTestDb;
 let tenantDb: TenantDb;

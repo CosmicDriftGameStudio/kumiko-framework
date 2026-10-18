@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SETTINGS_HUB_I18N } from "@cosmicdrift/kumiko-framework/i18n";
-import { defaultTranslations } from "../i18n.js";
+import { defaultTranslations } from "../i18n.ts";
 
 describe("config web default translations", () => {
   test("every Settings-Hub key shipped by the web bundle has the server's en text", () => {

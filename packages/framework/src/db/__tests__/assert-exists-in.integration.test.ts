@@ -10,12 +10,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { NotFoundError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import { assertExistsIn } from "../assert-exists-in.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { NotFoundError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import { assertExistsIn } from "../assert-exists-in.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 const orderEntity = createEntity({
   table: "ax_orders",

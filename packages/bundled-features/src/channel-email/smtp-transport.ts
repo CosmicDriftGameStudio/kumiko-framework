@@ -18,7 +18,7 @@
 
 import { createTransport, type Transporter } from "nodemailer";
 import addressparser from "nodemailer/lib/addressparser";
-import type { EmailAttachment, EmailMessage, EmailTransport } from "./types.js";
+import type { EmailAttachment, EmailMessage, EmailTransport } from "./types.ts";
 
 export type SmtpTransportOptions = {
   /** SMTP-Server-Host (z.B. "smtp.gmail.com", "in-v3.mailjet.com",

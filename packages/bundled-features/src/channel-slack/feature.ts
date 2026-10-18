@@ -9,7 +9,7 @@ import {
   createSlackChannel,
   SLACK_DEFAULT_ALLOWED_HOSTS,
   type SlackChannelOptions,
-} from "./slack-channel.js";
+} from "./slack-channel.ts";
 
 export function createChannelSlackFeature(options: SlackChannelOptions = {}): FeatureDefinition {
   return defineFeature("channel-slack", (r) => {

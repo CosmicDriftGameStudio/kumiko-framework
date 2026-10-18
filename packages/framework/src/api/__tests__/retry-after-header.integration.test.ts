@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.js";
-import { RateLimitError } from "../../errors/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { defineFeature } from "../../engine/index.ts";
+import { RateLimitError } from "../../errors/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const RETRY_AFTER_SECONDS = 42;
 

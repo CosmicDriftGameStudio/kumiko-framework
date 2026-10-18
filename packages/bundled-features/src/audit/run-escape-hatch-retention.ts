@@ -18,16 +18,16 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { pruneEvents } from "@cosmicdrift/kumiko-framework/pipeline";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resolveProfileForTenant } from "../compliance-profiles/index.js";
-import { createConfigAccessor } from "../config/index.js";
+import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
+import { createConfigAccessor } from "../config/index.ts";
 import {
   DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
   ESCAPE_HATCH_RETENTION_DAYS_KEY,
-} from "./constants.js";
+} from "./constants.ts";
 import {
   ESCAPE_HATCH_USE_AGGREGATE_TYPE,
   escapeHatchUsedSchema,
-} from "./escape-hatch-audit-sink.js";
+} from "./escape-hatch-audit-sink.ts";
 
 // pruneEvents opens its own transaction, so a runner that cannot begin one (a tx handle) is rejected instead of nested.
 export function isDbConnection(runner: DbRunner): runner is DbConnection {

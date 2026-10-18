@@ -9,7 +9,7 @@ import {
   type SubjectId,
   type SubjectKey,
   subjectIdToKey,
-} from "./kms-adapter.js";
+} from "./kms-adapter.ts";
 
 interface KeyEntry {
   key: Buffer | null;

@@ -5,9 +5,9 @@
 // PG 25P01 ("no active sql transaction") on a post-commit savepoint call.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { InternalError } from "../../../errors/index.js";
-import { runInSavepointIfSupported, transaction } from "../../query.js";
-import { closeDb, getDb } from "./_helpers.js";
+import { InternalError } from "../../../errors/index.ts";
+import { runInSavepointIfSupported, transaction } from "../../query.ts";
+import { closeDb, getDb } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

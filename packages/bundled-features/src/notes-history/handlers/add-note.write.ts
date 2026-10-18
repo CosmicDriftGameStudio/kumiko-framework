@@ -1,12 +1,12 @@
 import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.js";
-import { tenantMembershipsTable } from "../../tenant/index.js";
-import { userTable } from "../../user/index.js";
-import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants.js";
-import { noteEntryExecutor, noteMentionExecutor } from "../executor.js";
-import { type AddNotePayload, addNotePayloadSchema } from "../schemas.js";
+import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
+import { tenantMembershipsTable } from "../../tenant/index.ts";
+import { userTable } from "../../user/index.ts";
+import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants.ts";
+import { noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
+import { type AddNotePayload, addNotePayloadSchema } from "../schemas.ts";
 
 const READ_AUTHOR_DISPLAY_NAME_REASON =
   "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction";

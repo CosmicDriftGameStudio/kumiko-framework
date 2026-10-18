@@ -1,4 +1,4 @@
-import { requestContext } from "../api/request-context.js";
+import { requestContext } from "../api/request-context.ts";
 import {
   collectPiiEncryptedFields,
   collectPiiSubjectFields,
@@ -8,19 +8,19 @@ import {
   KeyErasedError,
   type KmsContext,
   type LocalKeyKmsAdapter,
-} from "../crypto/index.js";
-import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transition-rekey.js";
-import { executeRawQueryRead } from "../db/queries/raw-sql.js";
-import type { WhereObject } from "../db/query.js";
-import { shiftParams } from "../engine/ownership.js";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
+} from "../crypto/index.ts";
+import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transition-rekey.ts";
+import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
+import type { WhereObject } from "../db/query.ts";
+import { shiftParams } from "../engine/ownership.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type {
   EntityDefinition,
   EntityId,
   FieldDefinition,
   SessionUser,
   TenantId,
-} from "../engine/types/index.js";
+} from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   InternalError,
@@ -28,28 +28,28 @@ import {
   UniqueViolationError,
   type WriteFailure,
   writeFailure,
-} from "../errors/index.js";
-import { ArchivedStreamError, type EventMetadata, isStreamArchived } from "../event-store/index.js";
-import type { EntityCache } from "../pipeline/entity-cache.js";
-import type { SearchAdapter } from "../search/types.js";
-import type { EnvelopeCipher } from "../secrets/envelope-cipher.js";
-import { assertUnreachable } from "../utils/index.js";
-import { rehydrateCompoundTypes } from "./compound-types.js";
-import type { DbRow } from "./connection.js";
-import type { TableColumns } from "./dialect.js";
+} from "../errors/index.ts";
+import { ArchivedStreamError, type EventMetadata, isStreamArchived } from "../event-store/index.ts";
+import type { EntityCache } from "../pipeline/entity-cache.ts";
+import type { SearchAdapter } from "../search/types.ts";
+import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
+import { assertUnreachable } from "../utils/index.ts";
+import { rehydrateCompoundTypes } from "./compound-types.ts";
+import type { DbRow } from "./connection.ts";
+import type { TableColumns } from "./dialect.ts";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
   logUndecryptableField,
   resolveEntityFieldEncryption,
-} from "./entity-field-encryption.js";
-import type { EventStoreExecutorOptions } from "./event-store-executor.js";
-import { constraintOf, isUniqueViolation } from "./pg-error.js";
-import { toSnakeCase } from "./table-builder.js";
-import { columnHandleName, schemaTableName } from "./table-introspection.js";
-import type { TenantDb } from "./tenant-db.js";
-import { tenantDbRunner } from "./tenant-db-runner.js";
+} from "./entity-field-encryption.ts";
+import type { EventStoreExecutorOptions } from "./event-store-executor.ts";
+import { constraintOf, isUniqueViolation } from "./pg-error.ts";
+import { toSnakeCase } from "./table-builder.ts";
+import { columnHandleName, schemaTableName } from "./table-introspection.ts";
+import type { TenantDb } from "./tenant-db.ts";
+import { tenantDbRunner } from "./tenant-db-runner.ts";
 
 // Shared context-building for the event-store-executor CRUD verbs (create/
 // update/delete/forget/restore/list/detail — see event-store-executor-write.ts

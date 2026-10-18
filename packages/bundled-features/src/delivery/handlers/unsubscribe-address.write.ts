@@ -1,8 +1,8 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { upsertAddressOptOut } from "../address-opt-out.js";
-import { currentNotificationType } from "../notification-type-aliases.js";
+import { upsertAddressOptOut } from "../address-opt-out.ts";
+import { currentNotificationType } from "../notification-type-aliases.ts";
 
 // Also the payload an app job receives with `trigger: { on: DeliveryHandlers.unsubscribeAddress }`
 // after a committed address opt-out (the tenant is the job's `ctx.triggeredBy.tenantId`).

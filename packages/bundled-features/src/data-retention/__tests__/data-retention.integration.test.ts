@@ -12,7 +12,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.ts";
 
 let stack: TestStack;
 

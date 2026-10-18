@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { lookup } from "node:dns/promises";
-import { egress } from "../egress.js";
+import { egress } from "../egress.ts";
 import {
   assertAllowedTarget,
   assertHttpScheme,
@@ -10,7 +10,7 @@ import {
   isPublicHost,
   resolvePublicHost,
   resolvePublicHostname,
-} from "../policy.js";
+} from "../policy.ts";
 
 describe("isBlockedIp", () => {
   test.each([

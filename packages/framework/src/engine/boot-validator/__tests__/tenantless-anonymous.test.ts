@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../define-feature.js";
-import type { WriteHandlerDefinition } from "../../types/index.js";
-import { validateHandlerAccess } from "../entity-handler.js";
+import { defineFeature } from "../../define-feature.ts";
+import type { WriteHandlerDefinition } from "../../types/index.ts";
+import { validateHandlerAccess } from "../entity-handler.ts";
 
 type HandlerOverrides = Partial<Pick<WriteHandlerDefinition, "access" | "rateLimit">>;
 

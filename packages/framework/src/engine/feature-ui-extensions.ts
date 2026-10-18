@@ -6,14 +6,14 @@ import {
   WEBSOCKET_ROUTE_PATH_PREFIX,
   type WebSocketRouteDefinition,
 } from "@cosmicdrift/kumiko-types/websocket-route";
-import type { EntityTableMeta } from "../db/entity-table-meta.js";
-import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js";
-import { LifecycleHookTypes } from "./constants.js";
-import type { FeatureBuilderState } from "./feature-builder-state.js";
-import { resolveName } from "./handler-helpers.js";
-import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.js";
-import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.js";
-import type { HttpRouteDefinition } from "./types/http-route.js";
+import type { EntityTableMeta } from "../db/entity-table-meta.ts";
+import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
+import { LifecycleHookTypes } from "./constants.ts";
+import type { FeatureBuilderState } from "./feature-builder-state.ts";
+import { resolveName } from "./handler-helpers.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
+import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.ts";
+import type { HttpRouteDefinition } from "./types/http-route.ts";
 import type {
   BootCheckFn,
   EntityProjectionExtension,
@@ -36,11 +36,11 @@ import type {
   TreeActionDef,
   TreeActionsHandle,
   ValidationHookFn,
-} from "./types/index.js";
-import { HookPhases } from "./types/index.js";
-import type { ContentCollectionDefinition, NavDefinition } from "./types/nav.js";
-import type { ScreenDefinition } from "./types/screen.js";
-import type { WorkspaceDefinition } from "./types/workspace.js";
+} from "./types/index.ts";
+import { HookPhases } from "./types/index.ts";
+import type { ContentCollectionDefinition, NavDefinition } from "./types/nav.ts";
+import type { ScreenDefinition } from "./types/screen.ts";
+import type { WorkspaceDefinition } from "./types/workspace.ts";
 
 // Builds hooks/extensions/projections/screens/nav/workspace/tables/tree-actions
 // registrar methods.

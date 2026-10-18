@@ -21,7 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
-import { extractIdField } from "../../../renderer/src/components/reference-create-dialog.js";
+import { extractIdField } from "../../../renderer/src/components/reference-create-dialog.tsx";
 import {
   act,
   fireEvent,
@@ -31,7 +31,7 @@ import {
   taskEntity,
   waitFor,
   within,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 function defaultEnText(key: string): string {
   const value = kumikoDefaultTranslations["en"]?.[key];
@@ -865,7 +865,7 @@ describe("KumikoScreen", () => {
       ],
     };
 
-    const { ToastProvider } = await import("../primitives/toast.js");
+    const { ToastProvider } = await import("../primitives/toast.tsx");
     const user = userEvent.setup();
     render(
       <ToastProvider>
@@ -930,7 +930,7 @@ describe("KumikoScreen", () => {
       ],
     };
 
-    const { ToastProvider } = await import("../primitives/toast.js");
+    const { ToastProvider } = await import("../primitives/toast.tsx");
     const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } = await import(
       "@cosmicdrift/kumiko-renderer"
     );
@@ -1130,7 +1130,7 @@ describe("KumikoScreen", () => {
     };
 
     const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
-    const { useBrowserNavApi } = await import("../app/nav.js");
+    const { useBrowserNavApi } = await import("../app/nav.tsx");
     function BrowserNav({ children }: { readonly children: React.ReactNode }): React.ReactNode {
       const api = useBrowserNavApi({ hasWorkspaces: false });
       return <NavProvider value={api}>{children}</NavProvider>;

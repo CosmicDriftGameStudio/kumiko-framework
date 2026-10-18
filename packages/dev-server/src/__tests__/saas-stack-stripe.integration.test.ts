@@ -29,7 +29,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { composeSaasStack } from "../compose-stacks.js";
+import { composeSaasStack } from "../compose-stacks.ts";
 
 const WEBHOOK_SECRET = `whsec_${randomBytes(16).toString("hex")}`;
 const PRO_PRICE_ID = "price_pro_monthly";

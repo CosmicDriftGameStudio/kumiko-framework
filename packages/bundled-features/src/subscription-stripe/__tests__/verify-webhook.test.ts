@@ -16,12 +16,12 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { ExtraRouteRejection } from "@cosmicdrift/kumiko-framework/api";
 import Stripe from "stripe";
-import type { StripeWebhookRuntime } from "../runtime.js";
+import type { StripeWebhookRuntime } from "../runtime.ts";
 import {
   mapStripeEventType,
   mapStripeStatus,
   verifyAndParseStripeWebhook,
-} from "../verify-webhook.js";
+} from "../verify-webhook.ts";
 
 const TEST_SECRET = "whsec_test_secret_12345";
 const TEST_API_KEY = "sk_test_dummy_apikey";

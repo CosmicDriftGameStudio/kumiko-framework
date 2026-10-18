@@ -2,7 +2,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { UploadZone } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
+import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 
 // unsubscribeUrl belongs to mail; the PDF designer never offers it.
 const HIDDEN_SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set(["unsubscribeUrl"]);

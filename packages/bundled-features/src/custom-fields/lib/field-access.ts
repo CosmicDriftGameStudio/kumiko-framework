@@ -4,8 +4,8 @@
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { selectSerializedFieldDefinition } from "../db/queries/field-access.js";
-import { parseSerializedField, type SerializedFieldShape } from "./parse-serialized-field.js";
+import { selectSerializedFieldDefinition } from "../db/queries/field-access.ts";
+import { parseSerializedField, type SerializedFieldShape } from "./parse-serialized-field.ts";
 
 export type FieldAccessCheckResult =
   | { ok: true }

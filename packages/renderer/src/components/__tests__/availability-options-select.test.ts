@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   filterUnavailableOptions,
   mergeOptionAvailability,
-} from "../availability-options-select.js";
+} from "../availability-options-select.tsx";
 
 const OPTIONS = [
   { value: "free", label: "Free" },

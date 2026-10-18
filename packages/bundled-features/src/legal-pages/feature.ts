@@ -10,19 +10,19 @@ import {
   type PublicPageWrapLayout,
   redirectToCanonicalPath,
   slashVariantOf,
-} from "../page-render/index.js";
+} from "../page-render/index.ts";
 import {
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
   LEGAL_TERMS_ROUTES,
   type LegalPageRoute,
   type LegalRequiredBlock,
-} from "./constants.js";
-import { runLegalPagesBootCheck } from "./lib/boot-check.js";
-import { validateRoutes } from "./lib/validate-routes.js";
-import { renderMarkdownToHtml, wrapInLayout } from "./markdown.js";
+} from "./constants.ts";
+import { runLegalPagesBootCheck } from "./lib/boot-check.ts";
+import { validateRoutes } from "./lib/validate-routes.ts";
+import { renderMarkdownToHtml, wrapInLayout } from "./markdown.ts";
 
-export { type LegalPagesBootCheckCtx, runLegalPagesBootCheck } from "./lib/boot-check.js";
+export { type LegalPagesBootCheckCtx, runLegalPagesBootCheck } from "./lib/boot-check.ts";
 
 // QN-Konstante als dokumentierter Public-Contract des template-resolver-
 // Features. Ein magic-string statt eines Code-Imports ist hier explizit

@@ -4,7 +4,7 @@ import {
   type ChatWebhookResponse,
   createChatWebhookChannel,
   type DeliveryChannel,
-} from "../delivery/index.js";
+} from "../delivery/index.ts";
 
 export type TeamsChannelOptions = ChatWebhookChannelOptions;
 

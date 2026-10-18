@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { transformTestingMoveSource } from "../scripts/codemod/testing-move.js";
+import { transformTestingMoveSource } from "../scripts/codemod/testing-move.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "testing-move");
 const CODEMOD_SCRIPT = join(import.meta.dir, "..", "scripts", "codemod", "testing-move.ts");

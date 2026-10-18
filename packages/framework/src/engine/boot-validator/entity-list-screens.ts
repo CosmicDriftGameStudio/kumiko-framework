@@ -1,6 +1,6 @@
-import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
-import { normalizeListColumn } from "../screen-helpers.js";
-import type { EntityListScreenDefinition, FeatureDefinition } from "../types/index.js";
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
+import { normalizeListColumn } from "../screen-helpers.ts";
+import type { EntityListScreenDefinition, FeatureDefinition } from "../types/index.ts";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
 export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap-list"]);

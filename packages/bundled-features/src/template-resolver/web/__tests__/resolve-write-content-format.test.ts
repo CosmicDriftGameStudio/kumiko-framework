@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 // client-plugin.tsx pulls in React modules; the pure function itself needs no DOM.
-const { resolveWriteContentFormat } = await import("../client-plugin.js");
+const { resolveWriteContentFormat } = await import("../client-plugin.tsx");
 
 describe("resolveWriteContentFormat", () => {
   test.each([

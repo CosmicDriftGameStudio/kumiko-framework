@@ -1,6 +1,6 @@
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
-import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.js";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_SHORT,
   CONTRACT_CONFIRMATION_ISSUED_EVENT_SHORT,
@@ -10,11 +10,11 @@ import {
   PAYMENT_RECEIVED_EVENT_QN,
   SUBSCRIPTION_CREATED_EVENT_QN,
   SUBSCRIPTION_UPDATED_EVENT_QN,
-} from "../events.js";
-import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
-import { createIssueContractConfirmationHandler } from "./issue-confirmation.js";
-import { registerConsumerProtectionMails } from "./mail-notifications.js";
-import { registerContractTermination } from "./register-termination.js";
+} from "../events.ts";
+import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { createIssueContractConfirmationHandler } from "./issue-confirmation.ts";
+import { registerConsumerProtectionMails } from "./mail-notifications.ts";
+import { registerContractTermination } from "./register-termination.ts";
 
 type ConfirmationTrigger = {
   readonly eventQn: string;

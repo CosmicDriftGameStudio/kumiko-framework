@@ -16,8 +16,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { WebDashboardBody } from "../app/dashboard-body.js";
-import { useBrowserNavApi } from "../app/nav.js";
+import { WebDashboardBody } from "../app/dashboard-body.tsx";
+import { useBrowserNavApi } from "../app/nav.tsx";
 import {
   act,
   createMockDispatcher,
@@ -26,7 +26,7 @@ import {
   screen,
   waitFor,
   within,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
 

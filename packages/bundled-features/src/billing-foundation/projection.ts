@@ -22,9 +22,9 @@ import {
   upsertOnConflict,
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
-import { paymentRowId } from "./aggregate-id.js";
-import { paymentEntity, subscriptionEntity } from "./entities.js";
-import type { PaymentEventPayload, SubscriptionEventPayload } from "./events.js";
+import { paymentRowId } from "./aggregate-id.ts";
+import { paymentEntity, subscriptionEntity } from "./entities.ts";
+import type { PaymentEventPayload, SubscriptionEventPayload } from "./events.ts";
 
 // Drizzle-table-instance aus dem entity-shape. Wird sowohl von der
 // projection-apply als auch von list-query / get-helper genutzt damit

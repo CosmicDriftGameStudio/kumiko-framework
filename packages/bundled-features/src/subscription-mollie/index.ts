@@ -5,10 +5,10 @@
 //   - mapMollieEventType / mapMollieStatus / extractMollieId (pure helpers,
 //     test-only — direct-import aus dem File wenn echt mal extern gebraucht)
 
-export { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants.js";
+export { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants.ts";
 export {
   createSubscriptionMollieFeature,
   type SubscriptionMollieOptions,
   subscriptionMollieEnvSchema,
-} from "./feature.js";
-export type { MolliePriceConfig } from "./plugin-methods.js";
+} from "./feature.ts";
+export type { MolliePriceConfig } from "./plugin-methods.ts";

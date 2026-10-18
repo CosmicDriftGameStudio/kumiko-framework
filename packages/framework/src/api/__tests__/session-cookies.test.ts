@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
-import { deleteTenantCookie, setTenantCookie } from "../anonymous-cookie.js";
-import { authMiddleware, CSRF_HEADER_NAME, getUser } from "../auth-middleware.js";
-import { csrfMiddleware } from "../csrf-middleware.js";
-import { createJwtHelper } from "../jwt.js";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
+import { deleteTenantCookie, setTenantCookie } from "../anonymous-cookie.ts";
+import { authMiddleware, CSRF_HEADER_NAME, getUser } from "../auth-middleware.ts";
+import { csrfMiddleware } from "../csrf-middleware.ts";
+import { createJwtHelper } from "../jwt.ts";
 import {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
@@ -13,7 +13,7 @@ import {
   resolveSessionCookies,
   sessionCookiesMiddleware,
   TENANT_COOKIE_BASE,
-} from "../session-cookies.js";
+} from "../session-cookies.ts";
 
 const JWT_SECRET = "[REDACTED:API key param]";
 const COOKIE_TENANT = testTenantId(7);

@@ -11,7 +11,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../db/query.js";
+import { asRawClient } from "../db/query.ts";
 import {
   createEntity,
   createTextField,
@@ -19,9 +19,9 @@ import {
   defineEntityWriteHandler,
   defineFeature,
   from,
-} from "../engine/index.js";
-import type { SessionUser, TenantId } from "../engine/types/index.js";
-import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.js";
+} from "../engine/index.ts";
+import type { SessionUser, TenantId } from "../engine/types/index.ts";
+import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";
 
 // ── Shared test entity ─────────────────────────────────────────────────────
 //

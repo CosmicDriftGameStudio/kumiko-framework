@@ -18,16 +18,16 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { subscriptionAggregateId } from "../aggregate-id.js";
-import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.js";
-import { createBillingFoundationFeature } from "../feature.js";
-import { subscriptionsProjectionTable } from "../projection.js";
-import type { BillingPlanCatalog, ProviderPrice, SubscriptionProviderPlugin } from "../types.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { subscriptionAggregateId } from "../aggregate-id.ts";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import { subscriptionsProjectionTable } from "../projection.ts";
+import type { BillingPlanCatalog, ProviderPrice, SubscriptionProviderPlugin } from "../types.ts";
 
 const PRICE_TO_TIER: Readonly<Record<string, string>> = { price_pro: "pro" };
 

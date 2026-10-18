@@ -55,7 +55,7 @@
 // the ALL_KINDS array in 7 are silent if forgotten — pin them with the
 // library.test.ts coverage tests.
 
-import type { LifecycleHookType } from "../constants.js";
+import type { LifecycleHookType } from "../constants.ts";
 import type {
   ConfigKeyDefinition,
   ConfigKeyType,
@@ -63,9 +63,9 @@ import type {
   ReferenceDataDef,
   RunIn,
   TranslationKeys,
-} from "../types/config.js";
-import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.js";
-import type { EntityDefinition } from "../types/fields.js";
+} from "../types/config.ts";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.ts";
+import type { EntityDefinition } from "../types/fields.ts";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -73,17 +73,17 @@ import type {
   EscapeHatchDeclaration,
   PayloadRateLimitOption,
   RateLimitDeclaration,
-} from "../types/handlers.js";
-import type { HookPhase } from "../types/hooks.js";
-import type { HttpRouteMethod } from "../types/http-route.js";
-import type { NavDefinition } from "../types/nav.js";
-import type { MspErrorMode } from "../types/projection.js";
-import type { RelationDefinition } from "../types/relations.js";
-import type { ScreenDefinition } from "../types/screen.js";
-import type { TreeActionDef } from "../types/tree-node.js";
-import type { WorkspaceDefinition } from "../types/workspace.js";
-import type { RawRefSentinel } from "./extractors/shared.js";
-import type { SourceLocation } from "./source-location.js";
+} from "../types/handlers.ts";
+import type { HookPhase } from "../types/hooks.ts";
+import type { HttpRouteMethod } from "../types/http-route.ts";
+import type { NavDefinition } from "../types/nav.ts";
+import type { MspErrorMode } from "../types/projection.ts";
+import type { RelationDefinition } from "../types/relations.ts";
+import type { ScreenDefinition } from "../types/screen.ts";
+import type { TreeActionDef } from "../types/tree-node.ts";
+import type { WorkspaceDefinition } from "../types/workspace.ts";
+import type { RawRefSentinel } from "./extractors/shared.ts";
+import type { SourceLocation } from "./source-location.ts";
 
 // =============================================================================
 // Static patterns — fully declarative. Designer renders forms, AI

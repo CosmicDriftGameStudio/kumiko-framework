@@ -74,12 +74,12 @@ import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resolveRetentionPolicyForTenant,
   resolveTenantRetentionPreset,
-} from "../data-retention/index.js";
-import { decryptStoredPii, runInSubTransaction } from "../shared/index.js";
-import { tenantMembershipsTable } from "../tenant/index.js";
-import { USER_STATUS, userTable } from "../user/index.js";
-import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup.js";
-import { updateUserLifecycle } from "./lib/update-user-lifecycle.js";
+} from "../data-retention/index.ts";
+import { decryptStoredPii, runInSubTransaction } from "../shared/index.ts";
+import { tenantMembershipsTable } from "../tenant/index.ts";
+import { USER_STATUS, userTable } from "../user/index.ts";
+import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup.ts";
+import { updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

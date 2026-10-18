@@ -30,9 +30,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
-import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
-import { ShellHeader } from "../layout/shell-header.js";
-import { BareFormProvider } from "../primitives/index.js";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
+import { ShellHeader } from "../layout/shell-header.tsx";
+import { BareFormProvider } from "../primitives/index.tsx";
 import {
   act,
   createMockDispatcher,
@@ -42,7 +42,7 @@ import {
   screen,
   waitFor,
   within,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
   id: "session-detail",

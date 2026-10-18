@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature, type FeatureRegistrar } from "../index.js";
+import { defineFeature, type FeatureRegistrar } from "../index.ts";
 
 // Object-Form is the shape the feature-ast renderer emits for Designer/
 // AI-generated code (`r.entity({ name: "item", ... })` instead of

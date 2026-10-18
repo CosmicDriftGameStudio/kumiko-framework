@@ -1,4 +1,4 @@
-export { createRendererPdfFeature } from "./feature.js";
+export { createRendererPdfFeature } from "./feature.ts";
 export {
   type PdfTableColumn,
   type PdfTableDocument,
@@ -6,4 +6,4 @@ export {
   type PdfTableResult,
   pdfTableDocumentSchema,
   renderTablePdf,
-} from "./render-table-pdf.js";
+} from "./render-table-pdf.ts";

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { UncheckedSystemDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { AccessDeniedError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { DbRunner } from "../connection.js";
+import { AccessDeniedError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { DbRunner } from "../connection.ts";
 import {
   createTenantDb,
   createUncheckedSystemDb,
   unsafeRawForDeclaredStep,
   withSystemDbUnsafeRawGrant,
-} from "../tenant-db.js";
+} from "../tenant-db.ts";
 
 const tenantId = testTenantId(1);
 

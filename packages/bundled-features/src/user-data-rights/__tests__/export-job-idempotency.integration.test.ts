@@ -20,17 +20,17 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
 import {
   ACTIVE_JOB_CONSTRAINT,
   EXPORT_JOB_STATUS,
   exportJobEntity,
   exportJobsTable,
-} from "../schema/export-job.js";
+} from "../schema/export-job.ts";
 
 let stack: TestStack;
 

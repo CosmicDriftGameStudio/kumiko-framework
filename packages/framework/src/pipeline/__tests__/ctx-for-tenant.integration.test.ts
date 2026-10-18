@@ -6,19 +6,19 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createTextField,
   defineFeature,
   defineWriteHandler,
   type TenantId,
-} from "../../engine/index.js";
-import { FrameworkReasons } from "../../errors/index.js";
-import { eventsTable } from "../../event-store/index.js";
-import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { FrameworkReasons } from "../../errors/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
   table: "read_fortenant_notes",

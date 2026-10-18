@@ -48,7 +48,7 @@ export {
   type SecurityStackOptions,
   stackFeatureNames,
   type UserDataRightsStackOptions,
-} from "./compose-stacks.js";
+} from "./compose-stacks.ts";
 export {
   type CreateKumikoServerOptions,
   createKumikoServer,
@@ -56,33 +56,33 @@ export {
   PROD_BUNDLES_ENV,
   resolveStylesheet,
   STYLESHEET_WATCH_ENV,
-} from "./create-kumiko-server.js";
-export { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "./env-schema.js";
+} from "./create-kumiko-server.ts";
+export { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "./env-schema.ts";
 export type {
   AuthoringStyle,
   BuildFewShotCorpusOptions,
   CorpusWarning,
   FewShotCorpus,
   FewShotEntry,
-} from "./few-shot-corpus.js";
-export { buildFewShotCorpus, pathToId } from "./few-shot-corpus.js";
-export { resolveFrameworkVersion } from "./framework-version.js";
-export { type ToDevHostDispatchOptions, toDevHostDispatch } from "./host-dispatch-adapter.js";
-export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli.js";
-export { runInitDeployCli } from "./init-deploy-cli.js";
-export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app.js";
-export { runDevApp } from "./run-dev-app.js";
+} from "./few-shot-corpus.ts";
+export { buildFewShotCorpus, pathToId } from "./few-shot-corpus.ts";
+export { resolveFrameworkVersion } from "./framework-version.ts";
+export { type ToDevHostDispatchOptions, toDevHostDispatch } from "./host-dispatch-adapter.ts";
+export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli.ts";
+export { runInitDeployCli } from "./init-deploy-cli.ts";
+export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app.ts";
+export { runDevApp } from "./run-dev-app.ts";
 export type {
   ScaffoldAppOptions,
   ScaffoldAppResult,
   ScaffoldFeatureEntry,
-} from "./scaffold-app.js";
-export { SCAFFOLD_BIOME_VERSION, scaffoldApp } from "./scaffold-app.js";
+} from "./scaffold-app.ts";
+export { SCAFFOLD_BIOME_VERSION, scaffoldApp } from "./scaffold-app.ts";
 export type {
   ScaffoldAppFeatureOptions,
   ScaffoldAppFeatureResult,
-} from "./scaffold-app-feature.js";
-export { runConfigPathForApp, scaffoldAppFeature } from "./scaffold-app-feature.js";
+} from "./scaffold-app-feature.ts";
+export { runConfigPathForApp, scaffoldAppFeature } from "./scaffold-app-feature.ts";
 export type {
   CheckDeployDriftResult,
   DeployDriftEntry,
@@ -93,13 +93,13 @@ export type {
   ScaffoldDeployOptions,
   ScaffoldDeployResult,
   ScaffoldedFile,
-} from "./scaffold-deploy.js";
-export { checkDeployDrift, renderDeployFiles, scaffoldDeploy } from "./scaffold-deploy.js";
-export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature.js";
-export { scaffoldFeature } from "./scaffold-feature.js";
+} from "./scaffold-deploy.ts";
+export { checkDeployDrift, renderDeployFiles, scaffoldDeploy } from "./scaffold-deploy.ts";
+export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature.ts";
+export { scaffoldFeature } from "./scaffold-feature.ts";
 export {
   type SetupTestStackFromFeaturesOptions,
   setupTestStackFromFeatures,
   type TestStackPreset,
-} from "./setup-test-stack-from-features.js";
-export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner.js";
+} from "./setup-test-stack-from-features.ts";
+export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner.ts";

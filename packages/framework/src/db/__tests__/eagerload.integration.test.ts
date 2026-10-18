@@ -18,25 +18,25 @@ import {
   encryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-} from "../../crypto/index.js";
-import { createEntity, createTextField, from } from "../../engine/index.js";
-import type { EntityDefinition } from "../../engine/types/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+} from "../../crypto/index.ts";
+import { createEntity, createTextField, from } from "../../engine/index.ts";
+import type { EntityDefinition } from "../../engine/types/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import {
   collectReferenceFields,
   type EagerLoadViewer,
   type EagerloadedRow,
   enrichRowWithReferences,
   enrichWithReferences,
-} from "../eagerload.js";
+} from "../eagerload.ts";
 import {
   collectEncryptedFieldNames,
   configureEntityFieldEncryption,
   encryptEntityFieldValues,
   resetEntityFieldEncryptionCacheForTests,
-} from "../entity-field-encryption.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+} from "../entity-field-encryption.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 const authorEntity = createEntity({
   table: "el_authors",

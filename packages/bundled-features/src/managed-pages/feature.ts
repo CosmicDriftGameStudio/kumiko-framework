@@ -7,18 +7,18 @@ import {
   EMPTY_BRANDING,
   renderSafeMarkdown,
   wrapInLayout,
-} from "../page-render/index.js";
-import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.js";
-import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding.js";
-import { createBrandingQuery } from "./handlers/branding.query.js";
-import { bySlugQuery } from "./handlers/by-slug.query.js";
-import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query.js";
-import { pageCrudQueries, pageCrudWrites } from "./handlers/page-crud.js";
-import { setWrite } from "./handlers/set.write.js";
-import { MANAGED_PAGES_I18N } from "./i18n.js";
-import { createBrandingSettingsScreen } from "./screens/branding-screen.js";
-import { pageEditScreen, pageListScreen } from "./screens/page-screens.js";
-import { pageEntity } from "./table.js";
+} from "../page-render/index.ts";
+import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.ts";
+import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding.ts";
+import { createBrandingQuery } from "./handlers/branding.query.ts";
+import { bySlugQuery } from "./handlers/by-slug.query.ts";
+import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query.ts";
+import { pageCrudQueries, pageCrudWrites } from "./handlers/page-crud.ts";
+import { setWrite } from "./handlers/set.write.ts";
+import { MANAGED_PAGES_I18N } from "./i18n.ts";
+import { createBrandingSettingsScreen } from "./screens/branding-screen.ts";
+import { pageEditScreen, pageListScreen } from "./screens/page-screens.ts";
+import { pageEntity } from "./table.ts";
 
 // 60s-shared-cache saves the origin-revalidate roundtrip; CMS edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;

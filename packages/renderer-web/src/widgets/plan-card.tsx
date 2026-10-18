@@ -1,6 +1,6 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn.ts";
 
 export type PlanCardPrice = {
   readonly amount: string;

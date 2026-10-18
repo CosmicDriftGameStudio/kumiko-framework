@@ -1,9 +1,9 @@
-export { attachmentFileNameSchema } from "../shared/index.js";
+export { attachmentFileNameSchema } from "../shared/index.ts";
 export {
   createRendererFoundationApi,
   type RendererFoundationApi,
   requireRendererFoundation,
-} from "./api.js";
+} from "./api.ts";
 export {
   CONTENT_FORMATS,
   type ContentFormat,
@@ -11,8 +11,8 @@ export {
   RENDER_KINDS,
   RENDERER_EXTENSION,
   type RenderKind,
-} from "./constants.js";
-export { collectRendererPlugins, createRendererFoundationFeature } from "./feature.js";
+} from "./constants.ts";
+export { collectRendererPlugins, createRendererFoundationFeature } from "./feature.ts";
 export {
   type DocumentPayload,
   type DocumentPdfDraft,
@@ -39,4 +39,4 @@ export {
   type RenderProvenance,
   type RenderRequest,
   type RenderResponse,
-} from "./types.js";
+} from "./types.ts";

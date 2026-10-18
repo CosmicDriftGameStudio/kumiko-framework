@@ -21,16 +21,16 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { configValuesTable } from "../../config/table.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { TenantQueries } from "../constants.js";
-import { createTenantFeature } from "../feature.js";
-import { tenantMembershipsTable } from "../membership-table.js";
-import { tenantEntity } from "../schema/tenant.js";
-import { seedTenant, seedTenantMembership } from "../seeding.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { TenantQueries } from "../constants.ts";
+import { createTenantFeature } from "../feature.ts";
+import { tenantMembershipsTable } from "../membership-table.ts";
+import { tenantEntity } from "../schema/tenant.ts";
+import { seedTenant, seedTenantMembership } from "../seeding.ts";
 
 const tenantId = testTenantId(1);
 

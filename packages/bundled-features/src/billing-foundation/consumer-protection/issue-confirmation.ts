@@ -12,10 +12,10 @@ import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { requireTemplateResolver, TEXT_BLOCK_KIND } from "../../template-resolver/index.js";
-import { UserQueries } from "../../user/index.js";
-import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
-import { CONTRACT_CONFIRMATION_NOTIFICATION_TYPE } from "../constants.js";
+import { requireTemplateResolver, TEXT_BLOCK_KIND } from "../../template-resolver/index.ts";
+import { UserQueries } from "../../user/index.ts";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
+import { CONTRACT_CONFIRMATION_NOTIFICATION_TYPE } from "../constants.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,
   type CheckoutConsentRecordedPayload,
@@ -25,10 +25,10 @@ import {
   contractConfirmationIssuedPayloadSchema,
   PAYMENT_AGGREGATE_TYPE,
   SUBSCRIPTION_AGGREGATE_TYPE,
-} from "../events.js";
-import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
-import { contractConfirmationVariables } from "./confirmation-mail.js";
-import { resolveConsentLocale } from "./consent-text.js";
+} from "../events.ts";
+import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { contractConfirmationVariables } from "./confirmation-mail.ts";
+import { resolveConsentLocale } from "./consent-text.ts";
 
 export const issueContractConfirmationSchema = z
   .object({

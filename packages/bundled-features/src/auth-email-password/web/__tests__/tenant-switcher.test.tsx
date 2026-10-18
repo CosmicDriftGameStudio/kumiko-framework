@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TenantSwitcher } from "../tenant-switcher.js";
-import { makeSessionApi, renderWithProviders } from "./test-utils.js";
+import { TenantSwitcher } from "../tenant-switcher.tsx";
+import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
 
 // Radix-DropdownMenu reagiert auf pointerdown, nicht auf click — daher
 // userEvent statt fireEvent.

@@ -4,7 +4,7 @@ import {
   type DeliveryFailureCode,
   type DeliverySkipReason,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DeliveryStatus, type DeliveryStatusValue } from "./public-names.js";
+import { DeliveryStatus, type DeliveryStatusValue } from "./public-names.ts";
 
 type LocalizedString = { readonly en: string };
 

@@ -2,9 +2,9 @@ import type {
   CacheSyncBus,
   ClosableCacheSyncBus,
 } from "@cosmicdrift/kumiko-types/cache-sync-types";
-import { createFallbackLogger } from "../logging/utils.js";
-import { type RedisClientOptions, redisClientOptionsFromEnv } from "./client.js";
-import { createRedisPubSubSignal, type PubSubSignal } from "./pubsub-signal.js";
+import { createFallbackLogger } from "../logging/utils.ts";
+import { type RedisClientOptions, redisClientOptionsFromEnv } from "./client.ts";
+import { createRedisPubSubSignal, type PubSubSignal } from "./pubsub-signal.ts";
 
 export type { CacheSyncBus, ClosableCacheSyncBus };
 

@@ -16,19 +16,19 @@ import * as z from "zod";
 import {
   createAuthFoundationFeature,
   resolveAnonymousAccessFromRegistry,
-} from "../../auth-foundation/index.js";
-import { configValuesTable, createConfigFeature } from "../../config/index.js";
+} from "../../auth-foundation/index.ts";
+import { configValuesTable, createConfigFeature } from "../../config/index.ts";
 import {
   createTenantFeature,
   TenantHandlers,
   tenantEntity,
   tenantMembershipsTable,
-} from "../../tenant/index.js";
-import { seedTenant } from "../../tenant/seeding.js";
-import { createUserFeature, userEntity } from "../../user/index.js";
-import { createHostDispatch } from "../dispatch.js";
-import { createHostRoutingFeature } from "../feature.js";
-import type { HostRoutingOptions } from "../options.js";
+} from "../../tenant/index.ts";
+import { seedTenant } from "../../tenant/seeding.ts";
+import { createUserFeature, userEntity } from "../../user/index.ts";
+import { createHostDispatch } from "../dispatch.ts";
+import { createHostRoutingFeature } from "../feature.ts";
+import type { HostRoutingOptions } from "../options.ts";
 
 const BASE_DOMAIN = "host-routing.test";
 

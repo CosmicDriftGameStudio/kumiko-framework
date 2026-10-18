@@ -8,27 +8,27 @@ import {
   WAITLIST_EXPORTED_EVENT_SHORT,
   WAITLIST_FEATURE,
   WAITLIST_PURGED_EVENT_SHORT,
-} from "./constants.js";
-import { waitlistEntryEntity } from "./entity.js";
-import { exportHandler, purgeHandler } from "./handlers/export-purge.write.js";
-import { createInviteHandler } from "./handlers/invite.write.js";
-import { listQuery } from "./handlers/list.query.js";
-import { rejectHandler } from "./handlers/reject.write.js";
-import { createSubmitHandler } from "./handlers/submit.write.js";
-import { WAITLIST_I18N } from "./i18n.js";
-import { adminAccess } from "./lib.js";
-import { linkWaitlistOnSignup, WAITLIST_MEMBERSHIP_CREATED_EVENT } from "./link-on-signup.js";
+} from "./constants.ts";
+import { waitlistEntryEntity } from "./entity.ts";
+import { exportHandler, purgeHandler } from "./handlers/export-purge.write.ts";
+import { createInviteHandler } from "./handlers/invite.write.ts";
+import { listQuery } from "./handlers/list.query.ts";
+import { rejectHandler } from "./handlers/reject.write.ts";
+import { createSubmitHandler } from "./handlers/submit.write.ts";
+import { WAITLIST_I18N } from "./i18n.ts";
+import { adminAccess } from "./lib.ts";
+import { linkWaitlistOnSignup, WAITLIST_MEMBERSHIP_CREATED_EVENT } from "./link-on-signup.ts";
 import {
   WAITLIST_ADMIN_NOTICE_RECORD,
   WAITLIST_ADMIN_NOTICE_VARIABLES,
   WAITLIST_CONFIRMATION_VARIABLES,
   waitlistAdminNoticeTemplate,
   waitlistConfirmationTemplate,
-} from "./mail.js";
-import type { WaitlistOptions } from "./options.js";
-import { WaitlistAuditEventSchema } from "./payloads.js";
-import { waitlistListScreen } from "./screens.js";
-import { waitlistEntryDeleteHook, waitlistEntryExportHook } from "./user-data-hooks.js";
+} from "./mail.ts";
+import type { WaitlistOptions } from "./options.ts";
+import { WaitlistAuditEventSchema } from "./payloads.ts";
+import { waitlistListScreen } from "./screens.ts";
+import { waitlistEntryDeleteHook, waitlistEntryExportHook } from "./user-data-hooks.ts";
 
 export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefinition {
   return defineFeature(WAITLIST_FEATURE, (r) => {

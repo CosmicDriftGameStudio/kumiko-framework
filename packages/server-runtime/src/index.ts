@@ -3,30 +3,30 @@
 // Tooling (ts-morph) als Dependency — Prod-Apps ziehen so kein
 // Dev-Tooling mehr in ihre node_modules.
 
-export type { BillingBootOption } from "./boot-options/billing-option.js";
+export type { BillingBootOption } from "./boot-options/billing-option.ts";
 export type {
   DemoAccountRole,
   DemoModeNotice,
   DemoModeOption,
-} from "./boot-options/demo-mode.js";
+} from "./boot-options/demo-mode.ts";
 export type {
   FileStorageBootOption,
   FileStorageProviderName,
-} from "./boot-options/file-storage-option.js";
-export type { KmsMode } from "./boot-options/kms-mode.js";
-export type { MailBootOption } from "./boot-options/mail-option.js";
-export type { SignalsOption } from "./boot-options/process-signals.js";
-export type { ProdSeedsConfig, ProdSeedTenant } from "./boot-options/seed-shortcuts.js";
+} from "./boot-options/file-storage-option.ts";
+export type { KmsMode } from "./boot-options/kms-mode.ts";
+export type { MailBootOption } from "./boot-options/mail-option.ts";
+export type { SignalsOption } from "./boot-options/process-signals.ts";
+export type { ProdSeedsConfig, ProdSeedTenant } from "./boot-options/seed-shortcuts.ts";
 export {
   type BundledAssetDeclaration,
   type BundledAssetOptions,
   readBundledAsset,
   resolveBundledAsset,
-} from "./bundled-assets.js";
-export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.js";
-export type { RateLimitOption } from "./rate-limit-defaults.js";
-export type { RunBootstrapOptions } from "./run-bootstrap.js";
-export { runBootstrap } from "./run-bootstrap.js";
+} from "./bundled-assets.ts";
+export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.ts";
+export type { RateLimitOption } from "./rate-limit-defaults.ts";
+export type { RunBootstrapOptions } from "./run-bootstrap.ts";
+export { runBootstrap } from "./run-bootstrap.ts";
 export type {
   AccountUnlockSetup,
   EmailVerificationSetup,
@@ -40,13 +40,13 @@ export type {
   RunProdAppAuthOptions,
   RunProdAppOptions,
   SignupSetup,
-} from "./run-prod-app.js";
-export { requireEnv, runProdApp } from "./run-prod-app.js";
+} from "./run-prod-app.ts";
+export { requireEnv, runProdApp } from "./run-prod-app.ts";
 export type {
   RunWorkerAppOptions,
   WorkerAppHandle,
   WorkerWireDeps,
-} from "./run-worker-app.js";
-export { runWorkerApp } from "./run-worker-app.js";
-export type { CspExtension, CspOption, SecurityHeadersOption } from "./security-headers.js";
-export { makeSeedCreateFileRef, type SeedCreateFileRef } from "./seed-dispatcher.js";
+} from "./run-worker-app.ts";
+export { runWorkerApp } from "./run-worker-app.ts";
+export type { CspExtension, CspOption, SecurityHeadersOption } from "./security-headers.ts";
+export { makeSeedCreateFileRef, type SeedCreateFileRef } from "./seed-dispatcher.ts";

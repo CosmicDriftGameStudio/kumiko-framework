@@ -19,10 +19,10 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
+import { asRawClient } from "../../db/query.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
 
 const memberEntity = createEntity({
   table: "pl_filter_members",

@@ -1,9 +1,9 @@
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import type { OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useRef } from "react";
-import { useQuery } from "../hooks/use-query.js";
-import { usePrimitives } from "../primitives.js";
-import { resolveOptionsQueryPayload } from "./query-options-select.js";
+import { useQuery } from "../hooks/use-query.ts";
+import { usePrimitives } from "../primitives.tsx";
+import { resolveOptionsQueryPayload } from "./query-options-select.tsx";
 
 export type SelectOptionEntry = {
   readonly value: string;

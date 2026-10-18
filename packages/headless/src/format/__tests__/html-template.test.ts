@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { html, RawHtml, raw } from "../html-template.js";
+import { html, RawHtml, raw } from "../html-template.ts";
 
 const XSS = `<script>alert("1")</script>`;
 

@@ -12,7 +12,7 @@ import {
   resolveMailLocale,
 } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
-import { AUTH_EMAIL_PASSWORD_FEATURE } from "./constants.js";
+import { AUTH_EMAIL_PASSWORD_FEATURE } from "./constants.ts";
 
 export const AUTH_MAIL_KINDS = {
   passwordReset: { name: "password-reset", translationKey: "reset" },

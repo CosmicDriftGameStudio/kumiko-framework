@@ -6,7 +6,7 @@
 // Mirrors folders-user-data.
 
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
-import { userMfaDeleteHook, userMfaExportHook } from "./hooks.js";
+import { userMfaDeleteHook, userMfaExportHook } from "./hooks.ts";
 
 export function createAuthMfaUserDataFeature() {
   return defineFeature(

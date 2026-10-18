@@ -9,9 +9,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
-import { createSessionCallbacks } from "../session-callbacks.js";
-import { SESSION_REVOKED_EVENT_QN } from "../session-revoked-event.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
+import { createSessionCallbacks } from "../session-callbacks.ts";
+import { SESSION_REVOKED_EVENT_QN } from "../session-revoked-event.ts";
 
 // Revoke and its session-revoked event must commit together: if only the
 // revoke stuck, a retried logout would find no live row (revokedAt IS NULL),

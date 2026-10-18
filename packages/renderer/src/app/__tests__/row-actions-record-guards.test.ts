@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { RelatedListToolbarAction, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
-import { stubDispatcher } from "../../__tests__/stub-dispatcher.js";
-import { compactHeaderPrimary, primaryHeaderAction } from "../header-actions.js";
-import type { NavApi } from "../nav.js";
-import { buildProjectionToolbarActions, buildRecordActions } from "../row-actions.js";
+import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
+import { compactHeaderPrimary, primaryHeaderAction } from "../header-actions.ts";
+import type { NavApi } from "../nav.tsx";
+import { buildProjectionToolbarActions, buildRecordActions } from "../row-actions.ts";
 
 const nav: NavApi = {
   route: undefined,

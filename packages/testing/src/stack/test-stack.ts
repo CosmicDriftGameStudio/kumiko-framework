@@ -50,11 +50,11 @@ import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { createInMemorySearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Hono } from "hono";
-import { createTestDb } from "./db.js";
-import { createJobFailureTracker, drainJobs } from "./drain-jobs.js";
-import { createEventCollector, type EventCollector } from "./event-collector.js";
-import { createTestRedis, queueNamePrefixForTestRedis, type TestRedis } from "./redis.js";
-import { createRequestHelper, type RequestHelper } from "./request-helper.js";
+import { createTestDb } from "./db.ts";
+import { createJobFailureTracker, drainJobs } from "./drain-jobs.ts";
+import { createEventCollector, type EventCollector } from "./event-collector.ts";
+import { createTestRedis, queueNamePrefixForTestRedis, type TestRedis } from "./redis.ts";
+import { createRequestHelper, type RequestHelper } from "./request-helper.ts";
 
 export type TestStack = {
   app: Hono;

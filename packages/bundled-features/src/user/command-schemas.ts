@@ -6,8 +6,8 @@
 // See `tenant/command-schemas.ts` for the same pattern + the schema-vs-event-
 // payload caveat (strip-id, defaults, sensitive, compound-type flattening).
 
-import { createWrite } from "./handlers/create.write.js";
-import { updateWrite } from "./handlers/update.write.js";
+import { createWrite } from "./handlers/create.write.ts";
+import { updateWrite } from "./handlers/update.write.ts";
 
 export const UserCommandSchemas = {
   create: createWrite.schema,

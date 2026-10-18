@@ -1,5 +1,5 @@
-import { parseRefTargetEntityName } from "./parse-ref-target.js";
-import type { EntityDefinition } from "./types/index.js";
+import { parseRefTargetEntityName } from "./parse-ref-target.ts";
+import type { EntityDefinition } from "./types/index.ts";
 
 // The single definition of the limit. It lives here rather than next to the
 // resolver in bundled-features because the dependency only runs that way:

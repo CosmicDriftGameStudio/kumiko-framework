@@ -4,7 +4,7 @@ import {
   extractPgError,
   isTableAlreadyExists,
   isUniqueViolation,
-} from "../pg-error.js";
+} from "../pg-error.ts";
 
 describe("extractPgError", () => {
   test("reads code from top-level postgres-js error", () => {

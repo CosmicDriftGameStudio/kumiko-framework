@@ -1,6 +1,6 @@
 import { type ConfigKeyDefinition, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { hasConfigAccess } from "../write-helpers.js";
+import { hasConfigAccess } from "../write-helpers.ts";
 
 export const schemaQuery = defineQueryHandler({
   name: "schema",

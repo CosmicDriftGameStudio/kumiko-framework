@@ -1,12 +1,12 @@
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import type { OverlayResolverPlugin } from "../derivatives/derivatives-context.js";
-import type { FileProviderPlugin } from "../files/provider-resolver.js";
-import type { PrincipalStatusPlugin, TenantLifecycleStatusPlugin } from "./active-membership.js";
-import type { TenantDataExtensionHooks } from "./extensions/tenant-data.js";
-import type { TenantResourceExtensionHooks } from "./extensions/tenant-resource.js";
-import type { UserDataExtensionOptions } from "./extensions/user-data.js";
-import type { AssignableFromRole } from "./role-assignment.js";
-import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolver-extension.js";
+import type { OverlayResolverPlugin } from "../derivatives/derivatives-context.ts";
+import type { FileProviderPlugin } from "../files/provider-resolver.ts";
+import type { PrincipalStatusPlugin, TenantLifecycleStatusPlugin } from "./active-membership.ts";
+import type { TenantDataExtensionHooks } from "./extensions/tenant-data.ts";
+import type { TenantResourceExtensionHooks } from "./extensions/tenant-resource.ts";
+import type { UserDataExtensionOptions } from "./extensions/user-data.ts";
+import type { AssignableFromRole } from "./role-assignment.ts";
+import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolver-extension.ts";
 
 // Standardisierte Extension-Namen fuer Datenschutz-Hook-Achsen.
 //

@@ -1,7 +1,7 @@
-export { createChannelTeamsFeature } from "./feature.js";
+export { createChannelTeamsFeature } from "./feature.ts";
 export {
   createTeamsChannel,
   TEAMS_DEFAULT_ALLOWED_HOSTS,
   TEAMS_SECRET_KEYS,
   type TeamsChannelOptions,
-} from "./teams-channel.js";
+} from "./teams-channel.ts";

@@ -9,13 +9,13 @@ import {
   type Registry,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { validateDocumentIngestProviderWiring } from "../boot-checks.js";
-import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events.js";
-import { createDocumentIngestFoundationFeature } from "../feature.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { validateDocumentIngestProviderWiring } from "../boot-checks.ts";
+import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events.ts";
+import { createDocumentIngestFoundationFeature } from "../feature.ts";
 import {
   type DocumentIngestProviderOptions,
   documentIngestProviderTrigger,
@@ -23,7 +23,7 @@ import {
   listIngestibleMimeTypes,
   resolveDocumentIngestProviders,
   UNCLAIMED_PROVIDER_SENTINEL,
-} from "../providers.js";
+} from "../providers.ts";
 
 function makeProviderFeature(name: string, options: DocumentIngestProviderOptions) {
   return defineFeature(`test-provider-${name}`, (r) => {

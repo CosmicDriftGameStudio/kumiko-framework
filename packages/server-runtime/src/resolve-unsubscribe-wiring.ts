@@ -3,7 +3,7 @@ import {
   type UnsubscribeLinkConfig,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { type ExtraRouteDefinition, publicOriginOf } from "@cosmicdrift/kumiko-framework/api";
-import { APP_BASE_URL_ENV } from "./resolve-auth-public-origin.js";
+import { APP_BASE_URL_ENV } from "./resolve-auth-public-origin.ts";
 
 export type UnsubscribeOption = {
   readonly secret: string;

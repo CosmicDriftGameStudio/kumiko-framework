@@ -52,7 +52,7 @@ describe("runIntegrationTests", () => {
     expect(code).not.toBe(0);
     expect(stdout).toContain("Integration run FAILED.");
     expect(stdout).toContain("1 pass");
-  }, 30_000);
+  });
 
   test("a directory with a clean exit stays green", async () => {
     tmpDir = writeFixture("");
@@ -60,7 +60,7 @@ describe("runIntegrationTests", () => {
 
     expect(code).toBe(0);
     expect(stdout).toContain("Integration run complete.");
-  }, 30_000);
+  });
 
   test("runs only the discovered files, not other test files whose path contains theirs", async () => {
     tmpDir = writeFixture("");
@@ -73,5 +73,36 @@ describe("runIntegrationTests", () => {
     expect(code).toBe(0);
     expect(stdout).toContain("Files: 1/1 executed");
     expect(stdout).not.toContain("must not run");
-  }, 30_000);
+  });
+
+  function writeSubprocessLaneFixture(dir: string, testBody: string): void {
+    const laneDir = join(dir, "packages", "cli", "src", "__tests__");
+    mkdirSync(laneDir, { recursive: true });
+    writeFileSync(
+      join(laneDir, "scaffold-check.integration.test.ts"),
+      `import { expect, test } from "bun:test";\n\ntest("lane", () => {\n${testBody}});\n`,
+    );
+  }
+
+  test("a subprocess-check file runs in its own lane after the bulk lane, without --parallel", async () => {
+    tmpDir = writeFixture("");
+    writeSubprocessLaneFixture(tmpDir, "  expect(1).toBe(1);\n");
+    const { code, stdout } = await runRunnerIn(tmpDir);
+
+    expect(code).toBe(0);
+    expect(stdout).toContain("=== Integration: 1 file(s) (--parallel=4) ===");
+    expect(stdout).toContain("=== Integration subprocess checks: 1 file(s) ===");
+    expect(stdout.indexOf("Integration subprocess checks")).toBeGreaterThan(
+      stdout.indexOf("=== Integration: 1 file(s)"),
+    );
+  });
+
+  test("a red subprocess-check lane fails the run even when the bulk lane is green", async () => {
+    tmpDir = writeFixture("");
+    writeSubprocessLaneFixture(tmpDir, "  expect(1).toBe(2);\n");
+    const { code, stdout } = await runRunnerIn(tmpDir);
+
+    expect(code).not.toBe(0);
+    expect(stdout).toContain("Integration run FAILED.");
+  });
 });

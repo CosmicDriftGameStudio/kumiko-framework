@@ -1,27 +1,27 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type { ZodType } from "zod";
 import * as z from "zod";
-import type { DbRow } from "../db/connection.js";
+import type { DbRow } from "../db/connection.ts";
 import {
   collectReferenceFields,
   enrichRowWithReferences,
   enrichWithReferences,
-} from "../db/eagerload.js";
-import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.js";
-import { buildEntityTable, type EntityTable } from "../db/table-builder.js";
+} from "../db/eagerload.ts";
+import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
+import { buildEntityTable, type EntityTable } from "../db/table-builder.ts";
 import {
   acknowledgeConventionCrossTenant,
   reportConventionCrossTenantUse,
   type TenantDb,
-} from "../db/tenant-db.js";
-import { InternalError } from "../errors/index.js";
-import { isSystemIdentity } from "../pipeline/system-identity-switch.js";
-import { assertUnreachable } from "../utils/index.js";
-import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.js";
-import { codemodPlaceholderReasonProblem } from "./escape-hatch-reason.js";
-import { dropEmptyWriteOnlyValues } from "./field-access.js";
-import { instructionFieldNames } from "./instruction-fields.js";
-import { buildInsertSchema, buildUpdateSchema } from "./schema-builder.js";
+} from "../db/tenant-db.ts";
+import { InternalError } from "../errors/index.ts";
+import { isSystemIdentity } from "../pipeline/system-identity-switch.ts";
+import { assertUnreachable } from "../utils/index.ts";
+import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.ts";
+import { codemodPlaceholderReasonProblem } from "./escape-hatch-reason.ts";
+import { dropEmptyWriteOnlyValues } from "./field-access.ts";
+import { instructionFieldNames } from "./instruction-fields.ts";
+import { buildInsertSchema, buildUpdateSchema } from "./schema-builder.ts";
 import type {
   EntityCrudRegistrar,
   EntityCrudVerb,
@@ -29,8 +29,8 @@ import type {
   EntityQueryHandlerOptions,
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
-} from "./types/entity-handlers.js";
-import { parseTenantId, type TenantId } from "./types/identifiers.js";
+} from "./types/entity-handlers.ts";
+import { parseTenantId, type TenantId } from "./types/identifiers.ts";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -41,7 +41,7 @@ import type {
   QueryHandlerDef,
   SessionUser,
   WriteHandlerDef,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 export type {
   EntityCrudHandlerDefaults,
@@ -51,7 +51,7 @@ export type {
   EntityQueryHandlerOptions,
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
-} from "./types/entity-handlers.js";
+} from "./types/entity-handlers.ts";
 
 // Convention-based handler factories for event-sourced aggregates.
 //

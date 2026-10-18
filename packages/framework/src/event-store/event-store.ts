@@ -6,11 +6,11 @@ import {
   UNATTRIBUTED_ORIGIN,
 } from "@cosmicdrift/kumiko-types/event-store-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { requestContext } from "../api/request-context.js";
+import { requestContext } from "../api/request-context.ts";
 
-import { encryptEventPayloadPii } from "../crypto/event-pii.js";
-import type { DbRunner } from "../db/index.js";
-import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
+import { encryptEventPayloadPii } from "../crypto/event-pii.ts";
+import type { DbRunner } from "../db/index.ts";
+import { constraintOf, isUniqueViolation } from "../db/pg-error.ts";
 import {
   claimXactId,
   insertFirstEventRow,
@@ -22,18 +22,18 @@ import {
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
   selectStreamMaxVersions,
-} from "../db/queries/event-store.js";
-import { instantToTimestamptzParam, selectMany } from "../db/query.js";
-import type { TenantId } from "../engine/types/index.js";
-import { isStreamArchived } from "./archive.js";
+} from "../db/queries/event-store.ts";
+import { instantToTimestamptzParam, selectMany } from "../db/query.ts";
+import type { TenantId } from "../engine/types/index.ts";
+import { isStreamArchived } from "./archive.ts";
 import {
   IdempotentAppendConflictError,
   SeedTimeOrderError,
   VersionConflictError,
-} from "./errors.js";
-import { eventsTable } from "./events-schema.js";
-import { toStoredEvent } from "./row-to-stored-event.js";
-import { currentSeedCreatedAt } from "./seed-clock.js";
+} from "./errors.ts";
+import { eventsTable } from "./events-schema.ts";
+import { toStoredEvent } from "./row-to-stored-event.ts";
+import { currentSeedCreatedAt } from "./seed-clock.ts";
 
 export type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 

@@ -1,8 +1,8 @@
 // Public surface of the observability module.
 
-export { type ConsoleProviderOptions, createConsoleProvider } from "./console-provider.js";
+export { type ConsoleProviderOptions, createConsoleProvider } from "./console-provider.ts";
 
-export { observabilityContext } from "./context.js";
+export { observabilityContext } from "./context.ts";
 export {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
@@ -15,45 +15,45 @@ export {
   reportEscapeHatchUse,
   UNATTRIBUTED_ACTOR,
   withEscapeHatchAuditScope,
-} from "./escape-hatch-report.js";
-export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback.js";
-export { generateSpanId, generateTraceId } from "./ids.js";
+} from "./escape-hatch-report.ts";
+export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback.ts";
+export { generateSpanId, generateTraceId } from "./ids.ts";
 export {
   buildMetricName,
   validateLabelKey,
   validateMetricName,
-} from "./metric-validator.js";
+} from "./metric-validator.ts";
 export {
   createMetricsForFactory,
   createMetricsHandle,
   createNoopMetricsHandle,
   createSafeMetricsHandle,
   createUnboundMetricsHandle,
-} from "./metrics-handle.js";
+} from "./metrics-handle.ts";
 export {
   type ObservabilityWiring,
   prometheusMetricsEnvSchema,
   resolveObservabilityWiring,
-} from "./metrics-wiring.js";
-export { createNoopProvider } from "./noop-provider.js";
+} from "./metrics-wiring.ts";
+export { createNoopProvider } from "./noop-provider.ts";
 export {
   createPrometheusMeter,
   type PrometheusMeter,
   type PrometheusMeterSnapshot,
   serializeOpenMetrics,
-} from "./prometheus-meter.js";
+} from "./prometheus-meter.ts";
 export {
   type MetricEvent,
   type MetricEventHandler,
   RecordingMeter,
-} from "./recording-meter.js";
+} from "./recording-meter.ts";
 export {
   type RecordedSpan,
   RecordingTracer,
   type RecordingTracerOptions,
   serializeSpanContext,
-} from "./recording-tracer.js";
-export { wrapRedisClient } from "./redis-wrapper.js";
+} from "./recording-tracer.ts";
+export { wrapRedisClient } from "./redis-wrapper.ts";
 export {
   DEFAULT_SENSITIVE_CONFIG,
   mergeSensitiveConfig,
@@ -63,7 +63,7 @@ export {
   redactQueryString,
   redactValue,
   shouldRedactAttribute,
-} from "./sensitive-filter.js";
+} from "./sensitive-filter.ts";
 export {
   emitDbQuery,
   emitDispatcherError,
@@ -80,7 +80,7 @@ export {
   emitJobQueueDepth,
   registerStandardMetrics,
   STANDARD_METRIC_DEFS,
-} from "./standard-metrics.js";
+} from "./standard-metrics.ts";
 export type {
   Counter,
   Gauge,
@@ -102,4 +102,4 @@ export type {
   SpanStatus,
   StartSpanOptions,
   Tracer,
-} from "./types/index.js";
+} from "./types/index.ts";

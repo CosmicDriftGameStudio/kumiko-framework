@@ -8,13 +8,13 @@ import {
   isPdfAttachmentLink,
   type LinkedResourceEntry,
   parseLinkedResourceEntries,
-} from "../linked-resources.js";
-import { TemplateResolverErrors } from "../qualified-names.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import type { TemplateBundle } from "../template-bundle.js";
-import { readTemplateResource } from "../template-resources.js";
-import { kindSchema, templateSlugSchema } from "./shared.js";
-import { parseStoredJson, storedRecord } from "./template-gates.js";
+} from "../linked-resources.ts";
+import { TemplateResolverErrors } from "../qualified-names.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import type { TemplateBundle } from "../template-bundle.ts";
+import { readTemplateResource } from "../template-resources.ts";
+import { kindSchema, templateSlugSchema } from "./shared.ts";
+import { parseStoredJson, storedRecord } from "./template-gates.ts";
 
 // The files live in the system tenant's key space; readTemplateResource only
 // serves the caller's own tenant, so anyone else would end in a misleading NotFound.

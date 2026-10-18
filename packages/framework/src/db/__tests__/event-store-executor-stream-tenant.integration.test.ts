@@ -7,13 +7,13 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { selectMany } from "../../db/query.js";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+import { selectMany } from "../../db/query.ts";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 const noteEntity = createEntity({
   table: "streamtenant_notes",

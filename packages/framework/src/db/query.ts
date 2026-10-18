@@ -31,18 +31,18 @@ import type {
   WhereObject,
   WhereOperator,
 } from "@cosmicdrift/kumiko-types/where-clause-types";
-import { requestContext } from "../api/request-context.js";
-import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index.js";
-import { isPiiCiphertext } from "../crypto/pii-ciphertext-format.js";
-import { camelCase as envCamelCase } from "../env/index.js";
-import { InternalError } from "../errors/index.js";
-import { createFallbackLogger } from "../logging/index.js";
-import { parseJsonSafe } from "../utils/safe-json.js";
-import { SQL_EXPR_BRAND } from "./dialect.js";
-import type { EntityTableMeta } from "./entity-table-meta.js";
-import { extractPgError } from "./pg-error.js";
-import { type NotExecutorOnly, toSnakeCase } from "./table-builder.js";
-import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.js";
+import { requestContext } from "../api/request-context.ts";
+import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index.ts";
+import { isPiiCiphertext } from "../crypto/pii-ciphertext-format.ts";
+import { camelCase as envCamelCase } from "../env/index.ts";
+import { InternalError } from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
+import { parseJsonSafe } from "../utils/safe-json.ts";
+import { SQL_EXPR_BRAND } from "./dialect.ts";
+import type { EntityTableMeta } from "./entity-table-meta.ts";
+import { extractPgError } from "./pg-error.ts";
+import { type NotExecutorOnly, toSnakeCase } from "./table-builder.ts";
+import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.ts";
 
 // Idempotent snake_case → camelCase. `env.camelCase` always lowercases first
 // (designed for SHOUT_CASE input) — for already-camelCase keys (mock rows

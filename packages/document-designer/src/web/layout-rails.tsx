@@ -6,7 +6,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { BRANDING_SCREEN_QN } from "../constants.js";
+import { BRANDING_SCREEN_QN } from "../constants.ts";
 import {
   isHexColor,
   LAYOUT_ACCENT_LINES,
@@ -14,17 +14,17 @@ import {
   LAYOUT_FONTS,
   LAYOUT_WIDTHS,
   type LayoutAppearance,
-} from "./layout-meta.js";
-import type { BrandingView, LayoutKind, LayoutValidation } from "./layout-types.js";
-import { layoutUsers } from "./layout-users.js";
+} from "./layout-meta.ts";
+import type { BrandingView, LayoutKind, LayoutValidation } from "./layout-types.ts";
+import { layoutUsers } from "./layout-users.ts";
 import {
   PLACEHOLDER_SYMBOL,
   SYSTEM_PLACEHOLDER_TYPE,
   systemPlaceholderLabel,
-} from "./mail-draft.js";
-import type { OverviewRowView } from "./overview-row.js";
-import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
-import { statusLabel } from "./status-label.js";
+} from "./mail-draft.ts";
+import type { OverviewRowView } from "./overview-row.ts";
+import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
+import { statusLabel } from "./status-label.ts";
 
 const BRANDING_SCREEN_SHORT_ID = BRANDING_SCREEN_QN.slice(BRANDING_SCREEN_QN.lastIndexOf(":") + 1);
 

@@ -3,8 +3,8 @@
 import type { WriteResult } from "@cosmicdrift/kumiko-headless";
 import { useLocale, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { resolveConsentLocale } from "../consumer-protection/consent-locale.js";
-import type { BillingPlansResult } from "../types.js";
+import { resolveConsentLocale } from "../consumer-protection/consent-locale.ts";
+import type { BillingPlansResult } from "../types.ts";
 
 export const CONSENT_TEXT_OUTDATED_CODE = "consent_text_outdated";
 

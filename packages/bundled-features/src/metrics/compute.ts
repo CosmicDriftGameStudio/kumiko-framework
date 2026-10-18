@@ -6,7 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { MAX_GROUP_ROWS, type MetricRange } from "./constants.js";
+import { MAX_GROUP_ROWS, type MetricRange } from "./constants.ts";
 import type {
   MetricDefinition,
   MetricDeltaDirection,
@@ -15,8 +15,8 @@ import type {
   MetricRow,
   MetricSegment,
   MetricSeries,
-} from "./types.js";
-import { bucketStartsMs, computeWindow, resolveBucket } from "./window.js";
+} from "./types.ts";
+import { bucketStartsMs, computeWindow, resolveBucket } from "./window.ts";
 
 export type MetricRunParams = {
   readonly range: MetricRange;

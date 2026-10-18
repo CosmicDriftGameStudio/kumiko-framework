@@ -10,8 +10,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, selectMany } from "../db/query.js";
-import { buildEntityTable } from "../db/table-builder.js";
+import { asRawClient, selectMany } from "../db/query.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
 import {
   createDerivedField,
   createEntity,
@@ -20,8 +20,8 @@ import {
   defineEntityCreateHandler,
   defineEntityListHandler,
   defineFeature,
-} from "../engine/index.js";
-import { TestUsers } from "../seeding/seed-users.js";
+} from "../engine/index.ts";
+import { TestUsers } from "../seeding/seed-users.ts";
 
 // `priceCents` + `name` are stored; the three derived fields are computed from
 // them (and the clock) at read-time only.

@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 
 // Full-stack L3 proof: a handler with `rateLimit` opt-in is gated by the
 // dispatcher BEFORE its handler-fn runs. After `limit` calls within the

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createTestUser } from "../../seeding/seed-users.js";
+import { createTestUser } from "../../seeding/seed-users.ts";
 import {
   createEntityExecutor,
   defineEntityCreateHandler,
@@ -13,13 +13,13 @@ import {
   defineProjectionQueryHandler,
   type EntityCrudRegistrar,
   registerCrudHandlers,
-} from "../entity-handlers.js";
-import { createEntity, createLongTextField, createTextField } from "../factories.js";
+} from "../entity-handlers.ts";
+import { createEntity, createLongTextField, createTextField } from "../factories.ts";
 // Barrel import, not "../entity-handlers": covers that entityListSchema is
 // actually re-exported through engine/index.ts.
-import { entityListSchema, resolveAgentExposure } from "../index.js";
-import type { QueryHandlerDef, WriteHandlerDef } from "../types/index.js";
-import { buildMinimalCtx } from "./_pipeline-test-utils.js";
+import { entityListSchema, resolveAgentExposure } from "../index.ts";
+import type { QueryHandlerDef, WriteHandlerDef } from "../types/index.ts";
+import { buildMinimalCtx } from "./_pipeline-test-utils.ts";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 

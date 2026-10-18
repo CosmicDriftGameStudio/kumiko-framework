@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { validateBoot } from "../../boot-validator.js";
-import { defineFeature } from "../../define-feature.js";
-import { createEntity, createTextField } from "../../index.js";
-import type { NavDefinition, WorkspaceDefinition } from "../../types/index.js";
-import { warnOnNavAccessInversion, warnOnUnreachableNavScreens } from "../nav.js";
-import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces.js";
+import { validateBoot } from "../../boot-validator.ts";
+import { defineFeature } from "../../define-feature.ts";
+import { createEntity, createTextField } from "../../index.ts";
+import type { NavDefinition, WorkspaceDefinition } from "../../types/index.ts";
+import { warnOnNavAccessInversion, warnOnUnreachableNavScreens } from "../nav.ts";
+import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces.ts";
 
 function navMap(
   entries: ReadonlyArray<[string, NavDefinition & { readonly featureName: string }]>,

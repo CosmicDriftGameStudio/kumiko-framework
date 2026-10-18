@@ -6,15 +6,15 @@ import {
   requiredKeysFromScreen,
   requiredKeysFromWorkspace,
   screenTitleKey,
-} from "../../i18n/required-surface-keys.js";
+} from "../../i18n/required-surface-keys.ts";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
-} from "../build-config-feature-schema.js";
-import { EXTENSION_SELECTOR_HINT_KEY } from "../extension-selector-plugins.js";
-import { createRegistry } from "../registry.js";
-import type { FeatureDefinition, ScreenDefinition } from "../types/index.js";
+} from "../build-config-feature-schema.ts";
+import { EXTENSION_SELECTOR_HINT_KEY } from "../extension-selector-plugins.ts";
+import { createRegistry } from "../registry.ts";
+import type { FeatureDefinition, ScreenDefinition } from "../types/index.ts";
 
 function isDormantSecretsScreen(screen: ScreenDefinition): boolean {
   return screen.type === "secretsEdit" && screen.dormant === true;

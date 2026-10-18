@@ -1,6 +1,6 @@
-import { hasAccess } from "../engine/access.js";
-import { ANONYMOUS_ROLE } from "../engine/system-user.js";
-import type { Registry } from "../engine/types/index.js";
+import { hasAccess } from "../engine/access.ts";
+import { ANONYMOUS_ROLE } from "../engine/system-user.ts";
+import type { Registry } from "../engine/types/index.ts";
 
 const ANONYMOUS_PRINCIPAL = { roles: [ANONYMOUS_ROLE] } as const;
 

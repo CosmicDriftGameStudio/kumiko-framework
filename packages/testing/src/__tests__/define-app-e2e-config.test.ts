@@ -23,7 +23,7 @@ import {
   resolveE2eWorkers,
 } from "../e2e/define-app-e2e-config";
 import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
-import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.js";
+import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.ts";
 
 const TOUCHED_ENV = [
   SEED_TOKEN_ENV,

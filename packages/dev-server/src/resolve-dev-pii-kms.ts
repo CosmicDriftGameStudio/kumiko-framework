@@ -7,7 +7,7 @@ import {
   InMemoryKmsAdapter,
   type KmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { isPersistentDevDb } from "./is-persistent-dev-db.js";
+import { isPersistentDevDb } from "./is-persistent-dev-db.ts";
 
 export type DevPiiKmsResolution = {
   readonly kms: KmsAdapter | undefined;

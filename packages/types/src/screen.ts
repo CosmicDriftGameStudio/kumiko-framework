@@ -1,14 +1,14 @@
-import type { FieldIconKey } from "./field-icon.js";
+import type { FieldIconKey } from "./field-icon.ts";
 import type {
   FieldCondition,
   FieldDefinition,
   FormFieldDefinition,
   SelectOptionTone,
-} from "./fields.js";
-import type { AccessRule, AgentScreenHints } from "./handlers.js";
-import type { IconKey, NavIconKey } from "./nav-icon.js";
+} from "./fields.ts";
+import type { AccessRule, AgentScreenHints } from "./handlers.ts";
+import type { IconKey, NavIconKey } from "./nav-icon.ts";
 
-export type { FieldIconKey } from "./field-icon.js";
+export type { FieldIconKey } from "./field-icon.ts";
 
 // Screen definitions describe how a feature surfaces data to the user.
 // Pure data — the engine stores these verbatim and ui-core / the renderer
@@ -104,7 +104,7 @@ export type FormatSpec = {
 //   - FormatSpec        → declarative value formatter, JSON-safe ({ format: "timestamp" } etc.)
 export type FieldRenderer = PlatformComponent | string | FormatSpec;
 
-export type { FieldCondition } from "./fields.js";
+export type { FieldCondition } from "./fields.ts";
 
 // --- entityList ---
 

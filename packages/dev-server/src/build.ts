@@ -25,4 +25,4 @@ export {
   discoverServerEntry,
   formatServerBuildResult,
   readExtraRuntimeExternals,
-} from "./build-server-bundle.js";
+} from "./build-server-bundle.ts";

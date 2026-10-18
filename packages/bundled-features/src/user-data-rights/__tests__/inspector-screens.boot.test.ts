@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { createDataRetentionFeature } from "../../data-retention/feature.js";
-import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.js";
-import { createSessionsFeature } from "../../sessions/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createUserFeature } from "../../user/feature.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.js";
-import { createUserDataRightsFeature } from "../feature.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createDataRetentionFeature } from "../../data-retention/feature.ts";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
+import { createSessionsFeature } from "../../sessions/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
 
 // Read-only GDPR inspector screens live IN user-data-rights (the boot-validator
 // forbids cross-feature screen ownership). The validator checks screen structure

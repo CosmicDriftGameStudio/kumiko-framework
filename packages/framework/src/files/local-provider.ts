@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "n
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { assertSafeStorageKey, type FileStorageProvider } from "./types.js";
+import { assertSafeStorageKey, type FileStorageProvider } from "./types.ts";
 
 // Local-filesystem backend — intended for dev + tests. Production deploys
 // pick an object-store provider (S3/R2/…). mimeType is ignored here; the

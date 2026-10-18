@@ -13,7 +13,7 @@ import {
   type Registry,
   resolveEntityTransferAdjacency,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveTransferAdjacency, type TransferAdjacency } from "../transfer-graph.js";
+import { resolveTransferAdjacency, type TransferAdjacency } from "../transfer-graph.ts";
 
 function entity(opts: {
   readonly references?: Readonly<Record<string, string>>;

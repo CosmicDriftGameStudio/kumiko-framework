@@ -12,7 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { act, type ReactElement, useState } from "react";
-import { computeScrollAffordance, EmbeddedListInput } from "../embedded-list-input.js";
+import { computeScrollAffordance, EmbeddedListInput } from "../embedded-list-input.tsx";
 
 function setViewportWidth(width: number): void {
   (

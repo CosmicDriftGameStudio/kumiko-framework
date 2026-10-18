@@ -6,12 +6,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
-import { table as pgTable, serial, type TableColumns, text, timestamp } from "../dialect.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { createBooleanField, createEntity, createTextField } from "../../engine/index.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
+import { table as pgTable, serial, type TableColumns, text, timestamp } from "../dialect.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 // --- Entity table (has tenantId via buildBaseColumns) ---
 

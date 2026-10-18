@@ -14,14 +14,14 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   type TranslationsByLocale,
-} from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.js";
+} from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
 import {
   type BannerProps,
   type CardProps,
@@ -31,10 +31,10 @@ import {
   type SecretRevealProps,
   type SectionProps,
   type TextProps,
-} from "../../primitives.js";
-import type { FeatureSchema } from "../feature-schema.js";
-import { KumikoScreen } from "../kumiko-screen.js";
-import { NavProvider, type NavTarget } from "../nav.js";
+} from "../../primitives.tsx";
+import type { FeatureSchema } from "../feature-schema.ts";
+import { KumikoScreen } from "../kumiko-screen.tsx";
+import { NavProvider, type NavTarget } from "../nav.tsx";
 
 const cardOptionsSeen: Array<CardProps["options"]> = [];
 

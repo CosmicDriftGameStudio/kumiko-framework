@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseAuthUserRow } from "../auth-user-row.js";
+import { parseAuthUserRow } from "../auth-user-row.ts";
 
 describe("parseAuthUserRow", () => {
   test("returns null for null/undefined", () => {

@@ -7,9 +7,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
 
 const mailer = defineFeature("gate-mailer", (r) => {
   r.writeHandler({

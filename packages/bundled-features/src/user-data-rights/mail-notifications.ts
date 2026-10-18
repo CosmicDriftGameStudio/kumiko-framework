@@ -13,8 +13,8 @@ import {
   resolveMailLocale,
 } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml } from "@cosmicdrift/kumiko-headless";
-import { mailParagraph } from "../shared/index.js";
-import { USER_DATA_RIGHTS_FEATURE } from "./constants.js";
+import { mailParagraph } from "../shared/index.ts";
+import { USER_DATA_RIGHTS_FEATURE } from "./constants.ts";
 
 const ALL_GDPR_MAIL_KINDS = [
   "exportReady",

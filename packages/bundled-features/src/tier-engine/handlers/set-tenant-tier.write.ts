@@ -5,10 +5,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import { tierAssignmentAggregateId } from "../aggregate-id.js";
-import { type TierAssignmentSource, TierAssignmentSources } from "../constants.js";
-import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
+import { requireForTenant } from "../../shared/index.ts";
+import { tierAssignmentAggregateId } from "../aggregate-id.ts";
+import { type TierAssignmentSource, TierAssignmentSources } from "../constants.ts";
+import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.ts";
 
 // SystemAdmin setzt das Tier eines BELIEBIGEN Tenants — manueller Grant ohne
 // Billing. Cross-tenant, daher SystemAdmin-only (kein TenantAdmin: sonst

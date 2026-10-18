@@ -9,7 +9,7 @@ import {
   collectionStore,
   DEFAULT_COLLECTION_ACCESS,
   toCollectionEntry,
-} from "./collection-shared.js";
+} from "./collection-shared.ts";
 
 // Single entry of one collection, for the editor behind a tree node. Same
 // per-collection construction as collection-list — see there for why.

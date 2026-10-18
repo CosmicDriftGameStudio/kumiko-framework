@@ -4,9 +4,9 @@ import type {
   UserDataExportHook,
   UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { collectErasureFailure, decryptStoredPii, throwIfErasureFailed } from "../shared/index.js";
-import { userTable } from "../user/index.js";
-import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.js";
+import { collectErasureFailure, decryptStoredPii, throwIfErasureFailed } from "../shared/index.ts";
+import { userTable } from "../user/index.ts";
+import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.ts";
 
 const PII_DECRYPT_REASON = "waitlist:user-data";
 const ERASE_REASON = "waitlist:user-data-forget";

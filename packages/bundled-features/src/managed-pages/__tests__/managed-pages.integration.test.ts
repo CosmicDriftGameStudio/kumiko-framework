@@ -10,14 +10,14 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding.js";
-import { createManagedPagesCssFeature } from "../css-gate.js";
-import { createManagedPagesFeature } from "../feature.js";
-import { seedPage } from "../seeding.js";
-import { type PageRow, pageEntity, pagesTable } from "../table.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding.ts";
+import { createManagedPagesCssFeature } from "../css-gate.ts";
+import { createManagedPagesFeature } from "../feature.ts";
+import { seedPage } from "../seeding.ts";
+import { type PageRow, pageEntity, pagesTable } from "../table.ts";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";

@@ -1,5 +1,5 @@
-import { createLongTextField, createTextField } from "../factories.js";
-import type { LongTextFieldDef, TextFieldDef } from "../types/index.js";
+import { createLongTextField, createTextField } from "../factories.ts";
+import type { LongTextFieldDef, TextFieldDef } from "../types/index.ts";
 
 // Derived from the factories (minus the stance marker) so factory default changes flow in.
 const { allowPlaintext: _textStance, ...unannotatedTextFields } = createTextField({

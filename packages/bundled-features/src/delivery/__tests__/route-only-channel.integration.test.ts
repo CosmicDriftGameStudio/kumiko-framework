@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createChannelSlackFeature } from "../../channel-slack/feature.js";
-import { collectChannels, createDeliveryService } from "../delivery-service.js";
-import { deliveryAttemptsTable } from "../tables.js";
-import { isDeliveryChannelPlugin } from "../types.js";
-import { type ChatHarness, setupChatHarness } from "./chat-channel-harness.js";
+import { createChannelSlackFeature } from "../../channel-slack/feature.ts";
+import { collectChannels, createDeliveryService } from "../delivery-service.ts";
+import { deliveryAttemptsTable } from "../tables.ts";
+import { isDeliveryChannelPlugin } from "../types.ts";
+import { type ChatHarness, setupChatHarness } from "./chat-channel-harness.ts";
 
 let harness: ChatHarness;
 

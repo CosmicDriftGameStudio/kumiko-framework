@@ -5,16 +5,16 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
 import {
   type CorePrimitives,
   type FormProps,
   type PageHeaderProps,
   PrimitivesProvider,
-} from "../../primitives.js";
-import { RenderEdit } from "../render-edit.js";
+} from "../../primitives.tsx";
+import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

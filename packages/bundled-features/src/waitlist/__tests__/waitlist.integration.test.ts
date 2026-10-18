@@ -22,16 +22,16 @@ import {
   seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../../auth-email-password/index.js";
-import { tenantInvitationsTable } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantTable } from "../../tenant/schema/tenant.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { seedUser } from "../../user/seeding.js";
-import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.js";
-import { runUserExport } from "../../user-data-rights/run-user-export.js";
-import { WAITLIST_FIELD_LIMITS, WaitlistHandlers, WaitlistQueries } from "../constants.js";
-import { waitlistEntryTable } from "../entity.js";
+import { AuthHandlers } from "../../auth-email-password/index.ts";
+import { tenantInvitationsTable } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.ts";
+import { runUserExport } from "../../user-data-rights/run-user-export.ts";
+import { WAITLIST_FIELD_LIMITS, WaitlistHandlers, WaitlistQueries } from "../constants.ts";
+import { waitlistEntryTable } from "../entity.ts";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,
@@ -42,7 +42,7 @@ import {
   SYSTEM_ADMIN,
   tokenFromLastMailTo,
   userRowOf,
-} from "./waitlist-test-stack.js";
+} from "./waitlist-test-stack.ts";
 
 registerMailTranslations("de", localeDeBundle);
 

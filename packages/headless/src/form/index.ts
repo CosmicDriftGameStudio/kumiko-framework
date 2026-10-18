@@ -1,4 +1,4 @@
-export { createFormController } from "./form-controller.js";
+export { createFormController } from "./form-controller.ts";
 export type {
   FieldConditionPredicate,
   FieldConditions,
@@ -11,10 +11,10 @@ export type {
   SubmitConfig,
   SubmitPayloadMode,
   SubmitResult,
-} from "./types.js";
+} from "./types.ts";
 export {
   groupIssuesByPath,
   I18N_KEY_PARAM,
   relevantFieldIssues,
   zodErrorToFieldIssues,
-} from "./zod-bridge.js";
+} from "./zod-bridge.ts";

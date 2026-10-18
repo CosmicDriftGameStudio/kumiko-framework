@@ -61,22 +61,22 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { documentIngestAggregateId } from "../aggregate-id.js";
-import { documentExtractEntity, documentExtractsTable } from "../entity.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { documentIngestAggregateId } from "../aggregate-id.ts";
+import { documentExtractEntity, documentExtractsTable } from "../entity.ts";
 import {
   DOCUMENT_INGEST_AGGREGATE_TYPE,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   documentIngestRequestedPayloadSchema,
-} from "../events.js";
-import { createDocumentIngestFoundationFeature } from "../feature.js";
-import { writeIngestPages } from "../pages.js";
-import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers.js";
-import { writeDocumentExtractForLiveFileRef } from "../write-document-extract.js";
+} from "../events.ts";
+import { createDocumentIngestFoundationFeature } from "../feature.ts";
+import { writeIngestPages } from "../pages.ts";
+import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers.ts";
+import { writeDocumentExtractForLiveFileRef } from "../write-document-extract.ts";
 
 // Small test providers — mirror kumiko-enterprise's LiteParse shape without
 // pulling it in: A claims pdf/png, B claims docx, each with a deliberately
@@ -249,6 +249,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  // Provider jobs run in the worker lane and outlive the test that enqueued them;
+  // settle them before the reset so a late completion cannot land in the next test.
+  await stack.drainJobs();
   provider.clear();
   providerAProcessed.length = 0;
   providerBProcessed.length = 0;

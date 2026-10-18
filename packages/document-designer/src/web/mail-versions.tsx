@@ -2,8 +2,8 @@
 import { formatWhen, useAppFeatures, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { RailHint, RailRow, RailSection } from "./rail.js";
-import { asRowStatus, statusLabel, statusTone } from "./status-label.js";
+import { RailHint, RailRow, RailSection } from "./rail.tsx";
+import { asRowStatus, statusLabel, statusTone } from "./status-label.ts";
 
 const AUDIT_FEATURE = "audit";
 const AUDIT_LIST_QUERY = "audit:query:list";

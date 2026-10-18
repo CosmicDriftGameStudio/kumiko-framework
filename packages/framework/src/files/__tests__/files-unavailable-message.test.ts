@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { filesUnavailableMessage } from "../create-file-ref-from-bytes.js";
+import { filesUnavailableMessage } from "../create-file-ref-from-bytes.ts";
 
 describe("filesUnavailableMessage", () => {
   test("names the caller and the missing resolver instead of a missing feature", () => {

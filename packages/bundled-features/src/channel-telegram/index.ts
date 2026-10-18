@@ -1,4 +1,4 @@
-export { createChannelTelegramFeature } from "./feature.js";
+export { createChannelTelegramFeature } from "./feature.ts";
 export {
   createTelegramChannel,
   isTelegramBotToken,
@@ -6,4 +6,4 @@ export {
   TELEGRAM_DEFAULT_API_BASE_URL,
   TELEGRAM_SECRET_KEYS,
   type TelegramChannelOptions,
-} from "./telegram-channel.js";
+} from "./telegram-channel.ts";

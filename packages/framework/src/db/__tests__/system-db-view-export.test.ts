@@ -6,10 +6,10 @@
 import { describe, expect, test } from "bun:test";
 import * as dbBarrel from "@cosmicdrift/kumiko-framework/db";
 import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { AccessDeniedError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { DbRunner } from "../connection.js";
-import { unsafeRawForDeclaredStep, withSystemDbUnsafeRawGrant } from "../tenant-db.js";
+import { AccessDeniedError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { DbRunner } from "../connection.ts";
+import { unsafeRawForDeclaredStep, withSystemDbUnsafeRawGrant } from "../tenant-db.ts";
 
 const tenantId = testTenantId(1);
 

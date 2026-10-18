@@ -6,9 +6,9 @@ import {
   collectRendererPlugins,
   createRendererFoundationApi,
   createRendererFoundationFeature,
-} from "../../renderer-foundation/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { createRendererPdfFeature } from "../feature.js";
+} from "../../renderer-foundation/index.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { createRendererPdfFeature } from "../feature.ts";
 
 const TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
 

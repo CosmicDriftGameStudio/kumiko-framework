@@ -7,19 +7,19 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { deriveEntityTableMeta } from "../../db/entity-table-meta.js";
-import { generateMigration, writeSnapshotJson } from "../../db/migrate-generator.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
+import { generateMigration, writeSnapshotJson } from "../../db/migrate-generator.ts";
 import {
   baselineMigrations,
   loadMigrationsFromDir,
   runMigrationsFromDir,
-} from "../../db/migrate-runner.js";
-import { asRawClient } from "../../db/query.js";
-import { tableExists } from "../../db/schema-inspection.js";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { assertKumikoSchemaCurrent, detectKumikoDrift, SchemaDriftError } from "../kumiko-drift.js";
+} from "../../db/migrate-runner.ts";
+import { asRawClient } from "../../db/query.ts";
+import { tableExists } from "../../db/schema-inspection.ts";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { assertKumikoSchemaCurrent, detectKumikoDrift, SchemaDriftError } from "../kumiko-drift.ts";
 
 let testDb: BunTestDb;
 let dir: string;

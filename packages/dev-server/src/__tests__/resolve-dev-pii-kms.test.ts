@@ -5,8 +5,8 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { isPersistentDevDb } from "../is-persistent-dev-db.js";
-import { captureEphemeralDevPiiKms, resolveDevPiiKms } from "../resolve-dev-pii-kms.js";
+import { isPersistentDevDb } from "../is-persistent-dev-db.ts";
+import { captureEphemeralDevPiiKms, resolveDevPiiKms } from "../resolve-dev-pii-kms.ts";
 
 const EPHEMERAL_ENV = {};
 const PERSISTENT_ENV = { KUMIKO_DEV_DB_NAME: "my_dev_db" };

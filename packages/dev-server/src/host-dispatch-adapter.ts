@@ -3,7 +3,7 @@ import type {
   HostRoutingDispatchFn,
   HostRoutingDispatchResult,
 } from "@cosmicdrift/kumiko-bundled-features/host-routing";
-import type { DevHostDispatch, DevHostDispatchResult } from "./create-kumiko-server.js";
+import type { DevHostDispatch, DevHostDispatchResult } from "./create-kumiko-server.ts";
 
 export type ToDevHostDispatchOptions = {
   // Prod HTML file → dev client-entry name. Files listed here get the live

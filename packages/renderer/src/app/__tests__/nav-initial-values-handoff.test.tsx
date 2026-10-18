@@ -11,7 +11,7 @@ import {
   type NavTarget,
   useInitialValuesHandoff,
   useNavigateWithInitialValues,
-} from "../nav.js";
+} from "../nav.tsx";
 
 type Harness = {
   readonly mounts: Array<{ readonly label: string; readonly values: unknown }>;

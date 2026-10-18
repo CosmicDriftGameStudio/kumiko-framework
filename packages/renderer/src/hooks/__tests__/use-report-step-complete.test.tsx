@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { renderHook } from "@testing-library/react";
-import { useReportStepComplete } from "../use-report-step-complete.js";
+import { useReportStepComplete } from "../use-report-step-complete.ts";
 
 type HookProps = {
   readonly report: ((complete: boolean) => void) | undefined;

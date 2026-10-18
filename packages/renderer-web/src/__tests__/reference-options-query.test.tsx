@@ -11,7 +11,7 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
 const LEASE_ID = "11111111-1111-4111-8111-111111111111";
 

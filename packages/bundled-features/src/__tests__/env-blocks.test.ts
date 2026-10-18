@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
-import { createAuthEmailPasswordFeature } from "../auth-email-password/index.js";
+import { createAuthEmailPasswordFeature } from "../auth-email-password/index.ts";
 import {
   authMfaEnvSchema,
   bindMfaTokenSecretsFromFeature,
@@ -10,21 +10,21 @@ import {
   mfaTokenSecretsEnvSchema,
   resolveMfaTokenSecrets,
   resolveMfaTokenSecretsFromEnv,
-} from "../auth-mfa/index.js";
-import { smtpEnvSchema } from "../channel-email/index.js";
-import { createCryptoShreddingFeature, kmsEnvSchema } from "../crypto-shredding/index.js";
+} from "../auth-mfa/index.ts";
+import { smtpEnvSchema } from "../channel-email/index.ts";
+import { createCryptoShreddingFeature, kmsEnvSchema } from "../crypto-shredding/index.ts";
 import {
   createFileProviderS3Feature,
   createS3EnvSchema,
   s3EnvSchema,
-} from "../file-provider-s3/index.js";
-import { buildInfoEnvSchema, demoAdminEnvSchema } from "../foundation-shared/index.js";
-import { createSecretsFeature } from "../secrets/index.js";
+} from "../file-provider-s3/index.ts";
+import { buildInfoEnvSchema, demoAdminEnvSchema } from "../foundation-shared/index.ts";
+import { createSecretsFeature } from "../secrets/index.ts";
 import {
   createSubscriptionStripeFeature,
   stripeEnvSchema,
   subscriptionStripeEnvSchema,
-} from "../subscription-stripe/index.js";
+} from "../subscription-stripe/index.ts";
 
 type IsExactly<TActual, TExpected> = [TActual] extends [TExpected]
   ? [TExpected] extends [TActual]

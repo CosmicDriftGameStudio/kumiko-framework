@@ -10,7 +10,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createRateLimitingFeature } from "../feature.js";
+import { createRateLimitingFeature } from "../feature.ts";
 
 let stack: TestStack;
 const admin = TestUsers.admin;

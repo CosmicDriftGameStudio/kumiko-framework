@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { listFilterUrlKey, NavProvider, useListUrlState } from "@cosmicdrift/kumiko-renderer";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { useBrowserNavApi } from "../app/nav.js";
+import { useBrowserNavApi } from "../app/nav.tsx";
 
 function setLocation(pathname: string, search: string): void {
   window.history.replaceState(null, "", `${pathname}${search}`);

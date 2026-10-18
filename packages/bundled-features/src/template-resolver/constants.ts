@@ -79,7 +79,7 @@ export {
   PDF_PAGE_FORMATS,
   type PdfOrientation,
   type PdfPageFormat,
-} from "./pdf-constants.js";
+} from "./pdf-constants.ts";
 
 // Colors end up inside MJML attributes, so only a strict hex is ever written there.
 export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;

@@ -4,11 +4,11 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import type { StoredEvent } from "../../event-store/index.js";
-import type { SearchAdapter } from "../../search/types.js";
-import { createSearchEventConsumer } from "../system-hooks.js";
+} from "../../engine/index.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
+import type { SearchAdapter } from "../../search/types.ts";
+import { createSearchEventConsumer } from "../system-hooks.ts";
 
 const noteEntity = createEntity({
   table: "no_db_search_notes",

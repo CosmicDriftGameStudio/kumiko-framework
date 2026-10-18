@@ -3,7 +3,7 @@ import {
   chatMessageText,
   createChatWebhookChannel,
   type DeliveryChannel,
-} from "../delivery/index.js";
+} from "../delivery/index.ts";
 
 export type SlackChannelOptions = ChatWebhookChannelOptions;
 

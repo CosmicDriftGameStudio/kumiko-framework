@@ -1,9 +1,9 @@
 import type { StickyActionBarProps } from "@cosmicdrift/kumiko-renderer";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn.js";
-import { Button as UiButton } from "../ui/button.js";
-import { useKeyboardInset } from "./use-keyboard-inset.js";
+import { cn } from "../lib/cn.ts";
+import { Button as UiButton } from "../ui/button.tsx";
+import { useKeyboardInset } from "./use-keyboard-inset.ts";
 
 // env(safe-area-inset-bottom) is 0 unless the page's viewport meta sets
 // viewport-fit=cover; with it, the home indicator would otherwise cover the bar.

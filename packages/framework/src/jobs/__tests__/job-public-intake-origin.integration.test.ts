@@ -9,16 +9,16 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import type { SchemaTable } from "../../db/index.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb } from "../../db/tenant-db.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { SYSTEM_ROLE } from "../../engine/system-user.js";
-import type { TenantId } from "../../engine/types/index.js";
-import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import type { SchemaTable } from "../../db/index.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { SYSTEM_ROLE } from "../../engine/system-user.ts";
+import type { TenantId } from "../../engine/types/index.ts";
+import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // #983: ctx.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
 // manual dispatch from a handler/job is a dynamic context extension, same

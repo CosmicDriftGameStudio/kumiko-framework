@@ -4,12 +4,12 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import * as path from "node:path";
 import { Project, ts } from "ts-morph";
-import { renderFeatureFile } from "../render.js";
+import { renderFeatureFile } from "../render.ts";
 import {
   DEFINE_EVENT_WITH_MIGRATIONS_FEATURE,
   parse,
   STATIC_FEATURE,
-} from "./render-roundtrip-fixtures.js";
+} from "./render-roundtrip-fixtures.ts";
 
 // --- Real-compile check ---------------------------------------------------
 //

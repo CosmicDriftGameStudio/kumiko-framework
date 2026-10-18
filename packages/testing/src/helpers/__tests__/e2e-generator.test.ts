@@ -11,7 +11,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { generateE2ESpec, generateZodFixture } from "../e2e-generator.js";
+import { generateE2ESpec, generateZodFixture } from "../e2e-generator.ts";
 
 const taskEntity = createEntity({
   table: "tasks",

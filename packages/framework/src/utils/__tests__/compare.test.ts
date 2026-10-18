@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compareByCodepoint } from "../compare.js";
+import { compareByCodepoint } from "../compare.ts";
 
 describe("compareByCodepoint", () => {
   test("returns -1 / 1 / 0 for less / greater / equal", () => {

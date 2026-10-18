@@ -1,38 +1,38 @@
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { requestContext, runWithWriteOrigin } from "../api/request-context.js";
-import type { DbConnection } from "../db/connection.js";
-import { transaction } from "../db/query.js";
+import { requestContext, runWithWriteOrigin } from "../api/request-context.ts";
+import type { DbConnection } from "../db/connection.ts";
+import { transaction } from "../db/query.ts";
 import type {
   DeleteContext,
   SaveContext,
   SessionUser,
   WriteResult,
-} from "../engine/types/index.js";
+} from "../engine/types/index.ts";
 import {
   InternalError,
   toWriteErrorInfo,
   UnprocessableError,
   type WriteErrorInfo,
   writeFailure,
-} from "../errors/index.js";
-import { createFallbackLogger } from "../logging/utils.js";
-import { parseJsonSafe } from "../utils/safe-json.js";
-import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
-import { resolveDbSource } from "./dispatch-shared.js";
-import { executeNestedWrite, executeWrite } from "./dispatch-write.js";
+} from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
+import { parseJsonSafe } from "../utils/safe-json.ts";
+import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
+import { resolveDbSource } from "./dispatch-shared.ts";
+import { executeNestedWrite, executeWrite } from "./dispatch-write.ts";
 import {
   type AfterCommitHook,
   BatchRollback,
   isLifecycleResult,
   wrapToKumiko,
-} from "./dispatcher-utils.js";
+} from "./dispatcher-utils.ts";
 import {
   type PreTransactionReservations,
   reserveBeforeTransaction,
   runAsCommand,
-} from "./pre-transaction-reservations.js";
-import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
-import { maskBatchResultForClient } from "./write-result-masking.js";
+} from "./pre-transaction-reservations.ts";
+import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.ts";
+import { maskBatchResultForClient } from "./write-result-masking.ts";
 
 // afterCommit hooks fire in flushAfterCommit, outside the command's scope.
 function rewrapHooksWithOrigin(

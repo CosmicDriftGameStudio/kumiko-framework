@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mapWithConcurrency } from "./map-with-concurrency.js";
+import { mapWithConcurrency } from "./map-with-concurrency.ts";
 
 describe("mapWithConcurrency", () => {
   test("preserves result order regardless of completion order", async () => {

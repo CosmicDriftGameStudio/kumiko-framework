@@ -1,4 +1,4 @@
-import type { DataTableSort } from "./primitives.js";
+import type { DataTableSort } from "./primitives.tsx";
 
 type SortValue = string | number | null;
 

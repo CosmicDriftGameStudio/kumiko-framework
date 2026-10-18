@@ -8,8 +8,8 @@ import {
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireConfigResolver, requireSystemDb } from "../feature.js";
-import { hasConfigAccess } from "../write-helpers.js";
+import { requireConfigResolver, requireSystemDb } from "../feature.ts";
+import { hasConfigAccess } from "../write-helpers.ts";
 
 export type ReadinessMissingKey = {
   readonly key: string;

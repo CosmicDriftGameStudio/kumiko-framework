@@ -7,8 +7,8 @@ import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { composeEnvSchema, type KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
-import { type RunProdAppOptions, runProdApp } from "../run-prod-app.js";
-import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
+import { type RunProdAppOptions, runProdApp } from "../run-prod-app.ts";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.ts";
 
 const probeFeature = makeProbeFeature({
   name: "prod-boot-options-probe",

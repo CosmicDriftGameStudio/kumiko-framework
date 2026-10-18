@@ -5,21 +5,21 @@
 // `@cosmicdrift/kumiko-bundled-features/template-resolver` and has no React or
 // DOM deps.
 
-export { MAIL_TONES, type MailTone } from "../mail-constants.js";
+export { MAIL_TONES, type MailTone } from "../mail-constants.ts";
 export {
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,
   PDF_HEADER_MARGIN_MM,
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
-} from "../pdf-constants.js";
+} from "../pdf-constants.ts";
 export {
   TemplateResolverErrors,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "../qualified-names.js";
-export { textBlocksClient } from "./client-plugin.js";
-export { DocumentContentEditor } from "./document-editor.js";
+} from "../qualified-names.ts";
+export { textBlocksClient } from "./client-plugin.tsx";
+export { DocumentContentEditor } from "./document-editor.tsx";
 export {
   type DocumentEditorChrome,
   type DocumentEditorHandle,
@@ -28,8 +28,8 @@ export {
   type DocumentToolbarBlock,
   MAIL_DOCUMENT_BLOCKS,
   PDF_DOCUMENT_BLOCKS,
-} from "./document-toolbar-blocks.js";
+} from "./document-toolbar-blocks.ts";
 export {
   PlaceholderLineEditor,
   type PlaceholderLineEditorProps,
-} from "./placeholder-line-editor-lazy.js";
+} from "./placeholder-line-editor-lazy.tsx";

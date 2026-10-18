@@ -1,24 +1,24 @@
-export { createDekCache, type DekCache, type DekCacheOptions, withDekCache } from "./dek-cache.js";
-export { derivePurposeSecret } from "./derive-purpose-secret.js";
+export { createDekCache, type DekCache, type DekCacheOptions, withDekCache } from "./dek-cache.ts";
+export { derivePurposeSecret } from "./derive-purpose-secret.ts";
 export {
   createEnvMasterKeyProvider,
   type EnvMasterKeyProviderOptions,
   type Keyring,
-} from "./env-master-key-provider.js";
-export { decryptValue, encryptValue } from "./envelope.js";
+} from "./env-master-key-provider.ts";
+export { decryptValue, encryptValue } from "./envelope.ts";
 export {
   createEnvelopeCipher,
   type EnvelopeCipher,
   type EnvelopeCipherOptions,
-} from "./envelope-cipher.js";
-export { assertNoSecretLeak } from "./leak-guard.js";
-export { rewrapDek } from "./rotation.js";
+} from "./envelope-cipher.ts";
+export { assertNoSecretLeak } from "./leak-guard.ts";
+export { rewrapDek } from "./rotation.ts";
 export {
   decodeStoredEnvelope,
   encodeStoredEnvelope,
   isStoredEnvelope,
   type StoredEnvelope,
-} from "./stored-envelope.js";
+} from "./stored-envelope.ts";
 export {
   type ContainsSecret,
   createSecret,
@@ -30,4 +30,4 @@ export {
   type SecretAuditContext,
   type SecretKeyRef,
   type SecretsContext,
-} from "./types.js";
+} from "./types.ts";

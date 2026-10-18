@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantMembershipsTable } from "../membership-table.js";
+import { tenantMembershipsTable } from "../membership-table.ts";
 
 // Cross-feature query: resolve user IDs by tenantId or userId.
 // Other features (delivery, jobs, etc.) use this to get user lists

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import type { ScreenDefinition } from "../types/screen.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import type { ScreenDefinition } from "../types/screen.ts";
 
 const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 

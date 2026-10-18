@@ -4,16 +4,16 @@ import {
   type FeatureDefinition,
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createAuthMfaFeature } from "../../auth-mfa/index.js";
-import { createCryptoShreddingFeature } from "../../crypto-shredding/index.js";
-import { createLedgerFeature } from "../../ledger/index.js";
-import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.js";
-import { createSecretsFeature } from "../../secrets/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createTierEngineFeature } from "../../tier-engine/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
+import { createAuthMfaFeature } from "../../auth-mfa/index.ts";
+import { createCryptoShreddingFeature } from "../../crypto-shredding/index.ts";
+import { createLedgerFeature } from "../../ledger/index.ts";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
+import { createSecretsFeature } from "../../secrets/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createTierEngineFeature } from "../../tier-engine/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
 
 // Pins the agent-exposure decision of security-relevant bundled handlers: dropping
 // `agent: { expose: false }` from a token/secret flow or `risk: "high"` from a

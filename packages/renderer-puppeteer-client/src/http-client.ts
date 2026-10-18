@@ -6,7 +6,7 @@
 import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { egress } from "@cosmicdrift/kumiko-framework/http";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import type { ClientConfig } from "./config.js";
+import type { ClientConfig } from "./config.ts";
 
 export type FetchResult = {
   readonly contentType: string;

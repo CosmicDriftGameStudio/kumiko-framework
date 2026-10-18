@@ -146,9 +146,9 @@ export const UNIT_FORMAT_KEYS: readonly string[] = [
   ...Object.keys(UNIT_SUFFIXES),
 ];
 
-export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.js";
-export { type HtmlValue, html, RawHtml, raw } from "./html-template.js";
-export { currencyDecimals, formatMoney, resolveSafeMoneyLocale } from "./money.js";
+export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.ts";
+export { type HtmlValue, html, RawHtml, raw } from "./html-template.ts";
+export { currencyDecimals, formatMoney, resolveSafeMoneyLocale } from "./money.ts";
 
 // JSON.stringify throws on BigInt and circular values; a cell must degrade to text instead of crashing the screen.
 function stringifyJsonOrString(value: unknown, indent: number): string {

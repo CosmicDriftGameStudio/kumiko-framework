@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { ConfigScopes } from "../constants.js";
+import { ConfigScopes } from "../constants.ts";
 import {
   buildManifestFromRegistry,
   createRegistry,
   createSystemConfig,
   defineFeature,
-} from "../index.js";
+} from "../index.ts";
 
 const boolKey = {
   type: "boolean",

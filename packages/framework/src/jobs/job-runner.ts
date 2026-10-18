@@ -7,13 +7,13 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { TzContext } from "@cosmicdrift/kumiko-types/tz-context";
 import { DelayedError, type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
-import { requestContext } from "../api/request-context.js";
-import type { DbConnection, DbRow } from "../db/connection.js";
-import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db.js";
-import { createDerivativesContext } from "../derivatives/derivatives-context.js";
-import { bridgeStub } from "../engine/bridge-stub.js";
-import { qnScope } from "../engine/qualified-name.js";
-import { createSystemUser } from "../engine/system-user.js";
+import { requestContext } from "../api/request-context.ts";
+import type { DbConnection, DbRow } from "../db/connection.ts";
+import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db.ts";
+import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
+import { bridgeStub } from "../engine/bridge-stub.ts";
+import { qnScope } from "../engine/qualified-name.ts";
+import { createSystemUser } from "../engine/system-user.ts";
 import {
   type AppContext,
   type DispatchWriteRef,
@@ -27,12 +27,12 @@ import {
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
-} from "../engine/types/index.js";
-import { InternalError } from "../errors/index.js";
-import { isKumikoError } from "../errors/kumiko-error.js";
-import { createFileContext } from "../files/file-handle.js";
-import { createFallbackLogger } from "../logging/index.js";
-import type { Logger } from "../logging/types.js";
+} from "../engine/types/index.ts";
+import { InternalError } from "../errors/index.ts";
+import { isKumikoError } from "../errors/kumiko-error.ts";
+import { createFileContext } from "../files/file-handle.ts";
+import { createFallbackLogger } from "../logging/index.ts";
+import type { Logger } from "../logging/types.ts";
 import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
@@ -47,19 +47,19 @@ import {
   type SerializedTraceContext,
   type Tracer,
   withEscapeHatchAuditScope,
-} from "../observability/index.js";
-import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.js";
-import { RedisKeys } from "../pipeline/redis-keys.js";
-import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.js";
-import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.js";
+} from "../observability/index.ts";
+import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.ts";
+import { RedisKeys } from "../pipeline/redis-keys.ts";
+import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
+import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.ts";
 import {
   buildPersonalDataGate,
   isPersonalDataGated,
   parseWriteOrigin,
-} from "../pipeline/write-origin.js";
-import { createTzContext, isValidIanaTimeZone } from "../time/index.js";
-import { cronRepeatOptions } from "./cron-repeat-options.js";
-import { resolveMaxPerTenant } from "./max-per-tenant.js";
+} from "../pipeline/write-origin.ts";
+import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";
+import { cronRepeatOptions } from "./cron-repeat-options.ts";
+import { resolveMaxPerTenant } from "./max-per-tenant.ts";
 
 // Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
 // (a security-relevant escape hatch that must fail the run closed), a

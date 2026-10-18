@@ -33,8 +33,8 @@
 //
 // Siehe docs/plans/datenschutz/compliance-profiles.md.
 
-import { isPlainObject } from "../utils/is-plain-object.js";
-import type { BundleTier } from "./sub-processors.js";
+import { isPlainObject } from "../utils/is-plain-object.ts";
+import type { BundleTier } from "./sub-processors.ts";
 
 // --- Profile-Schema ---
 

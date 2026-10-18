@@ -15,9 +15,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
+import { selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import {
   createEntity,
   createTextField,
@@ -26,7 +26,7 @@ import {
   defineEntityRestoreHandler,
   defineFeature,
   from,
-} from "../index.js";
+} from "../index.ts";
 
 const thingEntity = createEntity({
   table: "ctrestore_things",

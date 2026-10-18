@@ -25,10 +25,10 @@
 // wait/retry/waitForEvent suspensions all resume automatically now.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { selectDueWorkflowRunPending } from "./db/queries/due-runs.js";
-import { resumeRunHandler } from "./handlers/resume-run.write.js";
-import { registerWorkflowRunPendingProjection } from "./pending-projection.js";
-import { workflowRunPendingTableMeta } from "./tables.js";
+import { selectDueWorkflowRunPending } from "./db/queries/due-runs.ts";
+import { resumeRunHandler } from "./handlers/resume-run.write.ts";
+import { registerWorkflowRunPendingProjection } from "./pending-projection.ts";
+import { workflowRunPendingTableMeta } from "./tables.ts";
 
 // Kebab-case matching the "./workflow-runner" export subpath — every other
 // bundled feature's runtime name follows this convention, and

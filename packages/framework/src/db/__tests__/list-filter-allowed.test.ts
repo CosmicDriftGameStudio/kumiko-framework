@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { isListFilterAllowed, isListSortAllowed } from "../entity-field-encryption.js";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { isListFilterAllowed, isListSortAllowed } from "../entity-field-encryption.ts";
 
 const entity = createEntity({
   table: "read_list_filter_allowed",

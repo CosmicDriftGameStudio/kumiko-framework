@@ -24,7 +24,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer-web";
 import { ChevronDown, ChevronsUpDown, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
-import { useSession } from "./session.js";
+import { useSession } from "./session.tsx";
 
 export type UserMenuVariant = "pill" | "sidebar";
 

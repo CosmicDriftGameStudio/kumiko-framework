@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildWhatsAppShareUrl } from "../share-links.js";
+import { buildWhatsAppShareUrl } from "../share-links.ts";
 
 describe("buildWhatsAppShareUrl", () => {
   test("without a phone number the link opens the contact picker with the text prefilled", () => {

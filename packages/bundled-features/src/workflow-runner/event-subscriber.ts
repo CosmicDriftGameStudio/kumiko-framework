@@ -34,8 +34,8 @@ import type {
 import { evaluateEventMatch } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import type { TriggerEventRef } from "./runner.js";
-import { workflowRunPendingTable } from "./tables.js";
+import type { TriggerEventRef } from "./runner.ts";
+import { workflowRunPendingTable } from "./tables.ts";
 
 type CandidateRow = {
   readonly runId: string;

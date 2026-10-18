@@ -17,24 +17,24 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createInMemoryTransport } from "../../channel-email/types.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { hashUnsubscribeAddress } from "../address-opt-out.js";
-import { DELIVERY_UNSUBSCRIBE_PATH } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { hashUnsubscribeAddress } from "../address-opt-out.ts";
+import { DELIVERY_UNSUBSCRIBE_PATH } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
 import {
   type UnsubscribeAddressPayload,
   unsubscribeAddressPayloadSchema,
-} from "../handlers/unsubscribe-address.write.js";
-import { DeliveryHandlers } from "../public-names.js";
-import { notificationAddressOptOutsTable, notificationPreferencesTable } from "../tables.js";
-import { createDeliveryTestContext } from "../testing.js";
-import type { DeliveryService } from "../types.js";
-import { createUnsubscribeRoutes, signAddressUnsubscribeToken } from "../unsubscribe.js";
-import { createPlainFallbackEmailFeature } from "./plain-email-channel.js";
+} from "../handlers/unsubscribe-address.write.ts";
+import { DeliveryHandlers } from "../public-names.ts";
+import { notificationAddressOptOutsTable, notificationPreferencesTable } from "../tables.ts";
+import { createDeliveryTestContext } from "../testing.ts";
+import type { DeliveryService } from "../types.ts";
+import { createUnsubscribeRoutes, signAddressUnsubscribeToken } from "../unsubscribe.ts";
+import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-origin-test-secret-32-chars-min!";
 const BASE_URL = "https://app.example";

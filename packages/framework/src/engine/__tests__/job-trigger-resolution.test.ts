@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../index.js";
+import { createRegistry, defineFeature } from "../index.ts";
 
 const signedInAccess = { openToAll: { reason: "test handler callable by any signed-in user" } };
 

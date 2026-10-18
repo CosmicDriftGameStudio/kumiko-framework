@@ -15,8 +15,8 @@ import {
   type PropertyAssignment,
   SyntaxKind,
 } from "ts-morph";
-import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../../engine/escape-hatch-reason.js";
-import { collectSourceFiles } from "./collect-source-files.js";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../../engine/escape-hatch-reason.ts";
+import { collectSourceFiles } from "./collect-source-files.ts";
 
 export interface Rewrite {
   readonly file: string;

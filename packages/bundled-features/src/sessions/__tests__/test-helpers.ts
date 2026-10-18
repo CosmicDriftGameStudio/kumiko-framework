@@ -14,10 +14,10 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
-import { hashPassword } from "../../shared/index.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { UserHandlers } from "../../user/index.js";
-import { withMintedSession } from "../testing.js";
+import { hashPassword } from "../../shared/index.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { withMintedSession } from "../testing.ts";
 
 export type LoginResult = {
   readonly token: string;

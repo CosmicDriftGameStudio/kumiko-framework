@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { SUBSCRIPTION_WEBHOOK_PATH } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveBillingOption } from "../billing-option.js";
-import { resolveFileStorageOption } from "../file-storage-option.js";
-import { resolveMailOption } from "../mail-option.js";
-import { resolveBootOptionWiring } from "../resolve-boot-options.js";
+import { resolveBillingOption } from "../billing-option.ts";
+import { resolveFileStorageOption } from "../file-storage-option.ts";
+import { resolveMailOption } from "../mail-option.ts";
+import { resolveBootOptionWiring } from "../resolve-boot-options.ts";
 
 const S3_ENV = {
   S3_BUCKET: "bucket",

@@ -4,17 +4,17 @@ import { SUBSCRIPTION_STRIPE_FEATURE } from "@cosmicdrift/kumiko-bundled-feature
 import { TIER_ENGINE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import type { ProdSeedFn } from "../run-prod-app.js";
-import { type BillingBootOption, resolveBillingOption } from "./billing-option.js";
-import { buildDemoModeRoute, type DemoModeOption, withDemoReadOnlyFetch } from "./demo-mode.js";
+import type { ProdSeedFn } from "../run-prod-app.ts";
+import { type BillingBootOption, resolveBillingOption } from "./billing-option.ts";
+import { buildDemoModeRoute, type DemoModeOption, withDemoReadOnlyFetch } from "./demo-mode.ts";
 import {
   FILE_FOUNDATION_FEATURE,
   type FileStorageBootOption,
   resolveFileStorageOption,
-} from "./file-storage-option.js";
-import { type KmsMode, type ResolvedKmsMode, resolveKmsMode } from "./kms-mode.js";
-import { CHANNEL_EMAIL_FEATURE, type MailBootOption, resolveMailOption } from "./mail-option.js";
-import { type DbSeedFn, type ProdSeedsConfig, resolveSeedShortcuts } from "./seed-shortcuts.js";
+} from "./file-storage-option.ts";
+import { type KmsMode, type ResolvedKmsMode, resolveKmsMode } from "./kms-mode.ts";
+import { CHANNEL_EMAIL_FEATURE, type MailBootOption, resolveMailOption } from "./mail-option.ts";
+import { type DbSeedFn, type ProdSeedsConfig, resolveSeedShortcuts } from "./seed-shortcuts.ts";
 
 export type BootOptionFields = {
   readonly features: readonly FeatureDefinition[];

@@ -2,6 +2,8 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "composite": true,
+    "emitDeclarationOnly": true,
+    "rewriteRelativeImportExtensions": false,
     "outDir": "./dist/core",
     "rootDir": ".",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],

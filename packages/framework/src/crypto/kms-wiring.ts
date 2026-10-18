@@ -8,12 +8,12 @@
 // is wrong), `resolveKmsWiring` is the boot entry point that also constructs
 // the adapter.
 
-import { type KekSourceOptions, resolvePlatformKeks } from "./kek-source.js";
+import { type KekSourceOptions, resolvePlatformKeks } from "./kek-source.ts";
 import {
   createPgKmsAdapter,
   type PgKmsAdapter,
   type PgKmsAdapterOptions,
-} from "./pg-kms-adapter.js";
+} from "./pg-kms-adapter.ts";
 
 // The index signature is what lets callers pass `process.env` directly. Without
 // it every member is optional, so TypeScript's weak-type detection rejects

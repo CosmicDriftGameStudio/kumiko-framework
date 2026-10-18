@@ -9,8 +9,8 @@
 // Deep-path queries (->>'key') are out of scope for WhereObject.
 import { afterAll, describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { asRawClient, insertMany, selectMany } from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+import { asRawClient, insertMany, selectMany } from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

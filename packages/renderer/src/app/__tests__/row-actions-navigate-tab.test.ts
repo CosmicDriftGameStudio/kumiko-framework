@@ -3,13 +3,13 @@ import type {
   RelatedListToolbarAction,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { NavApi, NavTarget } from "../nav.js";
-import { RETURN_TO_PARAM, type ReturnHost } from "../return-to.js";
+import type { NavApi, NavTarget } from "../nav.tsx";
+import { RETURN_TO_PARAM, type ReturnHost } from "../return-to.tsx";
 import {
   buildProjectionToolbarActions,
   buildRecordActions,
   runProjectionRowNavigate,
-} from "../row-actions.js";
+} from "../row-actions.ts";
 
 function recordingNav(hrefFor: (target: NavTarget) => string = () => ""): {
   readonly nav: NavApi;

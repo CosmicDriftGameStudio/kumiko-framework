@@ -12,7 +12,7 @@ import type {
   UserDataDeleteHook,
   UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { noteEntryTable, noteMentionTable } from "../notes-history/index.js";
+import { noteEntryTable, noteMentionTable } from "../notes-history/index.ts";
 
 // note-entry has no per-tenant scope quirk (unlike folders) — it's genuinely
 // per-user content, so the export filters by authorId directly.

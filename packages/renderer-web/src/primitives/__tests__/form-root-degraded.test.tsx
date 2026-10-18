@@ -9,7 +9,7 @@ import {
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { BareFormProvider, defaultPrimitives } from "../index.js";
+import { BareFormProvider, defaultPrimitives } from "../index.tsx";
 
 const { Form, Input, Button } = defaultPrimitives;
 const noop = () => {};

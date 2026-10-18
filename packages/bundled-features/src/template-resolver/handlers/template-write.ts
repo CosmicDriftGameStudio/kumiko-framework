@@ -14,20 +14,20 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { requireForTenant } from "../../shared/index.js";
-import type { ContentFormat, TemplateKind } from "../constants.js";
-import type { TemplateWriteScope } from "../layout-regions.js";
-import { TemplateResolverErrors } from "../qualified-names.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { activationChanges, serializeTemplateDraft } from "../template-draft.js";
-import { isSystemOnlyTemplate } from "../template-system-only.js";
-import type { TemplateValidation } from "../template-validation.js";
-import { executor } from "./shared.js";
+import { requireForTenant } from "../../shared/index.ts";
+import type { ContentFormat, TemplateKind } from "../constants.ts";
+import type { TemplateWriteScope } from "../layout-regions.ts";
+import { TemplateResolverErrors } from "../qualified-names.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { activationChanges, serializeTemplateDraft } from "../template-draft.ts";
+import { isSystemOnlyTemplate } from "../template-system-only.ts";
+import type { TemplateValidation } from "../template-validation.ts";
+import { executor } from "./shared.ts";
 import {
   evaluateTemplateWrite,
   type TemplateWriteInput,
   type TemplateWriteResult,
-} from "./template-gates.js";
+} from "./template-gates.ts";
 
 export type TemplateRowPayload = {
   readonly slug: string;

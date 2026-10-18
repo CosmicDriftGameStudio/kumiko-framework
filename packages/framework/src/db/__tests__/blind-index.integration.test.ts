@@ -21,18 +21,18 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   subjectIdToKey,
-} from "../../crypto/index.js";
-import { defineFeature } from "../../engine/define-feature.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { createRegistry } from "../../engine/registry.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { createProjectionStateTable } from "../../pipeline/projection-state.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { nullBlindIndexesForSubject, subjectRowExistsInTenant } from "../blind-index-cleanup.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { asRawClient, fetchOne } from "../query.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
+} from "../../crypto/index.ts";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { createRegistry } from "../../engine/registry.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { createProjectionStateTable } from "../../pipeline/projection-state.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { nullBlindIndexesForSubject, subjectRowExistsInTenant } from "../blind-index-cleanup.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { asRawClient, fetchOne } from "../query.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 const TEST_KEY_B64 = Buffer.alloc(32, 7).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);

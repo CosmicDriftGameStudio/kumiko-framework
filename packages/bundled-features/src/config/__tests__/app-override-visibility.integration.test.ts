@@ -12,10 +12,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers, ConfigQueries } from "../constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
-import { buildEnvConfigOverrides, createConfigResolver } from "../resolver.js";
-import { configValuesTable } from "../table.js";
+import { ConfigHandlers, ConfigQueries } from "../constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
+import { buildEnvConfigOverrides, createConfigResolver } from "../resolver.ts";
+import { configValuesTable } from "../table.ts";
 
 // Proves the ENV→app-override bridge end-to-end over real HTTP:
 //   - a transparently-inherited key (default inheritedToTenant) surfaces the

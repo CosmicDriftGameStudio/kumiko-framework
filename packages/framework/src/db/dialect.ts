@@ -31,8 +31,8 @@ import type {
   EntityTableMeta,
   IndexMeta,
   PgType,
-} from "./entity-table-meta.js";
-import { schemaTableName } from "./table-introspection.js";
+} from "./entity-table-meta.ts";
+import { schemaTableName } from "./table-introspection.ts";
 
 export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 

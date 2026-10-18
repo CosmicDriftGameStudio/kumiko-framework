@@ -8,14 +8,14 @@ import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import type { NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Redis } from "ioredis";
-import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "./constants.js";
-import { dispatchMagicLinkMail } from "./magic-link-mail.js";
-import { AuthMailNotificationTypes } from "./mail-notifications.js";
+import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "./constants.ts";
+import { dispatchMagicLinkMail } from "./magic-link-mail.ts";
+import { AuthMailNotificationTypes } from "./mail-notifications.ts";
 import {
   invalidateExistingSignupToken,
   normalizeEmail,
   storeSignupToken,
-} from "./signup-token-store.js";
+} from "./signup-token-store.ts";
 
 export const SIGNUP_ACTIVATION_NOTIFICATION_TYPE = AuthMailNotificationTypes.signupActivation;
 

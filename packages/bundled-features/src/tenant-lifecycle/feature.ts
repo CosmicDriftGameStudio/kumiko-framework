@@ -13,7 +13,7 @@ import {
   validateTenantDataHookCoverage,
   validateTenantDestroyHookShapes,
   warnIfFilesMountedWithoutTenantData,
-} from "./boot-checks.js";
+} from "./boot-checks.ts";
 import {
   DESTRUCTION_CANCELLED_EVENT_SHORT,
   DESTRUCTION_REQUESTED_EVENT_SHORT,
@@ -25,7 +25,7 @@ import {
   TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
   TENANT_DESTRUCTION_STARTED_EVENT_SHORT,
-} from "./constants.js";
+} from "./constants.ts";
 import {
   destructionCancelledSchema,
   destructionRequestedSchema,
@@ -37,14 +37,14 @@ import {
   tenantDestructionStageStartedSchema,
   tenantDestructionStageSucceededSchema,
   tenantDestructionStartedSchema,
-} from "./events.js";
-import { cancelDestructionWrite } from "./handlers/cancel-destruction.write.js";
-import { requestDestructionWrite } from "./handlers/request-destruction.write.js";
+} from "./events.ts";
+import { cancelDestructionWrite } from "./handlers/cancel-destruction.write.ts";
+import { requestDestructionWrite } from "./handlers/request-destruction.write.ts";
 import {
   hasTenantDestructionWork,
   resolveTenantLifecycleGate,
   runTenantDestructionSweep,
-} from "./run-tenant-destroy.js";
+} from "./run-tenant-destroy.ts";
 
 const tenantLifecycleStatusPlugin: TenantLifecycleStatusPlugin = {
   async resolveStatus(tenantId, { db }) {
@@ -167,5 +167,5 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
 export {
   TENANT_LIFECYCLE_FEATURE,
   TenantLifecycleHandlers,
-} from "./constants.js";
-export { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy.js";
+} from "./constants.ts";
+export { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy.ts";

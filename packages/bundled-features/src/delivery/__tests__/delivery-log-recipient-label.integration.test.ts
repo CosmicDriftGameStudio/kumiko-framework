@@ -12,16 +12,16 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/feature.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { logAttempt } from "../attempt-log.js";
-import { DeliveryQueries } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { deliveryAttemptsTable } from "../tables.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { logAttempt } from "../attempt-log.ts";
+import { DeliveryQueries } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { deliveryAttemptsTable } from "../tables.ts";
 
 type LabelRow = {
   readonly type: string;

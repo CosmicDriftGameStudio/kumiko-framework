@@ -1,12 +1,12 @@
 import type { DerivativesContext } from "@cosmicdrift/kumiko-types/derivatives-types";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import type { SecretsContext } from "@cosmicdrift/kumiko-types/secrets-types";
-import type { DbRunner } from "../db/connection.js";
-import type { AppendEventArgs, AppendEventFn, Registry, TenantId } from "../engine/types/index.js";
-import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store.js";
-import { upcastStoredEvents } from "../event-store/upcaster.js";
-import type { FileContext } from "../files/file-handle.js";
-import { appendDomainEventCore } from "./append-event-core.js";
+import type { DbRunner } from "../db/connection.ts";
+import type { AppendEventArgs, AppendEventFn, Registry, TenantId } from "../engine/types/index.ts";
+import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store.ts";
+import { upcastStoredEvents } from "../event-store/upcaster.ts";
+import type { FileContext } from "../files/file-handle.ts";
+import { appendDomainEventCore } from "./append-event-core.ts";
 
 export type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 

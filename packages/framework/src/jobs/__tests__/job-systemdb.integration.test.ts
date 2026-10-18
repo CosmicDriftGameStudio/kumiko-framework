@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { tenantDbRunner } from "../../db/tenant-db-runner.js";
-import { createRegistry, defineFeature, type Registry } from "../../engine/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import { createJobRunner, type JobRunner } from "../job-runner.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { tenantDbRunner } from "../../db/tenant-db-runner.ts";
+import { createRegistry, defineFeature, type Registry } from "../../engine/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 // r.systemScope() is feature-level (define-feature.ts), not per-job — so two
 // features prove both sides, mirroring pipeline/__tests__/ctx-systemdb.integration.test.ts

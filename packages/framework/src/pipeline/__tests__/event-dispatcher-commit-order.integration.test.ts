@@ -24,21 +24,21 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import type { DbConnection, DbTx } from "../../db/connection.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
-import { append } from "../../event-store/index.js";
+import type { DbConnection, DbTx } from "../../db/connection.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient } from "../../db/query.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { append } from "../../event-store/index.ts";
 import {
   createEventDispatcher,
   type EventConsumer,
   type EventDispatcher,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
-import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
-import { skipPoisonEvent } from "../event-dispatcher-admin.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
+import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.ts";
+import { skipPoisonEvent } from "../event-dispatcher-admin.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

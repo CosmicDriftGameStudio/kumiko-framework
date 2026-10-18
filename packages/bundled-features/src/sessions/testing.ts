@@ -20,7 +20,7 @@
 import type { AuthRoutesConfig, SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { LateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
-import type { SessionCallbacks, SessionMassRevoker } from "./session-callbacks.js";
+import type { SessionCallbacks, SessionMassRevoker } from "./session-callbacks.ts";
 
 export type BoundSessionCallbacks = {
   /** auth-config fragment: creator + revoker + checker, all late-bound. */

@@ -10,8 +10,8 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { ReferenceCreateDialog } from "../../../renderer/src/components/reference-create-dialog.js";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
+import { ReferenceCreateDialog } from "../../../renderer/src/components/reference-create-dialog.tsx";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
 const invoiceEntity = {
   defaultCurrency: "EUR",

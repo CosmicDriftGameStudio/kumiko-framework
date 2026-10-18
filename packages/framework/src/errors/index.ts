@@ -9,7 +9,7 @@ export type {
   UnprocessableOpts,
   ValidationDetails,
   VersionConflictDetails,
-} from "./classes.js";
+} from "./classes.ts";
 export {
   AccessDeniedError,
   ConflictError,
@@ -28,21 +28,21 @@ export {
   UnprocessableError,
   ValidationError,
   VersionConflictError,
-} from "./classes.js";
-export type { ErrorDocsConfig } from "./docs-url.js";
-export { resolveErrorDocsUrl } from "./docs-url.js";
-export type { ErrorCtorInput, ErrorOpts } from "./kumiko-error.js";
-export { isKumikoError, KumikoError } from "./kumiko-error.js";
-export { memberResolutionReadOnlyDenied } from "./member-resolution.js";
-export type { AgentReason, FrameworkReason } from "./reasons.js";
-export { AgentReasons, FrameworkReasons } from "./reasons.js";
-export type { ErrorLogEntry, ErrorResponseBody } from "./serialize.js";
-export { buildErrorLog, serializeError } from "./serialize.js";
-export { isSubjectErasedConflict, subjectErasedConflict } from "./subject-erased.js";
-export { toKumikoError } from "./to-kumiko-error.js";
-export type { InvalidTransitionDetails } from "./transition-details.js";
-export { buildInvalidTransitionDetails } from "./transition-details.js";
-export type { WriteErrorInfo, WriteFailure } from "./write-error-info.js";
+} from "./classes.ts";
+export type { ErrorDocsConfig } from "./docs-url.ts";
+export { resolveErrorDocsUrl } from "./docs-url.ts";
+export type { ErrorCtorInput, ErrorOpts } from "./kumiko-error.ts";
+export { isKumikoError, KumikoError } from "./kumiko-error.ts";
+export { memberResolutionReadOnlyDenied } from "./member-resolution.ts";
+export type { AgentReason, FrameworkReason } from "./reasons.ts";
+export { AgentReasons, FrameworkReasons } from "./reasons.ts";
+export type { ErrorLogEntry, ErrorResponseBody } from "./serialize.ts";
+export { buildErrorLog, serializeError } from "./serialize.ts";
+export { isSubjectErasedConflict, subjectErasedConflict } from "./subject-erased.ts";
+export { toKumikoError } from "./to-kumiko-error.ts";
+export type { InvalidTransitionDetails } from "./transition-details.ts";
+export { buildInvalidTransitionDetails } from "./transition-details.ts";
+export type { WriteErrorInfo, WriteFailure } from "./write-error-info.ts";
 export {
   failNotFound,
   failTransition,
@@ -50,5 +50,5 @@ export {
   reraiseAsKumikoError,
   toWriteErrorInfo,
   writeFailure,
-} from "./write-error-info.js";
-export { validationErrorFromZod } from "./zod-bridge.js";
+} from "./write-error-info.ts";
+export { validationErrorFromZod } from "./zod-bridge.ts";

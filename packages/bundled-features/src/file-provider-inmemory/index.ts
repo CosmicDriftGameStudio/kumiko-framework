@@ -4,4 +4,4 @@ export {
   clearStorage,
   createFileProviderInMemoryFeature,
   listKeys,
-} from "./feature.js";
+} from "./feature.ts";

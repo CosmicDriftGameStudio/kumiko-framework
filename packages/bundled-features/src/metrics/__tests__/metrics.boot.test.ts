@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { QnTypes, qn, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { METRICS_FEATURE, METRICS_SYSTEM_FEATURE, metricQueryName } from "../constants.js";
-import { DEFAULT_METRICS, deliveriesByChannelMetric } from "../default-metrics.js";
-import { createMetricsFeature, createSystemMetricsFeature } from "../feature.js";
-import { METRICS_I18N } from "../i18n.js";
-import { defineMetric } from "../types.js";
+import { METRICS_FEATURE, METRICS_SYSTEM_FEATURE, metricQueryName } from "../constants.ts";
+import { DEFAULT_METRICS, deliveriesByChannelMetric } from "../default-metrics.ts";
+import { createMetricsFeature, createSystemMetricsFeature } from "../feature.ts";
+import { METRICS_I18N } from "../i18n.ts";
+import { defineMetric } from "../types.ts";
 import {
   ALL_TEST_METRICS,
   countMetric,
   eventsTable,
   fixedClock,
   globalTable,
-} from "./metrics-fixtures.js";
+} from "./metrics-fixtures.ts";
 
 describe("metrics boot", () => {
   test("metricQueryName matches the framework qualified name", () => {

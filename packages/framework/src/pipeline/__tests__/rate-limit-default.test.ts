@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createSystemUser } from "../../engine/index.js";
+import { createSystemUser } from "../../engine/index.ts";
 import type {
   RateLimitConfig,
   RateLimitDecision,
   RateLimitResolver,
-} from "../../rate-limit/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
-import type { DispatchContext } from "../dispatch-shared.js";
-import { enforceRateLimit } from "../dispatch-shared.js";
+} from "../../rate-limit/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import type { DispatchContext } from "../dispatch-shared.ts";
+import { enforceRateLimit } from "../dispatch-shared.ts";
 
 const TENANT = testTenantId(9001);
 

@@ -8,25 +8,25 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { entityEventName } from "../../db/index.js";
-import { selectMany } from "../../db/query.js";
-import type { WriteResult } from "../../engine/index.js";
+import { entityEventName } from "../../db/index.ts";
+import { selectMany } from "../../db/query.ts";
+import type { WriteResult } from "../../engine/index.ts";
 import {
   createEntity,
   createFileField,
   defineFeature,
   defineWriteHandler,
-} from "../../engine/index.js";
-import { loadAggregate } from "../../event-store/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { loadAggregate } from "../../event-store/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import {
   createFileRefFromBytes,
   createFileRefFromUploadedBytes,
   uploadFileBytesBeforeTransaction,
-} from "../create-file-ref-from-bytes.js";
-import { createFilesFeature } from "../feature.js";
-import { fileRefsTable } from "../file-ref-table.js";
-import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
+} from "../create-file-ref-from-bytes.ts";
+import { createFilesFeature } from "../feature.ts";
+import { fileRefsTable } from "../file-ref-table.ts";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.ts";
 
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
 

@@ -6,7 +6,7 @@ import type {
   LoadAggregateWithSnapshotResult,
   SnapshotReducer,
 } from "@cosmicdrift/kumiko-types/snapshot-types";
-import type { DbConnection, DbRunner } from "../db/connection.js";
+import type { DbConnection, DbRunner } from "../db/connection.ts";
 import {
   index,
   instant,
@@ -17,14 +17,14 @@ import {
   sql,
   text,
   uuid,
-} from "../db/dialect.js";
-import { ensureSnapshotVersionColumn, upsertSnapshot } from "../db/queries/event-store.js";
-import { selectMany } from "../db/query.js";
-import { tableExists } from "../db/schema-inspection.js";
-import { unsafePushTables } from "../db/table-push.js";
-import type { TenantId } from "../engine/types/index.js";
-import { isStreamArchived } from "./archive.js";
-import { loadEventsAfterVersion } from "./event-store.js";
+} from "../db/dialect.ts";
+import { ensureSnapshotVersionColumn, upsertSnapshot } from "../db/queries/event-store.ts";
+import { selectMany } from "../db/query.ts";
+import { tableExists } from "../db/schema-inspection.ts";
+import { unsafePushTables } from "../db/table-push.ts";
+import type { TenantId } from "../engine/types/index.ts";
+import { isStreamArchived } from "./archive.ts";
+import { loadEventsAfterVersion } from "./event-store.ts";
 
 // Marten-aligned snapshot store. A snapshot is a point-in-time materialised
 // state of an aggregate at a specific version, cached so rehydrating the

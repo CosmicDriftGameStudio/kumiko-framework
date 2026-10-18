@@ -16,8 +16,8 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
 import {
   createBooleanField,
   createDateField,
@@ -35,9 +35,9 @@ import {
   createTextField,
   createTimestampField,
   createTzField,
-} from "../factories.js";
-import type { FieldDefinition, LongTextFieldDef, TextFieldDef } from "../types/index.js";
-import { unannotatedLongText, unannotatedText } from "./unannotated-fields.js";
+} from "../factories.ts";
+import type { FieldDefinition, LongTextFieldDef, TextFieldDef } from "../types/index.ts";
+import { unannotatedLongText, unannotatedText } from "./unannotated-fields.ts";
 
 // The new personal/find union can no longer express some flag combinations
 // on purpose (e.g. two subjects on one field) — these tests deliberately

@@ -26,16 +26,16 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
 import {
   createSecretsContext,
   createSecretsFeature,
   tenantSecretsTable,
-} from "../../secrets/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../secrets/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   createInboundMailConnectRoutes,
   createInboundMailFoundationFeature,
@@ -53,8 +53,8 @@ import {
   type OAuthTokenSet,
   seenMessageEntity,
   syncCursorEntity,
-} from "../index.js";
-import { signOAuthState } from "../oauth-state.js";
+} from "../index.ts";
+import { signOAuthState } from "../oauth-state.ts";
 
 const PROVIDER_KEY = "oauth-fake";
 const STATE_SECRET = "oauth-refresh-test-state-secret-0123456789abcdef";

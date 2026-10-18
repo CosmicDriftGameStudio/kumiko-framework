@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { EscapeHatchReporter, EscapeHatchTarget } from "@cosmicdrift/kumiko-types/handlers";
-import { SYSTEM_TENANT_ID } from "../../engine/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { DbRunner } from "../connection.js";
-import { createTenantDb, createUncheckedSystemDb, SYSTEM_SCOPE_CHECK_BRAND } from "../tenant-db.js";
+import { SYSTEM_TENANT_ID } from "../../engine/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { DbRunner } from "../connection.ts";
+import { createTenantDb, createUncheckedSystemDb, SYSTEM_SCOPE_CHECK_BRAND } from "../tenant-db.ts";
 
 function recordingReporter(): {
   readonly report: EscapeHatchReporter;

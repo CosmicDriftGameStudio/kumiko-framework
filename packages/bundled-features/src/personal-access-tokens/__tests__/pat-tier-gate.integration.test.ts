@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { PAT_FEATURE, PatHandlers, PatQueries } from "../constants.js";
-import { createPersonalAccessTokensFeature } from "../feature.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { PAT_FEATURE, PatHandlers, PatQueries } from "../constants.ts";
+import { createPersonalAccessTokensFeature } from "../feature.ts";
 
 const TENANT_WITH_TIER = testTenantId(11);
 const TENANT_WITHOUT_TIER = testTenantId(12);

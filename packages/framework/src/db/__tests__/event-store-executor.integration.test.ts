@@ -9,20 +9,20 @@ import {
   InMemoryKmsAdapter,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
-} from "../../crypto/index.js";
-import { asRawClient } from "../../db/query.js";
-import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
-import type { EntityId } from "../../engine/types/index.js";
-import { FrameworkReasons } from "../../errors/index.js";
-import { append, loadEventsAfterVersion } from "../../event-store/index.js";
-import type { EntityCache } from "../../pipeline/entity-cache.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
-import { applyEntityEvent } from "../apply-entity-event.js";
-import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption.js";
-import { createEventStoreExecutor, WritePurposes } from "../event-store-executor.js";
-import { buildExecutorContext } from "../event-store-executor-context.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
+} from "../../crypto/index.ts";
+import { asRawClient } from "../../db/query.ts";
+import { createBooleanField, createEntity, createTextField } from "../../engine/index.ts";
+import type { EntityId } from "../../engine/types/index.ts";
+import { FrameworkReasons } from "../../errors/index.ts";
+import { append, loadEventsAfterVersion } from "../../event-store/index.ts";
+import type { EntityCache } from "../../pipeline/entity-cache.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
+import { applyEntityEvent } from "../apply-entity-event.ts";
+import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption.ts";
+import { createEventStoreExecutor, WritePurposes } from "../event-store-executor.ts";
+import { buildExecutorContext } from "../event-store-executor-context.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 const entity = createEntity({
   table: "read_es_exec_users",

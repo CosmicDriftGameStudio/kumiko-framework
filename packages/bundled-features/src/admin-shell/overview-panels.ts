@@ -11,9 +11,9 @@ import type {
   DashboardStatPanel,
   DashboardTimeRangeDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { CapOverviewQueries } from "../cap-overview/index.js";
-import { JobQueries } from "../jobs/index.js";
-import { type MetricDefinition, type MetricScope, metricQueryName } from "../metrics/index.js";
+import { CapOverviewQueries } from "../cap-overview/index.ts";
+import { JobQueries } from "../jobs/index.ts";
+import { type MetricDefinition, type MetricScope, metricQueryName } from "../metrics/index.ts";
 
 const I = "admin-shell:overview";
 

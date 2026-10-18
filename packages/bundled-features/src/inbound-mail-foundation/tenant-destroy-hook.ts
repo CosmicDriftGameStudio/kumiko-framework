@@ -20,17 +20,17 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
-import { seenMessageTable, syncCursorTable } from "./entities.js";
+import { seenMessageTable, syncCursorTable } from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_THREAD_AGGREGATE_TYPE,
-} from "./events.js";
+} from "./events.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "./projection.js";
+} from "./projection.ts";
 
 const ARCHIVED_BY = "tenant-lifecycle:destroy";
 const REASON = "tenant_destroy";

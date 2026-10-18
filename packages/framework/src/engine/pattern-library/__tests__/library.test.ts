@@ -13,13 +13,13 @@ import {
   type FeaturePatternKind,
   getEditability,
   SINGLETON_KINDS,
-} from "../../feature-ast/index.js";
+} from "../../feature-ast/index.ts";
 import {
   getPatternSchema,
   groupByCategory,
   PATTERN_LIBRARY,
   type PatternFormSchema,
-} from "../index.js";
+} from "../index.ts";
 
 // All FeaturePatternKind discriminator values, hand-listed so the test
 // fails CI when a new pattern is added without a library entry. Match

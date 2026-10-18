@@ -11,8 +11,8 @@ import {
   BillingEventKinds,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
-} from "./constants.js";
-import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types.js";
+} from "./constants.ts";
+import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types.ts";
 
 export type SubscriptionWebhookRouteOptions = {
   /** Route path — MUST carry the `:providerName` path-param. Default

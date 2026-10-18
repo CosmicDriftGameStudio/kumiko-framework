@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { getStep } from "../define-step.js";
-import { defineWorkflow } from "../define-workflow.js";
-import { createSystemUser } from "../index.js";
-import { buildPipelineSteps, stepsPipeline } from "../pipeline.js";
-import { evaluateEventMatch } from "../steps/_event-match.js";
+import { getStep } from "../define-step.ts";
+import { defineWorkflow } from "../define-workflow.ts";
+import { createSystemUser } from "../index.ts";
+import { buildPipelineSteps, stepsPipeline } from "../pipeline.ts";
+import { evaluateEventMatch } from "../steps/_event-match.ts";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
-} from "../steps/_step-dispatch-constants.js";
-import { buildRetryStep, calculateBackoff } from "../steps/retry.js";
-import { buildWaitStep } from "../steps/wait.js";
-import { buildWaitForEventStep } from "../steps/wait-for-event.js";
-import type { AwaitedEventType, EventMatch, PipelineCtx } from "../types/step.js";
+} from "../steps/_step-dispatch-constants.ts";
+import { buildRetryStep, calculateBackoff } from "../steps/retry.ts";
+import { buildWaitStep } from "../steps/wait.ts";
+import { buildWaitForEventStep } from "../steps/wait-for-event.ts";
+import type { AwaitedEventType, EventMatch, PipelineCtx } from "../types/step.ts";
 
 // Test-only helper for the low-level step-builder unit tests below, which
 // call buildWaitForEventStep directly instead of going through a

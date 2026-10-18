@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { errorTextWithFieldIssues } from "../field-issue-text.js";
+import { errorTextWithFieldIssues } from "../field-issue-text.ts";
 
 const translate = (key: string, params?: Readonly<Record<string, unknown>>): string =>
   key === "known.key" ? `known ${String(params?.["detail"])}` : key;

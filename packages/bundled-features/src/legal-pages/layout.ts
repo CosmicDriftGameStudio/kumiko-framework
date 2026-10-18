@@ -1,5 +1,5 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
-import { type PublicPageWrapLayout, TENANT_CONTENT_ATTR } from "../page-render/index.js";
+import { type PublicPageWrapLayout, TENANT_CONTENT_ATTR } from "../page-render/index.ts";
 
 export type LegalPagesLayoutOptions = {
   // Appended to the page title as "<title> · <siteName>".

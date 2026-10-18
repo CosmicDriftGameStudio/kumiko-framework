@@ -1,8 +1,8 @@
 // Workspace validation.
 
-import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema.js";
-import { qualifyEntityName } from "../qualified-name.js";
-import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types/index.js";
+import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema.ts";
+import { qualifyEntityName } from "../qualified-name.ts";
+import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types/index.ts";
 
 // --- Workspace validation ---
 //

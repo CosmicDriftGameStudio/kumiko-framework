@@ -7,7 +7,7 @@ import {
   type MailChrome,
   RendererError,
   type RendererPlugin,
-} from "../../renderer-foundation/index.js";
+} from "../../renderer-foundation/index.ts";
 
 function mailChromePlugin(
   plugins: readonly RendererPlugin[],

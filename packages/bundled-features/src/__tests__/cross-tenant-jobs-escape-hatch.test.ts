@@ -2,15 +2,15 @@
 // and only work because their registration declares escapeHatch.
 import { describe, expect, test } from "bun:test";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createAuthMfaFeature } from "../auth-mfa/feature.js";
-import { createDataRetentionFeature } from "../data-retention/feature.js";
-import { createFilesTenantDataFeature } from "../files-tenant-data/index.js";
-import { createFormDraftFeature } from "../form-draft/feature.js";
-import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.js";
-import { createSecretsFeature } from "../secrets/feature.js";
-import { createSessionsFeature } from "../sessions/feature.js";
-import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature.js";
-import { createUserDataRightsFeature } from "../user-data-rights/feature.js";
+import { createAuthMfaFeature } from "../auth-mfa/feature.ts";
+import { createDataRetentionFeature } from "../data-retention/feature.ts";
+import { createFilesTenantDataFeature } from "../files-tenant-data/index.ts";
+import { createFormDraftFeature } from "../form-draft/feature.ts";
+import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.ts";
+import { createSecretsFeature } from "../secrets/feature.ts";
+import { createSessionsFeature } from "../sessions/feature.ts";
+import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature.ts";
+import { createUserDataRightsFeature } from "../user-data-rights/feature.ts";
 
 const TEST_SECRET = "cross-tenant-jobs-escape-hatch-test-secret-0123456789";
 

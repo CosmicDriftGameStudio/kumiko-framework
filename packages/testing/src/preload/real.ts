@@ -1,4 +1,4 @@
-import { requireRealProviders } from "../helpers/real-providers.js";
+import { requireRealProviders } from "../helpers/real-providers.ts";
 import "./schema-env-defaults";
 import "./service-env-defaults";
 

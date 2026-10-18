@@ -6,8 +6,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { defineFeature, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
-import { createJobFailureTracker, drainJobs } from "../drain-jobs.js";
-import { setupTestStack, type TestStack } from "../test-stack.js";
+import { createJobFailureTracker, drainJobs } from "../drain-jobs.ts";
+import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const chainResults: Array<{ value: string }> = [];
 

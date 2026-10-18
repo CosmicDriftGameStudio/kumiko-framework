@@ -1,7 +1,7 @@
 // @runtime client
-import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
-import type { LayoutKind } from "./layout-types.js";
-import type { OverviewRowView } from "./overview-row.js";
+import { DEFAULT_LAYOUT_SLUG } from "../constants.ts";
+import type { LayoutKind } from "./layout-types.ts";
+import type { OverviewRowView } from "./overview-row.ts";
 
 export function layoutUserKind(kind: LayoutKind): "mail" | "document-pdf" {
   return kind === "mail-layout" ? "mail" : "document-pdf";

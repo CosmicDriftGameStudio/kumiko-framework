@@ -8,10 +8,10 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { append, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DELIVERY_ATTEMPT_EVENT, DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
-import { deliveryAttemptSchema } from "./events.js";
-import { maskRecipientAddress } from "./mask-recipient-address.js";
-import { type DeliveryLogEntry, isDeliveryChannelPlugin } from "./types.js";
+import { DELIVERY_ATTEMPT_EVENT, DELIVERY_CHANNEL_EXTENSION } from "./constants.ts";
+import { deliveryAttemptSchema } from "./events.ts";
+import { maskRecipientAddress } from "./mask-recipient-address.ts";
+import { type DeliveryLogEntry, isDeliveryChannelPlugin } from "./types.ts";
 
 // Unknown channels count as personal: masking is the fail-closed default.
 function addressIsConnectionName(registry: Registry, channelName: string): boolean {

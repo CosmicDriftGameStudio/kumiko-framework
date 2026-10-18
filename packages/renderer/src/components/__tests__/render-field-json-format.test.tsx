@@ -14,14 +14,14 @@ import { describe, expect, test } from "bun:test";
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import {
   type CorePrimitives,
   type JsonViewProps,
   PrimitivesProvider,
   type TextProps,
-} from "../../primitives.js";
-import { RenderField } from "../render-field.js";
+} from "../../primitives.tsx";
+import { RenderField } from "../render-field.tsx";
 
 let capturedJsonView: JsonViewProps | undefined;
 const captureJsonView: ComponentType<JsonViewProps> = (props) => {

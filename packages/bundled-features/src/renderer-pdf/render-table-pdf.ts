@@ -1,7 +1,7 @@
 import { PDFDocument, type PDFFont, type PDFPage, rgb, StandardFonts } from "pdf-lib";
 import * as z from "zod";
-import { RendererError } from "../renderer-foundation/index.js";
-import type { PdfPageFormat } from "../template-resolver/index.js";
+import { RendererError } from "../renderer-foundation/index.ts";
+import type { PdfPageFormat } from "../template-resolver/index.ts";
 
 // Upper bounds keep a hostile or runaway payload from exhausting memory and CPU in layout.
 const PDF_TABLE_MAX_ROWS = 10_000;

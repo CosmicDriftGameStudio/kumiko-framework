@@ -1,5 +1,5 @@
 import type { ZodType } from "zod";
-import type { Dispatcher, FieldIssue, WriteResult } from "../dispatcher/index.js";
+import type { Dispatcher, FieldIssue, WriteResult } from "../dispatcher/index.ts";
 
 // Form-Controller contract.
 //

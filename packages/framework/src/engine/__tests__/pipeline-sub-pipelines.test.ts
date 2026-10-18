@@ -7,13 +7,13 @@
 
 import { describe, expect, it } from "bun:test";
 import * as z from "zod";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineWriteHandler } from "../define-handler.js";
-import { stepsPipeline } from "../pipeline.js";
-import { buildBranchStep } from "../steps/branch.js";
-import { buildForEachStep } from "../steps/for-each.js";
-import { buildReturnStep } from "../steps/return.js";
-import { buildMinimalCtx } from "./_pipeline-test-utils.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineWriteHandler } from "../define-handler.ts";
+import { stepsPipeline } from "../pipeline.ts";
+import { buildBranchStep } from "../steps/branch.ts";
+import { buildForEachStep } from "../steps/for-each.ts";
+import { buildReturnStep } from "../steps/return.ts";
+import { buildMinimalCtx } from "./_pipeline-test-utils.ts";
 
 describe("r.step.branch", () => {
   it("runs the `onTrue` array when the condition is truthy and writes propagate to outer steps", async () => {

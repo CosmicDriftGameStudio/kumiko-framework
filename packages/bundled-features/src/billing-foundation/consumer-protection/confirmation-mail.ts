@@ -4,9 +4,9 @@ import { Marked } from "marked";
 import {
   isAllowedDocumentLinkHref,
   isDocumentPlaceholderHref,
-} from "../../template-resolver/index.js";
-import type { CheckoutConsentRecordedPayload } from "../events.js";
-import { type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
+} from "../../template-resolver/index.ts";
+import type { CheckoutConsentRecordedPayload } from "../events.ts";
+import { type ConsentLocale, resolveConsentLocale } from "./consent-text.ts";
 
 // Inline de/en like the consent texts: the confirmation repeats the legal
 // wording the buyer agreed to, so it cannot follow the en-only i18n convention.

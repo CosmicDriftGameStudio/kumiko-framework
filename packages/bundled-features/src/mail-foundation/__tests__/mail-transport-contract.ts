@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { EmailMessage } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import type { MailTransportContext, MailTransportPlugin } from "../feature.js";
+import type { MailTransportContext, MailTransportPlugin } from "../feature.ts";
 
 export type MailTransportContractFixture = {
   readonly plugin: MailTransportPlugin;

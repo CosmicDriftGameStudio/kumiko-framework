@@ -25,12 +25,12 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
+} from "../../compliance-profiles/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";
 const CANCEL_DELETION = "user-data-rights:write:cancel-deletion";

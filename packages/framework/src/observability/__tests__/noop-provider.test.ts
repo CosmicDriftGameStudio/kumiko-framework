@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createNoopProvider } from "../noop-provider.js";
+import { createNoopProvider } from "../noop-provider.ts";
 
 describe("NoopProvider", () => {
   it("provides noop tracer with startSpan", () => {

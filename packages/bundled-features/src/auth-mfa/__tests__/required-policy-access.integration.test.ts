@@ -15,24 +15,24 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { ConfigHandlers, createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { mfaRequiredConfigHandle } from "../config.js";
-import { AuthMfaHandlers } from "../constants.js";
-import { createAuthMfaFeature } from "../feature.js";
-import { mfaStatusCheckerFromFeature } from "../feature-exports.js";
-import { userMfaEntity } from "../schema/user-mfa.js";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { ConfigHandlers, createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { mfaRequiredConfigHandle } from "../config.ts";
+import { AuthMfaHandlers } from "../constants.ts";
+import { createAuthMfaFeature } from "../feature.ts";
+import { mfaStatusCheckerFromFeature } from "../feature-exports.ts";
+import { userMfaEntity } from "../schema/user-mfa.ts";
 
 let stack: TestStack;
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { RedisKeys } from "../redis-keys.js";
+import { RedisKeys } from "../redis-keys.ts";
 
 describe("RedisKeys", () => {
   test("uses unique kumiko-prefixed namespaces", () => {

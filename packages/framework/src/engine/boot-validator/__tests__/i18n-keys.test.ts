@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys.js";
-import { buildConfigFeatureSchema } from "../../build-config-feature-schema.js";
-import { access, createTenantConfig } from "../../config-helpers.js";
-import { defineFeature } from "../../define-feature.js";
-import { i18nKey } from "../../i18n-key.js";
-import { createRegistry } from "../../registry.js";
-import { isFieldsEditSection } from "../../screen-helpers.js";
-import type { ConfigEditScreenDefinition } from "../../types/index.js";
-import { validateBoot } from "../index.js";
+import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys.ts";
+import { buildConfigFeatureSchema } from "../../build-config-feature-schema.ts";
+import { access, createTenantConfig } from "../../config-helpers.ts";
+import { defineFeature } from "../../define-feature.ts";
+import { i18nKey } from "../../i18n-key.ts";
+import { createRegistry } from "../../registry.ts";
+import { isFieldsEditSection } from "../../screen-helpers.ts";
+import type { ConfigEditScreenDefinition } from "../../types/index.ts";
+import { validateBoot } from "../index.ts";
 
 // Mirrors packages/bundled-features/src/config/i18n.ts — the audience-parent
 // labels every masked config key's generated hub requires regardless of

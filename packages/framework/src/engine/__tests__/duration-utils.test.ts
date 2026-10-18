@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { addDuration } from "../steps/_duration-utils.js";
+import { addDuration } from "../steps/_duration-utils.ts";
 
 describe("addDuration", () => {
   test("adds ISO duration to base instant", () => {

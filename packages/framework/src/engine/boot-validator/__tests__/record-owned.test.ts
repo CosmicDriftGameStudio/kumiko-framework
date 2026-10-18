@@ -5,11 +5,11 @@
 // guard catches that combination before it ships.
 
 import { describe, expect, test } from "bun:test";
-import { unannotatedText } from "../../__tests__/unannotated-fields.js";
-import { defineFeature } from "../../define-feature.js";
-import { createEntity, createTextField } from "../../factories.js";
-import type { FeatureDefinition } from "../../types/index.js";
-import { validateRecordOwnedSubjects } from "../record-owned.js";
+import { unannotatedText } from "../../__tests__/unannotated-fields.ts";
+import { defineFeature } from "../../define-feature.ts";
+import { createEntity, createTextField } from "../../factories.ts";
+import type { FeatureDefinition } from "../../types/index.ts";
+import { validateRecordOwnedSubjects } from "../record-owned.ts";
 
 // Presence/absence of the annotation is the test variable here; the factory
 // cannot produce the unannotated shape.

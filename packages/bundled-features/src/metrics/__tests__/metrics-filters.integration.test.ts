@@ -5,9 +5,9 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { metricQueryName } from "../constants.js";
-import { createMetricsFeature, createSystemMetricsFeature } from "../feature.js";
-import type { MetricResult } from "../types.js";
+import { metricQueryName } from "../constants.ts";
+import { createMetricsFeature, createSystemMetricsFeature } from "../feature.ts";
+import type { MetricResult } from "../types.ts";
 import {
   FOLDER_A1,
   FOLDER_A2,
@@ -23,7 +23,7 @@ import {
   seedFolderTreeRows,
   TENANT_A,
   TENANT_B,
-} from "./metrics-fixtures.js";
+} from "./metrics-fixtures.ts";
 
 let stack: TestStack;
 

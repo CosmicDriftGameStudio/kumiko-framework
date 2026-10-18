@@ -1,8 +1,8 @@
 import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
 import type { Logger } from "@cosmicdrift/kumiko-types/logger";
-import { deleteMany, selectMany, type WhereObject } from "../db/query.js";
-import type { TenantDb } from "../db/tenant-db.js";
-import { deleteFileRefBytes } from "../derivatives/delete-stored-file.js";
+import { deleteMany, selectMany, type WhereObject } from "../db/query.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
+import { deleteFileRefBytes } from "../derivatives/delete-stored-file.ts";
 
 export const EXPIRED_FILE_REF_PURGE_BATCH = 500;
 

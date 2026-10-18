@@ -19,13 +19,13 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createConfigFeature } from "../../config/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { DELIVERY_CHANNEL_EXTENSION, deliveryIdempotencyRedisKey } from "../constants.js";
-import { collectChannels, createDeliveryService } from "../delivery-service.js";
-import { createDeliveryFeature } from "../feature.js";
-import { deliveryAttemptsTable } from "../tables.js";
-import { createDeliveryTestContext } from "../testing.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { DELIVERY_CHANNEL_EXTENSION, deliveryIdempotencyRedisKey } from "../constants.ts";
+import { collectChannels, createDeliveryService } from "../delivery-service.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { deliveryAttemptsTable } from "../tables.ts";
+import { createDeliveryTestContext } from "../testing.ts";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 

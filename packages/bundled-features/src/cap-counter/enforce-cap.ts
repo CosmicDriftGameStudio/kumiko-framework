@@ -6,8 +6,8 @@ import {
   markCapSoftWarned,
   readRollingCapUsage,
   resolveCapCounterScope,
-} from "./book-cap-usage.js";
-import { capCounterEntity } from "./entity.js";
+} from "./book-cap-usage.ts";
+import { capCounterEntity } from "./entity.ts";
 
 const { table } = createEntityExecutor("cap-counter", capCounterEntity);
 

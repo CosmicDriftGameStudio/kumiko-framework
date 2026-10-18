@@ -3,12 +3,12 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
 import * as z from "zod";
-import { buildServer, type JwtHelper } from "../../api/index.js";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { createRegistry, defineFeature, type SessionUser } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { createJobRunner, type JobRunner } from "../job-runner.js";
+import { buildServer, type JwtHelper } from "../../api/index.ts";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { createRegistry, defineFeature, type SessionUser } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 // --- Track job executions ---
 

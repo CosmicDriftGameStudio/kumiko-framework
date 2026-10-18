@@ -39,10 +39,10 @@ import {
   collectionQueryName,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "../qualified-names.js";
-import { DocumentBlocksContext, DocumentContentEditor } from "./document-editor.js";
-import { documentBlocksForKind } from "./document-toolbar-blocks.js";
-import { defaultTranslations } from "./i18n.js";
+} from "../qualified-names.ts";
+import { DocumentBlocksContext, DocumentContentEditor } from "./document-editor.tsx";
+import { documentBlocksForKind } from "./document-toolbar-blocks.ts";
+import { defaultTranslations } from "./i18n.ts";
 
 // Exported for the unit test — groupBlocksByFolder is a pure function.
 export type BlockSummary = {

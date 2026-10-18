@@ -16,22 +16,22 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, insertOne, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import type { StoredEvent } from "../../event-store/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { append } from "../index.js";
-import { upcastStoredEvent } from "../upcaster.js";
+} from "../../engine/index.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { append } from "../index.ts";
+import { upcastStoredEvent } from "../upcaster.ts";
 
 // --- Fixture entity + projection table ---
 
@@ -118,7 +118,7 @@ const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, orderEntity, "upcast-order");
-  const { createProjectionStateTable } = await import("../../pipeline/index.js");
+  const { createProjectionStateTable } = await import("../../pipeline/index.ts");
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { upcastOrderSummary: orderSummaryTable });
   tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });

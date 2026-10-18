@@ -1,3 +1,3 @@
-export { createChannelPushFeature } from "./feature.js";
-export { createPushChannel, type PushChannelOptions } from "./push-channel.js";
-export { createInMemoryPushTransport, type PushMessage, type PushTransport } from "./types.js";
+export { createChannelPushFeature } from "./feature.ts";
+export { createPushChannel, type PushChannelOptions } from "./push-channel.ts";
+export { createInMemoryPushTransport, type PushMessage, type PushTransport } from "./types.ts";

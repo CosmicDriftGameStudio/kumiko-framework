@@ -1,7 +1,7 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type * as z from "zod";
 import type { ZodType } from "zod";
-import { toTableName } from "../db/table-builder.js";
+import { toTableName } from "../db/table-builder.ts";
 import {
   isEntityConventionQueryHandler,
   isPagedQueryHandler,
@@ -9,15 +9,15 @@ import {
   type QueryHandlerDefinition,
   type StreamHandlerDefinition,
   type WriteHandlerDefinition,
-} from "./define-handler.js";
-import type { RegisterEntityCrudOptions } from "./entity-handlers.js";
+} from "./define-handler.ts";
+import type { RegisterEntityCrudOptions } from "./entity-handlers.ts";
 import {
   assertEscapeHatchAccessIsSystemAdminOnly,
   registerCrudHandlers,
-} from "./entity-handlers.js";
-import type { FeatureBuilderState } from "./feature-builder-state.js";
-import { resolveName } from "./handler-helpers.js";
-import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.js";
+} from "./entity-handlers.ts";
+import type { FeatureBuilderState } from "./feature-builder-state.ts";
+import { resolveName } from "./handler-helpers.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -34,8 +34,8 @@ import type {
   RelationDefinition,
   StreamHandlerFn,
   WriteHandlerFn,
-} from "./types/index.js";
-import type { PipelineDef } from "./types/step.js";
+} from "./types/index.ts";
+import type { PipelineDef } from "./types/step.ts";
 
 const CRUD_VERBS = new Set(["create", "update", "delete"]);
 const CRUD_REGISTERED_VERBS = new Set([...CRUD_VERBS, "restore", "list", "detail"]);

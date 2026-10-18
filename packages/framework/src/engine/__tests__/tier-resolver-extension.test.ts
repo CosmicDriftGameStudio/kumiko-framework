@@ -4,13 +4,13 @@
 // Genau dieser found-Pfad war in keinem Test exekutiert.
 
 import { describe, expect, test } from "bun:test";
-import { createEntity, defineFeature } from "../index.js";
+import { createEntity, defineFeature } from "../index.ts";
 import {
   findTierResolverUsage,
   isTierResolverPlugin,
   requireTierResolverPlugin,
   TENANT_TIER_RESOLVER_EXT,
-} from "../tier-resolver-extension.js";
+} from "../tier-resolver-extension.ts";
 
 function tierResolverFeature(name: string) {
   return defineFeature(name, (r) => {

@@ -3,7 +3,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveObservabilityWiring } from "@cosmicdrift/kumiko-framework/observability";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
-import { setupTestStack, type TestStack } from "../test-stack.js";
+import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const METRICS_TOKEN = "setup-test-stack-metrics-token-minimum-32-chars!!";
 

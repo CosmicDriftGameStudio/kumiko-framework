@@ -14,13 +14,13 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
+import { createConfigFeature } from "../../config/index.ts";
 import {
   createFormDraftFeature,
   FormDraftHandlers,
   formDraftEntity,
-} from "../../form-draft/index.js";
-import { formDraftDeleteHook } from "../hooks.js";
+} from "../../form-draft/index.ts";
+import { formDraftDeleteHook } from "../hooks.ts";
 
 async function countDraftRows(stack: TestStack, ownerId: string): Promise<number> {
   const rows = await asRawClient(stack.db).unsafe(

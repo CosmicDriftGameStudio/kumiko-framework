@@ -8,11 +8,11 @@ import {
   type RenderRequest,
   type RenderResponse,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import { type ClientConfig, loadClientConfig } from "./config.js";
-import { buildDocumentPdfRequest } from "./document-pdf.js";
-import { postRender } from "./http-client.js";
-import { readImageDimensions } from "./image-dimensions.js";
-import { countPdfPages } from "./pdf-page-count.js";
+import { type ClientConfig, loadClientConfig } from "./config.ts";
+import { buildDocumentPdfRequest } from "./document-pdf.ts";
+import { postRender } from "./http-client.ts";
+import { readImageDimensions } from "./image-dimensions.ts";
+import { countPdfPages } from "./pdf-page-count.ts";
 
 export function loadClientConfigOrUnavailable(): ClientConfig {
   try {

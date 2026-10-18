@@ -15,10 +15,10 @@ import {
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFileDerivativesFeature } from "../feature.js";
-import { PUBLIC_VARIANT_QN } from "../handlers/public-variant.query.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFileDerivativesFeature } from "../feature.ts";
+import { PUBLIC_VARIANT_QN } from "../handlers/public-variant.query.ts";
 
 describe("file-derivatives :: publicVariant query fileRefId validation", () => {
   let stack: TestStack;

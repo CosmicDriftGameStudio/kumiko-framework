@@ -5,8 +5,8 @@ import { createManualClock } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const clock = createManualClock(Temporal.Instant.from("2031-02-03T04:05:06Z"));
 const jobSeenNow: string[] = [];

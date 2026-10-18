@@ -2,7 +2,7 @@ import {
   buildInvalidTransitionDetails,
   FrameworkReasons,
   UnprocessableError,
-} from "../errors/index.js";
+} from "../errors/index.ts";
 
 /**
  * Type-safe transition graph. Wraps the underlying Map so callers don't

@@ -35,19 +35,19 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
+} from "../../compliance-profiles/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
-import { runUserExport } from "../run-user-export.js";
+} from "../../data-retention/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { runUserExport } from "../run-user-export.ts";
 
 let stack: TestStack;
 

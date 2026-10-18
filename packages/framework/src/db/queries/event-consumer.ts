@@ -1,7 +1,7 @@
-import type { ConsumerStatuses, PendingGapEntry } from "../../pipeline/event-consumer-state.js";
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
-import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
+import type { ConsumerStatuses, PendingGapEntry } from "../../pipeline/event-consumer-state.ts";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 // Per-turn snapshot bounds for pending-gap finality (event-dispatcher.ts's
 // processConsumer). pg_current_snapshot() is this transaction's MVCC view;

@@ -1,6 +1,6 @@
 import type { FieldDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ImageFieldDef, ImagesFieldDef } from "@cosmicdrift/kumiko-types/fields";
-import type { ListColumnFileDisplay, ListColumnViewModel } from "./types.js";
+import type { ListColumnFileDisplay, ListColumnViewModel } from "./types.ts";
 
 function firstVariantKey(fieldDef: ImageFieldDef | ImagesFieldDef): string | undefined {
   return Object.keys(fieldDef.variants ?? {})[0];

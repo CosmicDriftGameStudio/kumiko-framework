@@ -1,4 +1,4 @@
-import type { FieldDefinition, SelectFieldDef } from "./types/fields.js";
+import type { FieldDefinition, SelectFieldDef } from "./types/fields.ts";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -16,7 +16,7 @@ import type {
   ScreenDefinition,
   SecretMintScreenDefinition,
   ToolbarAction,
-} from "./types/screen.js";
+} from "./types/screen.ts";
 
 // Every screen type carrying `listScreenId` declares it identically; centralizing
 // here keeps the switch the only place that grows for a new screen type.

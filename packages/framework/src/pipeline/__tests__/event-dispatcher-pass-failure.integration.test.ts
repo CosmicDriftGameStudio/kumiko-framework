@@ -22,20 +22,20 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import type { DbTx } from "../../db/connection.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { recordConsumerPassFailure } from "../../db/queries/event-consumer.js";
-import { asRawClient } from "../../db/query.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
-import { type Gauge, getFallbackMeter, type Meter } from "../../observability/index.js";
+import type { DbTx } from "../../db/connection.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { recordConsumerPassFailure } from "../../db/queries/event-consumer.ts";
+import { asRawClient } from "../../db/query.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { type Gauge, getFallbackMeter, type Meter } from "../../observability/index.ts";
 import {
   createEventDispatcher,
   type EventConsumer,
   type EventDispatcher,
   getConsumerState,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

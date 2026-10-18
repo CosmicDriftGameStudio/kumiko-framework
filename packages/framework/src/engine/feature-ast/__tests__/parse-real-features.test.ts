@@ -25,8 +25,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { parseFeatureFile } from "../parse.js";
-import type { FeaturePattern } from "../patterns.js";
+import { parseFeatureFile } from "../parse.ts";
+import type { FeaturePattern } from "../patterns.ts";
 
 const REPO_ROOT = resolve(__dirname, "../../../../../..");
 

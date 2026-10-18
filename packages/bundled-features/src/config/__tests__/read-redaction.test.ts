@@ -4,7 +4,7 @@ import {
   mayViewInheritedValue,
   redactInheritedCascade,
   shouldRedactInherited,
-} from "../read-redaction.js";
+} from "../read-redaction.ts";
 
 function level(
   source: ConfigCascadeLevel["source"],

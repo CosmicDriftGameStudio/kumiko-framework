@@ -21,8 +21,8 @@ import {
 import {
   sweepOrphanedDerivativesJob,
   sweepOrphanedDerivativesPayloadSchema,
-} from "./handlers/sweep-orphaned-derivatives.job.js";
-import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.js";
+} from "./handlers/sweep-orphaned-derivatives.job.ts";
+import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.ts";
 
 const SWEEP_ORPHANED_DERIVATIVES_ESCAPE_HATCH_REASON =
   "iterates every tenant and checks fileRef owners per tenant";
@@ -66,5 +66,5 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
 export {
   sweepOrphanedDerivativesJob,
   sweepOrphanedDerivativesPayloadSchema,
-} from "./handlers/sweep-orphaned-derivatives.job.js";
-export { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.js";
+} from "./handlers/sweep-orphaned-derivatives.job.ts";
+export { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.ts";

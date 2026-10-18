@@ -9,8 +9,8 @@
 // no event-store schema, no setupTestStack needed.
 
 import { describe, expect, test } from "bun:test";
-import type { AppContext, Registry } from "../../engine/types/index.js";
-import { createEventDispatcher, type EventConsumer } from "../event-dispatcher.js";
+import type { AppContext, Registry } from "../../engine/types/index.ts";
+import { createEventDispatcher, type EventConsumer } from "../event-dispatcher.ts";
 
 function stubContext(): AppContext {
   return {

@@ -9,7 +9,7 @@
 // by parseEnv drives the output here — single source of truth.
 
 import type * as z from "zod";
-import { zodShape } from "./_zod-introspect.js";
+import { zodShape } from "./_zod-introspect.ts";
 import {
   type ComposedEnvSchema,
   classifyField,
@@ -19,7 +19,7 @@ import {
   getFieldDescription,
   pulumiConfigKey,
   readKumikoMeta,
-} from "./index.js";
+} from "./index.ts";
 
 export type DryRunMode = "human" | "json" | "pulumi" | "k8s";
 

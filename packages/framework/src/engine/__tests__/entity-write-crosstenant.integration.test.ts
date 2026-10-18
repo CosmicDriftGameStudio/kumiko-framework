@@ -17,10 +17,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
-import { selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { eventsTable } from "../../event-store/index.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
+import { selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import {
   createEntity,
   createTextField,
@@ -31,8 +31,8 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   from,
-} from "../index.js";
-import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
+} from "../index.ts";
+import { SYSTEM_TENANT_ID } from "../types/identifiers.ts";
 
 // "Admin" passes unconditionally (any tenant may create its own rows).
 // "SystemAdmin" is tenant-scoped — the explicit cross-tenant grant must satisfy

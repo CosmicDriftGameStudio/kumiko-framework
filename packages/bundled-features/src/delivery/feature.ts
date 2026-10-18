@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ConsumerLagError } from "@cosmicdrift/kumiko-framework/pipeline";
 import type * as z from "zod";
-import { resolveAttemptLogRetentionDays, runAttemptLogRetention } from "./attempt-log-retention.js";
+import { resolveAttemptLogRetentionDays, runAttemptLogRetention } from "./attempt-log-retention.ts";
 import {
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_ATTEMPT_EVENT,
@@ -21,18 +21,18 @@ import {
   DELIVERY_TYPE_CELL_COMPONENT,
   DeliveryJobNames,
   DeliveryQueries,
-} from "./constants.js";
-import { deliveryAttemptAddressErasedSchema, deliveryAttemptSchema } from "./events.js";
-import { logQuery } from "./handlers/log.query.js";
-import { preferencesQuery } from "./handlers/preferences.query.js";
-import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write.js";
-import { resubscribeUserWrite } from "./handlers/resubscribe-user.write.js";
-import { setPreferenceWrite } from "./handlers/set-preference.write.js";
-import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write.js";
-import { unsubscribePageChromeQuery } from "./handlers/unsubscribe-page-chrome.query.js";
-import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write.js";
-import { DELIVERY_I18N } from "./i18n.js";
-import { deliveryRenderJob, deliverySendJob } from "./jobs.js";
+} from "./constants.ts";
+import { deliveryAttemptAddressErasedSchema, deliveryAttemptSchema } from "./events.ts";
+import { logQuery } from "./handlers/log.query.ts";
+import { preferencesQuery } from "./handlers/preferences.query.ts";
+import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write.ts";
+import { resubscribeUserWrite } from "./handlers/resubscribe-user.write.ts";
+import { setPreferenceWrite } from "./handlers/set-preference.write.ts";
+import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write.ts";
+import { unsubscribePageChromeQuery } from "./handlers/unsubscribe-page-chrome.query.ts";
+import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write.ts";
+import { DELIVERY_I18N } from "./i18n.ts";
+import { deliveryRenderJob, deliverySendJob } from "./jobs.ts";
 import {
   deliveryAttemptsTable,
   deliveryAttemptsTableMeta,
@@ -40,7 +40,7 @@ import {
   notificationAddressOptOutsTable,
   notificationPreferenceEntity,
   notificationPreferencesTable,
-} from "./tables.js";
+} from "./tables.ts";
 
 export type DeliveryFeatureOptions = {
   // Access gate for the delivery-log screen and the `log` query it reads —

@@ -4,8 +4,8 @@ import type {
   EntityListScreenDefinition,
   FieldDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { computeListViewModel } from "../list.js";
-import { deriveListFileDisplay } from "../list-file-display.js";
+import { computeListViewModel } from "../list.ts";
+import { deriveListFileDisplay } from "../list-file-display.ts";
 
 function fieldOf(definition: object): FieldDefinition {
   return definition as unknown as FieldDefinition;

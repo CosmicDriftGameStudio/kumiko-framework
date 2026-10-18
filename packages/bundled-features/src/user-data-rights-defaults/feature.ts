@@ -3,38 +3,38 @@ import {
   EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { apiTokenDeleteHook, apiTokenExportHook } from "./hooks/api-token.userdata-hook.js";
+import { apiTokenDeleteHook, apiTokenExportHook } from "./hooks/api-token.userdata-hook.ts";
 import {
   configValueDeleteHook,
   configValueExportHook,
-} from "./hooks/config-value.userdata-hook.js";
+} from "./hooks/config-value.userdata-hook.ts";
 import {
   deliveryAttemptDeleteHook,
   deliveryAttemptExportHook,
-} from "./hooks/delivery-attempt.userdata-hook.js";
+} from "./hooks/delivery-attempt.userdata-hook.ts";
 import {
   downloadAttemptDeleteHook,
   downloadAttemptExportHook,
-} from "./hooks/download-attempt.userdata-hook.js";
-import { fileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook.js";
+} from "./hooks/download-attempt.userdata-hook.ts";
+import { fileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook.ts";
 import {
   inAppMessageDeleteHook,
   inAppMessageExportHook,
-} from "./hooks/in-app-message.userdata-hook.js";
-import { jobRunDeleteHook, jobRunExportHook } from "./hooks/job-run.userdata-hook.js";
+} from "./hooks/in-app-message.userdata-hook.ts";
+import { jobRunDeleteHook, jobRunExportHook } from "./hooks/job-run.userdata-hook.ts";
 import {
   notificationPreferenceDeleteHook,
   notificationPreferenceExportHook,
-} from "./hooks/notification-preference.userdata-hook.js";
+} from "./hooks/notification-preference.userdata-hook.ts";
 import {
   tenantInvitationDeleteHook,
   tenantInvitationExportHook,
-} from "./hooks/tenant-invitation.userdata-hook.js";
-import { userDeleteHook, userExportHook } from "./hooks/user.userdata-hook.js";
+} from "./hooks/tenant-invitation.userdata-hook.ts";
+import { userDeleteHook, userExportHook } from "./hooks/user.userdata-hook.ts";
 import {
   userSessionDeleteHook,
   userSessionExportHook,
-} from "./hooks/user-session.userdata-hook.js";
+} from "./hooks/user-session.userdata-hook.ts";
 
 // user-data-rights-defaults — Default-Hooks für die Core-Entities
 // `user` (S2.H1) und `fileRef` (S2.H2).

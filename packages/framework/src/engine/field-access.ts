@@ -1,6 +1,6 @@
-import type { DbRow } from "../db/connection.js";
-import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership.js";
-import type { EntityDefinition, SessionUser } from "./types/index.js";
+import type { DbRow } from "../db/connection.ts";
+import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership.ts";
+import type { EntityDefinition, SessionUser } from "./types/index.ts";
 
 function writeOnlyFieldNames(entity: EntityDefinition): readonly string[] {
   const names: string[] = [];

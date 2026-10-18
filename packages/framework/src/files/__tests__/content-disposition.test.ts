@@ -3,7 +3,7 @@ import {
   buildContentDispositionHeader,
   encodeRFC5987,
   toAsciiFallback,
-} from "../content-disposition.js";
+} from "../content-disposition.ts";
 
 describe("toAsciiFallback", () => {
   test("keeps ASCII letters, digits, dot, dash, underscore, parens", () => {

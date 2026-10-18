@@ -11,16 +11,16 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.js";
+import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.ts";
 import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
-} from "../../db/index.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { SEARCH_CONSUMER_NAME } from "../system-hooks.js";
+} from "../../db/index.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { SEARCH_CONSUMER_NAME } from "../system-hooks.ts";
 
 const noteEntity = createEntity({
   table: "read_named_search_notes",

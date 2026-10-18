@@ -24,18 +24,18 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../constants.js";
-import { selectStaleDraftsBatch } from "../db/queries/cleanup.js";
-import { formDraftEntity } from "../entity.js";
-import { createFormDraftFeature } from "../feature.js";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../constants.ts";
+import { selectStaleDraftsBatch } from "../db/queries/cleanup.ts";
+import { formDraftEntity } from "../entity.ts";
+import { createFormDraftFeature } from "../feature.ts";
 import {
   deleteStaleDraftsBatch,
   FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY,
-} from "../handlers/cleanup.job.js";
+} from "../handlers/cleanup.job.ts";
 
 let stack: TestStack;
 

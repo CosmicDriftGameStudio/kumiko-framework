@@ -3,17 +3,17 @@
 // the single SYSTEM_EVENT_PII_STANCES map.
 
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_EVENT_PII_STANCES } from "../../crypto/system-event-pii.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
-import { buildManifestFromRegistry } from "../feature-manifest.js";
-import { createRegistry } from "../registry.js";
+import { SYSTEM_EVENT_PII_STANCES } from "../../crypto/system-event-pii.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import { buildManifestFromRegistry } from "../feature-manifest.ts";
+import { createRegistry } from "../registry.ts";
 import {
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
   WORKFLOW_RUN_STARTED_TYPE,
-} from "../steps/_step-dispatch-constants.js";
-import { WORKFLOW_SYSTEM_EVENT_DEFS } from "../steps/workflow-system-events.js";
+} from "../steps/_step-dispatch-constants.ts";
+import { WORKFLOW_SYSTEM_EVENT_DEFS } from "../steps/workflow-system-events.ts";
 
 const noopApply = async (): Promise<void> => {};
 

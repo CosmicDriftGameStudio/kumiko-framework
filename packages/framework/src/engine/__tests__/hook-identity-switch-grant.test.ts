@@ -1,20 +1,20 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
-import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
+import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
 import {
   createGatedIdentitySwitch,
   type QueryAsFn,
   type ResolveActiveMembershipFn,
   systemIdentitySwitchDenied,
-} from "../../pipeline/system-identity-switch.js";
-import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index.js";
-import type { TenantId } from "../types/identifiers.js";
+} from "../../pipeline/system-identity-switch.ts";
+import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index.ts";
+import type { TenantId } from "../types/identifiers.ts";
 import type {
   ActiveMembershipResult,
   AppContext,
   PostSaveHookFn,
   SaveContext,
-} from "../types/index.js";
+} from "../types/index.ts";
 
 // fw#2859: r.hook({ allOf }, ...) must get the same identity-switch gate as the handler-keyed path.
 

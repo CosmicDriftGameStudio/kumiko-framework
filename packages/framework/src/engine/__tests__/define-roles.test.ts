@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { defineRoles } from "../define-roles.js";
+import { defineRoles } from "../define-roles.ts";
 
 describe("defineRoles", () => {
   test("maps each role name to itself", () => {

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { Redis } from "ioredis";
-import { createRedisCacheSyncBus } from "../cache-sync-bus.js";
+import { createRedisCacheSyncBus } from "../cache-sync-bus.ts";
 
 // Real Redis: two buses stand in for two pods, and CLIENT KILL severs the
 // subscriber connection the way a network blip would.

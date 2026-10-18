@@ -5,7 +5,7 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { memberRoleOptions } from "../member-role-options.js";
+import { memberRoleOptions } from "../member-role-options.ts";
 
 export const memberRoleAvailabilityQuery = defineQueryHandler({
   name: "member-role-availability",

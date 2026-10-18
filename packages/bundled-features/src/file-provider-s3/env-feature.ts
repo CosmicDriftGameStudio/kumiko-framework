@@ -27,8 +27,8 @@ import type {
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
-import { s3EnvSchema } from "./env-schema.js";
-import { createS3ProviderFromEnv } from "./lib/env-helper.js";
+import { s3EnvSchema } from "./env-schema.ts";
+import { createS3ProviderFromEnv } from "./lib/env-helper.ts";
 
 const FEATURE_NAME = "file-provider-s3-env";
 

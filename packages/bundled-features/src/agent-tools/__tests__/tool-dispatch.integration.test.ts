@@ -22,9 +22,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { buildAgentManifest } from "../agent-manifest.js";
-import { buildToolCatalog, toolNameForQn } from "../tool-catalog.js";
-import { dispatchToolCall } from "../tool-dispatch.js";
+import { buildAgentManifest } from "../agent-manifest.ts";
+import { buildToolCatalog, toolNameForQn } from "../tool-catalog.ts";
+import { dispatchToolCall } from "../tool-dispatch.ts";
 
 const vendorEntity = createEntity({
   table: "agent_tools_test_vendors",

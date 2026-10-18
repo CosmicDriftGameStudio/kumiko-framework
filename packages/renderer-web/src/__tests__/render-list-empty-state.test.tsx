@@ -5,7 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { RenderList } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent } from "@testing-library/react";
-import { render } from "./test-utils.js";
+import { render } from "./test-utils.tsx";
 
 const entity = {
   fields: { name: { type: "text", sortable: true } },

@@ -12,18 +12,18 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { base32Decode } from "../../auth-mfa/base32.js";
-import { AuthMfaHandlers } from "../../auth-mfa/constants.js";
-import { createAuthMfaFeature } from "../../auth-mfa/feature.js";
-import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.js";
-import { currentTotpCode } from "../../auth-mfa/totp.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { userMfaDeleteHook, userMfaExportHook } from "../hooks.js";
+import { base32Decode } from "../../auth-mfa/base32.ts";
+import { AuthMfaHandlers } from "../../auth-mfa/constants.ts";
+import { createAuthMfaFeature } from "../../auth-mfa/feature.ts";
+import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.ts";
+import { currentTotpCode } from "../../auth-mfa/totp.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { userMfaDeleteHook, userMfaExportHook } from "../hooks.ts";
 
 let stack: TestStack;
 

@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { createFilesTenantDataFeature } from "../../files-tenant-data/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createTenantLifecycleFeature } from "../feature.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createFilesTenantDataFeature } from "../../files-tenant-data/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createTenantLifecycleFeature } from "../feature.ts";
 
 function tenantLifecycleFeatures() {
   return [

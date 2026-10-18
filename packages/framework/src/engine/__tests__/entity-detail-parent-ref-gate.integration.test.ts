@@ -12,13 +12,13 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTestUser } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
-import type { EntityDefinition } from "../types/index.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTestUser } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import type { EntityDefinition } from "../types/index.ts";
 
 const hostAccess: NonNullable<EntityDefinition["access"]> = {
   read: {

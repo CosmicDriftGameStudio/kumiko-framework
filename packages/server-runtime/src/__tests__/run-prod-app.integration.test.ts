@@ -63,7 +63,7 @@ import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import postgres from "postgres";
 import * as z from "zod";
-import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 
@@ -1196,7 +1196,7 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
   }
 
   test("Write → appendEvent → MSP wendet async an; Consumer-Cursor wandert", async () => {
-    let dispatchSystemWrite: import("../extra-routes-deps.js").SystemWireDeps["dispatchSystemWrite"];
+    let dispatchSystemWrite: import("../extra-routes-deps.ts").SystemWireDeps["dispatchSystemWrite"];
     const handle = await boot(undefined, {
       eventDispatcher: { pollIntervalMs: 50 },
       wire: (deps) => {

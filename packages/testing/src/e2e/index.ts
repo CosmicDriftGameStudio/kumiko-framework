@@ -4,7 +4,7 @@ export {
   isRealProviderRun,
   REAL_PROVIDERS_ENV,
   requireRealProviders,
-} from "../helpers/real-providers.js";
+} from "../helpers/real-providers.ts";
 export {
   apiCommand,
   apiQuery,

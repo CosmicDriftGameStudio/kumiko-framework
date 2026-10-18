@@ -7,10 +7,10 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers } from "../qualified-names.js";
-import { seedSystemTemplate } from "../seeding.js";
-import { templateResourceEntity } from "../table.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers } from "../qualified-names.ts";
+import { seedSystemTemplate } from "../seeding.ts";
+import { templateResourceEntity } from "../table.ts";
 
 // Runs findTemplateResources against the table template-resolver really
 // builds, so a query that assumes a column the entity does not have fails here.

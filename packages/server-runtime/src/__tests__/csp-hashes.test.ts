@@ -3,10 +3,10 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildProdBundle, collectBuildScriptHashes } from "../build-prod-bundle.js";
-import { CSP_HASHES_FILE, inlineScriptHashes, parseCspHashes } from "../csp-hashes.js";
-import { resolveCspScriptHashes } from "../run-prod-app-static-files.js";
-import { withSecurityHeaders } from "../security-headers.js";
+import { buildProdBundle, collectBuildScriptHashes } from "../build-prod-bundle.ts";
+import { CSP_HASHES_FILE, inlineScriptHashes, parseCspHashes } from "../csp-hashes.ts";
+import { resolveCspScriptHashes } from "../run-prod-app-static-files.ts";
+import { withSecurityHeaders } from "../security-headers.ts";
 
 const sha256Of = (content: string): string =>
   `sha256-${createHash("sha256").update(content, "utf8").digest("base64")}`;

@@ -31,30 +31,30 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory } from "../../config/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { type ConfigResolver, createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory } from "../../config/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { type ConfigResolver, createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
   clearInbox,
   createMailTransportInMemoryFeature,
   getInbox,
-} from "../../mail-transport-inmemory/index.js";
+} from "../../mail-transport-inmemory/index.ts";
 import {
   createMailTransportSmtpFeature,
   SMTP_PASSWORD,
   setSmtpMailHostLookup,
-} from "../../mail-transport-smtp/index.js";
+} from "../../mail-transport-smtp/index.ts";
 import {
   createSecretsContext,
   createSecretsFeature,
   tenantSecretsTable,
-} from "../../secrets/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createMailFoundationFeature, createTransportForTenant } from "../feature.js";
+} from "../../secrets/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createMailFoundationFeature, createTransportForTenant } from "../feature.ts";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { S3ProviderConfig } from "../s3-provider.js";
+import type { S3ProviderConfig } from "../s3-provider.ts";
 import {
   collectPaginatedKeys,
   createS3Provider,
   resolveForcePathStyle,
   resolveVirtualHostedStyle,
-} from "../s3-provider.js";
+} from "../s3-provider.ts";
 
 const baseConfig: S3ProviderConfig = {
   bucket: "b",

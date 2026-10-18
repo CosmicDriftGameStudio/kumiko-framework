@@ -4,11 +4,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { authMiddleware, CSRF_HEADER_NAME } from "../auth-middleware.js";
-import { csrfMiddleware } from "../csrf-middleware.js";
-import { createJwtHelper } from "../jwt.js";
-import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { authMiddleware, CSRF_HEADER_NAME } from "../auth-middleware.ts";
+import { csrfMiddleware } from "../csrf-middleware.ts";
+import { createJwtHelper } from "../jwt.ts";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.ts";
 
 const JWT_SECRET = "csrf-middleware-test-secret-min-32-characters-long";
 const CSRF = "csrf-token-fixed-for-test";

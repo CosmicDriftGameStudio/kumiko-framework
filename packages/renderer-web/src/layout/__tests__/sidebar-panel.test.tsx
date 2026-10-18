@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
-import { SidebarPanel } from "../sidebar-panel.js";
+import { SidebarPanel } from "../sidebar-panel.tsx";
 
 describe("SidebarPanel — tone", () => {
   test("default (nav) keeps the shell's sidebar chrome classes", () => {

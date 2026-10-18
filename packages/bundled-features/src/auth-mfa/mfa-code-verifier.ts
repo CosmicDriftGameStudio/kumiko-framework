@@ -4,8 +4,8 @@ import {
   type HandlerContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { findUserMfaRow } from "./db/queries.js";
-import { verifyMfaFactor } from "./verify-factor.js";
+import { findUserMfaRow } from "./db/queries.ts";
+import { verifyMfaFactor } from "./verify-factor.ts";
 
 export type MfaCodeVerifyResult = { readonly enrolled: boolean; readonly ok: boolean };
 

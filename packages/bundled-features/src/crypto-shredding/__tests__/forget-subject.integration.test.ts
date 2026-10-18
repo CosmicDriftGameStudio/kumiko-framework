@@ -48,23 +48,23 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.js";
-import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/schema/api-token.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { createUserFeature } from "../../user/feature.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { seedUser } from "../../user/seeding.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.ts";
+import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/schema/api-token.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { seedUser } from "../../user/seeding.ts";
 import {
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
   TARGET_TENANT_NOT_ADMIN_TENANT,
-} from "../constants.js";
-import { createCryptoShreddingFeature } from "../feature.js";
+} from "../constants.ts";
+import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 

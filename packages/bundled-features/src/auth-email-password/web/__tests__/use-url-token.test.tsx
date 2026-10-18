@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderHook } from "@testing-library/react";
-import { useUrlToken } from "../auth-form-primitives.js";
+import { useUrlToken } from "../auth-form-primitives.tsx";
 
 // #774: magic-link tokens must not linger in browser history / Referer.
 // useUrlToken reads the token once, then scrubs the param via replaceState.

@@ -13,9 +13,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { EmptyState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
-import { lastSlugSegment, parseJsonRecord, uniqueResourceKey } from "./mail-draft.js";
-import type { TemplateRowSummary, TemplateRowView } from "./mail-types.js";
-import type { OverviewRowView } from "./overview-row.js";
+import { lastSlugSegment, parseJsonRecord, uniqueResourceKey } from "./mail-draft.ts";
+import type { TemplateRowSummary, TemplateRowView } from "./mail-types.ts";
+import type { OverviewRowView } from "./overview-row.ts";
 
 function pdfRowIdOf(summaries: readonly TemplateRowSummary[] | null, slug: string): string | null {
   const ofSlug = (summaries ?? []).filter((row) => row.slug === slug);

@@ -6,22 +6,22 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
+import { asRawClient } from "../../db/query.ts";
 import {
   createDateField,
   createEntity,
   createNumberField,
   createTextField,
   SYSTEM_TENANT_ID,
-} from "../../engine/index.js";
-import { UnprocessableError } from "../../errors/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { encodeCursor } from "../cursor.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
-import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
+} from "../../engine/index.ts";
+import { UnprocessableError } from "../../errors/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { encodeCursor } from "../cursor.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const entity = createEntity({
   table: "read_pager_items",

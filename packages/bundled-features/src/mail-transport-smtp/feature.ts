@@ -50,8 +50,8 @@ import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secr
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { SMTP_CONFIG_KEYS } from "./config-keys.js";
-import { MAIL_TRANSPORT_SMTP_I18N } from "./i18n.js";
+import { SMTP_CONFIG_KEYS } from "./config-keys.ts";
+import { MAIL_TRANSPORT_SMTP_I18N } from "./i18n.ts";
 
 const FEATURE_NAME = "mail-transport-smtp";
 

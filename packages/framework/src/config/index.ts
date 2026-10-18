@@ -1,7 +1,7 @@
 // The app's single config file (kumiko.config.ts). Type-only imports keep it
 // loadable by tooling (kumiko check, agent lint, port registry) without
 // pulling the engine runtime.
-import type { FeatureDefinition } from "../engine/types/index.js";
+import type { FeatureDefinition } from "../engine/types/index.ts";
 
 export type AppInfraPorts = {
   readonly postgres?: number;

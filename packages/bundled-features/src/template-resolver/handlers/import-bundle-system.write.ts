@@ -1,8 +1,8 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { templateBundleSchema } from "../template-bundle.js";
-import { importTemplateBundle, prepareTemplateBundleBeforeTransaction } from "./bundle-import.js";
+import { templateBundleSchema } from "../template-bundle.ts";
+import { importTemplateBundle, prepareTemplateBundleBeforeTransaction } from "./bundle-import.ts";
 
 export const importBundleSystemWrite = defineWriteHandler({
   name: "import-bundle-system",

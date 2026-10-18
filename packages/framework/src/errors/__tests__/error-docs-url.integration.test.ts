@@ -2,9 +2,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/define-feature.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { UnprocessableError, writeFailure } from "../index.js";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { UnprocessableError, writeFailure } from "../index.ts";
 
 const APP_REASON = "order_locked";
 

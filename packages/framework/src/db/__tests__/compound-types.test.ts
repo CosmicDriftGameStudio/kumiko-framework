@@ -11,9 +11,9 @@ import {
   createLocatedTimestampField,
   createMoneyField,
   createTextField,
-} from "../../engine/index.js";
-import type { EntityDefinition } from "../../engine/types/index.js";
-import { flattenCompoundTypes, rehydrateCompoundTypes } from "../compound-types.js";
+} from "../../engine/index.ts";
+import type { EntityDefinition } from "../../engine/types/index.ts";
+import { flattenCompoundTypes, rehydrateCompoundTypes } from "../compound-types.ts";
 
 const mixedEntity: EntityDefinition = createEntity({
   defaultCurrency: "EUR",

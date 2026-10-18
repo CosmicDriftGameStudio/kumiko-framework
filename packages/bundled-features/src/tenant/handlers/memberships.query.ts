@@ -3,9 +3,9 @@ import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/e
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptTenantNames } from "../decrypt-tenant-names.js";
-import { tenantMembershipsTable } from "../membership-table.js";
-import { tenantTable } from "../schema/tenant.js";
+import { decryptTenantNames } from "../decrypt-tenant-names.ts";
+import { tenantMembershipsTable } from "../membership-table.ts";
+import { tenantTable } from "../schema/tenant.ts";
 
 export const membershipsQuery = defineQueryHandler({
   name: "memberships",

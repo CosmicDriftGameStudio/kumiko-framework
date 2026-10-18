@@ -35,22 +35,22 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory } from "../../config/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runExportJobs } from "../run-export-jobs.js";
-import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.js";
-import { exportJobEntity, exportJobsTable } from "../schema/export-job.js";
+} from "../../compliance-profiles/index.ts";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory } from "../../config/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runExportJobs } from "../run-export-jobs.ts";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.ts";
+import { exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;

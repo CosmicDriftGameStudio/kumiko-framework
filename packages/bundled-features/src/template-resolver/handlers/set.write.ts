@@ -6,13 +6,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import { TEMPLATE_KINDS, TEXT_BLOCK_KIND, UPSERT_KINDS } from "../constants.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { resolveTemplateVariables } from "../template-validation.js";
-import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared.js";
-import { parseStoredJson, storedRecord } from "./template-gates.js";
-import { gateTemplateWrite } from "./template-write.js";
+import { requireForTenant } from "../../shared/index.ts";
+import { TEMPLATE_KINDS, TEXT_BLOCK_KIND, UPSERT_KINDS } from "../constants.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { resolveTemplateVariables } from "../template-validation.ts";
+import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared.ts";
+import { parseStoredJson, storedRecord } from "./template-gates.ts";
+import { gateTemplateWrite } from "./template-write.ts";
 
 // Upsert of a single resource, one operation per (tenantId, slug, kind,
 // locale). This is the content-tree authoring path: unlike upsertTenant it

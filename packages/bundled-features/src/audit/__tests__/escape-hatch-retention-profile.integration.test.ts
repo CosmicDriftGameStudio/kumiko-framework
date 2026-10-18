@@ -18,18 +18,18 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { ESCAPE_HATCH_RETENTION_DAYS_KEY } from "../constants.js";
+} from "../../compliance-profiles/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { ESCAPE_HATCH_RETENTION_DAYS_KEY } from "../constants.ts";
 import {
   ESCAPE_HATCH_USE_AGGREGATE_TYPE,
   ESCAPE_HATCH_USED_EVENT,
-} from "../escape-hatch-audit-sink.js";
-import { createAuditFeature } from "../feature.js";
-import { runEscapeHatchRetention } from "../run-escape-hatch-retention.js";
+} from "../escape-hatch-audit-sink.ts";
+import { createAuditFeature } from "../feature.ts";
+import { runEscapeHatchRetention } from "../run-escape-hatch-retention.ts";
 
 const RETENTION_JOB = "audit:job:escape-hatch-retention";
 const SET_PROFILE = "compliance-profiles:write:set-profile";

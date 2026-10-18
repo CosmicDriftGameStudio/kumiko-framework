@@ -1,6 +1,6 @@
 import type * as z from "zod";
 import type { ZodType } from "zod";
-import type { KumikoEventTypeMap } from "./event-type-map.js";
+import type { KumikoEventTypeMap } from "./event-type-map.ts";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -14,8 +14,8 @@ import type {
   RateLimitDeclaration,
   WriteHandlerTransactionMode,
   WriteResult,
-} from "./handlers.js";
-import type { PipelineDef } from "./step.js";
+} from "./handlers.ts";
+import type { PipelineDef } from "./step.ts";
 
 // --- Write Handler Definition ---
 //

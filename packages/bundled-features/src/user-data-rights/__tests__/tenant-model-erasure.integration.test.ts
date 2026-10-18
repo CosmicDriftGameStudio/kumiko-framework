@@ -42,23 +42,23 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { buildEnvConfigOverrides, createConfigResolver } from "../../config/resolver.js";
-import { configValueEntity } from "../../config/table.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { buildEnvConfigOverrides, createConfigResolver } from "../../config/resolver.ts";
+import { configValueEntity } from "../../config/table.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { createUserFeature, userEntity } from "../../user/index.js";
-import { TENANT_MODEL_CONFIG_KEY } from "../constants.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { resolveAppTenantModel } from "../lib/resolve-tenant-model.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
-import { createForgetSeeders, nowInstant } from "./forget-test-helpers.js";
+} from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { createUserFeature, userEntity } from "../../user/index.ts";
+import { TENANT_MODEL_CONFIG_KEY } from "../constants.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { resolveAppTenantModel } from "../lib/resolve-tenant-model.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000000c1";
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000c1";

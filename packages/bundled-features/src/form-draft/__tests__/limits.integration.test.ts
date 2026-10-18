@@ -11,14 +11,14 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
+import { createConfigFeature } from "../../config/index.ts";
 import {
   FORM_DRAFT_MAX_PER_OWNER,
   FORM_DRAFT_VALUES_MAX_BYTES,
   FormDraftHandlers,
-} from "../constants.js";
-import { formDraftEntity } from "../entity.js";
-import { createFormDraftFeature } from "../feature.js";
+} from "../constants.ts";
+import { formDraftEntity } from "../entity.ts";
+import { createFormDraftFeature } from "../feature.ts";
 
 let stack: TestStack;
 

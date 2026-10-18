@@ -1,7 +1,7 @@
 import { extractTableInfo, isTimestamptzType } from "@cosmicdrift/kumiko-framework/db";
-import { METRIC_RANGES } from "./constants.js";
-import { filterValueKindOf, metricFilterEntries, RESERVED_PAYLOAD_KEYS } from "./filters.js";
-import type { MetricDefinition } from "./types.js";
+import { METRIC_RANGES } from "./constants.ts";
+import { filterValueKindOf, metricFilterEntries, RESERVED_PAYLOAD_KEYS } from "./filters.ts";
+import type { MetricDefinition } from "./types.ts";
 
 const KEBAB_ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const FILTER_PAYLOAD_KEY = /^[a-z][a-zA-Z0-9]*$/;

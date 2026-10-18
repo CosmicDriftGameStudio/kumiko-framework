@@ -27,12 +27,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { loadAggregate } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { loadAggregate } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const TAE_AGGREGATE_TYPE = "taeDoc";
 

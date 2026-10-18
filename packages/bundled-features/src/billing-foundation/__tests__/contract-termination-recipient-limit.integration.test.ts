@@ -18,40 +18,40 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Redis } from "ioredis";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferenceEntity } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverApi } from "../../template-resolver/api.js";
-import { TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { seedNotificationTemplates } from "../../template-resolver/seeding.js";
-import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity } from "../../user/schema/user.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferenceEntity } from "../../delivery/tables.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverApi } from "../../template-resolver/api.ts";
+import { TEXT_BLOCK_KIND } from "../../template-resolver/constants.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
+import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity } from "../../user/schema/user.ts";
 import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-} from "../constants.js";
-import { createBillingFoundationFeature } from "../feature.js";
+} from "../constants.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
 import type {
   BillingPlanCatalog,
   ConsumerProtectionOptions,
   SubscriptionEvent,
   SubscriptionProviderPlugin,
-} from "../types.js";
-import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
+} from "../types.ts";
+import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 const PROVIDER = "mock-recipient-limit-provider";
 const TERMS_SLUG = "billing-terms";

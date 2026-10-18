@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { NotifyOptions } from "../../engine/types/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { AfterCommitHook } from "../dispatcher-utils.js";
-import { createDeferringNotify } from "../notify-scope.js";
+import type { NotifyOptions } from "../../engine/types/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { AfterCommitHook } from "../dispatcher-utils.ts";
+import { createDeferringNotify } from "../notify-scope.ts";
 
 describe("createDeferringNotify", () => {
   test("delivers the options as they were at call time, not as the handler mutated them later", async () => {

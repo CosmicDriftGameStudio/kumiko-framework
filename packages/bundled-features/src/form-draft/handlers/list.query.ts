@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { FORM_DRAFT_ACCESS } from "../constants.js";
-import { listDraftsByScreen } from "../lookup.js";
-import { listDraftsPayloadSchema } from "../schemas.js";
+import { FORM_DRAFT_ACCESS } from "../constants.ts";
+import { listDraftsByScreen } from "../lookup.ts";
+import { listDraftsPayloadSchema } from "../schemas.ts";
 
 export type ListDraftsResult = {
   readonly drafts: readonly {

@@ -11,9 +11,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { type OverviewRowView, parseOverviewRow } from "./overview-row.js";
-import { statusLabel, statusTone } from "./status-label.js";
-import { templateTitle, usedByLabel } from "./used-by-label.js";
+import { type OverviewRowView, parseOverviewRow } from "./overview-row.ts";
+import { statusLabel, statusTone } from "./status-label.ts";
+import { templateTitle, usedByLabel } from "./used-by-label.ts";
 
 const EMPTY_MARK = "–";
 

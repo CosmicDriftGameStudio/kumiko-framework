@@ -10,7 +10,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { type CallExpression, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
-import { collectSourceFiles } from "./collect-source-files.js";
+import { collectSourceFiles } from "./collect-source-files.ts";
 
 export interface TenantDbOptionsSite {
   readonly file: string;

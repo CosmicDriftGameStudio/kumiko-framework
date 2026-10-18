@@ -9,7 +9,7 @@
 // writes that bypass that path: migrations, seeds, direct DB edits) keep
 // serving the old value, hence the short default.
 
-import type { TenantId } from "../engine/types/identifiers.js";
+import type { TenantId } from "../engine/types/identifiers.ts";
 
 const DEFAULT_TTL_MS = 30 * 1000;
 const DEFAULT_MAX_ENTRIES = 1000;

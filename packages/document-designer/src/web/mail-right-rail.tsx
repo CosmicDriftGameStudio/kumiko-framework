@@ -14,13 +14,13 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";
-import { DEFAULT_LAYOUT_SLUG, TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.js";
-import type { EditorVocabulary } from "./mail-edit-center.js";
-import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.js";
-import type { OverviewRowView } from "./overview-row.js";
-import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
-import type { InsertTargets } from "./use-insert-targets.js";
-import { usageParts } from "./used-by-label.js";
+import { DEFAULT_LAYOUT_SLUG, TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.ts";
+import type { EditorVocabulary } from "./mail-edit-center.tsx";
+import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.ts";
+import type { OverviewRowView } from "./overview-row.ts";
+import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
+import type { InsertTargets } from "./use-insert-targets.ts";
+import { usageParts } from "./used-by-label.ts";
 
 type Usage = {
   readonly feature: string;

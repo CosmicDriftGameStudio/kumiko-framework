@@ -3,7 +3,7 @@ import {
   parseQn,
   type Registry,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_MAIL_LAYOUT_SLUG, type TemplateKind } from "./constants.js";
+import { DEFAULT_MAIL_LAYOUT_SLUG, type TemplateKind } from "./constants.ts";
 
 type UsageRole = "template" | "layout";
 

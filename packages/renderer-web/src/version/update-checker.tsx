@@ -11,7 +11,7 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn.ts";
 
 // Build that was active at page load, baked into index.html by the prod build
 // as <meta name="kumiko-build"> (build-prod-bundle injectAssetTags). Missing in

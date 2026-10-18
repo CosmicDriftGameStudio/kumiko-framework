@@ -5,7 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { RenderEdit } from "@cosmicdrift/kumiko-renderer";
 import { act } from "react";
-import { fireEvent, render, screen } from "./test-utils.js";
+import { fireEvent, render, screen } from "./test-utils.tsx";
 
 const monitorEntity = {
   fields: {

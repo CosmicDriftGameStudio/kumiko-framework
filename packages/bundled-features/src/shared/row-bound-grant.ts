@@ -32,7 +32,7 @@
 
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { peekTokenSubject, signToken, verifyToken } from "./signed-token.js";
+import { peekTokenSubject, signToken, verifyToken } from "./signed-token.ts";
 
 export type RowBoundGrantResult =
   | { readonly ok: true; readonly subject: string; readonly expiresAtMs: number }

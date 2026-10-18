@@ -10,13 +10,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
-import { parseSourceFile } from "../parse.js";
-import { indent, renderFeatureFile, renderPattern } from "../render.js";
+import { parseSourceFile } from "../parse.ts";
+import { indent, renderFeatureFile, renderPattern } from "../render.ts";
 import {
   DEFINE_EVENT_WITH_MIGRATIONS_FEATURE,
   parse,
   STATIC_FEATURE,
-} from "./render-roundtrip-fixtures.js";
+} from "./render-roundtrip-fixtures.ts";
 
 // Strip SourceLocation fields recursively for equality checks.
 //   - `source` (the whole-call location) is dropped entirely — its `.raw`

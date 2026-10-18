@@ -1,6 +1,6 @@
 // @runtime dev
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { requireEnv } from "./db.js";
+import { requireEnv } from "./db.ts";
 
 export type TestRedis = {
   redis: import("ioredis").Redis;

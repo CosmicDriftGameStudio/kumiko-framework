@@ -1,8 +1,8 @@
 // @runtime client
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { AUDIT_FEATURE } from "../constants.js";
-import { defaultTranslations } from "./i18n.js";
+import { AUDIT_FEATURE } from "../constants.ts";
+import { defaultTranslations } from "./i18n.ts";
 
 export type AuditClientOptions = {
   readonly translations?: TranslationsByLocale;

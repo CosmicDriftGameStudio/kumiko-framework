@@ -1,9 +1,9 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { draftViewerTenantId, isHiddenSystemDraft, toWorkingRow } from "../template-draft.js";
-import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.js";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { draftViewerTenantId, isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
+import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 
 // Admin-Lookup für UI-Edit-Flow. Returnt das raw Template inkl. draft/
 // archived Status. Tenant-Isolation: User sieht nur Templates des

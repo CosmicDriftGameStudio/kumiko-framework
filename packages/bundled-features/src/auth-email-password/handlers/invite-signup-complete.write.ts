@@ -32,35 +32,35 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, registrationLocaleFromRequest } from "../../shared/index.js";
+import { decryptStoredPii, registrationLocaleFromRequest } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table.js";
+} from "../../tenant/invitation-table.ts";
 // kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
 import {
   findForbiddenMembershipRole,
   reservedMembershipRoleError,
-} from "../../tenant/membership-roles.js";
+} from "../../tenant/membership-roles.ts";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
-import { seedTenantMembership } from "../../tenant/seeding.js";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
-import { parseInvitedGlobalRoles } from "../../user/invited-global-roles.js";
+import { parseInvitedGlobalRoles } from "../../user/invited-global-roles.ts";
 // kumiko-lint-ignore cross-feature-import existence-check
-import { userTable } from "../../user/schema/user.js";
-import { invalidInviteToken } from "../errors.js";
+import { userTable } from "../../user/schema/user.ts";
+import { invalidInviteToken } from "../errors.ts";
 import {
   burnInviteToken,
   deleteInviteToken,
   getInvitationIdForToken,
   unburnInviteToken,
-} from "../invite-token-store.js";
-import { passwordSchema } from "../password-policy.js";
+} from "../invite-token-store.ts";
+import { passwordSchema } from "../password-policy.ts";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
-import { seedUserWithPassword } from "../seeding.js";
-import { gateEnforceMfa, type LoginHandlerOptions, type LoginResult } from "./login.write.js";
+import { seedUserWithPassword } from "../seeding.ts";
+import { gateEnforceMfa, type LoginHandlerOptions, type LoginResult } from "./login.write.ts";
 
 const InviteSignupCompleteSchema = z.object({
   token: z.string().min(1),

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { createRef } from "react";
-import { defaultPrimitives } from "../index.js";
+import { defaultPrimitives } from "../index.tsx";
 
 const { Button } = defaultPrimitives;
 

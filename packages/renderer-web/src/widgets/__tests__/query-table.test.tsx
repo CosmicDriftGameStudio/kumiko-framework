@@ -8,8 +8,8 @@ import {
   render,
   screen,
   waitFor,
-} from "../../__tests__/test-utils.js";
-import { QueryTable } from "../query-table.js";
+} from "../../__tests__/test-utils.tsx";
+import { QueryTable } from "../query-table.tsx";
 
 function renderWithDispatcher(ui: ReactNode, dispatcher: Dispatcher) {
   return render(<DispatcherProvider dispatcher={dispatcher}>{ui}</DispatcherProvider>);

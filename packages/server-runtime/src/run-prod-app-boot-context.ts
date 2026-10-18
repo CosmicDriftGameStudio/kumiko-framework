@@ -53,14 +53,14 @@ import {
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
-import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto.js";
+import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto.ts";
 import type {
   AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
   PasswordResetSetup,
   SignupSetup,
-} from "./run-prod-app.js";
+} from "./run-prod-app.ts";
 
 // Boot-time context helpers for runProdApp: ctx-extra-context wiring
 // (templateResolver/delivery/secrets/config-resolver), auth-mail convenience

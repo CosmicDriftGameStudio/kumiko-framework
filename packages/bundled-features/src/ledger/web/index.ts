@@ -17,7 +17,7 @@ export {
   type ScheduleInterval,
   TRANSACTION_STATUS,
   type TransactionStatus,
-} from "../constants.js";
+} from "../constants.ts";
 export {
   type LedgerTxRow,
   mergeScheduleActuals,
@@ -27,10 +27,10 @@ export {
   type ScheduleMonth,
   type ScheduleMonthStatus,
   scheduleReference,
-} from "../recurring.js";
+} from "../recurring.ts";
 export {
   type ConfirmSchedulePeriodPayload,
   confirmSchedulePeriodPayloadSchema,
   type Posting,
   postingSchema,
-} from "../schemas.js";
+} from "../schemas.ts";

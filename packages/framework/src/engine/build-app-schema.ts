@@ -34,17 +34,17 @@ import type {
   ProjectionListScreenDefinition,
   ScreenDefinition,
   WorkspaceSchema,
-} from "../ui-types/index.js";
-import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields.js";
+} from "../ui-types/index.ts";
+import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields.ts";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
-} from "./build-config-feature-schema.js";
-import { isEncryptedAtRest } from "./config-helpers.js";
-import { QnTypes, qualifyEntityName } from "./qualified-name.js";
-import type { Registry } from "./types/feature.js";
-import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields.js";
+} from "./build-config-feature-schema.ts";
+import { isEncryptedAtRest } from "./config-helpers.ts";
+import { QnTypes, qualifyEntityName } from "./qualified-name.ts";
+import type { Registry } from "./types/feature.ts";
+import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields.ts";
 
 export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only

@@ -1,4 +1,4 @@
-import type { Registry } from "../engine/types/index.js";
+import type { Registry } from "../engine/types/index.ts";
 
 // A WeakMap rather than a process-global registry: test files boot several
 // stacks in one process, each with its own Registry. Keys are TenantDbs and

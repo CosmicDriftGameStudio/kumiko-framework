@@ -11,9 +11,9 @@
 // einem Pass. Beim Hinzufügen eines neuen Compound-Types nur EINE Stelle
 // erweitern (das Array hier), nicht alle Executor-Aufrufe.
 
-import type { EntityDefinition } from "../engine/types/index.js";
-import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.js";
-import { flattenMoney, rehydrateMoney } from "./money.js";
+import type { EntityDefinition } from "../engine/types/index.ts";
+import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.ts";
+import { flattenMoney, rehydrateMoney } from "./money.ts";
 
 type Converter = (
   payload: Record<string, unknown>,

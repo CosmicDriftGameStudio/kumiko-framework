@@ -5,9 +5,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
-import { defineFeature } from "../../engine/index.js";
-import { createTestUser } from "../../seeding/seed-users.js";
+import { defineUnmanagedTable } from "../../db/entity-table-meta.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { createTestUser } from "../../seeding/seed-users.ts";
 
 const globalStoreTable = defineUnmanagedTable({
   tableName: "store_fw2855_escape_hatch_items",

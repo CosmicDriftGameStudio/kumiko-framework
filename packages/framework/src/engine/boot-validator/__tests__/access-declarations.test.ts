@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../define-feature.js";
-import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../../escape-hatch-reason.js";
-import { createEntity, createTextField } from "../../factories.js";
-import { from } from "../../ownership.js";
-import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder.js";
+import { defineFeature } from "../../define-feature.ts";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../../escape-hatch-reason.ts";
+import { createEntity, createTextField } from "../../factories.ts";
+import { from } from "../../ownership.ts";
+import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder.ts";
 import type {
   AccessRule,
   EntityDefinition,
   OwnershipMap,
   WriteHandlerDef,
-} from "../../types/index.js";
-import { validateAccessDeclarations } from "../access-declarations.js";
+} from "../../types/index.ts";
+import { validateAccessDeclarations } from "../access-declarations.ts";
 
 const noteEntity = createEntity({
   table: "fw2855_guard_notes",

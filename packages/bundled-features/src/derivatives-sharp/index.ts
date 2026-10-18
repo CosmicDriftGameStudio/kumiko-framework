@@ -1,2 +1,2 @@
-export { createDerivativesSharpFeature } from "./feature.js";
-export { imageMetadata } from "./render.js";
+export { createDerivativesSharpFeature } from "./feature.ts";
+export { imageMetadata } from "./render.ts";

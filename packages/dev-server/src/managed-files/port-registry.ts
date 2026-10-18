@@ -8,7 +8,7 @@ import {
   type AppPortRole,
   listAppPorts,
 } from "@cosmicdrift/kumiko-framework/config";
-import { readStaticAppConfig, type StaticAppConfig } from "./static-app-config.js";
+import { readStaticAppConfig, type StaticAppConfig } from "./static-app-config.ts";
 
 export type ScannedApp = { readonly app: string; readonly config: StaticAppConfig };
 

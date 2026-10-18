@@ -1,9 +1,9 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { TemplateResolverErrors } from "../qualified-names.js";
-import { executor } from "./shared.js";
-import { loadTargetRow, type StatusTarget, writeAccessFor } from "./toggle-status.write.js";
+import { TemplateResolverErrors } from "../qualified-names.ts";
+import { executor } from "./shared.ts";
+import { loadTargetRow, type StatusTarget, writeAccessFor } from "./toggle-status.write.ts";
 
 function createDiscardDraftHandler(name: string, target: StatusTarget, description: string) {
   return defineWriteHandler({

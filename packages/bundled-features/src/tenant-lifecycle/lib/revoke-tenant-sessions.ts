@@ -2,7 +2,7 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { userSessionTable } from "../../sessions/index.js";
+import { userSessionTable } from "../../sessions/index.ts";
 
 /** Revoke all live sessions scoped to a tenant (destruction-request gate). */
 export async function revokeTenantSessions(db: DbRunner, tenantId: TenantId): Promise<number> {

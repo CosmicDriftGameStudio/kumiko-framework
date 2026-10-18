@@ -8,13 +8,13 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.js";
-import { insertOne, selectMany } from "../../db/query.js";
-import { defineFeature } from "../../engine/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
-import { createFilesFeature } from "../feature.js";
-import { fileRefsTable } from "../file-ref-table.js";
-import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
+import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
+import { insertOne, selectMany } from "../../db/query.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { createFilesFeature } from "../feature.ts";
+import { fileRefsTable } from "../file-ref-table.ts";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.ts";
 
 const uploadLogTable = pgTable("read_fupload_log", {
   fileRefId: pgUuid("file_ref_id").primaryKey(),

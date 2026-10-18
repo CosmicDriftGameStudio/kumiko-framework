@@ -2,7 +2,7 @@ import type { ListColumnFileDisplay } from "@cosmicdrift/kumiko-headless";
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { ImageIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn.ts";
 
 // Stored values are untrusted: only UUIDs reach a request, and path segments are
 // encoded so an id like "../x" or "a?b" cannot redirect the request.

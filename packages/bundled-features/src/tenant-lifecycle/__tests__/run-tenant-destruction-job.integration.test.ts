@@ -17,13 +17,13 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantTable } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../feature.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../feature.ts";
 
 const JOB = "tenant-lifecycle:job:run-tenant-destruction";
 const DUE_TENANT = testTenantId(9101) as TenantId;

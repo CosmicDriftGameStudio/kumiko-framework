@@ -1,5 +1,5 @@
 import { access, defineEntityDetailHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { exportJobEntity } from "../schema/export-job.js";
+import { exportJobEntity } from "../schema/export-job.ts";
 
 // Detail fetch backing the read-only export-job inspector screen.
 export const exportJobDetailQuery = defineEntityDetailHandler("export-job", exportJobEntity, {

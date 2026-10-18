@@ -1,6 +1,6 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { userSessionTable } from "../../sessions/index.js";
-import { featureMounted } from "./feature-mounted.js";
+import { userSessionTable } from "../../sessions/index.ts";
+import { featureMounted } from "./feature-mounted.ts";
 
 // userData-Hooks for the sessions feature's user-session rows (ip, userAgent).
 //

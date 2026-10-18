@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
-import type { ActionMenuItemSpec, usePrimitives } from "../primitives.js";
-import { needsActionConfirm, RenderEditActionConfirmDialog } from "./render-edit-action-button.js";
-import type { RenderEditAction } from "./render-edit-types.js";
+import type { ActionMenuItemSpec, usePrimitives } from "../primitives.tsx";
+import { needsActionConfirm, RenderEditActionConfirmDialog } from "./render-edit-action-button.tsx";
+import type { RenderEditAction } from "./render-edit-types.ts";
 
 // A menu item has no button of its own to carry RenderEditActionButton's busy
 // and confirm state, so this hook owns both for every item it creates.

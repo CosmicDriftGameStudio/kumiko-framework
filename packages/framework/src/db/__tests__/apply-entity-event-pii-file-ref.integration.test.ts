@@ -9,18 +9,18 @@ import {
   configurePiiSubjectKms,
   encryptPiiValueForSubject,
   InMemoryKmsAdapter,
-} from "../../crypto/index.js";
-import { createEntity, createFileField, defineFeature } from "../../engine/index.js";
-import { createRegistry } from "../../engine/registry.js";
-import { append } from "../../event-store/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { createProjectionStateTable } from "../../pipeline/projection-state.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { generateId } from "../../utils/index.js";
-import { selectMany } from "../query.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTestDb, type TestDb } from "./query/bun-test-db.js";
+} from "../../crypto/index.ts";
+import { createEntity, createFileField, defineFeature } from "../../engine/index.ts";
+import { createRegistry } from "../../engine/registry.ts";
+import { append } from "../../event-store/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { createProjectionStateTable } from "../../pipeline/projection-state.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { generateId } from "../../utils/index.ts";
+import { selectMany } from "../query.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTestDb, type TestDb } from "./query/bun-test-db.ts";
 
 const adminUser = TestUsers.admin;
 const FIRST_FILE_REF = "11111111-1111-4111-8111-111111111111";

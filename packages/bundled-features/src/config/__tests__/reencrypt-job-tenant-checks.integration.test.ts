@@ -37,10 +37,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../feature.js";
-import { reencryptJob } from "../handlers/reencrypt.job.js";
-import { createConfigResolver } from "../resolver.js";
-import { configValueEntity, configValuesTable } from "../table.js";
+import { createConfigFeature } from "../feature.ts";
+import { reencryptJob } from "../handlers/reencrypt.job.ts";
+import { createConfigResolver } from "../resolver.ts";
+import { configValueEntity, configValuesTable } from "../table.ts";
 
 const KEY = "tenant-check-rot:config:secret-pass";
 const TENANT_A = testTenantId(201);

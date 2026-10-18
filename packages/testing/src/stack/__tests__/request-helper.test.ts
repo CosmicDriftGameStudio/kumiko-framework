@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { JwtHelper } from "@cosmicdrift/kumiko-framework/api";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { Hono } from "hono";
-import { createRequestHelper } from "../request-helper.js";
+import { createRequestHelper } from "../request-helper.ts";
 
 const user: SessionUser = {
   id: "u1",

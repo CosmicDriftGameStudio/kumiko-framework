@@ -1,8 +1,8 @@
-import { toSnakeCase } from "../utils/case.js";
-import type { FieldIssue } from "./field-issue.js";
-import { type ErrorOpts, KumikoError } from "./kumiko-error.js";
+import { toSnakeCase } from "../utils/case.ts";
+import type { FieldIssue } from "./field-issue.ts";
+import { type ErrorOpts, KumikoError } from "./kumiko-error.ts";
 
-export type { FieldIssue } from "./field-issue.js";
+export type { FieldIssue } from "./field-issue.ts";
 
 export type ValidationDetails = {
   readonly fields: readonly FieldIssue[];

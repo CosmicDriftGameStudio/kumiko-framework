@@ -1,4 +1,4 @@
-import { normalizeMimeType, sniffMimeType } from "./types.js";
+import { normalizeMimeType, sniffMimeType } from "./types.ts";
 
 const OCTET_STREAM = "application/octet-stream";
 const GENERIC_MIME_TYPES: ReadonlySet<string> = new Set(["", OCTET_STREAM, "binary/octet-stream"]);

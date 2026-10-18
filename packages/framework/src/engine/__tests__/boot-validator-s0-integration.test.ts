@@ -15,16 +15,16 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";
-import { ROLES } from "../../auth/index.js";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
+import { ROLES } from "../../auth/index.ts";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
 import {
   createEntity,
   createLongTextField,
   createTextField,
   createTimestampField,
   EXT_USER_DATA,
-} from "../index.js";
+} from "../index.ts";
 
 describe("S0 Integration — full surface stack", () => {
   let warnSpy: ReturnType<typeof spyOn>;

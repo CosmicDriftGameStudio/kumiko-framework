@@ -11,13 +11,13 @@
 // rejected by boot-validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
-import { extractTableName } from "../../db/index.js";
-import { executeRawQuery } from "../../db/queries/raw-sql.js";
-import { columnSqlNameOf } from "../../db/table-introspection.js";
-import { tenantDbWriteRunner } from "../../db/tenant-db-runner.js";
-import { defineStep } from "../define-step.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { resolveRequired } from "./_resolver-utils.js";
+import { extractTableName } from "../../db/index.ts";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
+import { columnSqlNameOf } from "../../db/table-introspection.ts";
+import { tenantDbWriteRunner } from "../../db/tenant-db-runner.ts";
+import { defineStep } from "../define-step.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { resolveRequired } from "./_resolver-utils.ts";
 
 type UnsafeProjectionUpsertArgs = {
   readonly table: unknown;

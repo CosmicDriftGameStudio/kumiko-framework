@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LOCALES } from "@cosmicdrift/kumiko-framework/engine";
-import { buildTenantSettingsKeys } from "../config.js";
+import { buildTenantSettingsKeys } from "../config.ts";
 
 describe("buildTenantSettingsKeys — locale", () => {
   test("defaults to a select field with the engine's DEFAULT_LOCALES", () => {

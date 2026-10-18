@@ -14,22 +14,22 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { createSessionsFeature } from "../feature.js";
-import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
-import { sessionCallbacksFromLateBound } from "../testing.js";
-import { makeSessionHelpers } from "./test-helpers.js";
+import { AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { createSessionsFeature } from "../feature.ts";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.ts";
+import { sessionCallbacksFromLateBound } from "../testing.ts";
+import { makeSessionHelpers } from "./test-helpers.ts";
 
 // When a user changes their password, every live session for that user must
 // stop working — the industry-standard "signs you out everywhere" rule.

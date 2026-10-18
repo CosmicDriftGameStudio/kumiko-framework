@@ -22,11 +22,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.js";
-import { createAuditFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.ts";
+import { createAuditFeature } from "../feature.ts";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",

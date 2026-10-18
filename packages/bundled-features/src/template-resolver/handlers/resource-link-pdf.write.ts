@@ -1,7 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { linkTemplatePdfAttachment } from "../store-template-resource.js";
-import { resourceKeySchema, resourceTargetTenantId } from "./resource-shared.js";
+import { linkTemplatePdfAttachment } from "../store-template-resource.ts";
+import { resourceKeySchema, resourceTargetTenantId } from "./resource-shared.ts";
 
 export const resourceLinkPdfWrite = defineWriteHandler({
   name: "resource-link-pdf",

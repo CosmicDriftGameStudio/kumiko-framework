@@ -19,7 +19,7 @@ mock.module("nodemailer", () => ({
   },
 }));
 
-const { createSmtpTransport } = await import("../smtp-transport.js");
+const { createSmtpTransport } = await import("../smtp-transport.ts");
 
 afterAll(() => {
   mock.module("nodemailer", () => realNodemailer);

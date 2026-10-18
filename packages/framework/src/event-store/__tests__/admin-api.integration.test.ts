@@ -11,13 +11,13 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
-import type { DbConnection } from "../../db/connection.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { generateId as uuid } from "../../utils/index.js";
-import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api.js";
-import { IdempotentAppendConflictError, VersionConflictError } from "../errors.js";
-import { append, loadAggregate } from "../event-store.js";
-import { eventsTable } from "../events-schema.js";
+import type { DbConnection } from "../../db/connection.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { generateId as uuid } from "../../utils/index.ts";
+import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api.ts";
+import { IdempotentAppendConflictError, VersionConflictError } from "../errors.ts";
+import { append, loadAggregate } from "../event-store.ts";
+import { eventsTable } from "../events-schema.ts";
 
 // Test-only spy: wrap a DbConnection's `.unsafe()` to capture the SQL
 // string of every query the framework runs. Used to assert batching

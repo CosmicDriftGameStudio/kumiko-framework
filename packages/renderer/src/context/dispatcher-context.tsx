@@ -1,7 +1,7 @@
 import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext, useState } from "react";
-import { useStore } from "../hooks/use-store.js";
-import { createQueryPools, type QueryPools } from "./query-pool.js";
+import { useStore } from "../hooks/use-store.ts";
+import { createQueryPools, type QueryPools } from "./query-pool.ts";
 
 // React Context threading the Dispatcher through the tree. An app
 // wraps its root in <DispatcherProvider dispatcher={createLiveDispatcher()}>

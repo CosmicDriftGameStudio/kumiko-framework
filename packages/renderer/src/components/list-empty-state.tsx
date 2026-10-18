@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
-import { usePrimitives } from "../primitives.js";
-import { RenderEditActionButton } from "./render-edit-action-button.js";
-import type { RenderEditAction } from "./render-edit-types.js";
+import { usePrimitives } from "../primitives.tsx";
+import { RenderEditActionButton } from "./render-edit-action-button.tsx";
+import type { RenderEditAction } from "./render-edit-types.ts";
 
 export type ListEmptyStateContent = {
   readonly title: string;

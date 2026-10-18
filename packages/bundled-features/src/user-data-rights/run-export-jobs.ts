@@ -68,14 +68,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resolveProfileForTenant } from "../compliance-profiles/index.js";
-import { decryptStoredPii } from "../shared/index.js";
-import { userTable } from "../user/index.js";
-import { selectExportJobsForStorageCleanup } from "./db/queries/export-jobs.js";
-import { runUserExport, type UserExportBundle } from "./run-user-export.js";
-import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token.js";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job.js";
-import { generateDownloadToken } from "./token-helpers.js";
+import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
+import { decryptStoredPii } from "../shared/index.ts";
+import { userTable } from "../user/index.ts";
+import { selectExportJobsForStorageCleanup } from "./db/queries/export-jobs.ts";
+import { runUserExport, type UserExportBundle } from "./run-user-export.ts";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token.ts";
+import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job.ts";
+import { generateDownloadToken } from "./token-helpers.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

@@ -60,31 +60,31 @@ import {
   CUSTOM_FIELDS_FEATURE_NAME,
   DEFAULT_FIELD_DEFINITION_LIST_ROLES,
   FIELD_DEFINITION_DELETED_EVENT,
-} from "./constants.js";
-import { fieldDefinitionEntity } from "./entity.js";
-import { customFieldClearedSchema, customFieldSetSchema } from "./events.js";
+} from "./constants.ts";
+import { fieldDefinitionEntity } from "./entity.ts";
+import { customFieldClearedSchema, customFieldSetSchema } from "./events.ts";
 import {
   clearCustomFieldHandler,
   createClearCustomFieldHandler,
-} from "./handlers/clear-custom-field.write.js";
-import { defineSystemFieldHandler } from "./handlers/define-system-field.write.js";
+} from "./handlers/clear-custom-field.write.ts";
+import { defineSystemFieldHandler } from "./handlers/define-system-field.write.ts";
 import {
   createDefineTenantFieldHandler,
   defineTenantFieldHandler,
-} from "./handlers/define-tenant-field.write.js";
-import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write.js";
+} from "./handlers/define-tenant-field.write.ts";
+import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write.ts";
 import {
   createDeleteTenantFieldHandler,
   deleteTenantFieldHandler,
-} from "./handlers/delete-tenant-field.write.js";
+} from "./handlers/delete-tenant-field.write.ts";
 import {
   createSetCustomFieldHandler,
   setCustomFieldHandler,
-} from "./handlers/set-custom-field.write.js";
+} from "./handlers/set-custom-field.write.ts";
 import {
   createUpdateTenantFieldHandler,
   updateTenantFieldHandler,
-} from "./handlers/update-tenant-field.write.js";
+} from "./handlers/update-tenant-field.write.ts";
 
 const fieldDefinitionDeletedSchema = z.object({
   entityName: z.string(),

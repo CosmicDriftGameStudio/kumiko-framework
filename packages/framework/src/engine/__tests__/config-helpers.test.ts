@@ -1,14 +1,14 @@
 import { describe, expect, expectTypeOf, test } from "bun:test";
-import type { DbRunner } from "../../db/connection.js";
-import { createTenantDb } from "../../db/tenant-db.js";
-import { testTenantId } from "../../seeding/seed-users.js";
+import type { DbRunner } from "../../db/connection.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
 import {
   access,
   createSystemConfig,
   createTenantConfig,
   createUserConfig,
-} from "../config-helpers.js";
-import type { ConfigKeyDefinition } from "../types/index.js";
+} from "../config-helpers.ts";
+import type { ConfigKeyDefinition } from "../types/index.ts";
 
 describe("access presets", () => {
   test("access.all", () => {

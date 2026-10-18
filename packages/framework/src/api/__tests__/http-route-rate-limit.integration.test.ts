@@ -16,9 +16,9 @@ import {
 } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import { RateLimitError } from "../../errors/index.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import { RateLimitError } from "../../errors/index.ts";
 
 const SYSTEM_TENANT_ID = "00000000-0000-4000-8000-000000000000" as TenantId;
 

@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { coerceRow, type TableInfo } from "../../query.js";
+import { coerceRow, type TableInfo } from "../../query.ts";
 
 function timestamptzTableInfo(): TableInfo {
   return {

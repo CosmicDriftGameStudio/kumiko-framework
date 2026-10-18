@@ -4,8 +4,8 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "../primitives/dropdown-menu.js";
-import type { LocaleOption } from "./language-switcher.js";
+} from "../primitives/dropdown-menu.tsx";
+import type { LocaleOption } from "./language-switcher.tsx";
 
 export type LanguageMenuItemsProps = {
   readonly locales: readonly LocaleOption[];

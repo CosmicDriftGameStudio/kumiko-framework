@@ -24,7 +24,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { buildBootExtraContext } from "../run-prod-app.js";
+import { buildBootExtraContext } from "../run-prod-app.ts";
 
 const LEAKY_MESSAGE = "POST https://hooks.example.com/services/SECRET123 failed";
 const admin = createTestUser({ roles: ["TenantAdmin"] });

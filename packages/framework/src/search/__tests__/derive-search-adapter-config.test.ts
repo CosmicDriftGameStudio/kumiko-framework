@@ -5,8 +5,8 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import { deriveSearchAdapterConfig } from "../derive-search-adapter-config.js";
+} from "../../engine/index.ts";
+import { deriveSearchAdapterConfig } from "../derive-search-adapter-config.ts";
 
 describe("deriveSearchAdapterConfig", () => {
   test("returns undefined for an empty registry", () => {

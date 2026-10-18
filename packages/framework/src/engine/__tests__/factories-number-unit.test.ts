@@ -3,7 +3,7 @@
 // sibling-field-reference form alike.
 
 import { describe, expect, test } from "bun:test";
-import { createNumberField } from "../factories.js";
+import { createNumberField } from "../factories.ts";
 
 describe("createNumberField — unit passthrough", () => {
   test("static unit string is preserved", () => {

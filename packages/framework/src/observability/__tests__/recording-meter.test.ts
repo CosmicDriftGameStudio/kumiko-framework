@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { type MetricEvent, RecordingMeter } from "../recording-meter.js";
+import { type MetricEvent, RecordingMeter } from "../recording-meter.ts";
 
 function makeMeter() {
   const events: MetricEvent[] = [];

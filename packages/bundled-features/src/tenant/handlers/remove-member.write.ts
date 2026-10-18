@@ -22,12 +22,12 @@ import {
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.js";
-import { userTable } from "../../user/index.js";
-import { cancelPendingInvitation } from "../cancel-pending-invitation.js";
-import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.js";
-import { assertNotLastTenantAdmin } from "../last-tenant-admin.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.js";
+import { decryptStoredPii } from "../../shared/index.ts";
+import { userTable } from "../../user/index.ts";
+import { cancelPendingInvitation } from "../cancel-pending-invitation.ts";
+import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
+import { assertNotLastTenantAdmin } from "../last-tenant-admin.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.ts";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",

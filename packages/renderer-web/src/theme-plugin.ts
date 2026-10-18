@@ -1,5 +1,5 @@
 import plugin from "tailwindcss/plugin";
-import { DEFAULT_COLOR_SCHEME_VARIABLE, type DefaultColorScheme } from "./default-color-scheme.js";
+import { DEFAULT_COLOR_SCHEME_VARIABLE, type DefaultColorScheme } from "./default-color-scheme.ts";
 
 export const FRAMEWORK_COLOR_NAMES = [
   "background",

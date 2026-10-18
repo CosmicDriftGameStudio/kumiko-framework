@@ -9,18 +9,18 @@ import { describe, expect, test } from "bun:test";
 import { getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
-import { InternalError, UnprocessableError } from "../../errors/index.js";
-import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { PUBLIC_API_PATHS } from "../api-constants.js";
-import { authMiddleware } from "../auth-middleware.js";
+import { InternalError, UnprocessableError } from "../../errors/index.ts";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { PUBLIC_API_PATHS } from "../api-constants.ts";
+import { authMiddleware } from "../auth-middleware.ts";
 import {
   type AuthRoutesConfig,
   createAuthRoutes,
   createInMemoryLoginRateLimiter,
-} from "../auth-routes.js";
-import { createJwtHelper } from "../jwt.js";
-import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
+} from "../auth-routes.ts";
+import { createJwtHelper } from "../jwt.ts";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.ts";
 
 const JWT_SECRET = "test-jwt-secret-for-mfa-preauth-confirm-route-tests-only-not-a-real-secret";
 const PREAUTH_CONFIRM_QN = "auth-mfa:write:enable-confirm-preauth";

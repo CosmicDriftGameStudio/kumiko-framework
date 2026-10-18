@@ -7,7 +7,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
-import { createMockDispatcher, render, screen } from "./test-utils.js";
+import { createMockDispatcher, render, screen } from "./test-utils.tsx";
 
 const entity = {
   fields: {

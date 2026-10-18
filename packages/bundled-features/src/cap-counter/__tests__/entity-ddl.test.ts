@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { capCounterEntity } from "../entity.js";
-import { capReservationsTableMeta } from "../tables.js";
+import { capCounterEntity } from "../entity.ts";
+import { capReservationsTableMeta } from "../tables.ts";
 
 function pgTypeOf(table: unknown, dbName: string): string | undefined {
   const cols = (table as { columns?: ReadonlyArray<{ name: string; pgType?: string }> }).columns;

@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ActionMenu, type MenuItemDef } from "../primitives/action-menu.js";
+import { ActionMenu, type MenuItemDef } from "../primitives/action-menu.tsx";
 
 describe("ActionMenu", () => {
   test("renders trigger with aria-label and default testId", () => {

@@ -18,19 +18,19 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import {
   ConsumerLagError,
   disableConsumer,
   eventConsumerStateTable,
   pruneEvents,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
 
 // --- Fixture ---
 

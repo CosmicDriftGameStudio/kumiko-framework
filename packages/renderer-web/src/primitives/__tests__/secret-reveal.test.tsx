@@ -3,7 +3,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";
 import QRCode from "qrcode/lib/browser.js";
-import { defaultPrimitives } from "../index.js";
+import { defaultPrimitives } from "../index.tsx";
 
 const { SecretReveal } = defaultPrimitives;
 if (SecretReveal === undefined) {

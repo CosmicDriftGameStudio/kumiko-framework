@@ -1,11 +1,11 @@
 import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
-import { buildOwnershipClause, type OwnershipClause } from "../engine/ownership.js";
-import { SYSTEM_TENANT_ID, UUID_SHAPE_PATTERN } from "../engine/types/identifiers.js";
-import type { EntityDefinition, SessionUser } from "../engine/types/index.js";
-import type { Table } from "./event-store-executor-context.js";
-import { buildEntityTable, physicalColumnName } from "./table-builder.js";
-import { schemaTableName } from "./table-introspection.js";
-import type { TenantDb } from "./tenant-db.js";
+import { buildOwnershipClause, type OwnershipClause } from "../engine/ownership.ts";
+import { SYSTEM_TENANT_ID, UUID_SHAPE_PATTERN } from "../engine/types/identifiers.ts";
+import type { EntityDefinition, SessionUser } from "../engine/types/index.ts";
+import type { Table } from "./event-store-executor-context.ts";
+import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
+import { schemaTableName } from "./table-introspection.ts";
+import type { TenantDb } from "./tenant-db.ts";
 
 export type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 

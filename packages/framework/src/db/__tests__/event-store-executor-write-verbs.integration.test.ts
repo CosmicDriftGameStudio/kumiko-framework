@@ -11,22 +11,22 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, selectMany, transaction } from "../../db/query.js";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { from } from "../../engine/ownership.js";
-import { createSystemUser } from "../../engine/system-user.js";
-import type { EntityId } from "../../engine/types/index.js";
-import { append } from "../../event-store/index.js";
-import type { EntityCache } from "../../pipeline/entity-cache.js";
-import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.js";
+import { asRawClient, selectMany, transaction } from "../../db/query.ts";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { from } from "../../engine/ownership.ts";
+import { createSystemUser } from "../../engine/system-user.ts";
+import type { EntityId } from "../../engine/types/index.ts";
+import { append } from "../../event-store/index.ts";
+import type { EntityCache } from "../../pipeline/entity-cache.ts";
+import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import {
   configureEntityFieldEncryption,
   resetEntityFieldEncryptionCacheForTests,
-} from "../entity-field-encryption.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEventMetadata } from "../event-store-executor-context.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
+} from "../entity-field-encryption.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEventMetadata } from "../event-store-executor-context.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 let testDb: TestDb;
 let tdb: TenantDb;

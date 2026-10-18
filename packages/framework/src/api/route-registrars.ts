@@ -6,19 +6,19 @@
 
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import type { DbConnection } from "../db/connection.js";
-import type { Lifecycle } from "../lifecycle/index.js";
-import type { Meter, PrometheusMeter } from "../observability/index.js";
-import { serializeOpenMetrics } from "../observability/index.js";
-import type { EventConsumer } from "../pipeline/event-dispatcher.js";
-import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "./api-constants.js";
+import type { DbConnection } from "../db/connection.ts";
+import type { Lifecycle } from "../lifecycle/index.ts";
+import type { Meter, PrometheusMeter } from "../observability/index.ts";
+import { serializeOpenMetrics } from "../observability/index.ts";
+import type { EventConsumer } from "../pipeline/event-dispatcher.ts";
+import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "./api-constants.ts";
 import {
   createReadinessProbe,
   dbPingCheck,
   dispatcherLagCheck,
   type ReadinessCheck,
   redisPingCheck,
-} from "./readiness.js";
+} from "./readiness.ts";
 
 // --- Body size limit ------------------------------------------------------
 

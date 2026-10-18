@@ -7,12 +7,12 @@ export {
   TAGS_SECTION_EXTENSION_NAME,
   TagsHandlers,
   TagsQueries,
-} from "../constants.js";
-export { tagsClient } from "./client-plugin.js";
-export { EntityTags } from "./entity-tags.js";
-export { contrastText, TagChip } from "./tag-chip.js";
-export { TagFilter } from "./tag-filter.js";
-export { TagManager } from "./tag-manager.js";
-export { TagPicker } from "./tag-picker.js";
-export { TagSection } from "./tag-section.js";
-export { TagsCell } from "./tags-cell.js";
+} from "../constants.ts";
+export { tagsClient } from "./client-plugin.tsx";
+export { EntityTags } from "./entity-tags.tsx";
+export { contrastText, TagChip } from "./tag-chip.tsx";
+export { TagFilter } from "./tag-filter.tsx";
+export { TagManager } from "./tag-manager.tsx";
+export { TagPicker } from "./tag-picker.tsx";
+export { TagSection } from "./tag-section.tsx";
+export { TagsCell } from "./tags-cell.tsx";

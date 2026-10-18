@@ -17,10 +17,10 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { TENANT_MAIL_SENDING_SCREEN_ID } from "../../constants.js";
-import { documentDesignerClient } from "../client-plugin.js";
-import { createMailEditor } from "../mail-editor.js";
-import { PreviewRecordPickerProvider } from "../preview-record-picker.js";
+import { TENANT_MAIL_SENDING_SCREEN_ID } from "../../constants.ts";
+import { documentDesignerClient } from "../client-plugin.tsx";
+import { createMailEditor } from "../mail-editor.tsx";
+import { PreviewRecordPickerProvider } from "../preview-record-picker.tsx";
 
 const SLUG = "billing:notify:invoice-issued";
 

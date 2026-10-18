@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { sql } from "../../dialect.js";
-import type { EntityTableMeta } from "../../entity-table-meta.js";
+import { sql } from "../../dialect.ts";
+import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import {
   asRawClient,
   countWhere,
@@ -10,8 +10,8 @@ import {
   selectMany,
   upsertByPk,
   upsertOnConflict,
-} from "../../query.js";
-import { closeDb, getDb, renderCreateTable, uniqueTableName, withTable } from "./_helpers.js";
+} from "../../query.ts";
+import { closeDb, getDb, renderCreateTable, uniqueTableName, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

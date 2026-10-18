@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { InternalError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { DbRunner } from "../connection.js";
-import { defineUnmanagedTable } from "../entity-table-meta.js";
+import { InternalError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { DbRunner } from "../connection.ts";
+import { defineUnmanagedTable } from "../entity-table-meta.ts";
 import {
   acknowledgeConventionCrossTenant,
   createTenantDb,
   createUncheckedSystemDb,
   withUnsafeRawGrant,
-} from "../tenant-db.js";
-import { tenantDbRunner, tenantDbWriteRunner } from "../tenant-db-runner.js";
+} from "../tenant-db.ts";
+import { tenantDbRunner, tenantDbWriteRunner } from "../tenant-db-runner.ts";
 
 const noteTable = defineUnmanagedTable({
   tableName: "writes_denied_notes",

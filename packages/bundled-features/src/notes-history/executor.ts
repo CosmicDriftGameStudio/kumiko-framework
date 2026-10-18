@@ -1,5 +1,5 @@
 import { createEntityExecutor, type EntityDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createNoteEntryEntity, noteEntryEntity, noteMentionEntity } from "./entity.js";
+import { createNoteEntryEntity, noteEntryEntity, noteMentionEntity } from "./entity.ts";
 
 export const { executor: noteEntryExecutor, table: noteEntryTable } = createEntityExecutor(
   "note-entry",

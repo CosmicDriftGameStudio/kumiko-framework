@@ -33,10 +33,10 @@ import {
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { recordDownloadUse, recordInvalidAttempt } from "../audit-download.js";
-import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.js";
-import { exportDownloadTokensTable } from "../schema/download-token.js";
-import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job.js";
+import { recordDownloadUse, recordInvalidAttempt } from "../audit-download.ts";
+import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
+import { exportDownloadTokensTable } from "../schema/download-token.ts";
+import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job.ts";
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 min — matched download-by-token
 

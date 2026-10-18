@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
-import { DocumentLangSync } from "../document-lang-sync.js";
+import { DocumentLangSync } from "../document-lang-sync.tsx";
 
 function resolverWithLocale(initial: string): {
   readonly resolver: LocaleResolver;

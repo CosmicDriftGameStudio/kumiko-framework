@@ -15,14 +15,14 @@ import {
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
-import { createConfigFeature } from "../../config/feature.js";
+import { createConfigFeature } from "../../config/feature.ts";
 import {
   createMailFoundationFeature,
   MAIL_TRANSPORT_EXTENSION,
-} from "../../mail-foundation/feature.js";
-import { createMailTransportInMemoryFeature } from "../../mail-transport-inmemory/index.js";
-import { createSecretsFeature } from "../../secrets/feature.js";
-import { createMailTransportSmtpFeature } from "../feature.js";
+} from "../../mail-foundation/feature.ts";
+import { createMailTransportInMemoryFeature } from "../../mail-transport-inmemory/index.ts";
+import { createSecretsFeature } from "../../secrets/feature.ts";
+import { createMailTransportSmtpFeature } from "../feature.ts";
 
 function features() {
   return [

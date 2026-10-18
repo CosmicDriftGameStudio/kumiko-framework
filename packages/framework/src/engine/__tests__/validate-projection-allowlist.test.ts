@@ -6,13 +6,13 @@
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 import * as z from "zod";
-import { table as pgTable, text, uuid } from "../../db/dialect.js";
-import { defineFeature } from "../define-feature.js";
-import { defineWriteHandler } from "../define-handler.js";
-import { defineStep } from "../define-step.js";
-import { createEntity, createTextField } from "../factories.js";
-import { stepsPipeline } from "../pipeline.js";
-import { validateProjectionAllowlist } from "../validate-projection-allowlist.js";
+import { table as pgTable, text, uuid } from "../../db/dialect.ts";
+import { defineFeature } from "../define-feature.ts";
+import { defineWriteHandler } from "../define-handler.ts";
+import { defineStep } from "../define-step.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import { stepsPipeline } from "../pipeline.ts";
+import { validateProjectionAllowlist } from "../validate-projection-allowlist.ts";
 
 describe("validateProjectionAllowlist", () => {
   const demoLogTable = pgTable("validate_demo_log", {

@@ -2,7 +2,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { ModeSwitch, StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { asRowStatus, statusLabel, statusTone } from "./status-label.js";
+import { asRowStatus, statusLabel, statusTone } from "./status-label.ts";
 
 export type EditorMode = "edit" | "preview";
 

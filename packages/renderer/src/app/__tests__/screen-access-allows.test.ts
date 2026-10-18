@@ -4,9 +4,9 @@ import type {
   FeatureSchema,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { screenAccessAllows } from "../kumiko-screen.js";
-import { resolveTarget } from "../nav.js";
-import { navigateTargetAllows } from "../screen-access.js";
+import { screenAccessAllows } from "../kumiko-screen.tsx";
+import { resolveTarget } from "../nav.tsx";
+import { navigateTargetAllows } from "../screen-access.ts";
 
 describe("screenAccessAllows", () => {
   test("allows when no access rule is set", () => {

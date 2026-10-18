@@ -5,8 +5,8 @@
 // komplex/edge das jsonb-Value ist.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { fetchOne, insertOne, selectMany, updateMany } from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+import { fetchOne, insertOne, selectMany, updateMany } from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import type { DbRunner } from "../../db/index.js";
-import { asRawClient, transaction } from "../../db/query.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { generateId as uuid } from "../../utils/index.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import type { DbRunner } from "../../db/index.ts";
+import { asRawClient, transaction } from "../../db/query.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { generateId as uuid } from "../../utils/index.ts";
 import {
   append,
   archiveStream,
@@ -16,7 +16,7 @@ import {
   type StoredEvent,
   streamAllEventsByType,
   VersionConflictError,
-} from "../index.js";
+} from "../index.ts";
 
 let testDb: BunTestDb;
 

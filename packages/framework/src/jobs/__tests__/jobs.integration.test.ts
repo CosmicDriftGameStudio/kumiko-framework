@@ -4,9 +4,9 @@ import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/sta
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { requestContext } from "../../api/request-context.js";
-import { tenantDbRunner } from "../../db/tenant-db-runner.js";
-import { createRegistry, defineFeature } from "../../engine/index.js";
+import { requestContext } from "../../api/request-context.ts";
+import { tenantDbRunner } from "../../db/tenant-db-runner.ts";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type {
   AppContext,
   ConfigAccessor,
@@ -15,11 +15,11 @@ import type {
   NotifyFactory,
   Registry,
   TenantId,
-} from "../../engine/types/index.js";
-import { SYSTEM_TENANT_ID } from "../../engine/types/index.js";
-import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
-import { RedisKeys } from "../../pipeline/redis-keys.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/types/index.ts";
+import { SYSTEM_TENANT_ID } from "../../engine/types/index.ts";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider.ts";
+import { RedisKeys } from "../../pipeline/redis-keys.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   bootJobIdForJobName,
   createJobRunner,
@@ -27,8 +27,8 @@ import {
   type JobMeta,
   type JobRunner,
   type JobRunnerOptions,
-} from "../job-runner.js";
-import { purgeRawRedisKeys } from "./purge-raw-redis-keys.js";
+} from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 // --- Shared state ---
 
@@ -654,7 +654,7 @@ describe("concurrency: sequential", () => {
     // been claimed by someone else must NOT delete the new owner's lock.
     // Tested at the lock layer because we can't reliably race a TTL
     // expiration inside the job-runner inside a 5s test budget.
-    const { createDistributedLock } = await import("../../pipeline/distributed-lock.js");
+    const { createDistributedLock } = await import("../../pipeline/distributed-lock.ts");
     const prefix = "kumiko:lock:seq:test-vmd:";
     const lock = createDistributedLock(testRedis.redis, prefix);
 

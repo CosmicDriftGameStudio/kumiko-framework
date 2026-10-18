@@ -15,10 +15,10 @@ import {
   type KnownLoginFailureReason,
   type LoginFailure,
   requestEmailVerification,
-} from "./auth-client.js";
-import { AuthCard } from "./auth-form-primitives.js";
-import { followNextOrLandingAfterLogin } from "./auth-redirect.js";
-import { useSession } from "./session.js";
+} from "./auth-client.ts";
+import { AuthCard } from "./auth-form-primitives.tsx";
+import { followNextOrLandingAfterLogin } from "./auth-redirect.ts";
+import { useSession } from "./session.tsx";
 
 // Resend-Status für den "Bestätigungs-Mail erneut senden"-Flow, der bei
 // reason=email_not_verified unter dem Fehler-Banner angeboten wird.

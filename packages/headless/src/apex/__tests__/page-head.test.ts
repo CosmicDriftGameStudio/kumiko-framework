@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { injectPageHead, resolveAndInjectPageHead } from "../index.js";
+import { injectPageHead, resolveAndInjectPageHead } from "../index.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000000aa" as TenantId;
 

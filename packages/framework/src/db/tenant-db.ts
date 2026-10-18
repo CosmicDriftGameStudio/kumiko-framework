@@ -28,31 +28,31 @@ import {
   runInNewTransaction,
   type SelectOptions,
   type WhereObject,
-} from "../db/query.js";
-import type { EntityDefinition } from "../engine/types/fields.js";
-import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers.js";
-import type { Registry } from "../engine/types/index.js";
+} from "../db/query.ts";
+import type { EntityDefinition } from "../engine/types/fields.ts";
+import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers.ts";
+import type { Registry } from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   InternalError,
   memberResolutionReadOnlyDenied,
-} from "../errors/index.js";
+} from "../errors/index.ts";
 import {
   emitDbQuery,
   fallbackEscapeHatchReporter,
   type Meter,
   registerStandardMetrics,
   type Tracer,
-} from "../observability/index.js";
-import type { DbRunner } from "./connection.js";
-import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.js";
-import { hasFieldProperty, tableNameOf } from "./table-introspection.js";
+} from "../observability/index.ts";
+import type { DbRunner } from "./connection.ts";
+import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
+import { hasFieldProperty, tableNameOf } from "./table-introspection.ts";
 import {
   bindTenantDbRunner,
   denyTenantDbWrites,
   tenantDbRunner,
   tenantDbWritesDeniedError,
-} from "./tenant-db-runner.js";
+} from "./tenant-db-runner.ts";
 
 type Table = SchemaTable;
 

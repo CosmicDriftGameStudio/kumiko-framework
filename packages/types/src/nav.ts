@@ -1,9 +1,9 @@
-import type { AccessRule } from "./handlers.js";
-import type { NavIconKey } from "./nav-icon.js";
-import type { TargetRef } from "./target-ref.js";
-import type { TreeAction } from "./tree-node.js";
+import type { AccessRule } from "./handlers.ts";
+import type { NavIconKey } from "./nav-icon.ts";
+import type { TargetRef } from "./target-ref.ts";
+import type { TreeAction } from "./tree-node.ts";
 
-export type { IconKey, NavIconKey } from "./nav-icon.js";
+export type { IconKey, NavIconKey } from "./nav-icon.ts";
 
 // Nav entry declaration. Every feature that wants to appear in the app's
 // navigation tree registers one or more entries via r.nav(). The engine

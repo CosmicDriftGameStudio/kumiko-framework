@@ -12,9 +12,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { subscriptionAggregateId, terminationUnmatchedAggregateId } from "../aggregate-id.js";
-import { resolveProviderPlugin } from "../checkout-core.js";
-import { isTerminalSubscriptionStatus, SubscriptionCancelTimings } from "../constants.js";
+import { subscriptionAggregateId, terminationUnmatchedAggregateId } from "../aggregate-id.ts";
+import { resolveProviderPlugin } from "../checkout-core.ts";
+import { isTerminalSubscriptionStatus, SubscriptionCancelTimings } from "../constants.ts";
 import {
   CONTRACT_TERMINATION_CHANNELS,
   CONTRACT_TERMINATION_DECLARATION_TYPES,
@@ -29,13 +29,13 @@ import {
   contractTerminationRequestedPayloadSchema,
   type ProviderCancelOutcome,
   SUBSCRIPTION_AGGREGATE_TYPE,
-} from "../events.js";
-import { getSubscriptionForTenant } from "../get-subscription-for-tenant.js";
-import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
-import { CONSENT_LOCALES, FALLBACK_CONSENT_LOCALE } from "./consent-locale.js";
-import { notifyOperator } from "./termination-notify.js";
-import type { OperatorNoticeReason } from "./termination-texts.js";
-import { isWithinWithdrawalPeriod } from "./withdrawal-period.js";
+} from "../events.ts";
+import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
+import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { CONSENT_LOCALES, FALLBACK_CONSENT_LOCALE } from "./consent-locale.ts";
+import { notifyOperator } from "./termination-notify.ts";
+import type { OperatorNoticeReason } from "./termination-texts.ts";
+import { isWithinWithdrawalPeriod } from "./withdrawal-period.ts";
 
 const REQUESTED_CANCEL_TIMINGS = [
   SubscriptionCancelTimings.periodEnd,

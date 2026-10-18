@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { APP_BASE_URL_ENV, resolveAuthPublicOrigin } from "../resolve-auth-public-origin.js";
+import { APP_BASE_URL_ENV, resolveAuthPublicOrigin } from "../resolve-auth-public-origin.ts";
 
 const PROD = { NODE_ENV: "production" };
 

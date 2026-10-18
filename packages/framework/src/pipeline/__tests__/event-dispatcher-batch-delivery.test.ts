@@ -5,14 +5,14 @@
 // vs new ids the same way it does for the per-event path.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import type { AppContext } from "../../engine/types/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import type { EventConsumer } from "../event-dispatcher.js";
+import type { AppContext } from "../../engine/types/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import type { EventConsumer } from "../event-dispatcher.ts";
 import {
   type ConsumerStateRow,
   deliverEvents,
   type StoredEventRow,
-} from "../event-dispatcher-delivery.js";
+} from "../event-dispatcher-delivery.ts";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

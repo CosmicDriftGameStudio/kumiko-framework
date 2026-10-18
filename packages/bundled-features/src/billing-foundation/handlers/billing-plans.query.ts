@@ -4,13 +4,13 @@
 
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { findCatalogProvider } from "../checkout-core.js";
+import { findCatalogProvider } from "../checkout-core.ts";
 import {
   type CONSENT_LOCALES,
   CONSENT_TEXTS,
   consentTextVersion,
-} from "../consumer-protection/consent-text.js";
-import { buildBillingPlans } from "../plan-catalog.js";
+} from "../consumer-protection/consent-text.ts";
+import { buildBillingPlans } from "../plan-catalog.ts";
 import {
   type BillingPlanCatalog,
   type BillingPlansResult,
@@ -18,7 +18,7 @@ import {
   isLegalLinkSet,
   type LegalLinkSet,
   type ResolvedBillingFoundationOptions,
-} from "../types.js";
+} from "../types.ts";
 
 const billingPlansSchema = z.object({}).strict();
 

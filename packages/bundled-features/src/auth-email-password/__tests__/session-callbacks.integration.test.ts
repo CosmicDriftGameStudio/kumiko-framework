@@ -11,19 +11,19 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { AuthErrors, AuthHandlers } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { AuthErrors, AuthHandlers } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
 
 // In-memory fake of a real sessions-store — just enough to observe that the
 // framework calls the callbacks at the right moments and threads the sid back

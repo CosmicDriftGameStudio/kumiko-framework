@@ -7,20 +7,20 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../constants.js";
-import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.js";
+import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../constants.ts";
+import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
 import {
   resolveWaitlistAdminMailLocale,
   resolveWaitlistMailLocale,
   waitlistAdminNoticeVariables,
   waitlistConfirmationVariables,
-} from "../mail.js";
+} from "../mail.ts";
 import {
   DEFAULT_SUBMIT_EMAIL_RATE_LIMITS,
   DEFAULT_SUBMIT_RATE_LIMIT,
   type WaitlistOptions,
-} from "../options.js";
-import { type WaitlistSubmitInput, WaitlistSubmitSchema } from "../payloads.js";
+} from "../options.ts";
+import { type WaitlistSubmitInput, WaitlistSubmitSchema } from "../payloads.ts";
 
 // pg_advisory_xact_lock namespace (int4): 'wlst' as ASCII, disjoint from the
 // framework's other fixed advisory-lock keys.

@@ -1,5 +1,5 @@
-import { isTenantKeyCandidate } from "./constants.js";
-import type { HostRoutingOptions, HostRoutingSurface } from "./options.js";
+import { isTenantKeyCandidate } from "./constants.ts";
+import type { HostRoutingOptions, HostRoutingSurface } from "./options.ts";
 
 // Only plain DNS names (plus an optional port) are routable. Anything else,
 // e.g. userinfo ("a@b"), IPv6 literals or stray characters, never matches a

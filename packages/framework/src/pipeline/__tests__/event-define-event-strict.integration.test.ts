@@ -19,11 +19,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { selectMany } from "../../db/query.js";
-import { defineFeature } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
+import { selectMany } from "../../db/query.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
 
 // Capture of the qualified event name defineEvent returns so tests can
 // assert against a moving target (kebab/qualifier transformations).

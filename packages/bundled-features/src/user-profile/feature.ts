@@ -9,8 +9,8 @@ import {
   PROFILE_SCREEN_ID,
   UserDataRightsHandlers,
   UserProfileQueries,
-} from "./constants.js";
-import { changeEmailWrite } from "./handlers/change-email.write.js";
+} from "./constants.ts";
+import { changeEmailWrite } from "./handlers/change-email.write.ts";
 
 export type UserProfileFeatureOptions = {
   /** Default true. false drops the change-email handler and the email

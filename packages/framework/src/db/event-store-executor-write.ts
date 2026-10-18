@@ -1,16 +1,16 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
-import { checkWriteFieldOwnership } from "../engine/field-access.js";
-import { instructionFieldNames } from "../engine/instruction-fields.js";
-import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.js";
-import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.js";
+import { checkWriteFieldOwnership } from "../engine/field-access.ts";
+import { instructionFieldNames } from "../engine/instruction-fields.ts";
+import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.ts";
+import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.ts";
 import {
   findUnavailableSelectOptions,
   isRecordLocked,
   isUnchangedValue,
   type UnavailableSelectOption,
-} from "../engine/screen-helpers.js";
-import type { EntityId, SessionUser, TenantId } from "../engine/types/index.js";
+} from "../engine/screen-helpers.ts";
+import type { EntityId, SessionUser, TenantId } from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   VersionConflictError as FrameworkVersionConflict,
@@ -23,32 +23,32 @@ import {
   UnprocessableError,
   type WriteFailure,
   writeFailure,
-} from "../errors/index.js";
+} from "../errors/index.ts";
 import {
   append,
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
   type StoredEvent,
-} from "../event-store/index.js";
+} from "../event-store/index.ts";
 import {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
-} from "../pipeline/irreversible-operation-gate.js";
+} from "../pipeline/irreversible-operation-gate.ts";
 import {
   hasLiveProjectionsForEvent,
   runProjectionsForEvent,
-} from "../pipeline/projections-runner.js";
-import { generateId } from "../utils/index.js";
-import { applyEntityEvent } from "./apply-entity-event.js";
-import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.js";
-import type { DbRow, DbRunner } from "./connection.js";
+} from "../pipeline/projections-runner.ts";
+import { generateId } from "../utils/index.ts";
+import { applyEntityEvent } from "./apply-entity-event.ts";
+import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.ts";
+import type { DbRow, DbRunner } from "./connection.ts";
 import {
   type EventStoreExecutor,
   type LockGuardOption,
   WritePurposes,
-} from "./event-store-executor.js";
+} from "./event-store-executor.ts";
 import {
   buildEventMetadata,
   type ExecutorContext,
@@ -56,12 +56,12 @@ import {
   isForeignTenantOnGlobalEntity,
   ownershipSubject,
   tryMapUniqueViolation,
-} from "./event-store-executor-context.js";
-import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.js";
-import { projectionRegistryOf } from "./projection-registry-binding.js";
-import { runInSavepointIfSupported } from "./query.js";
-import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
-import { tenantDbWriteRunner } from "./tenant-db-runner.js";
+} from "./event-store-executor-context.ts";
+import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
+import { projectionRegistryOf } from "./projection-registry-binding.ts";
+import { runInSavepointIfSupported } from "./query.ts";
+import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.ts";
+import { tenantDbWriteRunner } from "./tenant-db-runner.ts";
 
 // Custom projections for a write that did not go through the dispatcher (hook or
 // job writing a second aggregate). Savepoint like applyEntityEvent: a throwing

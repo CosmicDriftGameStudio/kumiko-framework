@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createUserDataRightsFeature } from "../../feature.js";
-import { defaultTranslations } from "../i18n.js";
+import { createUserDataRightsFeature } from "../../feature.ts";
+import { defaultTranslations } from "../i18n.ts";
 
 const PRIVACY_CENTER_PREFIX = "userDataRights.privacyCenter.";
 

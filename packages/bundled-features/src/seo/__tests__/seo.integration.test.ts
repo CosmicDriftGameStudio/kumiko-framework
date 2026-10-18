@@ -19,11 +19,11 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { SEO_CONFIG_QN } from "../constants.js";
-import { createSeoFeature, runSeoBootCheck } from "../feature.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { SEO_CONFIG_QN } from "../constants.ts";
+import { createSeoFeature, runSeoBootCheck } from "../feature.ts";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 

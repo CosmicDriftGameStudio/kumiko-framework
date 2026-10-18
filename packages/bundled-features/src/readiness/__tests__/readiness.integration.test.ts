@@ -18,20 +18,20 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigAccessorFactory } from "../../config/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
+import { createConfigAccessorFactory } from "../../config/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
 import {
   createSecretsContext,
   createSecretsFeature,
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
-} from "../../secrets/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { ReadinessQueries } from "../constants.js";
-import { createReadinessFeature } from "../feature.js";
+} from "../../secrets/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { ReadinessQueries } from "../constants.ts";
+import { createReadinessFeature } from "../feature.ts";
 
 // Probe-feature: one required + one optional config key, one required +
 // one optional secret — the rollup must list exactly the required gaps.

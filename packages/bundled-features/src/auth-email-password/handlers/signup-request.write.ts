@@ -24,13 +24,13 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared/index.js";
-import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.js";
-import type { AuthMailLocale } from "../email-templates.js";
-import { resolveHandlerMailLocale } from "../magic-link-mail.js";
-import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.js";
-import { issueSignupActivation } from "../signup-activation.js";
-import { storeSignupHandover, takeOverSignupHandoverForResend } from "../signup-token-store.js";
+import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared/index.ts";
+import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.ts";
+import type { AuthMailLocale } from "../email-templates.ts";
+import { resolveHandlerMailLocale } from "../magic-link-mail.ts";
+import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.ts";
+import { issueSignupActivation } from "../signup-activation.ts";
+import { storeSignupHandover, takeOverSignupHandoverForResend } from "../signup-token-store.ts";
 
 const SignupRequestSchema = z.object({
   email: z.email(),

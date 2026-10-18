@@ -1,5 +1,5 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { folderAssignmentEntity, folderEntity } from "./entity.js";
+import { folderAssignmentEntity, folderEntity } from "./entity.ts";
 
 // Shared executors for the folder + folder-assignment write-handlers.
 // createEntityExecutor is side-effect-free; instantiating once keeps the

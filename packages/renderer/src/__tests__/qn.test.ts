@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { toKebab as serverToKebab } from "@cosmicdrift/kumiko-framework/engine";
-import { lastSegment, toKebab } from "../app/qn.js";
+import { lastSegment, toKebab } from "../app/qn.ts";
 
 describe("lastSegment", () => {
   test("strips feature-prefix from screen-QN", () => {

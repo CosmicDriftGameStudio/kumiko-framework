@@ -15,15 +15,15 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { configValuesTable } from "../../config/table.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { TenantQueries } from "../constants.js";
-import { createTenantFeature } from "../feature.js";
-import { tenantEntity } from "../schema/tenant.js";
-import { seedTenant } from "../seeding.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { TenantQueries } from "../constants.ts";
+import { createTenantFeature } from "../feature.ts";
+import { tenantEntity } from "../schema/tenant.ts";
+import { seedTenant } from "../seeding.ts";
 
 const ownTenantId = testTenantId(1);
 const foreignTenantId = testTenantId(2);

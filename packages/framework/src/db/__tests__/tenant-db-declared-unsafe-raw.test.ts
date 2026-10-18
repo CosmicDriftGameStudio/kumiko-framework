@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import type { EscapeHatchKind } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { AccessDeniedError, FrameworkReasons, InternalError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { DbRunner } from "../connection.js";
+import { AccessDeniedError, FrameworkReasons, InternalError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { DbRunner } from "../connection.ts";
 import {
   acknowledgeConventionCrossTenant,
   createTenantDb,
   createUncheckedSystemDb,
   unsafeRawForDeclaredStep,
   withUnsafeRawGrant,
-} from "../tenant-db.js";
+} from "../tenant-db.ts";
 
 const tenantId = testTenantId(1);
 const REASON = "declared step forwarding unsafeRaw";

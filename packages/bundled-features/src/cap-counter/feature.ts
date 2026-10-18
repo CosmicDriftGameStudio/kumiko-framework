@@ -55,18 +55,18 @@ import {
   CAP_COUNTER_LIST_SCREEN_ID,
   ROLLING_INCREMENTED_EVENT_SHORT,
   ROLLING_RELEASED_EVENT_SHORT,
-} from "./constants.js";
-import { capCounterEntity } from "./entity.js";
-import { getCounterQuery } from "./handlers/get-counter.query.js";
-import { incrementCapHandler } from "./handlers/increment.write.js";
+} from "./constants.ts";
+import { capCounterEntity } from "./entity.ts";
+import { getCounterQuery } from "./handlers/get-counter.query.ts";
+import { incrementCapHandler } from "./handlers/increment.write.ts";
 import {
   incrementRollingCapHandler,
   rollingIncrementedSchema,
   rollingReleasedSchema,
-} from "./handlers/increment-rolling.write.js";
-import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write.js";
-import { CAP_COUNTER_I18N } from "./i18n.js";
-import { capReservationsTableMeta } from "./tables.js";
+} from "./handlers/increment-rolling.write.ts";
+import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write.ts";
+import { CAP_COUNTER_I18N } from "./i18n.ts";
+import { capReservationsTableMeta } from "./tables.ts";
 
 export function createCapCounterFeature() {
   return defineFeature(

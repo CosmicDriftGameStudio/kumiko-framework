@@ -9,7 +9,7 @@ import {
   HTTP_ERROR_CODE_PATTERN,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DeliveryStatus } from "./constants.js";
+import { DeliveryStatus } from "./constants.ts";
 
 export const deliveryAttemptSchema = z.object({
   notificationType: z.string(),

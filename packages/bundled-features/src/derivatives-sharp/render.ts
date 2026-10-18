@@ -13,7 +13,7 @@ import type {
 import QRCode from "qrcode";
 import type { OverlayOptions, ResizeOptions, Sharp } from "sharp";
 import sharp from "sharp";
-import { assertNotSvg, SHARP_INPUT_OPTIONS } from "../shared/index.js";
+import { assertNotSvg, SHARP_INPUT_OPTIONS } from "../shared/index.ts";
 
 const MIN_SHARP_SIGMA = 0.3;
 const MAX_SHARP_SIGMA = 1000;

@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { DEFAULT_COLOR_SCHEME_VARIABLE } from "../default-color-scheme.js";
-import { ThemeToggle } from "../layout/theme-toggle.js";
+import { DEFAULT_COLOR_SCHEME_VARIABLE } from "../default-color-scheme.ts";
+import { ThemeToggle } from "../layout/theme-toggle.tsx";
 import {
   __resetStoredModeAppliedForTests,
   THEME_STORAGE_KEY,
   useBrowserTokensApi,
-} from "../tokens.js";
+} from "../tokens.ts";
 
 type ChangeListener = () => void;
 

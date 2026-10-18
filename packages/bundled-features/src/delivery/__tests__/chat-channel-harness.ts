@@ -20,20 +20,20 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/feature.js";
-import { configValuesTable } from "../../config/table.js";
-import { createSecretsFeature } from "../../secrets/feature.js";
-import { createSecretsContext } from "../../secrets/secrets-context.js";
-import { tenantSecretsTable } from "../../secrets/table.js";
-import type { SecretValueSchemaSource } from "../../secrets/write-gate.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { DeliveryJobs } from "../constants.js";
-import { collectChannels, createDeliveryService } from "../delivery-service.js";
-import { createDeliveryFeature } from "../feature.js";
-import { deliverySendJob } from "../jobs.js";
-import { deliveryAttemptsTable } from "../tables.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createSecretsFeature } from "../../secrets/feature.ts";
+import { createSecretsContext } from "../../secrets/secrets-context.ts";
+import { tenantSecretsTable } from "../../secrets/table.ts";
+import type { SecretValueSchemaSource } from "../../secrets/write-gate.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { DeliveryJobs } from "../constants.ts";
+import { collectChannels, createDeliveryService } from "../delivery-service.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { deliverySendJob } from "../jobs.ts";
+import { deliveryAttemptsTable } from "../tables.ts";
 
 export type StubRequest = {
   readonly path: string;

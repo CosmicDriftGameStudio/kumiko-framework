@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { EntityTableMeta, IndexMeta } from "../entity-table-meta.js";
+import type { EntityTableMeta, IndexMeta } from "../entity-table-meta.ts";
 import {
   assertUniqueTableNames,
   assertValidMigrationName,
@@ -7,7 +7,7 @@ import {
   generateMigration,
   renderMigrationSql,
   snapshotFromMetas,
-} from "../migrate-generator.js";
+} from "../migrate-generator.ts";
 
 function meta(
   tableName: string,

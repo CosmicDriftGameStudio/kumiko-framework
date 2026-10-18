@@ -30,14 +30,14 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createFilesFeature } from "../../files/index.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { sweepOrphanedDerivativesJob } from "../handlers/sweep-orphaned-derivatives.job.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { sweepOrphanedDerivativesJob } from "../handlers/sweep-orphaned-derivatives.job.ts";
 
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",

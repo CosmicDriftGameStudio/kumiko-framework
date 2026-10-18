@@ -6,27 +6,27 @@ export {
   PREPARE_SCRIPT,
   STANDARD_APP_SCRIPTS,
   type StandardAppScript,
-} from "./app-scripts.js";
+} from "./app-scripts.ts";
 export {
   checkManagedFiles,
   isManagedDrift,
   type ManagedCheckResult,
   type ManagedFileReport,
   type ManagedFileState,
-} from "./check.js";
+} from "./check.ts";
 export {
   addManagedMarker,
   MANAGED_MARKER,
   readManagedMarker,
   stripManagedMarker,
-} from "./marker.js";
+} from "./marker.ts";
 export {
   findPortCollisions,
   type PortClaim,
   type PortCollision,
   type ScannedApp,
   scanWorkspaceApps,
-} from "./port-registry.js";
+} from "./port-registry.ts";
 export {
   BIOME_PRESET,
   listManagedFiles,
@@ -40,10 +40,10 @@ export {
   renderTsconfigPresetJson,
   resolveManagedAppFacts,
   TSCONFIG_PRESET,
-} from "./registry.js";
+} from "./registry.ts";
 export {
   parseStaticAppConfig,
   readStaticAppConfig,
   type StaticAppConfig,
-} from "./static-app-config.js";
-export { type SyncAction, type SyncManagedOptions, syncManagedFiles } from "./sync.js";
+} from "./static-app-config.ts";
+export { type SyncAction, type SyncManagedOptions, syncManagedFiles } from "./sync.ts";

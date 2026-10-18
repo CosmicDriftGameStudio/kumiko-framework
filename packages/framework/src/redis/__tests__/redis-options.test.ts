@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { redisClientOptionsFromEnv } from "../index.js";
+import { redisClientOptionsFromEnv } from "../index.ts";
 
 describe("redisClientOptionsFromEnv", () => {
   test("empty env → empty options", () => {

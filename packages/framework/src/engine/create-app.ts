@@ -1,9 +1,9 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
-import { type ValidateBootOptions, validateBoot } from "./boot-validator.js";
-import { dedupeFeatures } from "./dedupe-features.js";
-import { createRegistry } from "./registry.js";
-import type { FeatureDefinition, Registry } from "./types/index.js";
-import { DEFAULT_CURRENCIES } from "./types/index.js";
+import { type ValidateBootOptions, validateBoot } from "./boot-validator.ts";
+import { dedupeFeatures } from "./dedupe-features.ts";
+import { createRegistry } from "./registry.ts";
+import type { FeatureDefinition, Registry } from "./types/index.ts";
+import { DEFAULT_CURRENCIES } from "./types/index.ts";
 
 export type AppConfig = {
   roles: readonly string[];

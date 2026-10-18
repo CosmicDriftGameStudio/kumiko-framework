@@ -6,8 +6,8 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { pushEntityProjectionTables } from "../push-entity-projection-tables.js";
-import { setupTestStack } from "../test-stack.js";
+import { pushEntityProjectionTables } from "../push-entity-projection-tables.ts";
+import { setupTestStack } from "../test-stack.ts";
 
 function freshDbName(tag: string): string {
   return `kumiko_test_${tag}_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;

@@ -4,14 +4,14 @@
 // re-exported from index.ts.
 
 import * as z from "zod";
-import { isTerminationScope, TERMINATION_SCOPES } from "./constants.js";
-import { CONSENT_LOCALES, type ConsentLocale } from "./consumer-protection/consent-locale.js";
+import { isTerminationScope, TERMINATION_SCOPES } from "./constants.ts";
+import { CONSENT_LOCALES, type ConsentLocale } from "./consumer-protection/consent-locale.ts";
 import {
   type BillingFoundationOptions,
   type ConsumerProtectionOptions,
   isLegalLinkSet,
   type LegalLinkSet,
-} from "./types.js";
+} from "./types.ts";
 
 function isRootRelativePath(path: string): boolean {
   return path.startsWith("/") && !path.startsWith("//");

@@ -22,20 +22,20 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { subscriptionAggregateId } from "../aggregate-id.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { subscriptionAggregateId } from "../aggregate-id.ts";
 import {
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
-} from "../constants.js";
-import { createBillingFoundationFeature } from "../feature.js";
-import type { ProviderSubscriptionSnapshot, SubscriptionProviderPlugin } from "../types.js";
+} from "../constants.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import type { ProviderSubscriptionSnapshot, SubscriptionProviderPlugin } from "../types.ts";
 
 let retrieveSnapshot: ProviderSubscriptionSnapshot | null = null;
 // Keyed by providerSubscriptionId — the job-path test fans the same

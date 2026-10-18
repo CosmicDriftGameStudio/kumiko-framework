@@ -9,13 +9,13 @@ export type {
   MetricLabels,
   MetricsHandle,
   MetricType,
-} from "./metric.js";
+} from "./metric.ts";
 export type {
   ObservabilityOptions,
   ObservabilityProvider,
   SamplingConfig,
   SensitiveFilterConfig,
-} from "./provider.js";
+} from "./provider.ts";
 export type {
   SerializedTraceContext,
   Span,
@@ -25,4 +25,4 @@ export type {
   SpanStatus,
   StartSpanOptions,
   Tracer,
-} from "./span.js";
+} from "./span.ts";

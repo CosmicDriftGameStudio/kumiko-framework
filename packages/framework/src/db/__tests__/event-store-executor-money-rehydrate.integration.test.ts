@@ -8,18 +8,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
-import { createEntity, createMoneyField, createTextField, from } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { asRawClient } from "../../db/query.ts";
+import { createEntity, createMoneyField, createTextField, from } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import {
   configureEntityFieldEncryption,
   resetEntityFieldEncryptionCacheForTests,
-} from "../entity-field-encryption.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
-import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
+} from "../entity-field-encryption.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 const cipher = createTestEnvelopeCipher(TEST_KEY);

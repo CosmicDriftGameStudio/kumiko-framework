@@ -9,9 +9,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../../i18n.js";
-import { makeAuthGate } from "../auth-gate.js";
-import { SessionProvider } from "../session.js";
+import { defaultTranslations } from "../../i18n.ts";
+import { makeAuthGate } from "../auth-gate.tsx";
+import { SessionProvider } from "../session.tsx";
 
 const SESSION_ENDED_TEXT = "Your session has ended. Please sign in again.";
 

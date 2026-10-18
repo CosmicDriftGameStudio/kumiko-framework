@@ -1,8 +1,8 @@
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { resolveTemplateVariables } from "../template-validation.js";
-import { upsertPayloadSchema } from "./shared.js";
-import { writeTemplateRow } from "./template-write.js";
+import { resolveTemplateVariables } from "../template-validation.ts";
+import { upsertPayloadSchema } from "./shared.ts";
+import { writeTemplateRow } from "./template-write.ts";
 
 // Tenant-Override anlegen/updaten. Liegt unter event.user.tenantId,
 // scope='tenant'. Default-Status='draft' — User publisht explizit

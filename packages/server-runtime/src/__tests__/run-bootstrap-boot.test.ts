@@ -8,8 +8,8 @@ import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/deli
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { runBootstrap } from "../run-bootstrap.js";
-import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
+import { runBootstrap } from "../run-bootstrap.ts";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.ts";
 
 const probeFeature = makeProbeFeature({
   name: "bootstrap-boot-probe",

@@ -1,5 +1,5 @@
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { SubscriptionCancelTimings, SubscriptionFoundationHandlers } from "../constants.js";
+import { SubscriptionCancelTimings, SubscriptionFoundationHandlers } from "../constants.ts";
 import {
   CONTRACT_TERMINATION_DECLARED_EVENT_QN,
   CONTRACT_TERMINATION_DECLARED_EVENT_SHORT,
@@ -8,18 +8,18 @@ import {
   contractTerminationDeclaredPayloadSchema,
   contractTerminationRequestedPayloadSchema,
   contractTerminationUnmatchedPayloadSchema,
-} from "../events.js";
-import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
+} from "../events.ts";
+import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
 import {
   createDeclareContractTerminationHandler,
   createRecordContractTerminationHandler,
   createRecordUnmatchedContractTerminationHandler,
   createTerminableSubscriptionQuery,
-} from "./termination-record.js";
+} from "./termination-record.ts";
 import {
   createRequestContractTerminationHandler,
   createTerminateContractHandler,
-} from "./termination-request.js";
+} from "./termination-request.ts";
 
 export function registerContractTermination(
   r: FeatureRegistrar,

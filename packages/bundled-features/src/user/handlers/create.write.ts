@@ -14,9 +14,9 @@ import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-fra
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { UserErrors } from "../constants.js";
-import { rolesInputSchema } from "../roles-input-schema.js";
-import { userEntity, userTable } from "../schema/user.js";
+import { UserErrors } from "../constants.ts";
+import { rolesInputSchema } from "../roles-input-schema.ts";
+import { userEntity, userTable } from "../schema/user.ts";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

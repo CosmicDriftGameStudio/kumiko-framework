@@ -7,19 +7,19 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { FileAttachmentRef } from "../renderer-foundation/index.js";
-import type { ContentFormat, TemplateKind } from "./constants.js";
-import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
+import type { FileAttachmentRef } from "../renderer-foundation/index.ts";
+import type { ContentFormat, TemplateKind } from "./constants.ts";
+import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.ts";
 import {
   fileAttachmentsOf,
   imageLinksOf,
   parseLinkedResourceEntries,
   pdfAttachmentLinksOf,
   type TemplatePdfAttachmentLink,
-} from "./linked-resources.js";
-import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
-import { activeVersionOf, servedVersionOf } from "./template-draft.js";
-import { parseTemplateMeta, type TemplateMeta } from "./template-meta.js";
+} from "./linked-resources.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
+import { activeVersionOf, servedVersionOf } from "./template-draft.ts";
+import { parseTemplateMeta, type TemplateMeta } from "./template-meta.ts";
 
 // Public TemplateResource: what consumers see. Hides DB-internal columns
 // (insertedById, internal id-type) but keeps the fields needed for rendering.

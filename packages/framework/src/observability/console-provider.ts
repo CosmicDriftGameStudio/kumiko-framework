@@ -1,7 +1,7 @@
-import { type MetricEvent, RecordingMeter } from "./recording-meter.js";
-import { type RecordedSpan, RecordingTracer } from "./recording-tracer.js";
-import { DEFAULT_SENSITIVE_CONFIG, mergeSensitiveConfig } from "./sensitive-filter.js";
-import type { ObservabilityOptions, ObservabilityProvider } from "./types/index.js";
+import { type MetricEvent, RecordingMeter } from "./recording-meter.ts";
+import { type RecordedSpan, RecordingTracer } from "./recording-tracer.ts";
+import { DEFAULT_SENSITIVE_CONFIG, mergeSensitiveConfig } from "./sensitive-filter.ts";
+import type { ObservabilityOptions, ObservabilityProvider } from "./types/index.ts";
 
 type ConsoleWriter = {
   readonly log: (line: string) => void;

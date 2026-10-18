@@ -1,9 +1,9 @@
 // Hard-coded query allowlists for overview-home screens — security boundary
 // against privilege escalation via accidental cross-workspace fetches.
 
-import { CapOverviewQueries } from "../cap-overview/index.js";
-import { JobQueries } from "../jobs/index.js";
-import { METRICS_FEATURE, METRICS_SYSTEM_FEATURE } from "../metrics/index.js";
+import { CapOverviewQueries } from "../cap-overview/index.ts";
+import { JobQueries } from "../jobs/index.ts";
+import { METRICS_FEATURE, METRICS_SYSTEM_FEATURE } from "../metrics/index.ts";
 
 export type OverviewWorkspaceKind = "tenant" | "platform";
 

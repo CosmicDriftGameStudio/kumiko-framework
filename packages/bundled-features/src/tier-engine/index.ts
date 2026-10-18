@@ -7,7 +7,7 @@
 //   - `tierAssignmentEntity` — for migrations + drizzle-schema-generation
 //   - `TierEngineHandlers` / `TierEngineQueries` — qualified handler names
 
-export { tierAssignmentAggregateId } from "./aggregate-id.js";
+export { tierAssignmentAggregateId } from "./aggregate-id.ts";
 export {
   type AddOnDefinition,
   type AddOnMap,
@@ -16,7 +16,7 @@ export {
   composeApp,
   type TierDefinition,
   type TierMap,
-} from "./compose-app.js";
+} from "./compose-app.ts";
 export {
   isTierAssignmentSource,
   TIER_ENGINE_FEATURE,
@@ -24,22 +24,22 @@ export {
   TierAssignmentSources,
   TierEngineHandlers,
   TierEngineQueries,
-} from "./constants.js";
-export { tierAssignmentEntity } from "./entity.js";
+} from "./constants.ts";
+export { tierAssignmentEntity } from "./entity.ts";
 export {
   type CreateTierEngineOptions,
   createTierEngineFeature,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   createTierOptionGate,
   type TierOptionAvailability,
   type TierOptionGate,
   type TierOptionGateDeps,
   type TierOptionSpec,
-} from "./tier-option-gate.js";
+} from "./tier-option-gate.ts";
 export {
   createTierResolver,
   type TierResolver,
   type TierResolverDeps,
-} from "./tier-resolver.js";
-export { isTrialActive, type TrialPolicy } from "./trial.js";
+} from "./tier-resolver.ts";
+export { isTrialActive, type TrialPolicy } from "./trial.ts";

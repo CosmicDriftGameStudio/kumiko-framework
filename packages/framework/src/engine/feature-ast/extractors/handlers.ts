@@ -11,21 +11,21 @@ import type {
   RateLimitDeclaration,
   StreamHandlerDef,
   WriteHandlerDef,
-} from "../../types/handlers.js";
+} from "../../types/handlers.ts";
 import type {
   QueryHandlerPattern,
   StreamHandlerPattern,
   WriteHandlerPattern,
-} from "../patterns.js";
-import type { SourceLocation } from "../source-location.js";
-import { sourceLocationFromNode } from "../source-location.js";
+} from "../patterns.ts";
+import type { SourceLocation } from "../source-location.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   readHeaderValueOrRaw,
   readOptionalAccessRule,
   readOptionalAdditionalRateLimits,
   readOptionalEscapeHatch,
   readOptionalRateLimit,
-} from "./hooks.js";
+} from "./hooks.ts";
 import {
   type ExtractOutput,
   fail,
@@ -39,7 +39,7 @@ import {
   readNameLiteral,
   readObjectPropertyInitializer,
   readPropertyKey,
-} from "./shared.js";
+} from "./shared.ts";
 
 export type ParsedHandlerCall = {
   readonly source: SourceLocation;

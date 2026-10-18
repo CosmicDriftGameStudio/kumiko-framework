@@ -11,9 +11,9 @@ import {
   noteEntryExportHook,
   noteMentionDeleteHook,
   noteMentionExportHook,
-} from "./hooks.js";
+} from "./hooks.ts";
 
-export { eraseNoteBodiesReachingSubject } from "./hooks.js";
+export { eraseNoteBodiesReachingSubject } from "./hooks.ts";
 
 export function createNotesHistoryUserDataFeature() {
   return defineFeature(

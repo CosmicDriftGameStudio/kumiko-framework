@@ -40,26 +40,26 @@ import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table.js";
+} from "../../tenant/invitation-table.ts";
 // kumiko-lint-ignore cross-feature-import membership version read is owned by the tenant feature
-import { membershipVersionOf } from "../../tenant/invited-membership.js";
+import { membershipVersionOf } from "../../tenant/invited-membership.ts";
 // kumiko-lint-ignore cross-feature-import membership-role validation owned by tenant-feature
 import {
   findForbiddenMembershipRole,
   findForbiddenRoleAssignment,
   reservedMembershipRoleError,
   unassignableMembershipRoleError,
-} from "../../tenant/membership-roles.js";
+} from "../../tenant/membership-roles.ts";
 // kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/constants.js";
+import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/constants.ts";
 // kumiko-lint-ignore cross-feature-import invitee lookup by email reads the user row
-import { userTable } from "../../user/schema/user.js";
-import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
-import type { AuthMailLocale } from "../email-templates.js";
-import { inviteAlreadyAccepted } from "../errors.js";
-import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.js";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
-import { AuthMailNotificationTypes } from "../mail-notifications.js";
+import { userTable } from "../../user/schema/user.ts";
+import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.ts";
+import type { AuthMailLocale } from "../email-templates.ts";
+import { inviteAlreadyAccepted } from "../errors.ts";
+import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.ts";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.ts";
+import { AuthMailNotificationTypes } from "../mail-notifications.ts";
 
 const InviteCreateSchema = z.object({
   email: z.email(),

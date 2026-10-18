@@ -37,20 +37,20 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
+} from "../../compliance-profiles/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
 import {
   EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
   EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC,
   runExportJobs,
-} from "../run-export-jobs.js";
-import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.js";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.js";
-import { hashDownloadToken } from "../token-helpers.js";
+} from "../run-export-jobs.ts";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.ts";
+import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
+import { hashDownloadToken } from "../token-helpers.ts";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;

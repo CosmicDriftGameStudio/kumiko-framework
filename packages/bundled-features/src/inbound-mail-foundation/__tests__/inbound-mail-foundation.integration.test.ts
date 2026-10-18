@@ -46,27 +46,27 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.js";
-import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.js";
-import { seenMessageEntity, syncCursorEntity } from "../entities.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
+import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
+import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import {
   MAIL_THREAD_AGGREGATE_TYPE,
   MAIL_THREAD_UPDATED_EVENT_QN,
   type MailThreadEventPayload,
-} from "../events.js";
-import { createInboundMailFoundationFeature } from "../feature.js";
-import { ingestMessageHandler } from "../handlers/ingest-message.write.js";
+} from "../events.ts";
+import { createInboundMailFoundationFeature } from "../feature.ts";
+import { ingestMessageHandler } from "../handlers/ingest-message.write.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "../projection.js";
+} from "../projection.ts";
 
 // =============================================================================
 // Setup

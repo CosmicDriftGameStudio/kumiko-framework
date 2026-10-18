@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { assignPinRows, StackedAreaChart } from "../widgets/charts.js";
-import { fireEvent, render, screen, within } from "./test-utils.js";
+import { assignPinRows, StackedAreaChart } from "../widgets/charts.tsx";
+import { fireEvent, render, screen, within } from "./test-utils.tsx";
 
 const jan = (year: number): number => Date.UTC(year, 0, 1);
 const points = (values: readonly number[]) =>

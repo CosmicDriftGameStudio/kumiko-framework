@@ -21,8 +21,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
-import { runRetentionCleanup } from "../run-retention-cleanup.js";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.ts";
+import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 
 // Entity A: `personal: { of: "id" }` → recordOwned — the row IS its own
 // subject. hardDelete must erase this key.

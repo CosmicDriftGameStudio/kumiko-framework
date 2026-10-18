@@ -1,6 +1,6 @@
-import { userAccessChannel } from "../engine/constants.js";
-import type { SessionUser } from "../engine/types/index.js";
-import { generateId } from "../utils/index.js";
+import { userAccessChannel } from "../engine/constants.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+import { generateId } from "../utils/index.ts";
 
 export type SseClient = {
   id: string;

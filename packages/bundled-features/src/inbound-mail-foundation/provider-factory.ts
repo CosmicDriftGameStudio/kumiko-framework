@@ -4,13 +4,13 @@
 // per-Tenant-Config-Selector — der Provider steht pro MailAccount
 // (`account.provider`), ein Tenant kann mehrere Provider parallel nutzen.
 
-import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.js";
+import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.ts";
 import {
   type InboundMailContext,
   type InboundMailProviderPlugin,
   isInboundMailProviderPlugin,
   type MailAccountRecord,
-} from "./types.js";
+} from "./types.ts";
 
 /** Lookup per Provider-Key ("imap", "m365-graph", ...) — genutzt von den
  *  OAuth-Connect-Routen, wo noch kein Account existiert. */

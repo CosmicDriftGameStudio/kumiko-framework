@@ -13,7 +13,7 @@ import {
   isDispatcherRejection,
   resolveExtensionEntityId,
   shouldNotifyCaller,
-} from "../render-edit-logic.js";
+} from "../render-edit-logic.ts";
 
 const error: DispatcherError = {
   code: "internal_error",

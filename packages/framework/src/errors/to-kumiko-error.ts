@@ -1,5 +1,5 @@
-import { InternalError } from "./classes.js";
-import { isKumikoError, type KumikoError } from "./kumiko-error.js";
+import { InternalError } from "./classes.ts";
+import { isKumikoError, type KumikoError } from "./kumiko-error.ts";
 
 export function toKumikoError(e: unknown): KumikoError {
   if (isKumikoError(e)) return e;

@@ -11,7 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import net from "node:net";
 import { testDatabaseUrl, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 
-import { createDbConnection } from "../connection.js";
+import { createDbConnection } from "../connection.ts";
 
 function startBlackholeProxy(dbUrl: URL): {
   readonly server: net.Server;

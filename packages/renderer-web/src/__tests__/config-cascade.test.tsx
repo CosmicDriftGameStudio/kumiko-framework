@@ -10,8 +10,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ConfigCascade, ConfigCascadeLevel } from "@cosmicdrift/kumiko-framework/engine";
 import userEvent from "@testing-library/user-event";
-import { ConfigCascadeView } from "../components/config-cascade.js";
-import { render, screen, within } from "./test-utils.js";
+import { ConfigCascadeView } from "../components/config-cascade.tsx";
+import { render, screen, within } from "./test-utils.tsx";
 
 function level(overrides: Partial<ConfigCascadeLevel> & { source: ConfigCascadeLevel["source"] }) {
   return {

@@ -9,14 +9,14 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.js";
-import { eventsTable } from "../../event-store/index.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { selectMany } from "../query.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { selectMany } from "../query.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 const systemEntity = createEntity({
   table: "sstream_sys",

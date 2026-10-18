@@ -25,7 +25,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
+import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
   createFileField,
@@ -37,10 +37,10 @@ import {
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
-import { createFilesFeature } from "../feature.js";
-import { createLocalProvider } from "../local-provider.js";
+} from "../../engine/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { createFilesFeature } from "../feature.ts";
+import { createLocalProvider } from "../local-provider.ts";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in
 // the entity column; plural (files/images) a jsonb array of UUIDs in order.

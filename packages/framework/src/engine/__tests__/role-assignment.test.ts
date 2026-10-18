@@ -9,8 +9,8 @@ import {
   findForbiddenRoleAssignment,
   isAssignableByRole,
   mergeAssignedRoles,
-} from "../role-assignment.js";
-import type { Registry } from "../types/feature.js";
+} from "../role-assignment.ts";
+import type { Registry } from "../types/feature.ts";
 
 // Mirror DEFAULT_INVITE_ROLE_OPTIONS — framework must not import bundled-features
 // (tsc pulls source into framework's rootDir and fails the package build).

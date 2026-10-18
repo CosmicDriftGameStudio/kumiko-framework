@@ -1,6 +1,6 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { ConflictError } from "./classes.js";
-import { FrameworkReasons } from "./reasons.js";
+import { ConflictError } from "./classes.ts";
+import { FrameworkReasons } from "./reasons.ts";
 
 export function subjectErasedConflict(cause?: unknown): ConflictError {
   return new ConflictError({

@@ -1,11 +1,11 @@
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import type { DbRow, DbTx } from "../db/connection.js";
-import { hasAccess } from "../engine/access.js";
-import { tenantOverrideDenied } from "../engine/cross-tenant.js";
-import { filterReadFields } from "../engine/field-access.js";
-import type { QueryHandlerDef, SessionUser } from "../engine/types/index.js";
-import { NotFoundError, validationErrorFromZod } from "../errors/index.js";
-import { assertNoSecretLeak } from "../secrets/index.js";
+import type { DbRow, DbTx } from "../db/connection.ts";
+import { hasAccess } from "../engine/access.ts";
+import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
+import { filterReadFields } from "../engine/field-access.ts";
+import type { QueryHandlerDef, SessionUser } from "../engine/types/index.ts";
+import { NotFoundError, validationErrorFromZod } from "../errors/index.ts";
+import { assertNoSecretLeak } from "../secrets/index.ts";
 import {
   buildHandlerContext,
   type DispatchContext,
@@ -14,10 +14,10 @@ import {
   isMemberResolutionPrincipal,
   runHandlerInstrumented,
   type WriteOrigin,
-} from "./dispatch-shared.js";
-import type { AfterCommitHook } from "./dispatcher-utils.js";
-import { handlerAccessError } from "./handler-access-error.js";
-import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.js";
+} from "./dispatch-shared.ts";
+import type { AfterCommitHook } from "./dispatcher-utils.ts";
+import { handlerAccessError } from "./handler-access-error.ts";
+import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.ts";
 
 // Standalone query execution — used by the public dispatcher.query() and
 // by ctx.query/ctx.queryAs inside handlers. Runs the handler, applies

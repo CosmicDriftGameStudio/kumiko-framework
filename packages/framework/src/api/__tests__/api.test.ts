@@ -9,11 +9,11 @@ import {
   createTextField,
   defineFeature,
   type TenantId,
-} from "../../engine/index.js";
-import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
-import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes.js";
-import { buildServer } from "../server.js";
+} from "../../engine/index.ts";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
+import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes.ts";
+import { buildServer } from "../server.ts";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 

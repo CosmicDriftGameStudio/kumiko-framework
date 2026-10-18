@@ -36,9 +36,9 @@ import {
   type SubscriptionEventType,
   type SubscriptionStatus,
   type TerminationScope,
-} from "./constants.js";
-import type { OrderItem } from "./consumer-protection/consent-gate.js";
-import type { ConsentLocale } from "./consumer-protection/consent-locale.js";
+} from "./constants.ts";
+import type { OrderItem } from "./consumer-protection/consent-gate.ts";
+import type { ConsentLocale } from "./consumer-protection/consent-locale.ts";
 
 // =============================================================================
 // Normalisierter Webhook-Event

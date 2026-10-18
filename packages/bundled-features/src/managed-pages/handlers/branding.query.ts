@@ -1,6 +1,6 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { MANAGED_PAGES_CSS_FEATURE, readBranding, readCustomCss } from "../branding.js";
+import { MANAGED_PAGES_CSS_FEATURE, readBranding, readCustomCss } from "../branding.ts";
 
 // Public branding read for the server-render path. Anonymous-capable: the
 // render route reaches this via internal app.fetch with X-Tenant = host-

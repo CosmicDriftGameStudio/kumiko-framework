@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { EntityTableMeta } from "../../entity-table-meta.js";
-import { deleteManyBatched } from "../../query.js";
+import type { EntityTableMeta } from "../../entity-table-meta.ts";
+import { deleteManyBatched } from "../../query.ts";
 
 describe("deleteManyBatched (mock)", () => {
   test("requires non-empty where", async () => {

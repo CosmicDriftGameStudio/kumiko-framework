@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { splitSqlStatements } from "../migrate-runner.js";
+import { splitSqlStatements } from "../migrate-runner.ts";
 
 describe("splitSqlStatements", () => {
   test("splits on semicolons and strips line comments", () => {

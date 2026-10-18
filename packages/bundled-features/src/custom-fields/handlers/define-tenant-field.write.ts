@@ -1,11 +1,11 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
-import { fieldDefinitionAggregateId } from "../aggregate-id.js";
-import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../constants.js";
-import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.js";
-import { buildFieldDefinitionColumns } from "../lib/field-definition-row.js";
-import { countTenantFieldDefinitions } from "../lib/quota.js";
-import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.js";
+import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
+import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../constants.ts";
+import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.ts";
+import { buildFieldDefinitionColumns } from "../lib/field-definition-row.ts";
+import { countTenantFieldDefinitions } from "../lib/quota.ts";
+import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.ts";
 
 // define-tenant-field — TenantAdmin definiert eine Custom-Field-Definition
 // für seinen eigenen Tenant. tenantId wird automatisch aus event.user.tenantId

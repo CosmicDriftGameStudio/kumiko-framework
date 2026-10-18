@@ -1,12 +1,12 @@
 // Public API of the document-ingest-foundation bundled-feature.
 
-export { documentIngestAggregateId } from "./aggregate-id.js";
+export { documentIngestAggregateId } from "./aggregate-id.ts";
 export {
   type DocumentExtractMeta,
   documentExtractEntity,
   documentExtractsTable,
   type IngestPage,
-} from "./entity.js";
+} from "./entity.ts";
 export {
   DOCUMENT_INGEST_AGGREGATE_TYPE,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
@@ -17,9 +17,9 @@ export {
   type DocumentIngestSkippedPayload,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
-} from "./events.js";
-export { createDocumentIngestFoundationFeature } from "./feature.js";
-export { readIngestPages, writeIngestPages } from "./pages.js";
+} from "./events.ts";
+export { createDocumentIngestFoundationFeature } from "./feature.ts";
+export { readIngestPages, writeIngestPages } from "./pages.ts";
 export {
   type DocumentIngestProviderOptions,
   documentIngestProviderOptionsSchema,
@@ -28,8 +28,8 @@ export {
   listIngestibleMimeTypes,
   type ResolvedDocumentIngestProvider,
   resolveDocumentIngestProviders,
-} from "./providers.js";
+} from "./providers.ts";
 export {
   type DocumentExtractWriteResult,
   writeDocumentExtractForLiveFileRef,
-} from "./write-document-extract.js";
+} from "./write-document-extract.ts";

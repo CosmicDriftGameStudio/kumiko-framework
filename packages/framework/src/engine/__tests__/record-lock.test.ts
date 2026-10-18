@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isRecordLocked } from "../screen-helpers.js";
+import { isRecordLocked } from "../screen-helpers.ts";
 
 describe("isRecordLocked", () => {
   const lockedWhen = { field: "status", eq: "closed" } as const;

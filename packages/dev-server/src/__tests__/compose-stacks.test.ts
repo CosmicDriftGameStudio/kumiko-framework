@@ -21,7 +21,7 @@ import {
   composeSecurityStack,
   composeUserDataRightsStack,
   stackFeatureNames,
-} from "../compose-stacks.js";
+} from "../compose-stacks.ts";
 
 const TEST_MFA = {
   setupTokenSecret: "compose-stacks-mfa-setup-secret-at-least-32b!!",

@@ -17,22 +17,22 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { LAST_SEEN_REFRESH_MS } from "../constants.js";
-import { createSessionsFeature } from "../feature.js";
-import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
-import { sessionCallbacksFromLateBound } from "../testing.js";
-import { makeSessionHelpers } from "./test-helpers.js";
+import { AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { LAST_SEEN_REFRESH_MS } from "../constants.ts";
+import { createSessionsFeature } from "../feature.ts";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.ts";
+import { sessionCallbacksFromLateBound } from "../testing.ts";
+import { makeSessionHelpers } from "./test-helpers.ts";
 
 // Proves the #2220 lastSeenAt refresh: sessionChecker stamps a coarse
 // activity marker on the session row, but only once per LAST_SEEN_REFRESH_MS

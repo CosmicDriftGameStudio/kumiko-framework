@@ -1,7 +1,7 @@
-import { toKebab } from "../engine/qualified-name.js";
-import type { Registry, SessionUser } from "../engine/types/index.js";
-import { isKumikoError } from "../errors/index.js";
-import { createFallbackLogger } from "../logging/index.js";
+import { toKebab } from "../engine/qualified-name.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+import { isKumikoError } from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
 
 export type RecordReadCheck = (args: {
   readonly entityType: string;

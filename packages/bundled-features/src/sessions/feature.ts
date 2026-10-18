@@ -9,27 +9,27 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { USER_SESSION_ENTITY_NAME } from "./constants.js";
-import { cleanupJob } from "./handlers/cleanup.job.js";
-import { createDetailQuery } from "./handlers/detail.query.js";
-import { createListQuery } from "./handlers/list.query.js";
-import { mineQuery } from "./handlers/mine.query.js";
-import { revokeWrite } from "./handlers/revoke.write.js";
-import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write.js";
-import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write.js";
-import { SESSIONS_I18N } from "./i18n.js";
-import { userSessionEntity } from "./schema/user-session.js";
+import { USER_SESSION_ENTITY_NAME } from "./constants.ts";
+import { cleanupJob } from "./handlers/cleanup.job.ts";
+import { createDetailQuery } from "./handlers/detail.query.ts";
+import { createListQuery } from "./handlers/list.query.ts";
+import { mineQuery } from "./handlers/mine.query.ts";
+import { revokeWrite } from "./handlers/revoke.write.ts";
+import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write.ts";
+import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write.ts";
+import { SESSIONS_I18N } from "./i18n.ts";
+import { userSessionEntity } from "./schema/user-session.ts";
 import {
   createSessionDetailScreen,
   createSessionListScreen,
   sessionMineScreen,
-} from "./screens.js";
+} from "./screens.ts";
 import {
   createSessionCallbacks,
   type SessionAllOthersRevoker,
   type SessionMassRevoker,
-} from "./session-callbacks.js";
-import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event.js";
+} from "./session-callbacks.ts";
+import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event.ts";
 
 const CLEANUP_ESCAPE_HATCH_REASON = "deletes expired session rows of every tenant";
 

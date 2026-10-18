@@ -14,12 +14,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
+import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Two aggregate types that feed one MSP ---
 

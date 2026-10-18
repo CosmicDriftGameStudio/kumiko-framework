@@ -4,8 +4,8 @@ import {
   EXT_FILE_PROVIDER,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { RunProdAppOptions } from "../run-prod-app.js";
-import { CHANNEL_EMAIL_FEATURE } from "./mail-option.js";
+import type { RunProdAppOptions } from "../run-prod-app.ts";
+import { CHANNEL_EMAIL_FEATURE } from "./mail-option.ts";
 
 export type StackBootOptionFields = Pick<
   RunProdAppOptions,

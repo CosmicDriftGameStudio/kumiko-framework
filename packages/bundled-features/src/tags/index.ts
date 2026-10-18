@@ -1,4 +1,4 @@
-export { tagAssignmentAggregateId } from "./aggregate-id.js";
+export { tagAssignmentAggregateId } from "./aggregate-id.ts";
 export {
   DEFAULT_TAG_ACCESS,
   DEFAULT_TAG_ROLES,
@@ -10,29 +10,29 @@ export {
   TAGS_SECTION_EXTENSION_NAME,
   TagsHandlers,
   TagsQueries,
-} from "./constants.js";
-export { tagAssignmentEntity, tagEntity } from "./entity.js";
-export { createTagsFeature, type TagsFeatureOptions } from "./feature.js";
+} from "./constants.ts";
+export { tagAssignmentEntity, tagEntity } from "./entity.ts";
+export { createTagsFeature, type TagsFeatureOptions } from "./feature.ts";
 export {
   assignTagHandler,
   createAssignTagHandler,
-} from "./handlers/assign-tag.write.js";
+} from "./handlers/assign-tag.write.ts";
 export {
   createCreateTagHandler,
   createTagHandler,
-} from "./handlers/create-tag.write.js";
+} from "./handlers/create-tag.write.ts";
 export {
   createDeleteTagHandler,
   deleteTagHandler,
-} from "./handlers/delete-tag.write.js";
+} from "./handlers/delete-tag.write.ts";
 export {
   createRemoveTagHandler,
   removeTagHandler,
-} from "./handlers/remove-tag.write.js";
+} from "./handlers/remove-tag.write.ts";
 export {
   createUpdateTagHandler,
   updateTagHandler,
-} from "./handlers/update-tag.write.js";
+} from "./handlers/update-tag.write.ts";
 export {
   type AssignTagPayload,
   assignTagPayloadSchema,
@@ -44,5 +44,5 @@ export {
   removeTagPayloadSchema,
   type UpdateTagPayload,
   updateTagPayloadSchema,
-} from "./schemas.js";
-export { createTagEditScreen, createTagListScreen } from "./screens.js";
+} from "./schemas.ts";
+export { createTagEditScreen, createTagListScreen } from "./screens.ts";

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { resolveAttemptLogRetentionDays } from "../attempt-log-retention.js";
-import { createDeliveryFeature } from "../feature.js";
-import { DeliveryJobNames } from "../public-names.js";
+import { resolveAttemptLogRetentionDays } from "../attempt-log-retention.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { DeliveryJobNames } from "../public-names.ts";
 
 describe("attempt log retention option", () => {
   test("defaults to 90 days", () => {

@@ -11,17 +11,17 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { selectMany } from "../db/query.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { selectMany } from "../db/query.ts";
 import {
   defineFeature,
   type EntityId,
   type HandlerContext,
   type SaveContext,
-} from "../engine/index.js";
-import { UnprocessableError, writeFailure } from "../errors/index.js";
-import { eventsTable } from "../event-store/index.js";
-import { createTestUser, TestUsers } from "../seeding/seed-users.js";
+} from "../engine/index.ts";
+import { UnprocessableError, writeFailure } from "../errors/index.ts";
+import { eventsTable } from "../event-store/index.ts";
+import { createTestUser, TestUsers } from "../seeding/seed-users.ts";
 
 // --- Entities ---
 
@@ -38,10 +38,10 @@ function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
   return createEventStoreExecutor(userTable, userEntity, {
     entityName: "user",
     ...(ctx.searchAdapter
-      ? { searchAdapter: ctx.searchAdapter as import("../search/index.js").SearchAdapter }
+      ? { searchAdapter: ctx.searchAdapter as import("../search/index.ts").SearchAdapter }
       : {}),
     ...(ctx.entityCache
-      ? { entityCache: ctx.entityCache as import("../pipeline/entity-cache.js").EntityCache }
+      ? { entityCache: ctx.entityCache as import("../pipeline/entity-cache.ts").EntityCache }
       : {}),
   });
 }

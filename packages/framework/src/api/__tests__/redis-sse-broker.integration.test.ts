@@ -1,14 +1,14 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
-import { generateId } from "../../utils/index.js";
+import { generateId } from "../../utils/index.ts";
 import {
   createDefaultSseBroker,
   createRedisSseBroker,
   isRedisSseBroker,
   type RedisSseBroker,
-} from "../redis-sse-broker.js";
-import type { SseEvent } from "../sse-broker.js";
+} from "../redis-sse-broker.ts";
+import type { SseEvent } from "../sse-broker.ts";
 
 let testRedis: TestRedis;
 // keyPrefix on testRedis.redis does not apply to pub/sub channel names

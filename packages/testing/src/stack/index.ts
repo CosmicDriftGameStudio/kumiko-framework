@@ -18,11 +18,11 @@ export {
   type CreateTestDbOptions,
   createTestDb,
   type TestDb,
-} from "./db.js";
-export { drainEventConsumers } from "./drain-event-consumers.js";
-export { createEventCollector, type EventCollector } from "./event-collector.js";
-export { pushEntityProjectionTables } from "./push-entity-projection-tables.js";
-export { createTestRedis, type TestRedis } from "./redis.js";
-export { createRequestHelper, type RequestHelper } from "./request-helper.js";
-export { resetEventStore } from "./table-helpers.js";
-export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack.js";
+} from "./db.ts";
+export { drainEventConsumers } from "./drain-event-consumers.ts";
+export { createEventCollector, type EventCollector } from "./event-collector.ts";
+export { pushEntityProjectionTables } from "./push-entity-projection-tables.ts";
+export { createTestRedis, type TestRedis } from "./redis.ts";
+export { createRequestHelper, type RequestHelper } from "./request-helper.ts";
+export { resetEventStore } from "./table-helpers.ts";
+export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack.ts";

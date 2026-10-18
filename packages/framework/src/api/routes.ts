@@ -2,7 +2,7 @@ import { type Context, Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { SessionUser } from "../engine/types/handlers.js";
+import type { SessionUser } from "../engine/types/handlers.ts";
 import {
   AccessDeniedError,
   type KumikoError,
@@ -10,16 +10,16 @@ import {
   serializeError,
   toKumikoError,
   ValidationError,
-} from "../errors/index.js";
-import { createFallbackLogger } from "../logging/index.js";
-import type { Dispatcher } from "../pipeline/dispatcher.js";
-import { isPlainObject } from "../utils/is-plain-object.js";
-import { stringifyJson } from "../utils/safe-json.js";
-import { Routes } from "./api-constants.js";
-import { getAuthTokenExpiry, getUser } from "./auth-middleware.js";
-import { patAllows } from "./pat-scope.js";
-import { requestContext } from "./request-context.js";
-import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.js";
+} from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
+import type { Dispatcher } from "../pipeline/dispatcher.ts";
+import { isPlainObject } from "../utils/is-plain-object.ts";
+import { stringifyJson } from "../utils/safe-json.ts";
+import { Routes } from "./api-constants.ts";
+import { getAuthTokenExpiry, getUser } from "./auth-middleware.ts";
+import { patAllows } from "./pat-scope.ts";
+import { requestContext } from "./request-context.ts";
+import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.ts";
 
 // SSE frame event names for POST /api/stream. Parallel definition lives in
 // @cosmicdrift/kumiko-headless (dispatcher-live imports that one) — framework

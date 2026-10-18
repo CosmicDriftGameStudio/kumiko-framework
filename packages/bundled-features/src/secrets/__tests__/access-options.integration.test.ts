@@ -20,10 +20,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createSecretsFeature } from "../feature.js";
-import { createSecretsContext } from "../secrets-context.js";
-import { tenantSecretsTable } from "../table.js";
-import { createDeclaredKeysFeature } from "./declared-keys-feature.js";
+import { createSecretsFeature } from "../feature.ts";
+import { createSecretsContext } from "../secrets-context.ts";
+import { tenantSecretsTable } from "../table.ts";
+import { createDeclaredKeysFeature } from "./declared-keys-feature.ts";
 
 function masterKeyProvider(): MasterKeyProvider {
   return createEnvMasterKeyProvider({

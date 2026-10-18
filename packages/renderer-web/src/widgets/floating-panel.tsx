@@ -11,10 +11,10 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { clamp } from "../lib/clamp.js";
-import { cn } from "../lib/cn.js";
-import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.js";
-import { arrowKeyDelta, type DragDelta, usePointerDrag } from "./use-pointer-drag.js";
+import { clamp } from "../lib/clamp.ts";
+import { cn } from "../lib/cn.ts";
+import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.ts";
+import { arrowKeyDelta, type DragDelta, usePointerDrag } from "./use-pointer-drag.ts";
 
 export type FloatingPanelGeometry = {
   readonly x: number;

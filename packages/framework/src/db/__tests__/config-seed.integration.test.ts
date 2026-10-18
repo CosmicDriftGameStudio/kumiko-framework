@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
+import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
   createSystemConfig,
@@ -8,14 +8,14 @@ import {
   createTextField,
   createUserConfig,
   SYSTEM_TENANT_ID,
-} from "../../engine/index.js";
-import type { ConfigSeedDef, Registry } from "../../engine/types/index.js";
-import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider.js";
-import { createEnvelopeCipher } from "../../secrets/envelope-cipher.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { seedConfigValues } from "../config-seed.js";
-import { buildEntityTable } from "../table-builder.js";
-import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
+} from "../../engine/index.ts";
+import type { ConfigSeedDef, Registry } from "../../engine/types/index.ts";
+import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider.ts";
+import { createEnvelopeCipher } from "../../secrets/envelope-cipher.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { seedConfigValues } from "../config-seed.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 // --- Test Entity ---
 // Mirrors the config-value entity from bundled-features with a unique

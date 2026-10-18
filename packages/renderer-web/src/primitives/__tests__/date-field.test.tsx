@@ -12,7 +12,7 @@ import {
   LocaleProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { render, screen } from "@testing-library/react";
-import { DateField } from "../date-field.js";
+import { DateField } from "../date-field.tsx";
 
 function renderWithLocale(locale: string) {
   return render(

@@ -4,7 +4,7 @@
 // the server side (createCapOverviewFeature) lives under
 // `@cosmicdrift/kumiko-bundled-features/cap-overview` and has no React deps.
 
-export { CapCardsPanel } from "./cap-cards-panel.js";
-export { CapUsageBar } from "./cap-usage-bar.js";
-export { CapUsageCell } from "./cap-usage-cell.js";
-export { type CapOverviewClientOptions, capOverviewClient } from "./client-plugin.js";
+export { CapCardsPanel } from "./cap-cards-panel.tsx";
+export { CapUsageBar } from "./cap-usage-bar.tsx";
+export { CapUsageCell } from "./cap-usage-cell.tsx";
+export { type CapOverviewClientOptions, capOverviewClient } from "./client-plugin.tsx";

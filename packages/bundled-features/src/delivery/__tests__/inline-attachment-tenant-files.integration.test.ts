@@ -17,8 +17,8 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { fileContextForTenant } from "../../file-foundation/index.js";
-import { createEmailAttachmentReader } from "../channel-context.js";
+import { fileContextForTenant } from "../../file-foundation/index.ts";
+import { createEmailAttachmentReader } from "../channel-context.ts";
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
 

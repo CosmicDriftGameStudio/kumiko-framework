@@ -10,8 +10,8 @@ import {
   isTenantServingPublicContent,
   type TenantLifecycleStatus,
   tenantTable,
-} from "../../tenant/index.js";
-import { PUBLIC_VARIANT_QN, publicVariantPayloadSchema } from "./public-variant.query.js";
+} from "../../tenant/index.ts";
+import { PUBLIC_VARIANT_QN, publicVariantPayloadSchema } from "./public-variant.query.ts";
 
 type FileRefTenantRow = {
   readonly tenantId: TenantId;

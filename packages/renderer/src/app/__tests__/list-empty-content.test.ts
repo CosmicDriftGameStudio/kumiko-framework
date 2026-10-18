@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isListNarrowed } from "../list-empty-content.js";
+import { isListNarrowed } from "../list-empty-content.ts";
 
 describe("isListNarrowed", () => {
   test("a search term narrows the list", () => {

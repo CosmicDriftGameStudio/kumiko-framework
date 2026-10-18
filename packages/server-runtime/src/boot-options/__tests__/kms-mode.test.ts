@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { resolveKmsMode } from "../kms-mode.js";
+import { resolveKmsMode } from "../kms-mode.ts";
 
 const COMPLETE_TRIO = {
   PLATFORM_KEK: randomBytes(32).toString("base64"),

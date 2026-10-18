@@ -1,8 +1,8 @@
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-context.js";
-import type { QuerySlot } from "../context/query-pool.js";
-import { useLiveEvents } from "../sse/live-events.js";
+import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-context.tsx";
+import type { QuerySlot } from "../context/query-pool.ts";
+import { useLiveEvents } from "../sse/live-events.tsx";
 
 // React wrapper around dispatcher.query. Fires on mount, re-fires
 // whenever `type` or the serialized payload change, and exposes a

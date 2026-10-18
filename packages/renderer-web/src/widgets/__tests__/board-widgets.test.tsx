@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen } from "../../__tests__/test-utils.js";
-import { defaultPrimitives } from "../../primitives/index.js";
-import { ModeSwitch } from "../mode-switch.js";
-import { ProgressBar } from "../progress-bar.js";
-import { SideBySideTable } from "../side-by-side-table.js";
-import { StatusBadge } from "../status-badge.js";
+import { render, screen } from "../../__tests__/test-utils.tsx";
+import { defaultPrimitives } from "../../primitives/index.tsx";
+import { ModeSwitch } from "../mode-switch.tsx";
+import { ProgressBar } from "../progress-bar.tsx";
+import { SideBySideTable } from "../side-by-side-table.tsx";
+import { StatusBadge } from "../status-badge.tsx";
 
 describe("StatusBadge accent", () => {
   test("uses the primary tint and keeps the status dot", () => {

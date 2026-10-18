@@ -19,8 +19,8 @@ import {
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { defaultPrimitives } from "../primitives/index.js";
-import { defaultTokens } from "../tokens.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { defaultTokens } from "../tokens.ts";
 
 afterEach(cleanup);
 

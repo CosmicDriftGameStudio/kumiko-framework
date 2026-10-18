@@ -1,10 +1,10 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { Camera, Check, Loader2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { toAcceptAttr } from "../lib/accept-attr.js";
-import { cn } from "../lib/cn.js";
-import { resizeImageBeforeUpload } from "../lib/resize-image.js";
-import { matchesAccept } from "./upload-zone.js";
+import { toAcceptAttr } from "../lib/accept-attr.ts";
+import { cn } from "../lib/cn.ts";
+import { resizeImageBeforeUpload } from "../lib/resize-image.ts";
+import { matchesAccept } from "./upload-zone.tsx";
 
 export type PhotoSlotSpec = {
   readonly id: string;

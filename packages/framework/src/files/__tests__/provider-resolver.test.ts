@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { Registry } from "../../engine/types/index.js";
-import { makeFileProviderResolver } from "../provider-resolver.js";
-import type { FileStorageProvider } from "../types.js";
+import type { Registry } from "../../engine/types/index.ts";
+import { makeFileProviderResolver } from "../provider-resolver.ts";
+import type { FileStorageProvider } from "../types.ts";
 
 const fakeProvider: FileStorageProvider = {
   write: async () => {},

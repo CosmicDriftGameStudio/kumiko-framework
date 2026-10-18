@@ -7,8 +7,8 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useRef, useState } from "react";
-import { fetchStoredFileName } from "./file-name.js";
-import { uniqueResourceKey } from "./mail-draft.js";
+import { fetchStoredFileName } from "./file-name.ts";
+import { uniqueResourceKey } from "./mail-draft.ts";
 
 const IMAGE_ACCEPT = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
 

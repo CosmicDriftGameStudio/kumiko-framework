@@ -16,10 +16,10 @@ import {
   MAX_EMAIL_ATTACHMENTS,
   type RenderedMessage,
   renderedPdfAttachmentRefSchema,
-} from "../delivery/index.js";
-import { decryptStoredPii, extensionForResourceContentType } from "../shared/index.js";
-import { guardEmailMessage } from "./pii-guard.js";
-import type { EmailAttachment, EmailTransport } from "./types.js";
+} from "../delivery/index.ts";
+import { decryptStoredPii, extensionForResourceContentType } from "../shared/index.ts";
+import { guardEmailMessage } from "./pii-guard.ts";
+import type { EmailAttachment, EmailTransport } from "./types.ts";
 
 // Envelope (From / Reply-To / threading headers) rides on the channel data —
 // the notification's email template echoes it out of the notify() call, since

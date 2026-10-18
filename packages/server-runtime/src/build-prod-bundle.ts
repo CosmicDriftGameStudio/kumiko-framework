@@ -60,14 +60,14 @@ import {
   type BundledAssetDeclaration,
   readBundledAssetDeclarations,
   resolveBundledAssetSource,
-} from "./bundled-assets.js";
-import { CSP_HASHES_FILE, type CspHashesFile, inlineScriptHashes } from "./csp-hashes.js";
+} from "./bundled-assets.ts";
+import { CSP_HASHES_FILE, type CspHashesFile, inlineScriptHashes } from "./csp-hashes.ts";
 import {
   RENDERER_WEB_FONT_FILE_PATTERN,
   RENDERER_WEB_FONTS_DIST_DIR,
   resolveRendererWebFontsDir,
-} from "./renderer-web-fonts.js";
-import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli.js";
+} from "./renderer-web-fonts.ts";
+import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli.ts";
 
 // Bun-Runtime-Check als module-level Konstante: alle Build-Schritte
 // (Tailwind via Bun.spawn, Client-Bundle via Bun.build, Stylesheet-

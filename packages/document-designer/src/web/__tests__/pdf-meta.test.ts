@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { EMPTY_PDF_META, serializePdfMeta } from "../pdf-meta.js";
+import { EMPTY_PDF_META, serializePdfMeta } from "../pdf-meta.ts";
 
 describe("serializePdfMeta margins", () => {
   test("serializes only the margin sides that are set", () => {

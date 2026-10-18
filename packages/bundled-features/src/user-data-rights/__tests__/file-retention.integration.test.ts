@@ -34,19 +34,19 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
+} from "../../data-retention/index.ts";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
 
 let stack: TestStack;
 let db: DbConnection;

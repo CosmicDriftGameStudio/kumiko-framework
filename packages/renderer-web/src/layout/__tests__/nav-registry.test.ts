@@ -15,8 +15,8 @@ import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import {
   filterAppSchemaNavsByAllowlist,
   reparentAppSchemaNavs,
-} from "../filter-app-schema-navs.js";
-import { buildNavRegistrySlice, buildNavRegistrySliceForApp } from "../nav-tree.js";
+} from "../filter-app-schema-navs.ts";
+import { buildNavRegistrySlice, buildNavRegistrySliceForApp } from "../nav-tree.tsx";
 
 function feature(navs: readonly NavDefinition[], featureName = "tasks"): FeatureSchema {
   return { featureName, entities: {}, screens: [], navs };

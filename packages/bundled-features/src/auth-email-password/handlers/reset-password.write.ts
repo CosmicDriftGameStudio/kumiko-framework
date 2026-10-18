@@ -1,12 +1,12 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { hashPassword } from "../../shared/index.js";
-import { AuthErrors } from "../constants.js";
-import { invalidResetToken } from "../errors.js";
-import { passwordSchema } from "../password-policy.js";
-import { verifyResetToken } from "../reset-token.js";
-import { runConfirmTokenFlow } from "./confirm-token-flow.js";
+import { hashPassword } from "../../shared/index.ts";
+import { AuthErrors } from "../constants.ts";
+import { invalidResetToken } from "../errors.ts";
+import { passwordSchema } from "../password-policy.ts";
+import { verifyResetToken } from "../reset-token.ts";
+import { runConfirmTokenFlow } from "./confirm-token-flow.ts";
 
 export type ResetPasswordOptions = {
   readonly hmacSecret: string;

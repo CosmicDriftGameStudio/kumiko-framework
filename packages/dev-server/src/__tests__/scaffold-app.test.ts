@@ -4,8 +4,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { FRAMEWORK_AGENTS_IMPORT } from "../scaffold-agent-docs.js";
-import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app.js";
+import { FRAMEWORK_AGENTS_IMPORT } from "../scaffold-agent-docs.ts";
+import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app.ts";
 
 const SCAFFOLD_FILES = [
   "package.json",

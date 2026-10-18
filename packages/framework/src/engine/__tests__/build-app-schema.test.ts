@@ -9,12 +9,12 @@
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema.js";
-import { access, createSystemConfig, createTenantConfig } from "../config-helpers.js";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
-import type { EntityDefinition, MultiSelectFieldDef } from "../types/fields.js";
-import type { ProjectionListScreenDefinition } from "../types/screen.js";
+import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema.ts";
+import { access, createSystemConfig, createTenantConfig } from "../config-helpers.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
+import type { EntityDefinition, MultiSelectFieldDef } from "../types/fields.ts";
+import type { ProjectionListScreenDefinition } from "../types/screen.ts";
 
 describe("buildAppSchema", () => {
   test("Multi-Feature: jedes Feature wird mit eigenem featureName projiziert", () => {

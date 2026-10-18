@@ -10,9 +10,9 @@ import {
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { cn } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback } from "react";
-import { LayoutHtml } from "./layout-html.js";
-import { MARGIN_SIDES, type PdfMetaDraft } from "./pdf-meta.js";
-import type { LayoutRegionsHtml } from "./types.js";
+import { LayoutHtml } from "./layout-html.tsx";
+import { MARGIN_SIDES, type PdfMetaDraft } from "./pdf-meta.ts";
+import type { LayoutRegionsHtml } from "./types.ts";
 
 const MM_TO_PX = 96 / 25.4;
 

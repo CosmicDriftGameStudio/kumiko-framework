@@ -12,9 +12,9 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { tenantMembershipsTable } from "../tenant/index.js";
-import { userTable } from "../user/index.js";
-import { waitlistEntryEntity, waitlistEntryTable } from "./entity.js";
+import { tenantMembershipsTable } from "../tenant/index.ts";
+import { userTable } from "../user/index.ts";
+import { waitlistEntryEntity, waitlistEntryTable } from "./entity.ts";
 
 export const WAITLIST_CROSS_TENANT_REASON = "waitlist is platform-wide (systemScope)";
 

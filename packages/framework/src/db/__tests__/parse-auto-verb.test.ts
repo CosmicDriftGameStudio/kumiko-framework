@@ -8,8 +8,8 @@
 // returnt, würde die ImplicitProjection den falschen Handler firen.
 
 import { describe, expect, test } from "bun:test";
-import type { StoredEvent } from "../../event-store/index.js";
-import { parseAutoVerb } from "../apply-entity-event.js";
+import type { StoredEvent } from "../../event-store/index.ts";
+import { parseAutoVerb } from "../apply-entity-event.ts";
 
 function event(overrides: Partial<StoredEvent>): StoredEvent {
   return {

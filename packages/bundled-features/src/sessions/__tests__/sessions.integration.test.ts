@@ -28,23 +28,23 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/schema/user.js";
-import { SessionHandlers, SessionQueries } from "../constants.js";
-import { createSessionsFeature } from "../feature.js";
-import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
-import { SESSION_REVOKED_EVENT_QN, sessionRevokedSchema } from "../session-revoked-event.js";
-import { sessionCallbacksFromLateBound } from "../testing.js";
-import { makeSessionHelpers } from "./test-helpers.js";
+import { AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/schema/user.ts";
+import { SessionHandlers, SessionQueries } from "../constants.ts";
+import { createSessionsFeature } from "../feature.ts";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.ts";
+import { SESSION_REVOKED_EVENT_QN, sessionRevokedSchema } from "../session-revoked-event.ts";
+import { sessionCallbacksFromLateBound } from "../testing.ts";
+import { makeSessionHelpers } from "./test-helpers.ts";
 
 // End-to-end test of the sessions feature. Full loop: login persists a
 // session → JWT carries jti → middleware checks it on every subsequent

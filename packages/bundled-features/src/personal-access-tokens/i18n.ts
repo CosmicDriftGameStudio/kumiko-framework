@@ -1,7 +1,7 @@
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
-import { PAT_FEATURE } from "./constants.js";
-import type { PatScopeConfig } from "./scopes.js";
+import { PAT_FEATURE } from "./constants.ts";
+import type { PatScopeConfig } from "./scopes.ts";
 
 const mintFieldKey = (field: string): string =>
   fieldLabelKey(PAT_FEATURE, ACTION_FORM_ENTITY, field);

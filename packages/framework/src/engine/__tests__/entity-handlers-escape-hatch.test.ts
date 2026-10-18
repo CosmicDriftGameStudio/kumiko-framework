@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../define-feature.js";
+import { defineFeature } from "../define-feature.ts";
 import {
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
-} from "../entity-handlers.js";
-import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../escape-hatch-reason.js";
-import { createEntity, createTextField } from "../factories.js";
+} from "../entity-handlers.ts";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../escape-hatch-reason.ts";
+import { createEntity, createTextField } from "../factories.ts";
 
 const thingEntity = createEntity({
   table: "escape_hatch_things",

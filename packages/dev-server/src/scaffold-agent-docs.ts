@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { render } from "./scaffold-deploy.js";
+import { render } from "./scaffold-deploy.ts";
 
 export const FRAMEWORK_AGENTS_IMPORT = "@node_modules/@cosmicdrift/kumiko-framework/AGENTS.md";
 

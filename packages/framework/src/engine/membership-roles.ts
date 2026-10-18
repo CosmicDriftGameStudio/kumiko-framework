@@ -10,8 +10,8 @@
 // matching strip (anonymous/all only) to globalRoles, where SystemAdmin
 // legitimately lives.
 
-import { access } from "./config-helpers.js";
-import { SYSTEM_ROLE } from "./system-user.js";
+import { access } from "./config-helpers.ts";
+import { SYSTEM_ROLE } from "./system-user.ts";
 
 export const FORBIDDEN_MEMBERSHIP_ROLES: ReadonlySet<string> = new Set<string>([
   ...access.privileged, // system, SystemAdmin

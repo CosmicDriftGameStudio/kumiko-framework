@@ -1,19 +1,19 @@
 import { escapeHatchGrantsProblem, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
-import { codemodPlaceholderReasonProblem } from "../escape-hatch-reason.js";
+import { codemodPlaceholderReasonProblem } from "../escape-hatch-reason.ts";
 import {
   accessAllowsAnonymous,
   declaredPersonalData,
   personalFieldNames,
-} from "../personal-data-fields.js";
-import { ANONYMOUS_ROLE } from "../system-user.js";
+} from "../personal-data-fields.ts";
+import { ANONYMOUS_ROLE } from "../system-user.ts";
 import type {
   AccessRule,
   FeatureDefinition,
   QueryHandlerDef,
   StreamHandlerDef,
   WriteHandlerDef,
-} from "../types/index.js";
-import { collectZodObjectKeys } from "./zod-shape.js";
+} from "../types/index.ts";
+import { collectZodObjectKeys } from "./zod-shape.ts";
 
 type HandlerKind = "write" | "query" | "stream";
 

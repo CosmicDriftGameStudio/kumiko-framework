@@ -4,7 +4,7 @@ import {
   createChatWebhookChannel,
   type DeliveryChannel,
   truncateChars,
-} from "../delivery/index.js";
+} from "../delivery/index.ts";
 
 export type DiscordChannelOptions = ChatWebhookChannelOptions;
 

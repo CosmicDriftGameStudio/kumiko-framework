@@ -3,13 +3,13 @@ export {
   type DocumentDesignerClientOptions,
   documentDesignerClient,
   PdfTemplateEditorScreen,
-} from "./client-plugin.js";
-export { composeLayoutHtml, type LayoutRegionValues } from "./compose-layout.js";
-export { documentDesignerTranslations } from "./i18n.js";
-export { PdfTemplateEditor, type PdfTemplateEditorProps } from "./pdf-template-editor.js";
+} from "./client-plugin.tsx";
+export { composeLayoutHtml, type LayoutRegionValues } from "./compose-layout.ts";
+export { documentDesignerTranslations } from "./i18n.ts";
+export { PdfTemplateEditor, type PdfTemplateEditorProps } from "./pdf-template-editor.tsx";
 export {
   type PreviewRecordPicker,
   type PreviewRecordPickerProps,
   PreviewRecordPickerProvider,
-} from "./preview-record-picker.js";
-export { usageLabel, usedByLabel } from "./used-by-label.js";
+} from "./preview-record-picker.tsx";
+export { usageLabel, usedByLabel } from "./used-by-label.ts";

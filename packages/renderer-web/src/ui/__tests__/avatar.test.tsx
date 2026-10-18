@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen } from "../../__tests__/test-utils.js";
+import { render, screen } from "../../__tests__/test-utils.tsx";
 import {
   Avatar,
   AvatarBadge,
@@ -7,7 +7,7 @@ import {
   AvatarGroup,
   AvatarGroupCount,
   AvatarImage,
-} from "../avatar.js";
+} from "../avatar.tsx";
 
 describe("ui/Avatar", () => {
   test.each(["default", "sm", "lg"] as const)("size=%s sets data-size on root", (size) => {

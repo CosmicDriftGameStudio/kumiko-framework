@@ -7,9 +7,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { buildServer } from "../api/server.js";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { buildEntityTable } from "../db/table-builder.js";
+import { buildServer } from "../api/server.ts";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
 import {
   createEntity,
   createNumberField,
@@ -17,8 +17,8 @@ import {
   createTextField,
   defineFeature,
   type SessionUser,
-} from "../engine/index.js";
-import { createTestUser, TestUsers } from "../seeding/seed-users.js";
+} from "../engine/index.ts";
+import { createTestUser, TestUsers } from "../seeding/seed-users.ts";
 
 // --- Entity with field-level access ---
 

@@ -6,7 +6,7 @@ import {
   failedJobRunsMetric,
   jobRunsByStatusMetric,
   tenantJobFailuresMetric,
-} from "../../metrics/index.js";
+} from "../../metrics/index.ts";
 
 // Sources only from features admin-shell already requires (jobs, tenant), so
 // tests need no delivery/sessions tables.

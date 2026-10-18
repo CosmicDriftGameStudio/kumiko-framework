@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { collectErasureFailure, throwIfErasureFailed } from "../assert-erased.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../assert-erased.ts";
 
 function failed(code: string, message: string): WriteResult<unknown> {
   // @cast-boundary test-fixture — only code/message are read by the collector

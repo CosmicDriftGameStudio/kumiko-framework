@@ -1,6 +1,6 @@
 import { defineEntityListHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { waitlistEntryEntity } from "../entity.js";
-import { adminAccess } from "../lib.js";
+import { waitlistEntryEntity } from "../entity.ts";
+import { adminAccess } from "../lib.ts";
 
 // Entity-convention list: the QN waitlist:query:waitlist-entry:list is what the
 // entityList screen resolves; paging, search and sort come from the entity flags.

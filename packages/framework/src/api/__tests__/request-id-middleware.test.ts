@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { requestContext } from "../request-context.js";
-import { requestIdMiddleware } from "../request-id-middleware.js";
+import { requestContext } from "../request-context.ts";
+import { requestIdMiddleware } from "../request-id-middleware.ts";
 
 describe("requestIdMiddleware — signal propagation", () => {
   test("AbortSignal from c.req.raw lands in requestContext.signal", async () => {

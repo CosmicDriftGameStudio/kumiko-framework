@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createSmtpTransportFromEnv } from "../smtp-transport.js";
+import { createSmtpTransportFromEnv } from "../smtp-transport.ts";
 
 describe("createSmtpTransportFromEnv", () => {
   test("no SMTP_HOST → null (no-mail, not crash)", () => {

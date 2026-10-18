@@ -22,18 +22,18 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { inboundMessageAggregateId } from "../aggregate-id.js";
-import { InboundMailFoundationHandlers } from "../constants.js";
-import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.js";
-import { createInboundMailFoundationFeature } from "../feature.js";
-import { inboundMessagesProjectionTable } from "../projection.js";
-import { runInboundMailRetention } from "../retention-sweep.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { inboundMessageAggregateId } from "../aggregate-id.ts";
+import { InboundMailFoundationHandlers } from "../constants.ts";
+import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.ts";
+import { createInboundMailFoundationFeature } from "../feature.ts";
+import { inboundMessagesProjectionTable } from "../projection.ts";
+import { runInboundMailRetention } from "../retention-sweep.ts";
 
 let stack: TestStack;
 let db: DbConnection;

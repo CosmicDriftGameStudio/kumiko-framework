@@ -9,7 +9,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { formDraftExecutor, formDraftTable } from "../form-draft/index.js";
+import { formDraftExecutor, formDraftTable } from "../form-draft/index.ts";
 
 export const formDraftExportHook: UserDataExportHook = async (ctx) => {
   const rows = await ctx.db.selectMany(formDraftTable, {

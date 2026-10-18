@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { buildAppSchema } from "../build-app-schema.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
-import { createRegistry } from "../registry.js";
+import { buildAppSchema } from "../build-app-schema.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import { createRegistry } from "../registry.ts";
 
 const carEntity = createEntity({
   table: "exclude_registry_cars",

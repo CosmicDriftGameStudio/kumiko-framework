@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_LEDGER_ROLES } from "../constants.js";
-import { createLedgerFeature } from "../feature.js";
-import { createTransactionPayloadSchema, reverseTransactionPayloadSchema } from "../schemas.js";
+import { DEFAULT_LEDGER_ROLES } from "../constants.ts";
+import { createLedgerFeature } from "../feature.ts";
+import { createTransactionPayloadSchema, reverseTransactionPayloadSchema } from "../schemas.ts";
 
 // Unit tests: feature-shape, role-options, and the two double-entry invariants
 // that live in the command schema (balance + ≥2 accounts). The ES-loop behaviour

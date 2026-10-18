@@ -1,6 +1,6 @@
 // Public API of the cap-overview bundled-feature.
 
-export { DEFAULT_CAP_USAGE_ROLES } from "./access.js";
+export { DEFAULT_CAP_USAGE_ROLES } from "./access.ts";
 export {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_OVERVIEW_FEATURE,
@@ -10,12 +10,12 @@ export {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
   TENANT_CAP_LIST_SCREEN_ID,
-} from "./constants.js";
-export { type CreateCapOverviewOptions, createCapOverviewFeature } from "./feature.js";
+} from "./constants.ts";
+export { type CreateCapOverviewOptions, createCapOverviewFeature } from "./feature.ts";
 export {
   createMyCapsScreen,
   createTenantCapListScreen,
   platformTenantCapsScreen,
-} from "./screens.js";
-export type { CapSpec, CapUsage, CapUsageTone, CapUsageWithMeta } from "./types.js";
-export { computeFraction, computeTone } from "./usage-math.js";
+} from "./screens.ts";
+export type { CapSpec, CapUsage, CapUsageTone, CapUsageWithMeta } from "./types.ts";
+export { computeFraction, computeTone } from "./usage-math.ts";

@@ -24,16 +24,16 @@ import {
   deliverJobId,
   STEP_DISPATCHER_FEATURE,
   StepDispatcherJobs,
-} from "./constants.js";
+} from "./constants.ts";
 import {
   deliverDispatchRequest,
   eraseDispatchKey,
   isDispatchOutcome,
-} from "./deliver-dispatch-request.js";
+} from "./deliver-dispatch-request.ts";
 import {
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS,
-} from "./webhook-runner.js";
+} from "./webhook-runner.ts";
 
 export const stepDispatcherEnvSchema = z.object({
   [WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR]: z

@@ -6,15 +6,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import { isCollectionRefusedKind } from "../constants.js";
-import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.js";
+import { requireForTenant } from "../../shared/index.ts";
+import { isCollectionRefusedKind } from "../constants.ts";
+import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.ts";
 import {
   type CollectionEntryRow,
   collectionStore,
   DEFAULT_COLLECTION_ACCESS,
-} from "./collection-shared.js";
-import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared.js";
+} from "./collection-shared.ts";
+import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared.ts";
 
 // Upsert inside one collection. Mirrors set.write for text-blocks, but the
 // kind comes from the declaration and the access rule is the collection's own,

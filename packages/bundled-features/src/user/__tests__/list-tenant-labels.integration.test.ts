@@ -13,14 +13,14 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { configValuesTable } from "../../config/table.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { UserHandlers, UserQueries } from "../constants.js";
-import { createUserFeature } from "../feature.js";
-import { userEntity } from "../schema/user.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { UserHandlers, UserQueries } from "../constants.ts";
+import { createUserFeature } from "../feature.ts";
+import { userEntity } from "../schema/user.ts";
 
 const systemAdmin = TestUsers.systemAdmin;
 

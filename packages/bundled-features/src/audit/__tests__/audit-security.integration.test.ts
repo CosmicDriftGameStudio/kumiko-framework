@@ -29,17 +29,17 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
-import { createConfigFeature } from "../../config/feature.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { AUDIT_LOG_SCREEN_ID, AuditQueries, AuditScopes } from "../constants.js";
-import { createAuditFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries, AuditScopes } from "../constants.ts";
+import { createAuditFeature } from "../feature.ts";
 
 const widgetEntity = createEntity({
   table: "audit_sec_widgets",

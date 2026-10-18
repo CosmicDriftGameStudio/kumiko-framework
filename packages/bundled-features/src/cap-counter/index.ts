@@ -1,6 +1,6 @@
 // Public API of the cap-counter bundled-feature.
 
-export { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id.js";
+export { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id.ts";
 export {
   type BookCapUsageOptions,
   bookCapUsage,
@@ -8,7 +8,7 @@ export {
   markCapSoftWarned,
   type ReadRollingCapUsageOptions,
   readRollingCapUsage,
-} from "./book-cap-usage.js";
+} from "./book-cap-usage.ts";
 export {
   type CalendarCapReservationHandle,
   type CalendarCapReservationHandleSpec,
@@ -16,12 +16,12 @@ export {
   type CalendarCapUsageReservationSpec,
   calendarCapReservationHandle,
   reserveCalendarCapUsage,
-} from "./calendar-cap-usage-reservation.js";
+} from "./calendar-cap-usage-reservation.ts";
 export {
   CapReservationOverConsumedError,
   CapReservationSettledError,
   CapSettleBelowConsumedError,
-} from "./cap-reservation.js";
+} from "./cap-reservation.ts";
 export {
   CAP_COUNTER_FEATURE,
   CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
@@ -31,7 +31,7 @@ export {
   ROLLING_INCREMENTED_EVENT_SHORT,
   ROLLING_RELEASED_EVENT_QN,
   ROLLING_RELEASED_EVENT_SHORT,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   CAP_TOLERANCES,
   CapExceededError,
@@ -47,23 +47,23 @@ export {
   enforceStockCap,
   type SoftHitNotifier,
   type StockCapResult,
-} from "./enforce-cap.js";
-export { capCounterEntity } from "./entity.js";
-export { createCapCounterFeature } from "./feature.js";
-export { readPayloadField } from "./payload-field.js";
+} from "./enforce-cap.ts";
+export { capCounterEntity } from "./entity.ts";
+export { createCapCounterFeature } from "./feature.ts";
+export { readPayloadField } from "./payload-field.ts";
 export {
   type CapGuardContext,
   type CapLimitContext,
   createStockCapGuard,
   type StockCapGuard,
   type StockCapSpec,
-} from "./stock-cap-guard.js";
-export { capReservationsTable, capReservationsTableMeta } from "./tables.js";
+} from "./stock-cap-guard.ts";
+export { capReservationsTable, capReservationsTableMeta } from "./tables.ts";
 export {
   createValueCapGuard,
   type ValueCapGuard,
   type ValueCapSpec,
-} from "./value-cap-guard.js";
+} from "./value-cap-guard.ts";
 export {
   type CalendarCapDef,
   type CalendarCapResolver,
@@ -71,4 +71,4 @@ export {
   type RollingCapResolver,
   withCapEnforcement,
   withRollingCapEnforcement,
-} from "./with-cap-enforcement.js";
+} from "./with-cap-enforcement.ts";

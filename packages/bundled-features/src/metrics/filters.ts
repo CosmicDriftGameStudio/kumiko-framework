@@ -1,7 +1,7 @@
 import { extractTableInfo, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import type { MetricDefinition, MetricFilterResolver } from "./types.js";
+import type { MetricDefinition, MetricFilterResolver } from "./types.ts";
 
 export const RESERVED_PAYLOAD_KEYS: readonly string[] = ["range", "timeZone", "tenantId"];
 

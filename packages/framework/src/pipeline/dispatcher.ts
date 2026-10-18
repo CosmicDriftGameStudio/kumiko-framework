@@ -1,13 +1,13 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { runWithWriteOrigin } from "../api/request-context.js";
-import type { SseBroker } from "../api/sse-broker.js";
-import type { DbConnection } from "../db/connection.js";
-import type { buildEntityTable } from "../db/table-builder.js";
-import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names.js";
-import type { defineTransitions } from "../engine/state-machine.js";
-import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
-import type { TenantId } from "../engine/types/identifiers.js";
+import { runWithWriteOrigin } from "../api/request-context.ts";
+import type { SseBroker } from "../api/sse-broker.ts";
+import type { DbConnection } from "../db/connection.ts";
+import type { buildEntityTable } from "../db/table-builder.ts";
+import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names.ts";
+import type { defineTransitions } from "../engine/state-machine.ts";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
   ActiveMembershipResult,
   AppContext,
@@ -17,39 +17,39 @@ import type {
   Registry,
   SessionUser,
   WriteResult,
-} from "../engine/types/index.js";
-import { InternalError, reraiseAsKumikoError } from "../errors/index.js";
-import { withEscapeHatchAuditScopeStream } from "../observability/escape-hatch-report.js";
+} from "../engine/types/index.ts";
+import { InternalError, reraiseAsKumikoError } from "../errors/index.ts";
+import { withEscapeHatchAuditScopeStream } from "../observability/escape-hatch-report.ts";
 import {
   createEscapeHatchReportWindow,
   getFallbackMeter,
   getFallbackTracer,
   registerStandardMetrics,
   withEscapeHatchAuditScope,
-} from "../observability/index.js";
-import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
-import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
-import { runBatch, unwrapSingle } from "./dispatch-batch.js";
-import { executeQuery } from "./dispatch-query.js";
-import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
+} from "../observability/index.ts";
+import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
+import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
+import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
+import { executeQuery } from "./dispatch-query.ts";
+import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
 import {
   DEFAULT_MEMBER_READ_TIMEOUT_MS,
   resolveAuthClaimsFn,
   TENANT_TIMEZONE_CONFIG_KEY,
-} from "./dispatch-shared.js";
-import { executeStream, type StreamOptions } from "./dispatch-stream.js";
-import { type HandlerType, resolveType } from "./dispatcher-utils.js";
-import type { IdempotencyGuard } from "./idempotency.js";
-import type { LifecycleHooks } from "./lifecycle-pipeline.js";
-import { createMemberReaderFn } from "./member-reader.js";
-import { createTenantTimezoneCache } from "./tenant-timezone-cache.js";
-import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
+} from "./dispatch-shared.ts";
+import { executeStream, type StreamOptions } from "./dispatch-stream.ts";
+import { type HandlerType, resolveType } from "./dispatcher-utils.ts";
+import type { IdempotencyGuard } from "./idempotency.ts";
+import type { LifecycleHooks } from "./lifecycle-pipeline.ts";
+import { createMemberReaderFn } from "./member-reader.ts";
+import { createTenantTimezoneCache } from "./tenant-timezone-cache.ts";
+import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.ts";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
 // here keeps imports single-source.
-export type { WriteResult } from "../engine/types/index.js";
-export type { BatchCommand, BatchResult } from "./dispatch-shared.js";
+export type { WriteResult } from "../engine/types/index.ts";
+export type { BatchCommand, BatchResult } from "./dispatch-shared.ts";
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;

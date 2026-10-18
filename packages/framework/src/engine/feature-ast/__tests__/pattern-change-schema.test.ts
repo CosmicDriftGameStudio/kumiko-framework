@@ -7,16 +7,16 @@ import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import type * as z from "zod";
-import { parseFeatureFile, parseSourceFile } from "../parse.js";
-import { applyChanges, type PatternId } from "../patch.js";
+import { parseFeatureFile, parseSourceFile } from "../parse.ts";
+import { applyChanges, type PatternId } from "../patch.ts";
 import {
   PATTERN_ID_SCHEMAS_BY_KIND,
   PATTERN_SCHEMAS_BY_KIND,
   parsePatternChanges,
   patternIdSchema,
   patternSchema,
-} from "../pattern-change-schema.js";
-import type { FeaturePattern, FeaturePatternKind } from "../patterns.js";
+} from "../pattern-change-schema.ts";
+import type { FeaturePattern, FeaturePatternKind } from "../patterns.ts";
 
 // Compile-time guard (AC5): every pattern/patternId schema's z.output must
 // have exactly the same keys as, and be assignable to, the domain type it

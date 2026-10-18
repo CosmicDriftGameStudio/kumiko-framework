@@ -6,9 +6,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createHmac } from "node:crypto";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createRegistry, defineFeature, type TenantId } from "../../engine/index.js";
-import { RateLimitError } from "../../errors/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { createRegistry, defineFeature, type TenantId } from "../../engine/index.ts";
+import { RateLimitError } from "../../errors/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   type AnonymousExtraRoute,
   type ExtraRouteDefinition,
@@ -16,8 +16,8 @@ import {
   type SignatureExtraRoute,
   signatureRoute,
   type UserExtraRoute,
-} from "../extra-route.js";
-import { buildServer } from "../server.js";
+} from "../extra-route.ts";
+import { buildServer } from "../server.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const JWT_SECRET = "test-extra-routes-secret-32-chars-min!!";

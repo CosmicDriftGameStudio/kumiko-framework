@@ -14,12 +14,12 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, render } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.js";
-import type { FeatureSchema } from "../feature-schema.js";
-import { KumikoScreen } from "../kumiko-screen.js";
-import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import type { FeatureSchema } from "../feature-schema.ts";
+import { KumikoScreen } from "../kumiko-screen.tsx";
+import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav.tsx";
 
 const captured: Record<string, InputProps | undefined> = {};
 const captureInput: ComponentType<InputProps> = (props) => {

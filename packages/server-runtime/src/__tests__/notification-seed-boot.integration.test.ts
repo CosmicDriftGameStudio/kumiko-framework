@@ -19,7 +19,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { applyBootSeeds } from "../boot/apply-boot-seeds.js";
+import { applyBootSeeds } from "../boot/apply-boot-seeds.ts";
 
 const mailer = defineFeature("boot-mailer", (r) => {
   r.writeHandler({

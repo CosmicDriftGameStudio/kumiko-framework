@@ -4,8 +4,8 @@
 // Plus die className/mainClassName-Erweiterungspunkte.
 
 import { describe, expect, test } from "bun:test";
-import { AppLayout } from "../layout/app-layout.js";
-import { render } from "./test-utils.js";
+import { AppLayout } from "../layout/app-layout.tsx";
+import { render } from "./test-utils.tsx";
 
 function root(container: HTMLElement): HTMLElement {
   const el = container.querySelector('[data-kumiko-layout="app"]');

@@ -8,31 +8,31 @@ import {
   JOB_RUNS_SCREEN_ID,
   JobHandlers,
   JobQueries,
-} from "./constants.js";
-import { catalogQuery } from "./handlers/catalog.query.js";
-import { detailQuery } from "./handlers/detail.query.js";
-import { listQuery } from "./handlers/list.query.js";
+} from "./constants.ts";
+import { catalogQuery } from "./handlers/catalog.query.ts";
+import { detailQuery } from "./handlers/detail.query.ts";
+import { listQuery } from "./handlers/list.query.ts";
 import {
   projectionRebuildJob,
   projectionRebuildPayloadSchema,
-} from "./handlers/projection-rebuild.job.js";
-import { reindexEntityJob, reindexEntityPayloadSchema } from "./handlers/reindex-entity.job.js";
+} from "./handlers/projection-rebuild.job.ts";
+import { reindexEntityJob, reindexEntityPayloadSchema } from "./handlers/reindex-entity.job.ts";
 import {
   createRetentionCleanupJob,
   DEFAULT_JOB_RUN_RETENTION_DAYS,
-} from "./handlers/retention-cleanup.job.js";
-import { retryWrite } from "./handlers/retry.write.js";
+} from "./handlers/retention-cleanup.job.ts";
+import { retryWrite } from "./handlers/retry.write.ts";
 import {
   createStaleRunSweepJob,
   DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS,
-} from "./handlers/stale-run-sweep.job.js";
-import { tenantFailuresQuery } from "./handlers/tenant-failures.query.js";
-import { tenantRunsQuery } from "./handlers/tenant-runs.query.js";
-import { triggerWrite } from "./handlers/trigger.write.js";
-import { JOBS_I18N } from "./i18n.js";
-import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table.js";
-import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table.js";
-import { tenantJobRunsTableMeta } from "./tenant-job-run-table.js";
+} from "./handlers/stale-run-sweep.job.ts";
+import { tenantFailuresQuery } from "./handlers/tenant-failures.query.ts";
+import { tenantRunsQuery } from "./handlers/tenant-runs.query.ts";
+import { triggerWrite } from "./handlers/trigger.write.ts";
+import { JOBS_I18N } from "./i18n.ts";
+import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table.ts";
+import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table.ts";
+import { tenantJobRunsTableMeta } from "./tenant-job-run-table.ts";
 
 export type JobsFeatureOptions = {
   // How long a job run (and its logs) stays in store_job_runs/

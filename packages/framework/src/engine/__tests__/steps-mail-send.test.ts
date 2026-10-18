@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { getStep } from "../define-step.js";
+import { getStep } from "../define-step.ts";
 import {
   STEP_DISPATCH_AGGREGATE_TYPE,
   STEP_DISPATCH_REQUESTED_TYPE,
-} from "../steps/_step-dispatch-constants.js";
-import { buildMailSendStep } from "../steps/mail-send.js";
-import type { PipelineCtx } from "../types/step.js";
+} from "../steps/_step-dispatch-constants.ts";
+import { buildMailSendStep } from "../steps/mail-send.ts";
+import type { PipelineCtx } from "../types/step.ts";
 
 const mockUnsafeAppendEvent = mock();
 

@@ -7,10 +7,10 @@
 
 import { describe, expect, test } from "bun:test";
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
-import { createTenantDb } from "../../../db/tenant-db.js";
-import { testTenantId } from "../../../seeding/seed-users.js";
-import type { TenantDataHookCtx } from "../tenant-data.js";
-import type { UserDataHookCtx } from "../user-data.js";
+import { createTenantDb } from "../../../db/tenant-db.ts";
+import { testTenantId } from "../../../seeding/seed-users.ts";
+import type { TenantDataHookCtx } from "../tenant-data.ts";
+import type { UserDataHookCtx } from "../user-data.ts";
 
 const tenantId = testTenantId(1);
 

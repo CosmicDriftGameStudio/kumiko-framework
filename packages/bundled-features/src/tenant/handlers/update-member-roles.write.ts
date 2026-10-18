@@ -20,13 +20,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { assertNotLastTenantAdmin } from "../last-tenant-admin.js";
+import { assertNotLastTenantAdmin } from "../last-tenant-admin.ts";
 import {
   findForbiddenMembershipRole,
   reservedMembershipRoleError,
   unassignableMembershipRoleError,
-} from "../membership-roles.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.js";
+} from "../membership-roles.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.ts";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",

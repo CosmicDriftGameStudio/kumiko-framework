@@ -10,9 +10,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.ts";
+import { asRawClient } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createBooleanField,
   createEntity,
@@ -23,9 +23,9 @@ import {
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createCascadeDeleteHook } from "../cascade-handler.js";
+} from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createCascadeDeleteHook } from "../cascade-handler.ts";
 
 const projectEntity = createEntity({
   table: "lock_cascade_projects",

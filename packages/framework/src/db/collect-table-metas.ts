@@ -2,15 +2,15 @@
 // (entities, storeTables, projections, multiStreamProjections). One shared
 // source so the test-DB push and migrations cannot drift apart again (#255, #3102).
 
-import type { FeatureDefinition } from "../engine/types/index.js";
-import { compareByCodepoint } from "../utils/index.js";
+import type { FeatureDefinition } from "../engine/types/index.ts";
+import { compareByCodepoint } from "../utils/index.ts";
 import {
   assertBackingTableSuperset,
   deriveEntityTableMeta,
   type EntityTableMeta,
-} from "./entity-table-meta.js";
-import { enumerateFeatureTableSources } from "./feature-table-sources.js";
-import { asEntityTableMeta } from "./query.js";
+} from "./entity-table-meta.ts";
+import { enumerateFeatureTableSources } from "./feature-table-sources.ts";
+import { asEntityTableMeta } from "./query.ts";
 
 function canonicalColumnsKey(meta: EntityTableMeta): string {
   // Spalten-Identität unabhängig von Deklarations-Reihenfolge und

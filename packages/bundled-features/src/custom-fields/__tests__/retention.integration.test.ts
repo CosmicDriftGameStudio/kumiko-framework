@@ -27,11 +27,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "../db/queries/retention.js";
-import { fieldDefinitionEntity } from "../entity.js";
-import { createCustomFieldsFeature } from "../feature.js";
-import { runCustomFieldsRetention } from "../run-retention.js";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
+import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "../db/queries/retention.ts";
+import { fieldDefinitionEntity } from "../entity.ts";
+import { createCustomFieldsFeature } from "../feature.ts";
+import { runCustomFieldsRetention } from "../run-retention.ts";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 const propertyEntity = createEntity({
   table: "read_t15d_properties",

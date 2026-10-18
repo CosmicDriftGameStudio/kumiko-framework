@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { CapOverviewQueries } from "../../cap-overview/constants.js";
-import { JobQueries } from "../../jobs/constants.js";
-import { DEFAULT_METRICS, metricQueryName } from "../../metrics/index.js";
-import { TenantQueries } from "../../tenant/constants.js";
-import { UserQueries } from "../../user/constants.js";
-import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants.js";
-import { createAdminShellFeature } from "../feature.js";
+import { CapOverviewQueries } from "../../cap-overview/constants.ts";
+import { JobQueries } from "../../jobs/constants.ts";
+import { DEFAULT_METRICS, metricQueryName } from "../../metrics/index.ts";
+import { TenantQueries } from "../../tenant/constants.ts";
+import { UserQueries } from "../../user/constants.ts";
+import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants.ts";
+import { createAdminShellFeature } from "../feature.ts";
 import {
   isOverviewQueryAllowed,
   PLATFORM_OVERVIEW_ALLOWED_QUERIES,
   TENANT_OVERVIEW_ALLOWED_QUERIES,
   TENANT_OVERVIEW_FORBIDDEN_QUERIES,
-} from "../overview-allowlist.js";
+} from "../overview-allowlist.ts";
 
 // Every screen dispatches only the queries baked into its own panel
 // definitions (no client-side allowlist gate anymore, fw#2312) — the

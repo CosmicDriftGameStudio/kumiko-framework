@@ -20,8 +20,8 @@ import {
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 // kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding (#1478)
-import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.js";
-import { userEntity, userTable } from "./schema/user.js";
+import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.ts";
+import { userEntity, userTable } from "./schema/user.ts";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

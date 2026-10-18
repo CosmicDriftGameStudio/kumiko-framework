@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { zipWithEntries } from "@cosmicdrift/kumiko-testing/helpers";
-import { validateFileContent } from "../types.js";
+import { validateFileContent } from "../types.ts";
 
 describe("validateFileContent docx part check", () => {
   test("accepts a docx whose main part is not word/document.xml", () => {

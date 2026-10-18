@@ -1,6 +1,6 @@
-import { observabilityContext } from "./context.js";
-import { generateSpanId, generateTraceId } from "./ids.js";
-import { redactAttributes, redactValue, shouldRedactAttribute } from "./sensitive-filter.js";
+import { observabilityContext } from "./context.ts";
+import { generateSpanId, generateTraceId } from "./ids.ts";
+import { redactAttributes, redactValue, shouldRedactAttribute } from "./sensitive-filter.ts";
 import type {
   SensitiveFilterConfig,
   SerializedTraceContext,
@@ -11,7 +11,7 @@ import type {
   SpanStatus,
   StartSpanOptions,
   Tracer,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 // A RecordedSpan is the internal representation that provider emitters
 // (console, otlp, test-collector) operate on. Every field is plain data —

@@ -17,18 +17,18 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createMailFoundationFeature } from "../../mail-foundation/feature.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createMailFoundationFeature } from "../../mail-foundation/feature.ts";
 import {
   createSecretsContext,
   createSecretsFeature,
   tenantSecretsTable,
-} from "../../secrets/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createMailTransportSmtpFeature } from "../feature.js";
+} from "../../secrets/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createMailTransportSmtpFeature } from "../feature.ts";
 
 const PROVIDER_FIELD = "provider";
 const HOST_FIELD = "mail-transport-smtp-host";

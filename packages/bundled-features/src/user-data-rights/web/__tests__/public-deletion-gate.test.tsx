@@ -17,8 +17,8 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../i18n.js";
-import { makePublicDeletionGate } from "../public-deletion-gate.js";
+import { defaultTranslations } from "../i18n.ts";
+import { makePublicDeletionGate } from "../public-deletion-gate.tsx";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });
 const stubDispatcher = {

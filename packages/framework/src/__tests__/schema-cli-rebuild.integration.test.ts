@@ -16,18 +16,18 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { integer, table as pgTable, uuid } from "../db/dialect.js";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { writeRebuildMarker } from "../db/index.js";
-import { asRawClient, selectMany } from "../db/query.js";
-import { buildEntityTable } from "../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../db/tenant-db.js";
-import { createEntity, createTextField, defineApply, defineFeature } from "../engine/index.js";
-import type { ProjectionDefinition } from "../engine/types/index.js";
-import { createProjectionStateTable } from "../pipeline/index.js";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
-import { TestUsers } from "../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../time/polyfill.js";
+import { integer, table as pgTable, uuid } from "../db/dialect.ts";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { writeRebuildMarker } from "../db/index.ts";
+import { asRawClient, selectMany } from "../db/query.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
+import { createEntity, createTextField, defineApply, defineFeature } from "../engine/index.ts";
+import type { ProjectionDefinition } from "../engine/types/index.ts";
+import { createProjectionStateTable } from "../pipeline/index.ts";
+import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import { TestUsers } from "../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 
 const itemEntity = createEntity({
   table: "read_apply_items",

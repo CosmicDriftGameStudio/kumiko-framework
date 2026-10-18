@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine/define-feature.js";
-import type { FeatureDefinition } from "../../engine/types/feature.js";
-import { composeEnvSchema, featureWithEnvSchema, KumikoBootError, parseEnv } from "../index.js";
+import { defineFeature } from "../../engine/define-feature.ts";
+import type { FeatureDefinition } from "../../engine/types/feature.ts";
+import { composeEnvSchema, featureWithEnvSchema, KumikoBootError, parseEnv } from "../index.ts";
 
 type IsExactly<TActual, TExpected> = [TActual] extends [TExpected]
   ? [TExpected] extends [TActual]

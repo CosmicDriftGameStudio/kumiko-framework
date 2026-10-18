@@ -1,21 +1,21 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { Redis } from "ioredis";
 import type { ZodType } from "zod";
-import type { CacheSyncBus } from "./cache-sync-types.js";
-import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config.js";
-import type { DbConnection, DbTx } from "./db-connection.js";
-import type { DerivativesContext } from "./derivatives-types.js";
-import type { EntityCache } from "./entity-cache.js";
-import type { EventMetadata, WriteOrigin } from "./event-store-types.js";
-import type { KumikoEventTypeMap } from "./event-type-map.js";
-import type { FileContext } from "./file-handle-types.js";
-import type { FileProviderResolver } from "./file-provider-resolver-types.js";
-import type { GeoTzProvider } from "./geo-tz.js";
-import type { Logger } from "./logger.js";
-import type { Meter, MetricsHandle, Tracer } from "./observability/index.js";
-import type { SearchAdapter } from "./search-adapter.js";
-import type { CrossTenantReads, TenantDb } from "./tenant-db-types.js";
-import type { Clock, TzContext } from "./tz-context.js";
+import type { CacheSyncBus } from "./cache-sync-types.ts";
+import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config.ts";
+import type { DbConnection, DbTx } from "./db-connection.ts";
+import type { DerivativesContext } from "./derivatives-types.ts";
+import type { EntityCache } from "./entity-cache.ts";
+import type { EventMetadata, WriteOrigin } from "./event-store-types.ts";
+import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type { FileContext } from "./file-handle-types.ts";
+import type { FileProviderResolver } from "./file-provider-resolver-types.ts";
+import type { GeoTzProvider } from "./geo-tz.ts";
+import type { Logger } from "./logger.ts";
+import type { Meter, MetricsHandle, Tracer } from "./observability/index.ts";
+import type { SearchAdapter } from "./search-adapter.ts";
+import type { CrossTenantReads, TenantDb } from "./tenant-db-types.ts";
+import type { Clock, TzContext } from "./tz-context.ts";
 
 // --- Access ---
 
@@ -234,7 +234,7 @@ export type ClaimKeyHandle<T extends ClaimKeyType = ClaimKeyType> = {
 // `queryAs` lets a hook call another feature's query handler without direct
 // imports — same cross-feature contract hooks otherwise follow.
 export type AuthClaimsContext = {
-  readonly db: import("./tenant-db-types.js").TenantDb;
+  readonly db: import("./tenant-db-types.ts").TenantDb;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
   readonly config?: ConfigAccessor;
 };
@@ -300,7 +300,7 @@ export type QueryEvent<TPayload = unknown> = {
 
 // --- Handler Results ---
 
-import type { WriteFailure } from "./write-error-info-types.js";
+import type { WriteFailure } from "./write-error-info-types.ts";
 
 export type WriteResult<TData = unknown> =
   | { readonly isSuccess: true; readonly data: TData }
@@ -309,9 +309,9 @@ export type WriteResult<TData = unknown> =
 // --- Context Types ---
 
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
-import type { Registry } from "./feature.js";
-import type { TenantId } from "./identifiers.js";
-import type { UncheckedSystemDb } from "./tenant-db-types.js";
+import type { Registry } from "./feature.ts";
+import type { TenantId } from "./identifiers.ts";
+import type { UncheckedSystemDb } from "./tenant-db-types.ts";
 
 // The framework resolves the member internally, so no hand-built SessionUser reaches app code.
 export type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
@@ -562,13 +562,13 @@ type SharedContextFields = {
   // set handler needs to encrypt on write, the resolver needs to decrypt
   // on read, and both reach for the same cipher. Wired via extraContext;
   // run{Prod,Dev}App build it from the secrets master key automatically.
-  readonly configEncryption?: import("./envelope-cipher-types.js").EnvelopeCipher;
+  readonly configEncryption?: import("./envelope-cipher-types.ts").EnvelopeCipher;
   // Rate-limit resolver. Wired by the framework when the `rate-limiting`
   // feature is loaded — pipeline reads handler.rateLimit and calls
   // .enforce() on this resolver before access-check. Absent when the
   // app didn't load the feature: handlers with rateLimit set are
   // rejected at boot to surface the misconfig early.
-  readonly rateLimit?: import("./rate-limit-types.js").RateLimitResolver;
+  readonly rateLimit?: import("./rate-limit-types.ts").RateLimitResolver;
   // Internal: keyed digest for payload-field rate-limit buckets. Set by
   // buildServer; read only by the dispatcher, never exposed on HandlerContext.
   readonly _rateLimitPayloadDigest?: (value: string) => string;
@@ -602,15 +602,15 @@ type SharedContextFields = {
   // MasterKeyProvider at boot. Feature code reads ctx.secrets.get(...)
   // to pull a plaintext secret; Secret<string> carries the brand that
   // the response guard rejects on serialization.
-  readonly secrets?: import("./secrets-types.js").SecretsContext;
+  readonly secrets?: import("./secrets-types.ts").SecretsContext;
   // Raw KEK provider. Present alongside ctx.secrets — needed by the rotation
   // job which deliberately operates outside the per-call audit trail (it
   // processes rows system-wide, not a per-user read).
-  readonly masterKeyProvider?: import("./secrets-types.js").MasterKeyProvider;
+  readonly masterKeyProvider?: import("./secrets-types.ts").MasterKeyProvider;
   // Subject-key adapter for crypto-shredding (GDPR Art. 17). Present when
   // the app wired a KmsAdapter at boot; the PII envelope engine and the
   // forget pipeline reach for it. Absent = crypto-shredding not enabled.
-  readonly kms?: import("./kms-adapter-types.js").KmsAdapter;
+  readonly kms?: import("./kms-adapter-types.ts").KmsAdapter;
   // Observability: optional at the outer boundary, always populated by the
   // time a handler receives its ctx (Noop fallback when no provider is
   // configured, so handler code can call ctx.tracer/ctx.metrics without
@@ -826,7 +826,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly loadAggregate: (
     aggregateId: string,
     options?: { readonly asOf?: Temporal.Instant },
-  ) => Promise<readonly import("./event-store-types.js").StoredEvent[]>;
+  ) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
 
   // Marten-aligned stream lifecycle. Archived streams become read-only:
   // ctx.appendEvent throws ArchivedStreamError, ctx.loadAggregate returns []
@@ -869,10 +869,10 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // version=0, not an exception.
   readonly loadAggregateWithSnapshot: <TState extends Record<string, unknown>>(
     aggregateId: string,
-    reducer: import("./snapshot-types.js").SnapshotReducer<TState>,
+    reducer: import("./snapshot-types.ts").SnapshotReducer<TState>,
     initial: TState,
-    options?: Omit<import("./snapshot-types.js").LoadAggregateWithSnapshotOptions, "upcastEvent">,
-  ) => Promise<import("./snapshot-types.js").LoadAggregateWithSnapshotResult<TState>>;
+    options?: Omit<import("./snapshot-types.ts").LoadAggregateWithSnapshotOptions, "upcastEvent">,
+  ) => Promise<import("./snapshot-types.ts").LoadAggregateWithSnapshotResult<TState>>;
 
   // Read rows from a registered projection table, tenant-scoped to the
   // current user. Marten's equivalent of session.Query<T>() — the projection
@@ -1253,8 +1253,8 @@ export type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
 // unlike unsafeAppendEvent, whose thrown VersionConflictError poisons the
 // entire enclosing transaction.
 export type TryAppendEventResult =
-  | { readonly ok: true; readonly event: import("./event-store-types.js").StoredEvent }
-  | { readonly ok: false; readonly conflict: import("./event-store-types.js").VersionConflict };
+  | { readonly ok: true; readonly event: import("./event-store-types.ts").StoredEvent }
+  | { readonly ok: false; readonly conflict: import("./event-store-types.ts").VersionConflict };
 
 export type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
 
@@ -1273,7 +1273,7 @@ export type FetchForWritingArgs = {
 export type AggregateStreamHandle = {
   // Snapshot at fetch time — upcasted via the registered upcaster chain,
   // so payloads match the current schema regardless of when they landed.
-  readonly events: readonly import("./event-store-types.js").StoredEvent[];
+  readonly events: readonly import("./event-store-types.ts").StoredEvent[];
   readonly version: number;
   // Append an event on this stream. Derives aggregateId/aggregateType/
   // expectedVersion from the handle automatically. Multiple calls in a
@@ -1319,8 +1319,8 @@ export type AggregateStreamHandle = {
 //     } }],
 //   });
 export type EventUpcastCtx = {
-  readonly db: import("./db-connection.js").DbRunner;
-  readonly tenantId: import("./identifiers.js").TenantId;
+  readonly db: import("./db-connection.ts").DbRunner;
+  readonly tenantId: import("./identifiers.ts").TenantId;
 };
 
 export type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;
@@ -1515,7 +1515,7 @@ export type WriteHandlerDef = {
   // this file, a top-level `import type { PipelineDef } from "./step.js"`
   // would form a type-only circular import that TS resolves but tooling
   // (incremental compile, IDEs) sometimes mis-handles.
-  readonly perform?: import("./step.js").PipelineDef;
+  readonly perform?: import("./step.ts").PipelineDef;
 };
 
 // Marker set by defineEntityQueryHandler on both of its verbs. A string, not

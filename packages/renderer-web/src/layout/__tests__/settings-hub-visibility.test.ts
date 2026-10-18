@@ -16,7 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import { qualifyScreenId } from "@cosmicdrift/kumiko-renderer";
-import { buildNavRegistrySliceForApp } from "../nav-tree.js";
+import { buildNavRegistrySliceForApp } from "../nav-tree.tsx";
 
 const billing = defineFeature("billing", (r) => {
   r.config({

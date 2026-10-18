@@ -1,4 +1,4 @@
-import type { LegalPageRoute } from "../constants.js";
+import type { LegalPageRoute } from "../constants.ts";
 
 // Validated once at feature-build time (not per-request) so a config typo
 // fails app startup instead of surfacing as a confusing 404 later.

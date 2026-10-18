@@ -25,19 +25,19 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { DbConnection, DbTx } from "../../db/connection.js";
-import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany, updateMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import type { DbConnection, DbTx } from "../../db/connection.ts";
+import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany, updateMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import {
   eventConsumerStateTable,
   getConsumerState,
   rebuildMultiStreamProjection,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.ts";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 

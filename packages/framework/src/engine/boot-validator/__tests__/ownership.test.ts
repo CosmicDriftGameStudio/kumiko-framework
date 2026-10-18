@@ -4,13 +4,13 @@
 // a where-rule there boots and only ever denies; the guard fails the boot.
 
 import { describe, expect, test } from "bun:test";
-import { buildEntityTable } from "../../../db/table-builder.js";
-import { defineFeature } from "../../define-feature.js";
-import { createEmbeddedField, createEntity, createTextField } from "../../factories.js";
-import { tableNameOf } from "../../ownership.js";
-import type { ClaimKeyDefinition, FeatureDefinition } from "../../types/index.js";
-import type { OwnershipMap, WhereRule } from "../../types/ownership.js";
-import { validateOwnershipRules } from "../ownership.js";
+import { buildEntityTable } from "../../../db/table-builder.ts";
+import { defineFeature } from "../../define-feature.ts";
+import { createEmbeddedField, createEntity, createTextField } from "../../factories.ts";
+import { tableNameOf } from "../../ownership.ts";
+import type { ClaimKeyDefinition, FeatureDefinition } from "../../types/index.ts";
+import type { OwnershipMap, WhereRule } from "../../types/ownership.ts";
+import { validateOwnershipRules } from "../ownership.ts";
 
 const NO_CLAIMS: ReadonlyMap<string, ClaimKeyDefinition> = new Map();
 // Empty corpus keeps canValidateRoles() false, so role-existence checks

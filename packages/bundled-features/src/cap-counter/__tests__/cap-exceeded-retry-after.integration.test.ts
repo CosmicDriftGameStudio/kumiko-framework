@@ -17,10 +17,10 @@ import {
   calendarMonthPeriodEndIso,
   currentCalendarMonthStartIso,
   type SoftHitNotifier,
-} from "../enforce-cap.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
-import { withCapEnforcement } from "../with-cap-enforcement.js";
+} from "../enforce-cap.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
+import { withCapEnforcement } from "../with-cap-enforcement.ts";
 
 const noopNotifier: SoftHitNotifier = () => {};
 const CUSTOM_I18N_KEY = "probe:errors.cap-exceeded";

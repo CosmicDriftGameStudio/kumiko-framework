@@ -1,16 +1,16 @@
 import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen } from "../../__tests__/test-utils.js";
-import { StackedAreaChart, StatusBarChart, smoothPath, TimeseriesChart } from "../charts.js";
-import { CollapsibleSection } from "../collapsible-section.js";
-import { DetailList } from "../detail-list.js";
-import { ModeSwitch } from "../mode-switch.js";
-import { ProgressBar } from "../progress-bar.js";
-import { ProgressList } from "../progress-list.js";
-import { SectionCard } from "../section-card.js";
-import { MiniStat, StatCard, StatStripCell } from "../stat.js";
-import { EmptyState } from "../states.js";
-import { StatusBadge } from "../status-badge.js";
-import { StepBar } from "../step-bar.js";
+import { fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
+import { StackedAreaChart, StatusBarChart, smoothPath, TimeseriesChart } from "../charts.tsx";
+import { CollapsibleSection } from "../collapsible-section.tsx";
+import { DetailList } from "../detail-list.tsx";
+import { ModeSwitch } from "../mode-switch.tsx";
+import { ProgressBar } from "../progress-bar.tsx";
+import { ProgressList } from "../progress-list.tsx";
+import { SectionCard } from "../section-card.tsx";
+import { MiniStat, StatCard, StatStripCell } from "../stat.tsx";
+import { EmptyState } from "../states.tsx";
+import { StatusBadge } from "../status-badge.tsx";
+import { StepBar } from "../step-bar.tsx";
 
 describe("StatusBadge", () => {
   test("rendert Label mit Tone-Klassen", () => {

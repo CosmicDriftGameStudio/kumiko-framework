@@ -6,8 +6,8 @@
 // coerceRow parse — as the exact same JS number. That symmetry is the thing
 // that breaks silently if either side is wrong, so it gets a real DB test.
 import { afterAll, describe, expect, test } from "bun:test";
-import { fetchOne, insertOne } from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+import { fetchOne, insertOne } from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

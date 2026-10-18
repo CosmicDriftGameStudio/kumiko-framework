@@ -4,8 +4,8 @@
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { ComboboxInput } from "./combobox.js";
-import { TZ_OPTIONS } from "./tz-options.js";
+import { ComboboxInput } from "./combobox.tsx";
+import { TZ_OPTIONS } from "./tz-options.ts";
 
 export type TzInputProps = {
   readonly id: string;

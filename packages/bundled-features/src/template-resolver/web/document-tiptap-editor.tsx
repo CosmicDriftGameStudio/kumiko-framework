@@ -47,20 +47,20 @@ import {
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "../document-schema.js";
-import { parseDocumentStepsInput } from "../document-steps.js";
+} from "../document-schema.ts";
+import { parseDocumentStepsInput } from "../document-steps.ts";
 import {
   createDocumentEditorExtensions,
   DOCUMENT_BLOCK_ATTRIBUTE,
-} from "./document-editor-extensions.js";
+} from "./document-editor-extensions.ts";
 import {
   type DocumentEditorProps,
   type DocumentResourcePreview,
   type DocumentToolbarBlock,
   MAIL_DOCUMENT_BLOCKS,
-} from "./document-toolbar-blocks.js";
-import { createEditorHandle } from "./editor-handle.js";
-import { useStableByKey } from "./use-stable-by-key.js";
+} from "./document-toolbar-blocks.ts";
+import { createEditorHandle } from "./editor-handle.ts";
+import { useStableByKey } from "./use-stable-by-key.ts";
 
 const NO_LABELS: Readonly<Record<string, string>> = {};
 const NO_NAMES: readonly string[] = [];

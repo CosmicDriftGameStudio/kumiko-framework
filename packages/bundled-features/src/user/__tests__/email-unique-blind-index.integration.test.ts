@@ -39,7 +39,7 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { userEntity, userTable } from "../schema/user.js";
+import { userEntity, userTable } from "../schema/user.ts";
 
 const TEST_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);

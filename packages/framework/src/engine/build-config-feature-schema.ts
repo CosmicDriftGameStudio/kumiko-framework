@@ -16,30 +16,30 @@
 // ids/parent/screen-Refs (buildNavRegistrySliceForApp qualifiziert selbst).
 
 import { isOptionsQueryFieldRef } from "@cosmicdrift/kumiko-types/fields";
-import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.js";
-import type { WorkspaceSchema } from "../ui-types/index.js";
-import { isEncryptedAtRest } from "./config-helpers.js";
-import type { ConfigScope } from "./constants.js";
+import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.ts";
+import type { WorkspaceSchema } from "../ui-types/index.ts";
+import { isEncryptedAtRest } from "./config-helpers.ts";
+import type { ConfigScope } from "./constants.ts";
 import {
   EXTENSION_SELECTOR_HINT_KEY,
   isSelectableInSettings,
   settingsSelectablePluginIds,
-} from "./extension-selector-plugins.js";
+} from "./extension-selector-plugins.ts";
 import {
   createBooleanField,
   createNumberField,
   createSelectField,
   createTextField,
-} from "./factories.js";
-import { isKebabSegment, toKebab } from "./qualified-name.js";
-import { isFieldsEditSection, sectionFieldSpecs } from "./screen-helpers.js";
-import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./types/config.js";
-import type { Registry, SecretKeyDefinition } from "./types/feature.js";
-import type { FieldCondition, FieldDefinition, OptionsQueryPayload } from "./types/fields.js";
-import type { AccessRule } from "./types/handlers.js";
-import { isOpenToAllGranted } from "./types/handlers.js";
-import type { ExtensionSelectorPanel } from "./types/index.js";
-import type { NavDefinition, NavIconKey } from "./types/nav.js";
+} from "./factories.ts";
+import { isKebabSegment, toKebab } from "./qualified-name.ts";
+import { isFieldsEditSection, sectionFieldSpecs } from "./screen-helpers.ts";
+import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./types/config.ts";
+import type { Registry, SecretKeyDefinition } from "./types/feature.ts";
+import type { FieldCondition, FieldDefinition, OptionsQueryPayload } from "./types/fields.ts";
+import type { AccessRule } from "./types/handlers.ts";
+import { isOpenToAllGranted } from "./types/handlers.ts";
+import type { ExtensionSelectorPanel } from "./types/index.ts";
+import type { NavDefinition, NavIconKey } from "./types/nav.ts";
 import type {
   ConfigEditScreenDefinition,
   DashboardPanelDefinition,
@@ -49,7 +49,7 @@ import type {
   ScreenDefinition,
   SecretsEditScreenDefinition,
   SecretsEditSection,
-} from "./types/screen.js";
+} from "./types/screen.ts";
 
 // Namespace, unter dem buildAppSchema die generierten Screens/Navs einhängt
 // (find-or-create FeatureSchema). MUSS gleich CONFIG_FEATURE aus dem config

@@ -5,7 +5,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack } from "../test-stack.js";
+import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const widgetEntity = createEntity({
   table: "widgets",

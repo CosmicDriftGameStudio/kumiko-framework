@@ -1,7 +1,7 @@
-import { DEFAULT_LOCALE } from "../i18n/request-locale.js";
-import { createNoopMetricsHandle, getFallbackTracer } from "../observability/index.js";
-import { createTzContext } from "../time/index.js";
-import { createAnonymousUser } from "./system-user.js";
+import { DEFAULT_LOCALE } from "../i18n/request-locale.ts";
+import { createNoopMetricsHandle, getFallbackTracer } from "../observability/index.ts";
+import { createTzContext } from "../time/index.ts";
+import { createAnonymousUser } from "./system-user.ts";
 import type {
   AppendEventArgs,
   FetchForWritingArgs,
@@ -9,7 +9,7 @@ import type {
   MemberReader,
   SessionUser,
   WriteResult,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 // Test/service helper: cross-feature bridge methods that throw on use.
 //

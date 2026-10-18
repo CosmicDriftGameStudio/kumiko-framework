@@ -11,7 +11,7 @@ import {
   findAgentDocGaps,
   findHandlerTranslationGaps,
   formatAgentDocGap,
-} from "../agent-doc-lint.js";
+} from "../agent-doc-lint.ts";
 
 const OPEN_ACCESS = {
   openToAll: { reason: "test handler callable by any signed-in test user" },

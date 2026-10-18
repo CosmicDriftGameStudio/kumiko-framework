@@ -1,6 +1,6 @@
-import { createNoopProvider } from "./noop-provider.js";
-import { registerStandardMetrics } from "./standard-metrics.js";
-import type { Meter, ObservabilityProvider, Tracer } from "./types/index.js";
+import { createNoopProvider } from "./noop-provider.ts";
+import { registerStandardMetrics } from "./standard-metrics.ts";
+import type { Meter, ObservabilityProvider, Tracer } from "./types/index.ts";
 
 // Lazy fallback provider for call-sites that construct pipeline components
 // (dispatcher, lifecycle-pipeline, job-runner) directly without going

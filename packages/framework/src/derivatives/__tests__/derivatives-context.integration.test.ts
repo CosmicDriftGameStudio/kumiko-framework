@@ -13,11 +13,11 @@ import {
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import * as z from "zod";
-import { defineFeature, EXT_DERIVATIVE_RENDERER } from "../../engine/index.js";
-import { InternalError, NotFoundError, writeFailure } from "../../errors/index.js";
-import { createFilesFeature } from "../../files/feature.js";
-import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+import { defineFeature, EXT_DERIVATIVE_RENDERER } from "../../engine/index.ts";
+import { InternalError, NotFoundError, writeFailure } from "../../errors/index.ts";
+import { createFilesFeature } from "../../files/feature.ts";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const fakeRender: DerivativeRendererPlugin["render"] = async () => new Uint8Array([9, 9, 9]);
 

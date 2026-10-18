@@ -10,8 +10,8 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { USER_STATUS, userTable } from "../../user/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { USER_STATUS, userTable } from "../../user/index.ts";
 
 export const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
 

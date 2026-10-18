@@ -4,9 +4,9 @@
 // backfill-pii.ts): the one place in the repo allowed to write tenant_id
 // directly onto kumiko_events / kumiko_snapshots / kumiko_archived_streams.
 
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
-import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 export type TransferEventRowsParams = {
   readonly sourceTenantId: string;

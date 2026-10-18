@@ -1,12 +1,12 @@
 import * as z from "zod";
-import { InternalError } from "../errors/index.js";
+import { InternalError } from "../errors/index.ts";
 import type {
   Registry,
   TemplateListVariableDef,
   TemplateScalarVariableDef,
   TemplateVariableDef,
   TemplateVariables,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 type CommonOptions = { readonly label?: string; readonly required?: boolean };
 

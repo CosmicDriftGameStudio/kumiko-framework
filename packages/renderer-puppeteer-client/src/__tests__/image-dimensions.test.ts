@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readImageDimensions } from "../image-dimensions.js";
+import { readImageDimensions } from "../image-dimensions.ts";
 
 describe("readImageDimensions", () => {
   test("reads the size of a JPEG after a leading APP0 segment", () => {

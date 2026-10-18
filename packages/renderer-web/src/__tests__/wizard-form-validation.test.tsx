@@ -17,7 +17,7 @@ import {
   render,
   renderWithPrimitivesOverride,
   screen,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 const profileEntity = {
   fields: {

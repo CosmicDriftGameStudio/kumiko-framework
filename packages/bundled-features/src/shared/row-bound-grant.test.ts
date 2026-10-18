@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant.js";
-import { signToken } from "./signed-token.js";
+import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant.ts";
+import { signToken } from "./signed-token.ts";
 
 const SECRET = "test-secret-value";
 const PURPOSE = "waitlist-enrich";

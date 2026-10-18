@@ -22,13 +22,13 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write.js";
+} from "../../compliance-profiles/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write.ts";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";
 

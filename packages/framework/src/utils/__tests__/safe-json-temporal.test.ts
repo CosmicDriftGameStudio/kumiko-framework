@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { stringifyJson } from "../safe-json.js";
+import { stringifyJson } from "../safe-json.ts";
 
 describe("stringifyJson — Temporal.Instant without ambient Temporal", () => {
   test("serializes polyfill Instant when globalThis.Temporal is missing", async () => {

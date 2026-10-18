@@ -10,8 +10,8 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { waitFor } from "../../helpers/index.js";
-import { setupTestStack, type TestStack } from "../test-stack.js";
+import { waitFor } from "../../helpers/index.ts";
+import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
 

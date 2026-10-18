@@ -4,7 +4,7 @@ import {
   normalizeEditField,
   normalizeListColumn,
   sectionFieldSpecs,
-} from "../screen-helpers.js";
+} from "../screen-helpers.ts";
 import type {
   EditFieldSpec,
   EditLayout,
@@ -12,7 +12,7 @@ import type {
   ListColumnSpec,
   RowAction,
   ToolbarAction,
-} from "../types/index.js";
+} from "../types/index.ts";
 
 const FUNCTION_DROPPED_HINT =
   "functions are dropped by JSON.stringify when the screen config reaches the client " +

@@ -11,10 +11,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createTemplateResolverApi, TemplateNotFoundError } from "../api.js";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { createTemplateResolverApi, TemplateNotFoundError } from "../api.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
 
 const MAIL_SLUG = "lifecycle-mailer:notify:hello";
 const PLAIN_SLUG = "lifecycle-mailer:notify:plain";

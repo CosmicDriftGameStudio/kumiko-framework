@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createPrometheusMeter, serializeOpenMetrics } from "../prometheus-meter.js";
+import { createPrometheusMeter, serializeOpenMetrics } from "../prometheus-meter.ts";
 
 describe("PrometheusMeter — accumulation", () => {
   test("counter: inc across multiple calls sums into a single slot", () => {

@@ -9,20 +9,20 @@ import { describe, expect, test } from "bun:test";
 import { getSetCookieRaw, getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
-import type { SessionUser } from "../../engine/types/index.js";
-import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { PUBLIC_API_PATHS } from "../api-constants.js";
-import { authMiddleware } from "../auth-middleware.js";
-import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes.js";
-import { createJwtHelper } from "../jwt.js";
+import type { SessionUser } from "../../engine/types/index.ts";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { PUBLIC_API_PATHS } from "../api-constants.ts";
+import { authMiddleware } from "../auth-middleware.ts";
+import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes.ts";
+import { createJwtHelper } from "../jwt.ts";
 import {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
   HOST_COOKIE_PREFIX,
   resolveSessionCookies,
   sessionCookiesMiddleware,
-} from "../session-cookies.js";
+} from "../session-cookies.ts";
 
 const JWT_SECRET = "auth-routes-cookie-test-secret-min-32-characters";
 

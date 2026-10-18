@@ -1,5 +1,5 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { FormDraftBlob } from "./schemas.js";
+import type { FormDraftBlob } from "./schemas.ts";
 
 // The draft blob's `values` is free-form by design (issue #1889: form-draft
 // never knows the consuming form's field schema, only { values, stepIndex,

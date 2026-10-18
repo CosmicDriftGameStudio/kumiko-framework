@@ -10,9 +10,9 @@ import {
   type PostSaveHookFn,
   type PreSaveHookFn,
   type SaveContext,
-} from "../../engine/index.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import { buildEventId, createLifecycleHooks, type SystemHooks } from "../lifecycle-pipeline.js";
+} from "../../engine/index.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import { buildEventId, createLifecycleHooks, type SystemHooks } from "../lifecycle-pipeline.ts";
 
 function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHookFn[] }) {
   const feature = defineFeature("test", (r) => {

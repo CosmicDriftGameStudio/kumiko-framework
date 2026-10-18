@@ -36,34 +36,34 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared/index.js";
+import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table.js";
+} from "../../tenant/invitation-table.ts";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add
-import { grantInvitedMembershipRole } from "../../tenant/invited-membership.js";
+import { grantInvitedMembershipRole } from "../../tenant/invited-membership.ts";
 // kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
 import {
   grantInvitedGlobalRoles,
   parseInvitedGlobalRoles,
-} from "../../user/invited-global-roles.js";
+} from "../../user/invited-global-roles.ts";
 // kumiko-lint-ignore cross-feature-import login-style password-check
-import { userTable } from "../../user/schema/user.js";
+import { userTable } from "../../user/schema/user.ts";
 import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
   AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
-} from "../constants.js";
-import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors.js";
+} from "../constants.ts";
+import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors.ts";
 import {
   burnInviteToken,
   deleteInviteToken,
   getInvitationIdForToken,
   unburnInviteToken,
-} from "../invite-token-store.js";
-import { passwordSchema } from "../password-policy.js";
+} from "../invite-token-store.ts";
+import { passwordSchema } from "../password-policy.ts";
 import {
   gateEnforceAccountStatus,
   gateEnforceEmailVerified,
@@ -72,7 +72,7 @@ import {
   gateVerifyPassword,
   type LoginHandlerOptions,
   type LoginResult,
-} from "./login.write.js";
+} from "./login.write.ts";
 
 const InviteAcceptWithLoginSchema = z.object({
   token: z.string().min(1),

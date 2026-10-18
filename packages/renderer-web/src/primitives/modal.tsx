@@ -6,9 +6,9 @@ import type { ModalProps } from "@cosmicdrift/kumiko-renderer";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn.js";
-import { BareFormProvider } from "./index.js";
-import { ModalShell } from "./modal-shell.js";
+import { cn } from "../lib/cn.ts";
+import { BareFormProvider } from "./index.tsx";
+import { ModalShell } from "./modal-shell.tsx";
 
 export function DefaultModal({
   open,

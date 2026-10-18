@@ -9,9 +9,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer-web";
 import { Database, FileText, Gauge, Hash, Mail, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { CapOverviewQueries } from "../constants.js";
-import type { CapIconKey, CapUsageTone, CapUsageWithMeta } from "../types.js";
-import { CapUsageBar } from "./cap-usage-bar.js";
+import { CapOverviewQueries } from "../constants.ts";
+import type { CapIconKey, CapUsageTone, CapUsageWithMeta } from "../types.ts";
+import { CapUsageBar } from "./cap-usage-bar.tsx";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 

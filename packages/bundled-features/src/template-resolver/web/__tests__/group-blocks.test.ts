@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
-import { type BlockSummary, groupBlocksByFolder } from "../client-plugin.js";
+import { type BlockSummary, groupBlocksByFolder } from "../client-plugin.tsx";
 
 // TreeNode.children is `readonly TreeNode[] | TreeChildrenSubscribe` —
 // in the provider output, the subscribe form is only meant for

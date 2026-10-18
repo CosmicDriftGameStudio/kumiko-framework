@@ -1,4 +1,4 @@
-export { fieldDefinitionAggregateId } from "./aggregate-id.js";
+export { fieldDefinitionAggregateId } from "./aggregate-id.ts";
 export {
   CUSTOM_FIELDS_EXTENSION,
   CUSTOM_FIELDS_FEATURE_NAME,
@@ -6,34 +6,34 @@ export {
   FIELD_DEFINITION_UPDATED_EVENT,
   SUPPORTED_FIELD_TYPES,
   type SupportedFieldType,
-} from "./constants.js";
-export { fieldDefinitionEntity } from "./entity.js";
+} from "./constants.ts";
+export { fieldDefinitionEntity } from "./entity.ts";
 export {
   type CustomFieldClearedPayload,
   type CustomFieldSetPayload,
   customFieldClearedSchema,
   customFieldSetSchema,
-} from "./events.js";
+} from "./events.ts";
 export {
   type CustomFieldsFeatureOptions,
   createCustomFieldsFeature,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   type ClearCustomFieldPayload,
   clearCustomFieldPayloadSchema,
-} from "./handlers/clear-custom-field.write.js";
+} from "./handlers/clear-custom-field.write.ts";
 export {
   type SetCustomFieldPayload,
   setCustomFieldPayloadSchema,
-} from "./handlers/set-custom-field.write.js";
+} from "./handlers/set-custom-field.write.ts";
 export {
   isFieldDefinitionRow,
   parseSerializedField,
-} from "./lib/parse-serialized-field.js";
+} from "./lib/parse-serialized-field.ts";
 export {
   type DefineFieldPayload,
   type DeleteFieldPayload,
   defineFieldPayloadSchema,
   deleteFieldPayloadSchema,
-} from "./schemas.js";
-export { customFieldsField, wireCustomFieldsFor } from "./wire-for-entity.js";
+} from "./schemas.ts";
+export { customFieldsField, wireCustomFieldsFor } from "./wire-for-entity.ts";

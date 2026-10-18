@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { formatGdprMailTimestamp } from "../email-templates.js";
+import { formatGdprMailTimestamp } from "../email-templates.ts";
 import {
   GdprMailNotificationTypes,
   gdprMailLocalizedTemplate,
   gdprMailTemplateLocale,
-} from "../mail-notifications.js";
+} from "../mail-notifications.ts";
 
 registerMailTranslations("de", localeDeBundle);
 

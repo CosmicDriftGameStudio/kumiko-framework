@@ -1,7 +1,7 @@
 // @runtime client
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useQuery } from "@cosmicdrift/kumiko-renderer";
-import { type OverviewRowView, parseOverviewRow } from "./overview-row.js";
+import { type OverviewRowView, parseOverviewRow } from "./overview-row.ts";
 
 type OverviewResponse = { readonly rows: readonly Readonly<Record<string, unknown>>[] };
 

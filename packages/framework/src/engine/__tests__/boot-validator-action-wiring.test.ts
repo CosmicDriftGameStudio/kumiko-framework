@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
 
 describe("validateBoot — action wiring (no function values)", () => {
   test("rowAction writeHandler payload as function → Throw", () => {

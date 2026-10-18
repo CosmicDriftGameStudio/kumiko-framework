@@ -19,8 +19,8 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { FoldersHandlers, FoldersQueries } from "../constants.js";
-import { type FolderRow, folderPath } from "./tree.js";
+import { FoldersHandlers, FoldersQueries } from "../constants.ts";
+import { type FolderRow, folderPath } from "./tree.ts";
 
 type AssignmentRow = {
   readonly folderId: string;

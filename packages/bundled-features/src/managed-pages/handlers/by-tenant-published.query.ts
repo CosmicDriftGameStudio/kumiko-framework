@@ -1,7 +1,7 @@
 import { castTenantRows, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { type PageRow, pagesTable } from "../table.js";
+import { type PageRow, pagesTable } from "../table.ts";
 
 // Public-Read aller published Pages eines Tenants — Discovery-Quelle für
 // sitemap.xml/llms.txt (siehe seo-Feature). Anders als by-slug (single-row,

@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen, waitFor } from "../../__tests__/test-utils.js";
-import { UploadZone } from "../upload-zone.js";
+import { fireEvent, render, screen, waitFor } from "../../__tests__/test-utils.tsx";
+import { UploadZone } from "../upload-zone.tsx";
 
 function pick(input: HTMLElement, files: readonly File[]): void {
   Object.defineProperty(input, "files", { value: files, configurable: true });

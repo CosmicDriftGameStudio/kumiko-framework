@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.js";
+import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import {
   CONTENT_EDITOR_ELEMENT_ID,
   type ContentEditorProps,
   ContentEditorsProvider,
   TextareaContentEditor,
   useContentEditor,
-} from "../content-editors.js";
+} from "../content-editors.tsx";
 
 const captureInput: ComponentType<InputProps> = (props) => {
   if (props.kind !== "textarea") return null;

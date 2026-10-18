@@ -22,23 +22,23 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
-import { createDbConnection } from "../../db/connection.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
-import type { StoredEvent } from "../../event-store/index.js";
-import type { Logger } from "../../logging/types.js";
+import { createDbConnection } from "../../db/connection.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature } from "../../engine/index.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
+import type { Logger } from "../../logging/types.ts";
 import {
   type MetricEvent,
   RecordingMeter,
   registerStandardMetrics,
-} from "../../observability/index.js";
+} from "../../observability/index.ts";
 import {
   createEventDispatcher,
   type EventConsumer,
   type EventDispatcher,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

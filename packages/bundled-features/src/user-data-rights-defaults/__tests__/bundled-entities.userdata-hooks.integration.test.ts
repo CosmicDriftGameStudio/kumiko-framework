@@ -22,31 +22,31 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-app/index.js";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { configValueEntity, createConfigFeature } from "../../config/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { logAttempt } from "../../delivery/attempt-log.js";
-import { DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT } from "../../delivery/constants.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-app/index.ts";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { configValueEntity, createConfigFeature } from "../../config/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { logAttempt } from "../../delivery/attempt-log.ts";
+import { DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT } from "../../delivery/constants.ts";
 import {
   createDeliveryFeature,
   deliveryAttemptsTable,
   notificationPreferenceEntity,
-} from "../../delivery/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createJobsFeature, jobRunLogsTable, jobRunsTable } from "../../jobs/index.js";
+} from "../../delivery/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createJobsFeature, jobRunLogsTable, jobRunsTable } from "../../jobs/index.ts";
 import {
   apiTokenEntity,
   createPersonalAccessTokensFeature,
   PatQueries,
   type PatScopeConfig,
-} from "../../personal-access-tokens/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { createTenantFeature, tenantInvitationEntity } from "../../tenant/index.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
-import { createUserDataRightsDefaultsFeature } from "../feature.js";
+} from "../../personal-access-tokens/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { createTenantFeature, tenantInvitationEntity } from "../../tenant/index.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../feature.ts";
 import {
   apiTokenDeleteHook,
   apiTokenExportHook,
@@ -63,7 +63,7 @@ import {
   tenantInvitationExportHook,
   userSessionDeleteHook,
   userSessionExportHook,
-} from "../index.js";
+} from "../index.ts";
 
 const PAT_SCOPES: PatScopeConfig = {
   tokens: { label: "Tokens", read: [PatQueries.mine] },

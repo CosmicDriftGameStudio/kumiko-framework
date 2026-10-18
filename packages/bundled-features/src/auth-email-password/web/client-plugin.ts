@@ -7,14 +7,14 @@
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
-import { defaultTranslations, mergeTranslations } from "../i18n.js";
+import { defaultTranslations, mergeTranslations } from "../i18n.ts";
 import {
   type AuthGateOptions,
   type MfaSetupComponentProps,
   type MfaVerifyComponentProps,
   makeSessionAuthGate,
-} from "./auth-gate.js";
-import type { LoginScreenProps } from "./login-screen.js";
+} from "./auth-gate.tsx";
+import type { LoginScreenProps } from "./login-screen.tsx";
 
 export type EmailPasswordClientOptions = {
   /** Eigener Login-Screen. Default: der shadcn-stylte LoginScreen

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildRobotsTxt } from "../robots-txt.js";
+import { buildRobotsTxt } from "../robots-txt.ts";
 
 describe("buildRobotsTxt", () => {
   test("allow: true → no Disallow rule", () => {

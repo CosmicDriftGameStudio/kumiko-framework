@@ -4,8 +4,8 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
-import type { ResolveRequest, TemplateResource } from "./api.js";
-import { TemplateNotFoundError } from "./api.js";
+import type { ResolveRequest, TemplateResource } from "./api.ts";
+import { TemplateNotFoundError } from "./api.ts";
 import {
   type ContentFormat,
   FALLBACK_LOCALE,
@@ -13,8 +13,8 @@ import {
   SYSTEM_TENANT_ID,
   type TemplateScope,
   type TemplateStatus,
-} from "./constants.js";
-import { templateResourcesTable } from "./table.js";
+} from "./constants.ts";
+import { templateResourcesTable } from "./table.ts";
 
 export type TemplateConsumer = {
   readonly resolve: (args: ResolveRequest) => Promise<TemplateResource>;

@@ -2,19 +2,19 @@ import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { EscapeHatchReporter, EscapeHatchTarget } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { AccessDeniedError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { DbRunner } from "../connection.js";
-import type { TableColumns } from "../dialect.js";
-import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.js";
-import { buildEntityTable } from "../table-builder.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { AccessDeniedError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { DbRunner } from "../connection.ts";
+import type { TableColumns } from "../dialect.ts";
+import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.ts";
+import { buildEntityTable } from "../table-builder.ts";
 import {
   createTenantDb,
   createUncheckedSystemDb,
   type TenantDb,
   withUnsafeRawGrant,
-} from "../tenant-db.js";
+} from "../tenant-db.ts";
 
 // db.global()'s runtime + write-gate behaviour (fw#2855). No Postgres needed —
 // the stub runner throws on first touch, so a test that reaches it fails loudly

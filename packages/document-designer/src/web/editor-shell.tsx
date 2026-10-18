@@ -2,8 +2,8 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { cn } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { type EditorOrigin, OriginBadge } from "./editor-header.js";
-import { formatRelativeWhen } from "./relative-time.js";
+import { type EditorOrigin, OriginBadge } from "./editor-header.tsx";
+import { formatRelativeWhen } from "./relative-time.ts";
 
 export type InfoBarTone = "active" | "muted" | "warn";
 export type FooterTone = "bad" | "warn" | "ok";

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { hasAccess } from "../access.js";
-import { createApp } from "../create-app.js";
-import { defineFeature } from "../define-feature.js";
-import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../system-user.js";
+import { hasAccess } from "../access.ts";
+import { createApp } from "../create-app.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../system-user.ts";
 
 describe("SYSTEM_USER", () => {
   test("createSystemUser returns user with system role", () => {

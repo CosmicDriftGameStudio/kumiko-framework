@@ -4,8 +4,8 @@ import {
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { userEntity } from "../schema/user.js";
-import { attachTenantLabels, dbForList } from "./list.query.js";
+import { userEntity } from "../schema/user.ts";
+import { attachTenantLabels, dbForList } from "./list.query.ts";
 
 // Only SystemAdmins can read arbitrary users. Tenant-level "Admin" does NOT
 // grant this — the user feature is tenant-agnostic, and an Admin's scope is

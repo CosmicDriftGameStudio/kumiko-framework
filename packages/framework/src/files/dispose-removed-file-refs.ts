@@ -1,15 +1,15 @@
-import type { TenantDb } from "../db/tenant-db.js";
+import type { TenantDb } from "../db/tenant-db.ts";
 import {
   type FieldDefinition,
   isFileField,
   type Registry,
   type SaveContext,
   type SessionUser,
-} from "../engine/types/index.js";
-import { reraiseAsKumikoError } from "../errors/index.js";
-import { fileRefIdsOf } from "./bind-pending-file-refs.js";
-import { getFileRefExecutor } from "./create-file-ref.js";
-import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
+} from "../engine/types/index.ts";
+import { reraiseAsKumikoError } from "../errors/index.ts";
+import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
+import { getFileRefExecutor } from "./create-file-ref.ts";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 
 // The bound fieldName may differ from the field the id was removed from: an id
 // moved A -> B stays bound to A (binding never re-targets).

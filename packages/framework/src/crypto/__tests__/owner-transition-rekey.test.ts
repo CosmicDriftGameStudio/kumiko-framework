@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import type { EntityDefinition } from "../../engine/types/fields.js";
-import { PII_ERASED_SENTINEL } from "../kms-adapter.js";
-import { personalFieldsRekeyedOnOwnerTransition } from "../owner-transition-rekey.js";
-import { PII_CIPHERTEXT_PREFIX } from "../pii-ciphertext-format.js";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import type { EntityDefinition } from "../../engine/types/fields.ts";
+import { PII_ERASED_SENTINEL } from "../kms-adapter.ts";
+import { personalFieldsRekeyedOnOwnerTransition } from "../owner-transition-rekey.ts";
+import { PII_CIPHERTEXT_PREFIX } from "../pii-ciphertext-format.ts";
 
 const entity = createEntity({
   table: "rekey_items",

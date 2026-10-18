@@ -12,9 +12,9 @@
 //     so total latency must stay ≈ slowest check, not sum.
 
 import type { Redis } from "ioredis";
-import type { DbConnection } from "../db/connection.js";
-import { pingDatabase } from "../db/queries/raw-sql.js";
-import { getAllConsumerProgress } from "../pipeline/event-dispatcher.js";
+import type { DbConnection } from "../db/connection.ts";
+import { pingDatabase } from "../db/queries/raw-sql.ts";
+import { getAllConsumerProgress } from "../pipeline/event-dispatcher.ts";
 
 export type ReadinessCheck = {
   readonly name: string;

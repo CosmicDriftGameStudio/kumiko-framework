@@ -37,9 +37,9 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import type { TierMap } from "../compose-app.js";
-import { tierAssignmentEntity } from "../entity.js";
-import { createTierEngineFeature } from "../feature.js";
+import type { TierMap } from "../compose-app.ts";
+import { tierAssignmentEntity } from "../entity.ts";
+import { createTierEngineFeature } from "../feature.ts";
 
 // App-spezifische cap-shape (die TierMap ist generic). Hier dummy-caps —
 // fokus ist features-resolution, nicht caps.

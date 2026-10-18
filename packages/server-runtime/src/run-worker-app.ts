@@ -34,15 +34,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/observability";
 import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
-import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
-import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.js";
-import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.js";
+import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
+import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
+import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.ts";
 import {
   startWorkerMetricsServer,
   type WorkerMetricsOptions,
   type WorkerMetricsServer,
-} from "./boot/worker-metrics-server.js";
-import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
+} from "./boot/worker-metrics-server.ts";
+import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.ts";
 
 export type WorkerContextOption =
   | Record<string, unknown>

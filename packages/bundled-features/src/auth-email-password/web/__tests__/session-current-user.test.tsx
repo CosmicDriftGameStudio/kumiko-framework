@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { useOptionalCurrentUser } from "@cosmicdrift/kumiko-renderer";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { SessionProvider, useSession } from "../session.js";
+import { SessionProvider, useSession } from "../session.tsx";
 
 function CurrentUserProbe(): ReactNode {
   const user = useOptionalCurrentUser();

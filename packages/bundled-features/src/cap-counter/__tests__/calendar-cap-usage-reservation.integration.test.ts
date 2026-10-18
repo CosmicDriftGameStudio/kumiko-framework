@@ -23,19 +23,19 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { bookCapUsage } from "../book-cap-usage.js";
-import { reserveCalendarCapUsage } from "../calendar-cap-usage-reservation.js";
+import { bookCapUsage } from "../book-cap-usage.ts";
+import { reserveCalendarCapUsage } from "../calendar-cap-usage-reservation.ts";
 import {
   releaseCapReservation,
   reserveCalendarCap,
   settleCalendarCapReservation,
-} from "../cap-reservation.js";
-import { CapCounterQueries } from "../constants.js";
-import { CAP_TOLERANCES, type SoftHitNotifier } from "../enforce-cap.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
-import { capReservationsTable } from "../tables.js";
-import { withCapEnforcement } from "../with-cap-enforcement.js";
+} from "../cap-reservation.ts";
+import { CapCounterQueries } from "../constants.ts";
+import { CAP_TOLERANCES, type SoftHitNotifier } from "../enforce-cap.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
+import { capReservationsTable } from "../tables.ts";
+import { withCapEnforcement } from "../with-cap-enforcement.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
 

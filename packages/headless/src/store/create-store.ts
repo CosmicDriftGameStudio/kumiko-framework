@@ -1,4 +1,4 @@
-import type { WritableStore } from "./types.js";
+import type { WritableStore } from "./types.ts";
 
 // Subscribe/Emit primitive matching React's useSyncExternalStore.
 // Single canonical implementation — every stateful controller in

@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
-import type { FeatureSchema } from "./feature-schema.js";
-import { lastSegment } from "./qn.js";
+import type { FeatureSchema } from "./feature-schema.ts";
+import { lastSegment } from "./qn.ts";
 
 // Navigation-Contract, plattform-neutral. Types + Context + Hook leben
 // hier; die konkrete Implementation (window.history im Web,

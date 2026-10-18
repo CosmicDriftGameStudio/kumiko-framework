@@ -8,18 +8,18 @@ export {
   LegalPagesErrors,
   type LegalRequiredBlock,
   legalPagePath,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   createLegalPagesFeature,
   type LegalPagesBootCheckCtx,
   type LegalPagesOptions,
   runLegalPagesBootCheck,
-} from "./feature.js";
-export { createLegalPagesLayout, type LegalPagesLayoutOptions } from "./layout.js";
-export { renderMarkdownToHtml, wrapInLayout } from "./markdown.js";
+} from "./feature.ts";
+export { createLegalPagesLayout, type LegalPagesLayoutOptions } from "./layout.ts";
+export { renderMarkdownToHtml, wrapInLayout } from "./markdown.ts";
 export {
   type LegalContentBlock,
   type LegalContentSeedFn,
   type LegalContentSeedSource,
   legalContentSeed,
-} from "./seed.js";
+} from "./seed.ts";

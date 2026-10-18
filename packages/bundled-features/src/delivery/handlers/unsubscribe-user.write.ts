@@ -1,8 +1,8 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { currentNotificationType } from "../notification-type-aliases.js";
-import { upsertPreference } from "../upsert-preference.js";
+import { currentNotificationType } from "../notification-type-aliases.ts";
+import { upsertPreference } from "../upsert-preference.ts";
 
 export const unsubscribeUserWrite = defineWriteHandler({
   name: "unsubscribeUser",

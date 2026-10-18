@@ -31,19 +31,19 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { customFieldsField } from "../../custom-fields/wire-for-entity.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { customFieldsField } from "../../custom-fields/wire-for-entity.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity } from "../../tenant/membership-table.js";
-import { createUserFeature, userEntity } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
-import { createForgetSeeders, nowInstant } from "./forget-test-helpers.js";
+} from "../../data-retention/index.ts";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
+import { createUserFeature, userEntity } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000000aa";
 

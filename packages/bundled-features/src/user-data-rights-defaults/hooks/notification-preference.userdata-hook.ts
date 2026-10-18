@@ -7,9 +7,9 @@ import {
 import {
   notificationPreferenceEntity,
   notificationPreferencesTable,
-} from "../../delivery/index.js";
-import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.js";
-import { featureMounted } from "./feature-mounted.js";
+} from "../../delivery/index.ts";
+import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.ts";
+import { featureMounted } from "./feature-mounted.ts";
 
 // userData-Hooks for delivery's notification-preference rows. Event-sourced
 // entity → forget goes through the executor so a rebuild replays the erasure.

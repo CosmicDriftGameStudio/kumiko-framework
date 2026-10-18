@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isWithinGracePeriod } from "./grace-period.js";
+import { isWithinGracePeriod } from "./grace-period.ts";
 
 describe("isWithinGracePeriod — kumiko-framework#1525/#1550", () => {
   test("null gracePeriodEnd → false without ambient Temporal", async () => {

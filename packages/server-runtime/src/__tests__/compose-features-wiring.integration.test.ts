@@ -62,9 +62,9 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { buildComposeAuthOptions, composeFeatures } from "../compose-features.js";
-import type { RunProdAppAuthOptions } from "../run-prod-app.js";
-import { resolveAuthMail } from "../run-prod-app-boot-context.js";
+import { buildComposeAuthOptions, composeFeatures } from "../compose-features.ts";
+import type { RunProdAppAuthOptions } from "../run-prod-app.ts";
+import { resolveAuthMail } from "../run-prod-app-boot-context.ts";
 
 // resolveMailLocale only recognizes locales with a registered mail bundle;
 // an empty bundle is enough to make "de" negotiable here.

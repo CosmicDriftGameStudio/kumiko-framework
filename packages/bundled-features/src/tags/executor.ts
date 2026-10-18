@@ -1,5 +1,5 @@
 import { createEntityExecutor, type EntityDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createTagAssignmentEntity, tagAssignmentEntity, tagEntity } from "./entity.js";
+import { createTagAssignmentEntity, tagAssignmentEntity, tagEntity } from "./entity.ts";
 
 // Shared executors for the tag + tag-assignment write-handlers.
 // createEntityExecutor is side-effect-free; instantiating once keeps the

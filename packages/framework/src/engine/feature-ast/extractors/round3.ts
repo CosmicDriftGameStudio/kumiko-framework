@@ -1,9 +1,9 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { ConfigKeyDefinition, ConfigKeyType, TranslationKeys } from "../../types/config.js";
-import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../../types/feature.js";
-import type { ClaimKeyType } from "../../types/handlers.js";
-import type { ParseError } from "../parse.js";
+import type { ConfigKeyDefinition, ConfigKeyType, TranslationKeys } from "../../types/config.ts";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../../types/feature.ts";
+import type { ClaimKeyType } from "../../types/handlers.ts";
+import type { ParseError } from "../parse.ts";
 import type {
   ClaimKeyPattern,
   ConfigPattern,
@@ -13,8 +13,8 @@ import type {
   SecretPattern,
   TranslationsPattern,
   UseExtensionPattern,
-} from "../patterns.js";
-import { sourceLocationFromNode } from "../source-location.js";
+} from "../patterns.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   type ExtractOutput,
   fail,
@@ -25,7 +25,7 @@ import {
   readNameLiteral,
   readNameLiteralRef,
   readNameOrRef,
-} from "./shared.js";
+} from "./shared.ts";
 
 export type NamedOptionsResult =
   | { readonly kind: "ok"; readonly name: string; readonly options: Record<string, unknown> }

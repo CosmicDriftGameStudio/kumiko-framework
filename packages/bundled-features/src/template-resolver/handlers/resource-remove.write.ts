@@ -2,11 +2,11 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import { parseLinkedResourceEntries } from "../linked-resources.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { resourceKeySchema, resourceTargetTenantId } from "./resource-shared.js";
-import { executor } from "./shared.js";
+import { requireForTenant } from "../../shared/index.ts";
+import { parseLinkedResourceEntries } from "../linked-resources.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { resourceKeySchema, resourceTargetTenantId } from "./resource-shared.ts";
+import { executor } from "./shared.ts";
 
 // The FileRef itself stays: copy-locale and tenant overrides can share ids and there is
 // no reference count to tell when the last user is gone.

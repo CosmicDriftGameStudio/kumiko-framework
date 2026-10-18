@@ -14,19 +14,19 @@
 
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
-import type { DbConnection } from "../db/connection.js";
-import type { TenantDb } from "../db/tenant-db.js";
+import type { DbConnection } from "../db/connection.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
 import {
   EXT_FILE_PROVIDER,
   FILE_PROVIDER_CONFIG_KEY,
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
-} from "../engine/extension-names.js";
-import { SYSTEM_USER_ID } from "../engine/system-user.js";
-import type { ConfigAccessor, ConfigAccessorFactory, Registry } from "../engine/types/index.js";
-import { SYSTEM_TENANT_ID } from "../engine/types/index.js";
-import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
-import type { SecretsContext } from "../secrets/index.js";
-import type { FileStorageProvider } from "./types.js";
+} from "../engine/extension-names.ts";
+import { SYSTEM_USER_ID } from "../engine/system-user.ts";
+import type { ConfigAccessor, ConfigAccessorFactory, Registry } from "../engine/types/index.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
+import type { SecretsContext } from "../secrets/index.ts";
+import type { FileStorageProvider } from "./types.ts";
 
 const FEATURE_NAME = "file-foundation";
 

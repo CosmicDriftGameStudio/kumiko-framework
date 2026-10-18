@@ -39,9 +39,9 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { workflowRunAggregateId } from "../aggregate-id.js";
-import { registerEventTrigger } from "../event-trigger.js";
-import { createWorkflowRunnerFeature } from "../feature.js";
+import { workflowRunAggregateId } from "../aggregate-id.ts";
+import { registerEventTrigger } from "../event-trigger.ts";
+import { createWorkflowRunnerFeature } from "../feature.ts";
 
 let stack: TestStack;
 const admin = TestUsers.admin;

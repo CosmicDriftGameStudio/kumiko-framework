@@ -20,9 +20,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createUserFeature } from "../../user/feature.js";
-import { createSessionsFeature } from "../feature.js";
-import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
+import { createUserFeature } from "../../user/feature.ts";
+import { createSessionsFeature } from "../feature.ts";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
 
 // store_user_sessions is a hot-path direct-write store: sessionCreator inserts
 // rows and the revoke handlers update them WITHOUT emitting lifecycle events.

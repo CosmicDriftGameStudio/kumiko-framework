@@ -5,8 +5,8 @@ import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { cn } from "../lib/cn.js";
-import { ModalShell } from "./modal-shell.js";
+import { cn } from "../lib/cn.ts";
+import { ModalShell } from "./modal-shell.tsx";
 
 const NAV_BUTTON_CLASS =
   "absolute top-1/2 -translate-y-1/2 flex size-9 items-center justify-center rounded-full border border-border bg-card text-foreground opacity-80 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring";

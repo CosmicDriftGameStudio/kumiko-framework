@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isAppSchema, toAppSchema } from "../feature-schema.js";
+import { isAppSchema, toAppSchema } from "../feature-schema.ts";
 
 const feature: FeatureSchema = { featureName: "tasks", entities: {}, screens: [] };
 

@@ -1,18 +1,18 @@
-export { SEO_CONFIG_KEYS, SEO_CONFIG_QN, SEO_DEFAULT_PATHS, SEO_FEATURE } from "./constants.js";
+export { SEO_CONFIG_KEYS, SEO_CONFIG_QN, SEO_DEFAULT_PATHS, SEO_FEATURE } from "./constants.ts";
 export {
   createSeoFeature,
   type ManagedPagesDiscoveryOptions,
   runSeoBootCheck,
   type SeoBootCheckCtx,
   type SeoOptions,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   buildLlmsTxt,
   type LlmsTxtInput,
   type LlmsTxtLink,
   type LlmsTxtSection,
-} from "./llms-txt.js";
-export { buildRobotsTxt, type RobotsPolicy } from "./robots-txt.js";
+} from "./llms-txt.ts";
+export { buildRobotsTxt, type RobotsPolicy } from "./robots-txt.ts";
 export {
   type FaqItem,
   faqPageSchema,
@@ -20,5 +20,5 @@ export {
   organizationSchema,
   type WebPageSchemaInput,
   webPageSchema,
-} from "./schema-builders.js";
-export { buildSitemapXml, type SitemapEntry } from "./sitemap.js";
+} from "./schema-builders.ts";
+export { buildSitemapXml, type SitemapEntry } from "./sitemap.ts";

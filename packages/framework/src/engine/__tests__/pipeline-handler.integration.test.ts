@@ -51,16 +51,16 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { table, text, timestamp, uuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { eventsTable } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
-import { defineWriteHandler } from "../define-handler.js";
-import { createEntity, createTextField } from "../factories.js";
-import { stepsPipeline } from "../pipeline.js";
+import { table, text, timestamp, uuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
+import { defineWriteHandler } from "../define-handler.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import { stepsPipeline } from "../pipeline.ts";
 
 const echoSchema = z.object({ greeting: z.string() });
 

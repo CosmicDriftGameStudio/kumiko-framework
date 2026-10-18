@@ -9,7 +9,7 @@ import { describe, expect, mock, test } from "bun:test";
 // through a real session fetch.
 // mock.module is process-wide in bun, so a stub would replace the gate for every
 // DOM test file in the same run; the spy records and delegates to the real module.
-const realAuthGate = { ...(await import("../auth-gate.js")) };
+const realAuthGate = { ...(await import("../auth-gate.tsx")) };
 const makeSessionAuthGateCalls: unknown[][] = [];
 mock.module("../auth-gate", () => ({
   ...realAuthGate,
@@ -19,7 +19,7 @@ mock.module("../auth-gate", () => ({
   },
 }));
 
-const { emailPasswordClient } = await import("../client-plugin.js");
+const { emailPasswordClient } = await import("../client-plugin.ts");
 
 describe("emailPasswordClient — mfaSetupScreen wiring", () => {
   test("passes options.mfaSetupScreen through to makeSessionAuthGate", () => {

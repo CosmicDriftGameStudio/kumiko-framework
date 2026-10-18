@@ -10,7 +10,7 @@ import {
   DISCORD_DEFAULT_ALLOWED_HOSTS,
   DISCORD_WEBHOOK_PATH_PREFIX,
   type DiscordChannelOptions,
-} from "./discord-channel.js";
+} from "./discord-channel.ts";
 
 export function createChannelDiscordFeature(
   options: DiscordChannelOptions = {},

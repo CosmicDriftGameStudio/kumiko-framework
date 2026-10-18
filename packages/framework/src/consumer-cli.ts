@@ -6,9 +6,9 @@
 // out) entry point, own DB connection) so `kumiko-consumer` ships the same
 // way `kumiko-schema` does.
 
-import { createDbConnection, dbConnectionOptionsFromEnv } from "./db/connection.js";
-import { getConsumerState, restartConsumer } from "./pipeline/index.js";
-import { ensureTemporalPolyfill } from "./time/index.js";
+import { createDbConnection, dbConnectionOptionsFromEnv } from "./db/connection.ts";
+import { getConsumerState, restartConsumer } from "./pipeline/index.ts";
+import { ensureTemporalPolyfill } from "./time/index.ts";
 
 export type ConsumerCliOut = {
   readonly log: (line: string) => void;

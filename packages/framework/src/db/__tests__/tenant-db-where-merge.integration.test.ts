@@ -17,10 +17,10 @@ import {
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
-import { selectMany } from "../query.js";
-import { buildEntityTable } from "../table-builder.js";
+} from "../../engine/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { selectMany } from "../query.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 const noteEntity = createEntity({
   fields: {

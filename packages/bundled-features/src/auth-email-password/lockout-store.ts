@@ -20,7 +20,7 @@
 // account-unlock magic-link flow, #1266, see
 // handlers/confirm-account-unlock.write.ts) is what resets the streak.
 
-import { createLockoutCounter, type LockoutCounterState } from "../shared/index.js";
+import { createLockoutCounter, type LockoutCounterState } from "../shared/index.ts";
 
 export type LockoutState = LockoutCounterState;
 

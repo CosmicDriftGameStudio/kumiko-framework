@@ -14,13 +14,13 @@ import {
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { isListFilterAllowed } from "../../db/entity-field-encryption.js";
-import { rowMetaFieldNames } from "../../db/table-builder.js";
-import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.js";
-import { isEncryptedAtRest } from "../config-helpers.js";
-import { parseRefTarget } from "../parse-ref-target.js";
-import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.js";
-import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js";
+import { isListFilterAllowed } from "../../db/entity-field-encryption.ts";
+import { rowMetaFieldNames } from "../../db/table-builder.ts";
+import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.ts";
+import { isEncryptedAtRest } from "../config-helpers.ts";
+import { parseRefTarget } from "../parse-ref-target.ts";
+import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.ts";
+import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts";
 import {
   explicitListScreenId,
   type FieldsOrGroupsSection,
@@ -31,15 +31,15 @@ import {
   normalizeListColumn,
   resolveNavParentScreen,
   sectionFieldSpecs,
-} from "../screen-helpers.js";
+} from "../screen-helpers.ts";
 import type {
   ConfigKeyDefinition,
   EntityDefinition,
   FeatureDefinition,
   FieldDefinition,
   NavDefinition,
-} from "../types/index.js";
-import { metricField } from "../types/index.js";
+} from "../types/index.ts";
+import { metricField } from "../types/index.ts";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -71,9 +71,9 @@ import type {
   ScreenDefinition,
   SecretMintScreenDefinition,
   ToolbarAction,
-} from "../types/screen.js";
-import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.js";
-import { isSelectOptionTone } from "./select-option-tone.js";
+} from "../types/screen.ts";
+import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
+import { isSelectOptionTone } from "./select-option-tone.ts";
 
 // entityList and projectionList both allow a rowAction to double as the
 // row-body click target (rowClick: true, fw#1708/#2164) — at most one per

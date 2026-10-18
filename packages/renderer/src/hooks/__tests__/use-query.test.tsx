@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { useQuery } from "../use-query.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { useQuery } from "../use-query.ts";
 
 type QueryFn = Dispatcher["query"];
 

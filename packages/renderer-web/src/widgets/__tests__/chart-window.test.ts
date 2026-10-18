@@ -8,7 +8,7 @@ import {
   snapBrushWindow,
   snapMovedBrushWindow,
   stackedAreaDateFormatFor,
-} from "../chart-window.js";
+} from "../chart-window.ts";
 
 const monthAt = (index: number): number => Date.UTC(2026, index, 1);
 const buckets = Array.from({ length: 60 }, (_, i) => monthAt(i));

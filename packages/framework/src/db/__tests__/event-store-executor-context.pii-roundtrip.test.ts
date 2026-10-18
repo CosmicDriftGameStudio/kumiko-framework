@@ -6,10 +6,10 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   type KmsContext,
-} from "../../crypto/index.js";
-import { createEntity, createFileField, createTextField } from "../../engine/index.js";
-import { createTestUser, testUserId } from "../../seeding/seed-users.js";
-import { buildExecutorContext, type Table } from "../event-store-executor-context.js";
+} from "../../crypto/index.ts";
+import { createEntity, createFileField, createTextField } from "../../engine/index.ts";
+import { createTestUser, testUserId } from "../../seeding/seed-users.ts";
+import { buildExecutorContext, type Table } from "../event-store-executor-context.ts";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 

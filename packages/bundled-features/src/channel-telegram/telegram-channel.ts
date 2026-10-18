@@ -6,7 +6,7 @@ import {
   postChatWebhook,
   toChannelResult,
   truncateChars,
-} from "../delivery/index.js";
+} from "../delivery/index.ts";
 
 export type TelegramChannelOptions = {
   // App-level override (tests, self-hosted Bot API server); never tenant config.

@@ -16,27 +16,27 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createBillingFoundationFeature } from "../../billing-foundation/index.js";
+import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenant } from "../../tenant/seeding.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../compliance-profiles/index.ts";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenant } from "../../tenant/seeding.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   createTierEngineFeature,
   TierEngineHandlers,
   tierAssignmentEntity,
-} from "../../tier-engine/index.js";
-import { CapOverviewQueries } from "../constants.js";
-import { createCapOverviewFeature } from "../feature.js";
-import type { CapSpec } from "../types.js";
+} from "../../tier-engine/index.ts";
+import { CapOverviewQueries } from "../constants.ts";
+import { createCapOverviewFeature } from "../feature.ts";
+import type { CapSpec } from "../types.ts";
 
 const SEATS_KEY = "cap-seats-probe:config:seats";
 const SEATS_DEFAULT = 10;

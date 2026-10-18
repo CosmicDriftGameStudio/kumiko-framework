@@ -9,11 +9,11 @@ import {
   setupChatHarness,
   startProviderStub,
   tenantAdmin,
-} from "../../delivery/__tests__/chat-channel-harness.js";
-import { collectChannels, createDeliveryService } from "../../delivery/delivery-service.js";
-import { deliveryAttemptsTable } from "../../delivery/tables.js";
-import { createChannelTeamsFeature } from "../feature.js";
-import { classifyTeamsResponse } from "../teams-channel.js";
+} from "../../delivery/__tests__/chat-channel-harness.ts";
+import { collectChannels, createDeliveryService } from "../../delivery/delivery-service.ts";
+import { deliveryAttemptsTable } from "../../delivery/tables.ts";
+import { createChannelTeamsFeature } from "../feature.ts";
+import { classifyTeamsResponse } from "../teams-channel.ts";
 
 // Secret key under the channel's secretNamespace; the secrets write gate accepts it
 // only because the feature declared the namespace.

@@ -24,8 +24,8 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { backfillUserStreamTenants } from "../db/queries/stream-tenant-backfill.js";
-import { userEntity, userTable } from "../schema/user.js";
+import { backfillUserStreamTenants } from "../db/queries/stream-tenant-backfill.ts";
+import { userEntity, userTable } from "../schema/user.ts";
 
 const T1 = "00000000-0000-4000-8000-000000000011" as TenantId;
 const LEGACY_USER = "aaaaaaaa-0000-4000-8000-000000000001";

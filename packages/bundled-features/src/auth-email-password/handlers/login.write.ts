@@ -11,21 +11,21 @@ import {
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { verifyDummyPassword, verifyPassword } from "../../shared/index.js";
-import { USER_STATUS, UserQueries } from "../../user/index.js";
-import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.js";
+import { verifyDummyPassword, verifyPassword } from "../../shared/index.ts";
+import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
   AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
-} from "../constants.js";
+} from "../constants.ts";
 import {
   accountLocked,
   accountRestricted,
   emailNotVerified,
   invalidCredentials,
   noMembership,
-} from "../errors.js";
-import { clearLockoutState, getLockoutState, recordFailedAttempt } from "../lockout-store.js";
+} from "../errors.ts";
+import { clearLockoutState, getLockoutState, recordFailedAttempt } from "../lockout-store.ts";
 
 export type LoginHandlerOptions = {
   // When true, a valid (email + password) login fails with email_not_verified

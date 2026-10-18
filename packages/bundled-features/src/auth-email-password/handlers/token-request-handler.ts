@@ -17,11 +17,11 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { UserQueries } from "../../user/index.js";
-import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.js";
-import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.js";
-import type { AuthMailLocale } from "../email-templates.js";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
+import { UserQueries } from "../../user/index.ts";
+import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
+import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.ts";
+import type { AuthMailLocale } from "../email-templates.ts";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.ts";
 
 const RequestTokenSchema = z.object({
   email: z.email(),

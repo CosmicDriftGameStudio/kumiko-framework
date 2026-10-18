@@ -25,7 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
-import { type ProdAppHandle, type RunProdAppOptions, runProdApp } from "../run-prod-app.js";
+import { type ProdAppHandle, type RunProdAppOptions, runProdApp } from "../run-prod-app.ts";
 
 const TEST_DB = `kumiko_runprod_bootopts_${Date.now().toString(36)}`;
 const ADMIN_URL = process.env["TEST_DATABASE_URL"] ?? "";

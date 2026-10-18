@@ -28,14 +28,14 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { seedUser } from "../../user/seeding.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import type { SendDeletionVerificationEmailFn } from "../handlers/request-deletion-by-email.write.js";
+} from "../../compliance-profiles/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import type { SendDeletionVerificationEmailFn } from "../handlers/request-deletion-by-email.write.ts";
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";
 const CONFIRM_BY_TOKEN = "user-data-rights:write:confirm-deletion-by-token";

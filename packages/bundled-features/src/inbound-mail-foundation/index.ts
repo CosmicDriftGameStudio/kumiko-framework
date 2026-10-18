@@ -3,11 +3,11 @@
 export {
   inboundMessageAggregateId,
   mailThreadAggregateId,
-} from "./aggregate-id.js";
+} from "./aggregate-id.ts";
 export {
   createInboundMailConnectRoutes,
   type InboundMailConnectRoutesOptions,
-} from "./connect-routes.js";
+} from "./connect-routes.ts";
 export {
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_PROVIDER_EXTENSION,
@@ -18,7 +18,7 @@ export {
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
   inboundCredentialSecretKey,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
@@ -30,7 +30,7 @@ export {
   seenMessageTable,
   syncCursorEntity,
   syncCursorTable,
-} from "./entities.js";
+} from "./entities.ts";
 export {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
@@ -53,30 +53,30 @@ export {
   type MailThreadEventPayload,
   mailAccountEventPayloadSchema,
   mailThreadEventPayloadSchema,
-} from "./events.js";
-export { createInboundMailFoundationFeature } from "./feature.js";
+} from "./events.ts";
+export { createInboundMailFoundationFeature } from "./feature.ts";
 export {
   createOAuthAccessTokenManager,
   inboundRefreshTokenSecretOptions,
   type OAuthAccessTokenManager,
   type OAuthAccessTokenManagerDeps,
   usesFoundationManagedOAuth,
-} from "./oauth-access-token.js";
+} from "./oauth-access-token.ts";
 export {
   type OAuthStatePayload,
   signOAuthState,
   type VerifyOAuthStateResult,
   verifyOAuthState,
-} from "./oauth-state.js";
+} from "./oauth-state.ts";
 export {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "./projection.js";
+} from "./projection.ts";
 export {
   resolveInboundProviderForAccount,
   resolveInboundProviderForKey,
-} from "./provider-factory.js";
+} from "./provider-factory.ts";
 export {
   InboundAuthError,
   InboundCursorInvalidError,
@@ -95,9 +95,9 @@ export {
   type OAuthTokenSet,
   type RawInboundMessage,
   type SyncCursorPayload,
-} from "./types.js";
+} from "./types.ts";
 export {
   createInboundMailSupervisor,
   type InboundMailSupervisor,
   type InboundMailSupervisorDeps,
-} from "./watch-supervisor.js";
+} from "./watch-supervisor.ts";

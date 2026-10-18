@@ -1,9 +1,9 @@
 import type { TemplateVariableDef, TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
-import { isResourceImageContentType } from "../shared/index.js";
-import { rewriteStepsBlock } from "./compile-steps-block.js";
-import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.js";
+import { isResourceImageContentType } from "../shared/index.ts";
+import { rewriteStepsBlock } from "./compile-steps-block.ts";
+import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.ts";
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_TEXT_ALIGNMENTS,
@@ -11,7 +11,7 @@ import {
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "./document-schema.js";
+} from "./document-schema.ts";
 
 // Private-use characters mark where a Handlebars expression goes. Author text
 // is scrubbed of them first and every `{`/`}` is entity-encoded before the

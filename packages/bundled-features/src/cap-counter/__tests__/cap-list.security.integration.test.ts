@@ -6,9 +6,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { CAP_COUNTER_LIST_SCREEN_ID, CapCounterHandlers, CapCounterQueries } from "../constants.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
+import { CAP_COUNTER_LIST_SCREEN_ID, CapCounterHandlers, CapCounterQueries } from "../constants.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
 
 let stack: TestStack;
 

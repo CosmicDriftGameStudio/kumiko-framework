@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TCPSocketListener } from "bun";
-import { createRegistry } from "../../engine/index.js";
-import type { AppContext } from "../../engine/types/index.js";
-import { createJobRunner } from "../job-runner.js";
+import { createRegistry } from "../../engine/index.ts";
+import type { AppContext } from "../../engine/types/index.ts";
+import { createJobRunner } from "../job-runner.ts";
 
 // A Redis that accepts the TCP connection but never answers: ioredis's ready check never
 // completes, so BullMQ's waitUntilReady() never resolves. A real server instead of

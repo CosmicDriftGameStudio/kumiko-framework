@@ -11,8 +11,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { insertOne, selectMany, updateMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { insertOne, selectMany, updateMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createTextField,
@@ -20,9 +20,9 @@ import {
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
   WORKFLOW_RUN_STARTED_TYPE,
-} from "../../engine/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const runViewEntity = createEntity({
   table: "read_wf_run_views",

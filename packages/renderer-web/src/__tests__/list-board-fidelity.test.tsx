@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { defaultPrimitives } from "../primitives/index.js";
-import { fireEvent, render, screen, within } from "./test-utils.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { fireEvent, render, screen, within } from "./test-utils.tsx";
 
 const { DataTable } = defaultPrimitives;
 

@@ -10,14 +10,14 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { InboundMailAccountStatuses } from "../constants.js";
+import { InboundMailAccountStatuses } from "../constants.ts";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_DISCONNECTED_EVENT_QN,
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
-} from "../events.js";
-import { loadCurrentMailAccountPayload } from "./account-state.js";
+} from "../events.ts";
+import { loadCurrentMailAccountPayload } from "./account-state.ts";
 
 export const disconnectAccountSchema = z.object({
   accountId: z.uuid(),

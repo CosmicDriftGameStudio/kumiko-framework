@@ -25,28 +25,28 @@ import {
   AuthErrors as AuthEmailPasswordErrors,
   AuthHandlers as AuthEmailPasswordHandlers,
   createAuthEmailPasswordFeature,
-} from "../../auth-email-password/index.js";
-import { ConfigHandlers, createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { base32Decode } from "../base32.js";
-import { mfaRequiredConfigHandle } from "../config.js";
-import { AuthMfaHandlers } from "../constants.js";
-import { createAuthMfaFeature } from "../feature.js";
+} from "../../auth-email-password/index.ts";
+import { ConfigHandlers, createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { base32Decode } from "../base32.ts";
+import { mfaRequiredConfigHandle } from "../config.ts";
+import { AuthMfaHandlers } from "../constants.ts";
+import { createAuthMfaFeature } from "../feature.ts";
 import {
   bindMfaRevokeAllOtherSessionsFromFeature,
   mfaStatusCheckerFromFeature,
-} from "../feature-exports.js";
-import { userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
-import { currentTotpCode } from "../totp.js";
+} from "../feature-exports.ts";
+import { userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
+import { currentTotpCode } from "../totp.ts";
 
 let stack: TestStack;
 const revokedForUserIds: string[] = [];

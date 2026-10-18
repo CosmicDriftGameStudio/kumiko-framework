@@ -1,6 +1,6 @@
 import { type EntityListScreenDefinition, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
-import { WAITLIST_STATUS, WaitlistHandlers } from "./constants.js";
-import { adminAccess } from "./lib.js";
+import { WAITLIST_STATUS, WaitlistHandlers } from "./constants.ts";
+import { adminAccess } from "./lib.ts";
 
 export const waitlistListScreen: EntityListScreenDefinition = {
   id: "waitlist-list",

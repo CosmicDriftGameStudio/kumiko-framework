@@ -9,13 +9,13 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ComponentType, type ReactNode, useState } from "react";
-import { DEFAULT_TEMPLATE_LOCALES } from "../constants.js";
-import { defaultLocaleOf } from "./editor-locale.js";
-import { MailEditorBody } from "./mail-editor-body.js";
-import type { TemplateRowSummary, TemplateRowView } from "./mail-types.js";
-import type { OverviewRowView } from "./overview-row.js";
-import { useOverviewRows } from "./use-overview-rows.js";
-import { templateTitle } from "./used-by-label.js";
+import { DEFAULT_TEMPLATE_LOCALES } from "../constants.ts";
+import { defaultLocaleOf } from "./editor-locale.ts";
+import { MailEditorBody } from "./mail-editor-body.tsx";
+import type { TemplateRowSummary, TemplateRowView } from "./mail-types.ts";
+import type { OverviewRowView } from "./overview-row.ts";
+import { useOverviewRows } from "./use-overview-rows.ts";
+import { templateTitle } from "./used-by-label.ts";
 
 function fallbackLocaleOf(locale: string, rowLocales: readonly string[]): string | null {
   const others = rowLocales.filter((candidate) => candidate !== locale);

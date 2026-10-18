@@ -28,12 +28,12 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { configValuesTable } from "../../config/index.js";
-import { TenantHandlers, tenantMembershipsTable, tenantTable } from "../../tenant/index.js";
-import { userTable } from "../../user/index.js";
-import type { TierMap } from "../compose-app.js";
-import { tierAssignmentEntity } from "../entity.js";
-import { createTierEngineFeature } from "../feature.js";
+import { configValuesTable } from "../../config/index.ts";
+import { TenantHandlers, tenantMembershipsTable, tenantTable } from "../../tenant/index.ts";
+import { userTable } from "../../user/index.ts";
+import type { TierMap } from "../compose-app.ts";
+import { tierAssignmentEntity } from "../entity.ts";
+import { createTierEngineFeature } from "../feature.ts";
 
 const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },

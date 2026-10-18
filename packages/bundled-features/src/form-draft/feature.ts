@@ -7,13 +7,13 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { FORM_DRAFT_FEATURE_NAME } from "./constants.js";
-import { formDraftEntity } from "./entity.js";
-import { cleanupDraftsJob, formDraftRetentionDaysConfig } from "./handlers/cleanup.job.js";
-import { discardDraftWrite } from "./handlers/discard.write.js";
-import { getDraftQuery } from "./handlers/get.query.js";
-import { listDraftsQuery } from "./handlers/list.query.js";
-import { saveDraftWrite } from "./handlers/save.write.js";
+import { FORM_DRAFT_FEATURE_NAME } from "./constants.ts";
+import { formDraftEntity } from "./entity.ts";
+import { cleanupDraftsJob, formDraftRetentionDaysConfig } from "./handlers/cleanup.job.ts";
+import { discardDraftWrite } from "./handlers/discard.write.ts";
+import { getDraftQuery } from "./handlers/get.query.ts";
+import { listDraftsQuery } from "./handlers/list.query.ts";
+import { saveDraftWrite } from "./handlers/save.write.ts";
 
 const CLEANUP_ESCAPE_HATCH_REASON = "purges stale drafts of every tenant";
 

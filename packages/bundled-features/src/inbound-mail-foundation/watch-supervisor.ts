@@ -53,15 +53,15 @@ import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
-import { MAIL_ACCOUNT_PII_FIELDS, seenMessageTable, syncCursorTable } from "./entities.js";
+import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.ts";
+import { MAIL_ACCOUNT_PII_FIELDS, seenMessageTable, syncCursorTable } from "./entities.ts";
 import {
   createOAuthAccessTokenManager,
   type OAuthAccessTokenManager,
   usesFoundationManagedOAuth,
-} from "./oauth-access-token.js";
-import { mailAccountsProjectionTable } from "./projection.js";
-import { resolveInboundProviderForAccount } from "./provider-factory.js";
+} from "./oauth-access-token.ts";
+import { mailAccountsProjectionTable } from "./projection.ts";
+import { resolveInboundProviderForAccount } from "./provider-factory.ts";
 import {
   type InboundMailContext,
   type InboundMailProviderPlugin,
@@ -71,7 +71,7 @@ import {
   type MailAccountRecord,
   type RawInboundMessage,
   type SyncCursorPayload,
-} from "./types.js";
+} from "./types.ts";
 
 // Provider errors can embed token or response data in `message`; logs carry
 // only the error class.

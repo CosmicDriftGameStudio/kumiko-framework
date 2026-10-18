@@ -8,14 +8,14 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { append } from "../../event-store/index.js";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { asRawClient } from "../query.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { append } from "../../event-store/index.ts";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { asRawClient } from "../query.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 const noteEntity = createEntity({
   table: "read_removed_column_notes",

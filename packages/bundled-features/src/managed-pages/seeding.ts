@@ -15,7 +15,7 @@ import {
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/seeding";
 
-import { type PageRow, pageEntity, pagesTable } from "./table.js";
+import { type PageRow, pageEntity, pagesTable } from "./table.ts";
 
 const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: "page" });
 

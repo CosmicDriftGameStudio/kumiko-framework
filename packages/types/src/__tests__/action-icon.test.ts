@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveActionIcon } from "../action-icon.js";
+import { resolveActionIcon } from "../action-icon.ts";
 
 describe("resolveActionIcon", () => {
   test("an author-declared icon wins over every id-derived default", () => {

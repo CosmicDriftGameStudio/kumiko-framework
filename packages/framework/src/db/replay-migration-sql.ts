@@ -9,8 +9,8 @@
 // either. Reuses `loadMigrationsFromDir`'s statement-splitting so the replay
 // sees exactly what the real runner would execute.
 
-import type { Snapshot } from "./migrate-generator.js";
-import { loadMigrationsFromDir } from "./migrate-runner.js";
+import type { Snapshot } from "./migrate-generator.ts";
+import { loadMigrationsFromDir } from "./migrate-runner.ts";
 
 // Migration files comment out destructive ops (DROP TABLE/COLUMN) as
 // `-- DESTRUCTIVE: <stmt>;  -- uncomment + ensure backup` so the real

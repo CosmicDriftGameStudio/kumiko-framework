@@ -42,8 +42,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createDataRetentionFeature } from "../feature.js";
-import { runRetentionCleanup } from "../run-retention-cleanup.js";
+import { createDataRetentionFeature } from "../feature.ts";
+import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 
 // hardDelete entity with BOTH a single (image) and a plural (files) field —
 // covers the column-value path AND the file_refs-lookup path in one entity.

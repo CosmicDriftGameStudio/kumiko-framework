@@ -27,14 +27,14 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { AuditQueries } from "../../audit/constants.js";
-import { createAuditFeature } from "../../audit/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { fieldDefinitionEntity } from "../entity.js";
-import { createCustomFieldsFeature } from "../feature.js";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
+import { AuditQueries } from "../../audit/constants.ts";
+import { createAuditFeature } from "../../audit/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { fieldDefinitionEntity } from "../entity.ts";
+import { createCustomFieldsFeature } from "../feature.ts";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 const propertyEntity = createEntity({
   table: "read_t15a_properties",

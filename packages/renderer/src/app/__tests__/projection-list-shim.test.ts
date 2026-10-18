@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { synthesizeProjectionEntity } from "../projection-list-shim.js";
+import { synthesizeProjectionEntity } from "../projection-list-shim.ts";
 
 describe("synthesizeProjectionEntity", () => {
   test("sortable applies to every column except those opting out with sortable: false", () => {

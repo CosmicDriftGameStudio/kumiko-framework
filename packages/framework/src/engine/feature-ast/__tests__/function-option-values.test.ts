@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
-import { parseSourceFile } from "../parse.js";
-import { renderFeatureFile } from "../render.js";
+import { parseSourceFile } from "../parse.ts";
+import { renderFeatureFile } from "../render.ts";
 
 function createProject() {
   return new Project({

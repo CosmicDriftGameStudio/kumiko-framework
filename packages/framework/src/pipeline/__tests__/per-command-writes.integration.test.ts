@@ -9,20 +9,20 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { executeRawQuery } from "../../db/queries/raw-sql.js";
-import { selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { defineUnmanagedTable } from "../../db/entity-table-meta.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
+import { selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createTextField,
   defineFeature,
   defineWriteHandler,
-} from "../../engine/index.js";
-import { UnprocessableError, writeFailure } from "../../errors/index.js";
-import { eventsTable } from "../../event-store/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { UnprocessableError, writeFailure } from "../../errors/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
   table: "per_command_notes",

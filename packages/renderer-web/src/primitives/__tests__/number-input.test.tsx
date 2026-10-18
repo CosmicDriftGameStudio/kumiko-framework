@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MoneyInput } from "../money-input.js";
-import { NumberInput } from "../number-input.js";
+import { MoneyInput } from "../money-input.tsx";
+import { NumberInput } from "../number-input.tsx";
 
 function renderNumber(
   props: Partial<Parameters<typeof NumberInput>[0]> & {

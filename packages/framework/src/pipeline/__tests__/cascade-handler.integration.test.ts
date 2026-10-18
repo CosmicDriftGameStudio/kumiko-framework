@@ -1,24 +1,24 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import type { TableColumns } from "../../db/dialect.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import type { TableColumns } from "../../db/dialect.ts";
 import {
   createEventStoreExecutor,
   type EventStoreExecutor,
-} from "../../db/event-store-executor.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+} from "../../db/event-store-executor.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
   type Registry,
-} from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { createCascadeDeleteHook } from "../cascade-handler.js";
+} from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { createCascadeDeleteHook } from "../cascade-handler.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;

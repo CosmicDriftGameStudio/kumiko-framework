@@ -5,7 +5,7 @@ import {
   createTelegramChannel,
   isTelegramBotToken,
   type TelegramChannelOptions,
-} from "./telegram-channel.js";
+} from "./telegram-channel.ts";
 
 export function createChannelTelegramFeature(
   options: TelegramChannelOptions = {},

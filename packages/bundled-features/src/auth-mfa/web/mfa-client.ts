@@ -12,7 +12,7 @@ import {
   type LoginFailure,
   type LoginResponse,
   toLoginResponse,
-} from "../../auth-email-password/web/index.js";
+} from "../../auth-email-password/web/index.ts";
 
 export type MfaVerifyResult =
   | { readonly kind: "success"; readonly data: LoginResponse }

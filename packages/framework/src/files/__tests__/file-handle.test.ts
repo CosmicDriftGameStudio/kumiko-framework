@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { variantSuffix } from "../../derivatives/variant-key.js";
+import { variantSuffix } from "../../derivatives/variant-key.ts";
 import {
   createFileContext,
   createFileHandle,
   deriveKey,
   storageKeyStemPrefix,
-} from "../file-handle.js";
-import { createInMemoryFileProvider } from "../in-memory-provider.js";
+} from "../file-handle.ts";
+import { createInMemoryFileProvider } from "../in-memory-provider.ts";
 
 describe("deriveKey", () => {
   test("inserts suffix before extension", () => {

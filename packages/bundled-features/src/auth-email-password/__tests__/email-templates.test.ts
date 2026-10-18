@@ -4,12 +4,12 @@
 import { describe, expect, test } from "bun:test";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { tokenMailExpiry } from "../email-templates.js";
+import { tokenMailExpiry } from "../email-templates.ts";
 import {
   AUTH_MAIL_KINDS,
   type AuthMailKind,
   authMailLocalizedTemplate,
-} from "../mail-notifications.js";
+} from "../mail-notifications.ts";
 
 registerMailTranslations("de", localeDeBundle);
 

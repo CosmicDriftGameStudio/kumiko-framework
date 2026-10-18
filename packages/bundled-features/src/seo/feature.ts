@@ -6,14 +6,14 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
-import { LEGAL_ROUTES } from "../legal-pages/index.js";
-import { cachedSecurePageResponse } from "../page-render/index.js";
-import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.js";
-import { SEO_CONFIG_KEYS, SEO_DEFAULT_PATHS } from "./constants.js";
-import { seoConfigQuery } from "./handlers/seo-config.query.js";
-import { buildLlmsTxt } from "./llms-txt.js";
-import { buildRobotsTxt, type RobotsPolicy } from "./robots-txt.js";
-import { buildSitemapXml, type SitemapEntry } from "./sitemap.js";
+import { LEGAL_ROUTES } from "../legal-pages/index.ts";
+import { cachedSecurePageResponse } from "../page-render/index.ts";
+import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.ts";
+import { SEO_CONFIG_KEYS, SEO_DEFAULT_PATHS } from "./constants.ts";
+import { seoConfigQuery } from "./handlers/seo-config.query.ts";
+import { buildLlmsTxt } from "./llms-txt.ts";
+import { buildRobotsTxt, type RobotsPolicy } from "./robots-txt.ts";
+import { buildSitemapXml, type SitemapEntry } from "./sitemap.ts";
 
 // 300s-shared-cache: sitemap/llms.txt change rarely (new page publish, not
 // per-request), longer than legal-pages/managed-pages' 60s content cache.

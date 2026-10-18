@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { createManualClock } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { ensureTemporalPolyfill } from "../polyfill.js";
-import { createTzContext } from "../tz-context.js";
+import { ensureTemporalPolyfill } from "../polyfill.ts";
+import { createTzContext } from "../tz-context.ts";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

@@ -6,12 +6,12 @@
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 import * as z from "zod";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineWriteHandler } from "../define-handler.js";
-import { defineStep } from "../define-step.js";
-import { stepsPipeline } from "../pipeline.js";
-import type { WriteEvent } from "../types/handlers.js";
-import { buildMinimalCtx } from "./_pipeline-test-utils.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineWriteHandler } from "../define-handler.ts";
+import { defineStep } from "../define-step.ts";
+import { stepsPipeline } from "../pipeline.ts";
+import type { WriteEvent } from "../types/handlers.ts";
+import { buildMinimalCtx } from "./_pipeline-test-utils.ts";
 
 describe("pipeline engine (return / compute / registry guards)", () => {
   it("compiles a perform-block into a callable handler that returns the resolver's WriteResult", async () => {

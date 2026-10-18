@@ -1,11 +1,11 @@
-import { AUTH_UNLOCK_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
-import { AuthMailNotificationTypes } from "../mail-notifications.js";
-import { signUnlockToken } from "../unlock-token.js";
+import { AUTH_UNLOCK_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.ts";
+import { AuthMailNotificationTypes } from "../mail-notifications.ts";
+import { signUnlockToken } from "../unlock-token.ts";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
-} from "./token-request-handler.js";
+} from "./token-request-handler.ts";
 
 export type RequestAccountUnlockOptions = TokenRequestOptions;
 

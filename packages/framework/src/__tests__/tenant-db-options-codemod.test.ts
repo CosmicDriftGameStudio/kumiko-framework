@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { transformTenantDbOptionsSource } from "../scripts/codemod/tenant-db-options.js";
+import { transformTenantDbOptionsSource } from "../scripts/codemod/tenant-db-options.ts";
 
 const CONSUMER_FILE = "/repo/packages/bundled-features/src/note/sample.ts";
 const FRAMEWORK_FILE = "/repo/packages/framework/src/pipeline/__tests__/sample.test.ts";

@@ -10,24 +10,24 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { asRawClient } from "../db/query.js";
-import { buildEntityTable } from "../db/table-builder.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { asRawClient } from "../db/query.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
 import {
   createEntity,
   createNumberField,
   createTextField,
   defineFeature,
   type TenantId,
-} from "../engine/index.js";
+} from "../engine/index.ts";
 import {
   AccessDeniedError,
   ConflictError,
   NotFoundError,
   UnprocessableError,
   writeFailure,
-} from "../errors/index.js";
-import { createTestUser, TestUsers } from "../seeding/seed-users.js";
+} from "../errors/index.ts";
+import { createTestUser, TestUsers } from "../seeding/seed-users.ts";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 

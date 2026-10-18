@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { runsInLane } from "../run-in.js";
+import { runsInLane } from "../run-in.ts";
 
 describe("runsInLane", () => {
   test("undefined runIn defaults to worker", () => {

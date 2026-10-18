@@ -1,23 +1,23 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
-import { requestContext, runWithOrigin } from "../api/request-context.js";
-import type { SseBroker } from "../api/sse-broker.js";
-import type { DbConnection, DbRunner, DbTx } from "../db/connection.js";
-import { runInSavepoint, selectMany } from "../db/query.js";
-import type { buildEntityTable } from "../db/table-builder.js";
+import { requestContext, runWithOrigin } from "../api/request-context.ts";
+import type { SseBroker } from "../api/sse-broker.ts";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection.ts";
+import { runInSavepoint, selectMany } from "../db/query.ts";
+import type { buildEntityTable } from "../db/table-builder.ts";
 import {
   createTenantDb,
   createUncheckedSystemDb,
   hasTenantColumn,
   runInOwnTransaction,
   type TenantDb,
-} from "../db/tenant-db.js";
-import { createDerivativesContext } from "../derivatives/derivatives-context.js";
-import { mayOverrideTenant } from "../engine/cross-tenant.js";
-import type { defineTransitions } from "../engine/state-machine.js";
-import { createSystemUser } from "../engine/system-user.js";
-import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
-import type { TenantId } from "../engine/types/identifiers.js";
+} from "../db/tenant-db.ts";
+import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
+import { mayOverrideTenant } from "../engine/cross-tenant.ts";
+import type { defineTransitions } from "../engine/state-machine.ts";
+import { createSystemUser } from "../engine/system-user.ts";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
   AgentRisk,
   AggregateStreamHandle,
@@ -39,8 +39,8 @@ import type {
   SessionUser,
   TenantWriteTarget,
   WriteResult,
-} from "../engine/types/index.js";
-import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types/index.js";
+} from "../engine/types/index.ts";
+import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   FeatureDisabledError,
@@ -52,22 +52,22 @@ import {
   VersionConflictError,
   type WriteErrorInfo,
   writeFailure,
-} from "../errors/index.js";
+} from "../errors/index.ts";
 import {
   archiveStream as archiveStreamHelper,
   isStreamArchived,
   restoreStream as restoreStreamHelper,
-} from "../event-store/archive.js";
+} from "../event-store/archive.ts";
 import {
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflictError,
   VersionConflictError as EventStoreVersionConflictError,
-} from "../event-store/errors.js";
+} from "../event-store/errors.ts";
 import {
   loadAggregate,
   loadAggregateAsOf,
   loadAggregateForWriting,
   type StoredEvent,
-} from "../event-store/event-store.js";
+} from "../event-store/event-store.ts";
 import {
   effectiveSnapshotGeneration,
   type LoadAggregateWithSnapshotOptions,
@@ -75,11 +75,11 @@ import {
   loadAggregateWithSnapshot,
   type SnapshotReducer,
   saveSnapshot,
-} from "../event-store/snapshot.js";
-import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.js";
-import { createFileContext } from "../files/file-handle.js";
-import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.js";
-import { createFallbackLogger } from "../logging/utils.js";
+} from "../event-store/snapshot.ts";
+import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.ts";
+import { createFileContext } from "../files/file-handle.ts";
+import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import {
   createEscapeHatchReporter,
   createMetricsForFactory,
@@ -91,30 +91,30 @@ import {
   type getFallbackMeter,
   getFallbackTracer,
   observabilityContext,
-} from "../observability/index.js";
+} from "../observability/index.ts";
 import {
   buildBucketKey,
   buildPayloadBucketKey,
   normalizePayloadBucketValue,
-} from "../rate-limit/index.js";
-import { createTzContext, isValidIanaTimeZone } from "../time/index.js";
-import { isPlainObject } from "../utils/is-plain-object.js";
-import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
-import { appendDomainEventCore } from "./append-event-core.js";
-import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.js";
-import { runBatch, unwrapSingle } from "./dispatch-batch.js";
-import { executeQuery } from "./dispatch-query.js";
-import { executeWrite } from "./dispatch-write.js";
+} from "../rate-limit/index.ts";
+import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";
+import { isPlainObject } from "../utils/is-plain-object.ts";
+import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
+import { appendDomainEventCore } from "./append-event-core.ts";
+import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.ts";
+import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
+import { executeQuery } from "./dispatch-query.ts";
+import { executeWrite } from "./dispatch-write.ts";
 import {
   type AfterCommitHook,
   dispatcherSpanAttributes,
   isFailedWriteResult,
   NestedWriteRollback,
-} from "./dispatcher-utils.js";
-import type { IdempotencyGuard } from "./idempotency.js";
-import type { LifecycleHooks } from "./lifecycle-pipeline.js";
-import { createMemberReaderFn } from "./member-reader.js";
-import { createDeferringNotify } from "./notify-scope.js";
+} from "./dispatcher-utils.ts";
+import type { IdempotencyGuard } from "./idempotency.ts";
+import type { LifecycleHooks } from "./lifecycle-pipeline.ts";
+import { createMemberReaderFn } from "./member-reader.ts";
+import { createDeferringNotify } from "./notify-scope.ts";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
@@ -122,12 +122,12 @@ import {
   isSystemIdentity,
   type ProjectionReader,
   systemIdentitySwitchDenied,
-} from "./system-identity-switch.js";
-import type { TenantTimezoneCache } from "./tenant-timezone-cache.js";
-import { TENANT_TIMEZONE_CONFIG_KEY } from "./tenant-timezone-config-key.js";
-import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin.js";
+} from "./system-identity-switch.ts";
+import type { TenantTimezoneCache } from "./tenant-timezone-cache.ts";
+import { TENANT_TIMEZONE_CONFIG_KEY } from "./tenant-timezone-config-key.ts";
+import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin.ts";
 
-export type { WriteOrigin } from "./write-origin.js";
+export type { WriteOrigin } from "./write-origin.ts";
 
 export { TENANT_TIMEZONE_CONFIG_KEY };
 
@@ -1487,7 +1487,7 @@ export async function checkFeatureEnabled(
   ctx: DispatchContext,
   qualifiedHandler: string,
   tenantId: TenantId,
-): Promise<import("../errors/index.js").FeatureDisabledError | undefined> {
+): Promise<import("../errors/index.ts").FeatureDisabledError | undefined> {
   const { effectiveFeatures, registry } = ctx;
   if (!effectiveFeatures) return undefined;
   const owner = registry.getHandlerFeature(qualifiedHandler);

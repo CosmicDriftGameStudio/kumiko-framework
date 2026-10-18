@@ -5,13 +5,13 @@ export {
   TemplateNotFoundError,
   type TemplateResolverApi,
   type TemplateResource,
-} from "./api.js";
+} from "./api.ts";
 export {
   type CompileDocumentBodyOptions,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   toResourceDataUri,
-} from "./compile-document-body.js";
+} from "./compile-document-body.ts";
 export {
   CONTENT_FORMATS,
   type ContentFormat,
@@ -41,7 +41,7 @@ export {
   type TemplateStatus,
   UPSERT_KINDS,
   type UpsertKind,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   type DocumentViolation,
   type DocumentViolationCode,
@@ -51,7 +51,7 @@ export {
   type SanitizeHtmlResult,
   sanitizeDocumentHtml,
   sanitizeTemplateBody,
-} from "./document-sanitizer.js";
+} from "./document-sanitizer.ts";
 export {
   DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_NODE_NAMES,
@@ -74,28 +74,28 @@ export {
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "./document-schema.js";
-export { createTemplateResolverFeature } from "./feature.js";
-export type { LayoutSourceResponse, LayoutSourceRow } from "./handlers/layout-source.query.js";
+} from "./document-schema.ts";
+export { createTemplateResolverFeature } from "./feature.ts";
+export type { LayoutSourceResponse, LayoutSourceRow } from "./handlers/layout-source.query.ts";
 export type {
   OverviewKindGroup,
   OverviewOrigin,
   OverviewResponse,
   OverviewRow,
   OverviewUsage,
-} from "./handlers/overview.query.js";
-export { localeSchema } from "./handlers/shared.js";
+} from "./handlers/overview.query.ts";
+export { localeSchema } from "./handlers/shared.ts";
 export {
   isHexColor,
   type MailLayoutAppearance,
   mailLayoutAppearance,
-} from "./layout-appearance.js";
+} from "./layout-appearance.ts";
 export {
   type LayoutRegions,
   readLayoutRegions,
   type SanitizeLayoutResult,
   sanitizeLayoutHtml,
-} from "./layout-regions.js";
+} from "./layout-regions.ts";
 export {
   fileAttachmentsOf,
   imageLinksOf,
@@ -104,28 +104,28 @@ export {
   pdfAttachmentLinksOf,
   type TemplatePdfAttachmentLink,
   templatePdfAttachmentLinkSchema,
-} from "./linked-resources.js";
-export { prepareDocumentForPrint } from "./print-document.js";
+} from "./linked-resources.ts";
+export { prepareDocumentForPrint } from "./print-document.ts";
 export {
   TEMPLATE_RESOLVER_FEATURE,
   TemplateResolverErrors,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "./qualified-names.js";
-export { mapRecordToVariables } from "./record-mapping.js";
+} from "./qualified-names.ts";
+export { mapRecordToVariables } from "./record-mapping.ts";
 export {
   type PreparedTemplateImage,
   prepareTemplateResourceBeforeTransaction,
   readTemplateResourceMaxBytes,
   type StoredTemplateResource,
   storePreparedTemplateResource,
-} from "./store-template-resource.js";
+} from "./store-template-resource.ts";
 export {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
-} from "./table.js";
-export { type TemplateBundle, templateBundleSchema } from "./template-bundle.js";
+} from "./table.ts";
+export { type TemplateBundle, templateBundleSchema } from "./template-bundle.ts";
 export {
   isMailTemplateMeta,
   type LayoutTemplateMeta,
@@ -144,11 +144,11 @@ export {
   type TemplateMetaIssue,
   type TemplateMetaResult,
   templateSlugSchema,
-} from "./template-meta.js";
-export { type DocumentDraftOutcome, evaluateDocumentDraft } from "./template-preview.js";
-export { readTemplateResource, type TemplateResourceFile } from "./template-resources.js";
-export { isSystemOnlyTemplate } from "./template-system-only.js";
-export { collectTemplateUsage, type TemplateUsageEntry } from "./template-usage.js";
+} from "./template-meta.ts";
+export { type DocumentDraftOutcome, evaluateDocumentDraft } from "./template-preview.ts";
+export { readTemplateResource, type TemplateResourceFile } from "./template-resources.ts";
+export { isSystemOnlyTemplate } from "./template-system-only.ts";
+export { collectTemplateUsage, type TemplateUsageEntry } from "./template-usage.ts";
 export {
   hasPlaceholderProblems,
   resolveTemplateVariables,
@@ -156,9 +156,9 @@ export {
   systemPlaceholdersFor,
   type TemplateValidation,
   validateTemplatePlaceholders,
-} from "./template-validation.js";
+} from "./template-validation.ts";
 export {
   type UserContentEntryRow,
   userContentEntriesTable,
   userContentEntryEntity,
-} from "./user-content-table.js";
+} from "./user-content-table.ts";

@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveRetentionPolicy } from "../resolver.js";
+import { resolveRetentionPolicy } from "../resolver.ts";
 
 describe("resolveRetentionPolicy — Layer-Resolution", () => {
   test("Layer 1 Entity-Default greift wenn weder Preset noch Override", () => {

@@ -9,20 +9,20 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { buildEntityTable } from "../../db/index.js";
-import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/index.ts";
+import { selectMany } from "../../db/query.ts";
 import {
   createEntity,
   createImagesField,
   createTextField,
   defineFeature,
   type SessionUser,
-} from "../../engine/index.js";
-import { createFilesFeature, createInMemoryFileProvider } from "../../files/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
-import { configurePiiSubjectKms } from "../pii-field-encryption.js";
+} from "../../engine/index.ts";
+import { createFilesFeature, createInMemoryFileProvider } from "../../files/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
+import { configurePiiSubjectKms } from "../pii-field-encryption.ts";
 
 const admin = TestUsers.admin;
 const secondReader = createTestUser({ id: 77, tenantId: admin.tenantId, roles: ["Reader"] });

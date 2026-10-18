@@ -23,30 +23,30 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferenceEntity } from "../../delivery/tables.js";
-import { createTemplateResolverApi } from "../../template-resolver/api.js";
-import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipEntity } from "../../tenant/index.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferenceEntity } from "../../delivery/tables.ts";
+import { createTemplateResolverApi } from "../../template-resolver/api.ts";
+import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipEntity } from "../../tenant/index.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   driveDestructionToCompletion,
   seedDestroyingTenant,
-} from "../../tenant-lifecycle/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
-import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.js";
-import { consentTextVersion } from "../consumer-protection/consent-text.js";
-import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.js";
-import { createBillingFoundationFeature } from "../feature.js";
-import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.js";
+} from "../../tenant-lifecycle/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
+import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.ts";
+import { consentTextVersion } from "../consumer-protection/consent-text.ts";
+import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.ts";
 
 const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });

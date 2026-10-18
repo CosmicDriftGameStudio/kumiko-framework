@@ -1,7 +1,7 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS } from "../constants.js";
-import { tagExecutor } from "../executor.js";
-import { type UpdateTagPayload, updateTagPayloadSchema } from "../schemas.js";
+import { DEFAULT_TAG_ACCESS } from "../constants.ts";
+import { tagExecutor } from "../executor.ts";
+import { type UpdateTagPayload, updateTagPayloadSchema } from "../schemas.ts";
 
 // update-tag — edits a catalog tag (rename / recolor / re-scope). Optimistic-
 // locked: the client sends the `version` it read (mirrors tenant:update). Only

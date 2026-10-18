@@ -23,17 +23,17 @@ import type {
   TemplateVariables,
   TranslationKeys,
   TranslationsDef,
-} from "./config.js";
+} from "./config.ts";
 import type {
   QueryHandlerDefinition,
   StreamHandlerDefinition,
   WriteHandlerDefinition,
-} from "./define-handler.js";
-import type { RegisterEntityCrudOptions } from "./entity-handlers.js";
-import type { EntityTableMeta } from "./entity-table-meta-types.js";
-import type { KumikoEventTypeMap } from "./event-type-map.js";
-import type { ExtensionOptionsArgs, ExtensionOptionsFor } from "./extension-options-map.js";
-import type { EntityDefinition } from "./fields.js";
+} from "./define-handler.ts";
+import type { RegisterEntityCrudOptions } from "./entity-handlers.ts";
+import type { EntityTableMeta } from "./entity-table-meta-types.ts";
+import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type { ExtensionOptionsArgs, ExtensionOptionsFor } from "./extension-options-map.ts";
+import type { EntityDefinition } from "./fields.ts";
 import type {
   AccessRule,
   AuthClaimsFn,
@@ -56,7 +56,7 @@ import type {
   StreamHandlerDef,
   StreamHandlerFn,
   WriteHandlerDef,
-} from "./handlers.js";
+} from "./handlers.ts";
 import type {
   EntityHookMap,
   HookMap,
@@ -70,19 +70,19 @@ import type {
   PreSaveHookFn,
   SearchPayloadContributorFn,
   ValidationHookFn,
-} from "./hooks.js";
-import type { HttpRouteDefinition } from "./http-route.js";
-import type { ContentCollectionDefinition, NavDefinition } from "./nav.js";
+} from "./hooks.ts";
+import type { HttpRouteDefinition } from "./http-route.ts";
+import type { ContentCollectionDefinition, NavDefinition } from "./nav.ts";
 import type {
   EntityProjectionExtension,
   MultiStreamProjectionDefinition,
   ProjectionDefinition,
-} from "./projection.js";
-import type { EntityRelations, RelationDefinition } from "./relations.js";
-import type { ScreenDefinition } from "./screen.js";
-import type { TreeActionDef, TreeActionsHandle } from "./tree-node.js";
-import type { WebSocketRouteDefinition } from "./websocket-route.js";
-import type { WorkspaceDefinition } from "./workspace.js";
+} from "./projection.ts";
+import type { EntityRelations, RelationDefinition } from "./relations.ts";
+import type { ScreenDefinition } from "./screen.ts";
+import type { TreeActionDef, TreeActionsHandle } from "./tree-node.ts";
+import type { WebSocketRouteDefinition } from "./websocket-route.ts";
+import type { WorkspaceDefinition } from "./workspace.ts";
 
 // --- Metrics (declared by features via r.metric()) ---
 

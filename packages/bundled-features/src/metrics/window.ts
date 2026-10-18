@@ -1,7 +1,7 @@
 import type { AggregateTimeBucket } from "@cosmicdrift/kumiko-types/aggregate-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { MetricRange } from "./constants.js";
-import type { MetricDefinition } from "./types.js";
+import type { MetricRange } from "./constants.ts";
+import type { MetricDefinition } from "./types.ts";
 
 export type MetricWindow = {
   readonly start: Temporal.Instant;

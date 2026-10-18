@@ -7,14 +7,14 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   createEntity,
   createSystemUser,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../index.js";
+} from "../index.ts";
 
 const thingEntity = createEntity({
   table: "callerid_things",

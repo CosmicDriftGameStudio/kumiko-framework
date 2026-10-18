@@ -1,7 +1,7 @@
-import type { DbRunner } from "../connection.js";
-import type { AnyDb } from "../query.js";
-import { unsafeReadRetrying } from "../query.js";
-import { tableExists } from "../schema-inspection.js";
+import type { DbRunner } from "../connection.ts";
+import type { AnyDb } from "../query.ts";
+import { unsafeReadRetrying } from "../query.ts";
+import { tableExists } from "../schema-inspection.ts";
 
 export type SeedUserRow = {
   readonly id: string;

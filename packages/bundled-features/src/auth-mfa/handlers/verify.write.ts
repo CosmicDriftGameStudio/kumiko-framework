@@ -8,19 +8,19 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.js";
-import { USER_STATUS, UserQueries } from "../../user/index.js";
-import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants.js";
-import { findUserMfaRow } from "../db/queries.js";
-import { invalidChallengeToken, invalidTotpCode, tooManyAttempts } from "../errors.js";
-import { verifyMfaChallengeToken } from "../mfa-challenge-token.js";
+import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
+import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants.ts";
+import { findUserMfaRow } from "../db/queries.ts";
+import { invalidChallengeToken, invalidTotpCode, tooManyAttempts } from "../errors.ts";
+import { verifyMfaChallengeToken } from "../mfa-challenge-token.ts";
 import {
   clearMfaVerifyAttempts,
   getMfaVerifyLockoutState,
   recordFailedMfaVerifyAttempt,
-} from "../mfa-verify-attempts.js";
-import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
-import { verifyMfaFactor } from "../verify-factor.js";
+} from "../mfa-verify-attempts.ts";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
+import { verifyMfaFactor } from "../verify-factor.ts";
 
 export type MfaVerifyOptions = {
   // Must match the secret the login handler signs mfa-challenge tokens

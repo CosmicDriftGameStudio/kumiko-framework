@@ -15,18 +15,18 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { cn, ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
-import { BRANDING_QUERY_QN } from "../constants.js";
-import { composeLayoutHtml } from "./compose-layout.js";
-import { EditorHeader } from "./editor-header.js";
-import { EditorBody, EditorFooter, EditorFrame, type FooterTone } from "./editor-shell.js";
-import { fileUrl } from "./file-name.js";
+import { BRANDING_QUERY_QN } from "../constants.ts";
+import { composeLayoutHtml } from "./compose-layout.ts";
+import { EditorHeader } from "./editor-header.tsx";
+import { EditorBody, EditorFooter, EditorFrame, type FooterTone } from "./editor-shell.tsx";
+import { fileUrl } from "./file-name.ts";
 import {
   appearanceOf,
   isHexColor,
   type LayoutAppearance,
   type LayoutWidth,
   metaToSave,
-} from "./layout-meta.js";
+} from "./layout-meta.ts";
 import {
   AppearanceRail,
   BrandingRail,
@@ -34,7 +34,7 @@ import {
   PlaceholderRail,
   RendererRail,
   UsedByRail,
-} from "./layout-rails.js";
+} from "./layout-rails.tsx";
 import type {
   BrandingView,
   LayoutKind,
@@ -43,12 +43,12 @@ import type {
   TenantOverrideCounts,
   UpsertResponse,
   ValidationIssue,
-} from "./layout-types.js";
-import { systemLabelMap } from "./mail-draft.js";
-import { OriginBar } from "./origin-bar.js";
-import type { OverviewRowView } from "./overview-row.js";
-import { asRowStatus } from "./status-label.js";
-import { useDebouncedValue } from "./use-debounced-value.js";
+} from "./layout-types.ts";
+import { systemLabelMap } from "./mail-draft.ts";
+import { OriginBar } from "./origin-bar.tsx";
+import type { OverviewRowView } from "./overview-row.ts";
+import { asRowStatus } from "./status-label.ts";
+import { useDebouncedValue } from "./use-debounced-value.ts";
 
 // Server-side validation compiles the whole layout (mjml), so wait for a pause in typing.
 const VALIDATE_DEBOUNCE_MS = 400;

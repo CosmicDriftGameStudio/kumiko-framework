@@ -1,6 +1,6 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { fieldDefinitionExecutor } from "../executor.js";
-import type { FieldDefinitionColumns } from "./field-definition-row.js";
+import { fieldDefinitionExecutor } from "../executor.ts";
+import type { FieldDefinitionColumns } from "./field-definition-row.ts";
 
 type DefineUser = Parameters<typeof fieldDefinitionExecutor.create>[1];
 type DefineDb = Parameters<typeof fieldDefinitionExecutor.create>[2];

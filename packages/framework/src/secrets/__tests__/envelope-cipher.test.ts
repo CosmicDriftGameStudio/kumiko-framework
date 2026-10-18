@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createEnvMasterKeyProvider } from "../env-master-key-provider.js";
-import { createEnvelopeCipher } from "../envelope-cipher.js";
-import { isStoredEnvelope } from "../stored-envelope.js";
+import { createEnvMasterKeyProvider } from "../env-master-key-provider.ts";
+import { createEnvelopeCipher } from "../envelope-cipher.ts";
+import { isStoredEnvelope } from "../stored-envelope.ts";
 
 function makeProvider(currentVersion = 1) {
   return createEnvMasterKeyProvider({

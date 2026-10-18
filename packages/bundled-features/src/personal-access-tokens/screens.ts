@@ -12,8 +12,8 @@ import {
   PAT_SCREEN_ID,
   PatHandlers,
   PatQueries,
-} from "./constants.js";
-import type { PatScopeConfig } from "./scopes.js";
+} from "./constants.ts";
+import type { PatScopeConfig } from "./scopes.ts";
 
 const PAT_STATUS_OPTION_KEY_PREFIX = "pat.list.status.";
 // Same keys the mint form's `scopes` multiSelect options resolve through

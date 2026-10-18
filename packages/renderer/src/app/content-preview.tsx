@@ -7,7 +7,7 @@
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type ReactNode, useId } from "react";
-import { useContentEditor } from "./content-editors.js";
+import { useContentEditor } from "./content-editors.tsx";
 
 const VARIABLE_PATTERN = /\{\{\s*(\w+)\s*\}\}/g;
 

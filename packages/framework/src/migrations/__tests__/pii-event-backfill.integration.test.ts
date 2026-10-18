@@ -5,7 +5,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { resetBlindIndexKeyForTests } from "../../crypto/blind-index.js";
+import { resetBlindIndexKeyForTests } from "../../crypto/blind-index.ts";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -14,10 +14,10 @@ import {
   isPiiCiphertext,
   type KmsContext,
   type SubjectId,
-} from "../../crypto/index.js";
-import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.js";
-import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.js";
-import { asRawClient } from "../../db/query.js";
+} from "../../crypto/index.ts";
+import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.ts";
+import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
+import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
   createRegistry,
@@ -25,17 +25,17 @@ import {
   defineEntityQueryHandler,
   defineEntityWriteHandler,
   defineFeature,
-} from "../../engine/index.js";
-import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.js";
-import { createSnapshotsTable, saveSnapshot } from "../../event-store/index.js";
-import { getConsumerState } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createPendingRebuildsTable } from "../pending-rebuilds.js";
+} from "../../engine/index.ts";
+import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.ts";
+import { createSnapshotsTable, saveSnapshot } from "../../event-store/index.ts";
+import { getConsumerState } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createPendingRebuildsTable } from "../pending-rebuilds.ts";
 import {
   type PiiEventBackfillResult,
   piiAnnotationEntries,
   runPiiEventBackfill,
-} from "../pii-event-backfill.js";
+} from "../pii-event-backfill.ts";
 
 const BIDX_KEY = Buffer.alloc(32, 7).toString("base64");
 const CONTACT_TABLE = "read_pii_backfill_contacts";

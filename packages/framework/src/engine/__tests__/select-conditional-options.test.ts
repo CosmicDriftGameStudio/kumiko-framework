@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createSelectField } from "../factories.js";
-import { availableSelectOptions, findUnavailableSelectOptions } from "../screen-helpers.js";
+import { createEntity, createSelectField } from "../factories.ts";
+import { availableSelectOptions, findUnavailableSelectOptions } from "../screen-helpers.ts";
 
 const interval = createSelectField({
   options: ["60", "300", "3600"],

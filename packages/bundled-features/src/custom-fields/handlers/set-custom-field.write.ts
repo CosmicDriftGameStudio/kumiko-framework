@@ -1,10 +1,10 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { DEFAULT_VALUE_WRITE_ROLES } from "../constants.js";
-import { createCustomFieldsFeature } from "../feature.js";
-import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access.js";
-import { buildCustomFieldValueSchema } from "../lib/value-schema.js";
+import { DEFAULT_VALUE_WRITE_ROLES } from "../constants.ts";
+import { createCustomFieldsFeature } from "../feature.ts";
+import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access.ts";
+import { buildCustomFieldValueSchema } from "../lib/value-schema.ts";
 
 export const setCustomFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),

@@ -8,15 +8,15 @@ import {
   type WebSocketMessageData,
   type WebSocketSessionHandlers,
 } from "@cosmicdrift/kumiko-types/websocket-route";
-import type { SessionUser } from "../engine/types/index.js";
-import { createFallbackLogger } from "../logging/index.js";
+import type { SessionUser } from "../engine/types/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
 import {
   type AuthSessionChecker,
   resolveTenantTeardownStatus,
   sessionCheckStatus,
   type TenantLifecycleStatusResolver,
-} from "./auth-middleware.js";
-import { type RequestContextData, requestContext } from "./request-context.js";
+} from "./auth-middleware.ts";
+import { type RequestContextData, requestContext } from "./request-context.ts";
 
 export {
   WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,

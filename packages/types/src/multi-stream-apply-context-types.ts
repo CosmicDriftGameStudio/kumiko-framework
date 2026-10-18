@@ -1,11 +1,11 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-import type { DerivativesContext } from "./derivatives-types.js";
-import type { StoredEvent } from "./event-store-types.js";
-import type { KumikoEventTypeMap } from "./event-type-map.js";
-import type { Registry } from "./feature.js";
-import type { FileContext } from "./file-handle-types.js";
-import type { AppendEventFn, UnsafeAppendEventFn } from "./handlers.js";
-import type { SecretsContext } from "./secrets-types.js";
+import type { DerivativesContext } from "./derivatives-types.ts";
+import type { StoredEvent } from "./event-store-types.ts";
+import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type { Registry } from "./feature.ts";
+import type { FileContext } from "./file-handle-types.ts";
+import type { AppendEventFn, UnsafeAppendEventFn } from "./handlers.ts";
+import type { SecretsContext } from "./secrets-types.ts";
 
 // Minimal, read+write surface handed to a MultiStreamProjection's apply()
 // when it needs to produce follow-up events (saga / process-manager

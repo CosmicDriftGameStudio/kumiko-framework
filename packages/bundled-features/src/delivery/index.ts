@@ -1,5 +1,5 @@
-export { sanitizePdfAttachmentFileName } from "../shared/index.js";
-export { hashUnsubscribeAddress } from "./address-opt-out.js";
+export { sanitizePdfAttachmentFileName } from "../shared/index.ts";
+export { hashUnsubscribeAddress } from "./address-opt-out.ts";
 export {
   DELIVERY_ENVELOPE_DATA_KEYS,
   type EmailAttachmentRef,
@@ -14,24 +14,24 @@ export {
   renderedPdfAttachmentRefSchema,
   toAttachmentRef,
   withoutDeliveryEnvelopeKeys,
-} from "./attachment-ref.js";
+} from "./attachment-ref.ts";
 export {
   type AttemptLogRetentionOptions,
   DEFAULT_ATTEMPT_LOG_RETENTION_DAYS,
   runAttemptLogRetention,
-} from "./attempt-log-retention.js";
+} from "./attempt-log-retention.ts";
 export {
   buildChannelContext,
   createEmailAttachmentReader,
   createTemplateMailRenderer,
-} from "./channel-context.js";
+} from "./channel-context.ts";
 export {
   type ChatWebhookChannelOptions,
   chatMessageText,
   createChatWebhookChannel,
   resolveChatWebhookTarget,
   toChannelResult,
-} from "./chat-webhook-channel.js";
+} from "./chat-webhook-channel.ts";
 export {
   type ChatSendFailureCode,
   type ChatSendResult,
@@ -44,8 +44,8 @@ export {
   DEFAULT_CHAT_TIMEOUT_MS,
   postChatWebhook,
   truncateChars,
-} from "./chat-webhook-sender.js";
-export type { DeliveryStatusValue } from "./constants.js";
+} from "./chat-webhook-sender.ts";
+export type { DeliveryStatusValue } from "./constants.ts";
 export {
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_CHANNEL_EXTENSION,
@@ -58,29 +58,29 @@ export {
   DeliveryQueries,
   DeliveryStatus,
   EMAIL_CHANNEL_NAME,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   collectChannels,
   createDeliveryService,
   type DeliveryServiceOptions,
   type KillSwitchResolver,
   type RateLimitConfig,
-} from "./delivery-service.js";
-export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature.js";
+} from "./delivery-service.ts";
+export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature.ts";
 export {
   type UnsubscribeAddressPayload,
   unsubscribeAddressPayloadSchema,
-} from "./handlers/unsubscribe-address.write.js";
-export { currentNotificationType } from "./notification-type-aliases.js";
-export { createDeliveryNotifyFactory } from "./notify-factory.js";
+} from "./handlers/unsubscribe-address.write.ts";
+export { currentNotificationType } from "./notification-type-aliases.ts";
+export { createDeliveryNotifyFactory } from "./notify-factory.ts";
 export {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,
   notificationAddressOptOutsTable,
   notificationPreferenceEntity,
   notificationPreferencesTable,
-} from "./tables.js";
-export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing.js";
+} from "./tables.ts";
+export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing.ts";
 export {
   type AttachmentOrigin,
   type ChannelContext,
@@ -93,7 +93,7 @@ export {
   type DeliveryService,
   isDeliveryChannelPlugin,
   type RenderedMessage,
-} from "./types.js";
+} from "./types.ts";
 export {
   type AddressUnsubscribeTokenPayload,
   createUnsubscribeRoutes,
@@ -104,6 +104,6 @@ export {
   type UnsubscribeResultPage,
   type UnsubscribeRouteOptions,
   type UnsubscribeTokenPayload,
-} from "./unsubscribe.js";
-export type { UnsubscribeLinkConfig } from "./unsubscribe-link.js";
-export { UNSUBSCRIBE_PAGE_EN } from "./unsubscribe-page-strings.js";
+} from "./unsubscribe.ts";
+export type { UnsubscribeLinkConfig } from "./unsubscribe-link.ts";
+export { UNSUBSCRIBE_PAGE_EN } from "./unsubscribe-page-strings.ts";

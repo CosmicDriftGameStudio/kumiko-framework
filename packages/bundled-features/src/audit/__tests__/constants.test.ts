@@ -6,7 +6,7 @@ import {
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { ANONYMOUS_USER_ID, SYSTEM_ACTOR_ID, SYSTEM_ACTOR_IDS } from "../constants.js";
+import { ANONYMOUS_USER_ID, SYSTEM_ACTOR_ID, SYSTEM_ACTOR_IDS } from "../constants.ts";
 
 describe("audit constants", () => {
   test("SYSTEM_ACTOR_ID matches the event-store system user id", () => {

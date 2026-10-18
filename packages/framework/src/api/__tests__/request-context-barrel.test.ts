@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import * as apiBarrel from "../index.js";
+import * as apiBarrel from "../index.ts";
 
 describe("/api barrel request-context surface", () => {
   test("does not export run or runAsDirectCallEntry", () => {

@@ -2,28 +2,28 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { seedConfigValues } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
-import { configValueEntity, configValuesTable } from "./table.js";
+import { configValueEntity, configValuesTable } from "./table.ts";
 
 export {
   CONFIG_FEATURE,
   ConfigErrors,
   ConfigHandlers,
   ConfigQueries,
-} from "./constants.js";
-export type { ConfigContext } from "./feature.js";
+} from "./constants.ts";
+export type { ConfigContext } from "./feature.ts";
 export {
   createConfigAccessor,
   createConfigAccessorFactory,
   createConfigFeature,
-} from "./feature.js";
-export type { ReadinessMissingKey, RequiredKeyGate } from "./handlers/readiness.query.js";
+} from "./feature.ts";
+export type { ReadinessMissingKey, RequiredKeyGate } from "./handlers/readiness.query.ts";
 export {
   buildProviderSelectionGate,
   collectMissingRequiredConfig,
-} from "./handlers/readiness.query.js";
-export type { AppConfigOverrides, ConfigResolver } from "./resolver.js";
-export { buildEnvConfigOverrides, createConfigResolver, validateAppOverrides } from "./resolver.js";
-export { configValueEntity, configValuesTable } from "./table.js";
+} from "./handlers/readiness.query.ts";
+export type { AppConfigOverrides, ConfigResolver } from "./resolver.ts";
+export { buildEnvConfigOverrides, createConfigResolver, validateAppOverrides } from "./resolver.ts";
+export { configValueEntity, configValuesTable } from "./table.ts";
 
 // Boot helper for runDevApp / runProdApp: pulls every ConfigSeedDef from
 // the registry and writes the matching system/tenant/user rows via the

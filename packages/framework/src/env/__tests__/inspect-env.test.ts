@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { isDryRunEnvActive, parseDryRunEnvMode, renderEnvInspection } from "../dry-run.js";
-import { inspectEnv } from "../index.js";
+import { isDryRunEnvActive, parseDryRunEnvMode, renderEnvInspection } from "../dry-run.ts";
+import { inspectEnv } from "../index.ts";
 
 const schema = z.object({
   DATABASE_URL: z.url(),

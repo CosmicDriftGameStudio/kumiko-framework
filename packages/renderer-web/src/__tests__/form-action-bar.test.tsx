@@ -16,7 +16,7 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
-import { BareFormProvider, defaultPrimitives } from "../primitives/index.js";
+import { BareFormProvider, defaultPrimitives } from "../primitives/index.tsx";
 import {
   createMockDispatcher,
   render,
@@ -24,7 +24,7 @@ import {
   screen,
   setViewportWidth,
   waitFor,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 const { Form, Section, Button } = defaultPrimitives;
 

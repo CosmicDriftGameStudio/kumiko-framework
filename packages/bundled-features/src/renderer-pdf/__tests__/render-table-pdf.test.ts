@@ -7,10 +7,10 @@ import {
   createRendererFoundationFeature,
   type RendererContext,
   RendererError,
-} from "../../renderer-foundation/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { createRendererPdfFeature, renderTablePdfRequest } from "../feature.js";
-import { type PdfTableDocument, renderTablePdf } from "../render-table-pdf.js";
+} from "../../renderer-foundation/index.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { createRendererPdfFeature, renderTablePdfRequest } from "../feature.ts";
+import { type PdfTableDocument, renderTablePdf } from "../render-table-pdf.ts";
 
 const TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
 

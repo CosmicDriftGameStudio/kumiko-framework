@@ -4,7 +4,7 @@ import type {
   SecretMintScreenDefinition,
   TextFieldDef,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { hiddenRequiredFieldsFilled } from "../layout-fields.js";
+import { hiddenRequiredFieldsFilled } from "../layout-fields.ts";
 
 const fields: SecretMintScreenDefinition["fields"] = {
   id: { type: "text", required: true } as TextFieldDef,

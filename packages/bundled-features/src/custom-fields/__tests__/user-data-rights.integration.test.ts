@@ -41,22 +41,22 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
-import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.js";
-import { runUserExport } from "../../user-data-rights/run-user-export.js";
-import { fieldDefinitionEntity } from "../entity.js";
-import { createCustomFieldsFeature } from "../feature.js";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
-import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights.js";
+} from "../../data-retention/index.ts";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
+import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.ts";
+import { runUserExport } from "../../user-data-rights/run-user-export.ts";
+import { fieldDefinitionEntity } from "../entity.ts";
+import { createCustomFieldsFeature } from "../feature.ts";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
+import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 const NOW = (): Instant => getTemporal().Now.instant();

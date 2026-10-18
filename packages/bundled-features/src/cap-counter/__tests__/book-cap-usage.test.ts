@@ -3,8 +3,8 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.js";
-import { ROLLING_INCREMENTED_EVENT_QN, ROLLING_RELEASED_EVENT_QN } from "../constants.js";
+import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.ts";
+import { ROLLING_INCREMENTED_EVENT_QN, ROLLING_RELEASED_EVENT_QN } from "../constants.ts";
 
 // Input validation runs before any ctx access, so an empty ctx proves nothing is written.
 const untouchedCtx = {} as HandlerContext; // @cast-boundary test-stub

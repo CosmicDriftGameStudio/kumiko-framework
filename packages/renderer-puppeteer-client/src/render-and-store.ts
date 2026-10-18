@@ -22,8 +22,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { PuppeteerUnavailableError } from "./errors.js";
-import { renderedPdfExecutor } from "./executor.js";
+import { PuppeteerUnavailableError } from "./errors.ts";
+import { renderedPdfExecutor } from "./executor.ts";
 
 const PDF_MIME_TYPE = "application/pdf";
 const INVALID_REQUEST_REASON = "rendered_pdf_invalid_request";

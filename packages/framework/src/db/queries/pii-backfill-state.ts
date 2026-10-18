@@ -1,6 +1,6 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
-import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 export type PiiBackfillStateRow = {
   readonly cursor: string;

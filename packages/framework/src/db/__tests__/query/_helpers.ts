@@ -7,8 +7,8 @@
 // Test tables consist of an id (uuid) plus the columns under test.
 
 import { randomUUID } from "node:crypto";
-import { createDbConnection } from "../../connection.js";
-import type { ColumnMeta, EntityTableMeta } from "../../entity-table-meta.js";
+import { createDbConnection } from "../../connection.ts";
+import type { ColumnMeta, EntityTableMeta } from "../../entity-table-meta.ts";
 
 const DATABASE_URL =
   process.env["TEST_DATABASE_URL"] ??
@@ -87,7 +87,7 @@ export async function withTable<T>(
   const db = await getDb();
   const tableName = uniqueTableName(prefix);
   const meta = makeTableMeta(tableName, columns);
-  const { asRawClient } = await import("../../query.js");
+  const { asRawClient } = await import("../../query.ts");
   await asRawClient(db).unsafe(renderCreateTable(meta));
   try {
     return await fn({ db, meta });

@@ -10,8 +10,8 @@ import {
 import { CACHE_SYNC_TOPICS, type CacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
-import type { TierMap } from "../compose-app.js";
-import { createTierEngineFeature } from "../feature.js";
+import type { TierMap } from "../compose-app.ts";
+import { createTierEngineFeature } from "../feature.ts";
 
 const TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },

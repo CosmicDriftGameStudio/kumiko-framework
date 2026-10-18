@@ -16,14 +16,14 @@
 // der lief vor dem Refactor durch Zufall grün.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import type { TenantId } from "../../engine/types/index.js";
-import type { StoredEvent } from "../../event-store/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { applyEntityEvent } from "../apply-entity-event.js";
-import { buildEntityTable } from "../table-builder.js";
-import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import type { TenantId } from "../../engine/types/index.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { applyEntityEvent } from "../apply-entity-event.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const entity = createEntity({
   table: "read_apply_tenant_check",

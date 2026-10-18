@@ -33,10 +33,10 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { createFeatureTogglesFeature } from "../feature.js";
-import { globalFeatureStateTable } from "../global-feature-state-table.js";
-import { createFeatureToggleRuntime, GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
-import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../toggle-sync-signal.js";
+import { createFeatureTogglesFeature } from "../feature.ts";
+import { globalFeatureStateTable } from "../global-feature-state-table.ts";
+import { createFeatureToggleRuntime, GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
+import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../toggle-sync-signal.ts";
 
 // Widget — the "tenant" under test. toggleable(default=true), owns a
 // simple entity and a create-handler that writes via the event-store

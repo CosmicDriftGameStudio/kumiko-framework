@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createCacheSyncBusOverSignal, createLocalCacheSyncBus } from "../cache-sync-bus.js";
-import type { PubSubSignal } from "../pubsub-signal.js";
+import { createCacheSyncBusOverSignal, createLocalCacheSyncBus } from "../cache-sync-bus.ts";
+import type { PubSubSignal } from "../pubsub-signal.ts";
 
 // Loopback "Redis": every signal sharing a hub receives every publish, own
 // publishes included (like a real psubscribe on the publisher's channel).

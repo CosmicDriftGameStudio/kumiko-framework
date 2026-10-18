@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { base32Decode, base32Encode } from "../base32.js";
+import { base32Decode, base32Encode } from "../base32.ts";
 
 describe("base32 encode/decode", () => {
   test("round-trips arbitrary bytes", () => {

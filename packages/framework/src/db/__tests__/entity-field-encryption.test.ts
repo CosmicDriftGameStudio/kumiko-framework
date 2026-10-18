@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
-import { createEntity, createTextField } from "../../engine/index.js";
-import type { Logger } from "../../logging/index.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import type { Logger } from "../../logging/index.ts";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
   logUndecryptableField,
   validateEntityFieldEncryptionAvailable,
-} from "../entity-field-encryption.js";
+} from "../entity-field-encryption.ts";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 

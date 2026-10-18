@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { validateNoReturnSteps } from "../steps/_no-return-guard.js";
-import type { StepInstance } from "../types/step.js";
+import { validateNoReturnSteps } from "../steps/_no-return-guard.ts";
+import type { StepInstance } from "../types/step.ts";
 
 describe("validateNoReturnSteps", () => {
   test("passes when no return steps present", () => {

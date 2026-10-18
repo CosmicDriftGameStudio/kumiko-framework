@@ -8,16 +8,16 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
-import { parseSourceFile } from "../parse.js";
+import { parseSourceFile } from "../parse.ts";
 import {
   addPattern,
   applyChanges,
   type PatternId,
   removePattern,
   replacePattern,
-} from "../patch.js";
-import { createFeaturePatcher } from "../patcher.js";
-import type { FeaturePattern } from "../patterns.js";
+} from "../patch.ts";
+import { createFeaturePatcher } from "../patcher.ts";
+import type { FeaturePattern } from "../patterns.ts";
 
 const STARTER = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

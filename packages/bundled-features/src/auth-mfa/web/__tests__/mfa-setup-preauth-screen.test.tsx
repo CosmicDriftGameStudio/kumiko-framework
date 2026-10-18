@@ -7,13 +7,13 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../i18n.js";
+import { defaultTranslations } from "../i18n.ts";
 
 mock.module("qrcode/lib/browser.js", () => ({
   default: { toString: mock(async () => "<svg></svg>") },
 }));
 
-const { MfaSetupPreauthScreen } = await import("../mfa-setup-preauth-screen.js");
+const { MfaSetupPreauthScreen } = await import("../mfa-setup-preauth-screen.tsx");
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (

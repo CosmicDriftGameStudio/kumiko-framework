@@ -8,15 +8,15 @@ export {
   WaitlistHandlers,
   WaitlistQueries,
   type WaitlistStatus,
-} from "./constants.js";
-export { isOpenWaitlistStatus, waitlistEntryEntity, waitlistEntryTable } from "./entity.js";
-export { createWaitlistFeature } from "./feature.js";
+} from "./constants.ts";
+export { isOpenWaitlistStatus, waitlistEntryEntity, waitlistEntryTable } from "./entity.ts";
+export { createWaitlistFeature } from "./feature.ts";
 export {
   importWaitlistEntry,
   type WaitlistImportEntry,
   type WaitlistImportOutcome,
   waitlistImportId,
-} from "./import.js";
+} from "./import.ts";
 export {
   DEFAULT_IMPORT_LOCALE,
   DEFAULT_LEGACY_SOURCE_TABLE,
@@ -28,6 +28,6 @@ export {
   migrateLegacyWaitlist,
   offlotLegacyTable,
   publicstatusLegacyTable,
-} from "./legacy-migrate.js";
-export type { WaitlistInviteOptions, WaitlistOptions } from "./options.js";
-export { type WaitlistSubmitInput, WaitlistSubmitSchema } from "./payloads.js";
+} from "./legacy-migrate.ts";
+export type { WaitlistInviteOptions, WaitlistOptions } from "./options.ts";
+export { type WaitlistSubmitInput, WaitlistSubmitSchema } from "./payloads.ts";

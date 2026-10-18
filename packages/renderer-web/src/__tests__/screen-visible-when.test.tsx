@@ -13,8 +13,8 @@ import {
   NavProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
-import { ShellHeader } from "../layout/shell-header.js";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
+import { ShellHeader } from "../layout/shell-header.tsx";
 import {
   act,
   createMockDispatcher,
@@ -22,7 +22,7 @@ import {
   renderWithSidebar,
   screen,
   waitFor,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 const GATE_QUERY = "billing:query:tier:status";
 const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };

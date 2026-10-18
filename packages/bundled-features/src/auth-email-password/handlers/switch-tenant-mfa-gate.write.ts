@@ -7,10 +7,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { UserQueries } from "../../user/index.js";
-import { parseAuthUserRow } from "../auth-user-row.js";
-import { noMembership } from "../errors.js";
-import { gateEnforceMfa, type LoginHandlerOptions } from "./login.write.js";
+import { UserQueries } from "../../user/index.ts";
+import { parseAuthUserRow } from "../auth-user-row.ts";
+import { noMembership } from "../errors.ts";
+import { gateEnforceMfa, type LoginHandlerOptions } from "./login.write.ts";
 
 const SwitchTenantMfaGateSchema = z.object({
   userId: z.string().min(1),

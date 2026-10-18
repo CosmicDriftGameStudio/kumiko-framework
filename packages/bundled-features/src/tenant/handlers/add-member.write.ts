@@ -12,9 +12,9 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { TenantErrors } from "../constants.js";
-import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.js";
+import { TenantErrors } from "../constants.ts";
+import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.ts";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",

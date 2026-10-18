@@ -35,7 +35,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { startDevJobRunners } from "../job-run-logger.js";
+import { startDevJobRunners } from "../job-run-logger.ts";
 
 let testDb: TestDb;
 let testRedis: TestRedis;

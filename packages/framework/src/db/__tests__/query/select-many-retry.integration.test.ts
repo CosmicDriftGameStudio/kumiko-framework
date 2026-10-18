@@ -4,8 +4,8 @@
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
-import { selectMany } from "../../query.js";
-import { buildEntityTable } from "../../table-builder.js";
+import { selectMany } from "../../query.ts";
+import { buildEntityTable } from "../../table-builder.ts";
 
 let closedConnectionError: unknown;
 

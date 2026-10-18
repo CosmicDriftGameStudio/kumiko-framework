@@ -9,10 +9,10 @@ export type {
   FormInputType,
   PatternCategory,
   PatternFormSchema,
-} from "../pattern-library/index.js";
-export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-library/index.js";
-export type { ParseError, ParseResult } from "./parse.js";
-export { parseFeatureFile, parseSourceFile } from "./parse.js";
+} from "../pattern-library/index.ts";
+export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-library/index.ts";
+export type { ParseError, ParseResult } from "./parse.ts";
+export { parseFeatureFile, parseSourceFile } from "./parse.ts";
 export type {
   HandlerHeaderUpdate,
   PatternChange,
@@ -20,7 +20,7 @@ export type {
   QueryHandlerHeaderKey,
   StreamHandlerHeaderKey,
   WriteHandlerHeaderKey,
-} from "./patch.js";
+} from "./patch.ts";
 export {
   addPattern,
   applyChanges,
@@ -28,7 +28,7 @@ export {
   replacePattern,
   SINGLETON_KINDS,
   updatePattern,
-} from "./patch.js";
+} from "./patch.ts";
 export type {
   AddAuthClaimsArgs,
   AddClaimKeyArgs,
@@ -58,10 +58,10 @@ export type {
   AddWorkspaceArgs,
   AddWriteHandlerArgs,
   FeaturePatcher,
-} from "./patcher.js";
-export { createFeaturePatcher } from "./patcher.js";
-export type { PatternChangeIssue, PatternChangesParseResult } from "./pattern-change-schema.js";
-export { parsePatternChanges } from "./pattern-change-schema.js";
+} from "./patcher.ts";
+export { createFeaturePatcher } from "./patcher.ts";
+export type { PatternChangeIssue, PatternChangesParseResult } from "./pattern-change-schema.ts";
+export { parsePatternChanges } from "./pattern-change-schema.ts";
 export type {
   AuthClaimsPattern,
   ClaimKeyPattern,
@@ -100,15 +100,15 @@ export type {
   UseExtensionPattern,
   WorkspacePattern,
   WriteHandlerPattern,
-} from "./patterns.js";
-export { getEditability } from "./patterns.js";
-export type { RenderFeatureFileInput } from "./render.js";
+} from "./patterns.ts";
+export { getEditability } from "./patterns.ts";
+export type { RenderFeatureFileInput } from "./render.ts";
 export {
   FEATURE_FILE_VERSION,
   renderFeatureFile,
   renderPattern,
   renderValue,
   VERSION_HEADER,
-} from "./render.js";
-export type { SourceLocation, SourcePosition } from "./source-location.js";
-export { sourceLocationFromNode } from "./source-location.js";
+} from "./render.ts";
+export type { SourceLocation, SourcePosition } from "./source-location.ts";
+export { sourceLocationFromNode } from "./source-location.ts";

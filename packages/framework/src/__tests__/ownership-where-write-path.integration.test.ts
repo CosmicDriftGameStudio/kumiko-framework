@@ -16,16 +16,16 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../db/query.js";
+import { asRawClient } from "../db/query.ts";
 import {
   createEntity,
   createTextField,
   defineEntityQueryHandler,
   defineEntityWriteHandler,
   defineFeature,
-} from "../engine/index.js";
-import type { OwnershipRule, SessionUser, WhereRule } from "../engine/types/index.js";
-import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.js";
+} from "../engine/index.ts";
+import type { OwnershipRule, SessionUser, WhereRule } from "../engine/types/index.ts";
+import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";
 
 const ownerWhereRule: WhereRule = {
   kind: "where",

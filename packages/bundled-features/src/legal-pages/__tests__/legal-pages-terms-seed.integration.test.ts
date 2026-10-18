@@ -11,10 +11,10 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { LEGAL_TERMS_ROUTES, legalPagePath } from "../constants.js";
-import { createLegalPagesFeature } from "../feature.js";
-import { createLegalPagesLayout } from "../layout.js";
-import { legalContentSeed } from "../seed.js";
+import { LEGAL_TERMS_ROUTES, legalPagePath } from "../constants.ts";
+import { createLegalPagesFeature } from "../feature.ts";
+import { createLegalPagesLayout } from "../layout.ts";
+import { legalContentSeed } from "../seed.ts";
 
 const FIXTURE_PATH = join(import.meta.dir, "fixtures", "legal-content.json");
 

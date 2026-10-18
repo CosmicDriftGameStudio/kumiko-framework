@@ -1,9 +1,9 @@
-import type { DbRow } from "../db/connection.js";
-import { hasAccess } from "../engine/access.js";
-import { tenantOverrideDenied } from "../engine/cross-tenant.js";
-import { checkWriteFieldRoles } from "../engine/field-access.js";
-import type { SessionUser, WriteHandlerDef } from "../engine/types/index.js";
-import { runValidation } from "../engine/validation.js";
+import type { DbRow } from "../db/connection.ts";
+import { hasAccess } from "../engine/access.ts";
+import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
+import { checkWriteFieldRoles } from "../engine/field-access.ts";
+import type { SessionUser, WriteHandlerDef } from "../engine/types/index.ts";
+import { runValidation } from "../engine/validation.ts";
 import {
   AccessDeniedError,
   FrameworkReasons,
@@ -12,14 +12,14 @@ import {
   validationErrorFromZod,
   type WriteFailure,
   writeFailure,
-} from "../errors/index.js";
-import type { DispatchContext } from "./dispatch-shared.js";
+} from "../errors/index.ts";
+import type { DispatchContext } from "./dispatch-shared.ts";
 import {
   checkFeatureEnabled,
   enforcePayloadRateLimits,
   enforceRateLimit,
-} from "./dispatch-shared.js";
-import { handlerAccessError } from "./handler-access-error.js";
+} from "./dispatch-shared.ts";
+import { handlerAccessError } from "./handler-access-error.ts";
 
 // "charge" is the first pass of a command and bills rate-limit buckets. "recheck" repeats the same
 // gates inside the transaction against the state the handler will see, without billing again.

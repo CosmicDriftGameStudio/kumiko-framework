@@ -12,13 +12,13 @@ import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
-import type { RenderEditAction } from "../components/render-edit-types.js";
-import type { ToolbarActionButton } from "../components/render-list.js";
-import type { DataTableRowAction } from "../primitives.js";
-import type { NavApi, ScreenTarget } from "./nav.js";
-import { lastSegment } from "./qn.js";
-import { navigateWithReturnTo, type ReturnHost } from "./return-to.js";
-import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.js";
+import type { RenderEditAction } from "../components/render-edit-types.ts";
+import type { ToolbarActionButton } from "../components/render-list.tsx";
+import type { DataTableRowAction } from "../primitives.tsx";
+import type { NavApi, ScreenTarget } from "./nav.tsx";
+import { lastSegment } from "./qn.ts";
+import { navigateWithReturnTo, type ReturnHost } from "./return-to.tsx";
+import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.ts";
 
 // entityId is explicit: the edit screen may live in another feature than
 // the row source, where the same-feature fallback would miss it.

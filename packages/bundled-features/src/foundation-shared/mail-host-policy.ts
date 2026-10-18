@@ -17,7 +17,7 @@ import type { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { resolvePublicHostname } from "@cosmicdrift/kumiko-framework/http";
 import * as z from "zod";
-import { isHostAllowlisted, readHostAllowlistFromEnv } from "./host-allowlist.js";
+import { isHostAllowlisted, readHostAllowlistFromEnv } from "./host-allowlist.ts";
 
 export const MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR = "KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS";
 

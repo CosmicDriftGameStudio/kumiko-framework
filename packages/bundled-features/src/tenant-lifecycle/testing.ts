@@ -6,9 +6,9 @@ import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { updateRows } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { tenantTable } from "../tenant/index.js";
-import { TENANT_AGGREGATE_TYPE, TENANT_DESTRUCTION_STARTED_EVENT_QN } from "./constants.js";
-import { runTenantDestructionSweep } from "./run-tenant-destroy.js";
+import { tenantTable } from "../tenant/index.ts";
+import { TENANT_AGGREGATE_TYPE, TENANT_DESTRUCTION_STARTED_EVENT_QN } from "./constants.ts";
+import { runTenantDestructionSweep } from "./run-tenant-destroy.ts";
 
 // Sidesteps the `request-destruction` write handler (needs user/auth/sessions
 // features wired) by seeding the same "destroying" state it would produce.

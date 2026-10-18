@@ -6,8 +6,8 @@ import {
   FeatureToggleHandlers,
   FeatureToggleQueries,
   TOGGLE_ADMIN_SCREEN_ID,
-} from "../constants.js";
-import { createFeatureTogglesFeature } from "../feature.js";
+} from "../constants.ts";
+import { createFeatureTogglesFeature } from "../feature.ts";
 
 let stack: TestStack;
 

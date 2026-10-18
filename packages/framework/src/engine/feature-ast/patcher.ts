@@ -21,29 +21,29 @@
 //     change-list as a single JSON array.
 
 import type { SourceFile } from "ts-morph";
-import type { LifecycleHookType } from "../constants.js";
+import type { LifecycleHookType } from "../constants.ts";
 import type {
   ConfigKeyDefinition,
   ConfigKeyType,
   JobDefinition,
   RunIn,
   TranslationKeys,
-} from "../types/config.js";
-import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.js";
-import type { EntityDefinition } from "../types/fields.js";
+} from "../types/config.ts";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.ts";
+import type { EntityDefinition } from "../types/fields.ts";
 import type {
   AccessRule,
   ClaimKeyType,
   EscapeHatchDeclaration,
   RateLimitOption,
-} from "../types/handlers.js";
-import type { HookPhase } from "../types/hooks.js";
-import type { HttpRouteMethod } from "../types/http-route.js";
-import type { NavDefinition } from "../types/nav.js";
-import type { MspErrorMode } from "../types/projection.js";
-import type { RelationDefinition } from "../types/relations.js";
-import type { ScreenDefinition } from "../types/screen.js";
-import type { WorkspaceDefinition } from "../types/workspace.js";
+} from "../types/handlers.ts";
+import type { HookPhase } from "../types/hooks.ts";
+import type { HttpRouteMethod } from "../types/http-route.ts";
+import type { NavDefinition } from "../types/nav.ts";
+import type { MspErrorMode } from "../types/projection.ts";
+import type { RelationDefinition } from "../types/relations.ts";
+import type { ScreenDefinition } from "../types/screen.ts";
+import type { WorkspaceDefinition } from "../types/workspace.ts";
 import {
   addPattern,
   applyChanges,
@@ -51,9 +51,9 @@ import {
   type PatternId,
   removePattern,
   replacePattern,
-} from "./patch.js";
-import type { FeaturePattern, OpaquePropMap } from "./patterns.js";
-import type { SourceLocation } from "./source-location.js";
+} from "./patch.ts";
+import type { FeaturePattern, OpaquePropMap } from "./patterns.ts";
+import type { SourceLocation } from "./source-location.ts";
 
 // =============================================================================
 // Synthetic SourceLocation — for new patterns that don't have a real file

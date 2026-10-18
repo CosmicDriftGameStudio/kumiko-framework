@@ -1,4 +1,4 @@
-import type { FeatureDefinition } from "../types/index.js";
+import type { FeatureDefinition } from "../types/index.ts";
 
 // --- Cross-feature API exposure / usage matching ---
 //

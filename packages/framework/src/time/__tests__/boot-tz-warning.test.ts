@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { warnIfNonUtcServerTimeZone } from "../boot-tz-warning.js";
+import { warnIfNonUtcServerTimeZone } from "../boot-tz-warning.ts";
 
 describe("warnIfNonUtcServerTimeZone", () => {
   test("warnt nicht wenn die Prozess-TZ UTC ist", () => {

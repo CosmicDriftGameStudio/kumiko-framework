@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen } from "../../__tests__/test-utils.js";
-import { NumberField } from "../form-fields.js";
+import { render, screen } from "../../__tests__/test-utils.tsx";
+import { NumberField } from "../form-fields.tsx";
 
 describe("NumberField grouping", () => {
   test("grouping=false shows a year without a thousands separator", () => {

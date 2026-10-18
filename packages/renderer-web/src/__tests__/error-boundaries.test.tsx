@@ -6,8 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-types/error-boundary";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app.js";
-import { createMockDispatcher } from "./test-utils.js";
+import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app.tsx";
+import { createMockDispatcher } from "./test-utils.tsx";
 
 const schema: FeatureSchema = {
   featureName: "probe",

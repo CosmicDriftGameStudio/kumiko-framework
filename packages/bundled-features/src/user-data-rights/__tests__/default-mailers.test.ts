@@ -12,8 +12,8 @@ import {
   makeDefaultDeletionRequestedEmail,
   makeDefaultExportFailedEmail,
   makeDefaultExportReadyEmail,
-} from "../lib/default-mailers.js";
-import { GdprMailNotificationTypes } from "../mail-notifications.js";
+} from "../lib/default-mailers.ts";
+import { GdprMailNotificationTypes } from "../mail-notifications.ts";
 
 type NotifyCall = { type: string; options: NotifyOptions };
 

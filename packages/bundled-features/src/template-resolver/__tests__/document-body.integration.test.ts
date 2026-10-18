@@ -7,14 +7,14 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createTemplateResolverFeature } from "../feature.js";
-import { collectionHandlerName, TemplateResolverHandlers } from "../qualified-names.js";
-import { seedSystemTemplate } from "../seeding.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { collectionHandlerName, TemplateResolverHandlers } from "../qualified-names.ts";
+import { seedSystemTemplate } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
-} from "../table.js";
+} from "../table.ts";
 import { documentBodyFixture } from "./document-body-fixture";
 
 let stack: TestStack;

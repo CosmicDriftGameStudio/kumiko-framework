@@ -20,8 +20,11 @@ function collectEmittedFiles(dir, out) {
 
 // Node's ESM resolution for a relative specifier: plain URL resolution against
 // the importer, no extension search and no directory index.
+// tsc keeps `.ts`/`.tsx` specifiers in .d.ts output (rewriteRelativeImportExtensions only rewrites
+// JS); TypeScript resolves them to the sibling .d.ts, so that is the file that has to exist.
 function resolveLikeNode(specifier, importer) {
-	const target = fileURLToPath(new URL(specifier, pathToFileURL(importer)));
+	const declarationSpecifier = importer.endsWith(".d.ts") ? specifier.replace(/\.tsx?$/, ".d.ts") : specifier;
+	const target = fileURLToPath(new URL(declarationSpecifier, pathToFileURL(importer)));
 	if (!existsSync(target)) return { target, problem: "file does not exist" };
 	if (statSync(target).isDirectory()) return { target, problem: "directory import" };
 	return { target };

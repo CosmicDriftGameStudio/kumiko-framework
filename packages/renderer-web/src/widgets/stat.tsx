@@ -1,7 +1,7 @@
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { DashboardStatTone } from "@cosmicdrift/kumiko-types/screen";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn.ts";
 
 // KPI tiles. `tone` drives value and chip color semantically; "ok" is the
 // status green, while "positive" follows the theme primary, which some apps

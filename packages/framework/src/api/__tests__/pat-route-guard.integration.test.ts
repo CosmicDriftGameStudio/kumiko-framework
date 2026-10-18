@@ -9,11 +9,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature, type SessionUser } from "../../engine/index.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import type { TokenVerifier } from "../auth-middleware.js";
-import type { UserExtraRoute } from "../extra-route.js";
+import { defineFeature, type SessionUser } from "../../engine/index.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import type { TokenVerifier } from "../auth-middleware.ts";
+import type { UserExtraRoute } from "../extra-route.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const PAT_TEST_TOKEN = "kpat_route-guard-test-token";

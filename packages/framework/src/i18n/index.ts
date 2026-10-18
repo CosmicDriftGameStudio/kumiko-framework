@@ -1,5 +1,5 @@
-import type { Registry, TranslationKeys } from "../engine/types/index.js";
-import { resolveTranslationValue } from "../ui-types/plural.js";
+import type { Registry, TranslationKeys } from "../engine/types/index.ts";
+import { resolveTranslationValue } from "../ui-types/plural.ts";
 
 export {
   hasMailTranslationKey,
@@ -8,15 +8,15 @@ export {
   mailT,
   registerMailTranslations,
   resolveMailLocale,
-} from "./mail-registry.js";
+} from "./mail-registry.ts";
 export {
   canonicalizeLocaleTag,
   DEFAULT_LOCALE,
   isValidLocaleTag,
   pickAcceptLanguage,
   resolveHeaderLocale,
-} from "./request-locale.js";
-export { SETTINGS_HUB_I18N } from "./settings-hub-keys.js";
+} from "./request-locale.ts";
+export { SETTINGS_HUB_I18N } from "./settings-hub-keys.ts";
 
 export type I18nOptions = {
   defaultLocale: string;

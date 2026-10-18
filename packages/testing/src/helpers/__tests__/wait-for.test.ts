@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { waitFor } from "../wait-for.js";
+import { waitFor } from "../wait-for.ts";
 
 describe("waitFor", () => {
   test("calls fn exactly once when it passes on the first attempt (no prior sleep)", async () => {

@@ -49,9 +49,9 @@ import {
   createLifecycleHooks,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { assertAssignableMembershipRoles } from "./membership-roles.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.js";
-import { tenantEntity, tenantTable } from "./schema/tenant.js";
+import { assertAssignableMembershipRoles } from "./membership-roles.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
+import { tenantEntity, tenantTable } from "./schema/tenant.ts";
 
 const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
   entityName: "tenant",

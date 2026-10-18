@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { ExtensionSectionProps } from "../app/extension-sections.js";
+import type { ExtensionSectionProps } from "../app/extension-sections.tsx";
 
 // Lets an extension wizard step report whether it already holds its data
 // without a raw useEffect in app code (the no-raw-hooks guard forbids those).

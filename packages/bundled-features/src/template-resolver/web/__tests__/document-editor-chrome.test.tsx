@@ -9,10 +9,10 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
-import DocumentTiptapEditor from "../document-tiptap-editor.js";
-import type { DocumentEditorHandle, DocumentEditorProps } from "../document-toolbar-blocks.js";
-import { defaultTranslations } from "../i18n.js";
-import PlaceholderLineEditor from "../placeholder-line-editor.js";
+import DocumentTiptapEditor from "../document-tiptap-editor.tsx";
+import type { DocumentEditorHandle, DocumentEditorProps } from "../document-toolbar-blocks.ts";
+import { defaultTranslations } from "../i18n.ts";
+import PlaceholderLineEditor from "../placeholder-line-editor.tsx";
 
 const localeResolver = createStaticLocaleResolver({ locale: "en" });
 

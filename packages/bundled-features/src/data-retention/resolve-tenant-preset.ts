@@ -14,8 +14,8 @@
 import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveProfileForTenant } from "../compliance-profiles/index.js";
-import type { RetentionPresetKey } from "./presets.js";
+import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
+import type { RetentionPresetKey } from "./presets.ts";
 
 // r.entity-Name aus compliance-profiles/feature.ts — Probe ob das Feature
 // gemountet ist, bevor wir seine Tabelle lesen (sonst wirft fetchOne).

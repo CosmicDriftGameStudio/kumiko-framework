@@ -13,15 +13,15 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import {
   ArchivedStreamError,
   isStreamArchived,
   loadAggregate as loadAggregateRaw,
-} from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const itemEntity = createEntity({
   table: "read_arch_items",

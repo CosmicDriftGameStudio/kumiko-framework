@@ -1,5 +1,5 @@
 import type { EditFieldSpec } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { CurrentUser } from "../current-user.js";
+import type { CurrentUser } from "../current-user.tsx";
 
 type NormalizedEditField = Exclude<EditFieldSpec, string>;
 

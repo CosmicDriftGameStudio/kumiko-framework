@@ -16,20 +16,20 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature } from "../../channel-email/feature.js";
-import { createInMemoryTransport } from "../../channel-email/types.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { BRANDING_QN, createManagedPagesFeature } from "../../managed-pages/index.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { seedNotificationTemplates } from "../../template-resolver/seeding.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createTenantSettingsFeature } from "../../tenant-settings/index.js";
-import { createDeliveryFeature } from "../feature.js";
-import { createDeliveryTestContext } from "../testing.js";
-import type { DeliveryService } from "../types.js";
+import { createChannelEmailFeature } from "../../channel-email/feature.ts";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { BRANDING_QN, createManagedPagesFeature } from "../../managed-pages/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createTenantSettingsFeature } from "../../tenant-settings/index.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { createDeliveryTestContext } from "../testing.ts";
+import type { DeliveryService } from "../types.ts";
 
 const transport = createInMemoryTransport();
 

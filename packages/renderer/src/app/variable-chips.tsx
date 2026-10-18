@@ -4,8 +4,8 @@
 // a different editor, so it must not assume a textarea underneath.
 
 import { Fragment, type ReactNode } from "react";
-import { useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
+import { useTranslation } from "../i18n.tsx";
+import { usePrimitives } from "../primitives.tsx";
 
 export type VariableChipsProps = {
   readonly variables: readonly string[];

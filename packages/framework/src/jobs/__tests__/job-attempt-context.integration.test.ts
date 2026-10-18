@@ -9,11 +9,11 @@ import {
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import { createDistributedLock } from "../../pipeline/distributed-lock.js";
-import { RedisKeys } from "../../pipeline/redis-keys.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createJobRunner } from "../job-runner.js";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
+import { RedisKeys } from "../../pipeline/redis-keys.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createJobRunner } from "../job-runner.ts";
 
 const retryRuns: [number, boolean][] = [];
 const singleRuns: [number, boolean][] = [];

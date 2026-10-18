@@ -6,14 +6,14 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { AppContext } from "../../engine/types/index.js";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { AppContext } from "../../engine/types/index.ts";
 import {
   createJobRunner,
   ORPHAN_SCHEDULER_GRACE_MS,
   schedulerIdForJobName,
-} from "../job-runner.js";
-import { purgeRawRedisKeys } from "./purge-raw-redis-keys.js";
+} from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 let testRedis: TestRedis;
 let redisUrl: string;

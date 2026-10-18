@@ -6,7 +6,7 @@ import {
   collectFiles,
   exitCodeForManualSites,
   migrateOpenToAllSource,
-} from "../scripts/codemod/migrate-open-to-all.js";
+} from "../scripts/codemod/migrate-open-to-all.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-open-to-all");
 const DEFAULT_REASON = "test handler callable by any signed-in test user";

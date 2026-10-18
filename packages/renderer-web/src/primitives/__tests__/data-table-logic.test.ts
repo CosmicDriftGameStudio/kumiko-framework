@@ -4,7 +4,7 @@
 // money-input seine Pure-Logik exportiert). Kein DOM.
 
 import { describe, expect, spyOn, test } from "bun:test";
-import { applyFormatSpec, defaultCellRender, isComponentRendererRef } from "../index.js";
+import { applyFormatSpec, defaultCellRender, isComponentRendererRef } from "../index.tsx";
 
 describe("isComponentRendererRef", () => {
   test("erkennt { react: { __component: 'Name' } }", () => {

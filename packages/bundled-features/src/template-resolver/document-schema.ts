@@ -8,7 +8,7 @@ import { Extension, type Extensions, Node } from "@tiptap/core";
 import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
-import { createDocumentStepsNode } from "./document-steps.js";
+import { createDocumentStepsNode } from "./document-steps.ts";
 
 const PLACEHOLDER_HREF = /^\{\{(.+)\}\}$/;
 const REFERENCE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;

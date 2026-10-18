@@ -3,8 +3,8 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   isWithinWithdrawalPeriod,
   WITHDRAWAL_PERIOD_DAYS,
-} from "../consumer-protection/withdrawal-period.js";
-import { CHECKOUT_CONSENT_RECORDED_EVENT_QN, SUBSCRIPTION_CREATED_EVENT_QN } from "../events.js";
+} from "../consumer-protection/withdrawal-period.ts";
+import { CHECKOUT_CONSENT_RECORDED_EVENT_QN, SUBSCRIPTION_CREATED_EVENT_QN } from "../events.ts";
 
 const START = Temporal.Instant.from("2026-10-01T10:00:00Z");
 

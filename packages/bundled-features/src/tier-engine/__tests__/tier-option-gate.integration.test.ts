@@ -20,19 +20,19 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { capCounterEntity } from "../../cap-counter/entity.js";
-import { createCapCounterFeature } from "../../cap-counter/feature.js";
-import { withCapEnforcement } from "../../cap-counter/with-cap-enforcement.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { TierEngineHandlers } from "../constants.js";
-import { tierAssignmentEntity } from "../entity.js";
-import { createTierEngineFeature } from "../feature.js";
-import { createTierOptionGate } from "../tier-option-gate.js";
-import { createTierResolver } from "../tier-resolver.js";
+import { capCounterEntity } from "../../cap-counter/entity.ts";
+import { createCapCounterFeature } from "../../cap-counter/feature.ts";
+import { withCapEnforcement } from "../../cap-counter/with-cap-enforcement.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { TierEngineHandlers } from "../constants.ts";
+import { tierAssignmentEntity } from "../entity.ts";
+import { createTierEngineFeature } from "../feature.ts";
+import { createTierOptionGate } from "../tier-option-gate.ts";
+import { createTierResolver } from "../tier-resolver.ts";
 
 type Tier = "free" | "pro" | "enterprise";
 type Caps = { readonly layouts: readonly string[] };

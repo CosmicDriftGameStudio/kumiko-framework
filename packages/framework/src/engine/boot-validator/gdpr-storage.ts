@@ -1,4 +1,4 @@
-import type { FeatureDefinition } from "../types/index.js";
+import type { FeatureDefinition } from "../types/index.ts";
 
 // Providers whose bytes do not survive a process restart. Only "inmemory"
 // today; extend if another ephemeral bundled provider lands.

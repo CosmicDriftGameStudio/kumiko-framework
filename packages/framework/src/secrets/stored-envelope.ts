@@ -4,7 +4,7 @@
 // every envelope-encrypted store in the framework.
 
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { Envelope } from "./types.js";
+import type { Envelope } from "./types.ts";
 
 export type StoredEnvelope = {
   readonly ciphertext: string; // base64

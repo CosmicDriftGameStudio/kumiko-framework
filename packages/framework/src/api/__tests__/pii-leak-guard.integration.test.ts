@@ -11,10 +11,10 @@ import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
-} from "../../crypto/index.js";
-import { defineFeature } from "../../engine/define-feature.js";
-import { defineQueryHandler } from "../../engine/define-handler.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../crypto/index.ts";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { defineQueryHandler } from "../../engine/define-handler.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const CIPHERTEXT =
   "kumiko-pii:v2:user:6b2f4a0e-1c9d-4f3a-9d2e-00000000000a:8e2Rkjj+wwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";

@@ -17,8 +17,8 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TenantSettingsConfig } from "../constants.js";
-import { createTenantSettingsFeature } from "../feature.js";
+import { TenantSettingsConfig } from "../constants.ts";
+import { createTenantSettingsFeature } from "../feature.ts";
 
 let stack: TestStack;
 

@@ -3,16 +3,16 @@ import {
   EXT_PRINCIPAL_STATUS,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createWrite } from "./handlers/create.write.js";
-import { detailQuery } from "./handlers/detail.query.js";
-import { findForAuthQuery } from "./handlers/find-for-auth.query.js";
-import { listQuery } from "./handlers/list.query.js";
-import { meQuery } from "./handlers/me.query.js";
-import { updateWrite } from "./handlers/update.write.js";
-import { USER_I18N } from "./i18n.js";
-import { principalStatusPlugin } from "./principal-status.js";
-import { userEntity } from "./schema/user.js";
-import { userEditScreen, userListScreen } from "./screens.js";
+import { createWrite } from "./handlers/create.write.ts";
+import { detailQuery } from "./handlers/detail.query.ts";
+import { findForAuthQuery } from "./handlers/find-for-auth.query.ts";
+import { listQuery } from "./handlers/list.query.ts";
+import { meQuery } from "./handlers/me.query.ts";
+import { updateWrite } from "./handlers/update.write.ts";
+import { USER_I18N } from "./i18n.ts";
+import { principalStatusPlugin } from "./principal-status.ts";
+import { userEntity } from "./schema/user.ts";
+import { userEditScreen, userListScreen } from "./screens.ts";
 
 // The user feature holds the cross-tenant user identity. `systemScope()` means
 // queries and writes bypass the tenant filter — a user exists above any tenant.

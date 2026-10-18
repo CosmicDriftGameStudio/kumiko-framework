@@ -19,7 +19,7 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import { collectSourceFiles } from "./collect-source-files.js";
+import { collectSourceFiles } from "./collect-source-files.ts";
 
 export interface DbFactorySite {
   readonly file: string;

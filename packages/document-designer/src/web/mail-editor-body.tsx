@@ -17,10 +17,10 @@ import {
   type EditorMode,
   EditorModeSwitch,
   originOf,
-} from "./editor-header.js";
-import { EditorBody, EditorFooter, EditorFrame } from "./editor-shell.js";
-import { fileUrl } from "./file-name.js";
-import { type ConfirmDialog, type LeaveTarget, MailConfirmDialogs } from "./mail-dialogs.js";
+} from "./editor-header.tsx";
+import { EditorBody, EditorFooter, EditorFrame } from "./editor-shell.tsx";
+import { fileUrl } from "./file-name.ts";
+import { type ConfirmDialog, type LeaveTarget, MailConfirmDialogs } from "./mail-dialogs.tsx";
 import {
   buildMeta,
   isDraftDirty,
@@ -29,29 +29,33 @@ import {
   parseLinkedResources,
   systemLabelMap,
   variableLabelMap,
-} from "./mail-draft.js";
-import { MailEditCenter } from "./mail-edit-center.js";
-import { footerMessage, metaFieldMessages } from "./mail-footer.js";
-import { PlaceholderSection, ResourceSection, SystemPlaceholderSection } from "./mail-left-rail.js";
-import { MissingLocaleCanvas } from "./mail-missing-locale.js";
-import { MailOriginBar } from "./mail-origin-bar.js";
-import { PdfLinkModal } from "./mail-pdf-link-modal.js";
-import { MailPreviewMode } from "./mail-preview.js";
+} from "./mail-draft.ts";
+import { MailEditCenter } from "./mail-edit-center.tsx";
+import { footerMessage, metaFieldMessages } from "./mail-footer.ts";
+import {
+  PlaceholderSection,
+  ResourceSection,
+  SystemPlaceholderSection,
+} from "./mail-left-rail.tsx";
+import { MissingLocaleCanvas } from "./mail-missing-locale.tsx";
+import { MailOriginBar } from "./mail-origin-bar.tsx";
+import { PdfLinkModal } from "./mail-pdf-link-modal.tsx";
+import { MailPreviewMode } from "./mail-preview.tsx";
 import {
   AttachmentSection,
   ChromeSection,
   PropertiesSection,
   UsageSection,
-} from "./mail-right-rail.js";
-import type { MailDraft, MailValidation, TemplateRowView } from "./mail-types.js";
-import { UploadModal } from "./mail-upload-modal.js";
-import { VersionsSection } from "./mail-versions.js";
-import { useInsertTargets } from "./use-insert-targets.js";
-import { useMailPersistence } from "./use-mail-persistence.js";
-import { useOverviewRows } from "./use-overview-rows.js";
-import { useOwnAddress } from "./use-own-address.js";
-import { useSettledValue } from "./use-settled-value.js";
-import { useTestMail } from "./use-test-mail.js";
+} from "./mail-right-rail.tsx";
+import type { MailDraft, MailValidation, TemplateRowView } from "./mail-types.ts";
+import { UploadModal } from "./mail-upload-modal.tsx";
+import { VersionsSection } from "./mail-versions.tsx";
+import { useInsertTargets } from "./use-insert-targets.ts";
+import { useMailPersistence } from "./use-mail-persistence.ts";
+import { useOverviewRows } from "./use-overview-rows.ts";
+import { useOwnAddress } from "./use-own-address.ts";
+import { useSettledValue } from "./use-settled-value.ts";
+import { useTestMail } from "./use-test-mail.ts";
 
 // The editor replaces this token with the decoded image size once the preview image loaded.
 const SIZE_TOKEN = "{size}";

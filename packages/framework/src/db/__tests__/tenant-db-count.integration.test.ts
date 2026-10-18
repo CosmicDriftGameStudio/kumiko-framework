@@ -5,11 +5,11 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import type { TableColumns } from "../dialect.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import type { TableColumns } from "../dialect.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 const entity = createEntity({
   table: "tenant_db_count_items",

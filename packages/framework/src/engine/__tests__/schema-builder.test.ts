@@ -15,9 +15,9 @@ import {
   createNumberField,
   createSelectField,
   createTextField,
-} from "../factories.js";
-import { buildInsertSchema, buildUpdateSchema } from "../schema-builder.js";
-import type { FieldDefinition } from "../types/fields.js";
+} from "../factories.ts";
+import { buildInsertSchema, buildUpdateSchema } from "../schema-builder.ts";
+import type { FieldDefinition } from "../types/fields.ts";
 
 type SchemaCase = {
   readonly name: string;

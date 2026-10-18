@@ -45,7 +45,7 @@ import {
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { MAIL_FOUNDATION_I18N } from "./i18n.js";
+import { MAIL_FOUNDATION_I18N } from "./i18n.ts";
 
 const FEATURE_NAME = "mail-foundation";
 

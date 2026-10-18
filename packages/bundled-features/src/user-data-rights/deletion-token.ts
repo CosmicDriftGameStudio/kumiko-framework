@@ -12,7 +12,7 @@ import {
   type RowBoundGrantResult,
   redeemRowBoundGrant,
   signRowBoundGrant,
-} from "../shared/index.js";
+} from "../shared/index.ts";
 
 const DELETION_REQUEST_PURPOSE = "deletion-request";
 

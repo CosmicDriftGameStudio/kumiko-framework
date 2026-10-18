@@ -6,7 +6,7 @@
 // The registry is process-global; Tier-2 step opt-in via
 // `r.requires.step("…")` (Q9 in step-vocabulary.md) is a future pass.
 
-import type { StepDef, StepKind } from "./types/step.js";
+import type { StepDef, StepKind } from "./types/step.ts";
 
 const stepRegistry = new Map<StepKind, StepDef>();
 

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../index.js";
-import { createRegistry } from "../registry.js";
-import { templateVariable } from "../template-variables.js";
-import type { NotificationRecordMapping } from "../types/index.js";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../index.ts";
+import { createRegistry } from "../registry.ts";
+import { templateVariable } from "../template-variables.ts";
+import type { NotificationRecordMapping } from "../types/index.ts";
 
 const contactEntity = createEntity({
   table: "record_mapping_contacts",

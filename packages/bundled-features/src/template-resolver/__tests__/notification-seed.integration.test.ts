@@ -15,15 +15,15 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers } from "../qualified-names.js";
-import { seedNotificationTemplates } from "../seeding.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers } from "../qualified-names.ts";
+import { seedNotificationTemplates } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
-} from "../table.js";
+} from "../table.ts";
 
 let stack: TestStack;
 let db: DbConnection;

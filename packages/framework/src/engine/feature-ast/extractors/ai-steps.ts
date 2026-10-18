@@ -5,9 +5,9 @@ import type {
   AiGeneratePattern,
   AiStepOpaqueArgs,
   AiStepPolicy,
-} from "../patterns.js";
-import type { SourceLocation } from "../source-location.js";
-import { sourceLocationFromNode } from "../source-location.js";
+} from "../patterns.ts";
+import type { SourceLocation } from "../source-location.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   type ExtractOutput,
   fail,
@@ -20,7 +20,7 @@ import {
   readObjectPropertyInitializer,
   readStringOrRaw,
   resolveSameFileObjectLiteral,
-} from "./shared.js";
+} from "./shared.ts";
 
 type AiStepKind = AiGeneratePattern["kind"] | AiExtractPattern["kind"] | AiClassifyPattern["kind"];
 

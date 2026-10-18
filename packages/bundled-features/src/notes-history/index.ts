@@ -5,20 +5,20 @@ export {
   NOTES_SECTION_EXTENSION_NAME,
   NotesHistoryHandlers,
   NotesHistoryQueries,
-} from "./constants.js";
-export { noteEntryEntity, noteMentionEntity } from "./entity.js";
+} from "./constants.ts";
+export { noteEntryEntity, noteMentionEntity } from "./entity.ts";
 export {
   noteEntryExecutor,
   noteEntryTable,
   noteMentionExecutor,
   noteMentionTable,
-} from "./executor.js";
+} from "./executor.ts";
 export {
   createNotesHistoryFeature,
   type NotesHistoryFeatureOptions,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   addNoteHandler,
   createAddNoteHandler,
-} from "./handlers/add-note.write.js";
-export { type AddNotePayload, addNotePayloadSchema } from "./schemas.js";
+} from "./handlers/add-note.write.ts";
+export { type AddNotePayload, addNotePayloadSchema } from "./schemas.ts";

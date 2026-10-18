@@ -4,7 +4,7 @@
 // Factored out of test-files so any package can opt in (samples, downstream
 // feature tests) without re-inventing a Map-backed mock.
 
-import type { FileStorageProvider } from "./types.js";
+import type { FileStorageProvider } from "./types.ts";
 
 export type InMemoryFileProvider = FileStorageProvider & {
   // Test-only introspection: keys currently stored. Useful for assertions

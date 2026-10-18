@@ -28,14 +28,14 @@ import {
   WorkflowStepError,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { workflowRunAggregateId } from "./aggregate-id.js";
-import { registerEventWakeup } from "./event-subscriber.js";
+import { workflowRunAggregateId } from "./aggregate-id.ts";
+import { registerEventWakeup } from "./event-subscriber.ts";
 import {
   startAndRunWorkflow,
   type WorkflowRunFailedPayload,
   WorkflowSuspensionUnsupportedError,
-} from "./runner.js";
-import { registerWorkflow } from "./workflow-registry.js";
+} from "./runner.ts";
+import { registerWorkflow } from "./workflow-registry.ts";
 
 const log = createFallbackLogger("workflow-runner");
 

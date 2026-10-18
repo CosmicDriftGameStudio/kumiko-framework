@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatWhen } from "../format-when.js";
+import { formatWhen } from "../format-when.ts";
 
 describe("formatWhen", () => {
   test("formats a parseable ISO timestamp", () => {

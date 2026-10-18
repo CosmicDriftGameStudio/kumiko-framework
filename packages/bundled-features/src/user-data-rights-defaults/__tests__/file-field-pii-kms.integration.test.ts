@@ -26,8 +26,8 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createFilesFeature } from "../../files/index.js";
-import { fileRefDeleteHook } from "../index.js";
+import { createFilesFeature } from "../../files/index.ts";
+import { fileRefDeleteHook } from "../index.ts";
 
 const admin = TestUsers.admin;
 

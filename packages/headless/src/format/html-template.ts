@@ -3,7 +3,7 @@
 // unmöglich, bewusst rohes HTML braucht ein explizites raw(). Der
 // HTML-Escape-Guard (kumiko-guards) akzeptiert html`...` als safe.
 
-import { escapeHtml } from "./escape.js";
+import { escapeHtml } from "./escape.ts";
 
 export class RawHtml {
   readonly html: string;

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { PickedFile } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { render } from "../../__tests__/test-utils.js";
-import { FileUploadInput } from "../file-upload.js";
-import { defaultPrimitives } from "../index.js";
+import { render } from "../../__tests__/test-utils.tsx";
+import { FileUploadInput } from "../file-upload.tsx";
+import { defaultPrimitives } from "../index.tsx";
 
 const noop = () => {};
 const FILE_ID = "11111111-2222-4333-8444-555555555555";

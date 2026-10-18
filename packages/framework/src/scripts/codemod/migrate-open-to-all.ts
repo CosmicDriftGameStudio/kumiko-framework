@@ -14,7 +14,7 @@ import {
   type PropertyAssignment,
   SyntaxKind,
 } from "ts-morph";
-import { collectSourceFiles } from "./collect-source-files.js";
+import { collectSourceFiles } from "./collect-source-files.ts";
 
 const DEFAULT_TEST_REASON = "test handler callable by any signed-in test user";
 

@@ -11,30 +11,30 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
-import { createMailFoundationFeature } from "../../mail-foundation/feature.js";
-import { tenantMailTransport } from "../../mail-foundation/index.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createMailFoundationFeature } from "../../mail-foundation/feature.ts";
+import { tenantMailTransport } from "../../mail-foundation/index.ts";
 import {
   clearInbox,
   createMailTransportInMemoryFeature,
   getInbox,
-} from "../../mail-transport-inmemory/index.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { seedNotificationTemplates } from "../seeding.js";
-import { templateResourceEntity } from "../table.js";
+} from "../../mail-transport-inmemory/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { seedNotificationTemplates } from "../seeding.ts";
+import { templateResourceEntity } from "../table.ts";
 
 const LOCALE = "en";
 const TENANT_ROUTED_SLUG = "status-mailer:notify:incident";

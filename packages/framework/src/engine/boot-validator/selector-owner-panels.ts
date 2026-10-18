@@ -1,7 +1,7 @@
-import type { FeatureDefinition } from "../types/index.js";
-import { buildQueryHandlerMap } from "./projection-list-screens.js";
-import { checkQueryRef } from "./query-refs.js";
-import { validateDashboardCustomPanel, validateDashboardScreenPanel } from "./screens.js";
+import type { FeatureDefinition } from "../types/index.ts";
+import { buildQueryHandlerMap } from "./projection-list-screens.ts";
+import { checkQueryRef } from "./query-refs.ts";
+import { validateDashboardCustomPanel, validateDashboardScreenPanel } from "./screens.ts";
 
 // Owner panels are merged into a dashboard that is built after boot, so the screen and
 // query refs are checked here against the registered features instead.

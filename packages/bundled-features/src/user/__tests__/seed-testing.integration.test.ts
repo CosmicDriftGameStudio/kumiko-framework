@@ -16,12 +16,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createUserFeature } from "../feature.js";
-import { userEntity, userTable } from "../schema/user.js";
-import { seedUser } from "../seeding.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createUserFeature } from "../feature.ts";
+import { userEntity, userTable } from "../schema/user.ts";
+import { seedUser } from "../seeding.ts";
 
 let stack: TestStack;
 

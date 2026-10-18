@@ -1,4 +1,4 @@
-import type { FeatureDefinition } from "../types/index.js";
+import type { FeatureDefinition } from "../types/index.ts";
 
 // Boot-time twin of event-store-executor-context.ts's buildExecutorContext check —
 // surfaces the systemStream invariant once across all features before any dispatch.

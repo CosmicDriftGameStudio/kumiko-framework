@@ -1,4 +1,4 @@
-import type { SensitiveFilterConfig, SpanAttributeValue } from "./types/index.js";
+import type { SensitiveFilterConfig, SpanAttributeValue } from "./types/index.ts";
 
 export const REDACTED = "[REDACTED]";
 

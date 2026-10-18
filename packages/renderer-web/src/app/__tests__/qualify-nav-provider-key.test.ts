@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { qualifyNavId } from "@cosmicdrift/kumiko-renderer";
-import { qualifyNavProviderKey } from "../create-app.js";
+import { qualifyNavProviderKey } from "../create-app.tsx";
 
 // Die Cross-Feature-Brücke des Tree→Nav-Merges: ein bundled-feature-Client
 // liefert seinen navProvider, die App besitzt den r.nav-Knoten. Findet der

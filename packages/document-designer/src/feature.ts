@@ -13,9 +13,9 @@ import {
   PLATFORM_TEMPLATES_SCREEN_ID,
   TEMPLATES_NAV_ID,
   TEMPLATES_SCREEN_ID,
-} from "./constants.js";
-import { DOCUMENT_DESIGNER_I18N } from "./i18n.js";
-import { TEMPLATE_FACETS, templateColumns, templateRowActions } from "./list-definition.js";
+} from "./constants.ts";
+import { DOCUMENT_DESIGNER_I18N } from "./i18n.ts";
+import { TEMPLATE_FACETS, templateColumns, templateRowActions } from "./list-definition.ts";
 
 const OVERVIEW_QUERY = "template-resolver:query:overview";
 const TENANT_ROLES = ["TenantAdmin", "SystemAdmin"] as const;

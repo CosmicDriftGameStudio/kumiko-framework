@@ -9,13 +9,13 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.js";
+import { decryptStoredPii } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
-import { INVITATION_STATUS, tenantInvitationsTable } from "../../tenant/invitation-table.js";
+import { INVITATION_STATUS, tenantInvitationsTable } from "../../tenant/invitation-table.ts";
 // kumiko-lint-ignore cross-feature-import login-style account lookup, same as invite-accept-with-login
-import { userTable } from "../../user/schema/user.js";
-import { AuthErrors } from "../constants.js";
-import { getInvitationIdForToken } from "../invite-token-store.js";
+import { userTable } from "../../user/schema/user.ts";
+import { AuthErrors } from "../constants.ts";
+import { getInvitationIdForToken } from "../invite-token-store.ts";
 
 const InviteInfoSchema = z.object({
   token: z.string().min(1),

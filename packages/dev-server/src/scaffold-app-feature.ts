@@ -13,7 +13,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Project, SyntaxKind } from "ts-morph";
-import { isKebabSegment } from "./kebab.js";
+import { isKebabSegment } from "./kebab.ts";
 
 export type ScaffoldAppFeatureOptions = {
   /** kebab-case feature name (e.g. "product-catalog"). */

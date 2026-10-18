@@ -46,7 +46,7 @@ import {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
-import { DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.js";
+import { DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.ts";
 import {
   collectRegionResourceKeys,
   compileDocumentSource,
@@ -60,19 +60,19 @@ import {
   readDocumentFormat,
   readTenantName,
   resolveResourceFileRefs,
-} from "./document-kit.js";
+} from "./document-kit.ts";
 import {
   buildRenderedPdfAttachments,
   combineMailAttachments,
   mergeInheritedAttachments,
-} from "./mail-attachments.js";
+} from "./mail-attachments.ts";
 import {
   brandHeaderHtml,
   DEFAULT_ACCENT_COLOR,
   readMailTone,
   type ToneColors,
   toneColors,
-} from "./mail-chrome.js";
+} from "./mail-chrome.ts";
 import {
   buildMailBandLinksHtml,
   buildMailFooterHtml,
@@ -82,9 +82,9 @@ import {
   resolvedFooterLink,
   safeFooterUrl,
   webHost,
-} from "./mail-footer.js";
-import { mailChromeText } from "./mail-strings.js";
-import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.js";
+} from "./mail-footer.ts";
+import { mailChromeText } from "./mail-strings.ts";
+import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.ts";
 
 export type MailBrandSuffixResolver = (input: {
   readonly locale: string;

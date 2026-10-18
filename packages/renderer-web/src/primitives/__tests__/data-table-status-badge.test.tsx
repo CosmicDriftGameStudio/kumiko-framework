@@ -5,7 +5,7 @@ import {
   type StatusBadgeProps,
 } from "@cosmicdrift/kumiko-renderer";
 import { render, screen } from "@testing-library/react";
-import { defaultPrimitives } from "../index.js";
+import { defaultPrimitives } from "../index.tsx";
 
 const { DataTable } = defaultPrimitives;
 

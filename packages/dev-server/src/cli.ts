@@ -11,6 +11,6 @@ export {
   readClientEntriesConfig,
   readExtraRuntimeExternals,
   resolveClientEntries,
-} from "./build.js";
-export { createCrashTracker } from "./crash-tracker.js";
-export { runInitDeployCli } from "./init-deploy-cli.js";
+} from "./build.ts";
+export { createCrashTracker } from "./crash-tracker.ts";
+export { runInitDeployCli } from "./init-deploy-cli.ts";

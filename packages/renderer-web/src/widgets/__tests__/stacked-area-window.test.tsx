@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { fireEvent, render, screen, within } from "../../__tests__/test-utils.js";
-import { StackedAreaChart } from "../charts.js";
+import { fireEvent, render, screen, within } from "../../__tests__/test-utils.tsx";
+import { StackedAreaChart } from "../charts.tsx";
 
 const monthAt = (index: number): number => Date.UTC(2026, index, 1);
 const monthLabel = (atMs: number): string => new Date(atMs).toISOString().slice(0, 7);

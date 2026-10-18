@@ -24,11 +24,11 @@
 // statically; today it lives in this comment + the StepBuilder doc.
 
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { schemaTableName } from "../db/table-introspection.js";
-import { getStep } from "./define-step.js";
-import { buildPipelineSteps } from "./pipeline.js";
-import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types/index.js";
-import type { PipelineDef, StepInstance } from "./types/step.js";
+import { schemaTableName } from "../db/table-introspection.ts";
+import { getStep } from "./define-step.ts";
+import { buildPipelineSteps } from "./pipeline.ts";
+import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types/index.ts";
+import type { PipelineDef, StepInstance } from "./types/step.ts";
 
 // Listed step-kinds whose `args.table` must be in the owning feature's
 // r.requires.projection allowlist. Extend as further unsafeProjection.*

@@ -1,7 +1,7 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { userTable } from "../../../user/index.js";
+import { userTable } from "../../../user/index.ts";
 
 export async function selectUsersDueForForgetCleanup(
   db: DbRunner,

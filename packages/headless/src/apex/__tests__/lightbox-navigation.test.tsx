@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "../index.js";
+import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "../index.ts";
 
 const URL_A = "https://example.test/a.png";
 const URL_B = "https://example.test/b.png";

@@ -4,8 +4,8 @@ import {
   RendererError,
   type RenderRequest,
   type RenderResponse,
-} from "../renderer-foundation/index.js";
-import { pdfTableDocumentSchema, renderTablePdf } from "./render-table-pdf.js";
+} from "../renderer-foundation/index.ts";
+import { pdfTableDocumentSchema, renderTablePdf } from "./render-table-pdf.ts";
 
 export async function renderTablePdfRequest(req: RenderRequest): Promise<RenderResponse> {
   if (req.kind !== "document-pdf") {

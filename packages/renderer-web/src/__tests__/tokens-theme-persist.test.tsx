@@ -12,7 +12,7 @@ import {
   applyStoredThemeMode,
   THEME_STORAGE_KEY,
   useBrowserTokensApi,
-} from "../tokens.js";
+} from "../tokens.ts";
 
 function Probe(): ReactNode {
   const api = useBrowserTokensApi();

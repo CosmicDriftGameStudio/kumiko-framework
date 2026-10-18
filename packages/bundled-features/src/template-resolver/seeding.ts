@@ -31,15 +31,15 @@ import {
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.js";
-import { executor } from "./handlers/shared.js";
-import { evaluateTemplateWrite } from "./handlers/template-gates.js";
-import { TEMPLATE_RESOLVER_FEATURE, TemplateResolverHandlers } from "./qualified-names.js";
-import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
-import type { TemplateBundle } from "./template-bundle.js";
-import { activeStampChanges, servedStampChanges } from "./template-draft.js";
-import { templateSlugSchema } from "./template-meta.js";
-import { variablesFromSchema } from "./template-validation.js";
+import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.ts";
+import { executor } from "./handlers/shared.ts";
+import { evaluateTemplateWrite } from "./handlers/template-gates.ts";
+import { TEMPLATE_RESOLVER_FEATURE, TemplateResolverHandlers } from "./qualified-names.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
+import type { TemplateBundle } from "./template-bundle.ts";
+import { activeStampChanges, servedStampChanges } from "./template-draft.ts";
+import { templateSlugSchema } from "./template-meta.ts";
+import { variablesFromSchema } from "./template-validation.ts";
 
 /** Drop projection orphans (no events anywhere) so boot seeds can recreate. */
 async function resolveExistingForEventStoreSeed(
@@ -334,7 +334,7 @@ export async function seedNotificationTemplates(
   }
   if (hasTemplates) {
     // Dynamic: renderer-foundation imports this feature's barrel, a static import would cycle.
-    const { collectRendererPlugins } = await import("../renderer-foundation/index.js");
+    const { collectRendererPlugins } = await import("../renderer-foundation/index.ts");
     if (!collectRendererPlugins(registry).some((plugin) => plugin.kinds.includes("mail"))) {
       throw new Error(
         'Notifications declare a mail template but no renderer plugin for kind "mail" is registered (mount renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html)',

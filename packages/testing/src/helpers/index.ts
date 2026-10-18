@@ -14,45 +14,45 @@ export {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/internal/testing";
 
-export { rolesOf } from "./access-assertions.js";
-export { expectError, expectSuccess } from "./assertions.js";
-export { withBootValidatorFixture } from "./boot-validator-fixture.js";
+export { rolesOf } from "./access-assertions.ts";
+export { expectError, expectSuccess } from "./assertions.ts";
+export { withBootValidatorFixture } from "./boot-validator-fixture.ts";
 export {
   captureClosedConnectionError,
   terminateBackendsByApplicationName,
   testDatabaseUrl,
-} from "./closed-connection-error.js";
-export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup.js";
+} from "./closed-connection-error.ts";
+export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup.ts";
 export {
   type E2EGeneratorOptions,
   type E2ETestSpec,
   type EditFillOp,
   generateE2ESpec,
   generateZodFixture,
-} from "./e2e-generator.js";
-export { expectErrorIncludes } from "./expect-error.js";
-export { describeFileProviderContract } from "./file-provider-contract.js";
+} from "./e2e-generator.ts";
+export { expectErrorIncludes } from "./expect-error.ts";
+export { describeFileProviderContract } from "./file-provider-contract.ts";
 export {
   getSetCookieRaw,
   getSetCookies,
   getSetCookieValue,
   type ParsedSetCookie,
-} from "./http-cookies.js";
-export { createLateBoundHolder, type LateBoundHolder } from "./late-bound.js";
-export { createManualClock, type ManualClock } from "./manual-clock.js";
-export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper.js";
+} from "./http-cookies.ts";
+export { createLateBoundHolder, type LateBoundHolder } from "./late-bound.ts";
+export { createManualClock, type ManualClock } from "./manual-clock.ts";
+export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper.ts";
 export {
   createMutableMasterKeyProvider,
   createTestEnvelopeCipher,
   createTestMasterKeyProvider,
   type MutableMasterKeyProvider,
-} from "./mutable-master-key-provider.js";
+} from "./mutable-master-key-provider.ts";
 export {
   createRecordingProvider,
   type RecordingProvider,
-} from "./observability-recorder.js";
-export { isRealProviderRun, REAL_PROVIDERS_ENV, requireRealProviders } from "./real-providers.js";
-export { deleteRows, seedRow, seedRows, updateRows } from "./seed.js";
+} from "./observability-recorder.ts";
+export { isRealProviderRun, REAL_PROVIDERS_ENV, requireRealProviders } from "./real-providers.ts";
+export { deleteRows, seedRow, seedRows, updateRows } from "./seed.ts";
 export {
   sharedItemEntity,
   sharedItemTable,
@@ -60,9 +60,9 @@ export {
   sharedUserTable,
   sharedWidgetEntity,
   sharedWidgetTable,
-} from "./shared-entities.js";
-export { createTestStoredEvent } from "./stored-event-fixture.js";
-export { sleep } from "./utils.js";
-export { waitFor } from "./wait-for.js";
-export { withoutAmbientTemporal } from "./without-ambient-temporal.js";
-export { zipWithEntries } from "./zip-fixture.js";
+} from "./shared-entities.ts";
+export { createTestStoredEvent } from "./stored-event-fixture.ts";
+export { sleep } from "./utils.ts";
+export { waitFor } from "./wait-for.ts";
+export { withoutAmbientTemporal } from "./without-ambient-temporal.ts";
+export { zipWithEntries } from "./zip-fixture.ts";

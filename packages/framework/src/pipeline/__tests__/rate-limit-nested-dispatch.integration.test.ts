@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.js";
-import { RateLimitError } from "../../errors/index.js";
+import { defineFeature } from "../../engine/index.ts";
+import { RateLimitError } from "../../errors/index.ts";
 import type {
   RateLimitConfig,
   RateLimitDecision,
   RateLimitResolver,
-} from "../../rate-limit/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+} from "../../rate-limit/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const recorded: Array<{ bucket: string; config: RateLimitConfig }> = [];
 

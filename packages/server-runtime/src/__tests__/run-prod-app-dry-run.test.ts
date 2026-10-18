@@ -3,8 +3,8 @@
 import { describe, expect, test } from "bun:test";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
-import { runProdApp } from "../run-prod-app.js";
-import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
+import { runProdApp } from "../run-prod-app.ts";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.ts";
 
 const probeFeature = makeProbeFeature({
   name: "dry-run-probe",

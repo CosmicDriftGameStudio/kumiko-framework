@@ -5,12 +5,12 @@ import {
   collectChannels,
   createEmailAttachmentReader,
   EMAIL_CHANNEL_NAME,
-} from "../../delivery/index.js";
-import { fileContextForTenant } from "../../file-foundation/index.js";
-import { TEST_MAIL_SUBJECT_PREFIX } from "../constants.js";
-import { TemplateResolverErrors } from "../qualified-names.js";
-import { renderTemplatePreview } from "../template-preview.js";
-import { localeSchema, templateSlugSchema } from "./shared.js";
+} from "../../delivery/index.ts";
+import { fileContextForTenant } from "../../file-foundation/index.ts";
+import { TEST_MAIL_SUBJECT_PREFIX } from "../constants.ts";
+import { TemplateResolverErrors } from "../qualified-names.ts";
+import { renderTemplatePreview } from "../template-preview.ts";
+import { localeSchema, templateSlugSchema } from "./shared.ts";
 
 const TEST_MAIL_RATE_LIMIT = { limit: 10, windowSeconds: 3600 } as const;
 

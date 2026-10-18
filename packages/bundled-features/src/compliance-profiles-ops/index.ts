@@ -11,7 +11,7 @@
 // per-tenant picker (the vast majority) stay unaffected.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { tenantsMissingProfileQuery } from "./handlers/tenants-missing-profile.query.js";
+import { tenantsMissingProfileQuery } from "./handlers/tenants-missing-profile.query.ts";
 
 export function createComplianceProfilesOpsFeature() {
   return defineFeature(

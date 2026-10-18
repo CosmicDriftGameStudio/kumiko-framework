@@ -1,5 +1,5 @@
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import type { LocaleResolver } from "../contracts/index.js";
+import type { LocaleResolver } from "../contracts/index.ts";
 
 export type LocaleRouterConfig<TPage extends string> = {
   /** Canonical default, usually "de". No URL prefix. */

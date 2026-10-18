@@ -19,10 +19,10 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { confirmSignup, type SignupConfirmSuccess } from "./auth-client.js";
-import { passwordPairIssue, resolvePostAuthHref } from "./auth-form-logic.js";
-import { AuthCard, useUrlToken } from "./auth-form-primitives.js";
-import { buildLoginRedirectUrl } from "./auth-redirect.js";
+import { confirmSignup, type SignupConfirmSuccess } from "./auth-client.ts";
+import { passwordPairIssue, resolvePostAuthHref } from "./auth-form-logic.ts";
+import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
+import { buildLoginRedirectUrl } from "./auth-redirect.ts";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;

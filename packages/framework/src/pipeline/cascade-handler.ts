@@ -1,10 +1,10 @@
-import type { TableColumns } from "../db/dialect.js";
-import { deleteMany, fetchOne, selectMany, updateMany } from "../db/query.js";
-import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants.js";
-import { isRecordLocked } from "../engine/screen-helpers.js";
-import type { PreDeleteHookFn, Registry } from "../engine/types/index.js";
-import { ConflictError, FrameworkReasons, RecordLockedError } from "../errors/index.js";
-import type { SystemHookDef } from "./lifecycle-pipeline.js";
+import type { TableColumns } from "../db/dialect.ts";
+import { deleteMany, fetchOne, selectMany, updateMany } from "../db/query.ts";
+import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants.ts";
+import { isRecordLocked } from "../engine/screen-helpers.ts";
+import type { PreDeleteHookFn, Registry } from "../engine/types/index.ts";
+import { ConflictError, FrameworkReasons, RecordLockedError } from "../errors/index.ts";
+import type { SystemHookDef } from "./lifecycle-pipeline.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type TableMap = ReadonlyMap<string, TableColumns<any>>;

@@ -1,11 +1,11 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { TenantQueries } from "../../tenant/index.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { servedVersionOf } from "../template-draft.js";
-import { buildOverrideDiff } from "./override-diff.js";
-import { kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
+import { TenantQueries } from "../../tenant/index.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { servedVersionOf } from "../template-draft.ts";
+import { buildOverrideDiff } from "./override-diff.ts";
+import { kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
 
 const TENANT_OVERRIDES_REASON =
   "SystemAdmin template overview lists which tenants override one system template; it reads tenant-scope template rows of every tenant (and the system row for the optional per-tenant diff), which the tenant-scoped db cannot reach";

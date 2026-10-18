@@ -10,11 +10,11 @@ import {
   selectEventsHighWaterMark,
   selectNextEventIdAfter,
   selectStreamMaxVersion,
-} from "../event-store.js";
+} from "../event-store.ts";
 import {
   countSubscribedEvents,
   selectEventsForProjectionRebuildBatch,
-} from "../projection-rebuild.js";
+} from "../projection-rebuild.ts";
 
 let closedConnectionError: unknown;
 

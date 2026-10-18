@@ -8,8 +8,8 @@ import {
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 // kumiko-lint-ignore cross-feature-import SystemAdmin user-list joins memberships for tenants column
-import { decryptTenantNames, tenantMembershipsTable, tenantTable } from "../../tenant/index.js";
-import { userEntity } from "../schema/user.js";
+import { decryptTenantNames, tenantMembershipsTable, tenantTable } from "../../tenant/index.ts";
+import { userEntity } from "../schema/user.ts";
 
 const baseList = defineEntityListHandler("user", userEntity, {
   access: { roles: access.systemAdmin },

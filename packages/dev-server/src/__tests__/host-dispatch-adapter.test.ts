@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createHostDispatch } from "@cosmicdrift/kumiko-bundled-features/host-routing";
 import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
 import type { HostDispatchFn } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
-import { toDevHostDispatch } from "../host-dispatch-adapter.js";
+import { toDevHostDispatch } from "../host-dispatch-adapter.ts";
 
 const systemQuery: PageHeadSystemQuery = async (_type, payload) => ({
   exists:

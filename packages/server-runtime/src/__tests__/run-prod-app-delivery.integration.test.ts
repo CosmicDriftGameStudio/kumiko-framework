@@ -54,7 +54,7 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
 import * as z from "zod";
-import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 

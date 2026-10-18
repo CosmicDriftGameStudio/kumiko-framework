@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { setupTestStack } from "../test-stack.js";
+import { setupTestStack } from "../test-stack.ts";
 
 const openToAllAccess = {
   access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

@@ -6,10 +6,10 @@ import {
   PLACEHOLDER_SYMBOL,
   SYSTEM_PLACEHOLDER_TYPE,
   systemPlaceholderLabel,
-} from "./mail-draft.js";
-import type { LinkedResourceView, MailValidation } from "./mail-types.js";
-import { RailHint, RailRow, RailSection } from "./rail.js";
-import { variableLabelText } from "./used-by-label.js";
+} from "./mail-draft.ts";
+import type { LinkedResourceView, MailValidation } from "./mail-types.ts";
+import { RailHint, RailRow, RailSection } from "./rail.tsx";
+import { variableLabelText } from "./used-by-label.ts";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 

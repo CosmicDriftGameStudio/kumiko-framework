@@ -26,23 +26,23 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import type { TierMap } from "../../tier-engine/compose-app.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import type { TierMap } from "../../tier-engine/compose-app.ts";
 import {
   TierAssignmentSources,
   TierEngineHandlers,
   TierEngineQueries,
-} from "../../tier-engine/constants.js";
-import { tierAssignmentEntity } from "../../tier-engine/entity.js";
-import { createTierEngineFeature } from "../../tier-engine/feature.js";
-import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.js";
-import { createBillingFoundationFeature } from "../feature.js";
-import { createSubscriptionTierSync } from "../subscription-tier-sync.js";
-import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
+} from "../../tier-engine/constants.ts";
+import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
+import { createTierEngineFeature } from "../../tier-engine/feature.ts";
+import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import { createSubscriptionTierSync } from "../subscription-tier-sync.ts";
+import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.ts";
 
 type TestTier = "free" | "pro" | "enterprise";
 const isTierName = (v: string): v is TestTier => v === "free" || v === "pro" || v === "enterprise";

@@ -9,8 +9,8 @@ import {
   normalizeListColumn,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { deriveListFileDisplay } from "./list-file-display.js";
-import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types.js";
+import { deriveListFileDisplay } from "./list-file-display.ts";
+import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types.ts";
 
 const WRITE_ONLY_SET_LABEL_KEY = "kumiko.field.writeOnly.set";
 

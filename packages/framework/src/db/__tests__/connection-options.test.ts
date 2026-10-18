@@ -3,7 +3,7 @@ import {
   DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
   dbConnectionOptionsFromEnv,
   outsideTransactionPoolOptionsFromEnv,
-} from "../connection.js";
+} from "../connection.ts";
 
 // createDbConnection itself opens a real postgres.js socket, so it's
 // exercised in the DB-integration suite. The env-parsing + validation

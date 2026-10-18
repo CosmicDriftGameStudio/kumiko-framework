@@ -18,10 +18,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { errorCodeOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
-import { compareByCodepoint } from "../utils/index.js";
-import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.js";
-import { renderIndex, renderTableDdl } from "./render-ddl.js";
-import { findRetiredTableDrops, type RetiredFrameworkTable } from "./retired-framework-tables.js";
+import { compareByCodepoint } from "../utils/index.ts";
+import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
+import { renderIndex, renderTableDdl } from "./render-ddl.ts";
+import { findRetiredTableDrops, type RetiredFrameworkTable } from "./retired-framework-tables.ts";
 
 const SNAPSHOT_VERSION = 1 as const;
 

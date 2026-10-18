@@ -5,9 +5,9 @@ import {
   MEMBER_ROLES_CELL_COMPONENT,
   MEMBER_STATUS_CELL_COMPONENT,
   TENANT_FEATURE,
-} from "../constants.js";
-import { MemberRolesCell } from "./member-roles-cell.js";
-import { MemberStatusCell } from "./member-status-cell.js";
+} from "../constants.ts";
+import { MemberRolesCell } from "./member-roles-cell.tsx";
+import { MemberStatusCell } from "./member-status-cell.tsx";
 
 export type TenantClientOptions = {
   readonly translations?: TranslationsByLocale;

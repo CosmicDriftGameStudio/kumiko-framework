@@ -21,35 +21,35 @@ import {
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
-} from "../../auth-email-password/__tests__/auth-mail-stack.js";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+} from "../../auth-email-password/__tests__/auth-mail-stack.ts";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
-} from "../../config/index.js";
+} from "../../config/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createMailFoundationFeature, tenantMailTransport } from "../../mail-foundation/index.js";
+} from "../../data-retention/index.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createMailFoundationFeature, tenantMailTransport } from "../../mail-foundation/index.ts";
 import {
   clearInbox,
   createMailTransportInMemoryFeature,
   getInbox,
-} from "../../mail-transport-inmemory/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { setupSubjectKmsForTest } from "./forget-shredding-test-helpers.js";
+} from "../../mail-transport-inmemory/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { setupSubjectKmsForTest } from "./forget-shredding-test-helpers.ts";
 
 const TENANT_WITHOUT_PROVIDER = "00000000-0000-4000-8000-0000000007a1";
 const USER_ID = "00000000-0000-4000-8000-0000000007b1";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { SessionBootstrapFailure } from "../session.js";
-import { retryDelayMs } from "../session-bootstrap-error.js";
+import type { SessionBootstrapFailure } from "../session.tsx";
+import { retryDelayMs } from "../session-bootstrap-error.tsx";
 
 describe("retryDelayMs", () => {
   test("Retry-After not yet elapsed → remaining delay in ms", () => {

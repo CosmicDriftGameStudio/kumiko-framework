@@ -11,12 +11,12 @@ import {
   sumEmbeddedListColumn,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useState } from "react";
-import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.js";
-import { useQuery } from "../hooks/use-query.js";
-import { referenceOptionSource } from "../hooks/use-reference-lookup.js";
-import { useTranslation } from "../i18n.js";
-import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives.js";
-import { usePrimitives } from "../primitives.js";
+import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
+import { useQuery } from "../hooks/use-query.ts";
+import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";
+import { useTranslation } from "../i18n.tsx";
+import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives.tsx";
+import { usePrimitives } from "../primitives.tsx";
 
 export type EmbeddedListFieldProps = {
   readonly field: EditFieldViewModel;

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { composeLayoutHtml } from "../compose-layout.js";
-import { parseOverviewRow } from "../overview-row.js";
-import { templateTitle, usedByLabel } from "../used-by-label.js";
+import { composeLayoutHtml } from "../compose-layout.ts";
+import { parseOverviewRow } from "../overview-row.ts";
+import { templateTitle, usedByLabel } from "../used-by-label.ts";
 
 const messages: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.allMails": "all mails",

@@ -2,10 +2,10 @@ import { describe, expect, spyOn, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import * as bunDb from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { tenantMembershipsTable } from "../tenant/membership-table.js";
-import { USER_STATUS, userTable } from "../user/schema/user.js";
-import { userSessionTable } from "./schema/user-session.js";
-import { createSessionCallbacks } from "./session-callbacks.js";
+import { tenantMembershipsTable } from "../tenant/membership-table.ts";
+import { USER_STATUS, userTable } from "../user/schema/user.ts";
+import { userSessionTable } from "./schema/user-session.ts";
+import { createSessionCallbacks } from "./session-callbacks.ts";
 
 // Unit-only: the fail-open-on-throw branch cannot be provoked through real
 // Postgres without faking infrastructure failure. Integration tests forbid

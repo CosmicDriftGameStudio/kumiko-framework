@@ -4,7 +4,7 @@ import {
   isSubscriptionBlockingCheckout,
   STALE_INCOMPLETE_AFTER,
   SubscriptionStatuses,
-} from "../constants.js";
+} from "../constants.ts";
 
 const LAST_CHANGED = Temporal.Instant.from("2024-01-01T00:00:00Z");
 

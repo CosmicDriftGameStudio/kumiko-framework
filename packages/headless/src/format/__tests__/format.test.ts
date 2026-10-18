@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
-import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.js";
+import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.ts";
 
 describe("applyFormatSpec — json", () => {
   test("honors a numeric indent and defaults to 2", () => {

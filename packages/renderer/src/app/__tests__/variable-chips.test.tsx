@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { type ButtonProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.js";
-import { VariableChips } from "../variable-chips.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { type ButtonProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { VariableChips } from "../variable-chips.tsx";
 
 const captureButton: ComponentType<ButtonProps> = ({ children, onClick, ariaLabel, disabled }) => (
   <button type="button" aria-label={ariaLabel} onClick={() => void onClick?.()} disabled={disabled}>

@@ -1,19 +1,19 @@
-import { qualifyEntityName } from "../qualified-name.js";
-import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.js";
-import type { FeatureDefinition } from "../types/index.js";
+import { qualifyEntityName } from "../qualified-name.ts";
+import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 import type {
   EditRelatedListSection,
   MetricNavigate,
   ProjectionDetailScreenDefinition,
   RowFieldExtractor,
   ScreenDefinition,
-} from "../types/screen.js";
+} from "../types/screen.ts";
 import {
   collectScreensByShortId,
   readsNavigateParamsAsFormPrefill,
   rowFieldExtractorKeys,
   validateDrawerPrefillKeys,
-} from "./screens.js";
+} from "./screens.ts";
 
 type NavigateParamsSource = {
   readonly screen?: string;

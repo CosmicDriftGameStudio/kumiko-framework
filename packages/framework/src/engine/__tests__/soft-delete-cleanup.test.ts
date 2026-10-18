@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
 import {
   DEFAULT_GRACE_DAYS,
   isSystemScopedSoftDeleteTable,
@@ -10,8 +10,8 @@ import {
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteCleanupJob,
   softDeleteCleanupSystemJob,
-} from "../soft-delete-cleanup.js";
-import type { JobContext } from "../types/handlers.js";
+} from "../soft-delete-cleanup.ts";
+import type { JobContext } from "../types/handlers.ts";
 
 const globalTableMeta = {
   tableName: "glob_things",

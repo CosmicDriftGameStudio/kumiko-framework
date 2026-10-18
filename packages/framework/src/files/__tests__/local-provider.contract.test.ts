@@ -3,7 +3,7 @@ import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describeFileProviderContract } from "@cosmicdrift/kumiko-testing/helpers";
-import { createLocalProvider } from "../local-provider.js";
+import { createLocalProvider } from "../local-provider.ts";
 
 const basePath = join(tmpdir(), `kumiko-local-provider-contract-${Date.now()}`);
 

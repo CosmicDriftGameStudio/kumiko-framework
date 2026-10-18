@@ -15,10 +15,10 @@ import {
   assertNavigableUrl,
   buildLoginRedirectUrl,
   followNextOrLandingAfterLogin,
-} from "./auth-redirect.js";
-import { LoginScreen, type LoginScreenProps } from "./login-screen.js";
-import { SessionProvider, useSession } from "./session.js";
-import { SessionBootstrapErrorScreen } from "./session-bootstrap-error.js";
+} from "./auth-redirect.ts";
+import { LoginScreen, type LoginScreenProps } from "./login-screen.tsx";
+import { SessionProvider, useSession } from "./session.tsx";
+import { SessionBootstrapErrorScreen } from "./session-bootstrap-error.tsx";
 
 // Generic — NOT auth-mfa's MfaVerifyScreenProps directly, so this feature
 // stays unaware of auth-mfa's concrete shape (same coupling direction as

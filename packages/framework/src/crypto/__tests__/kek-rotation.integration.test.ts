@@ -8,8 +8,8 @@ import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { createTestDb } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
-import type { KmsContext, SubjectId } from "../kms-adapter.js";
-import { createPgKmsAdapter, rewrapSubjectKeys } from "../pg-kms-adapter.js";
+import type { KmsContext, SubjectId } from "../kms-adapter.ts";
+import { createPgKmsAdapter, rewrapSubjectKeys } from "../pg-kms-adapter.ts";
 
 const baseUrl = process.env["TEST_DATABASE_URL"];
 if (!baseUrl) throw new Error("Missing required env var: TEST_DATABASE_URL");

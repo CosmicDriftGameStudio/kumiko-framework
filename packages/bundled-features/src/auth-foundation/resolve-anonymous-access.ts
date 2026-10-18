@@ -8,8 +8,8 @@ import type {
   AnonymousAccessResolved,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveTenantExistence, resolveTenantResolver } from "./feature.js";
-import type { AuthProviderBuildDeps } from "./types.js";
+import { resolveTenantExistence, resolveTenantResolver } from "./feature.ts";
+import type { AuthProviderBuildDeps } from "./types.ts";
 
 export async function resolveAnonymousAccessFromRegistry(
   base: AnonymousAccessResolved | AnonymousAccessConfig | undefined,

@@ -9,21 +9,21 @@ import {
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { AuthHandlers, createAuthEmailPasswordFeature } from "../../auth-email-password/index.js";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { AuthMfaHandlers, AuthMfaQueries, createAuthMfaFeature } from "../../auth-mfa/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createCryptoShreddingFeature } from "../../crypto-shredding/index.js";
+import { AuthHandlers, createAuthEmailPasswordFeature } from "../../auth-email-password/index.ts";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { AuthMfaHandlers, AuthMfaQueries, createAuthMfaFeature } from "../../auth-mfa/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createCryptoShreddingFeature } from "../../crypto-shredding/index.ts";
 import {
   createPersonalAccessTokensFeature,
   PatHandlers,
-} from "../../personal-access-tokens/index.js";
-import { createSecretsFeature } from "../../secrets/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { changeEmailWrite } from "../../user-profile/handlers/change-email.write.js";
-import { buildAgentManifest } from "../agent-manifest.js";
-import { buildToolCatalog, toolNameForQn } from "../tool-catalog.js";
+} from "../../personal-access-tokens/index.ts";
+import { createSecretsFeature } from "../../secrets/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { changeEmailWrite } from "../../user-profile/handlers/change-email.write.ts";
+import { buildAgentManifest } from "../agent-manifest.ts";
+import { buildToolCatalog, toolNameForQn } from "../tool-catalog.ts";
 
 // #2700/#2702 — bundled handlers that carry secrets/irreversible-erase risk are now
 // opted out of the agent tool catalog via `agent: { expose: false }`, and the app-side

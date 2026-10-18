@@ -3,11 +3,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
-import type { DbTx } from "../../db/connection.js";
-import { asRawClient } from "../../db/query.js";
-import { AccessDeniedError, MemberReadTimeoutError } from "../../errors/index.js";
-import type { DispatchContext } from "../dispatch-shared.js";
-import { runInMemberReadOnlyTransaction } from "../member-read-only-transaction.js";
+import type { DbTx } from "../../db/connection.ts";
+import { asRawClient } from "../../db/query.ts";
+import { AccessDeniedError, MemberReadTimeoutError } from "../../errors/index.ts";
+import type { DispatchContext } from "../dispatch-shared.ts";
+import { runInMemberReadOnlyTransaction } from "../member-read-only-transaction.ts";
 
 let testDb: TestDb;
 

@@ -1,18 +1,18 @@
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
-import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership.js";
-import { createAnonymousUser } from "../engine/system-user.js";
-import { parseTenantId, SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
-import type { SessionUser, TenantId } from "../engine/types/index.js";
-import { isSessionRequiredApiPath, TENANT_HEADER_NAME } from "./api-constants.js";
-import type { JwtHelper } from "./jwt.js";
-import { isForeignCookieOrigin } from "./origin-middleware.js";
+import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership.ts";
+import { createAnonymousUser } from "../engine/system-user.ts";
+import { parseTenantId, SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
+import type { SessionUser, TenantId } from "../engine/types/index.ts";
+import { isSessionRequiredApiPath, TENANT_HEADER_NAME } from "./api-constants.ts";
+import type { JwtHelper } from "./jwt.ts";
+import { isForeignCookieOrigin } from "./origin-middleware.ts";
 import {
   clearSessionCookies,
   getSessionCookies,
   hasDuplicateSessionCookie,
-} from "./session-cookies.js";
+} from "./session-cookies.ts";
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";

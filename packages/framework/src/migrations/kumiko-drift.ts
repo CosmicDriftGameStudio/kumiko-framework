@@ -16,11 +16,11 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { DbConnection } from "../db/connection.js";
-import type { EntityTableMeta } from "../db/entity-table-meta.js";
-import { loadSnapshotJson } from "../db/migrate-generator.js";
-import { fetchAppliedMigrations, loadMigrationsFromDir } from "../db/migrate-runner.js";
-import { columnNamesOf, tableExists } from "../db/schema-inspection.js";
+import type { DbConnection } from "../db/connection.ts";
+import type { EntityTableMeta } from "../db/entity-table-meta.ts";
+import { loadSnapshotJson } from "../db/migrate-generator.ts";
+import { fetchAppliedMigrations, loadMigrationsFromDir } from "../db/migrate-runner.ts";
+import { columnNamesOf, tableExists } from "../db/schema-inspection.ts";
 
 const SNAPSHOT_FILENAME = ".snapshot.json";
 

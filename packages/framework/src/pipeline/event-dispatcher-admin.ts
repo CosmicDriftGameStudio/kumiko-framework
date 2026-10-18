@@ -1,30 +1,30 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-import type { DbConnection, DbTx } from "../db/connection.js";
+import type { DbConnection, DbTx } from "../db/connection.ts";
 import {
   advanceConsumerPastEventReturning,
   removePendingGapReturning,
   selectConsumerForUpdate,
   selectSnapshotXmax,
   updateConsumerStatusReturning,
-} from "../db/queries/event-consumer.js";
+} from "../db/queries/event-consumer.ts";
 import {
   selectNextEventIdAfter,
   selectSmallestVisibleIdInRanges,
-} from "../db/queries/event-store.js";
-import { coerceRow, extractTableInfo, selectMany } from "../db/query.js";
-import { getEventsHighWaterMark } from "../event-store/index.js";
+} from "../db/queries/event-store.ts";
+import { coerceRow, extractTableInfo, selectMany } from "../db/query.ts";
+import { getEventsHighWaterMark } from "../event-store/index.ts";
 import {
   eventConsumerStateTable,
   type PendingGapEntry,
   SHARED_INSTANCE_SENTINEL,
-} from "./event-consumer-state.js";
-import type { ConsumerStateRow, ConsumerStateRowShape } from "./event-dispatcher-delivery.js";
+} from "./event-consumer-state.ts";
+import type { ConsumerStateRow, ConsumerStateRowShape } from "./event-dispatcher-delivery.ts";
 import {
   mergeContiguousGapRanges,
   rangeContainsId,
   splitRangeExcludingIds,
   toIdRanges,
-} from "./pending-gap-ranges.js";
+} from "./pending-gap-ranges.ts";
 
 // --- Ops recovery surface ---
 //

@@ -1,5 +1,5 @@
-import { needsActionConfirm } from "../components/render-edit-action-button.js";
-import type { RenderEditAction } from "../components/render-edit-types.js";
+import { needsActionConfirm } from "../components/render-edit-action-button.tsx";
+import type { RenderEditAction } from "../components/render-edit-types.ts";
 
 // The primary header action always stays a visible text button: the screen's
 // declared `primaryAction` if it is visible, else `edit`, else the first

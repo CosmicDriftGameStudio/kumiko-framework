@@ -48,19 +48,19 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
+} from "../../compliance-profiles/index.ts";
 import {
   createDataRetentionFeature,
   resolveRetentionPolicyForTenant,
   tenantRetentionOverrideEntity,
   tenantRetentionOverrideTable,
-} from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity } from "../../tenant/membership-table.js";
-import { createUserFeature, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
-import { createForgetSeeders, nowInstant } from "./forget-test-helpers.js";
+} from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
+import { createUserFeature, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const POLICY_FOR = "data-retention:query:policy-for";
 const CREATE_INVOICE = "test-invoice:write:create";

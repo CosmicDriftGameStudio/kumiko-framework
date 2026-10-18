@@ -29,14 +29,14 @@ import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.js";
+import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
 import {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
   MAIL_THREAD_PII_FIELDS,
   mailThreadEntity,
   seenMessageTable,
-} from "../entities.js";
+} from "../entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
@@ -45,8 +45,8 @@ import {
   MAIL_THREAD_AGGREGATE_TYPE,
   MAIL_THREAD_UPDATED_EVENT_QN,
   type MailThreadEventPayload,
-} from "../events.js";
-import { inboundMessagesProjectionTable } from "../projection.js";
+} from "../events.ts";
+import { inboundMessagesProjectionTable } from "../projection.ts";
 
 // =============================================================================
 // Input-Schema — der normalisierte Provider-Output (RawInboundMessage,

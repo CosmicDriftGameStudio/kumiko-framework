@@ -15,11 +15,11 @@ import {
   type BootstrapReport,
   bootstrapTenants,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.js";
-import { buildComposeAuthOptions } from "./compose-features.js";
-import { type RunProdAppAuthOptions, requireEnv } from "./run-prod-app.js";
-import { resolveAuthMail } from "./run-prod-app-boot-context.js";
-import type { RunWorkerAppOptions } from "./run-worker-app.js";
+import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.ts";
+import { buildComposeAuthOptions } from "./compose-features.ts";
+import { type RunProdAppAuthOptions, requireEnv } from "./run-prod-app.ts";
+import { resolveAuthMail } from "./run-prod-app-boot-context.ts";
+import type { RunWorkerAppOptions } from "./run-worker-app.ts";
 
 const PROCESS_NAME = "runBootstrap";
 

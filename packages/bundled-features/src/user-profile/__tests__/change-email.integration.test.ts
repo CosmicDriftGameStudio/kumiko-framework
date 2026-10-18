@@ -16,35 +16,35 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserErrors, UserHandlers, UserQueries } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserErrors, UserHandlers, UserQueries } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
 import {
   UserDataRightsHandlers,
   UserProfileErrors,
   UserProfileHandlers,
   UserProfileQueries,
-} from "../constants.js";
-import { createUserProfileFeature } from "../feature.js";
+} from "../constants.ts";
+import { createUserProfileFeature } from "../feature.ts";
 
 let stack: TestStack;
 

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
-import { setupTestStack, type TestStack } from "../index.js";
+import { setupTestStack, type TestStack } from "../index.ts";
 
 const limitedFeature = defineFeature("shared-redis-test", (r) => {
   r.queryHandler({

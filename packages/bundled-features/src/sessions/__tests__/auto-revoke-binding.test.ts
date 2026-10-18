@@ -5,7 +5,7 @@ import {
   type SaveContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
-import { bindAutoRevokeFromFeature, createSessionsFeature } from "../feature.js";
+import { bindAutoRevokeFromFeature, createSessionsFeature } from "../feature.ts";
 
 // The postSave hook is registered unconditionally; the revoker arrives either
 // as the explicit constructor option or late-bound by run{Prod,Dev}App via

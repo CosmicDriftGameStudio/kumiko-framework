@@ -28,8 +28,8 @@ import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
-import { MOLLIE_PROVIDER_NAME } from "./constants.js";
-import type { MolliePriceConfig } from "./plugin-methods.js";
+import { MOLLIE_PROVIDER_NAME } from "./constants.ts";
+import type { MolliePriceConfig } from "./plugin-methods.ts";
 
 const log = createFallbackLogger("subscription-mollie");
 

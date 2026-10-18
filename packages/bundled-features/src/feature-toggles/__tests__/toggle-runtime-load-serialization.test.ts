@@ -5,7 +5,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
-import { GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
+import { GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
 
 function controllableDb() {
   const settleSelect: Array<() => void> = [];

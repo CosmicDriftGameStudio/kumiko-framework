@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { effectiveSnapshotGeneration } from "../../event-store/snapshot.js";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../index.js";
-import { adaptRowTransformToPayload } from "../registry-validate.js";
-import type { EntityEventMigration, EventUpcastCtx } from "../types/index.js";
+import { effectiveSnapshotGeneration } from "../../event-store/snapshot.ts";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../index.ts";
+import { adaptRowTransformToPayload } from "../registry-validate.ts";
+import type { EntityEventMigration, EventUpcastCtx } from "../types/index.ts";
 
 const ctx = {} as EventUpcastCtx;
 const textField = createTextField({ personal: false, reason: "test_fixture", required: false });

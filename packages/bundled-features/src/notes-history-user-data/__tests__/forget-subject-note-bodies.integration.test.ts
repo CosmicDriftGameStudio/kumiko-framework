@@ -34,28 +34,28 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createCryptoShreddingFeature } from "../../crypto-shredding/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createCryptoShreddingFeature } from "../../crypto-shredding/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.js";
-import { createFilesFeature } from "../../files/index.js";
+} from "../../data-retention/index.ts";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.ts";
+import { createFilesFeature } from "../../files/index.ts";
 import {
   createNotesHistoryFeature,
   NotesHistoryHandlers,
   noteEntryEntity,
   noteEntryExecutor,
   noteMentionEntity,
-} from "../../notes-history/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { noteMentionExportHook } from "../hooks.js";
-import { createNotesHistoryUserDataFeature } from "../index.js";
+} from "../../notes-history/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { noteMentionExportHook } from "../hooks.ts";
+import { createNotesHistoryUserDataFeature } from "../index.ts";
 
 const CONTACT_TABLE = "notes_mention_forget_test_contacts";
 const contactEntity = createEntity({

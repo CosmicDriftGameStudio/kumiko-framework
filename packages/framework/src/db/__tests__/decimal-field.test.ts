@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createDecimalField, createEntity } from "../../engine/factories.js";
-import { fieldToZod } from "../../engine/schema-builder.js";
-import { deriveEntityTableMeta } from "../entity-table-meta.js";
-import { coerceRow, extractTableInfo } from "../query.js";
-import { renderTableDdl } from "../render-ddl.js";
-import { buildEntityTable } from "../table-builder.js";
+import { createDecimalField, createEntity } from "../../engine/factories.ts";
+import { fieldToZod } from "../../engine/schema-builder.ts";
+import { deriveEntityTableMeta } from "../entity-table-meta.ts";
+import { coerceRow, extractTableInfo } from "../query.ts";
+import { renderTableDdl } from "../render-ddl.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 // decimal field — Postgres numeric(precision, scale). A new framework
 // primitive (not a port), so these are correctness-of-the-primitive checks:

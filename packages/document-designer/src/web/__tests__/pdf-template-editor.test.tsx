@@ -17,8 +17,8 @@ import {
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { documentDesignerClient } from "../client-plugin.js";
-import { PdfTemplateEditor } from "../pdf-template-editor.js";
+import { documentDesignerClient } from "../client-plugin.tsx";
+import { PdfTemplateEditor } from "../pdf-template-editor.tsx";
 
 const translations = mergeTranslations(
   mergeTranslations(kumikoDefaultTranslations, textBlocksClient().translations ?? {}),

@@ -7,9 +7,9 @@
 // not parse clears the value, so the parent never holds a stale prefix.
 
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "../lib/cn.js";
-import { Input as UiInput } from "../ui/input.js";
-import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.js";
+import { cn } from "../lib/cn.ts";
+import { Input as UiInput } from "../ui/input.tsx";
+import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";
 
 export type NumberInputProps = {
   readonly id: string;

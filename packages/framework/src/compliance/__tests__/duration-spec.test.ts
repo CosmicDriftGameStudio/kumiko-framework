@@ -12,7 +12,7 @@ import {
   describeDurationSpec,
   durationSpecToMs,
   subtractRetentionSpec,
-} from "../duration-spec.js";
+} from "../duration-spec.ts";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

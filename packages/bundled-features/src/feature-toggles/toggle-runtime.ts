@@ -11,8 +11,8 @@ import {
   type ClosableCacheSyncBus,
   createDefaultCacheSyncBus,
 } from "@cosmicdrift/kumiko-framework/redis";
-import { globalFeatureStateTable } from "./global-feature-state-table.js";
-import { createCacheSyncToggleSignal } from "./toggle-sync-signal.js";
+import { globalFeatureStateTable } from "./global-feature-state-table.ts";
+import { createCacheSyncToggleSignal } from "./toggle-sync-signal.ts";
 
 const log = createFallbackLogger("kumiko:feature-toggles");
 

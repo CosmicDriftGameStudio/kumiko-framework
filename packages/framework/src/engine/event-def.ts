@@ -1,12 +1,12 @@
 import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import { ZodObject, type ZodType } from "zod";
-import { qn, toKebab } from "./qualified-name.js";
+import { qn, toKebab } from "./qualified-name.ts";
 import type {
   EventDef,
   EventPiiFields,
   EventPiiStance,
   QualifiedEventName,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 // A payload field that still holds null/undefined after parsing — the case
 // where an event-PII owner field yields no subject at append time (fw#2776).

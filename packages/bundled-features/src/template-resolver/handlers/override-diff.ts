@@ -1,6 +1,6 @@
-import type { TemplateResourceRow } from "../table.js";
-import { diffTemplateBlocks, splitTemplateBlocks } from "../template-diff.js";
-import { servedVersionOf } from "../template-draft.js";
+import type { TemplateResourceRow } from "../table.ts";
+import { diffTemplateBlocks, splitTemplateBlocks } from "../template-diff.ts";
+import { servedVersionOf } from "../template-draft.ts";
 
 function parseStoredMeta(raw: string | null): Readonly<Record<string, unknown>> {
   if (raw === null) return {};

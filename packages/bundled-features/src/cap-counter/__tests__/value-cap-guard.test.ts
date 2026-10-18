@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { readPayloadField } from "../payload-field.js";
-import type { CapGuardContext } from "../stock-cap-guard.js";
-import { createValueCapGuard } from "../value-cap-guard.js";
+import { readPayloadField } from "../payload-field.ts";
+import type { CapGuardContext } from "../stock-cap-guard.ts";
+import { createValueCapGuard } from "../value-cap-guard.ts";
 
 type Caps = { readonly minDays?: number; readonly maxDays?: number };
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { serializeError } from "../../errors/index.js";
-import { publicIntakeRequiredError } from "../write-origin.js";
+import { serializeError } from "../../errors/index.ts";
+import { publicIntakeRequiredError } from "../write-origin.ts";
 
 describe("publicIntakeRequiredError", () => {
   const origin = { rootHandler: "intake:write:submit", anonymousRoot: true, publicIntake: false };

@@ -4,7 +4,7 @@ import {
   createSessionEndedSignal,
   isSessionEndedError,
   withSessionEndedDetection,
-} from "../session/session-ended.js";
+} from "../session/session-ended.tsx";
 
 function errorOf(httpStatus: number, code: string): DispatcherError {
   return { code, httpStatus, i18nKey: `errors.${code}`, message: code };

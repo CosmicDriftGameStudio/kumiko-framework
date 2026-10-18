@@ -17,17 +17,17 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { userSessionTable } from "../../sessions/schema/user-session.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantTable } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { createTenantLifecycleFeature, TenantLifecycleHandlers } from "../index.js";
-import { resetTenantLifecycleGateCacheForTests } from "../lifecycle-gate.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { userSessionTable } from "../../sessions/schema/user-session.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { createTenantLifecycleFeature, TenantLifecycleHandlers } from "../index.ts";
+import { resetTenantLifecycleGateCacheForTests } from "../lifecycle-gate.ts";
 
 const JOB = "tenant-lifecycle:job:run-tenant-destruction";
 const SET_PROFILE = "compliance-profiles:write:set-profile";

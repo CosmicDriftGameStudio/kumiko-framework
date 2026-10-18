@@ -3,7 +3,7 @@
 
 import * as React from "react"
 
-import { cn } from "../lib/cn.js"
+import { cn } from "../lib/cn.ts"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (

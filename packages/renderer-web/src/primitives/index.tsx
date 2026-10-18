@@ -121,65 +121,65 @@ import {
   useRef,
   useState,
 } from "react";
-import { Icon, NAV_ICONS } from "../icons.js";
-import { cn } from "../lib/cn.js";
-import { Badge } from "../ui/badge.js";
-import { buttonVariants, Button as UiButton } from "../ui/button.js";
-import { Checkbox } from "../ui/checkbox.js";
-import { Input as UiInput } from "../ui/input.js";
-import { Label as UiLabel } from "../ui/label.js";
-import { Switch } from "../ui/switch.js";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.js";
-import { Textarea } from "../ui/textarea.js";
-import { ProgressBar } from "../widgets/progress-bar.js";
-import { StatusBadge } from "../widgets/status-badge.js";
-import { StepBar } from "../widgets/step-bar.js";
-import { inFieldIconButtonClass } from "./calendar-popover.js";
-import { ComboboxInput, type ComboboxOption } from "./combobox.js";
-import { DateInput } from "./date-input.js";
-import { DefaultDialog } from "./dialog.js";
-import { DefaultDrawer } from "./drawer.js";
+import { Icon, NAV_ICONS } from "../icons.tsx";
+import { cn } from "../lib/cn.ts";
+import { Badge } from "../ui/badge.tsx";
+import { buttonVariants, Button as UiButton } from "../ui/button.tsx";
+import { Checkbox } from "../ui/checkbox.tsx";
+import { Input as UiInput } from "../ui/input.tsx";
+import { Label as UiLabel } from "../ui/label.tsx";
+import { Switch } from "../ui/switch.tsx";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.tsx";
+import { Textarea } from "../ui/textarea.tsx";
+import { ProgressBar } from "../widgets/progress-bar.tsx";
+import { StatusBadge } from "../widgets/status-badge.tsx";
+import { StepBar } from "../widgets/step-bar.tsx";
+import { inFieldIconButtonClass } from "./calendar-popover.tsx";
+import { ComboboxInput, type ComboboxOption } from "./combobox.tsx";
+import { DateInput } from "./date-input.tsx";
+import { DefaultDialog } from "./dialog.tsx";
+import { DefaultDrawer } from "./drawer.tsx";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./dropdown-menu.js";
-import { EmbeddedListInput } from "./embedded-list-input.js";
-import { CardLeadingImage, FileDisplayCell } from "./file-thumbnail.js";
-import { FileUploadInput } from "./file-upload.js";
-import { DefaultJsonView } from "./json-view.js";
+} from "./dropdown-menu.tsx";
+import { EmbeddedListInput } from "./embedded-list-input.tsx";
+import { CardLeadingImage, FileDisplayCell } from "./file-thumbnail.tsx";
+import { FileUploadInput } from "./file-upload.tsx";
+import { DefaultJsonView } from "./json-view.tsx";
 import {
   screenFormColumnWidthClassName,
   screenPaddingClassName,
   screenWidthClassName,
-} from "./layout.js";
-import { DefaultLightbox } from "./lightbox.js";
-import { LocatedTimestampInput } from "./located-timestamp-input.js";
-import { DefaultMetric, DefaultMetricBand, InsideScreenFormColumnContext } from "./metric.js";
-import { DefaultModal } from "./modal.js";
-import { currencyDecimals, formatMoney, MoneyInput } from "./money-input.js";
-import { NarrowPinnedFooter } from "./narrow-pinned-footer.js";
-import { NumberInput } from "./number-input.js";
-import { groupOptions, hasDescriptionOrGroup } from "./option-groups.js";
-import { DefaultPageHeader } from "./page-header.js";
-import { PromoPanel } from "./promo-panel.js";
-import { SegmentedControl } from "./segmented-select.js";
-import { CopyButton, ShareButton } from "./share-actions.js";
-import { DefaultStatusBadge } from "./status-badge.js";
+} from "./layout.tsx";
+import { DefaultLightbox } from "./lightbox.tsx";
+import { LocatedTimestampInput } from "./located-timestamp-input.tsx";
+import { DefaultMetric, DefaultMetricBand, InsideScreenFormColumnContext } from "./metric.tsx";
+import { DefaultModal } from "./modal.tsx";
+import { currencyDecimals, formatMoney, MoneyInput } from "./money-input.tsx";
+import { NarrowPinnedFooter } from "./narrow-pinned-footer.tsx";
+import { NumberInput } from "./number-input.tsx";
+import { groupOptions, hasDescriptionOrGroup } from "./option-groups.ts";
+import { DefaultPageHeader } from "./page-header.tsx";
+import { PromoPanel } from "./promo-panel.tsx";
+import { SegmentedControl } from "./segmented-select.tsx";
+import { CopyButton, ShareButton } from "./share-actions.tsx";
+import { DefaultStatusBadge } from "./status-badge.tsx";
 import {
   STICKY_FOOTER_SAFE_AREA_CLASS,
   STICKY_FOOTER_SPACER_CLASS,
   StickyActionBar,
-} from "./sticky-action-bar.js";
-import { DefaultTabs } from "./tabs.js";
-import { TimestampInput } from "./timestamp-input.js";
-import { useToast } from "./toast.js";
-import { TzInput } from "./tz-input.js";
-import { useKeyboardInset } from "./use-keyboard-inset.js";
-import { useIsBelowSmViewport, useIsNarrowViewport } from "./use-narrow-viewport.js";
-import "../react-css-custom-properties.js";
+} from "./sticky-action-bar.tsx";
+import { DefaultTabs } from "./tabs.tsx";
+import { TimestampInput } from "./timestamp-input.tsx";
+import { useToast } from "./toast.tsx";
+import { TzInput } from "./tz-input.tsx";
+import { useKeyboardInset } from "./use-keyboard-inset.ts";
+import { useIsBelowSmViewport, useIsNarrowViewport } from "./use-narrow-viewport.ts";
+import "../react-css-custom-properties.ts";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
@@ -4713,8 +4713,8 @@ function DefaultHeading({ variant = "page", children, testId }: HeadingProps): R
   );
 }
 
-import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade.js";
-import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge.js";
+import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade.tsx";
+import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge.tsx";
 
 // Generische Card-Chrome (rounded-xl wie die Entity-Card) — slot- + options-
 // basiert, damit der Contract additiv wächst und Consumer nie migriert werden.

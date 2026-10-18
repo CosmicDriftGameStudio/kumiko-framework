@@ -1,28 +1,28 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.js";
-import { authMfaEnvSchema } from "./env.js";
+import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.ts";
+import { authMfaEnvSchema } from "./env.ts";
 import type {
   BindMfaRevokeAllOtherSessions,
   BindMfaTokenSecrets,
   BindRevokeAllPatTokens,
-} from "./feature-exports.js";
-import { createDisableHandler } from "./handlers/disable.write.js";
-import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.js";
-import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write.js";
-import { createEnableStartHandler } from "./handlers/enable-start.write.js";
-import { createEnableStartPreauthHandler } from "./handlers/enable-start-preauth.write.js";
-import { mfaReencryptJob } from "./handlers/reencrypt.job.js";
-import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write.js";
-import { mfaStatusQuery } from "./handlers/status.query.js";
-import { createMfaVerifyHandler } from "./handlers/verify.write.js";
-import { AUTH_MFA_FEATURE_I18N } from "./i18n.js";
-import { createMfaCodeVerifier } from "./mfa-code-verifier.js";
-import { createMfaStatusChecker } from "./mfa-status-checker.js";
-import { userMfaEntity } from "./schema/user-mfa.js";
-import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens.js";
-import { type ResolvedMfaTokenSecrets, resolveMfaTokenSecretsFromEnv } from "./token-secrets.js";
+} from "./feature-exports.ts";
+import { createDisableHandler } from "./handlers/disable.write.ts";
+import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.ts";
+import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write.ts";
+import { createEnableStartHandler } from "./handlers/enable-start.write.ts";
+import { createEnableStartPreauthHandler } from "./handlers/enable-start-preauth.write.ts";
+import { mfaReencryptJob } from "./handlers/reencrypt.job.ts";
+import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write.ts";
+import { mfaStatusQuery } from "./handlers/status.query.ts";
+import { createMfaVerifyHandler } from "./handlers/verify.write.ts";
+import { AUTH_MFA_FEATURE_I18N } from "./i18n.ts";
+import { createMfaCodeVerifier } from "./mfa-code-verifier.ts";
+import { createMfaStatusChecker } from "./mfa-status-checker.ts";
+import { userMfaEntity } from "./schema/user-mfa.ts";
+import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens.ts";
+import { type ResolvedMfaTokenSecrets, resolveMfaTokenSecretsFromEnv } from "./token-secrets.ts";
 
 const REENCRYPT_ESCAPE_HATCH_REASON =
   "re-encrypts MFA secrets of every tenant's users with the new master key";

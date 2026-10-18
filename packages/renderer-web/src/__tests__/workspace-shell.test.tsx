@@ -12,16 +12,16 @@ import {
 import { render as _render, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { useBrowserNavApi } from "../app/nav.js";
+import { useBrowserNavApi } from "../app/nav.tsx";
 import {
   filterByAccess,
   firstNavScreenId,
   resolveDefaultId,
   WorkspaceShell,
-} from "../layout/workspace-shell.js";
-import { WorkspaceSwitcher } from "../layout/workspace-switcher.js";
-import { defaultPrimitives } from "../primitives/index.js";
-import { createMockDispatcher, renderWithSidebar, screen } from "./test-utils.js";
+} from "../layout/workspace-shell.tsx";
+import { WorkspaceSwitcher } from "../layout/workspace-switcher.tsx";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { createMockDispatcher, renderWithSidebar, screen } from "./test-utils.tsx";
 
 // Dropdown instead of a tab row (see workspace-switcher.tsx) — the
 // trigger always shows only the active label, Radix renders the list

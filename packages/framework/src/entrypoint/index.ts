@@ -42,25 +42,25 @@
 // reaches clients on the same process.
 
 import type { Hono } from "hono";
-import type { AuthRoutesConfig } from "../api/auth-routes.js";
-import type { JwtHelper, JwtKeyring } from "../api/jwt.js";
-import type { KumikoServer, ServerOptions } from "../api/server.js";
-import { buildServer, withFileProviderResolver } from "../api/server.js";
-import type { SseBroker } from "../api/sse-broker.js";
-import type { PgClient, PgListenClient } from "../db/connection.js";
-import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
-import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types/index.js";
-import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner.js";
-import { createJobRunner } from "../jobs/job-runner.js";
-import type { Lifecycle } from "../lifecycle/index.js";
-import { createLifecycle } from "../lifecycle/index.js";
-import type { ObservabilityOptions, ObservabilityProvider } from "../observability/index.js";
-import { createNoopProvider } from "../observability/index.js";
-import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.js";
-import { dispatcherToWriteRef } from "../pipeline/dispatcher.js";
-import type { EventDedup, EventDispatcher } from "../pipeline/index.js";
-import type { SystemHooks } from "../pipeline/lifecycle-pipeline.js";
-import { resolveCacheSyncBus } from "../redis/cache-sync-bus.js";
+import type { AuthRoutesConfig } from "../api/auth-routes.ts";
+import type { JwtHelper, JwtKeyring } from "../api/jwt.ts";
+import type { KumikoServer, ServerOptions } from "../api/server.ts";
+import { buildServer, withFileProviderResolver } from "../api/server.ts";
+import type { SseBroker } from "../api/sse-broker.ts";
+import type { PgClient, PgListenClient } from "../db/connection.ts";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
+import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types/index.ts";
+import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner.ts";
+import { createJobRunner } from "../jobs/job-runner.ts";
+import type { Lifecycle } from "../lifecycle/index.ts";
+import { createLifecycle } from "../lifecycle/index.ts";
+import type { ObservabilityOptions, ObservabilityProvider } from "../observability/index.ts";
+import { createNoopProvider } from "../observability/index.ts";
+import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.ts";
+import { dispatcherToWriteRef } from "../pipeline/dispatcher.ts";
+import type { EventDedup, EventDispatcher } from "../pipeline/index.ts";
+import type { SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
+import { resolveCacheSyncBus } from "../redis/cache-sync-bus.ts";
 
 // Shared fields across all three modes. A caller that swaps between
 // modes can reuse the same options object.

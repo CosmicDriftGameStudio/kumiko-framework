@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildProdBundle } from "../build-prod-bundle.js";
-import { readBundledAsset, resolveBundledAsset } from "../bundled-assets.js";
+import { buildProdBundle } from "../build-prod-bundle.ts";
+import { readBundledAsset, resolveBundledAsset } from "../bundled-assets.ts";
 
 const BYTES = new Uint8Array([0, 1, 2, 254, 255]);
 

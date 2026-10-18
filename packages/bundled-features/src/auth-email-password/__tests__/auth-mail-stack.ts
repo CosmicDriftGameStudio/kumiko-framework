@@ -1,9 +1,9 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { seedNotificationTemplates } from "../../template-resolver/seeding.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
 
 // Auth mails are stored templates rendered by the mail renderer, so every
 // stack that sends one needs these features plus the boot seed (setupTestStack

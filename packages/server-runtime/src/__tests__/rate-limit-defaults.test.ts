@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveRateLimit } from "../rate-limit-defaults.js";
+import { resolveRateLimit } from "../rate-limit-defaults.ts";
 
 describe("resolveRateLimit", () => {
   test("defaults to L1 600/60 s and L2 30/60 s", () => {

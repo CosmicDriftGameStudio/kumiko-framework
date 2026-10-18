@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { act } from "react";
-import { ComboboxInput } from "../primitives/combobox.js";
-import { defaultPrimitives } from "../primitives/index.js";
-import { groupOptions } from "../primitives/option-groups.js";
-import { render, screen, within } from "./test-utils.js";
+import { ComboboxInput } from "../primitives/combobox.tsx";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { groupOptions } from "../primitives/option-groups.ts";
+import { render, screen, within } from "./test-utils.tsx";
 
 const { Input } = defaultPrimitives;
 

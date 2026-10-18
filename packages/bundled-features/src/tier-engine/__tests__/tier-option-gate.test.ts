@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createTierOptionGate } from "../tier-option-gate.js";
+import { createTierOptionGate } from "../tier-option-gate.ts";
 
 type Tier = "free" | "pro" | "enterprise";
 type Caps = { readonly layouts: readonly string[] };

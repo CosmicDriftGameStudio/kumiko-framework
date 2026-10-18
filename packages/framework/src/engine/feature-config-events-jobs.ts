@@ -2,12 +2,12 @@ import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
-import { isValidIanaTimeZone } from "../time/iana.js";
-import { createEventDef } from "./event-def.js";
-import type { FeatureBuilderState } from "./feature-builder-state.js";
-import { resolveName } from "./handler-helpers.js";
-import { splitNamedDefinition, unwrapArrayForm } from "./object-form.js";
-import { QnTypes, qn, toKebab } from "./qualified-name.js";
+import { isValidIanaTimeZone } from "../time/iana.ts";
+import { createEventDef } from "./event-def.ts";
+import type { FeatureBuilderState } from "./feature-builder-state.ts";
+import { resolveName } from "./handler-helpers.ts";
+import { splitNamedDefinition, unwrapArrayForm } from "./object-form.ts";
+import { QnTypes, qn, toKebab } from "./qualified-name.ts";
 import type {
   AuthClaimsFn,
   ClaimKeyHandle,
@@ -38,7 +38,7 @@ import type {
   SecretOptions,
   TemplateVariables,
   TranslationsDef,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 // Builds config/secrets/claims/events/jobs/notifications registrar methods.
 export function buildConfigEventsJobsMethods<TName extends string>(

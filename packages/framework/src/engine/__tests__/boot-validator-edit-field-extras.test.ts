@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { EditFieldSpec } from "@cosmicdrift/kumiko-types/screen";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
 import {
   createDateField,
   createEmbeddedListField,
   createEntity,
   createTextField,
-} from "../factories.js";
+} from "../factories.ts";
 
 function featureWith(
   field: Exclude<EditFieldSpec, string>,

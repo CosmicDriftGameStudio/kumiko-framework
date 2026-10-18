@@ -8,7 +8,7 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { TagManager } from "./tag-manager.js";
+import { TagManager } from "./tag-manager.tsx";
 
 export function TagPicker({
   entityType,

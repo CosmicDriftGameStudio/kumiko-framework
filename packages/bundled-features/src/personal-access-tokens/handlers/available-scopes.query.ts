@@ -1,6 +1,6 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import type { PatScopeConfig } from "../scopes.js";
+import type { PatScopeConfig } from "../scopes.ts";
 
 // Returns the app-declared scope domains ({name, label, canWrite}) so the mint
 // UI can render a per-domain level picker (no access / read / read & write).

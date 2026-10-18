@@ -22,7 +22,7 @@ import {
   screen,
   setViewportWidth,
   waitFor,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 const profileEntity = {
   fields: {

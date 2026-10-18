@@ -5,7 +5,7 @@ import {
   chatWebhookUrlSchema,
   checkChatWebhookTarget,
   postChatWebhook,
-} from "../chat-webhook-sender.js";
+} from "../chat-webhook-sender.ts";
 
 const sendSpy = mock(async (_url: string, _init: RequestInit) => new Response("ok"));
 

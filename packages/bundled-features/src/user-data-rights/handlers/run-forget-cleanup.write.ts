@@ -15,9 +15,9 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { resolveAppTenantModel } from "../lib/resolve-tenant-model.js";
-import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.js";
-import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "../run-forget-cleanup.js";
+import { resolveAppTenantModel } from "../lib/resolve-tenant-model.ts";
+import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
+import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "../run-forget-cleanup.ts";
 
 export type RunForgetCleanupOptions = {
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;

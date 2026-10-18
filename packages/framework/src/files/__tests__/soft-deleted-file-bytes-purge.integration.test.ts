@@ -7,15 +7,15 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { selectMany } from "../../db/query.js";
-import { createTenantDb } from "../../db/tenant-db.js";
-import { SOFT_DELETE_CLEANUP_JOB } from "../../engine/soft-delete-cleanup.js";
-import { runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
-import { createFileContext, createFilesFeature, deriveKey, fileRefsTable } from "../index.js";
-import { purgeExpiredFileRefsWithBytes } from "../purge-expired-file-ref-bytes.js";
-import { FILE_REF_ENTITY_NAME } from "../types.js";
+import { selectMany } from "../../db/query.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
+import { SOFT_DELETE_CLEANUP_JOB } from "../../engine/soft-delete-cleanup.ts";
+import { runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.ts";
+import { createFileContext, createFilesFeature, deriveKey, fileRefsTable } from "../index.ts";
+import { purgeExpiredFileRefsWithBytes } from "../purge-expired-file-ref-bytes.ts";
+import { FILE_REF_ENTITY_NAME } from "../types.ts";
 
 const DERIVATIVE_SUFFIX = "thumb-0123456789abcdef";
 const PNG_BYTES = new Uint8Array([
