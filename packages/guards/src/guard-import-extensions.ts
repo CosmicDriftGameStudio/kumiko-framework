@@ -15,7 +15,7 @@
  */
 
 import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
-import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const SCAN: ScanSpec = {
   scope: "source+tests",

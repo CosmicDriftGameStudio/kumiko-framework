@@ -142,6 +142,7 @@ function writeSampleTsconfig(ws: SampleWorkspace): string {
       noEmit: false,
       declaration: true,
       emitDeclarationOnly: true,
+      rewriteRelativeImportExtensions: false,
       outDir,
       tsBuildInfoFile: join(outDir, "tsconfig.tsbuildinfo"),
     },
