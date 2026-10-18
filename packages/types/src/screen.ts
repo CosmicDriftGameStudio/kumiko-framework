@@ -2091,6 +2091,10 @@ export type ConfigEditScreenDefinition = {
    *  Validator prüft dass jeder qualifizierte Key in der Registry
    *  bekannt ist. */
   readonly configKeys: Readonly<Record<string, string>>;
+  /** Field name → qualified secret key (`<feature>:secret:<short>`), tenant scope only.
+   *  Such a field is a writeOnly text field with no `configKeys` entry; the same save
+   *  writes it through secrets:write:set (or secrets:write:delete on removal). */
+  readonly secretKeys?: Readonly<Record<string, string>>;
   /** Form-Shape pro Field-Name. Selbe FieldDefinitions wie auf
    *  Entities/ActionForm. Field-Names matchen die Keys in `configKeys`
    *  — Boot-Validator pinnt das. */

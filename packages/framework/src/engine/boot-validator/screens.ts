@@ -43,6 +43,7 @@ import { metricField } from "../types/index.js";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
   DashboardChartMarkerKind,
   DashboardChartPanel,
   DashboardChartRanges,
@@ -869,6 +870,40 @@ function validateOptionsQueryFieldRefs(
 
 function isWriteOnlyField(fdef: FieldDefinition | undefined): boolean {
   return (fdef as { writeOnly?: unknown } | undefined)?.writeOnly === true; // @cast-boundary schema-walk
+}
+
+// A secret on a configEdit form keeps its value out of the client like an encrypted
+// config key does, and the secrets store only exists per tenant.
+function validateConfigEditSecretField(
+  featureName: string,
+  screen: ConfigEditScreenDefinition,
+  fieldName: string,
+  secretQn: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const where = `[Feature ${featureName}] Screen "${screen.id}" (configEdit) field "${fieldName}"`;
+  if (screen.configKeys[fieldName] !== undefined) {
+    throw new Error(`${where} is mapped in both configKeys and secretKeys — keep one.`);
+  }
+  if (screen.scope !== "tenant") {
+    throw new Error(
+      `${where} maps secret "${secretQn}" on a ${screen.scope}-scope screen — secrets are tenant-scoped.`,
+    );
+  }
+  const fdef = screen.fields[fieldName];
+  if (fdef?.type !== "text" || !isWriteOnlyField(fdef)) {
+    throw new Error(
+      `${where} maps secret "${secretQn}" but is no writeOnly text field — a stored secret never goes back to the client.`,
+    );
+  }
+  const declared = [...featureMap.values()].some((feature) =>
+    Object.values(feature.secretKeys ?? {}).some((def) => def.qualifiedName === secretQn),
+  );
+  if (!declared) {
+    throw new Error(
+      `${where} → secret "${secretQn}" is not declared via r.secret() in any feature.`,
+    );
+  }
 }
 
 // Inline forms have no stored value to hide or keep: writeOnly there would
@@ -2464,9 +2499,21 @@ export function validateScreens(
         }
       }
       validateWizardLayout(feature.name, screenId, "configEdit", screen.layout, featureMap);
+      for (const fname of Object.keys(screen.secretKeys ?? {})) {
+        if (!fieldNames.has(fname)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) secretKeys names unknown field "${fname}".`,
+          );
+        }
+      }
       // configKeys: jeder fieldName muss einen Mapping-Eintrag haben,
       // jeder qualifizierte Key muss in der Registry existieren.
       for (const fname of fieldNames) {
+        const secretQn = screen.secretKeys?.[fname];
+        if (secretQn !== undefined) {
+          validateConfigEditSecretField(feature.name, screen, fname, secretQn, featureMap);
+          continue;
+        }
         const qualified = screen.configKeys[fname];
         if (qualified === undefined) {
           throw new Error(

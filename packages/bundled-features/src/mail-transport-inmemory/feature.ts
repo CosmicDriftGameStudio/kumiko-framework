@@ -89,6 +89,9 @@ export function createMailTransportInMemoryFeature() {
       r.requires({ features: ["mail-foundation"] });
 
       const plugin: MailTransportPlugin = {
+        // Solon and studio mount it next to smtp in production; offering it there would
+        // let a tenant admin route every mail into process memory.
+        selectableInSettings: false,
         build: async (_ctx: MailTransportContext, tenantId: string): Promise<EmailTransport> => {
           // Returns the per-tenant buffer. Identity-stable across calls so the
           // demo inbox keeps accumulating.
@@ -96,6 +99,9 @@ export function createMailTransportInMemoryFeature() {
         }, // @wrapper-known semantic-alias
       };
       r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
+      r.translations({
+        keys: { "mail-transport-inmemory.settings": { en: "Test inbox (in memory)" } },
+      });
     },
     { dedupeOptions: {} },
   );

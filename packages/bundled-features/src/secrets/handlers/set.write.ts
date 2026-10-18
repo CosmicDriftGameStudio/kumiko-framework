@@ -2,7 +2,7 @@ import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framewo
 import * as z from "zod";
 import { announceSecretChange } from "../announce-secret-change.js";
 import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
-import { requireSecretsContext } from "../feature.js";
+import { JOIN_REQUEST_TRANSACTION_REASON, requireSecretsContext } from "../feature.js";
 import { checkSecretKeyWrite, checkSecretValue } from "../write-gate.js";
 
 export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
@@ -23,8 +23,11 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
       hint: z.string().max(200).optional(),
     }),
     access,
+    escapeHatch: { grants: ["unsafeRaw"], reason: JOIN_REQUEST_TRANSACTION_REASON },
     handler: async (event, ctx) => {
-      const secrets = requireSecretsContext(ctx, "secrets:write:set");
+      const secrets = requireSecretsContext(ctx, "secrets:write:set").withRunner(
+        ctx.db.unsafeRaw(),
+      );
       const { key, value, redactedPreview, hint } = event.payload;
 
       // Preview-priority: explicit payload param > feature-declared redact

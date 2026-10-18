@@ -325,6 +325,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
             readonly renamedFrom?: readonly string[];
             readonly systemOnly?: boolean;
             readonly unsubscribe?: boolean;
+            readonly tenantTransport?: boolean;
           }),
       definition?: {
         readonly trigger?: { readonly on: NameOrRef };
@@ -339,6 +340,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         readonly renamedFrom?: readonly string[];
         readonly systemOnly?: boolean;
         readonly unsubscribe?: boolean;
+        readonly tenantTransport?: boolean;
       },
     ): void {
       const [notificationName, resolvedDefinition] =
@@ -371,6 +373,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           : {}),
         ...(resolvedDefinition.systemOnly === true ? { systemOnly: true } : {}),
         ...(resolvedDefinition.unsubscribe === true ? { unsubscribe: true } : {}),
+        ...(resolvedDefinition.tenantTransport === true ? { tenantTransport: true } : {}),
       };
     },
     translations(def: TranslationsDef): void {

@@ -90,7 +90,6 @@ export const DEFAULT_PDF_LAYOUT_SLUG = "default";
 // The mail transport enforces no size limit of its own; 10 MiB is a common provider ceiling.
 export const MAIL_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 
-export const TEST_MAIL_NOTIFICATION_TYPE = "template-resolver:test-mail";
 export const TEST_MAIL_SUBJECT_PREFIX = "[TEST] ";
 
 // System-Templates leben unter der canonical SYSTEM_TENANT_ID-Sentinel-UUID.

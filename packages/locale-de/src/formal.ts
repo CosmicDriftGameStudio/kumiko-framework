@@ -148,7 +148,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.subject": "{app} — Ihr Datenexport ist bereit",
   "config.settings.audience.user": "Gilt nur für Sie.",
   "config.settings.extensionSelectorHint":
-    "Wählen Sie einen Anbieter und speichern Sie. Seine Einstellungen erscheinen darunter.",
+    "Wählen Sie einen Anbieter. Seine Einstellungen erscheinen darunter und werden mit ihm gespeichert.",
   "kumiko.config.cascade.origin.user": "Von Ihnen gesetzt. Standard ist {value}.",
   "kumiko.config.cascade.originNoDefault.user": "Von Ihnen gesetzt.",
   "kumiko.config.source.user": "Ihr Wert",
@@ -213,6 +213,14 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Sie ist für Ihr Konto nicht freigeschaltet oder existiert nicht mehr.",
   "auth.mfa.setup.intro":
     "Scannen Sie den QR-Code mit einer Authenticator-App wie Google Authenticator oder 1Password.",
+  "mail-foundation.provider.description":
+    "Ohne eigenen Server verschickt die Plattform die Mails. Setzen Sie die Auswahl zurück, um dorthin zurückzukehren.",
+  "mail-transport-smtp.settings.description":
+    "Die Zugangsdaten bekommen Sie von Ihrem Mail-Anbieter, zum Beispiel Brevo, Postmark, Amazon SES oder Ihrem eigenen Server.",
+  "mail-transport-smtp.port.description":
+    "Meist 587. Nehmen Sie 465, wenn Ihr Anbieter SSL/TLS verlangt.",
+  "mail-transport-smtp.from.description":
+    "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Ihr Anbieter muss sie erlauben.",
   "tier-admin.explainer":
     "Weisen Sie einem Mandanten ein Tier ohne Kauf zu. Die manuelle Zuweisung bleibt bestehen, auch wenn sich die Abrechnung später automatisch aktualisiert.",
 };

@@ -107,14 +107,9 @@ function ownerDashboard(features: Parameters<typeof createRegistry>[0]): Dashboa
 }
 
 describe("extensionSelector owner panels — generated dashboard", () => {
-  test("owner panels sit after selection and before the plugin panels, short screen refs are qualified", () => {
+  test("owner panels sit after the provider form, short screen refs are qualified", () => {
     const dashboard = ownerDashboard([mailFoundation([STATUS_PANEL, QUEUE_PANEL]), smtp]);
-    expect(dashboard.panels.map((p) => p.id)).toEqual([
-      "selection",
-      "mail-status",
-      "queue",
-      "mail-smtp-config",
-    ]);
+    expect(dashboard.panels.map((p) => p.id)).toEqual(["selection", "mail-status", "queue"]);
     expect(dashboard.panels[2]).toMatchObject({
       kind: "screen",
       screen: "mail-foundation:screen:queue",
@@ -126,11 +121,28 @@ describe("extensionSelector owner panels — generated dashboard", () => {
     expect(dashboard.panels.map((p) => p.id)).toEqual(["selection", "mail-status"]);
   });
 
-  test("a panel id that collides with a generated plugin panel id throws", () => {
-    const clash: ExtensionSelectorPanel = { ...STATUS_PANEL, id: "mail-smtp-config" };
-    expect(() => ownerDashboard([mailFoundation([clash]), smtp])).toThrow(
-      /duplicate panel id "mail-smtp-config"/,
-    );
+  test("two selectors of one owner declaring the same panel id throw", () => {
+    const smsSelector = defineFeature("mail-foundation", (r) => {
+      r.extendsRegistrar("mailTransport", { onRegister: () => undefined });
+      r.extendsRegistrar("smsTransport", { onRegister: () => undefined });
+      const keys = r.config({
+        keys: {
+          provider: createTenantConfig("text", {
+            default: "",
+            write: access.roles("TenantAdmin", "Admin"),
+            mask: { title: "mail.provider" },
+          }),
+          "sms-provider": createTenantConfig("text", {
+            default: "",
+            write: access.roles("TenantAdmin", "Admin"),
+            mask: { title: "sms.provider" },
+          }),
+        },
+      });
+      r.extensionSelector("mailTransport", keys.provider, { panels: [STATUS_PANEL] });
+      r.extensionSelector("smsTransport", keys["sms-provider"], { panels: [STATUS_PANEL] });
+    });
+    expect(() => ownerDashboard([smsSelector])).toThrow(/duplicate panel id "mail-status"/);
   });
 
   test("an untyped author passing another panel kind fails closed", () => {
@@ -147,12 +159,7 @@ describe("extensionSelector owner panels — generated dashboard", () => {
     const config = projected.features.find((f) => f.featureName === "config");
     const dashboard = config?.screens.find((s) => s.id === "mail-foundation-tenant");
     if (dashboard?.type !== "dashboard") throw new Error("owner dashboard missing");
-    expect(dashboard.panels.map((p) => p.id)).toEqual([
-      "selection",
-      "mail-status",
-      "queue",
-      "mail-smtp-config",
-    ]);
+    expect(dashboard.panels.map((p) => p.id)).toEqual(["selection", "mail-status", "queue"]);
   });
 });
 

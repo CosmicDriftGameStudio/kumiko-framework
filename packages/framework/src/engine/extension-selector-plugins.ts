@@ -1,4 +1,5 @@
 import type { Registry } from "./types/feature.js";
+import type { RegistrarExtensionRegistration } from "./types/index.js";
 
 // Pinned QN of config's selected-extensions query — framework cannot import
 // bundled-features, so a pin test bundled-side keeps it equal to the handler.
@@ -11,6 +12,28 @@ export function selectablePluginIds(
   extensionName: string,
 ): string[] {
   return [...new Set(registry.getExtensionUsages(extensionName).map((u) => u.entityName))].sort();
+}
+
+// A plugin registered with `selectableInSettings: false` (a test inbox) stays a valid
+// stored value for seeds and dev setups, but the generated settings never offer it.
+const SELECTABLE_IN_SETTINGS_OPTION = "selectableInSettings";
+
+export function isSelectableInSettings(usage: RegistrarExtensionRegistration): boolean {
+  return usage.options?.[SELECTABLE_IN_SETTINGS_OPTION] !== false;
+}
+
+export function settingsSelectablePluginIds(
+  registry: Pick<Registry, "getExtensionUsages">,
+  extensionName: string,
+): string[] {
+  return [
+    ...new Set(
+      registry
+        .getExtensionUsages(extensionName)
+        .filter(isSelectableInSettings)
+        .map((u) => u.entityName),
+    ),
+  ].sort();
 }
 
 export function extensionSelectorTargets(

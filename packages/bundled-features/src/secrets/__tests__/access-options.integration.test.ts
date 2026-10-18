@@ -9,6 +9,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEnvMasterKeyProvider,
   type MasterKeyProvider,
@@ -122,5 +123,57 @@ describe("secrets — access: { openToAll: { reason } }", () => {
     );
     expect(list.some((r) => r.key === SECRET_KEY)).toBe(true);
     await stack.http.writeOk("secrets:write:delete", { key: SECRET_KEY }, unprivileged);
+  });
+});
+
+describe("secrets — server-side system writes", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await buildStack(createSecretsFeature({ roles: ["Admin"] }));
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  test("the system dispatcher sets and deletes a declared secret through the handler gate", async () => {
+    const systemUser = createSystemUser(customRoleUser.tenantId, ["SystemAdmin"]);
+    const set = await stack.dispatcher.write(
+      "secrets:write:set",
+      { key: SECRET_KEY, value: "migrated" },
+      systemUser,
+    );
+    expect(set.isSuccess).toBe(true);
+    const list = await stack.http.queryOk<Array<{ key: string }>>(
+      "secrets:query:list",
+      {},
+      customRoleUser,
+    );
+    expect(list.some((r) => r.key === SECRET_KEY)).toBe(true);
+
+    const undeclared = await stack.dispatcher.write(
+      "secrets:write:set",
+      { key: "not-declared:secret:x", value: "x" },
+      systemUser,
+    );
+    expect(undeclared.isSuccess).toBe(false);
+
+    const deleted = await stack.dispatcher.write(
+      "secrets:write:delete",
+      { key: SECRET_KEY },
+      systemUser,
+    );
+    expect(deleted.isSuccess).toBe(true);
+  });
+
+  test("a human SystemAdmin session stays denied", async () => {
+    const platformAdmin = createTestUser({ roles: ["SystemAdmin"] });
+    const denied = await stack.http.writeErr(
+      "secrets:write:set",
+      { key: SECRET_KEY, value: "x" },
+      platformAdmin,
+    );
+    expect(denied.code).toBe("access_denied");
   });
 });

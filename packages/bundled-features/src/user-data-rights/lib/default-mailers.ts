@@ -7,8 +7,8 @@
 // to the user, so delivery resolves the address and the attempt row carries
 // the recipientId the forget path erases. Deletion-executed cannot: the user
 // is gone by then, and an attempt row written after the erasure would be new
-// personal data. It renders the seeded template and sends over the tenant's
-// mail transport, with no delivery log.
+// personal data. It renders the seeded template and sends it straight through the
+// email channel (or, without one, the tenant's mail transport), with no delivery log.
 
 import type { EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { MAIL_TRANSPORT_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
@@ -21,7 +21,14 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { hasMailTranslations, mailT } from "@cosmicdrift/kumiko-framework/i18n";
-import { DELIVERY_CHANNEL_EXTENSION } from "../../delivery/index.js";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  buildChannelContext,
+  collectChannels,
+  DELIVERY_CHANNEL_EXTENSION,
+  type DeliveryChannel,
+  EMAIL_CHANNEL_NAME,
+} from "../../delivery/index.js";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
@@ -145,9 +152,15 @@ export function makeDefaultDeletionRequestedEmail(
 export type DeletionExecutedMailDeps = {
   readonly registry: Registry;
   readonly db: DbConnection;
+  /** Used only when no email delivery channel is mounted. */
   readonly resolveTransport: (tenantId: string) => Promise<EmailTransport>;
   readonly configFor: (tenantId: TenantId) => ConfigAccessor | undefined;
+  readonly secrets?: SecretsContext;
 };
+
+function emailChannelOf(registry: Registry): DeliveryChannel | undefined {
+  return collectChannels(registry).find((channel) => channel.name === EMAIL_CHANNEL_NAME);
+}
 
 export function makeDefaultDeletionExecutedEmail(
   deps: DeletionExecutedMailDeps,
@@ -189,6 +202,30 @@ export function makeDefaultDeletionExecutedEmail(
     );
     if (rendered.kind !== "mail") {
       throw new Error(`deletion-executed mail: renderer answered with kind "${rendered.kind}"`);
+    }
+    // The channel picks the same transport as every other mail of this notification
+    // (the app transport unless it is declared tenantTransport), so a tenant without
+    // its own mail provider still gets the confirmation. channel.send writes no attempt row.
+    const channel = emailChannelOf(deps.registry);
+    if (channel !== undefined) {
+      const result = await channel.send(
+        args.userEmail,
+        {
+          notificationType: type,
+          title: rendered.subject,
+          body: undefined,
+          data: undefined,
+          locale,
+        },
+        buildChannelContext(deps.db, deps.registry, undefined, tenantId, deps.secrets, config),
+        { subject: rendered.subject, html: rendered.html, text: rendered.text },
+      );
+      if (result.status !== "sent") {
+        // No address in the message: the user is already erased.
+        throw new Error(`deletion-executed mail not sent: ${result.error ?? result.status}`);
+      }
+      // skip: the channel delivered it, the transport fallback below is for apps without one
+      return;
     }
     const transport = await deps.resolveTransport(tenantId);
     await transport.send({

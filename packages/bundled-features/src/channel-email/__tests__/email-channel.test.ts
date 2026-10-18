@@ -426,3 +426,77 @@ describe("email channel notifications without a template", () => {
     );
   });
 });
+
+describe("email channel transport per notification", () => {
+  const routingRegistry = createRegistry([
+    defineFeature("app", (r) => {
+      r.notification("status-update", {
+        tenantTransport: true,
+        renamedFrom: ["app:notify:incident"],
+      });
+      r.notification("password-reset", {});
+    }),
+  ]);
+  const routingCtx = { registry: routingRegistry } as unknown as ChannelContext; // @cast-boundary send() with a rendered message only reads ctx.registry
+  const message = (notificationType: string): ChannelMessage => ({
+    notificationType,
+    title: "t",
+    body: "b",
+    data: {},
+  });
+
+  test("a flagged notification goes through the tenant transport", async () => {
+    const app = createInMemoryTransport();
+    const tenant = createInMemoryTransport();
+    const channel = createEmailChannel({
+      transport: app,
+      tenantTransport: async () => tenant,
+      resolveEmail,
+    });
+    await channel.send("a@example.com", message("app:notify:status-update"), routingCtx, rendered);
+    expect(tenant.sent.map((m) => m.to)).toEqual(["a@example.com"]);
+    expect(app.sent).toHaveLength(0);
+  });
+
+  test("a flagged notification under its old name still goes through the tenant transport", async () => {
+    const tenant = createInMemoryTransport();
+    const channel = createEmailChannel({ tenantTransport: async () => tenant, resolveEmail });
+    await channel.send("a@example.com", message("app:notify:incident"), routingCtx, rendered);
+    expect(tenant.sent).toHaveLength(1);
+  });
+
+  test("an unflagged notification goes through the app transport", async () => {
+    const app = createInMemoryTransport();
+    const tenant = createInMemoryTransport();
+    const channel = createEmailChannel({
+      transport: app,
+      tenantTransport: async () => tenant,
+      resolveEmail,
+    });
+    await channel.send("a@example.com", message("app:notify:password-reset"), routingCtx, rendered);
+    expect(app.sent).toHaveLength(1);
+    expect(tenant.sent).toHaveLength(0);
+  });
+
+  test("a flagged notification falls back to the app transport when the tenant has none", async () => {
+    const app = createInMemoryTransport();
+    const channel = createEmailChannel({
+      transport: app,
+      tenantTransport: async () => null,
+      resolveEmail,
+    });
+    await channel.send("a@example.com", message("app:notify:status-update"), routingCtx, rendered);
+    expect(app.sent).toHaveLength(1);
+  });
+
+  test("without an app transport, a mail with no tenant transport fails with missing_credentials", async () => {
+    const channel = createEmailChannel({ tenantTransport: async () => null, resolveEmail });
+    for (const type of ["app:notify:status-update", "app:notify:password-reset"]) {
+      expect(await channel.send("a@example.com", message(type), routingCtx, rendered)).toEqual({
+        status: "failed",
+        error: "missing_credentials",
+        address: "a@example.com",
+      });
+    }
+  });
+});

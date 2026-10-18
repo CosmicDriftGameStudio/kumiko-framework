@@ -65,10 +65,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
-  createUnsubscribeRoutes,
-  type UnsubscribeLinkConfig,
-} from "@cosmicdrift/kumiko-bundled-features/delivery";
-import {
   PAT_FEATURE,
   patRateLimitFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
@@ -85,7 +81,6 @@ import {
   loadJwtSecretOrKeyring,
   type PostAuthLandingResolver,
   parseTrustedProxyHopsEnv,
-  publicOriginOf,
   type SseBroker,
   type TokenVerifier,
   TRUSTED_PROXY_HOPS_ENV,
@@ -176,7 +171,8 @@ import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-se
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
 import { assertPiiBootInvariants } from "./pii-boot-gate.js";
-import { APP_BASE_URL_ENV, resolveAuthPublicOrigin } from "./resolve-auth-public-origin.js";
+import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.js";
+import { resolveUnsubscribeWiring, type UnsubscribeOption } from "./resolve-unsubscribe-wiring.js";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -197,6 +193,10 @@ import { shouldWireProdSessions } from "./session-wiring.js";
 import { stripNoRouteMatchHeader } from "./try-hono-first.js";
 
 export { buildBunServeOptions } from "./bun-serve-options.js";
+export {
+  resolveUnsubscribeWiring,
+  type UnsubscribeOption,
+} from "./resolve-unsubscribe-wiring.js";
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -691,10 +691,7 @@ export type RunProdAppOptions = {
    *  a throw or a non-https value fall back to the app origin. The link carries the mail's
    *  locale, so the confirmation pages speak the mail's language. An app reacts to an address
    *  opt-out with an `r.job` triggered on `DeliveryHandlers.unsubscribeAddress`. */
-  readonly unsubscribe?: {
-    readonly secret: string;
-    readonly tenantOrigin?: UnsubscribeLinkConfig["tenantOrigin"];
-  };
+  readonly unsubscribe?: UnsubscribeOption;
   /** Hook for app-wired co-running components that need the system-write
    *  dispatcher (e.g. wiring a webhook plugin's system-scoped secrets, or
    *  starting a co-running supervisor) — runs after buildServer, before
@@ -957,32 +954,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       })
     : undefined;
 
-  const unsubscribeBaseUrl = options.unsubscribe
-    ? publicOriginOf(
-        effectiveAuth?.publicOrigin ??
-          effectiveAuth?.mail?.baseUrl ??
-          envSource[APP_BASE_URL_ENV] ??
-          "",
-      )
-    : undefined;
-  if (options.unsubscribe && unsubscribeBaseUrl === undefined) {
-    createFallbackLogger("runProdApp").warn(
-      `unsubscribe is enabled but no valid public app URL is known (auth.publicOrigin, auth.mail.baseUrl or ${APP_BASE_URL_ENV}), so mails get no unsubscribe link.`,
-    );
-  }
-  const unsubscribeLinks =
-    options.unsubscribe && unsubscribeBaseUrl !== undefined
-      ? {
-          secret: options.unsubscribe.secret,
-          baseUrl: unsubscribeBaseUrl,
-          ...(options.unsubscribe.tenantOrigin !== undefined && {
-            tenantOrigin: options.unsubscribe.tenantOrigin,
-          }),
-        }
-      : undefined;
-  const unsubscribeRoutes = options.unsubscribe
-    ? createUnsubscribeRoutes({ secret: options.unsubscribe.secret })
-    : [];
+  const { unsubscribeLinks, unsubscribeRoutes } = resolveUnsubscribeWiring({
+    unsubscribe: options.unsubscribe,
+    publicOrigin: effectiveAuth?.publicOrigin,
+    mailBaseUrl: effectiveAuth?.mail?.baseUrl,
+    envSource,
+    warn: (message) => createFallbackLogger("runProdApp").warn(message),
+  });
 
   // 3. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
   //    password via composeFeatures — same source-of-truth as runDevApp

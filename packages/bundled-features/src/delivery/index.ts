@@ -20,7 +20,11 @@ export {
   DEFAULT_ATTEMPT_LOG_RETENTION_DAYS,
   runAttemptLogRetention,
 } from "./attempt-log-retention.js";
-export { createEmailAttachmentReader, createTemplateMailRenderer } from "./channel-context.js";
+export {
+  buildChannelContext,
+  createEmailAttachmentReader,
+  createTemplateMailRenderer,
+} from "./channel-context.js";
 export {
   type ChatWebhookChannelOptions,
   chatMessageText,
@@ -67,6 +71,7 @@ export {
   type UnsubscribeAddressPayload,
   unsubscribeAddressPayloadSchema,
 } from "./handlers/unsubscribe-address.write.js";
+export { currentNotificationType } from "./notification-type-aliases.js";
 export { createDeliveryNotifyFactory } from "./notify-factory.js";
 export {
   deliveryAttemptsTable,
@@ -93,8 +98,10 @@ export {
   type AddressUnsubscribeTokenPayload,
   createUnsubscribeRoutes,
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
+  renderUnsubscribeResultPage,
   signAddressUnsubscribeToken,
   signUnsubscribeToken,
+  type UnsubscribeResultPage,
   type UnsubscribeRouteOptions,
   type UnsubscribeTokenPayload,
 } from "./unsubscribe.js";

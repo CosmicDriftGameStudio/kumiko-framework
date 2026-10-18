@@ -415,33 +415,48 @@ function confirmationPage(token: string, locale: string | undefined): string {
   );
 }
 
-function unsubscribedPage(resubscribeToken: string, locale: string | undefined): string {
-  const lang = pageLocale(locale);
-  return htmlPage(
-    lang,
-    mailT(lang, "mail.unsubscribe.doneTitle"),
-    `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.doneMessage"))}</p>
+export type UnsubscribeResultPage =
+  // Without a resubscribeToken the page offers no undo button.
+  | { readonly kind: "unsubscribed"; readonly resubscribeToken?: string }
+  | { readonly kind: "resubscribed" }
+  | { readonly kind: "failed" };
+
+/** The plain result page the unsubscribe routes answer with, for apps serving their own
+ *  (e.g. legacy) unsubscribe links. Texts come from the mail translations of `locale`. */
+export function renderUnsubscribeResultPage(
+  page: UnsubscribeResultPage & { readonly locale?: string | undefined },
+): string {
+  const lang = pageLocale(page.locale);
+  switch (page.kind) {
+    case "unsubscribed": {
+      const undoForm =
+        page.resubscribeToken === undefined
+          ? ""
+          : `
 <form method="post" action="${DELIVERY_RESUBSCRIBE_PATH}">
-<input type="hidden" name="token" value="${escapeHtmlAttr(resubscribeToken)}">
+<input type="hidden" name="token" value="${escapeHtmlAttr(page.resubscribeToken)}">
 <button type="submit">${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.undoButton"))}</button>
-</form>`,
-  );
+</form>`;
+      return htmlPage(
+        lang,
+        mailT(lang, "mail.unsubscribe.doneTitle"),
+        `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.doneMessage"))}</p>${undoForm}`,
+      );
+    }
+    case "resubscribed":
+      return htmlPage(
+        lang,
+        mailT(lang, "mail.unsubscribe.resubscribedTitle"),
+        `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.resubscribedMessage"))}</p>`,
+      );
+    case "failed": {
+      const message = mailT(lang, "mail.unsubscribe.failed");
+      return htmlPage(lang, message, `<p>${escapeHtmlAttr(message)}</p>`);
+    }
+  }
 }
 
-function resubscribedPage(locale: string | undefined): string {
-  const lang = pageLocale(locale);
-  return htmlPage(
-    lang,
-    mailT(lang, "mail.unsubscribe.resubscribedTitle"),
-    `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.resubscribedMessage"))}</p>`,
-  );
-}
-
-function failedPage(locale: string | undefined): string {
-  const lang = pageLocale(locale);
-  const message = mailT(lang, "mail.unsubscribe.failed");
-  return htmlPage(lang, message, `<p>${escapeHtmlAttr(message)}</p>`);
-}
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 
 function isFormRequest(contentType: string | undefined): boolean {
   return contentType?.includes("application/x-www-form-urlencoded") === true;
@@ -516,12 +531,20 @@ export function createUnsubscribeRoutes(
       // (e.g. events-table missing, DB down) behind a misleading 400.
       const succeeded = await dispatchUnsubscribeWrite(verified, deps);
       if (!succeeded) {
-        return c.html(failedPage(verified.locale), 500, { "Cache-Control": "no-store" });
+        return c.html(
+          renderUnsubscribeResultPage({ kind: "failed", locale: verified.locale }),
+          500,
+          NO_STORE_HEADERS,
+        );
       }
       return c.html(
-        unsubscribedPage(await signResubscribeToken(verified, encodedSecret), verified.locale),
+        renderUnsubscribeResultPage({
+          kind: "unsubscribed",
+          resubscribeToken: await signResubscribeToken(verified, encodedSecret),
+          locale: verified.locale,
+        }),
         200,
-        { "Cache-Control": "no-store" },
+        NO_STORE_HEADERS,
       );
     },
   });
@@ -540,22 +563,28 @@ export function createUnsubscribeRoutes(
       // The undo button on the unsubscribed page posts a form; a browser should land on a page.
       if (isFormRequest(c.req.header("content-type"))) {
         return outcome === "success"
-          ? c.html(resubscribedPage(verified.locale), 200, { "Cache-Control": "no-store" })
-          : c.html(failedPage(verified.locale), outcome === "limit_reached" ? 409 : 500, {
-              "Cache-Control": "no-store",
-            });
+          ? c.html(
+              renderUnsubscribeResultPage({ kind: "resubscribed", locale: verified.locale }),
+              200,
+              NO_STORE_HEADERS,
+            )
+          : c.html(
+              renderUnsubscribeResultPage({ kind: "failed", locale: verified.locale }),
+              outcome === "limit_reached" ? 409 : 500,
+              NO_STORE_HEADERS,
+            );
       }
       if (outcome === "limit_reached") {
-        return c.json({ error: { code: DeliveryErrors.resubscribeLimitReached } }, 409, {
-          "Cache-Control": "no-store",
-        });
+        return c.json(
+          { error: { code: DeliveryErrors.resubscribeLimitReached } },
+          409,
+          NO_STORE_HEADERS,
+        );
       }
       if (outcome === "failed") {
-        return c.json({ error: { code: "resubscribe_failed" } }, 500, {
-          "Cache-Control": "no-store",
-        });
+        return c.json({ error: { code: "resubscribe_failed" } }, 500, NO_STORE_HEADERS);
       }
-      return c.json({ isSuccess: true }, 200, { "Cache-Control": "no-store" });
+      return c.json({ isSuccess: true }, 200, NO_STORE_HEADERS);
     },
   });
 

@@ -457,9 +457,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Gilt für alle in diesem Mandanten. Wo hier nichts gesetzt ist, erscheinen die Plattform-Vorgaben.",
   "config.settings.audience.user": "Gilt nur für dich.",
   "config.settings.extensionSelectorHint":
-    "Wähle einen Anbieter und speichere. Seine Einstellungen erscheinen darunter.",
+    "Wähle einen Anbieter. Seine Einstellungen erscheinen darunter und werden mit ihm gespeichert.",
   "config.settings.provider": "Anbieter",
-  "config.settings.saveProvider": "Anbieter speichern",
   "config.settings.system": "Plattform",
   "config.settings.tenant": "Mandant",
   "config.settings.title": "Einstellungen",
@@ -1760,4 +1759,30 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.sent": "Test-Mail an Ihre Adresse gesendet: {subject}",
   "documentDesigner.mail.testMail.rateLimited":
     "Zu viele Test-Mails, bitte später erneut versuchen.",
+  "screen:mail-foundation-tenant.title": "E-Mail-Versand",
+  "mail-foundation.settings": "E-Mail-Versand",
+  "mail-foundation.provider": "Eigener Mailserver",
+  "mail-foundation.provider.description":
+    "Ohne eigenen Server verschickt die Plattform die Mails. Setz die Auswahl zurück, um dorthin zurückzukehren.",
+  "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",
+  "mail-transport-smtp.settings": "SMTP-Server",
+  "screen:mail-foundation-tenant-selection.title": "Anbieter",
+  "config:entity:__config-edit__:field:provider:option:smtp": "SMTP-Server",
+  "mail-transport-smtp.settings.secrets": "SMTP-Anmeldung",
+  "mail-transport-smtp.settings.description":
+    "Die Zugangsdaten bekommst du von deinem Mail-Anbieter, zum Beispiel Brevo, Postmark, Amazon SES oder deinem eigenen Server.",
+  "mail-transport-smtp.host": "Serveradresse",
+  "mail-transport-smtp.host.description":
+    "Hostname des SMTP-Servers, zum Beispiel smtp.example.com.",
+  "mail-transport-smtp.port": "Portnummer",
+  "mail-transport-smtp.port.description":
+    "Meist 587. Nimm 465, wenn dein Anbieter SSL/TLS verlangt.",
+  "mail-transport-smtp.secure": "SSL/TLS von Anfang an",
+  "mail-transport-smtp.secure.description":
+    "Für Port 465 einschalten. Für 587 aus lassen, dort schaltet die Verbindung selbst auf Verschlüsselung um.",
+  "mail-transport-smtp.authUser": "Benutzername",
+  "mail-transport-smtp.authUser.description": "Login-Name am SMTP-Server, oft eine E-Mail-Adresse.",
+  "mail-transport-smtp.from": "Absenderadresse",
+  "mail-transport-smtp.from.description":
+    "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Dein Anbieter muss sie erlauben.",
 };

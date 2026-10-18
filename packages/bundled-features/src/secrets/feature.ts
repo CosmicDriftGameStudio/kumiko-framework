@@ -3,6 +3,7 @@ import {
   type AccessRule,
   defineFeature,
   type FeatureDefinition,
+  SYSTEM_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { SETTINGS_HUB_I18N } from "@cosmicdrift/kumiko-framework/i18n";
@@ -62,6 +63,11 @@ export {
   TENANT_SECRET_READ_EVENT,
 } from "./secrets-context.js";
 export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./table.js";
+
+// The settings form saves config values and secrets in one /api/batch; the secret
+// write has to join that transaction so a rejected command rolls it back too.
+export const JOIN_REQUEST_TRANSACTION_REASON =
+  "the secret write runs on the request transaction so a failing batch rolls it back together with the config writes";
 
 // AppContext carries ctx.secrets via extraContext. requireSecretsContext
 // wraps that raw context so every `.get(...)` call auto-includes the
@@ -133,11 +139,20 @@ function resolveSecretsAccess(opts: SecretsFeatureOptions): AccessRule {
   return DEFAULT_SECRETS_ACCESS;
 }
 
+// Server-side system writes (dispatchSystemWrite, e.g. a wire hook migrating credentials) take the
+// same declared-key gate, value check and cache-sync announce as an admin instead of bypassing them
+// via SecretsContext.set. The system role is in-process only and never minted into a session.
+function withSystemWriter(rule: AccessRule): AccessRule {
+  if (!("roles" in rule) || rule.roles.includes(SYSTEM_ROLE)) return rule;
+  return { ...rule, roles: [SYSTEM_ROLE, ...rule.roles] };
+}
+
 export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureDefinition {
   const access = resolveSecretsAccess(opts);
+  const writeAccess = withSystemWriter(access);
   return defineFeature(SECRETS_FEATURE_NAME, (r) => {
     r.describe(
-      'Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: ["TenantAdmin"] }; adopt the host\'s role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: { reason } } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins).',
+      'Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: ["TenantAdmin"] }; adopt the host\'s role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: { reason } } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins). Server-side code writes a tenant secret with `dispatchSystemWrite({ handlerQn: "secrets:write:set", payload, tenantId })`: set and delete also admit the in-process system identity, so such writes pass the same declared-key and value checks.',
     );
     r.uiHints({
       displayLabel: "Tenant Secrets",
@@ -177,8 +192,8 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
     // The rotation job deliberately reaches for ctx.db.unsafeRaw() (raw,
     // cross-tenant) because rotation is a deployment-wide operation — no
     // feature-wide r.systemScope() needed.
-    r.writeHandler(createSetHandler(access));
-    r.writeHandler(createDeleteHandler(access));
+    r.writeHandler(createSetHandler(writeAccess));
+    r.writeHandler(createDeleteHandler(writeAccess));
     r.queryHandler(createListHandler(access));
     // Manual-only by design: ops triggers rotation after a KEK version flip.
     // BullMQ delivers to exactly one worker, so running it against a busy

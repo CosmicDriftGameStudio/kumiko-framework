@@ -81,6 +81,7 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { PageHeadResolver } from "@cosmicdrift/kumiko-headless/apex";
@@ -131,6 +132,8 @@ import {
   loggerFromExtraContext,
   requireEnv,
   resolveAuthMail,
+  resolveUnsubscribeWiring,
+  type UnsubscribeOption,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
 export type RunDevAppAuthOptions = {
@@ -272,6 +275,10 @@ export type RunDevAppOptions = {
    *  Hono-app gehängt, läuft VOR dem static-asset-Pfad. Symmetrisch zur
    *  gleichnamigen Option in runProdApp. */
   readonly extraRoutes?: CreateKumikoServerOptions["extraRoutes"];
+  /** Framework-managed unsubscribe links and routes, same contract as
+   *  `RunProdAppOptions.unsubscribe`; the link base URL comes from `auth.mail.baseUrl`
+   *  or `APP_BASE_URL` (dev has no `auth.publicOrigin`). */
+  readonly unsubscribe?: UnsubscribeOption;
   /** Hook for app-wired co-running components — symmetric to
    *  runProdApp.wire (kumiko-framework#3050). */
   readonly wire?: CreateKumikoServerOptions["wire"];
@@ -313,6 +320,17 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ? resolveAuthMail(options.auth, requireEnv("JWT_SECRET", envSource, "runDevApp"), envSource)
     : undefined;
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
+  const { unsubscribeLinks, unsubscribeRoutes } = resolveUnsubscribeWiring({
+    unsubscribe: options.unsubscribe,
+    publicOrigin: undefined,
+    mailBaseUrl: effectiveAuth?.mail?.baseUrl,
+    envSource,
+    warn: (message) => createFallbackLogger("runDevApp").warn(message),
+  });
+  const extraRoutes =
+    unsubscribeRoutes.length === 0
+      ? options.extraRoutes
+      : [...(options.extraRoutes ?? []), ...unsubscribeRoutes];
   const features = composeFeatures(options.features, {
     includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
@@ -445,6 +463,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       redis: deps.redis,
       crypto: bootCrypto,
       ...(bootLogger && { log: bootLogger }),
+      ...(unsubscribeLinks && { unsubscribeLinks }),
     });
     return {
       ...boot,
@@ -533,7 +552,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(extraContext !== undefined && { extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
     ...(options.files !== undefined && { files: options.files }),
-    ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
+    ...(extraRoutes !== undefined && { extraRoutes }),
     ...(options.wire !== undefined && { wire: options.wire }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
     ...(finalEffectiveFeatures !== undefined && {

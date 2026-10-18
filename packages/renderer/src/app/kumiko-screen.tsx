@@ -4625,6 +4625,21 @@ function buildConfigEditDefaults(
   return defaults;
 }
 
+type StoredSecretRow = { readonly key: string };
+
+// A field hidden by its `visible` condition (a provider's settings while another
+// provider is picked) is not saved: the form saves what it shows.
+function hiddenLayoutFieldNames(
+  screen: EntityEditScreenDefinition,
+  values: Readonly<Record<string, unknown>>,
+): ReadonlySet<string> {
+  return new Set(
+    layoutEditFields(screen)
+      .filter((spec) => spec.visible !== undefined && !evalFieldCondition(spec.visible, values))
+      .map((spec) => spec.field),
+  );
+}
+
 function isEmptyNumericFormValue(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return true;
   return typeof value === "number" && !Number.isFinite(value);
@@ -4651,6 +4666,13 @@ function ConfigEditBody({
 
   const cascadeQuery = useQuery<Record<string, ConfigCascade>>("config:query:cascade", {});
 
+  const secretKeys = screen.secretKeys;
+  const secretsQuery = useQuery<readonly StoredSecretRow[]>(
+    "secrets:query:list",
+    {},
+    { enabled: secretKeys !== undefined },
+  );
+
   const synthEntity = useMemo(() => synthesizeConfigEditEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeConfigEditScreen(screen), [screen]);
   const boundsSchema = useMemo(() => buildConfigEditSchema(screen.fields), [screen.fields]);
@@ -4662,9 +4684,16 @@ function ConfigEditBody({
   // Response bereits Native-Type sein.
   const initial = useMemo<FormValues | null>(() => {
     if (valuesQuery.data === null) return null;
+    if (secretKeys !== undefined && secretsQuery.data === null) return null;
+    const storedSecretKeys = new Set((secretsQuery.data ?? []).map((row) => row.key));
     const out: Record<string, unknown> = {};
     const defaults = buildConfigEditDefaults(screen.fields);
     for (const [shortName, fieldDef] of Object.entries(screen.fields)) {
+      const secretKey = secretKeys?.[shortName];
+      if (secretKey !== undefined) {
+        out[shortName] = storedSecretKeys.has(secretKey) ? true : null;
+        continue;
+      }
       const qualified = screen.configKeys[shortName];
       if (qualified === undefined) {
         // Author hat ein Field deklariert ohne Mapping — nimm Default.
@@ -4699,7 +4728,14 @@ function ConfigEditBody({
       }
     }
     return out;
-  }, [valuesQuery.data, screen.fields, screen.configKeys, screen.scope]);
+  }, [
+    valuesQuery.data,
+    secretsQuery.data,
+    secretKeys,
+    screen.fields,
+    screen.configKeys,
+    screen.scope,
+  ]);
 
   // Cascade-Lookup: qualifiedKey → ConfigCascade für die
   // Cascade-Anzeige unter jedem Feld. Defensive `levels`-Shape-Check
@@ -4730,7 +4766,21 @@ function ConfigEditBody({
     async (snapshot: FormSnapshot<FormValues>): Promise<SubmitResult<unknown>> => {
       const commands: Command[] = [];
       const commandFieldNames: string[] = [];
+      const hiddenFieldNames = hiddenLayoutFieldNames(synthScreen, snapshot.values);
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
+        if (hiddenFieldNames.has(shortName)) continue;
+        const secretKey = secretKeys?.[shortName];
+        if (secretKey !== undefined) {
+          // Same wire shape as a writeOnly config field: null removes, a string replaces.
+          if (value === null) {
+            commandFieldNames.push(shortName);
+            commands.push({ type: "secrets:write:delete", payload: { key: secretKey } });
+          } else if (typeof value === "string" && value.trim() !== "") {
+            commandFieldNames.push(shortName);
+            commands.push({ type: "secrets:write:set", payload: { key: secretKey, value } });
+          }
+          continue;
+        }
         const qualified = screen.configKeys[shortName];
         if (qualified === undefined) continue;
         const fieldDef = screen.fields[shortName] as // @cast-boundary schema-walk
@@ -4808,26 +4858,34 @@ function ConfigEditBody({
       // bleibt die Anzeige stale bis Reload — gleiche refetch-Calls wie onReset.
       // allSettled: der Write ist schon committed, ein gescheitertes Refetch
       // (stale Anzeige) darf das Erfolgsergebnis nicht in einen Fehler kippen.
-      await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
+      await Promise.allSettled([
+        valuesQuery.refetch?.(),
+        cascadeQuery.refetch?.(),
+        ...(secretKeys !== undefined ? [secretsQuery.refetch?.()] : []),
+      ]);
       return { validationBlocked: false, isSuccess: true, data: undefined };
     },
     [
       dispatcher,
+      synthScreen,
+      secretKeys,
       screen.configKeys,
       screen.fields,
       screen.scope,
       valuesQuery.refetch,
       cascadeQuery.refetch,
+      secretsQuery.refetch,
     ],
   );
 
   if (valuesQuery.loading && valuesQuery.data === null) return <QueryLoadingBanner />;
-  if (valuesQuery.error) {
+  const failedQuery = valuesQuery.error ? valuesQuery : secretsQuery.error ? secretsQuery : null;
+  if (failedQuery?.error) {
     return (
       <QueryErrorBanner
-        error={valuesQuery.error}
+        error={failedQuery.error}
         translate={effectiveTranslate}
-        onRetry={valuesQuery.refetch}
+        onRetry={failedQuery.refetch}
       />
     );
   }

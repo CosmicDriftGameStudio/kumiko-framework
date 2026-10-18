@@ -45,6 +45,7 @@ import {
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { MAIL_FOUNDATION_I18N } from "./i18n.js";
 
 const FEATURE_NAME = "mail-foundation";
 
@@ -102,6 +103,10 @@ export type MailTransportContext = {
  */
 export type MailTransportPlugin = {
   readonly build: (ctx: MailTransportContext, tenantId: string) => Promise<EmailTransport>;
+  /** `false` keeps the provider out of the generated settings: it can still be set by a
+   *  seed or config write, but a tenant admin is never offered it (e.g. a test inbox
+   *  that swallows every mail). */
+  readonly selectableInSettings?: false;
 };
 
 // extension-usage `options` is engine-payload (unknown) — structurally validate
@@ -125,7 +130,7 @@ export function createMailFoundationFeature() {
     FEATURE_NAME,
     (r) => {
       r.describe(
-        "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending \u2014 use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences. Pass `tenantMailTransport` as `tenantTransport` to `createChannelEmailFeature` so a tenant with a provider configured sends delivery mails through its own transport and other tenants through the app transport.",
+        "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending \u2014 use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences. Pass `tenantMailTransport` as `tenantTransport` to `createChannelEmailFeature`: notifications declared with `tenantTransport: true` then go through the tenant's own transport when it has a provider and through the app transport otherwise. Tenant admins pick the provider and fill in its settings on the generated Email sending settings screen; an empty provider is a valid choice and means the platform sends.",
       );
       r.uiHints({
         displayLabel: "Mail Transport Foundation",
@@ -145,27 +150,31 @@ export function createMailFoundationFeature() {
         },
       });
 
-      // Provider-selector. Default empty so the boot-validator throws if a
-      // tenant tries to send mail without first picking + setting up a
-      // provider — better than a silent fallback. The actual list of valid
-      // values lives in the registered plugins, not here — Designer-UI can
-      // render `getExtensionUsages("mailTransport").map(u => u.entityName)`
-      // as the option-list.
+      // Empty = this tenant has no own provider: tenantMailTransport yields null and
+      // channel-email uses the app transport, so empty is a valid choice a tenant can
+      // return to (reset in the settings mask) and readiness must not flag it.
+      // createTransportForTenant still throws on empty.
       const providerConfigKey = r.config(
         "provider",
         createTenantConfig("text", {
           default: "",
-          // required: without a chosen provider createTransportForTenant throws —
-          // readiness used to report ready:true and the first mail send
-          // surfaced the UnconfiguredError (280/1).
-          required: true,
-          write: access.roles("TenantAdmin", "SystemAdmin"),
+          // No SystemAdmin: a platform-level provider would be inherited by every tenant,
+          // whose own credentials (tenant secrets) are missing, and break all their mail.
+          write: access.withSystem(access.roles("TenantAdmin")),
           read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+          mask: {
+            title: "mail-foundation.provider",
+            description: "mail-foundation.provider.description",
+            icon: "mail",
+            order: 1,
+          },
         }),
       );
       // Readiness gating: transport-plugins' required keys/secrets count only
       // while their plugin is the one this key selects.
       r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);
+
+      r.translations({ keys: MAIL_FOUNDATION_I18N });
 
       return {
         /** Config-key-handle for the provider-selector. */
