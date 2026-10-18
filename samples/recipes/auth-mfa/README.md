@@ -53,6 +53,19 @@ const server = buildServer({
 
 Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `create-kumiko-app`) get all of this automatically — just add `createAuthMfaFeature(...)` to `APP_FEATURES`. `composeFeatures` threads the status-checker and the bootstrap wires the session-revoke bind and the verify route for you. This sample shows the raw contract those helpers implement.
 
+## Self-service screen
+
+`createAccountSecurityFeature({ nav?, access? })` adds one screen,
+`account-security:screen:account-security`, that embeds the MFA enable,
+regenerate and disable screens plus the own-sessions list. It owns no handlers
+and needs no `composeAuthStack`: mount it next to `auth-mfa` and `sessions`.
+Without `nav` the screen stays dormant (reachable by its route, no sidebar
+entry); `access` defaults to every signed-in user.
+
+```ts illustration
+features: [..., createSessionsFeature(), mfaFeature, createAccountSecurityFeature({ nav: { order: 90 } })]
+```
+
 ## Design rules
 
 1. **Enrollment is stateless until confirmed.** `enable-start` returns a signed setup token (QR + secret + 8 recovery codes) — nothing is persisted until `enable-confirm` proves the user scanned it with a valid TOTP code.
@@ -66,3 +79,4 @@ Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `creat
 
 - **Baseline:** a user without MFA enrolled still gets a JWT straight from `/auth/login`.
 - **End-to-end:** enroll via `enable-start`/`enable-confirm`, log in (gets a challenge, no JWT), complete via `/auth/mfa/verify` (gets a JWT) — copies the `buildServer({ auth: ... })` block from the sample comment verbatim.
+- **Account security:** the composed screen boot-validates next to `auth-mfa` and `sessions` and shows a sidebar entry once `nav` is set.

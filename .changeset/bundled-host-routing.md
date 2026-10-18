@@ -1,0 +1,13 @@
+---
+"@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-dev-server": minor
+---
+
+New bundled feature host-routing
+
+<!-- kumiko-changes
+feature: host-routing
+type: improvement
+title: createHostRoutingFeature and createHostDispatch route tenants by host or path
+detail: One HostRoutingOptions object ({ tenantBy: "host" } or { tenantBy: "path", tenantPathPrefix }, plus baseDomain, apex, tenant, unknownTenant?, hosts?, locales?) drives both halves. createHostRoutingFeature registers an authoritative Host-header tenant resolver in host mode and, in both modes, an existence check that admits only enabled, active tenants. apexAnonymousTenantId gives anonymous apex calls a tenant (e.g. SYSTEM_TENANT_ID); without it the apex answers tenant_required. createHostDispatch is a runProdApp hostDispatch: HTML file and optional CSP per surface (without csp the runProdApp default applies), a 301 from the default-locale prefix to the unprefixed path, and 404 for unknown tenants and hosts. toDevHostDispatch(dispatch, { entries, staticDir }) from @cosmicdrift/kumiko-dev-server plugs the same decision into the dev server. Apps with their own routing feature and hostDispatch move to these; app-specific redirects or custom domains wrap the dispatch function.
+-->

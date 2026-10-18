@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "terms",
+    "locale": "de",
+    "title": "Nutzungsbedingungen",
+    "content": "## Geltungsbereich\n\nDiese Bedingungen gelten für die **Testanwendung**."
+  },
+  {
+    "slug": "terms",
+    "locale": "en",
+    "title": "Terms of Service",
+    "content": "## Scope\n\nThese terms apply to the **test application**."
+  }
+]

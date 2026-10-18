@@ -97,6 +97,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "form-draft:query:list expose=true risk=low",
   "form-draft:write:discard expose=true risk=high",
   "form-draft:write:save expose=true risk=mid",
+  "host-routing:query:tenant-key-exists expose=false risk=low",
   "inbound-mail-foundation:query:account:list expose=true risk=low",
   "inbound-mail-foundation:query:message:list expose=true risk=low",
   "inbound-mail-foundation:write:connect-account expose=true risk=mid",

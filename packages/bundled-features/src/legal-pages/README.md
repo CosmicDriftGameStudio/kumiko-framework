@@ -130,6 +130,29 @@ non-empty `path`/`slug`/`lang`, and every `path` must start with `/`.
 An empty `routes` array is allowed — the boot check alone, no public
 routes.
 
+### Terms of service
+
+`createLegalPagesFeature({ terms: true })` appends `LEGAL_TERMS_ROUTES` to the
+routes: `/legal/nutzungsbedingungen` (`terms` / `de`) and `/legal/terms`
+(`terms` / `en`). Terms are never boot-required; an unseeded block answers 404.
+
+### Layout helper
+
+`createLegalPagesLayout({ siteName, css?, stylesheetHrefs?, headerHtml?, footerHtml?,
+contentClass? })` returns a `wrapLayout` with the app's chrome around the body:
+title as `<title> · <siteName>`, body inside `<main data-tenant-content>`.
+`headerHtml`/`footerHtml` get the route's `lang` and must return trusted HTML; the CSP
+rules above still apply.
+
+### Paths for static sites
+
+Apps that render legal pages elsewhere (e.g. an Astro site) link to the same
+paths with `legalPagePath(routes, slug, lang)`, for example
+`legalPagePath([...LEGAL_ROUTES, ...LEGAL_TERMS_ROUTES], "terms", "en")`. It is
+client-safe and returns `undefined` for an unknown combination. Import it with
+the route constants from `@cosmicdrift/kumiko-bundled-features/legal-pages/constants`,
+which keeps the server feature out of a client bundle.
+
 ---
 
 ## Boot check
@@ -211,6 +234,21 @@ Musterstraße 1
 
 E-Mail: hello@example.com`,
 });
+```
+
+### Boot seed for runProdApp
+
+`legalContentSeed(source)` returns a seed for `runProdApp({ seeds: [...] })`.
+`source` is `{ blocks }` (import your generated JSON) or `{ path }` (a JSON file
+resolved against the process cwd). Both are validated as a list of
+`{ slug, locale, title, content }`. The template is authoritative: an existing
+block is updated on every boot, so edits made through the API are overwritten.
+
+```typescript
+import legalContent from "./legal-content.json" with { type: "json" };
+import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
+
+runProdApp({ /* ... */ seeds: [legalContentSeed({ blocks: legalContent })] });
 ```
 
 Templates for imprint + privacy policy: see

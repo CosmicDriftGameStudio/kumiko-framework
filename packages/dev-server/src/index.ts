@@ -60,6 +60,7 @@ export type {
 } from "./few-shot-corpus.js";
 export { buildFewShotCorpus, pathToId } from "./few-shot-corpus.js";
 export { resolveFrameworkVersion } from "./framework-version.js";
+export { type ToDevHostDispatchOptions, toDevHostDispatch } from "./host-dispatch-adapter.js";
 export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli.js";
 export { runInitDeployCli } from "./init-deploy-cli.js";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app.js";

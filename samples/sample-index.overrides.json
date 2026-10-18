@@ -1,4 +1,10 @@
 {
+  "account-security": {
+    "primarySample": "recipes-auth-mfa",
+    "whenToUse": "Signed-in users manage MFA and their own sessions on one screen — mount next to auth-mfa and sessions, no composeAuthStack needed.",
+    "sampleBlurb": "The auth-mfa recipe mounts the composed screen next to auth-mfa and sessions and boot-validates it with a sidebar entry.",
+    "screenshot": null
+  },
   "auth-email-password": {
     "primarySample": "recipes-apex-surface-auth",
     "whenToUse": "Users sign in with email and password — login, signup, verification, and password reset on your apex surface or behind AuthGate in the admin app.",
@@ -76,6 +82,12 @@
     "whenToUse": "Records need a hierarchical folder tree without a custom pivot table per entity — mount folders once and file entities via folder-assignment join rows.",
     "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
     "screenshot": "/screenshots/features/folders.png"
+  },
+  "host-routing": {
+    "primarySample": "recipes-host-routing",
+    "whenToUse": "Tenants live on their own subdomain or path prefix, or marketing pages have locale prefixes — one options object drives the anonymous tenant resolver and runProdApp's hostDispatch.",
+    "sampleBlurb": "Three shop subdomains land on three tenants, a forged X-Tenant is rejected, and the page dispatch serves the shop shell with its CSP or redirects /de/ to the unprefixed path.",
+    "screenshot": null
   },
   "ledger": {
     "primarySample": "recipes-ledger-banking",

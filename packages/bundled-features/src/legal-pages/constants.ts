@@ -51,6 +51,28 @@ export const LEGAL_ROUTES = [
   { path: "/legal/privacy", slug: "privacy", lang: "en", titleFallback: "Privacy Policy" },
 ] as const;
 
+// Terms of service are opt-in (`terms: true`) and never boot-required: not every
+// app needs them, and DACH law does not mandate them the way it does imprint.
+export const LEGAL_TERMS_ROUTES = [
+  {
+    path: "/legal/nutzungsbedingungen",
+    slug: "terms",
+    lang: "de",
+    titleFallback: "Nutzungsbedingungen",
+  },
+  { path: "/legal/terms", slug: "terms", lang: "en", titleFallback: "Terms of Service" },
+] as const;
+
+// Client-safe path lookup so apps that render their own legal pages (e.g. a
+// static marketing site) link to the same paths the feature serves.
+export function legalPagePath(
+  routes: readonly LegalPageRoute[],
+  slug: string,
+  lang: string,
+): string | undefined {
+  return routes.find((route) => route.slug === slug && route.lang === lang)?.path;
+}
+
 export const LegalPagesErrors = {
   bootMissingBlock: "legal_pages_boot_missing_block",
 } as const;

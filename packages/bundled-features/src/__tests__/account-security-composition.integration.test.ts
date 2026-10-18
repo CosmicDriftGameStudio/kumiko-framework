@@ -12,11 +12,18 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  ACCOUNT_SECURITY_SCREEN_ID,
+  accountSecurityMfaStatusVisibility,
+  createAccountSecurityFeature,
+} from "../account-security/index.js";
 import { AuthHandlers } from "../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.js";
 import { createAuthFoundationFeature } from "../auth-foundation/index.js";
-import { createAuthMfaFeature } from "../auth-mfa/index.js";
+import { base32Decode } from "../auth-mfa/base32.js";
+import { AuthMfaHandlers, createAuthMfaFeature } from "../auth-mfa/index.js";
 import { userMfaEntity } from "../auth-mfa/schema/user-mfa.js";
+import { currentTotpCode } from "../auth-mfa/totp.js";
 import { createConfigFeature } from "../config/index.js";
 import { createConfigResolver } from "../config/resolver.js";
 import { configValuesTable } from "../config/table.js";
@@ -30,12 +37,7 @@ import { tenantMembershipsTable } from "../tenant/membership-table.js";
 import { tenantEntity } from "../tenant/schema/tenant.js";
 import { createUserFeature } from "../user/feature.js";
 import { userEntity } from "../user/schema/user.js";
-import {
-  ACCOUNT_SECURITY_SCREEN_ID,
-  accountSecurityFeature,
-  mfaStatusVisibility,
-  testAuthMfaOptions,
-} from "./account-security-fixture.js";
+import { testAuthMfaOptions } from "./auth-mfa-test-options.js";
 
 type PanelQueryRow = { readonly id: string; readonly current: boolean };
 
@@ -57,7 +59,7 @@ beforeAll(async () => {
       createAuthFoundationFeature(),
       createSessionsFeature(),
       createAuthMfaFeature(testAuthMfaOptions),
-      accountSecurityFeature,
+      createAccountSecurityFeature(),
     ],
     extraContext: {
       configResolver: createConfigResolver({ cipher: encryption }),
@@ -143,12 +145,12 @@ describe("account-security dashboard on a real stack", () => {
     const current = await h.login("dash@example.com", "pw-long-enough");
 
     const statusRes = await h.authedPost("/api/query", current.token, {
-      type: mfaStatusVisibility.query,
+      type: accountSecurityMfaStatusVisibility.query,
       payload: {},
     });
     expect(statusRes.status).toBe(200);
     const status = (await statusRes.json()) as { data: Record<string, unknown> };
-    expect(status.data[mfaStatusVisibility.field]).toBe(false);
+    expect(status.data[accountSecurityMfaStatusVisibility.field]).toBe(false);
 
     const sessionsScreen = embeddedScreen("sessions:screen:my-sessions");
     if (sessionsScreen.type !== "projectionList") throw new Error("expected a projectionList");
@@ -184,5 +186,43 @@ describe("account-security dashboard on a real stack", () => {
     });
     const list = (await listRes.json()) as { data: { rows: PanelQueryRow[] } };
     expect(list.data.rows.map((r) => r.id)).toEqual([current.sid]);
+  });
+  test("enabling MFA through the embedded handlers flips the panel visibility query", async () => {
+    await h.seedUser("dash-mfa@example.com", "pw-long-enough");
+    const current = await h.login("dash-mfa@example.com", "pw-long-enough");
+
+    const startRes = await h.authedPost("/api/write", current.token, {
+      type: AuthMfaHandlers.enableStart,
+      payload: { accountLabel: "dash-mfa@example.com" },
+    });
+    expect(startRes.status).toBe(200);
+    const start = (await startRes.json()) as {
+      data: { setupToken: string; otpauthUri: string };
+    };
+    const secretParam =
+      new URLSearchParams(start.data.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const confirmRes = await h.authedPost("/api/write", current.token, {
+      type: AuthMfaHandlers.enableConfirm,
+      payload: {
+        setupToken: start.data.setupToken,
+        code: currentTotpCode(base32Decode(secretParam)),
+      },
+    });
+    expect(confirmRes.status).toBe(200);
+
+    const statusRes = await h.authedPost("/api/query", current.token, {
+      type: accountSecurityMfaStatusVisibility.query,
+      payload: {},
+    });
+    const status = (await statusRes.json()) as { data: Record<string, unknown> };
+    expect(status.data[accountSecurityMfaStatusVisibility.field]).toBe(true);
+    const visibleAfterEnable = accountSecurityScreenPanels()
+      .filter(
+        (p) =>
+          p.kind === "screen" &&
+          (p.visibleWhen === undefined || ("eq" in p.visibleWhen && p.visibleWhen.eq === true)),
+      )
+      .map((p) => p.id);
+    expect(visibleAfterEnable).toEqual(["mfa-regenerate", "mfa-disable", "sessions"]);
   });
 });

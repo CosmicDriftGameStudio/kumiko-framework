@@ -61,6 +61,19 @@ const server = buildServer({
 
 Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `create-kumiko-app`) get all of this automatically — just add `createAuthMfaFeature(...)` to `APP_FEATURES`. `composeFeatures` threads the status-checker and the bootstrap wires the session-revoke bind and the verify route for you. This sample shows the raw contract those helpers implement.
 
+## Self-service screen
+
+`createAccountSecurityFeature({ nav?, access? })` adds one screen,
+`account-security:screen:account-security`, that embeds the MFA enable,
+regenerate and disable screens plus the own-sessions list. It owns no handlers
+and needs no `composeAuthStack`: mount it next to `auth-mfa` and `sessions`.
+Without `nav` the screen stays dormant (reachable by its route, no sidebar
+entry); `access` defaults to every signed-in user.
+
+```ts illustration
+features: [..., createSessionsFeature(), mfaFeature, createAccountSecurityFeature({ nav: { order: 90 } })]
+```
+
 ## Design rules
 
 1. **Enrollment is stateless until confirmed.** `enable-start` returns a signed setup token (QR + secret + 8 recovery codes) — nothing is persisted until `enable-confirm` proves the user scanned it with a valid TOTP code.
@@ -74,8 +87,60 @@ Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `creat
 
 - **Baseline:** a user without MFA enrolled still gets a JWT straight from `/auth/login`.
 - **End-to-end:** enroll via `enable-start`/`enable-confirm`, log in (gets a challenge, no JWT), complete via `/auth/mfa/verify` (gets a JWT) — copies the `buildServer({ auth: ... })` block from the sample comment verbatim.
+- **Account security:** the composed screen boot-validates next to `auth-mfa` and `sessions` and shows a sidebar entry once `nav` is set.
 
 ## Source files
+
+### src/__tests__/account-security.test.ts
+
+```ts
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
+import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  ACCOUNT_SECURITY_SCREEN_QN,
+  createAccountSecurityFeature,
+  createAuthMfaFeature,
+} from "../feature";
+
+const mfaFeature = createAuthMfaFeature({
+  setupTokenSecret: "sample-setup-token-secret-not-for-prod",
+  challengeTokenSecret: "sample-mfa-challenge-secret-at-least-32-bytes",
+  issuer: "Kumiko Sample",
+});
+
+describe("account-security next to auth-mfa", () => {
+  // user-mfa has encrypted fields, so boot validation needs a cipher.
+  beforeAll(() => configureEntityFieldEncryption(createTestEnvelopeCipher()));
+  afterAll(() => configureEntityFieldEncryption(undefined));
+
+  test("boot-validates without composeAuthStack and adds a sidebar entry with nav", () => {
+    const accountSecurity = createAccountSecurityFeature({ nav: { order: 90 } });
+    expect(() =>
+      validateBoot([
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createAuthFoundationFeature(),
+        createPersonalAccessTokensFeature({ scopes: {} }),
+        createSessionsFeature(),
+        mfaFeature,
+        accountSecurity,
+      ]),
+    ).not.toThrow();
+    expect(Object.values(accountSecurity.navs).map((nav) => nav.screen)).toEqual([
+      ACCOUNT_SECURITY_SCREEN_QN,
+    ]);
+  });
+});
+```
 
 ### src/__tests__/feature.integration.test.ts
 
@@ -306,6 +371,13 @@ describe("auth-mfa sample wiring", () => {
 //     complete exactly one login challenge, then it's burned.
 //  4. Every MFA state change signs out every OTHER live session (stolen-
 //     session defense) — but never the session that made the change.
+
+// One self-service screen for MFA and own sessions. Dormant until `nav` is
+// set, so apps that mount it only for deep links get no sidebar entry.
+export {
+  ACCOUNT_SECURITY_SCREEN_QN,
+  createAccountSecurityFeature,
+} from "@cosmicdrift/kumiko-bundled-features/account-security";
 export {
   AuthMfaHandlers,
   base32Decode,

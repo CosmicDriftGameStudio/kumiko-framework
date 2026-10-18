@@ -62,6 +62,13 @@
 //     complete exactly one login challenge, then it's burned.
 //  4. Every MFA state change signs out every OTHER live session (stolen-
 //     session defense) — but never the session that made the change.
+
+// One self-service screen for MFA and own sessions. Dormant until `nav` is
+// set, so apps that mount it only for deep links get no sidebar entry.
+export {
+  ACCOUNT_SECURITY_SCREEN_QN,
+  createAccountSecurityFeature,
+} from "@cosmicdrift/kumiko-bundled-features/account-security";
 export {
   AuthMfaHandlers,
   base32Decode,
