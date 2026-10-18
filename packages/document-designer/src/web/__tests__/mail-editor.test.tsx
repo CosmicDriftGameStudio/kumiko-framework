@@ -148,6 +148,8 @@ function fakeDispatcher(
         return { usedBy: [] };
       case "user:query:user:me":
         return { email: "editor@example.org" };
+      case ConfigQueries.values:
+        return { [TENANT_CURRENCY_CONFIG_KEY]: { value: "CHF" } };
       default:
         return undefined;
     }
@@ -559,7 +561,7 @@ describe("MailEditor", () => {
         fee: { type: "money", label: "Late fee" },
       },
     };
-    const base = fakeDispatcher("draft", [], formattedValidation, {
+    const dispatcher = fakeDispatcher("draft", [], formattedValidation, {
       ...preview,
       sampleValues: {
         invoiceNumber: "RE-1",
@@ -568,14 +570,7 @@ describe("MailEditor", () => {
         fee: 500,
       },
     });
-    const withTenantCurrency: Dispatcher = {
-      ...base,
-      query: (async (type: string, payload: unknown) =>
-        type === ConfigQueries.values
-          ? { isSuccess: true, data: { [TENANT_CURRENCY_CONFIG_KEY]: { value: "CHF" } } }
-          : base.query(type as never, payload as never)) as unknown as Dispatcher["query"],
-    };
-    renderEditor(withTenantCurrency);
+    renderEditor(dispatcher);
     await openPreview();
 
     expect((await screen.findByTestId("mail-sample-total")).textContent).toContain(
