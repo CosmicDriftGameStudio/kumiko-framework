@@ -748,12 +748,11 @@ export type RunProdAppOptions = {
    *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`
    *  mit 503 + Misconfiguration-Hinweis statt echter Metriken. */
   readonly metrics?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["metrics"];
-  /** L1 (globaler IP-Limit) + L2 (Auth-Endpoints) Rate-Limit-Middleware,
-   *  durchgereicht an `buildServer`s `ServerOptions.rateLimit`. Ohne Angabe
-   *  gelten L1 600/60 s und L2 30/60 s; Teilangaben überschreiben nur die
-   *  genannten Felder, `false` (gesamt oder je Layer) schaltet ab. Hinter einem
-   *  Reverse-Proxy braucht der Client-IP-Key `trustedProxyHops`, sonst teilen
-   *  sich alle Clients einen Bucket. */
+  /** L1 (global per-IP limit) + L2 (auth endpoints) rate-limit middleware, passed
+   *  to `buildServer`'s `ServerOptions.rateLimit`. Without a value L1 allows 600/60 s
+   *  and L2 30/60 s; a partial value overrides only the fields it names, `false`
+   *  (whole option or one layer) switches it off. Behind a reverse proxy the
+   *  client-IP key needs `trustedProxyHops`, otherwise all clients share one bucket. */
   readonly rateLimit?: RateLimitOption;
   /** Default security headers on every response (HSTS, X-Frame-Options,
    *  X-Content-Type-Options, Referrer-Policy, Content-Security-Policy with
