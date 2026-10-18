@@ -57,7 +57,10 @@ verbs off with `verbs: { delete: false }` and register them yourself when
 they need different access or logic. Custom logic goes into
 `r.writeHandler({ name, schema, handler, access })` and
 `r.queryHandler({ name, schema, handler, access })`; inside, use the entity
-executor from `createEntityExecutor(name, entity)`.
+executor from `createEntityExecutor(name, entity)`. Its `detail` and `list`
+return rows typed from the entity (`EntityRow<typeof entity>`), so
+`row.title` needs no cast; money and located-timestamp fields come back as
+objects, and `create` / `update` payloads stay untyped.
 
 **Screen.** A declarative page: `r.screen({ id, type, ... })`. Types include
 `entityList`, `entityEdit`, `projectionList`, `projectionDetail`,

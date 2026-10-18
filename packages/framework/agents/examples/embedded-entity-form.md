@@ -427,7 +427,7 @@ export const prospectsFeature = defineFeature("prospects", (r) => {
       const flipped = await suggestionExecutor.update(
         {
           id: event.payload.suggestionId,
-          version: suggestion["version"] as number,
+          version: suggestion["version"],
           changes: { status: "accepted" },
         },
         event.user,

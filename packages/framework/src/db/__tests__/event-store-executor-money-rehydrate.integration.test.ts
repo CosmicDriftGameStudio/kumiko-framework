@@ -114,10 +114,7 @@ describe("event-store-executor — money column rehydration through raw SQL (fw#
     expect(created.isSuccess).toBe(true);
     if (!created.isSuccess) return;
 
-    const row = (await exec.detail({ id: created.data.id }, admin, tdb)) as Record<
-      string,
-      unknown
-    > | null;
+    const row = await exec.detail({ id: created.data.id }, admin, tdb);
     expect(row).not.toBeNull();
     if (!row) return;
     expect(row["grossTotal"]).toEqual({
@@ -143,10 +140,7 @@ describe("event-store-executor — money column rehydration through raw SQL (fw#
     expect(created.isSuccess).toBe(true);
     if (!created.isSuccess) return;
 
-    const row = (await exec.detail({ id: created.data.id }, admin, tdb)) as Record<
-      string,
-      unknown
-    > | null;
+    const row = await exec.detail({ id: created.data.id }, admin, tdb);
     expect(row).not.toBeNull();
     if (!row) return;
     expect(row["billingIban"]).toBe(plainIban);

@@ -44,7 +44,9 @@ export type LockGuardOption = {
   readonly writePurpose?: WritePurpose;
 };
 
-export type EventStoreExecutor = {
+// `Row` is the shape list()/detail() hand back; create/update payloads stay untyped. The default
+// keeps every untyped use compiling, and an executor typed to an entity row stays assignable to it.
+export type EventStoreExecutor<Row extends Record<string, unknown> = Record<string, unknown>> = {
   create: (
     payload: Record<string, unknown>,
     user: SessionUser,
@@ -180,12 +182,12 @@ export type EventStoreExecutor = {
       // registry dependency as referenceSearch/referenceSort above.
       readonly parentVisibility?: ParentVisibilityOption;
     },
-  ) => Promise<CursorResult<Record<string, unknown>>>;
+  ) => Promise<CursorResult<Row>>;
 
   detail: (
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
     options?: { readonly parentVisibility?: ParentVisibilityOption },
-  ) => Promise<Record<string, unknown> | null>;
+  ) => Promise<Row | null>;
 };

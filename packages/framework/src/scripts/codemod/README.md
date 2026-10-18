@@ -118,3 +118,25 @@ bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/import-extens
 Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes. `--check` exits 1 while any
 rewritable or manual site is left. The `import-extensions` guard (`kumiko check guards`) reports
 sites that are still on `.js`.
+
+## remove-engine-payload-casts.ts
+
+`executor.detail()` and `executor.list()` from `createEntityExecutor` / `createEventStoreExecutor`
+return the entity's own row type (`EntityRow<E>`), so `row["f"] as T`, `row as T` and
+`(await executor.detail(…)) as unknown as T` are usually redundant. The codemod removes such a cast,
+and its `@cast-boundary` marker comment when no other cast stays in the statement, only when the
+operand derives from an executor read (directly, through `rows[0]`, property access, `??` or a
+single-assignment variable) and the type checker says its type is assignable to the cast target. A
+file is left untouched if removing the casts would add type errors to it.
+
+It type-checks against the tsconfig at or above each file, so run it with the new framework version
+installed. Reported as `manual` and left alone: casts the row type does not satisfy (for example a
+nullable column cast to a non-null type, or `rows[0]` under `noUncheckedIndexedAccess`), and files
+without a tsconfig. A call site that still needs a narrower type than the row gives keeps its cast.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/remove-engine-payload-casts.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the changed files
+with Biome. `--check` exits 1 while any rewritable or manual site is left.

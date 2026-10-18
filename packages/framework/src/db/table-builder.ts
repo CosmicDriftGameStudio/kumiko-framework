@@ -12,6 +12,8 @@ import type {
 import { toSnakeCase } from "../utils/case.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import type { Table } from "./event-store-executor-context.ts";
+import type { LocatedTimestampRead } from "./located-timestamp.ts";
+import type { MoneyRead } from "./money.ts";
 import { columnHandleName } from "./table-introspection.ts";
 
 export { toSnakeCase } from "../utils/case.ts";
@@ -291,90 +293,97 @@ export function toTableName(entityName: string): string {
 // (see ColumnHandle); the phantom-typed wrapper preserves the existing
 // generic-inference call-sites without recreating drizzle's full column
 // brand graph.
-type Col<_T> = ColumnHandle & { readonly __notNull: true };
-type NullCol<_T> = ColumnHandle & { readonly __notNull: false };
+//
+// `__value` carries the TS value type of the column (optional phantom, never present at runtime).
+// It is the one place the field → TS-type mapping lives: EntityRow reads it back out of the
+// column bag instead of keeping a second map.
+type Col<T> = ColumnHandle & { readonly __notNull: true; readonly __value?: T };
+type NullCol<T> = ColumnHandle & { readonly __notNull: false; readonly __value?: T };
 
 // Per-field column shape — matches `fieldToColumns`. Money +
 // locatedTimestamp produce two-column pairs. `notNull` propagiert von
 // `field.required` (literal preserved by createXField generics).
-type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
+type ColumnsForField<K extends string, F extends FieldDefinition> = ValueColumnsForField<K, F> &
+  BlindIndexColumnForField<K, F>;
+
+// The blind-index column is a lookup artifact: it exists on the table but coerceRow strips it
+// from every row, so EntityRow is built from ValueColumnsForField only.
+type BlindIndexColumnForField<K extends string, F extends FieldDefinition> = F extends {
   type: "text";
   lookupable: true;
 }
-  ? (F extends { required: true }
-      ? { readonly [P in K]: Col<string> }
-      : { readonly [P in K]: NullCol<string> }) & {
-      readonly [P in `${K}Bidx`]: NullCol<string>;
-    }
-  : F extends {
-        type: "text" | "select" | "tz";
-      }
-    ? F extends { required: true }
-      ? { readonly [P in K]: Col<string> }
-      : { readonly [P in K]: NullCol<string> }
-    : F extends { type: "boolean" }
-      ? // boolean default OR required → notNull (DB has DEFAULT, structurally never-null)
-        F extends { default: boolean } | { required: true }
-        ? { readonly [P in K]: Col<boolean> }
-        : { readonly [P in K]: NullCol<boolean> }
-      : F extends { type: "multiSelect" }
-        ? // jsonb default `[]`, immer notNull
-          { readonly [P in K]: Col<readonly string[]> }
-        : F extends { type: "number" }
+  ? { readonly [P in `${K}Bidx`]: NullCol<string> }
+  : unknown;
+
+type ValueColumnsForField<K extends string, F extends FieldDefinition> = F extends {
+  type: "text" | "longText" | "select" | "tz";
+}
+  ? F extends { required: true }
+    ? { readonly [P in K]: Col<string> }
+    : { readonly [P in K]: NullCol<string> }
+  : F extends { type: "boolean" }
+    ? // boolean default OR required → notNull (DB has DEFAULT, structurally never-null)
+      F extends { default: boolean } | { required: true }
+      ? { readonly [P in K]: Col<boolean> }
+      : { readonly [P in K]: NullCol<boolean> }
+    : F extends { type: "multiSelect" }
+      ? // jsonb default `[]`, immer notNull
+        { readonly [P in K]: Col<readonly string[]> }
+      : F extends { type: "number" }
+        ? F extends { required: true }
+          ? { readonly [P in K]: Col<number> }
+          : { readonly [P in K]: NullCol<number> }
+        : F extends { type: "decimal" }
           ? F extends { required: true }
             ? { readonly [P in K]: Col<number> }
             : { readonly [P in K]: NullCol<number> }
-          : F extends { type: "decimal" }
+          : F extends { type: "money" }
             ? F extends { required: true }
-              ? { readonly [P in K]: Col<number> }
-              : { readonly [P in K]: NullCol<number> }
-            : F extends { type: "money" }
-              ? F extends { required: true }
-                ? { readonly [P in K]: Col<number> } & {
-                    readonly [P in `${K}Currency`]: Col<string>;
-                  }
-                : { readonly [P in K]: NullCol<number> } & {
-                    readonly [P in `${K}Currency`]: Col<string>;
-                  }
-              : F extends { type: "reference"; multiple: true }
-                ? { readonly [P in K]: Col<readonly string[]> }
-                : F extends { type: "reference" }
-                  ? F extends { required: true }
-                    ? { readonly [P in K]: Col<string> }
-                    : { readonly [P in K]: NullCol<string> }
-                  : F extends { type: "embedded"; multiple: true }
-                    ? // jsonb default `[]`, immer notNull. ponytail: the row
-                      // type stays untyped like single-embedded; deriving it
-                      // from `schema` needs a generic createEmbeddedListField
-                      // that captures the literal schema — worth it once a
-                      // consumer actually reads rows off the table type.
-                      { readonly [P in K]: Col<readonly Readonly<Record<string, unknown>>[]> }
-                    : F extends { type: "embedded" }
-                      ? // jsonb default `{}`, immer notNull
-                        { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
-                      : F extends { type: "date" }
+              ? { readonly [P in K]: Col<number> } & {
+                  readonly [P in `${K}Currency`]: Col<string>;
+                }
+              : { readonly [P in K]: NullCol<number> } & {
+                  readonly [P in `${K}Currency`]: Col<string>;
+                }
+            : F extends { type: "reference"; multiple: true }
+              ? { readonly [P in K]: Col<readonly string[]> }
+              : F extends { type: "reference" }
+                ? F extends { required: true }
+                  ? { readonly [P in K]: Col<string> }
+                  : { readonly [P in K]: NullCol<string> }
+                : F extends { type: "embedded"; multiple: true }
+                  ? // jsonb default `[]`, immer notNull. ponytail: the row
+                    // type stays untyped like single-embedded; deriving it
+                    // from `schema` needs a generic createEmbeddedListField
+                    // that captures the literal schema — worth it once a
+                    // consumer actually reads rows off the table type.
+                    { readonly [P in K]: Col<readonly Readonly<Record<string, unknown>>[]> }
+                  : F extends { type: "embedded" }
+                    ? // jsonb default `{}`, immer notNull
+                      { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
+                    : F extends { type: "date" }
+                      ? F extends { required: true }
+                        ? { readonly [P in K]: Col<Temporal.PlainDate> }
+                        : { readonly [P in K]: NullCol<Temporal.PlainDate> }
+                      : F extends { type: "timestamp" }
                         ? F extends { required: true }
-                          ? { readonly [P in K]: Col<Temporal.PlainDate> }
-                          : { readonly [P in K]: NullCol<Temporal.PlainDate> }
-                        : F extends { type: "timestamp" }
+                          ? { readonly [P in K]: Col<Temporal.Instant> }
+                          : { readonly [P in K]: NullCol<Temporal.Instant> }
+                        : F extends { type: "locatedTimestamp" }
                           ? F extends { required: true }
-                            ? { readonly [P in K]: Col<Temporal.Instant> }
-                            : { readonly [P in K]: NullCol<Temporal.Instant> }
-                          : F extends { type: "locatedTimestamp" }
+                            ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
+                                readonly [P in `${K}Tz`]: Col<string>;
+                              }
+                            : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
+                                readonly [P in `${K}Tz`]: NullCol<string>;
+                              }
+                          : F extends { type: "file" | "image" }
                             ? F extends { required: true }
-                              ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
-                                  readonly [P in `${K}Tz`]: Col<string>;
-                                }
-                              : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
-                                  readonly [P in `${K}Tz`]: NullCol<string>;
-                                }
-                            : F extends { type: "file" | "image" }
-                              ? F extends { required: true }
-                                ? { readonly [P in K]: Col<string> }
-                                : { readonly [P in K]: NullCol<string> }
-                              : F extends { type: "files" | "images" }
-                                ? { readonly [P in K]: Col<readonly string[]> }
-                                : never;
+                              ? { readonly [P in K]: Col<string> }
+                              : { readonly [P in K]: NullCol<string> }
+                            : F extends { type: "files" | "images" }
+                              ? { readonly [P in K]: Col<readonly string[]> }
+                              : never;
 
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
   k: infer I,
@@ -410,6 +419,56 @@ type SoftDeleteColumnsType = {
   readonly deletedAt: NullCol<Temporal.Instant>;
   readonly deletedById: NullCol<string>;
 };
+
+// ── Row type of executor.list()/detail() ────────────────────────────────
+// Read back out of the column bags above (the `__value` phantom) so there is no second
+// field → TS-type map. Two things differ from the table and are spelled out:
+//   - money / locatedTimestamp are ONE key in the row (rehydrateCompoundTypes folds the column
+//     pair), and an unset one is absent, not null.
+//   - the blind-index column never reaches a row (see BlindIndexColumnForField).
+type ColumnValue<C> = C extends { readonly __notNull: true; readonly __value?: infer T }
+  ? T
+  : C extends { readonly __notNull: false; readonly __value?: infer T }
+    ? T | null
+    : unknown;
+
+type RowOfColumns<C> = { readonly [K in keyof C]: ColumnValue<C[K]> };
+
+type CompoundRowField<K extends string, V, F> = F extends { required: true }
+  ? { readonly [P in K]: V }
+  : { readonly [P in K]?: V };
+
+// Field types the table type has no column for (bigInt, jsonb) stay honest as `unknown`.
+type RowForField<K extends string, F extends FieldDefinition> = F extends { type: "money" }
+  ? CompoundRowField<K, MoneyRead, F>
+  : F extends { type: "locatedTimestamp" }
+    ? CompoundRowField<K, LocatedTimestampRead, F>
+    : [ValueColumnsForField<K, F>] extends [never]
+      ? { readonly [P in K]: unknown }
+      : RowOfColumns<ValueColumnsForField<K, F>>;
+
+type RowForFields<F extends FieldsMap> = UnionToIntersection<
+  {
+    [K in keyof F & string]: RowForField<K, F[K]>;
+  }[keyof F & string]
+>;
+
+// A literal `softDelete: true` makes the three keys certain. createEntity widens the flag to
+// `boolean`, so there the keys are present only on soft-delete entities: optional.
+type SoftDeleteRow<E extends EntityDefinition> = E["softDelete"] extends true
+  ? RowOfColumns<SoftDeleteColumnsType>
+  : [E["softDelete"]] extends [false | undefined]
+    ? unknown
+    : Partial<RowOfColumns<SoftDeleteColumnsType>>;
+
+type Flatten<T> = { [K in keyof T]: T[K] } & {};
+
+/** The row `executor.list()` / `executor.detail()` return for entity `E`. A wide
+ *  `EntityDefinition` (fields without literal keys) yields `Record<string, unknown>`. */
+export type EntityRow<E extends EntityDefinition = EntityDefinition> =
+  string extends keyof E["fields"]
+    ? Record<string, unknown>
+    : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & RowForFields<E["fields"]>>;
 
 // ── ES-write brand ──────────────────────────────────────────────────────
 export type { ExecutorOnly, NotExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";

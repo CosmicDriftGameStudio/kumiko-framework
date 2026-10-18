@@ -80,6 +80,14 @@ export function flattenLocatedTimestamp(
   return result;
 }
 
+/** Shape of a single rehydrated locatedTimestamp field. `at` is the wall clock in `tz`
+ *  (no offset), `utc` the ISO instant string; both are strings, not Temporal values. */
+export type LocatedTimestampRead = {
+  readonly at: string;
+  readonly tz: string;
+  readonly utc: string;
+};
+
 /**
  * DB → API: zwei flache Spalten zu combined { at, tz, utc } rehydraten.
  *

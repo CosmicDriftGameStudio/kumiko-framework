@@ -13,6 +13,7 @@ import {
   createBooleanField,
   createDateField,
   createEntity,
+  createEntityExecutor,
   createFilesField,
   createImagesField,
   createLocatedTimestampField,
@@ -25,7 +26,10 @@ import {
   createTzField,
   type EntityDefinition,
 } from "../../engine/index.ts";
-import { buildEntityTable } from "../table-builder.ts";
+import type { FieldsMap } from "../../engine/types/index.ts";
+import type { EventStoreExecutor } from "../event-store-executor.ts";
+import type { MoneyRead } from "../money.ts";
+import { buildEntityTable, type EntityRow } from "../table-builder.ts";
 
 describe("EntityTable<E> — Property-Names existieren", () => {
   const sampleEntity = createEntity({
@@ -198,5 +202,45 @@ describe("createEntity — inline field literals without `as const`", () => {
   test("a non-field value in fields still collapses to never", () => {
     const broken = createEntity({ table: "broken", fields: { x: { type: "nonsense" } } });
     expectTypeOf(broken).toBeNever();
+  });
+});
+
+describe("createEntityExecutor — executor rows are typed from the entity", () => {
+  const noteEntity = createEntity({
+    table: "typed_notes",
+    fields: {
+      title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      body: createTextField({ personal: false, reason: "test_fixture" }),
+      price: createMoneyField({ required: true }),
+    },
+  });
+  const { executor } = createEntityExecutor("note", noteEntity);
+  type NoteRow = EntityRow<typeof noteEntity>;
+
+  test("detail() resolves to the concrete row", () => {
+    expectTypeOf(executor.detail).returns.resolves.toEqualTypeOf<NoteRow | null>();
+    expectTypeOf<NoteRow["title"]>().toEqualTypeOf<string>();
+    expectTypeOf<NoteRow["body"]>().toEqualTypeOf<string | null>();
+    expectTypeOf<NoteRow["price"]>().toEqualTypeOf<MoneyRead>();
+  });
+
+  test("list() rows are the concrete row", () => {
+    expectTypeOf(executor.list).returns.resolves.toHaveProperty("rows");
+    expectTypeOf(executor.list).returns.resolves.toMatchTypeOf<{ rows: readonly NoteRow[] }>();
+  });
+
+  test("a wide entity keeps the untyped executor", () => {
+    const fields: FieldsMap = {
+      title: createTextField({ personal: false, reason: "test_fixture" }),
+    };
+    const wide = createEntityExecutor("wide", createEntity({ fields }));
+    expectTypeOf(wide.executor.detail).returns.resolves.toEqualTypeOf<Record<
+      string,
+      unknown
+    > | null>();
+  });
+
+  test("a typed executor stays assignable to the untyped EventStoreExecutor", () => {
+    expectTypeOf(executor).toExtend<EventStoreExecutor>();
   });
 });
