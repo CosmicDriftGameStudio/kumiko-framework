@@ -49,7 +49,7 @@ export type BootOptionWiring = {
   ) => (req: Request, arg?: TArg) => Promise<Response>;
 };
 
-function isSeedFnList(
+export function isSeedFnList(
   seeds: readonly ProdSeedFn[] | ProdSeedsConfig,
 ): seeds is readonly ProdSeedFn[] {
   return Array.isArray(seeds);

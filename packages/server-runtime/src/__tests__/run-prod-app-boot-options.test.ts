@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { composeEnvSchema, type KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { type RunProdAppOptions, runProdApp } from "../run-prod-app.js";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
 
@@ -78,13 +78,36 @@ describe("runProdApp boot options", () => {
     expect(countOf(bootSummary())).toBe(countOf(without) + 1);
   });
 
-  test('mail "smtp-env" without SMTP_HOST aborts the boot', async () => {
-    await expect(
-      bootValidate({
+  test('the boot dry run checks the smtp-env block of mail "smtp-env" without the app composing it', async () => {
+    await bootValidate({ features: deliveryFeatures(), mail: { transport: "smtp-env" } });
+
+    const inventory =
+      logSpy.mock.calls
+        .map((call: unknown[]) => String(call[0]))
+        .find((line: string) => line.startsWith("Env check")) ?? "";
+    const rowOf = (name: string): string =>
+      inventory.split("\n").find((row: string) => row.trim().startsWith(`${name} `)) ?? "";
+    expect(rowOf("SMTP_HOST")).toMatch(/runProdApp\.mail\s+required\s+.*missing/i);
+    expect(rowOf("SMTP_PASS")).toMatch(/runProdApp\.mail\s+optional/);
+    expect(inventory).toContain("1 required variable(s) missing");
+    expect(bootSummary()).toBe("");
+  });
+
+  test("an invalid smtp-env value fails the boot dry run", async () => {
+    const reported: KumikoBootError[] = [];
+    await bootValidate(
+      {
         features: deliveryFeatures(),
         mail: { transport: "smtp-env" },
-      }),
-    ).rejects.toThrow(/SMTP_HOST/);
+        bootErrorReporter: (err) => {
+          reported.push(err);
+        },
+      },
+      { ...BOOT_ENV, SMTP_HOST: "smtp.example", SMTP_PORT: "not-a-port" },
+    );
+    expect(reported.map((err) => err.format()).join("\n")).toMatch(
+      /SMTP_PORT \(runProdApp\.mail, invalid\)/,
+    );
   });
 
   test("billing without tier-engine aborts and names the missing features", async () => {
@@ -104,6 +127,13 @@ describe("runProdApp boot options", () => {
   });
 
   test("seed shortcuts without auth abort", async () => {
-    await expect(bootValidate({ seeds: { sysadminFromEnv: true } })).rejects.toThrow(/need `auth`/);
+    const sysadminEnv = {
+      ...BOOT_ENV,
+      DEMO_SYSADMIN_EMAIL: "sysadmin@example.test",
+      DEMO_SYSADMIN_PASSWORD: "sysadmin-password-123456",
+    };
+    await expect(bootValidate({ seeds: { sysadminFromEnv: true } }, sysadminEnv)).rejects.toThrow(
+      /need `auth`/,
+    );
   });
 });

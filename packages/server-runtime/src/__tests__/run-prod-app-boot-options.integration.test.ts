@@ -14,6 +14,7 @@ import { templateResourceEntity } from "@cosmicdrift/kumiko-bundled-features/tem
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createDbConnection, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
   createArchivedStreamsTable,
   createEventsTable,
@@ -92,6 +93,7 @@ function authBoot(extra: Partial<RunProdAppOptions>, env: Record<string, string>
     autoListen: false,
     migrations: false,
     ...extra,
+    envSchema: extra.envSchema ?? composeEnvSchema({ features: [] }),
   });
 }
 

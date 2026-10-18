@@ -32,6 +32,7 @@
     "./compliance-profiles-ops": "./src/compliance-profiles-ops/index.ts",
     "./config": "./src/config/index.ts",
     "./crypto-shredding": "./src/crypto-shredding/index.ts",
+    "./crypto-shredding/env": "./src/crypto-shredding/env/index.ts",
     "./config/web": "./src/config/web/index.ts",
     "./data-retention": "./src/data-retention/index.ts",
     "./readiness": "./src/readiness/index.ts",
@@ -231,6 +232,10 @@
       "./crypto-shredding": {
         "types": "./dist/crypto-shredding/index.d.ts",
         "default": "./dist/crypto-shredding/index.js"
+      },
+      "./crypto-shredding/env": {
+        "types": "./dist/crypto-shredding/env/index.d.ts",
+        "default": "./dist/crypto-shredding/env/index.js"
       },
       "./config/web": {
         "types": "./dist/config/web/index.d.ts",

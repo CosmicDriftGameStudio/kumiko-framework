@@ -44,7 +44,10 @@ the boot with a clear message when the env is incomplete.
 2. `bin/server.ts` passes both to `runProdApp`.
 3. The test boots with `KUMIKO_DRY_RUN_ENV=boot`, which runs the full
    validation and exits before any DB or Redis connection: a complete
-   production env passes, and a missing S3, SMTP or KMS key aborts the boot.
+   production env passes, a partial S3 or missing KMS env aborts the boot,
+   and a missing `SMTP_HOST` shows up in the env inventory under
+   `runProdApp.mail`, because the options add their env blocks to the app's
+   `envSchema`.
 
 ## Run
 
@@ -122,8 +125,12 @@ describe("prod boot options recipe", () => {
     await expect(bootValidate(withoutKey("S3_BUCKET"))).rejects.toThrow(/S3_BUCKET/);
   });
 
-  test("a missing SMTP host aborts the boot", async () => {
-    await expect(bootValidate(withoutKey("SMTP_HOST"))).rejects.toThrow(/SMTP_HOST/);
+  test("the dry run reports a missing SMTP host from the mail option's env block", async () => {
+    await bootValidate(withoutKey("SMTP_HOST"));
+    const lines = logSpy.mock.calls.map((call: unknown[]) => String(call[0]));
+    const inventory = lines.find((line: string) => line.startsWith("Env check")) ?? "";
+    expect(inventory).toMatch(/SMTP_HOST\s+runProdApp\.mail\s+required\s+.*missing/i);
+    expect(lines.some((line: string) => line.includes("boot validation OK"))).toBe(false);
   });
 
   test("a missing KMS trio aborts the boot under kmsMode required", async () => {

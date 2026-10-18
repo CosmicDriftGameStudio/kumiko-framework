@@ -1,7 +1,7 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { CRYPTO_SHREDDING_FEATURE_NAME } from "./constants.js";
-import { kmsEnvSchema } from "./env.js";
+import { kmsEnvSchema } from "./env/index.js";
 import {
   forgetSubjectWrite,
   subjectForgetDeniedSchema,

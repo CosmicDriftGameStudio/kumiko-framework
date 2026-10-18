@@ -185,6 +185,7 @@ import type { DemoModeOption } from "./boot-options/demo-mode.js";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.js";
 import type { KmsMode } from "./boot-options/kms-mode.js";
 import type { MailBootOption } from "./boot-options/mail-option.js";
+import { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.js";
 import { installShutdownSignals, type SignalsOption } from "./boot-options/process-signals.js";
 import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.js";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.js";
@@ -927,7 +928,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    needed in 9.1's audit (37 references, 25 distinct vars).
   const rawEnvSource = options.envSource ?? process.env;
   const runMode = parseRunMode(rawEnvSource[DRY_RUN_ENV_VAR]);
-  const composedEnvSchema = requireEnvSchema(options.envSchema);
+  const composedEnvSchema = withBootOptionEnvBlocks(requireEnvSchema(options.envSchema), options);
   const effectiveEnvSchema = options.masterKey
     ? withOptionalEnvKeys(composedEnvSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
     : composedEnvSchema.schema;

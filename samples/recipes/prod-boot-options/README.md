@@ -36,7 +36,10 @@ the boot with a clear message when the env is incomplete.
 2. `bin/server.ts` passes both to `runProdApp`.
 3. The test boots with `KUMIKO_DRY_RUN_ENV=boot`, which runs the full
    validation and exits before any DB or Redis connection: a complete
-   production env passes, and a missing S3, SMTP or KMS key aborts the boot.
+   production env passes, a partial S3 or missing KMS env aborts the boot,
+   and a missing `SMTP_HOST` shows up in the env inventory under
+   `runProdApp.mail`, because the options add their env blocks to the app's
+   `envSchema`.
 
 ## Run
 
