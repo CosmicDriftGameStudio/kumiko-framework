@@ -59,6 +59,29 @@ describe("sampleValuesFor", () => {
     expect(values["lines"]).toContainEqual({ entry: "<p>[Name der Statusseite]</p>" });
   });
 
+  test("a text example given as i18n key reads as its translation, other types stay as declared", () => {
+    const labelText = (key: string): string =>
+      ({ "status:mail.example.title": "Neue Störung", "status:mail.example.stage": "Prüfung" })[
+        key
+      ] ?? key;
+    const values = sampleValuesFor(
+      {
+        title: templateVariable.text({ example: "status:mail.example.title" }),
+        plain: templateVariable.text({ example: "Wartung" }),
+        url: templateVariable.link({ example: "https://status.example.org" }),
+        updates: templateVariable.list(
+          { stage: templateVariable.text(), at: templateVariable.date() },
+          { example: [{ stage: "status:mail.example.stage", at: "2026-03-01" }] },
+        ),
+      },
+      labelText,
+    );
+    expect(values["title"]).toBe("Neue Störung");
+    expect(values["plain"]).toBe("Wartung");
+    expect(values["url"]).toBe("https://status.example.org");
+    expect(values["updates"]).toContainEqual({ stage: "Prüfung", at: "2026-03-01" });
+  });
+
   test("a list without example gets three rows built from the item fallbacks", () => {
     const values = sampleValuesFor({
       positions: templateVariable.list({

@@ -96,13 +96,13 @@ function LineEditorBody({
         undoRedo: false,
       }),
       DocumentVariable.extend({
-        addNodeView: () => createVariableView(variableLabels, systemVariables, flat),
+        addNodeView: () => createVariableView(variableLabels, systemVariables),
       }),
       UndoRedo,
       BlockLineBreaks,
       ...(placeholder === undefined ? [] : [Placeholder.configure({ placeholder })]),
     ],
-    [variableLabels, systemVariables, flat, placeholder],
+    [variableLabels, systemVariables, placeholder],
   );
 
   const editor = useEditor({

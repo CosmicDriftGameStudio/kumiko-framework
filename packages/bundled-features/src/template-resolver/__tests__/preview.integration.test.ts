@@ -58,6 +58,7 @@ const invMailer = defineFeature("inv-mailer", (r) => {
     data: () => ({}),
     variables: {
       invoiceNumber: templateVariable.text({ required: true, example: "RE-2026-001" }),
+      headline: templateVariable.text({ example: "inv-mailer:mail.example.headline" }),
       dueDate: templateVariable.date({ example: "2026-03-15" }),
       total: templateVariable.money({ example: { amount: 11900, currency: "EUR" } }),
       positions: templateVariable.list(
@@ -81,6 +82,11 @@ const invMailer = defineFeature("inv-mailer", (r) => {
       },
     },
     meta: { de: { subject: "Rechnung {{invoiceNumber}}" } },
+  });
+  r.translations({
+    keys: {
+      "inv-mailer:mail.example.headline": { de: "Neue Rechnung", en: "New invoice" },
+    },
   });
 });
 
@@ -199,6 +205,29 @@ describe("template-resolver :: preview query", () => {
     expect(preview.html).toContain("Lizenz");
     expect(preview.html).toContain("Dritte Zeile");
     expect(preview.checks.every((check) => check.ok)).toBe(true);
+  });
+
+  test("a text example given as i18n key fills the preview in the language of the edited tab", async () => {
+    const draft = (locale: string) =>
+      mailDraft('<p><span data-variable="headline"></span></p>', {
+        locale,
+        meta: { subject: "{{headline}} {{invoiceNumber}}" },
+      });
+    const de = await stack.http.queryOk<Preview & { sampleValues: Record<string, unknown> }>(
+      TemplateResolverQueries.preview,
+      draft("de"),
+      adminOf(28),
+    );
+    expect(de.subject).toBe("Neue Rechnung RE-2026-001");
+    expect(de.html).toContain("Neue Rechnung");
+    expect(de.sampleValues["headline"]).toBe("Neue Rechnung");
+
+    const en = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      draft("en"),
+      adminOf(28),
+    );
+    expect(en.subject).toBe("New invoice RE-2026-001");
   });
 
   test("a draft body replaces the stored one and nothing is saved", async () => {
@@ -333,6 +362,18 @@ describe("template-resolver :: send-test write", () => {
     expect(message?.to).toBe(addressOf(admin.id));
     expect(message?.subject).toBe("[TEST] Entwurf RE-2026-001");
     expect(message?.html).toContain("ENTWURF RE-2026-001");
+  });
+
+  test("a test mail fills a translated text example in the language of the edited tab", async () => {
+    const result = await stack.http.writeOk<{ subject: string }>(
+      TemplateResolverHandlers.sendTest,
+      mailDraft('<p><span data-variable="headline"></span></p>', {
+        meta: { subject: "{{headline}} {{invoiceNumber}}" },
+      }),
+      adminOf(36),
+    );
+    expect(result.subject).toBe("[TEST] Neue Rechnung RE-2026-001");
+    expect(emailTransport.sent[0]?.html).toContain("Neue Rechnung");
   });
 
   test("prefixSubject false sends the subject without the test prefix", async () => {

@@ -50,6 +50,17 @@ export function systemPlaceholderLabel(t: Translate, name: string): string {
   return translated === key ? name : translated;
 }
 
+// For places that show a stored {{name}} line as plain text instead of chips.
+export function labelPlaceholders(
+  line: string,
+  variableLabels: Readonly<Record<string, string>>,
+): string {
+  return line.replace(/\{\{([^{}]*)\}\}/g, (_token, rawName: string) => {
+    const name = rawName.trim();
+    return Object.hasOwn(variableLabels, name) ? (variableLabels[name] ?? name) : name;
+  });
+}
+
 // Chips in the editors show these instead of the raw system names.
 export function systemLabelMap(
   t: Translate,

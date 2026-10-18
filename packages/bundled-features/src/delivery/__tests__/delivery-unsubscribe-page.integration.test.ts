@@ -3,6 +3,10 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import {
+  type AnonymousExtraRoute,
+  makeDispatchSystemQuery,
+} from "@cosmicdrift/kumiko-framework/api";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -22,10 +26,20 @@ import { BRANDING_QN, createManagedPagesFeature } from "../../managed-pages/inde
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
-import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "../constants.ts";
+import {
+  DELIVERY_RESUBSCRIBE_PATH,
+  DELIVERY_UNSUBSCRIBE_PATH,
+  DeliveryQueries,
+} from "../constants.ts";
 import { createDeliveryFeature } from "../feature.ts";
 import { createDeliveryTestContext } from "../testing.ts";
-import { createUnsubscribeRoutes, signUnsubscribeToken } from "../unsubscribe.ts";
+import {
+  createUnsubscribePageChromeReader,
+  createUnsubscribeRoutes,
+  renderUnsubscribeResultPage,
+  signUnsubscribeToken,
+  type UnsubscribePageChromeReader,
+} from "../unsubscribe.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-page-test-secret-at-least-32-chars";
 const NOTIFICATION_TYPE = "page-probe:notify:status";
@@ -39,6 +53,30 @@ const brandedAdmin = createTestUser({
 const plainTenant: TenantId = testTenantId(62);
 
 let stack: TestStack;
+
+// An app's legacy unsubscribe landing: the tenant comes from the Host, never from the request
+// input, and the chrome reader is bound once the dispatcher exists (the wire hook in an app).
+const LEGACY_PATH = "/legacy/unsubscribe";
+const tenantByHost: ReadonlyMap<string, TenantId> = new Map([
+  ["muster.example", brandedAdmin.tenantId],
+  ["plain.example", plainTenant],
+]);
+let readLegacyChrome: UnsubscribePageChromeReader | undefined;
+const legacyUnsubscribeRoute: AnonymousExtraRoute = {
+  method: "GET",
+  path: LEGACY_PATH,
+  entry: "anonymous",
+  handler: async (c) => {
+    const tenantId = tenantByHost.get(c.req.header("host") ?? "");
+    if (tenantId === undefined || readLegacyChrome === undefined) return c.text("not found", 404);
+    const chrome = await readLegacyChrome(tenantId, "de");
+    return c.html(renderUnsubscribeResultPage({ kind: "unsubscribed", locale: "de", chrome }));
+  },
+};
+
+function legacyPage(host: string) {
+  return stack.app.request(LEGACY_PATH, { headers: { host } });
+}
 
 function userToken(tenantId: TenantId, locale: string | undefined): Promise<string> {
   return signUnsubscribeToken(
@@ -108,7 +146,15 @@ beforeAll(async () => {
         _configAccessorFactory: accessorFactory,
       };
     },
-    extraRoutes: [...createUnsubscribeRoutes({ secret: UNSUBSCRIBE_SECRET })],
+    extraRoutes: [
+      ...createUnsubscribeRoutes({ secret: UNSUBSCRIBE_SECRET }),
+      legacyUnsubscribeRoute,
+    ],
+    // No default tenant: the X-Tenant header picks any tenant for an anonymous /api caller.
+    anonymousAccess: {},
+  });
+  readLegacyChrome = createUnsubscribePageChromeReader({
+    dispatchSystemQuery: makeDispatchSystemQuery(stack.dispatcher),
   });
   await unsafePushTables(stack.db, { configValuesTable });
   for (const [key, value] of [
@@ -243,5 +289,41 @@ describe("unsubscribe pages in the tenant's mail look", () => {
     expect(html).not.toContain(LOGO_URL);
     expect(html).toContain("--accent:#1f5468");
     expect(html).toContain("Sent via Statusdienst");
+  });
+});
+
+describe("an app route reading the chrome for its own tenant", () => {
+  test("the Host-resolved tenant gets its look, another host gets the plain card", async () => {
+    const branded = await legacyPage("muster.example");
+    expect(branded.status).toBe(200);
+    const brandedHtml = await branded.text();
+    expect(brandedHtml).toContain("<title>Abgemeldet</title>");
+    expect(brandedHtml).toContain('<span class="name">Muster AG</span>');
+    expect(brandedHtml).toContain("Versendet über Statusdienst");
+
+    const plain = await legacyPage("plain.example");
+    expect(plain.status).toBe(200);
+    const plainHtml = await plain.text();
+    expect(plainHtml).not.toContain("Muster AG");
+    expect(plainHtml).toContain("--accent:#1f5468");
+    expect(plainHtml).toContain("Versendet über Statusdienst");
+  });
+
+  test("an anonymous caller naming any tenant cannot query its chrome over /api/query", async () => {
+    for (const tenantId of [brandedAdmin.tenantId, plainTenant]) {
+      const res = await stack.app.request("/api/query", {
+        method: "POST",
+        headers: { "content-type": "application/json", "X-Tenant": tenantId },
+        body: JSON.stringify({
+          type: DeliveryQueries.unsubscribePageChrome,
+          payload: { locale: "de" },
+        }),
+      });
+      expect(res.status).toBe(401);
+      // Rejected by the handler's access rule, so the anonymous session did reach the dispatcher.
+      const text = await res.text();
+      expect(text).toContain('"handler":"delivery:query:unsubscribe-page-chrome"');
+      expect(text).not.toContain("Statusdienst");
+    }
   });
 });

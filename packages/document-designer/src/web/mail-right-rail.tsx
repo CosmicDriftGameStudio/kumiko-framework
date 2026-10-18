@@ -15,6 +15,7 @@ import {
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";
 import { DEFAULT_LAYOUT_SLUG, TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.ts";
+import { labelPlaceholders } from "./mail-draft.ts";
 import type { EditorVocabulary } from "./mail-edit-center.tsx";
 import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.ts";
 import type { OverviewRowView } from "./overview-row.ts";
@@ -283,6 +284,7 @@ const TONE_LABEL_KEYS: Readonly<Record<MailTone, string>> = {
 function toneOptions(
   t: (key: string, params?: Readonly<Record<string, unknown>>) => string,
   current: string,
+  variableLabels: Readonly<Record<string, string>>,
 ): readonly { readonly value: string; readonly label: string }[] {
   const fixed = MAIL_TONES.map((tone) => ({ value: tone, label: t(TONE_LABEL_KEYS[tone]) }));
   return current === "" || isOneOf(MAIL_TONES, current)
@@ -291,7 +293,9 @@ function toneOptions(
         ...fixed,
         {
           value: current,
-          label: t("documentDesigner.mail.chrome.toneFromPlaceholder", { value: current }),
+          label: t("documentDesigner.mail.chrome.toneFromPlaceholder", {
+            value: labelPlaceholders(current, variableLabels),
+          }),
         },
       ];
 }
@@ -338,7 +342,7 @@ export function ChromeSection({
             value={toneValue}
             display="dropdown"
             onChange={(next) => onChange({ tone: next === "accent" ? "" : next })}
-            options={toneOptions(t, draft.tone)}
+            options={toneOptions(t, draft.tone, vocabulary.labels)}
           />
         </Field>
       </RailField>

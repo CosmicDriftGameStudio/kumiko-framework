@@ -18,6 +18,7 @@ import {
   type AppSchema,
   type FeatureSchema,
   UserRolesProvider,
+  useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import {
@@ -88,6 +89,7 @@ export function DefaultAppShell({
   children,
 }: DefaultAppShellProps): ReactNode {
   const fillCls = fillClasses(fill);
+  const t = useTranslation();
   // Second column only when a screen fills it (sidebar-09 pattern) — otherwise
   // every other screen would carry an empty strip next to the navigation.
   const panel = useSidebarPanelHost();
@@ -96,7 +98,11 @@ export function DefaultAppShell({
       <SidebarPanelProvider value={panel.value}>
         {/* sidebar-07-Muster: Standard-Variante (border-r, flush content) +
           collapsible="icon" — der Rail klappt auf Icon-Breite zu (Trigger/Rail). */}
-        <Sidebar collapsible="icon">
+        <Sidebar
+          collapsible="icon"
+          mobileTitle={t("kumiko.sidebar.title")}
+          mobileDescription={t("kumiko.sidebar.description")}
+        >
           <SidebarHeader data-kumiko-layout="sidebar-header">{brand}</SidebarHeader>
           {sidebarActions !== undefined && (
             <SidebarGroup
@@ -121,7 +127,7 @@ export function DefaultAppShell({
               {sidebarFooter}
             </SidebarFooter>
           )}
-          <SidebarRail />
+          <SidebarRail aria-label={t("kumiko.sidebar.toggle")} title={t("kumiko.sidebar.toggle")} />
         </Sidebar>
         <div
           ref={panel.ref}

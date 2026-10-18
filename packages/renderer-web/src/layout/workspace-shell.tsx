@@ -31,7 +31,13 @@
 
 import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
-import { qualifyNavId, toAppSchema, UserRolesProvider, useNav } from "@cosmicdrift/kumiko-renderer";
+import {
+  qualifyNavId,
+  toAppSchema,
+  UserRolesProvider,
+  useNav,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { useResolvers } from "../app/resolvers-context.tsx";
 import {
@@ -106,6 +112,7 @@ export function WorkspaceShell({
   );
 
   const nav = useNav();
+  const t = useTranslation();
   const routeWorkspaceId = nav.route?.workspaceId;
 
   // Single source of truth: URL > initial > engine-default > first visible.
@@ -234,7 +241,11 @@ export function WorkspaceShell({
   return (
     <SidebarProvider {...fillCls.provider}>
       <SidebarPanelProvider value={panel.value}>
-        <Sidebar collapsible="icon">
+        <Sidebar
+          collapsible="icon"
+          mobileTitle={t("kumiko.sidebar.title")}
+          mobileDescription={t("kumiko.sidebar.description")}
+        >
           <SidebarHeader data-kumiko-layout="sidebar-header">
             {brand}
             {switcher}
@@ -248,7 +259,7 @@ export function WorkspaceShell({
               {sidebarFooter}
             </SidebarFooter>
           )}
-          <SidebarRail />
+          <SidebarRail aria-label={t("kumiko.sidebar.toggle")} title={t("kumiko.sidebar.toggle")} />
         </Sidebar>
         <div
           ref={panel.ref}

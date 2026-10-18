@@ -68,22 +68,28 @@ test("mail-editor-chrome-rail", async ({ page }) => {
   await openEditor(page);
   const chrome = page.getByTestId("mail-editor-chrome");
   await chrome.scrollIntoViewIfNeeded();
-  const chip = page.locator("#mail-header-chip[contenteditable='true']");
-  await chip.click();
-  await page.keyboard.type("Neue Rechnung");
-  await page.getByTestId("combobox-mail-tone").click();
-  await page.getByRole("option", { name: "Erfolg (grün)" }).click();
+  // The seeded draft takes header label and tone from placeholders; the rail names them by label only.
+  await expect(page.getByTestId("mail-header-chip")).toContainText("Kennzeichen der Rechnung");
+  await expect(page.getByTestId("combobox-mail-tone")).toContainText(
+    "Aus Platzhalter: Farbe der Meldung (success, warning oder danger)",
+  );
   const note = page.locator("#mail-footer-note[contenteditable='true']");
   await note.click();
-  await page.keyboard.type("Sie erhalten diese Mail, weil Sie Kunde bei uns sind.");
-  await expect(page.getByTestId("combobox-mail-tone")).toContainText("Erfolg (grün)");
+  await page.keyboard.type("Sie erhalten diese Mail, weil Sie Kunde bei uns sind. ");
+  await page.getByTestId("mail-placeholder-noticeLabel-insert").click();
+  await expect(page.getByTestId("mail-footer-note")).toContainText("Kennzeichen der Rechnung");
+  await expect(chrome).not.toContainText("noticeLabel");
+  await expect(chrome).not.toContainText("noticeTone");
+  await expect(chrome).not.toContainText("{{");
   await chrome.scrollIntoViewIfNeeded();
   await shot(page, "mail-editor-chrome-rail");
 
   await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
   const preview = page.frameLocator('[data-testid="mail-preview-iframe"]');
-  await expect(preview.getByText("Neue Rechnung")).toBeVisible();
+  // The example of noticeLabel is an i18n key: the German template previews its German text.
+  await expect(preview.getByText("Neue Rechnung").first()).toBeVisible();
   await expect(preview.getByText("weil Sie Kunde bei uns sind")).toBeVisible();
+  await expect(preview.locator("body")).not.toContainText("New invoice");
   // The dev server's live-reload stream (/_reload) stays open, so networkidle does not come back once the
   // preview frame attaches here; the asserted preview text is the ready signal.
   await page.evaluate(() => document.fonts.ready);

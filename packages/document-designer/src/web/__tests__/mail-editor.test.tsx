@@ -381,8 +381,16 @@ describe("MailEditor", () => {
 
   test("the rail keeps the stored header chip and footer note, and a changed tone is previewed and saved", async () => {
     const calls: Call[] = [];
+    const chromeValidation = {
+      ...validation,
+      variables: {
+        ...validation.variables,
+        eventLabel: { type: "text", label: "Event name" },
+        tone: { type: "text", label: "Incident colour" },
+      },
+    };
     renderEditor(
-      fakeDispatcher("draft", calls, validation, preview, {
+      fakeDispatcher("draft", calls, chromeValidation, preview, {
         ...STORED_META,
         headerChip: "{{eventLabel}}",
         tone: "{{tone}}",
@@ -391,9 +399,15 @@ describe("MailEditor", () => {
     );
     const chrome = await screen.findByTestId("mail-editor-chrome");
     expect(chrome.textContent).toContain("Label in the header");
+    // The rail names placeholders by their label only, never by the raw name.
+    await waitFor(() => expect(chrome.textContent).toContain("Event name"));
+    expect(chrome.textContent).not.toContain("eventLabel");
+    expect(chrome.textContent).not.toContain("{{");
     const toneSelect = await screen.findByTestId("combobox-mail-tone");
     // A placeholder tone is kept as its own option instead of being reset to the default.
-    await waitFor(() => expect(toneSelect.textContent).toContain("From placeholder: {{tone}}"));
+    await waitFor(() =>
+      expect(toneSelect.textContent).toContain("From placeholder: Incident colour"),
+    );
     fireEvent.click(toneSelect);
     const warning = (await screen.findAllByText("Warning (amber)")).find(
       (node) => node.closest("[role=option], [cmdk-item]") !== null,

@@ -47,6 +47,7 @@ import {
   resolveDerivedMaxRequestBodySize,
 } from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
 import {
+  makeDispatchSystemQuery,
   makeDispatchSystemWrite,
   type SystemWireDeps,
 } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
@@ -964,6 +965,7 @@ export async function createKumikoServer(
       registry: stack.registry,
       metricsFor: createMetricsForFactory(stack.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(stack.dispatcher),
+      dispatchSystemQuery: makeDispatchSystemQuery(stack.dispatcher),
     });
   }
 

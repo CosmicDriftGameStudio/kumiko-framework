@@ -228,12 +228,13 @@ describe("runWorkerApp", () => {
     expect(run.temporalWasDefined).toBe(true);
   });
 
-  test("wireComponents receives db/redis/registry/dispatchSystemWrite/lifecycle and can register a shutdown hook", async () => {
+  test("wireComponents receives db/redis/registry/dispatchSystemWrite/dispatchSystemQuery/lifecycle and can register a shutdown hook", async () => {
     let seenDeps: {
       db: boolean;
       redis: boolean;
       registry: boolean;
       dispatchSystemWrite: boolean;
+      dispatchSystemQuery: boolean;
     } | null = null;
     let shutdownHookRan = false;
 
@@ -244,6 +245,7 @@ describe("runWorkerApp", () => {
           redis: deps.redis !== undefined,
           registry: deps.registry.features.has("worker-probe"),
           dispatchSystemWrite: typeof deps.dispatchSystemWrite === "function",
+          dispatchSystemQuery: typeof deps.dispatchSystemQuery === "function",
         };
         deps.lifecycle.registerShutdownHook("test-component", async () => {
           shutdownHookRan = true;
@@ -256,6 +258,7 @@ describe("runWorkerApp", () => {
       redis: true,
       registry: true,
       dispatchSystemWrite: true,
+      dispatchSystemQuery: true,
     });
 
     await handle.stop();

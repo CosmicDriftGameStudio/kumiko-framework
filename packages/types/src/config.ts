@@ -515,7 +515,9 @@ export type NotificationDataFn = (
 // Example: inApp gets { title, body }, email gets { subject, sections }.
 export type NotificationTemplateFn = (data: Record<string, unknown>) => Record<string, unknown>;
 
-// Declared placeholder of a template body. `required` defaults to false.
+// Declared placeholder of a template body. `required` defaults to false. `label`, and the
+// `example` of a text or richText variable, is an i18n key or plain text: the editor and the
+// preview read it in the language of the edited template.
 type TemplateVariableCommon = {
   readonly label?: string;
   readonly required?: boolean;

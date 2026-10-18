@@ -57,11 +57,27 @@ const SAMPLE_LINK = "https://example.com";
 const SAMPLE_DATE = "2026-01-15";
 const SAMPLE_LIST_ROWS = 3;
 
-// A variable label is an i18n key or plain text; an unknown key reads as itself.
+// A variable label, and the example of a text variable, is an i18n key or plain text; an unknown
+// key reads as itself.
 type LabelText = (label: string) => string;
 
+function isTranslatableExample(
+  def: TemplateScalarVariableDef,
+  example: unknown,
+): example is string {
+  return (def.type === "text" || def.type === "richText") && typeof example === "string";
+}
+
+function exampleFor(
+  def: TemplateScalarVariableDef,
+  example: unknown,
+  labelText: LabelText,
+): unknown {
+  return isTranslatableExample(def, example) ? labelText(example) : example;
+}
+
 function sampleScalar(name: string, def: TemplateScalarVariableDef, labelText: LabelText): unknown {
-  if (def.example !== undefined) return def.example;
+  if (def.example !== undefined) return exampleFor(def, def.example, labelText);
   const label = def.label === undefined ? name : labelText(def.label);
   switch (def.type) {
     case "text":
@@ -85,8 +101,12 @@ function sampleRow(
   given: Readonly<Record<string, unknown>> = {},
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {};
-  for (const [name, def] of Object.entries(item)) row[name] = sampleScalar(name, def, labelText);
-  return { ...row, ...given };
+  for (const [name, def] of Object.entries(item)) {
+    row[name] = Object.hasOwn(given, name)
+      ? exampleFor(def, given[name], labelText)
+      : sampleScalar(name, def, labelText);
+  }
+  return { ...given, ...row };
 }
 
 function sampleList(def: TemplateListVariableDef, labelText: LabelText): Record<string, unknown>[] {
