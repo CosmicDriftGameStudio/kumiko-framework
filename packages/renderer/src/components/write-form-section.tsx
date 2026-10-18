@@ -12,7 +12,7 @@ import { useForm } from "../hooks/use-form.ts";
 import { useTranslation } from "../i18n.tsx";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";
 import { GridCellForField } from "./grid-cell-for-field.tsx";
-import { hasIssueWithoutVisibleField } from "./render-edit-logic.ts";
+import { hasIssueWithoutVisibleField, issuesAfterEdit } from "./render-edit-logic.ts";
 
 function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z
@@ -150,7 +150,13 @@ export function WriteFormSection({
             field={{ ...field, value: snapshot.values[field.field] }}
             columns={section.columns}
             issues={snapshot.errors[field.field]}
-            onChange={(v) => controller.setField(field.field, v)}
+            onChange={(v) => {
+              controller.setField(field.field, v);
+              const errors = controller.getSnapshot().errors;
+              const remaining = issuesAfterEdit(errors, field.field);
+              if (remaining !== errors) controller.setErrors(remaining);
+              setError(null);
+            }}
             GridCell={GridCell}
             featureName={featureName}
             allIssues={snapshot.errors}

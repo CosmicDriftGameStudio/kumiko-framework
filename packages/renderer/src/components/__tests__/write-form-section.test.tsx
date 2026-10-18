@@ -293,6 +293,22 @@ describe("WriteFormSection", () => {
     await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
   });
 
+  test("typing into a field dismisses the error banner", async () => {
+    const { dispatcher } = stubDispatcher(async () => ({
+      isSuccess: false,
+      error: { code: "conflict", httpStatus: 409, i18nKey: "errors.conflict", message: "conflict" },
+    }));
+    renderWriteForm(noteSection, dispatcher, noop);
+
+    fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
+    fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
+    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+
+    fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "xy" } });
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("write-form-section-error")).toBeNull());
+  });
+
   test("submit is blocked by schema validation when a required field is left empty", async () => {
     const { dispatcher, writes } = stubDispatcher();
     renderWriteForm(noteSection, dispatcher, () => {

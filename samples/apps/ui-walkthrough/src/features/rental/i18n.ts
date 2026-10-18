@@ -73,6 +73,9 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:leasePosition:field:betrag": "Betrag",
     "rental:entity:leasePosition:field:gueltigVon": "Gültig von",
     "rental:entity:leasePosition:field:gueltigBis": "Gültig bis",
+    "errors.validation.position_period_invalid": "Der Zeitraum der Position ist ungültig.",
+    "errors.validation.valid_until_before_valid_from":
+      "Gültig bis darf nicht vor Gültig von liegen.",
 
     "rental:entity:leaseParty:field:lease": "Mietvertrag",
     "rental:entity:leaseParty:field:name": "Name",
@@ -185,6 +188,8 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:leasePosition:field:betrag": "Amount",
     "rental:entity:leasePosition:field:gueltigVon": "Valid from",
     "rental:entity:leasePosition:field:gueltigBis": "Valid until",
+    "errors.validation.position_period_invalid": "The position period is invalid.",
+    "errors.validation.valid_until_before_valid_from": "Valid until must not be before valid from.",
 
     "rental:entity:leaseParty:field:lease": "Lease",
     "rental:entity:leaseParty:field:name": "Name",
