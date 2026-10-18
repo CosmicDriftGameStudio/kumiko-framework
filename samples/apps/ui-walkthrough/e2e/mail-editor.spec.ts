@@ -156,3 +156,30 @@ test("the rail and the paper name placeholders by their translated labels, the b
   expect(contrast).not.toBeNull();
   expect(contrast?.chipText).not.toBe(contrast?.buttonBackground);
 });
+
+test("header label and tone name their placeholders by label, the German preview uses German examples", async ({
+  page,
+}) => {
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto(
+    `/mail-editor?kind=mail&slug=${encodeURIComponent("billing:notify:invoice-issued")}`,
+  );
+  await expect(editorTitle(page)).toContainText("Rechnung versendet");
+
+  // The seeded draft stores headerChip "{{noticeLabel}}" and tone "{{noticeTone}}".
+  const chrome = page.getByTestId("mail-editor-chrome");
+  await expect(page.getByTestId("mail-header-chip")).toContainText("Kennzeichen der Rechnung");
+  await expect(page.getByTestId("combobox-mail-tone")).toContainText(
+    "Aus Platzhalter: Farbe der Meldung",
+  );
+  await expect(chrome).not.toContainText("noticeLabel");
+  await expect(chrome).not.toContainText("noticeTone");
+  await expect(chrome).not.toContainText("{{");
+
+  await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
+  // The example of noticeLabel is an i18n key, so the German tab shows its German text.
+  await expect(page.getByTestId("mail-sample-noticeLabel")).toContainText("Neue Rechnung");
+  const preview = page.frameLocator('[data-testid="mail-preview-iframe"]');
+  await expect(preview.getByText("Neue Rechnung").first()).toBeVisible();
+  await expect(preview.locator("body")).not.toContainText("New invoice");
+});
