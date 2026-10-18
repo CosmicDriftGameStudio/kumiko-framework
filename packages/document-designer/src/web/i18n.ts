@@ -174,4 +174,92 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.validation.ok":
       "Alle Pflicht-Platzhalter vorhanden. Nach dem Veröffentlichen nutzen neue PDFs diese Fassung.",
   },
+  es: {
+    "documentDesigner.actions.generatePdf": "Generar PDF",
+    "documentDesigner.canvas.caption":
+      "Página 1 · {format} · La vista previa solo muestra los saltos de página de forma aproximada; lo que vale es «Generar PDF».",
+    "documentDesigner.canvas.fromLayout": "del diseño «{layout}»",
+    "documentDesigner.error.resourceTooLarge":
+      "La imagen es demasiado grande. Elige un archivo más pequeño.",
+    "documentDesigner.error.resourceUnsupportedImage":
+      "Este formato de imagen no es compatible. Usa PNG, JPEG, GIF o WebP.",
+    "documentDesigner.locale": "Idioma",
+    "documentDesigner.localeDialog.cancel": "Cancelar",
+    "documentDesigner.localeDialog.description":
+      "Los cambios en este idioma aún no se han guardado.",
+    "documentDesigner.localeDialog.discard": "Descartar cambios",
+    "documentDesigner.localeDialog.save": "Guardar y cambiar",
+    "documentDesigner.localeDialog.title": "Cambios sin guardar",
+    "documentDesigner.notFound": "No se encontró la plantilla «{slug}».",
+    "documentDesigner.originBar.export": "Exportar como paquete",
+    "documentDesigner.originBar.noTotal":
+      "Plantilla del sistema para todas las organizaciones. {count} organizaciones tienen su propia versión y no reciben los cambios que hagas aquí.",
+    "documentDesigner.originBar.withTotal":
+      "Plantilla del sistema para todas las organizaciones. {count} de {total} organizaciones tienen su propia versión y no reciben los cambios que hagas aquí.",
+    "documentDesigner.originBar.showOverrides": "Ver personalizaciones de las organizaciones",
+    "documentDesigner.overrides.action.diff": "Ver diferencias",
+    "documentDesigner.overrides.action.open": "Abrir",
+    "documentDesigner.overrides.back": "Volver a la lista",
+    "documentDesigner.overrides.column.changed": "Modificada",
+    "documentDesigner.overrides.column.status": "Estado",
+    "documentDesigner.overrides.column.tenant": "Organización",
+    "documentDesigner.overrides.column.version": "Versión",
+    "documentDesigner.overrides.detail.version": "{tenant}, versión {version}",
+    "documentDesigner.overrides.empty":
+      "Ninguna organización ha personalizado esta plantilla. Los cambios que hagas aquí se aplican a todas.",
+    "documentDesigner.overrides.status.active": "Personalizada",
+    "documentDesigner.overrides.status.draft": "Borrador",
+    "documentDesigner.overrides.summary": "{count} organizaciones tienen su propia versión.",
+    "documentDesigner.overrides.title": "Personalizaciones de las organizaciones",
+    "documentDesigner.overrides.usedBy": "Se usa en",
+    "documentDesigner.overrides.usedByEmpty":
+      "Ninguna notificación registrada usa esta plantilla directamente.",
+    "documentDesigner.pdfUnavailable": "La generación de PDF no está disponible: {message}",
+    "documentDesigner.pdfUnavailableNoReason": "La generación de PDF no está disponible.",
+    "documentDesigner.placeholders.layoutHint":
+      "Las imágenes van incluidas en el PDF como URI de datos. El encabezado y el pie de página vienen del diseño «{layout}» y son iguales en todas las páginas.",
+    "documentDesigner.preview.loading": "Generando PDF...",
+    "documentDesigner.preview.pageOf": "Página {page} de {pages}",
+    "documentDesigner.preview.renderFailed": "No se pudo mostrar el PDF.",
+    "documentDesigner.preview.stale":
+      "La vista previa está desactualizada. Vuelve a generar el PDF.",
+    "documentDesigner.resources.empty": "Todavía no hay imágenes.",
+    "documentDesigner.resources.saveFirst":
+      "Guarda primero la plantilla; después podrás subir imágenes.",
+    "documentDesigner.resources.title": "Recursos",
+    "documentDesigner.resources.upload": "+ Subir",
+    "documentDesigner.settings.fileName": "Nombre del archivo",
+    "documentDesigner.settings.landscape": "Horizontal",
+    "documentDesigner.settings.layout": "Diseño",
+    "documentDesigner.settings.layoutHeaderFooter": "Encabezado y pie de página del diseño",
+    "documentDesigner.settings.marginBottom": "Inferior (mm)",
+    "documentDesigner.settings.marginLeft": "Izquierdo (mm)",
+    "documentDesigner.settings.marginRight": "Derecho (mm)",
+    "documentDesigner.settings.marginTop": "Superior (mm)",
+    "documentDesigner.settings.metaAuthor": "Autor",
+    "documentDesigner.settings.metadata": "Metadatos del PDF",
+    "documentDesigner.settings.metaLanguage": "Idioma",
+    "documentDesigner.settings.metaLanguageHint":
+      "Sigue el idioma de la plantilla. Cámbialo con el selector de idioma del encabezado.",
+    "documentDesigner.settings.margins": "Márgenes en mm (superior, derecho, inferior, izquierdo)",
+    "documentDesigner.settings.metaTitle": "Título",
+    "documentDesigner.settings.orientation": "Orientación",
+    "documentDesigner.settings.page": "Documento",
+    "documentDesigner.settings.pageFormat": "Formato de página",
+    "documentDesigner.settings.portrait": "Vertical",
+    "documentDesigner.settings.printBackground": "Imprimir fondos y colores",
+    "documentDesigner.settings.storage": "Almacenamiento",
+    "documentDesigner.settings.storageHint":
+      "Cada PDF generado lleva el id y la versión de la plantilla. Así las facturas siguen siendo verificables aunque la plantilla cambie más adelante.",
+    "documentDesigner.status.active": "Activa",
+    "documentDesigner.status.activeVersion": "Activa v{version}",
+    "documentDesigner.status.draft": "Borrador",
+    "documentDesigner.status.draftVersion": "Borrador v{version}",
+    "documentDesigner.validation.lastProbe":
+      "Última generación de prueba: {pages} páginas, {size}, {seconds} s",
+    "documentDesigner.validation.missingRequired":
+      "Falta el marcador obligatorio «{name}». No se puede publicar.",
+    "documentDesigner.validation.ok":
+      "Están todos los marcadores obligatorios. Tras publicar, los PDF nuevos usan esta versión.",
+  },
 };
