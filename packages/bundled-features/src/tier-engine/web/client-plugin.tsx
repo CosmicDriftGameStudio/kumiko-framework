@@ -3,10 +3,16 @@
 // for the declarative tier-admin actionForm (registered server-side via
 // r.screen in the feature); the app places the screen only via r.nav.
 
-import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import {
+  mergeTranslations,
+  type TranslationsByLocale,
+  translationsByLocaleFromKeys,
+} from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { TIER_ENGINE_FEATURE } from "../constants.js";
-import { defaultTranslations } from "../i18n.js";
+import { TIER_ENGINE_I18N } from "../i18n.js";
+
+const defaultTranslations: TranslationsByLocale = translationsByLocaleFromKeys(TIER_ENGINE_I18N);
 
 export type TierEngineClientOptions = {
   /** Per-key overrides over the default bundles (de/en). */
