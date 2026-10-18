@@ -918,6 +918,15 @@
         "sharp": "^0.35.5",
       },
     },
+    "samples/recipes/golden-path": {
+      "name": "@cosmicdrift/kumiko-sample-golden-path",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/i18n": {
       "name": "@cosmicdrift/kumiko-sample-i18n",
       "dependencies": {
@@ -1485,6 +1494,8 @@
     "@cosmicdrift/kumiko-sample-field-access": ["@cosmicdrift/kumiko-sample-field-access@workspace:samples/recipes/field-access"],
 
     "@cosmicdrift/kumiko-sample-files-post-processing": ["@cosmicdrift/kumiko-sample-files-post-processing@workspace:samples/recipes/files-post-processing"],
+
+    "@cosmicdrift/kumiko-sample-golden-path": ["@cosmicdrift/kumiko-sample-golden-path@workspace:samples/recipes/golden-path"],
 
     "@cosmicdrift/kumiko-sample-i18n": ["@cosmicdrift/kumiko-sample-i18n@workspace:samples/recipes/i18n"],
 

@@ -68,7 +68,7 @@ describe("scaffoldApp", () => {
     }
   });
 
-  test("CLAUDE.md imports the framework guide and AGENTS.md only points at it", async () => {
+  test("CLAUDE.md imports the framework guide and AGENTS.md points at it", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
@@ -77,7 +77,46 @@ describe("scaffoldApp", () => {
     expect(claudeLines[1]).toBe("@AGENTS.md");
     const agentsMd = readFileSync(join(dest, "AGENTS.md"), "utf-8");
     expect(agentsMd).toContain("node_modules/@cosmicdrift/kumiko-framework/AGENTS.md");
-    expect(agentsMd.trimEnd().split("\n").length).toBeLessThan(20);
+  });
+
+  test("AGENTS.md fills product name, features and commands and leaves TODO placeholders for the owner", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({
+      name: "my-shop",
+      destination: dest,
+      features: [
+        {
+          name: "files",
+          importPath: "@cosmicdrift/kumiko-bundled-features/files",
+          exportName: "createFilesFeature",
+          callExpression: "createFilesFeature()",
+        },
+      ],
+      testSetup: () => STUB_TEST_SETUP,
+    });
+
+    const agentsMd = readFileSync(join(dest, "AGENTS.md"), "utf-8");
+    expect(agentsMd.startsWith("# my-shop: agent instructions\n")).toBe(true);
+    expect(agentsMd).toContain("- `files`\n- `tasks` (demo");
+    expect(agentsMd).toContain("- `bun run test:integration`");
+    expect(agentsMd).toContain("- `bun run schema:generate`");
+    expect(agentsMd).toContain("- Purpose: TODO(app owner)");
+    expect(agentsMd).toContain("- Production URL: TODO(app owner)");
+    expect(agentsMd).toContain("## App-specific rules\n\nTODO(app owner)");
+    expect(agentsMd).not.toMatch(/\{\{|\}\}/);
+  });
+
+  test("AGENTS.md lists every script of the generated package.json", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest, testSetup: () => STUB_TEST_SETUP });
+
+    const scripts = Object.keys(
+      JSON.parse(readFileSync(join(dest, "package.json"), "utf-8")).scripts,
+    );
+    const agentsMd = readFileSync(join(dest, "AGENTS.md"), "utf-8");
+    for (const script of scripts) {
+      expect(agentsMd).toContain(`- \`bun run ${script}\``);
+    }
   });
 
   test("the CLAUDE.md import path resolves to a file the framework package ships", () => {

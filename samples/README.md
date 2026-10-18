@@ -16,6 +16,7 @@ an open-source statuspage clone built with Kumiko.
 
 | I want to... | Sample | Test type |
 |--------------|--------|-----------|
+| See the whole loop once: entity, write handler, event, projection, screen, test | [recipes/golden-path](recipes/golden-path/) | Integration |
 | Entity + standard handlers + soft delete + optimistic locking | [recipes/basic-entity](recipes/basic-entity/) | Integration |
 | Custom handlers with business logic | [recipes/custom-handlers](recipes/custom-handlers/) | Integration |
 | Parent-child relations + cascade/restrict | [recipes/relations](recipes/relations/) | Integration |

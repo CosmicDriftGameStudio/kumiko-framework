@@ -20,7 +20,7 @@ import {
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { isKebabSegment } from "./kebab.js";
-import { renderAgentsMd, renderClaudeMd } from "./scaffold-agent-docs.js";
+import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.js";
 import {
   createDemoTasksFeature,
   renderDemoSeedFile,
@@ -205,7 +205,14 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   );
   files.push("README.md");
 
-  write(join(destination, "AGENTS.md"), renderAgentsMd());
+  write(
+    join(destination, "AGENTS.md"),
+    renderAgentsMd({
+      productName: options.name,
+      features: options.features,
+      scriptNames: Object.keys(appScripts(testSetup)),
+    }),
+  );
   files.push("AGENTS.md");
   write(join(destination, "CLAUDE.md"), renderClaudeMd());
   files.push("CLAUDE.md");
@@ -216,6 +223,20 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 // @wrapper-known semantic-alias
 function write(path: string, content: string): void {
   writeFileSync(path, content);
+}
+
+function appScripts(testSetup: ScaffoldTestSetup | undefined): Record<string, string> {
+  return {
+    dev: "bun --watch bin/dev.ts",
+    build: "bun kumiko-build",
+    start: "bun run bin/main.ts",
+    boot: "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
+    typecheck: "tsc --noEmit",
+    lint: "biome check .",
+    ...(testSetup?.scripts ?? { test: "bun --config=bunfig.ci.toml test --dots" }),
+    "schema:apply": "bun kumiko-schema apply",
+    "schema:generate": "bun kumiko-schema generate",
+  };
 }
 
 function renderPackageJson(
@@ -229,17 +250,7 @@ function renderPackageJson(
       version: "0.1.0",
       private: true,
       type: "module",
-      scripts: {
-        dev: "bun --watch bin/dev.ts",
-        build: "bun kumiko-build",
-        start: "bun run bin/main.ts",
-        boot: "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
-        typecheck: "tsc --noEmit",
-        lint: "biome check .",
-        ...(testSetup?.scripts ?? { test: "bun --config=bunfig.ci.toml test --dots" }),
-        "schema:apply": "bun kumiko-schema apply",
-        "schema:generate": "bun kumiko-schema generate",
-      },
+      scripts: appScripts(testSetup),
       dependencies: {
         "@cosmicdrift/kumiko-bundled-features": version,
         "@cosmicdrift/kumiko-dev-server": version,
@@ -771,12 +782,7 @@ function renderReadme(
   appName: string,
   features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
 ): string {
-  const featureList =
-    features && features.length > 0
-      ? [...features.map((f) => `- \`${f.name}\``), "- `tasks` (demo — list + edit screens)"].join(
-          "\n",
-        )
-      : "- `secrets` (foundation)\n- `sessions` (foundation)\n- `tasks` (demo — list + edit screens)";
+  const featureList = renderMountedFeatureList(features);
   return `# ${appName}
 
 Scaffolded by \`kumiko new app\`. Includes a demo **tasks** feature with list +

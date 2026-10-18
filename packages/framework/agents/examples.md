@@ -35,6 +35,7 @@
 | `feature-toggles` | Runtime feature-toggle flip — two toggleable features, one registers a cross-feature hook on the other; disabling either has the documented effect without reboot. | `examples/feature-toggles.md` |
 | `field-access` | Field-level access control. When entity-level roles aren't granular enough. | `examples/field-access.md` |
 | `files-post-processing` | The three ways to generate an image variant: declarative field variants, imperative ctx.derivatives.variant() with region-blur, and the public route behind a default-deny predicate. | `examples/files-post-processing.md` |
+| `golden-path` | The smallest complete feature: entity, write handler, event, projection, screen and an integration test. | `examples/golden-path.md` |
 | `i18n` | Feature-scoped translations. 'Hallo' and 'Hello' in the same app. | `examples/i18n.md` |
 | `idempotency` | Same request, same result. Dedupes on request ID. | `examples/idempotency.md` |
 | `inbound-mail-triage` | Inbound-mail consumer pattern: inbound-mail-foundation + in-memory provider, a worker-lane triage job attached to the ingest handler, verified end-to-end through createAllInOneEntrypoint. | `examples/inbound-mail-triage.md` |

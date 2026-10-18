@@ -1,0 +1,11 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-golden-path",
+  "description": "The smallest complete feature: entity, write handler, event, projection, screen and an integration test.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

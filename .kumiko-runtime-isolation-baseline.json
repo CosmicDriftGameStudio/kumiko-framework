@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-10-02",
-  "total": 20,
+  "generated": "2026-10-18",
+  "total": 19,
   "perFile": {
     "packages/bundled-features/src/delivery/index.ts::./testing.js": 1,
     "packages/bundled-features/src/ledger/web/index.ts::../recurring.js": 1,
