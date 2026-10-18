@@ -2,6 +2,8 @@
 // i18n-parity test. Regenerate when that test reports a drift.
 
 export const frameworkEnCatalog: Readonly<Record<string, string>> = {
+  "account-security:nav.accountSecurity": "Account & Security",
+  "screen:account-security.title": "Account & Security",
   "admin-shell:nav.myCaps": "Plans & Caps",
   "admin-shell:nav.platformOverview": "Overview",
   "admin-shell:nav.tenantCaps": "Plans & Caps",

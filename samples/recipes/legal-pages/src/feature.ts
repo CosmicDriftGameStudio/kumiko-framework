@@ -35,8 +35,10 @@
 
 import {
   createLegalPagesFeature,
+  createLegalPagesLayout,
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
+  LEGAL_TERMS_ROUTES,
 } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
@@ -44,7 +46,16 @@ import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-featu
 // requires sie. r.requires({ features: ["template-resolver"] }) greift automatisch im
 // legal-pages-Feature.
 export const templateResolverFeature = createTemplateResolverFeature();
-export const legalPagesFeature = createLegalPagesFeature();
+// `terms: true` adds the opt-in terms routes; the layout puts the app's chrome
+// around every legal page.
+export const legalPagesFeature = createLegalPagesFeature({
+  terms: true,
+  wrapLayout: createLegalPagesLayout({
+    siteName: "Sample App",
+    footerHtml: (lang) =>
+      lang === "de" ? "<footer>Sample App</footer>" : "<footer>Sample App (en)</footer>",
+  }),
+});
 
 // Re-exports für Tests + andere Demos
-export { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES };
+export { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES, LEGAL_TERMS_ROUTES };

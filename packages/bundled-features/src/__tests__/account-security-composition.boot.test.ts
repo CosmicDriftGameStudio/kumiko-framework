@@ -2,6 +2,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  ACCOUNT_SECURITY_SCREEN_ID,
+  ACCOUNT_SECURITY_SCREEN_QN,
+  createAccountSecurityFeature,
+} from "../account-security/index.js";
 import { createAuthFoundationFeature } from "../auth-foundation/index.js";
 import {
   AuthMfaHandlers,
@@ -19,7 +24,7 @@ import {
 } from "../sessions/index.js";
 import { createTenantFeature } from "../tenant/index.js";
 import { createUserFeature } from "../user/feature.js";
-import { accountSecurityFeature, testAuthMfaOptions } from "./account-security-fixture.js";
+import { testAuthMfaOptions } from "./auth-mfa-test-options.js";
 
 function bootFeatures() {
   return [
@@ -39,7 +44,33 @@ describe("account-security composed from bundled screens (fw#2841)", () => {
   afterAll(() => configureEntityFieldEncryption(undefined));
 
   test("boot-validates as a dashboard of screen panels", () => {
-    expect(() => validateBoot([...bootFeatures(), accountSecurityFeature])).not.toThrow();
+    expect(() => validateBoot([...bootFeatures(), createAccountSecurityFeature()])).not.toThrow();
+  });
+
+  test("defaults to a dormant screen open to every signed-in user, without nav", () => {
+    const feature = createAccountSecurityFeature();
+    const screen = feature.screens[ACCOUNT_SECURITY_SCREEN_ID];
+    expect(screen?.dormant).toBe(true);
+    expect(screen?.access).toEqual({
+      openToAll: { reason: "signed-in users manage their own account security" },
+    });
+    expect(Object.keys(feature.navs)).toEqual([]);
+  });
+
+  test("nav option registers a sidebar entry and wakes the screen; access narrows it", () => {
+    const feature = createAccountSecurityFeature({
+      access: { roles: ["Admin", "Editor"] },
+      nav: { order: 40 },
+    });
+    const screen = feature.screens[ACCOUNT_SECURITY_SCREEN_ID];
+    expect(screen?.dormant).toBe(false);
+    expect(screen?.access).toEqual({ roles: ["Admin", "Editor"] });
+    const nav = Object.values(feature.navs)[0];
+    expect(nav?.screen).toBe(ACCOUNT_SECURITY_SCREEN_QN);
+    expect(nav?.order).toBe(40);
+    expect(() =>
+      validateBoot([...bootFeatures(), createAccountSecurityFeature({ nav: {} })]),
+    ).not.toThrow();
   });
 
   test("the self-service screens are open to every signed-in user", () => {

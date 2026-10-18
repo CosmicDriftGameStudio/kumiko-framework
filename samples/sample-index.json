@@ -1,7 +1,18 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 43,
+  "featureCount": 45,
   "features": {
+    "account-security": {
+      "samples": [
+        "recipes-auth-mfa"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "**I want users to be able to enable TOTP-based 2FA, and login to become a two-step challenge once they have.**",
+      "primarySample": "recipes-auth-mfa",
+      "whenToUse": "Signed-in users manage MFA and their own sessions on one screen — mount next to auth-mfa and sessions, no composeAuthStack needed.",
+      "sampleBlurb": "The auth-mfa recipe mounts the composed screen next to auth-mfa and sessions and boot-validates it with a sidebar entry.",
+      "screenshot": null
+    },
     "admin-shell": {
       "samples": [
         "apps-admin-console"
@@ -203,6 +214,17 @@
       "whenToUse": "Records need a hierarchical folder tree without a custom pivot table per entity — mount folders once and file entities via folder-assignment join rows.",
       "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
       "screenshot": "/screenshots/features/folders.png"
+    },
+    "host-routing": {
+      "samples": [
+        "recipes-host-routing"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "createHostRoutingFeature(options): the Host header is the only source of the anonymous tenant; a forged X-Tenant header answers 400 tenant_mismatch. - createHostDispatch(options): HTML file and CSP per host, a 404 page for unknown shops, and /de/... redirecting to the unprefixed path. - The same hostDispatch goes into runProdApp({ hostDispatch }); the dev server takes it through toDevHostDispatch from @cosmicdrift/kumiko-dev-server.",
+      "primarySample": "recipes-host-routing",
+      "whenToUse": "Tenants live on their own subdomain or path prefix, or marketing pages have locale prefixes — one options object drives the anonymous tenant resolver and runProdApp's hostDispatch.",
+      "sampleBlurb": "Three shop subdomains land on three tenants, a forged X-Tenant is rejected, and the page dispatch serves the shop shell with its CSP or redirects /de/ to the unprefixed path.",
+      "screenshot": null
     },
     "inbound-mail-foundation": {
       "samples": [

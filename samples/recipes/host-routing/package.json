@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-host-routing",
+  "description": "createHostRoutingFeature + createHostDispatch — tenant per subdomain, per-host HTML and CSP, locale redirect, shared by runProdApp and the dev server.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

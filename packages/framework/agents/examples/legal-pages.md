@@ -152,6 +152,20 @@ await seedTextBlock(db, {
 → Templates for full legally-sound texts: e-recht24.de
 or datenschutz-generator.de by Dr. Schwenke.
 
+With `runProdApp` the same blocks can come from a JSON file on every boot.
+`legalContentSeed` updates existing blocks, so the file stays authoritative:
+
+```typescript illustration
+import legalContent from "./legal-content.json" with { type: "json" };
+import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
+
+runProdApp({ /* ... */ seeds: [legalContentSeed({ blocks: legalContent })] });
+```
+
+The recipe mounts `createLegalPagesFeature({ terms: true, wrapLayout })`, so it
+also serves `/legal/nutzungsbedingungen` and `/legal/terms`, and wraps every
+page in `createLegalPagesLayout({ siteName })`.
+
 ### 4. Visit the pages
 
 After the seed these URLs are immediately live:
@@ -217,6 +231,7 @@ from SYSTEM_TENANT:
 
 ```ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import {
   createTemplateResolverApi,
   templateResourceEntity,
@@ -230,7 +245,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { LEGAL_ROUTES, legalPagesFeature, templateResolverFeature } from "../feature";
+import {
+  LEGAL_ROUTES,
+  LEGAL_TERMS_ROUTES,
+  legalPagesFeature,
+  templateResolverFeature,
+} from "../feature";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -335,6 +355,23 @@ describe("legal-pages sample", () => {
     const res = await stack.app.request("/legal/impressum");
     expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
   });
+
+  test("terms from legalContentSeed render in both languages inside the app layout", async () => {
+    await legalContentSeed({
+      blocks: [
+        { slug: "terms", locale: "de", title: "Nutzungsbedingungen", content: "## Geltung" },
+        { slug: "terms", locale: "en", title: "Terms of Service", content: "## Scope" },
+      ],
+    })({ db });
+    const expected = { de: "<h2>Geltung</h2>", en: "<h2>Scope</h2>" } as const;
+    for (const route of LEGAL_TERMS_ROUTES) {
+      const res = await stack.app.request(route.path);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain(expected[route.lang]);
+      expect(body).toContain("· Sample App</title>");
+    }
+  });
 });
 ```
 
@@ -378,8 +415,10 @@ describe("legal-pages sample", () => {
 
 import {
   createLegalPagesFeature,
+  createLegalPagesLayout,
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
+  LEGAL_TERMS_ROUTES,
 } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
@@ -387,8 +426,17 @@ import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-featu
 // requires sie. r.requires({ features: ["template-resolver"] }) greift automatisch im
 // legal-pages-Feature.
 export const templateResolverFeature = createTemplateResolverFeature();
-export const legalPagesFeature = createLegalPagesFeature();
+// `terms: true` adds the opt-in terms routes; the layout puts the app's chrome
+// around every legal page.
+export const legalPagesFeature = createLegalPagesFeature({
+  terms: true,
+  wrapLayout: createLegalPagesLayout({
+    siteName: "Sample App",
+    footerHtml: (lang) =>
+      lang === "de" ? "<footer>Sample App</footer>" : "<footer>Sample App (en)</footer>",
+  }),
+});
 
 // Re-exports für Tests + andere Demos
-export { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES };
+export { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES, LEGAL_TERMS_ROUTES };
 ```

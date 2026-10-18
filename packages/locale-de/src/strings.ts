@@ -3,6 +3,8 @@
 // and extend this table (the parity test in use-all-bundled fails otherwise).
 
 export const localeDeBundle: Readonly<Record<string, string>> = {
+  "account-security:nav.accountSecurity": "Konto & Sicherheit",
+  "screen:account-security.title": "Konto & Sicherheit",
   "admin-shell:nav.myCaps": "Tarife & Limits",
   "admin-shell:nav.platformOverview": "Übersicht",
   "admin-shell:nav.tenantCaps": "Tarife & Limits",

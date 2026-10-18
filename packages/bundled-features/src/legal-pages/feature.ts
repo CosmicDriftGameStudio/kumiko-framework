@@ -14,6 +14,7 @@ import {
 import {
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
+  LEGAL_TERMS_ROUTES,
   type LegalPageRoute,
   type LegalRequiredBlock,
 } from "./constants.js";
@@ -84,11 +85,17 @@ export type LegalPagesOptions = {
    *  `privacy/de`). Apps whose routes use a different slug/lang set
    *  (e.g. Spanish-default) pass their own list here. */
   readonly requiredBlocks?: readonly LegalRequiredBlock[];
+  /** Also serve LEGAL_TERMS_ROUTES (`/legal/nutzungsbedingungen`,
+   *  `/legal/terms`, slug `terms`). Appended to `routes`; never boot-required. */
+  readonly terms?: boolean;
 };
 
 export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDefinition {
   const wrapLayout = opts.wrapLayout ?? wrapInLayout;
-  const routes: readonly LegalPageRoute[] = opts.routes ?? LEGAL_ROUTES;
+  const routes: readonly LegalPageRoute[] = [
+    ...(opts.routes ?? LEGAL_ROUTES),
+    ...(opts.terms === true ? LEGAL_TERMS_ROUTES : []),
+  ];
   const requiredBlocks = opts.requiredBlocks ?? LEGAL_REQUIRED_BLOCKS;
   validateRoutes(routes);
   if (opts.routes !== undefined && opts.routes.length > 0 && opts.requiredBlocks === undefined) {

@@ -33,6 +33,7 @@ an open-source statuspage clone built with Kumiko.
 | Multi-tenant data isolation | [recipes/tenant-isolation](recipes/tenant-isolation/) | Integration |
 | Anonymous access (public endpoints, no auth) | [recipes/anonymous-access](recipes/anonymous-access/) | Integration |
 | Anonymous access in multi-tenant setup | [recipes/anonymous-access-multitenant](recipes/anonymous-access-multitenant/) | Integration |
+| Tenant per subdomain, per-host HTML/CSP, locale redirect (`host-routing`) | [recipes/host-routing](recipes/host-routing/) | Integration |
 | Internationalization (i18n) | [recipes/i18n](recipes/i18n/) | Unit |
 | Clean error handling (Kumiko error classes, reasons, helpers) | [recipes/error-contract](recipes/error-contract/) | Integration |
 | Default-deny access rules + FK indices via relations | [recipes/access-control](recipes/access-control/) | Integration |

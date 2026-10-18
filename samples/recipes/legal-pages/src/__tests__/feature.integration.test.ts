@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import {
   createTemplateResolverApi,
   templateResourceEntity,
@@ -12,7 +13,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { LEGAL_ROUTES, legalPagesFeature, templateResolverFeature } from "../feature";
+import {
+  LEGAL_ROUTES,
+  LEGAL_TERMS_ROUTES,
+  legalPagesFeature,
+  templateResolverFeature,
+} from "../feature";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -116,5 +122,22 @@ describe("legal-pages sample", () => {
   test("Cache-Header zeigt 60s public-cache", async () => {
     const res = await stack.app.request("/legal/impressum");
     expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
+  });
+
+  test("terms from legalContentSeed render in both languages inside the app layout", async () => {
+    await legalContentSeed({
+      blocks: [
+        { slug: "terms", locale: "de", title: "Nutzungsbedingungen", content: "## Geltung" },
+        { slug: "terms", locale: "en", title: "Terms of Service", content: "## Scope" },
+      ],
+    })({ db });
+    const expected = { de: "<h2>Geltung</h2>", en: "<h2>Scope</h2>" } as const;
+    for (const route of LEGAL_TERMS_ROUTES) {
+      const res = await stack.app.request(route.path);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain(expected[route.lang]);
+      expect(body).toContain("· Sample App</title>");
+    }
   });
 });

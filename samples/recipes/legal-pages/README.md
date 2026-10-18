@@ -144,6 +144,20 @@ await seedTextBlock(db, {
 → Templates for full legally-sound texts: e-recht24.de
 or datenschutz-generator.de by Dr. Schwenke.
 
+With `runProdApp` the same blocks can come from a JSON file on every boot.
+`legalContentSeed` updates existing blocks, so the file stays authoritative:
+
+```typescript illustration
+import legalContent from "./legal-content.json" with { type: "json" };
+import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
+
+runProdApp({ /* ... */ seeds: [legalContentSeed({ blocks: legalContent })] });
+```
+
+The recipe mounts `createLegalPagesFeature({ terms: true, wrapLayout })`, so it
+also serves `/legal/nutzungsbedingungen` and `/legal/terms`, and wraps every
+page in `createLegalPagesLayout({ siteName })`.
+
 ### 4. Visit the pages
 
 After the seed these URLs are immediately live:

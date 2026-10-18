@@ -20,6 +20,7 @@ function fail(ctx: CliCommandContext, ...lines: readonly string[]): number {
 export const waitlistMigrateOp = {
   id: "waitlist-migrate",
   description: "Copy a legacy app waitlist into the framework waitlist entity (idempotent)",
+  help: USAGE,
   run: async (ctx: CliCommandContext): Promise<number> => {
     const {
       DEFAULT_IMPORT_LOCALE,

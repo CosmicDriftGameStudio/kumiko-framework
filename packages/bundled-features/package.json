@@ -135,6 +135,8 @@
     "./template-resolver/testing": "./src/template-resolver/testing.ts",
     "./template-resolver/web": "./src/template-resolver/web/index.ts",
     "./renderer-foundation": "./src/renderer-foundation/index.ts",
+    "./account-security": "./src/account-security/index.ts",
+    "./host-routing": "./src/host-routing/index.ts",
     "./legal-pages": "./src/legal-pages/index.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
@@ -643,6 +645,14 @@
       "./renderer-foundation": {
         "types": "./dist/renderer-foundation/index.d.ts",
         "default": "./dist/renderer-foundation/index.js"
+      },
+      "./account-security": {
+        "types": "./dist/account-security/index.d.ts",
+        "default": "./dist/account-security/index.js"
+      },
+      "./host-routing": {
+        "types": "./dist/host-routing/index.d.ts",
+        "default": "./dist/host-routing/index.js"
       },
       "./legal-pages": {
         "types": "./dist/legal-pages/index.d.ts",

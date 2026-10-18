@@ -931,6 +931,16 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/host-routing": {
+      "name": "@cosmicdrift/kumiko-sample-host-routing",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/i18n": {
       "name": "@cosmicdrift/kumiko-sample-i18n",
       "dependencies": {
@@ -1502,6 +1512,8 @@
     "@cosmicdrift/kumiko-sample-files-post-processing": ["@cosmicdrift/kumiko-sample-files-post-processing@workspace:samples/recipes/files-post-processing"],
 
     "@cosmicdrift/kumiko-sample-golden-path": ["@cosmicdrift/kumiko-sample-golden-path@workspace:samples/recipes/golden-path"],
+
+    "@cosmicdrift/kumiko-sample-host-routing": ["@cosmicdrift/kumiko-sample-host-routing@workspace:samples/recipes/host-routing"],
 
     "@cosmicdrift/kumiko-sample-i18n": ["@cosmicdrift/kumiko-sample-i18n@workspace:samples/recipes/i18n"],
 

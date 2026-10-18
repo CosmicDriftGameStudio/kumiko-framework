@@ -15,6 +15,7 @@
 // boot-validation — no real transport/provider call happens.
 
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
+import { createAccountSecurityFeature } from "@cosmicdrift/kumiko-bundled-features/account-security";
 import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
@@ -53,6 +54,7 @@ import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folde
 import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
+import { createHostRoutingFeature } from "@cosmicdrift/kumiko-bundled-features/host-routing";
 import { createInboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { createInboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap";
 import { createInboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
@@ -135,6 +137,8 @@ export const APP_FEATURES = [
     challengeTokenSecret: "smoke-mfa-challenge-secret-at-least-32-bytes-long!!",
     issuer: "Kumiko Sample",
   }),
+  // Self-service MFA + own sessions on one screen, in the sidebar.
+  createAccountSecurityFeature({ nav: {} }),
   // Owns the `tokenVerifier` extension-point personal-access-tokens
   // registers against below — required whenever a bearer-auth provider is
   // mounted (kumiko-framework#1369).
@@ -277,6 +281,16 @@ export const APP_FEATURES = [
   // managed-pages/seo smoke resolvers above. grantSecret reuses the same
   // dev-only HMAC key the auth magic-links below use.
   createTenantHandoverFeature({ grantSecret: SMOKE_HMAC_SECRET }),
+  // Path mode keeps the dev host (localhost) free of a host-based resolver:
+  // anonymous calls still default to SYSTEM_TENANT, a client-named tenant
+  // must be enabled and active.
+  createHostRoutingFeature({
+    tenantBy: "path",
+    tenantPathPrefix: "/t",
+    baseDomain: "localhost",
+    apex: { file: "index.html" },
+    tenant: { file: "index.html" },
+  }),
   createDataRetentionFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),

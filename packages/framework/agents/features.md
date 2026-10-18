@@ -2,6 +2,12 @@
 
 # Bundled features
 
+## account-security
+
+Self-service account dashboard: MFA enrollment, recovery codes and the user's own sessions, composed from the auth-mfa and sessions screens.
+
+Requires: `sessions`, `auth-mfa`
+
 ## admin-shell
 
 Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.
@@ -362,6 +368,12 @@ GDPR (Art. 20 export / Art. 17 erasure) coverage for the `form-draft` feature's 
 Requires: `user-data-rights`
 
 Optional requires: `form-draft`
+
+## host-routing
+
+Host- and path-based tenant routing: an authoritative tenant resolver from the subdomain (tenantBy host), a tenant existence check against enabled, active tenants, and the tenant-key query behind createHostDispatch, which picks the HTML file, CSP, locale redirect or 404 per host for runProdApp's hostDispatch.
+
+Requires: `auth-foundation`, `tenant`
 
 ## inbound-mail-foundation
 
