@@ -171,6 +171,7 @@ import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-se
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
 import { assertPiiBootInvariants } from "./pii-boot-gate.js";
+import { type RateLimitOption, resolveRateLimit } from "./rate-limit-defaults.js";
 import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.js";
 import { resolveUnsubscribeWiring, type UnsubscribeOption } from "./resolve-unsubscribe-wiring.js";
 import {
@@ -181,7 +182,7 @@ import {
   resolveAuthMail,
   wireProdPatAutoRevoke,
 } from "./run-prod-app-boot-context.js";
-import { buildStaticFallback } from "./run-prod-app-static-files.js";
+import { buildStaticFallback, resolveCspScriptHashes } from "./run-prod-app-static-files.js";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.js";
 import {
   makeSeedCreateFileRef,
@@ -747,16 +748,18 @@ export type RunProdAppOptions = {
    *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`
    *  mit 503 + Misconfiguration-Hinweis statt echter Metriken. */
   readonly metrics?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["metrics"];
-  /** L1 (Login-Lockout) + L2 (globaler IP-Limit) Rate-Limit-Middleware —
-   *  1:1 durchgereicht an `buildServer`s `ServerOptions.rateLimit`. Ohne
-   *  dieses Feld wird kein L1/L2 verdrahtet (L3 Handler-`rateLimit:`
-   *  funktioniert unabhängig davon bereits). */
-  readonly rateLimit?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["rateLimit"];
+  /** L1 (global per-IP limit) + L2 (auth endpoints) rate-limit middleware, passed
+   *  to `buildServer`'s `ServerOptions.rateLimit`. Without a value L1 allows 600/60 s
+   *  and L2 30/60 s; a partial value overrides only the fields it names, `false`
+   *  (whole option or one layer) switches it off. Behind a reverse proxy the
+   *  client-IP key needs `trustedProxyHops`, otherwise all clients share one bucket. */
+  readonly rateLimit?: RateLimitOption;
   /** Default security headers on every response (HSTS, X-Frame-Options,
-   *  X-Content-Type-Options, Referrer-Policy; CSP opt-in). Headers already
-   *  set by a response (e.g. hostDispatch's per-host CSP) are never
-   *  overridden. `false` disables the whole block; per-header overrides
-   *  via the object form — see SecurityHeadersOption. */
+   *  X-Content-Type-Options, Referrer-Policy, Content-Security-Policy with
+   *  the build's inline-script hashes). Headers already set by a response
+   *  (e.g. hostDispatch's per-host CSP) are never overridden. `false`
+   *  disables the whole block; per-header overrides via the object form —
+   *  see SecurityHeadersOption. */
   readonly securityHeaders?: SecurityHeadersOption;
   /** Number of trusted reverse-proxy hops for client-IP resolution — 1:1
    *  durchgereicht an `buildServer`s
@@ -933,9 +936,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
     console.warn(
       `[runProdApp] trustedProxyHops / ${TRUSTED_PROXY_HOPS_ENV} is not set; client IP falls back to the socket address. ` +
-        "Behind a reverse proxy all clients share one rate-limit bucket.",
+        "Behind a reverse proxy all clients share one rate-limit bucket, so the default L1/L2 limits throttle the whole site at once.",
     );
   }
+  const resolvedRateLimit = resolveRateLimit(options.rateLimit);
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
 
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
@@ -1241,7 +1245,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.observability && { observability: options.observability }),
     ...(options.observabilityOptions && { observabilityOptions: options.observabilityOptions }),
     ...(options.metrics && { metrics: options.metrics }),
-    ...(options.rateLimit && { rateLimit: options.rateLimit }),
+    ...(resolvedRateLimit && { rateLimit: resolvedRateLimit }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
     ...(options.errorDocs && { errorDocs: options.errorDocs }),
     ...((options.extraRoutes || options.unsubscribe) && {
@@ -1490,6 +1494,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk
   //     owns the rest. Tests use this directly; listen() wraps it in
   //     Bun.serve.
+  const cspScriptHashes = await resolveCspScriptHashes(options.staticDir, options.securityHeaders);
   const fetchHandler = withSecurityHeaders(
     options.staticDir
       ? buildStaticFallback(
@@ -1510,6 +1515,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         async (req: Request, socketAddress?: string) =>
           stripNoRouteMatchHeader(await entrypoint.app.fetch(req, socketAddress)),
     options.securityHeaders,
+    cspScriptHashes,
   );
 
   // 11. Mark lifecycle ready — health/ready flips to 200 after this.
@@ -1519,6 +1525,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const securedUpgradeFetch = withSecurityHeaders<KumikoServeEnv>(
     async (req, env) => stripNoRouteMatchHeader(await entrypoint.app.fetch(req, env)),
     options.securityHeaders,
+    cspScriptHashes,
   );
   const webSocketUpgradeFetch = async (req: Request, env: KumikoServeEnv): Promise<Response> =>
     securedUpgradeFetch(req, env);

@@ -10,6 +10,7 @@ export {
   resolveBundledAsset,
 } from "./bundled-assets.js";
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.js";
+export type { RateLimitOption } from "./rate-limit-defaults.js";
 export type { RunBootstrapOptions } from "./run-bootstrap.js";
 export { runBootstrap } from "./run-bootstrap.js";
 export type {
@@ -33,4 +34,4 @@ export type {
   WorkerWireDeps,
 } from "./run-worker-app.js";
 export { runWorkerApp } from "./run-worker-app.js";
-export type { SecurityHeadersOption } from "./security-headers.js";
+export type { CspExtension, CspOption, SecurityHeadersOption } from "./security-headers.js";
