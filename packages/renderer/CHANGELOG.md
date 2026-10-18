@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.368.0
+
+### Patch Changes
+
+- be3c6eb: A locked screen's fallback page gets the fallback's title in the header
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A screen that falls back via visibleWhen shows the fallback's title
+  detail: When visibleWhen locks a screen and its fallback renders instead, the header no longer stays empty. It shows the title of the fallback screen (resolved like any other screen title, from its nav label), never the locked screen's. A fallback without a title still leaves the header empty. PageHeader takes a new breadcrumbScreenId prop for this.
+  -->
+- Updated dependencies [133ef08]
+- Updated dependencies [fbc0759]
+- Updated dependencies [7949df2]
+- Updated dependencies [39b5de4]
+- Updated dependencies [39b5de4]
+- Updated dependencies [478ee1f]
+- Updated dependencies [1404b33]
+  - @cosmicdrift/kumiko-framework@0.368.0
+  - @cosmicdrift/kumiko-types@0.368.0
+  - @cosmicdrift/kumiko-headless@0.368.0
+
 ## 0.367.0
 
 ### Minor Changes

@@ -1,5 +1,154 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.368.0
+
+### Minor Changes
+
+- 7949df2: Bundled features are mounted through create*Feature() factories, the two S3 providers merge into createFileProviderS3Feature({ fromEnv }), and @app/define with kumiko codegen is removed
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bundled feature constants become create*Feature() factories
+  detail: |
+    Every bundled feature that was mounted as a constant (tagsFeature, ledgerFeature, authFoundationFeature, ...) now has a create<Name>Feature() factory exported from the same subpath, and apps mount `createTagsFeature()` instead of `tagsFeature`. Factories of features without options take no arguments; the ones that already had options keep them. Two calls of a factory give interchangeable instances, so mounting the same feature from two stacks does not trip the "mounted twice as distinct instances" check.
+  
+    The old constants keep working as deprecated aliases and are removed in the first release after 2026-10-29.
+  
+    old -> new:
+      tagsFeature -> createTagsFeature()
+      ledgerFeature -> createLedgerFeature()
+      authFoundationFeature -> createAuthFoundationFeature()
+      fooBarFeature -> createFooBarFeature() (same rule for every bundled feature constant)
+      typeof tagsFeature -> ReturnType<typeof createTagsFeature>
+  migration: Run `bun kumiko-upgrade --apply`. It renames the imports and replaces every use with the factory call. It reports aliased imports, re-exports, namespace access, dynamic imports and files that compare a feature by identity with file and line; handle those by hand (one factory call per mount, or keep one shared instance).
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: breaking
+  title: The S3 file providers merge into createFileProviderS3Feature({ fromEnv })
+  detail: |
+    createFileProviderS3Feature() mounts the per-tenant config provider as before. createFileProviderS3Feature({ fromEnv: true }) mounts the env-configured provider (feature name, provider key "s3-env" and requires unchanged). The S3 client helpers (createS3Provider, createS3ProviderFromEnv, parseS3EnvConfig, resolveForcePathStyle, S3ProviderConfig) move to the new subpath @cosmicdrift/kumiko-bundled-features/file-provider-s3/lib.
+  
+    The subpaths file-provider-s3-env and files-provider-s3 keep working as deprecated re-exports and are removed in the first release after 2026-10-29.
+  
+    old -> new:
+      fileProviderS3EnvFeature from .../file-provider-s3-env -> createFileProviderS3Feature({ fromEnv: true }) from .../file-provider-s3
+      fileProviderS3Feature -> createFileProviderS3Feature()
+      @cosmicdrift/kumiko-bundled-features/files-provider-s3 -> @cosmicdrift/kumiko-bundled-features/file-provider-s3/lib
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites the imports and the env feature mount, and reports `typeof fileProviderS3EnvFeature` and re-exports of it with file and line.
+  codemod: scripts/codemod/s3-imports.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: @app/define and kumiko codegen are removed
+  detail: |
+    The .kumiko/ codegen (define.ts, types.generated.d.ts, schemas.generated.ts) is gone: runCodegen, scanEvents and their types are no longer exported, the dev server no longer watches r.defineEvent calls, `kumiko codegen` is removed, `kumiko-build --check` is removed and kumiko-build no longer runs a codegen pass. The scaffolded .gitignore no longer lists .kumiko/, so the upgrade marker .kumiko/upgrade-state.json can be committed. ctx.appendEvent stays bound to the augmentable KumikoEventTypeMap; to emit an event with a payload checked against its definition use emitEvent(ctx, eventDef, { aggregateId, aggregateType, payload, headers? }) with the EventDef that r.defineEvent returns (emitEvent now also accepts headers).
+  migration: Replace `@app/define` imports with direct framework imports (defineWriteHandler/defineQueryHandler/defineFeature from @cosmicdrift/kumiko-framework/engine, events via r.defineEvent and emitEvent) and drop the `file:./.kumiko` dependency plus the bunfig/tsconfig resolver entries. Known sites: publicstatus 43 files, kumiko-platform 13 (samples), solon 3, money-horse 1, phronexsis 1.
+  -->
+
+### Patch Changes
+
+- fbc0759: One DB connection factory: createDbConnection({ url, ... }) on postgres-js, and the query helpers move from the bun-db subpath into the db subpath
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createDbConnection({ url, ... }) is the only connection factory, query helpers move from /bun-db to /db
+  detail: |
+    postgres-js is the only DB driver. createDbConnection takes one options object, is synchronous and accepts the new options ssl and onNotice. The Bun.SQL provider, createConnection, createPgConnection and DB_PROVIDER are removed. The query helpers (selectMany, insertOne, transaction, asRawClient, ...) keep their API and are now exported from @cosmicdrift/kumiko-framework/db. The `tx` handed to the transaction() callback is typed as DbTx (the postgres-js transaction handle it always was at runtime) instead of the Bun.SQL instance type; a helper that takes `db: DbConnection` and receives that tx needs `DbRunner` or `DbTx`.
+  
+    The positional form createDbConnection(url, options) and the @cosmicdrift/kumiko-framework/bun-db subpath keep working as deprecated aliases and are removed in the first release after 2026-10-29.
+  
+    old -> new:
+      createConnection(url, options) (async) -> createDbConnection({ url, ...options }) (sync)
+      createPgConnection(url, options) -> createDbConnection({ url, ...options })
+      createDbConnection(url, options) -> createDbConnection({ url, ...options }) (positional form is deprecated)
+      @cosmicdrift/kumiko-framework/bun-db -> @cosmicdrift/kumiko-framework/db (deprecated alias until the first release after 2026-10-29)
+  
+    Removed without replacement: createBunDbConnection, bunDbConnectionOptionsFromEnv, the BunDbConnection, BunDbTx, BunDbRunner and BunDbConnectionOptions types, DbPoolHandle (use DbConnectionHandle), the PgListenClient re-export from /bun-db (import it from @cosmicdrift/kumiko-types/db-connection) and the DB_PROVIDER environment variable.
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites bun-db imports to /db, createDbConnection(url, options) and createConnection/createPgConnection calls to the object form, and reports leftovers (removed Bun.SQL exports, DB_PROVIDER) with file and line. Remove DB_PROVIDER from your env files.
+  codemod: scripts/codemod/db-factory.ts
+  -->
+- 541adc0: Scaffolded apps get their AGENTS.md from a template with placeholders
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps get AGENTS.md from a template with placeholders
+  detail: The scaffold renders AGENTS.md from templates/AGENTS.app.md instead of a fixed string. It fills in the app name, the mounted features and the commands that exist in the generated package.json. Purpose, production URL and app-specific rules stay as visible TODO(app owner) placeholders. CLAUDE.md is unchanged: it imports the framework guide and AGENTS.md.
+  -->
+- 478ee1f: createTenantDb takes one options object, and HandlerContext/AppContext drop the internal _userId and _handlerType fields
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createTenantDb({ db, tenantId, ... }) takes one options object
+  detail: |
+    createTenantDb takes one CreateTenantDbOptions object ({ db, tenantId, mode?, tracer?, meter?, signal?, grants? }); mode still defaults to "tenant". The positional form createTenantDb(db, tenantId, mode, tracer, meter, signal, grants) keeps working as a deprecated overload and is removed in the first release after 2026-10-29.
+  
+    old -> new:
+      createTenantDb(db, tenantId) -> createTenantDb({ db, tenantId })
+      createTenantDb(db, tenantId, "system", tracer, meter, signal, grants) -> createTenantDb({ db, tenantId, mode: "system", tracer, meter, signal, grants })
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites positional calls (literal undefined arguments are dropped) and reports spread arguments, calls with more than seven arguments and uses of createTenantDb as a value (callback, .bind/.call/.apply) with file and line.
+  codemod: scripts/codemod/tenant-db-options.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: HandlerContext and AppContext no longer expose _userId and _handlerType
+  detail: |
+    The dispatcher no longer sets _userId and _handlerType on the context of write handlers, query handlers and hooks. The caller identity is ctx.user.id. requireSecretsContext reads ctx._userId first and falls back to ctx.user.id, so passing a handler context to it keeps the same audit identity. Provider contexts (FileProviderContext, MailTransportContext, InboundMailContext) keep their own _userId. JobContext._userId is unchanged.
+  migration: Replace ctx._userId with ctx.user.id in write/query handlers and hooks. Known sites: one file each in money-horse, offlot-app, phronexsis and kumiko-enterprise. _handlerType had no readers.
+  -->
+- 1404b33: Test stack and test helpers move from kumiko-framework to kumiko-testing; the old framework paths stay as deprecated re-exports
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Test stack and helpers moved to kumiko-testing, old framework paths are deprecated
+  detail: |
+    Everything a test needs now lives in @cosmicdrift/kumiko-testing. Its core (stack, helpers, preload, bunfig, integration-runner) depends only on kumiko-framework and kumiko-types; bundled-features and dev-server are optional peers used by the root entry and /e2e. Install kumiko-testing as a dev dependency where tests import it.
+  
+    The old framework paths re-export the new ones and are removed in the first release after 2026-10-29. Production symbols that tests also use stay in the framework.
+  
+    old -> new:
+      @cosmicdrift/kumiko-framework/stack -> @cosmicdrift/kumiko-testing/stack
+      TestUsers, testTenantId, testUserId, createTestUser from /stack -> @cosmicdrift/kumiko-framework/seeding
+      @cosmicdrift/kumiko-framework/testing -> @cosmicdrift/kumiko-testing/helpers
+      bridgeStub from /testing and /testing/handler-context -> @cosmicdrift/kumiko-framework/engine
+      @cosmicdrift/kumiko-framework/testing/real-providers -> @cosmicdrift/kumiko-testing/helpers/real-providers
+      @cosmicdrift/kumiko-framework/testing/e2e-generator -> @cosmicdrift/kumiko-testing/helpers/e2e-generator
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites imports from the old paths and splits mixed imports by target. Add @cosmicdrift/kumiko-testing to devDependencies where it is missing.
+  codemod: scripts/codemod/testing-move.ts
+  -->
+- Updated dependencies [133ef08]
+- Updated dependencies [39b5de4]
+- Updated dependencies [1a1b772]
+- Updated dependencies [fbc0759]
+- Updated dependencies [7949df2]
+- Updated dependencies [39b5de4]
+- Updated dependencies [39b5de4]
+- Updated dependencies [be3c6eb]
+- Updated dependencies [be3c6eb]
+- Updated dependencies [39b5de4]
+- Updated dependencies [39b5de4]
+- Updated dependencies [478ee1f]
+- Updated dependencies [1404b33]
+  - @cosmicdrift/kumiko-framework@0.368.0
+  - @cosmicdrift/kumiko-bundled-features@0.368.0
+  - @cosmicdrift/kumiko-testing@0.368.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.368.0
+  - @cosmicdrift/kumiko-server-runtime@0.368.0
+  - @cosmicdrift/kumiko-types@0.368.0
+  - @cosmicdrift/kumiko-renderer-web@0.368.0
+  - @cosmicdrift/kumiko-headless@0.368.0
+
 ## 0.367.0
 
 ### Patch Changes

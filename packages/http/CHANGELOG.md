@@ -1,5 +1,9 @@
 # @cosmicdrift/kumiko-http
 
+## 0.368.0
+
+No changes in this release.
+
 ## 0.367.0
 
 No changes in this release.

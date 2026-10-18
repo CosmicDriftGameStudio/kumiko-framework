@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.368.0",
+    "type": "improvement",
+    "title": "The token list screen takes a description and slots via listScreen",
+    "detail": "createPersonalAccessTokensFeature({ listScreen: { description, slots } }) sets the i18n description and the slots (for example a header component) of the api-tokens list, so an app can show instructions above the list and use the bundled screen directly instead of embedding it in its own dashboard. Without the option nothing changes. Both bundled token screens are now marked agent: { expose: false }, since the mint screen reveals the token plaintext."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "revokeAllPatTokensForUser detects begin() the same way as the transaction helpers",

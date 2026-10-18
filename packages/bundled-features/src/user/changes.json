@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.368.0",
+    "type": "fix",
+    "title": "Soft-deleted users no longer count as active principals",
+    "detail": "A user deleted through the entity executor keeps its last status (usually active) with isDeleted set. principalStatusPlugin, the session checker and the PAT role resolver only looked at the status, so existing sessions and tokens of such a user stayed valid. They now treat isDeleted as blocked (session \"blocked\", PAT 401, principal_blocked for membership resolution) through the new isPrincipalRowBlocked predicate."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "resolveUserDisplayNames no longer swallows decrypt errors",

@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.368.0",
+    "type": "improvement",
+    "title": "calendarCapReservationHandle consumes a reservation per unit",
+    "detail": "`reserveCalendarCapUsage` now returns `reservationId`. `calendarCapReservationHandle(ctx, reservationId, { capName, periodStartIso })` returns a handle with `consume(units)` (turns reserved units into booked ones, counter unchanged) and `release()` (gives back the unconsumed rest). A handler reserves the worst case before the job is dispatched, the job consumes per written unit, so parallel dispatches can no longer overshoot the hard cap and a retry only counts what was written.\n\n`consume` beyond the still-reserved rest throws `CapReservationOverConsumedError` (422, `cap_reservation_over_consumed`). `consume` against a settle tombstone throws `CapReservationSettledError` (422, `cap_reservation_settled`); `release` against it is a no-op. When the reservation outlived its TTL and was swept, `consume` books the units directly, the way settle does for a missing row, without a hard-cap check."
+  },
+  {
+    "version": "0.368.0",
+    "type": "fix",
+    "title": "Swept or released calendar reservations remember the units consume booked",
+    "detail": "The reservation row now stores `consumed_amount`. A release or the TTL sweep gives back only the unconsumed rest. If units were consumed, it keeps the row as a released tombstone (`released_at` set, `amount` 0) until the tombstone TTL passes, instead of deleting it. A later `settle` subtracts the consumed units from the booking, and a `consume` after the sweep books its units directly and is remembered the same way, so the counter ends at exactly the settled total. `settle` below the consumed units throws `CapSettleBelowConsumedError` (422, `cap_settle_below_consumed`) in every state. Expired released tombstones are deleted by the sweep.",
+    "migration": "Apps with cap-counter generate a migration for the new columns store_cap_reservations.consumed_amount (integer NOT NULL DEFAULT 0) and store_cap_reservations.released_at (kumiko migrate generate)."
+  },
+  {
     "version": "0.366.0",
     "type": "fix",
     "title": "cap-counter calendar settle is idempotent",
