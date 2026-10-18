@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated mailTransportInMemoryFeature constant is removed",
+    "detail": "mailTransportInMemoryFeature was kept next to createMailTransportInMemoryFeature() for one release. Mount the feature by calling createMailTransportInMemoryFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces mailTransportInMemoryFeature with createMailTransportInMemoryFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

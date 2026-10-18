@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "securityBaselineFeatures and dsgvoSelfServiceFeatures are deprecated",
+    "detail": "Both presets stay for one release. Replace securityBaselineFeatures({ includeSessions }) with composeSecurityStack({ includeSessions }) and dsgvoSelfServiceFeatures({ userDataRights }) with composeGdprStack({ selfService: { userDataRights } }), both from @cosmicdrift/kumiko-dev-server/compose-stacks. The stacks mount the same features in the same order."
+  },
+  {
     "version": "0.262.0",
     "type": "improvement",
     "title": "securityBaselineFeatures() preset: sessions, crypto-shredding, rate-limiting, audit (fw#2857).",

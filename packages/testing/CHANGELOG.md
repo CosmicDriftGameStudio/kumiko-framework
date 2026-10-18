@@ -1,5 +1,141 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.370.0
+
+### Minor Changes
+
+- 8ff5d19: envSchema required, boot dry run checks the env without values
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: runProdApp requires envSchema
+  detail: envSchema on runProdApp is no longer optional. Without it the boot throws a KumikoBootError that points to composeEnvSchema. An app without its own variables passes composeEnvSchema({ core: frameworkCoreEnvSchema, features }).
+  migration: Pass envSchema: composeEnvSchema({ core: frameworkCoreEnvSchema, features }) to runProdApp, with composeEnvSchema from @cosmicdrift/kumiko-framework/env and frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server/env-schema. App-level variables go into extend. Delete hand-written env checks that ran before runProdApp; the schema covers them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: KUMIKO_DRY_RUN_ENV=boot prints an env table and exits 0 on missing values
+  detail: The boot dry run lists every variable of the composed schema with its feature, whether it is required, and whether it is set, missing or invalid. DATABASE_URL, REDIS_URL and JWT_SECRET appear with source server-runtime when the schema does not declare them, since runProdApp reads them itself. Values are never printed, and a validation message that quotes the value is replaced. A keyring the master-key provider cannot use fails the dry run. An invalid value exits 1. A missing required value exits 0 and says the feature wiring was not validated; with every variable present the dry run validates the wiring as before. NODE_ENV=production does not change this. The MFA secret binding and other env reads run after this exit, so an empty env no longer crashes the dry run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: inspectEnv, renderEnvInspection and the dry-run mode parser
+  detail: inspectEnv(schema, env, { sources }) checks each field on its own and returns its status (set, unset, missing, invalid) without the value; renderEnvInspection renders those rows as the boot table. parseDryRunEnvMode reads KUMIKO_DRY_RUN_ENV (1, true, human, json, pulumi, k8s, boot) and isDryRunEnvActive tells module-level code whether a dry run is running. DRY_RUN_ENV_VAR names the variable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createEnvMasterKeyProvider defers the keyring check in a dry run
+  detail: While KUMIKO_DRY_RUN_ENV is set, createEnvMasterKeyProvider no longer throws at construction on a missing or malformed keyring; the first key operation throws instead. Apps that build the provider at module load can run the boot dry run on an empty env. Outside a dry run the check still runs at construction, and the boot probe for encrypted entity fields forces it in both cases.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp binds the MFA token secrets
+  detail: When auth-mfa is mounted and JWT_SECRET is set, runDevApp binds the MFA token secrets the same way runProdApp does.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: setupTestStack binds the MFA token secrets
+  detail: setupTestStack binds the auth-mfa token secrets from the stack's JWT secret, independent of the host env, so tests that mount auth-mfa without explicit secrets keep working.
+  -->
+- c051152: Managed files, kumiko.config.ts with defineAppConfig, script standard and port registry
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: defineAppConfig in @cosmicdrift/kumiko-framework/config, plus biome and tsconfig presets for apps
+  detail: kumiko.config.ts default-exports defineAppConfig({ features, prodFeatures?, client: { entries }, ports: { dev, e2e, infra? } }). defineAppConfig throws on ports outside 1..65535, a port claimed twice within the app, an empty client.entries list and entries that leave the app. allAppFeatures(config) returns features plus prodFeatures. New exports @cosmicdrift/kumiko-framework/biome (Biome 2.5.7 preset with vcs.useIgnoreFile false) and @cosmicdrift/kumiko-framework/tsconfig.app.json; an app's biome.json and tsconfig.json extend them and keep their own overrides next to extends.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Managed files: one template source for the scaffold, kumiko check managed and kumiko sync-managed
+  detail: deploy/Dockerfile, deploy/Dockerfile.dockerignore, deploy/migrate-step.sh, .husky/pre-push, .github/workflows/{ci,release,cache-cleanup}.yml, the bunfigs and kumiko/schema.ts carry a kumiko-managed marker on line 1 (line 2 after a shebang or # syntax= line). kumiko new app writes them, plus kumiko.config.ts, bin/server.ts (was bin/dev.ts), bin/env-schema.ts, e2e/_helpers and src/__tests__/_setup.ts; bunfig.ci.toml is gone. kumiko/schema.ts is generated from kumiko.config.ts. kumiko-init-deploy prints a deprecation notice and goes away in the next release. Release targets come from package.json#kumiko.deploy.namespace and .deployment (default: the app name).
+  migration: Existing apps: add kumiko.config.ts with defineAppConfig, then run kumiko sync-managed (dry run), kumiko sync-managed --write --adopt for files that are identical or should follow the template, and mark deliberate deviations with "# kumiko-managed: local <reason>" on line 2. Until kumiko.config.ts calls defineAppConfig, kumiko check only warns about drift and missing scripts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko check gains the managed and scripts steps; new kumiko sync-managed and kumiko ports
+  detail: kumiko check managed compares framework-owned files with the installed templates and prints a diff; files with a local marker are skipped and listed. kumiko check scripts requires dev, build, start, typecheck, lint, check, test, test:unit, test:integration, test:integration:ci, test:dom (with uiRoots), test:real, e2e, e2e:real, screenshots and prepare, and lists extras. Both steps fail only once the app calls defineAppConfig. kumiko check accepts step ids as positional filters (kumiko check managed scripts). kumiko sync-managed [--write] [--adopt] writes the templates; it never overwrites a file without marker unless --adopt is passed, never touches local files and refuses symlinked paths. kumiko ports [workspace-root] lists the ports of every app below the root and exits 1 on a collision. kumiko agent lint also checks prodFeatures.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: renderTestSetup writes the standard test scripts, bunfig.dom.toml and the helper homes
+  detail: The scaffolded test setup now adds test:unit, test:integration:ci, test:dom and screenshots, writes bunfig.dom.toml (with @happy-dom/global-registrator as devDependency), e2e/_helpers/index.ts and src/__tests__/_setup.ts.
+  -->
+- 8ff5d19: Follow-ups from the shim removal: typed hook events, a standalone EventDef factory and stricter escapeHatch checks
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: SaveContext.event and DeleteContext.event are required
+  detail: postSave and postDelete hooks always receive the stored event, so event is no longer optional on SaveContext and DeleteContext. Hooks read the caller from event.createdBy instead of guarding for undefined.
+  migration: Code that builds a SaveContext or DeleteContext by hand, usually in tests, sets event, for example with createTestStoredEvent() from @cosmicdrift/kumiko-testing/helpers. Drop optional chaining on ctx.event in hooks.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: createTestStoredEvent builds a StoredEvent fixture
+  detail: createTestStoredEvent(overrides) from @cosmicdrift/kumiko-testing/helpers returns a complete StoredEvent with stable defaults, for hook tests that construct SaveContext or DeleteContext directly.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createEventDef builds an EventDef without a registrar
+  detail: createEventDef({ feature, name, schema, version?, piiFields? }) from @cosmicdrift/kumiko-framework/engine returns the same EventDef that r.defineEvent returns, including the PII field validation, so shared event definitions can live outside a defineFeature callback.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: escapeHatch on a spread entity query handler requires SystemAdmin access
+  detail: A query handler that spreads defineEntityListHandler or defineEntityDetailHandler and adds escapeHatch afterwards skipped the SystemAdmin-only access check that the factory option enforces. Registration now applies the same check and throws for any other access.
+  migration: Pass escapeHatch as an option of defineEntityListHandler or defineEntityDetailHandler with access { roles: access.systemAdmin }, or write a plain r.queryHandler that does not reuse the entity convention handler when a tenant-scoped query needs a raw lookup.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: makeSeedCreateFileRef is exported
+  detail: makeSeedCreateFileRef and the SeedCreateFileRef type are exported from @cosmicdrift/kumiko-server-runtime, so app seed scripts can create file references the same way the bootstrap seeder does.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Runtime-isolation guard resolves imports through the TypeScript resolver
+  detail: The runtime-isolation guard resolves import and re-export targets with ts.resolveModuleName, so path aliases and package exports are followed, and classifies e2e directories as test code. resolveImportTargetPath is exported for other guards.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [8ff5d19]
+- Updated dependencies [79a0aa6]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [4a6e151]
+- Updated dependencies [c051152]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [8ff5d19]
+  - @cosmicdrift/kumiko-framework@0.370.0
+  - @cosmicdrift/kumiko-types@0.370.0
+
 ## 0.369.0
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated notesHistoryFeature constant is removed",
+    "detail": "notesHistoryFeature was kept next to createNotesHistoryFeature() for one release. Mount the feature by calling createNotesHistoryFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces notesHistoryFeature with createNotesHistoryFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.358.0",
     "type": "fix",
     "title": "forget-subject shreds note bodies even when the host entity has anonymize or blockDelete retention",

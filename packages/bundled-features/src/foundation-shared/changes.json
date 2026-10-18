@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "buildInfoEnvSchema and demoAdminEnvSchema",
+    "detail": "buildInfoEnvSchema declares BUILD_VERSION and BUILD_TIME. demoAdminEnvSchema declares the seed logins DEMO_ADMIN_EMAIL and DEMO_SYSADMIN_EMAIL (required), their passwords (optional, at least 16 characters) and an optional DEMO_TENANT_ID. Apps add both through extend."
+  }
+]

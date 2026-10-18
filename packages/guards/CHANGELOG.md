@@ -1,5 +1,76 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.370.0
+
+### Minor Changes
+
+- 4a6e151: Relative imports name the TypeScript source file
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: import-extensions codemod and tsconfig options for .ts import specifiers
+  detail: The import-extensions codemod rewrites relative import and export specifiers that end in .js or .jsx to the .ts or .tsx file next to the importer (import, export from, import type, import() and mock.module). It leaves a specifier alone and reports it when no such file exists. The framework repo itself now imports with .ts endings; its published dist is unchanged. tsc writes .js into the dist, and the .d.ts files keep .ts specifiers, which TypeScript resolves to the sibling .d.ts. An app tsconfig needs allowImportingTsExtensions: true, because the framework packages now ship sources with .ts specifiers and tsc checks them (the preset @cosmicdrift/kumiko-framework/tsconfig.app.json sets it). A tsconfig that emits JS also needs rewriteRelativeImportExtensions (TypeScript 5.7 or newer); a project that only type-checks code from another project reference needs rewriteRelativeImportExtensions false plus emitDeclarationOnly. Consumer code with .js endings keeps running once the option is set.
+  migration: Add `allowImportingTsExtensions: true` to the app tsconfig (or extend @cosmicdrift/kumiko-framework/tsconfig.app.json), then run the codemod (bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/import-extensions.ts . --write); the guard import-extensions reports remaining .js specifiers.
+  codemod: scripts/codemod/import-extensions.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: import-extensions guard reports relative .js and .jsx specifiers
+  detail: The import-extensions guard fails on a relative specifier that ends in .js or .jsx in a .ts or .tsx file (import, export from, import type and import()). Declaration files and fixtures are skipped. The message points to the import-extensions codemod. There is no baseline.
+  -->
+- 8ff5d19: Follow-ups from the shim removal: typed hook events, a standalone EventDef factory and stricter escapeHatch checks
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: SaveContext.event and DeleteContext.event are required
+  detail: postSave and postDelete hooks always receive the stored event, so event is no longer optional on SaveContext and DeleteContext. Hooks read the caller from event.createdBy instead of guarding for undefined.
+  migration: Code that builds a SaveContext or DeleteContext by hand, usually in tests, sets event, for example with createTestStoredEvent() from @cosmicdrift/kumiko-testing/helpers. Drop optional chaining on ctx.event in hooks.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: createTestStoredEvent builds a StoredEvent fixture
+  detail: createTestStoredEvent(overrides) from @cosmicdrift/kumiko-testing/helpers returns a complete StoredEvent with stable defaults, for hook tests that construct SaveContext or DeleteContext directly.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createEventDef builds an EventDef without a registrar
+  detail: createEventDef({ feature, name, schema, version?, piiFields? }) from @cosmicdrift/kumiko-framework/engine returns the same EventDef that r.defineEvent returns, including the PII field validation, so shared event definitions can live outside a defineFeature callback.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: escapeHatch on a spread entity query handler requires SystemAdmin access
+  detail: A query handler that spreads defineEntityListHandler or defineEntityDetailHandler and adds escapeHatch afterwards skipped the SystemAdmin-only access check that the factory option enforces. Registration now applies the same check and throws for any other access.
+  migration: Pass escapeHatch as an option of defineEntityListHandler or defineEntityDetailHandler with access { roles: access.systemAdmin }, or write a plain r.queryHandler that does not reuse the entity convention handler when a tenant-scoped query needs a raw lookup.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: makeSeedCreateFileRef is exported
+  detail: makeSeedCreateFileRef and the SeedCreateFileRef type are exported from @cosmicdrift/kumiko-server-runtime, so app seed scripts can create file references the same way the bootstrap seeder does.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Runtime-isolation guard resolves imports through the TypeScript resolver
+  detail: The runtime-isolation guard resolves import and re-export targets with ts.resolveModuleName, so path aliases and package exports are followed, and classifies e2e directories as test code. resolveImportTargetPath is exported for other guards.
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-repo-manifest@0.370.0
+
 ## 0.369.0
 
 ### Patch Changes

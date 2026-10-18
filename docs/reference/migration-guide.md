@@ -10,6 +10,324 @@ verified: 2026-10-18
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.370.0
+
+### @cosmicdrift/kumiko-server-runtime
+
+**runProdApp requires envSchema**
+
+envSchema on runProdApp is no longer optional. Without it the boot throws a KumikoBootError that points to composeEnvSchema. An app without its own variables passes composeEnvSchema({ core: frameworkCoreEnvSchema, features }).
+
+**Migration:** Pass envSchema: composeEnvSchema({ core: frameworkCoreEnvSchema, features }) to runProdApp, with composeEnvSchema from @cosmicdrift/kumiko-framework/env and frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server/env-schema. App-level variables go into extend. Delete hand-written env checks that ran before runProdApp; the schema covers them.
+
+### @cosmicdrift/kumiko-types
+
+**SaveContext.event and DeleteContext.event are required**
+
+postSave and postDelete hooks always receive the stored event, so event is no longer optional on SaveContext and DeleteContext. Hooks read the caller from event.createdBy instead of guarding for undefined.
+
+**Migration:** Code that builds a SaveContext or DeleteContext by hand, usually in tests, sets event, for example with createTestStoredEvent() from @cosmicdrift/kumiko-testing/helpers. Drop optional chaining on ctx.event in hooks.
+
+### auth-foundation
+
+**The deprecated authFoundationFeature constant is removed**
+
+authFoundationFeature was kept next to createAuthFoundationFeature() for one release. Mount the feature by calling createAuthFoundationFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces authFoundationFeature with createAuthFoundationFeature().
+
+### auth-mfa-user-data
+
+**The deprecated authMfaUserDataFeature constant is removed**
+
+authMfaUserDataFeature was kept next to createAuthMfaUserDataFeature() for one release. Mount the feature by calling createAuthMfaUserDataFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces authMfaUserDataFeature with createAuthMfaUserDataFeature().
+
+### billing-foundation
+
+**The deprecated billingFoundationFeature constant is removed**
+
+billingFoundationFeature was kept next to createBillingFoundationFeature() for one release. Mount the feature by calling createBillingFoundationFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces billingFoundationFeature with createBillingFoundationFeature().
+
+### cap-counter
+
+**The deprecated capCounterFeature constant is removed**
+
+capCounterFeature was kept next to createCapCounterFeature() for one release. Mount the feature by calling createCapCounterFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces capCounterFeature with createCapCounterFeature().
+
+### compliance-profiles-ops
+
+**The deprecated complianceProfilesOpsFeature constant is removed**
+
+complianceProfilesOpsFeature was kept next to createComplianceProfilesOpsFeature() for one release. Mount the feature by calling createComplianceProfilesOpsFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces complianceProfilesOpsFeature with createComplianceProfilesOpsFeature().
+
+### custom-fields
+
+**The deprecated customFieldsFeature constant is removed**
+
+customFieldsFeature was kept next to createCustomFieldsFeature() for one release. Mount the feature by calling createCustomFieldsFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces customFieldsFeature with createCustomFieldsFeature().
+
+### derivatives-sharp
+
+**The deprecated derivativesSharpFeature constant is removed**
+
+derivativesSharpFeature was kept next to createDerivativesSharpFeature() for one release. Mount the feature by calling createDerivativesSharpFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces derivativesSharpFeature with createDerivativesSharpFeature().
+
+### document-ingest-foundation
+
+**The deprecated documentIngestFoundationFeature constant is removed**
+
+documentIngestFoundationFeature was kept next to createDocumentIngestFoundationFeature() for one release. Mount the feature by calling createDocumentIngestFoundationFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces documentIngestFoundationFeature with createDocumentIngestFoundationFeature().
+
+### file-derivatives
+
+**The deprecated fileDerivativesFeature constant is removed**
+
+fileDerivativesFeature was kept next to createFileDerivativesFeature() for one release. Mount the feature by calling createFileDerivativesFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces fileDerivativesFeature with createFileDerivativesFeature().
+
+### file-foundation
+
+**The deprecated fileFoundationFeature constant is removed**
+
+fileFoundationFeature was kept next to createFileFoundationFeature() for one release. Mount the feature by calling createFileFoundationFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces fileFoundationFeature with createFileFoundationFeature().
+
+### file-provider-inmemory
+
+**The deprecated fileProviderInMemoryFeature constant is removed**
+
+fileProviderInMemoryFeature was kept next to createFileProviderInMemoryFeature() for one release. Mount the feature by calling createFileProviderInMemoryFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces fileProviderInMemoryFeature with createFileProviderInMemoryFeature().
+
+### file-provider-s3
+
+**The file-provider-s3-env and files-provider-s3 subpaths are removed**
+
+Both deprecated re-export subpaths of the S3 merge are gone. The env-driven provider is createFileProviderS3Feature({ fromEnv: true }) from @cosmicdrift/kumiko-bundled-features/file-provider-s3 and replaces fileProviderS3EnvFeature. S3ProviderConfig, createS3Provider, createS3ProviderFromEnv, parseS3EnvConfig and resolveForcePathStyle come from @cosmicdrift/kumiko-bundled-features/file-provider-s3/lib.
+
+**Migration:** Run bun kumiko-upgrade --apply. It rewrites fileProviderS3EnvFeature to createFileProviderS3Feature({ fromEnv: true }) and moves files-provider-s3 imports to file-provider-s3/lib.
+
+**The deprecated fileProviderS3Feature constant is removed**
+
+fileProviderS3Feature was kept next to createFileProviderS3Feature() for one release. Mount the feature by calling createFileProviderS3Feature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces fileProviderS3Feature with createFileProviderS3Feature().
+
+### folders
+
+**The deprecated foldersFeature constant is removed**
+
+foldersFeature was kept next to createFoldersFeature() for one release. Mount the feature by calling createFoldersFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces foldersFeature with createFoldersFeature().
+
+### folders-user-data
+
+**The deprecated foldersUserDataFeature constant is removed**
+
+foldersUserDataFeature was kept next to createFoldersUserDataFeature() for one release. Mount the feature by calling createFoldersUserDataFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces foldersUserDataFeature with createFoldersUserDataFeature().
+
+### form-draft
+
+**The deprecated formDraftFeature constant is removed**
+
+formDraftFeature was kept next to createFormDraftFeature() for one release. Mount the feature by calling createFormDraftFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces formDraftFeature with createFormDraftFeature().
+
+### form-draft-user-data
+
+**The deprecated formDraftUserDataFeature constant is removed**
+
+formDraftUserDataFeature was kept next to createFormDraftUserDataFeature() for one release. Mount the feature by calling createFormDraftUserDataFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces formDraftUserDataFeature with createFormDraftUserDataFeature().
+
+### framework-core
+
+**import-extensions codemod and tsconfig options for .ts import specifiers**
+
+The import-extensions codemod rewrites relative import and export specifiers that end in .js or .jsx to the .ts or .tsx file next to the importer (import, export from, import type, import() and mock.module). It leaves a specifier alone and reports it when no such file exists. The framework repo itself now imports with .ts endings; its published dist is unchanged. tsc writes .js into the dist, and the .d.ts files keep .ts specifiers, which TypeScript resolves to the sibling .d.ts. An app tsconfig needs allowImportingTsExtensions: true, because the framework packages now ship sources with .ts specifiers and tsc checks them (the preset @cosmicdrift/kumiko-framework/tsconfig.app.json sets it). A tsconfig that emits JS also needs rewriteRelativeImportExtensions (TypeScript 5.7 or newer); a project that only type-checks code from another project reference needs rewriteRelativeImportExtensions false plus emitDeclarationOnly. Consumer code with .js endings keeps running once the option is set.
+
+**Migration:** Add `allowImportingTsExtensions: true` to the app tsconfig (or extend @cosmicdrift/kumiko-framework/tsconfig.app.json), then run the codemod (bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/import-extensions.ts . --write); the guard import-extensions reports remaining .js specifiers.
+
+**createDbConnection takes only the options object, the bun-db subpath is gone**
+
+The positional createDbConnection(url, options) overload and the deprecated @cosmicdrift/kumiko-framework/bun-db subpath are removed. createDbConnection({ url, ...options }) and the query helpers come from @cosmicdrift/kumiko-framework/db. Removed from /bun-db: DeleteManyBatchedOptions, DeleteManyBatchedResult, IncrementCounterOptions, InnerJoinRow, InnerJoinSpec, InsertOnConflictDoNothingOptions, JoinColumnPair, JsonTextMatch, SelectOptions, TableInfo, UpsertOnConflictOptions, WhereObject, WhereOperator, WhereValue, aggregateWhere, asEntityTableMeta, asRawClient, countWhere, deleteMany, deleteManyBatched, extractTableInfo, fetchOne, incrementCounter, insertMany, insertOnConflictDoNothing, insertOne, instantToTimestamptzParam, isTimestamptzType, requireEntityTableMeta, runInSavepoint, runInSavepointIfSupported, runnerCanBeginTransaction, selectInnerJoin, selectMany, transaction, unsafeReadRetrying, updateMany, upsertByPk, upsertOnConflict.
+
+**Migration:** Run bun kumiko-upgrade --apply. It rewrites positional calls to createDbConnection({ url, ... }) and moves bun-db imports to @cosmicdrift/kumiko-framework/db.
+
+**DB_PROVIDER other than postgres fails at boot**
+
+dbConnectionOptionsFromEnv used to ignore DB_PROVIDER, so DB_PROVIDER=bun booted postgres-js while the deployment still claimed Bun.SQL. Any value other than empty or "postgres" now throws with a hint to remove the variable.
+
+**Migration:** Remove DB_PROVIDER from the environment, Helm values and Pulumi config. postgres-js is the only driver.
+
+**createTenantDb takes only the options object**
+
+The positional createTenantDb(db, tenantId, ...) overload is removed. createTenantDb({ db, tenantId, ... }) is the only form.
+
+**Migration:** Run bun kumiko-upgrade --apply. It rewrites positional calls to createTenantDb({ db, tenantId, ... }).
+
+**The test stack is no longer re-exported from the framework**
+
+The subpaths @cosmicdrift/kumiko-framework/stack, /testing, /testing/handler-context, /testing/real-providers and /testing/e2e-generator are removed, and so is the optional peer dependency on @cosmicdrift/kumiko-testing. The test stack and helpers live only in @cosmicdrift/kumiko-testing. Removed from /stack: CreateTestDbOptions, EventCollector, RequestHelper, TestDb, TestRedis, TestStack, TestStackOptions, TestUsers, createEventCollector, createRequestHelper, createTestDb, createTestRedis, createTestUser, drainEventConsumers, pushEntityProjectionTables, resetEventStore, setupTestStack, testTenantId, testUserId, unsafeCreateEntityTable, unsafeEnsureEntityTable, unsafePushTables. Removed from /testing and its subpaths: ClearableTable, E2EGeneratorOptions, E2ETestSpec, EditFillOp, LateBoundHolder, ManualClock, MutableMasterKeyProvider, ParsedSetCookie, REAL_PROVIDERS_ENV, RecordingProvider, bridgeStub, buildMultipartBody, captureClosedConnectionError, clearTables, createLateBoundHolder, createManualClock, createMutableMasterKeyProvider, createRecordingProvider, createTestEnvelopeCipher, createTestMasterKeyProvider, deleteRows, describeFileProviderContract, expectError, expectErrorIncludes, expectSuccess, generateE2ESpec, generateZodFixture, getSetCookieRaw, getSetCookieValue, getSetCookies, isRealProviderRun, patchFileInstanceofForBunTest, requireRealProviders, resetBlindIndexKeyForTests, resetEntityFieldEncryptionCacheForTests, resetEventPiiCatalogForTests, resetPiiSubjectKmsForTests, resetTestTables, rolesOf, seedRow, seedRows, sharedItemEntity, sharedItemTable, sharedUserEntity, sharedUserTable, sharedWidgetEntity, sharedWidgetTable, sleep, updateRows, waitFor, withBootValidatorFixture, withoutAmbientTemporal, zipWithEntries.
+
+**Migration:** Run bun kumiko-upgrade --apply. It moves the imports to the matching @cosmicdrift/kumiko-testing subpaths. Add @cosmicdrift/kumiko-testing to devDependencies if it is not there yet.
+
+**escapeHatch on a spread entity query handler requires SystemAdmin access**
+
+A query handler that spreads defineEntityListHandler or defineEntityDetailHandler and adds escapeHatch afterwards skipped the SystemAdmin-only access check that the factory option enforces. Registration now applies the same check and throws for any other access.
+
+**Migration:** Pass escapeHatch as an option of defineEntityListHandler or defineEntityDetailHandler with access { roles: access.systemAdmin }, or write a plain r.queryHandler that does not reuse the entity convention handler when a tenant-scoped query needs a raw lookup.
+
+### inbound-mail-foundation
+
+**The deprecated inboundMailFoundationFeature constant is removed**
+
+inboundMailFoundationFeature was kept next to createInboundMailFoundationFeature() for one release. Mount the feature by calling createInboundMailFoundationFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces inboundMailFoundationFeature with createInboundMailFoundationFeature().
+
+### inbound-provider-imap
+
+**The deprecated inboundProviderImapFeature constant is removed**
+
+inboundProviderImapFeature was kept next to createInboundProviderImapFeature() for one release. Mount the feature by calling createInboundProviderImapFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces inboundProviderImapFeature with createInboundProviderImapFeature().
+
+### inbound-provider-inmemory
+
+**The deprecated inboundProviderInMemoryFeature constant is removed**
+
+inboundProviderInMemoryFeature was kept next to createInboundProviderInMemoryFeature() for one release. Mount the feature by calling createInboundProviderInMemoryFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces inboundProviderInMemoryFeature with createInboundProviderInMemoryFeature().
+
+### ledger
+
+**The deprecated ledgerFeature constant is removed**
+
+ledgerFeature was kept next to createLedgerFeature() for one release. Mount the feature by calling createLedgerFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces ledgerFeature with createLedgerFeature().
+
+### mail-foundation
+
+**The deprecated mailFoundationFeature constant is removed**
+
+mailFoundationFeature was kept next to createMailFoundationFeature() for one release. Mount the feature by calling createMailFoundationFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces mailFoundationFeature with createMailFoundationFeature().
+
+### mail-transport-inmemory
+
+**The deprecated mailTransportInMemoryFeature constant is removed**
+
+mailTransportInMemoryFeature was kept next to createMailTransportInMemoryFeature() for one release. Mount the feature by calling createMailTransportInMemoryFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces mailTransportInMemoryFeature with createMailTransportInMemoryFeature().
+
+### mail-transport-smtp
+
+**The deprecated mailTransportSmtpFeature constant is removed**
+
+mailTransportSmtpFeature was kept next to createMailTransportSmtpFeature() for one release. Mount the feature by calling createMailTransportSmtpFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces mailTransportSmtpFeature with createMailTransportSmtpFeature().
+
+### notes-history
+
+**The deprecated notesHistoryFeature constant is removed**
+
+notesHistoryFeature was kept next to createNotesHistoryFeature() for one release. Mount the feature by calling createNotesHistoryFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces notesHistoryFeature with createNotesHistoryFeature().
+
+### notes-history-user-data
+
+**The deprecated notesHistoryUserDataFeature constant is removed**
+
+notesHistoryUserDataFeature was kept next to createNotesHistoryUserDataFeature() for one release. Mount the feature by calling createNotesHistoryUserDataFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces notesHistoryUserDataFeature with createNotesHistoryUserDataFeature().
+
+### readiness
+
+**The deprecated readinessFeature constant is removed**
+
+readinessFeature was kept next to createReadinessFeature() for one release. Mount the feature by calling createReadinessFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces readinessFeature with createReadinessFeature().
+
+### tags
+
+**The deprecated tagsFeature constant is removed**
+
+tagsFeature was kept next to createTagsFeature() for one release. Mount the feature by calling createTagsFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces tagsFeature with createTagsFeature().
+
+### template-resolver-user-data
+
+**The deprecated templateResolverUserDataFeature constant is removed**
+
+templateResolverUserDataFeature was kept next to createTemplateResolverUserDataFeature() for one release. Mount the feature by calling createTemplateResolverUserDataFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces templateResolverUserDataFeature with createTemplateResolverUserDataFeature().
+
+### tenant-settings
+
+**The deprecated tenantSettingsFeature constant is removed**
+
+tenantSettingsFeature was kept next to createTenantSettingsFeature() for one release. Mount the feature by calling createTenantSettingsFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces tenantSettingsFeature with createTenantSettingsFeature().
+
+### tier-engine
+
+**The deprecated tierEngineFeature constant is removed**
+
+tierEngineFeature was kept next to createTierEngineFeature() for one release. Mount the feature by calling createTierEngineFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces tierEngineFeature with createTierEngineFeature().
+
+### waitlist
+
+**Waitlist gets linkOnSignup, a configurable submit rate limit, export and purge handlers and a status provisioned**
+
+createWaitlistFeature({ linkOnSignup: true }) marks an invited entry provisioned, with linkedTenantId and provisionedAt, when its email becomes the first TenantAdmin member of a tenant; a multi-stream consumer on the membership event does this asynchronously. rateLimit replaces the default of 5 submits per IP per 10 minutes, or { disabled: true, reason } turns it off. waitlist:write:export and waitlist:write:purge are SystemAdmin-only (exportPurge: false leaves them out); purge needs confirmCount to match the current number of entries and shreds the personal-data keys only after every entry was forgotten. The entity gains the status provisioned and the column provisionedAt, so apps that mount the feature generate a schema migration. kumiko ops waitlist-migrate --from offlot|publicstatus [--dry-run] copies a legacy waitlist table into the entity idempotently. Details in docs/guides/waitlist.md.
+
+**Migration:** Apps that mount the waitlist feature run `kumiko schema generate <name>` and commit the migration: read_waitlist_entries gains the nullable column provisioned_at, and the status value provisioned is added. An app with its own waitlist (offlot-app, publicstatus, solon) mounts createWaitlistFeature() and copies the old rows with `kumiko ops waitlist-migrate --from offlot|publicstatus --dry-run` first. offlot-app keeps its legacy rows in the table read_waitlist_entries, the name the framework projection uses: copy or rename that table before the first boot and pass --source-table. The submit limit is keyed per IP and handler; behind a reverse proxy set trustedProxyHops, otherwise all visitors share one bucket of 5 submits per 10 minutes. With linkOnSignup the new consumer starts at the beginning of the event log and also provisions entries invited earlier.
+
+### workflow-runner
+
+**The deprecated workflowRunnerFeature constant is removed**
+
+workflowRunnerFeature was kept next to createWorkflowRunnerFeature() for one release. Mount the feature by calling createWorkflowRunnerFeature().
+
+**Migration:** Run bun kumiko-upgrade --apply. It replaces workflowRunnerFeature with createWorkflowRunnerFeature().
+
 ## 0.369.0
 
 ### channel-email

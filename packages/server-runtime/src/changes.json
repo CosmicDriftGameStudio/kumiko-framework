@@ -1,5 +1,48 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "runProdApp requires envSchema",
+    "detail": "envSchema on runProdApp is no longer optional. Without it the boot throws a KumikoBootError that points to composeEnvSchema. An app without its own variables passes composeEnvSchema({ core: frameworkCoreEnvSchema, features }).",
+    "migration": "Pass envSchema: composeEnvSchema({ core: frameworkCoreEnvSchema, features }) to runProdApp, with composeEnvSchema from @cosmicdrift/kumiko-framework/env and frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server/env-schema. App-level variables go into extend. Delete hand-written env checks that ran before runProdApp; the schema covers them."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "KUMIKO_DRY_RUN_ENV=boot prints an env table and exits 0 on missing values",
+    "detail": "The boot dry run lists every variable of the composed schema with its feature, whether it is required, and whether it is set, missing or invalid. DATABASE_URL, REDIS_URL and JWT_SECRET appear with source server-runtime when the schema does not declare them, since runProdApp reads them itself. Values are never printed, and a validation message that quotes the value is replaced. A keyring the master-key provider cannot use fails the dry run. An invalid value exits 1. A missing required value exits 0 and says the feature wiring was not validated; with every variable present the dry run validates the wiring as before. NODE_ENV=production does not change this. The MFA secret binding and other env reads run after this exit, so an empty env no longer crashes the dry run."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "runProdApp names the stack and the boot option it is missing",
+    "detail": "Features returned by the compose*Stack helpers carry bootRequires ({ stack, options }), a new optional FeatureDefinition field; BootOptionName and StackBootRequirement are exported from @cosmicdrift/kumiko-framework/engine. runProdApp checks them before it wires the boot options and fails with \"[runProdApp] stacks in `features` need boot options that are not set:\" followed by one line per gap, for example \"composeSaasStack needs the boot option `billing`: set billing: { stripe: { priceToTier }, defaultTier }\". composeMailStack and composeUserDataRightsStack need mail (or a mounted channel-email), composeFileStack without providers needs fileStorage (or a mounted file provider), composeGdprStack and composeSecurityStack need kmsMode (or kms / allowPlaintextPii), composeSecurityStack also fails with rateLimit: false, composeSaasStack with billing \"stripe\" needs billing (or a mounted subscription provider). composeFileStack takes providers as optional now. The renderer, pages, ops and identity stacks need no option. resolveBillingOption is exported from @cosmicdrift/kumiko-server-runtime/boot-options/billing for tests that mount the billing wiring on a test stack."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "runProdApp effectiveFeatures is deprecated",
+    "detail": "effectiveFeatures stays for one release. createTierEngineFeature({ tierMap }), or composeSaasStack, builds the per-tenant feature resolver at boot, and the prod-only features come from the mail, fileStorage and billing options."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "runProdApp boot options for mail, kmsMode, fileStorage, billing, demoMode, seeds and signals",
+    "detail": "New optional runProdApp fields replace hand-wired bin/main.ts code. mail ({ transport: \"smtp-env\" | \"inmemory\" | EmailTransport, from?, resolveEmail?, tenantTransport? }) mounts channel-email and routes the auth mails through it; needs delivery. kmsMode (\"required\" | \"optional\" | { plaintextReason }) builds KMS and blind-index key from PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL and KUMIKO_BLIND_INDEX_KEY and cannot be combined with kms, blindIndexKey or allowPlaintextPii. fileStorage ({ provider: \"s3-env\" | \"inmemory\" | \"auto\" }) mounts the file provider; auto picks S3 when S3_* is complete and aborts a production boot on a partial S3 env; needs file-foundation. billing ({ stripe: { priceToTier, webhookPath? }, defaultTier }) mounts subscription-stripe and the tier-sync webhook route; needs billing-foundation and tier-engine. demoMode ({ readOnly, notice? }) serves GET /demo-mode and answers writes with 403 demo_read_only while readOnly; demo account credentials are published only when listed in notice.accounts. seeds also takes { demoTenant, demoAdminFromEnv, sysadminFromEnv, run }; the array form still works, but code indexing RunProdAppOptions[\"seeds\"][number] must switch to ProdSeedFn. SIGTERM/SIGINT now run stop() with a 25 s drain timeout (signals: { drainTimeoutMs }) and exit 1 on timeout or error instead of always 0; signals: false hands the signals to the host. The env blocks the options read (SMTP_* for mail smtp-env, S3_* for fileStorage s3-env/auto, the KMS block for kmsMode, STRIPE_* for billing, DEMO_* for the seed shortcuts) join the app's envSchema for the boot dry run and the env validation without the app composing them; keys the option cannot run without (SMTP_HOST, the four S3 keys under s3-env, the seeded accounts) are required there. Without the new fields the boot behaves as before. createSubscriptionTierSync().createWebhookRoute takes an optional { path }. kmsEnvSchema is also exported from @cosmicdrift/kumiko-bundled-features/crypto-shredding/env, which loads without the crypto-shredding feature. Recipe: samples/recipes/prod-boot-options."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "runProdApp sets a Content-Security-Policy and L1/L2 rate limits without configuration",
+    "detail": "Without options, runProdApp now sends a default CSP (default-src 'self'; script-src 'self' plus the sha256 hashes of the build's inline scripts; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none') and limits requests per client IP to 600/60 s (L1) and 30/60 s on /api/auth/* (L2). kumiko build writes dist/csp-hashes.json from every HTML file it outputs; without that file the CSP has no hashes and boot warns. securityHeaders.csp takes false (off), a string (replaces the default) or { extend: { directive: [sources] } }. rateLimit: false disables both layers, partial values override only the named fields. Apps with their own CSP set the header through securityHeaders.csp as a string or move their additions to extend; apps that need neither opt out with csp: false and rateLimit: false. Behind a reverse proxy set trustedProxyHops, otherwise all clients share one rate-limit bucket. Details in docs/reference/security-defaults.md."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "makeSeedCreateFileRef is exported",
+    "detail": "makeSeedCreateFileRef and the SeedCreateFileRef type are exported from @cosmicdrift/kumiko-server-runtime, so app seed scripts can create file references the same way the bootstrap seeder does."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "Bootstrap fails when a global-role invite cannot be provisioned; delivery notify works without auth",

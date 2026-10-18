@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated formDraftUserDataFeature constant is removed",
+    "detail": "formDraftUserDataFeature was kept next to createFormDraftUserDataFeature() for one release. Mount the feature by calling createFormDraftUserDataFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces formDraftUserDataFeature with createFormDraftUserDataFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

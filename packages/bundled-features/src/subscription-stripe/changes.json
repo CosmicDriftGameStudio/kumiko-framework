@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "stripeEnvSchema adds price slots to the Stripe env block",
+    "detail": "stripeEnvSchema({ prices: [\"PRO\", \"TEAM\"] }) returns the bridge keys plus one optional STRIPE_PRICE_<NAME> per price, each checked for the price_ prefix. Spread it into composeEnvSchema({ extend }) next to createSubscriptionStripeFeature; the shared bridge fields are no key clash."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "A stale Stripe customer id no longer turns the customer portal into a 500",

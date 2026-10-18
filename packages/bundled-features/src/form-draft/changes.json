@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated formDraftFeature constant is removed",
+    "detail": "formDraftFeature was kept next to createFormDraftFeature() for one release. Mount the feature by calling createFormDraftFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces formDraftFeature with createFormDraftFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.353.0",
     "type": "fix",
     "title": "The stale-draft cleanup keeps sweeping when a whole batch was re-saved in the meantime"

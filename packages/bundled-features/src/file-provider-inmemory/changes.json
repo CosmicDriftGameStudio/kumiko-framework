@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated fileProviderInMemoryFeature constant is removed",
+    "detail": "fileProviderInMemoryFeature was kept next to createFileProviderInMemoryFeature() for one release. Mount the feature by calling createFileProviderInMemoryFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces fileProviderInMemoryFeature with createFileProviderInMemoryFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated authMfaUserDataFeature constant is removed",
+    "detail": "authMfaUserDataFeature was kept next to createAuthMfaUserDataFeature() for one release. Mount the feature by calling createAuthMfaUserDataFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces authMfaUserDataFeature with createAuthMfaUserDataFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

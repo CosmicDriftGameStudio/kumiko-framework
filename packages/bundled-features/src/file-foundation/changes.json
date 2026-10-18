@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated fileFoundationFeature constant is removed",
+    "detail": "fileFoundationFeature was kept next to createFileFoundationFeature() for one release. Mount the feature by calling createFileFoundationFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces fileFoundationFeature with createFileFoundationFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "readFileRefContent reads handed-over files; fileContextForTenant takes the context tenant",

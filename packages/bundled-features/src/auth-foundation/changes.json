@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated authFoundationFeature constant is removed",
+    "detail": "authFoundationFeature was kept next to createAuthFoundationFeature() for one release. Mount the feature by calling createAuthFoundationFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces authFoundationFeature with createAuthFoundationFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.165.1",
     "type": "improvement",
     "title": "validateSessionStoreMultiplicity accepts zero sessionStore providers (fw#1547).",

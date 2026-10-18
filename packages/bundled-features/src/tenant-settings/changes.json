@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated tenantSettingsFeature constant is removed",
+    "detail": "tenantSettingsFeature was kept next to createTenantSettingsFeature() for one release. Mount the feature by calling createTenantSettingsFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces tenantSettingsFeature with createTenantSettingsFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

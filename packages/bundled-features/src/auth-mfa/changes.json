@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "MFA token secrets are optional and bound at boot",
+    "detail": "setupTokenSecret and challengeTokenSecret on createAuthMfaFeature are optional. Unset, the boot binds them through bindMfaTokenSecretsFromFeature(feature)(masterSecret, env): MFA_SETUP_TOKEN_SECRET and MFA_CHALLENGE_TOKEN_SECRET from env when set, otherwise derived from the master secret. mfaTokenSecretsEnvSchema declares both variables and the feature registers it next to the secrets master-key slot. A handler called before the binding throws instead of signing with an empty key."
+  },
+  {
     "version": "0.357.0",
     "type": "improvement",
     "title": "MFA enable asks to confirm saved recovery codes, code field autocompletes one-time codes",

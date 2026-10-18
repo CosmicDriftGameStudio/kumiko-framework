@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated mailTransportSmtpFeature constant is removed",
+    "detail": "mailTransportSmtpFeature was kept next to createMailTransportSmtpFeature() for one release. Mount the feature by calling createMailTransportSmtpFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces mailTransportSmtpFeature with createMailTransportSmtpFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.369.0",
     "type": "breaking",
     "title": "Tenant admins edit their own SMTP server on the Email sending screen",

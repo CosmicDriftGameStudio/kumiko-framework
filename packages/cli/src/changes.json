@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "kumiko ops backfill-pii encrypts plaintext PII events of the app in kumiko.config.ts",
+    "detail": "kumiko ops backfill-pii [--dry-run] [--resolve-owner-from-projection] [--rekey-tenant-keyed-owner-fields] [--erase-unresolvable-subjects] runs the framework PII backfill over the features of kumiko.config.ts with DATABASE_URL, PLATFORM_KEK (and PLATFORM_KEK_PREVIOUS) and KUMIKO_BLIND_INDEX_KEY from the environment. It does not rebuild projections; run kumiko ops backfill-pii --rebuild afterwards, which rebuilds only the projections of entities with personal fields. A second backfill run changes nothing. Apps with their own backfill-pii script switch to this command and to the two-step runbook."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "kumiko check gains the managed and scripts steps; new kumiko sync-managed and kumiko ports",
+    "detail": "kumiko check managed compares framework-owned files with the installed templates and prints a diff; files with a local marker are skipped and listed. kumiko check scripts requires dev, build, start, typecheck, lint, check, test, test:unit, test:integration, test:integration:ci, test:dom (with uiRoots), test:real, e2e, e2e:real, screenshots and prepare, and lists extras. Both steps fail only once the app calls defineAppConfig. kumiko check accepts step ids as positional filters (kumiko check managed scripts). kumiko sync-managed [--write] [--adopt] writes the templates; it never overwrites a file without marker unless --adopt is passed, never touches local files and refuses symlinked paths. kumiko ports [workspace-root] lists the ports of every app below the root and exits 1 on a collision. kumiko agent lint also checks prodFeatures."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "kumiko handbuch build refuses a dangerous --out; missing-peer message tells an outdated install from a missing one",

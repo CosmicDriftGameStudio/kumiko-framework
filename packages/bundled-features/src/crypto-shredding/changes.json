@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "kmsEnvSchema declares the subject-key KMS variables",
+    "detail": "kmsEnvSchema lists the 13 KMS slots (PLATFORM_KEK, its rotation predecessor and versions, KUMIKO_BLIND_INDEX_KEY, SUBJECT_KEYS_DATABASE_URL, the _CIPHERTEXT twins and the Key Manager coordinates), all optional. createCryptoShreddingFeature registers it, so composeEnvSchema picks it up."
+  },
+  {
     "version": "0.368.0",
     "type": "fix",
     "title": "forget-subject closes the login door for users whose stream is already deleted",

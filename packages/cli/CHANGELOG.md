@@ -1,5 +1,70 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.370.0
+
+### Minor Changes
+
+- a02e354: New command kumiko ops backfill-pii
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko ops backfill-pii encrypts plaintext PII events of the app in kumiko.config.ts
+  detail: kumiko ops backfill-pii [--dry-run] [--resolve-owner-from-projection] [--rekey-tenant-keyed-owner-fields] [--erase-unresolvable-subjects] runs the framework PII backfill over the features of kumiko.config.ts with DATABASE_URL, PLATFORM_KEK (and PLATFORM_KEK_PREVIOUS) and KUMIKO_BLIND_INDEX_KEY from the environment. It does not rebuild projections; run kumiko ops backfill-pii --rebuild afterwards, which rebuilds only the projections of entities with personal fields. A second backfill run changes nothing. Apps with their own backfill-pii script switch to this command and to the two-step runbook.
+  -->
+- c051152: Managed files, kumiko.config.ts with defineAppConfig, script standard and port registry
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: defineAppConfig in @cosmicdrift/kumiko-framework/config, plus biome and tsconfig presets for apps
+  detail: kumiko.config.ts default-exports defineAppConfig({ features, prodFeatures?, client: { entries }, ports: { dev, e2e, infra? } }). defineAppConfig throws on ports outside 1..65535, a port claimed twice within the app, an empty client.entries list and entries that leave the app. allAppFeatures(config) returns features plus prodFeatures. New exports @cosmicdrift/kumiko-framework/biome (Biome 2.5.7 preset with vcs.useIgnoreFile false) and @cosmicdrift/kumiko-framework/tsconfig.app.json; an app's biome.json and tsconfig.json extend them and keep their own overrides next to extends.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Managed files: one template source for the scaffold, kumiko check managed and kumiko sync-managed
+  detail: deploy/Dockerfile, deploy/Dockerfile.dockerignore, deploy/migrate-step.sh, .husky/pre-push, .github/workflows/{ci,release,cache-cleanup}.yml, the bunfigs and kumiko/schema.ts carry a kumiko-managed marker on line 1 (line 2 after a shebang or # syntax= line). kumiko new app writes them, plus kumiko.config.ts, bin/server.ts (was bin/dev.ts), bin/env-schema.ts, e2e/_helpers and src/__tests__/_setup.ts; bunfig.ci.toml is gone. kumiko/schema.ts is generated from kumiko.config.ts. kumiko-init-deploy prints a deprecation notice and goes away in the next release. Release targets come from package.json#kumiko.deploy.namespace and .deployment (default: the app name).
+  migration: Existing apps: add kumiko.config.ts with defineAppConfig, then run kumiko sync-managed (dry run), kumiko sync-managed --write --adopt for files that are identical or should follow the template, and mark deliberate deviations with "# kumiko-managed: local <reason>" on line 2. Until kumiko.config.ts calls defineAppConfig, kumiko check only warns about drift and missing scripts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko check gains the managed and scripts steps; new kumiko sync-managed and kumiko ports
+  detail: kumiko check managed compares framework-owned files with the installed templates and prints a diff; files with a local marker are skipped and listed. kumiko check scripts requires dev, build, start, typecheck, lint, check, test, test:unit, test:integration, test:integration:ci, test:dom (with uiRoots), test:real, e2e, e2e:real, screenshots and prepare, and lists extras. Both steps fail only once the app calls defineAppConfig. kumiko check accepts step ids as positional filters (kumiko check managed scripts). kumiko sync-managed [--write] [--adopt] writes the templates; it never overwrites a file without marker unless --adopt is passed, never touches local files and refuses symlinked paths. kumiko ports [workspace-root] lists the ports of every app below the root and exits 1 on a collision. kumiko agent lint also checks prodFeatures.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: renderTestSetup writes the standard test scripts, bunfig.dom.toml and the helper homes
+  detail: The scaffolded test setup now adds test:unit, test:integration:ci, test:dom and screenshots, writes bunfig.dom.toml (with @happy-dom/global-registrator as devDependency), e2e/_helpers/index.ts and src/__tests__/_setup.ts.
+  -->
+- 7fa8420: Waitlist: linkOnSignup, configurable submit rate limit, export and purge, legacy migration
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: breaking
+  title: Waitlist gets linkOnSignup, a configurable submit rate limit, export and purge handlers and a status provisioned
+  detail: createWaitlistFeature({ linkOnSignup: true }) marks an invited entry provisioned, with linkedTenantId and provisionedAt, when its email becomes the first TenantAdmin member of a tenant; a multi-stream consumer on the membership event does this asynchronously. rateLimit replaces the default of 5 submits per IP per 10 minutes, or { disabled: true, reason } turns it off. waitlist:write:export and waitlist:write:purge are SystemAdmin-only (exportPurge: false leaves them out); purge needs confirmCount to match the current number of entries and shreds the personal-data keys only after every entry was forgotten. The entity gains the status provisioned and the column provisionedAt, so apps that mount the feature generate a schema migration. kumiko ops waitlist-migrate --from offlot|publicstatus [--dry-run] copies a legacy waitlist table into the entity idempotently. Details in docs/guides/waitlist.md.
+  migration: Apps that mount the waitlist feature run `kumiko schema generate <name>` and commit the migration: read_waitlist_entries gains the nullable column provisioned_at, and the status value provisioned is added. An app with its own waitlist (offlot-app, publicstatus, solon) mounts createWaitlistFeature() and copies the old rows with `kumiko ops waitlist-migrate --from offlot|publicstatus --dry-run` first. offlot-app keeps its legacy rows in the table read_waitlist_entries, the name the framework projection uses: copy or rename that table before the first boot and pass --source-table. The submit limit is keyed per IP and handler; behind a reverse proxy set trustedProxyHops, otherwise all visitors share one bucket of 5 submits per 10 minutes. With linkOnSignup the new consumer starts at the beginning of the event log and also provisions entries invited earlier.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [8ff5d19]
+- Updated dependencies [a02e354]
+- Updated dependencies [79a0aa6]
+- Updated dependencies [4a6e151]
+- Updated dependencies [c051152]
+- Updated dependencies [8ff5d19]
+  - @cosmicdrift/kumiko-dev-server@0.370.0
+  - @cosmicdrift/kumiko-testing@0.370.0
+  - @cosmicdrift/kumiko-guards@0.370.0
+  - @cosmicdrift/kumiko-repo-manifest@0.370.0
+
 ## 0.369.0
 
 ### Patch Changes

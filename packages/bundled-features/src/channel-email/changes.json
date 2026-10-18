@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "smtpEnvSchema declares the SMTP_* variables",
+    "detail": "smtpEnvSchema covers SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS and SMTP_FROM, all optional, and createChannelEmailFeature registers it. It lives next to createSmtpTransportFromEnv, which reads these variables."
+  },
+  {
     "version": "0.369.0",
     "type": "breaking",
     "title": "The tenant mail transport applies per notification",
