@@ -38,7 +38,7 @@ import {
   writeRebuildMarker,
   writeSnapshotJson,
 } from "./db/index.ts";
-import { validateBoot } from "./engine/boot-validator.ts";
+import { type ValidateBootOptions, validateBoot } from "./engine/boot-validator.ts";
 import {
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
   FILE_STORAGE_PROVIDER_ENV,
@@ -75,7 +75,60 @@ function withFileStoragePresence(
 type SchemaMod = {
   readonly entityMetas: Parameters<typeof renderTablesDdl>[0];
   readonly features?: unknown;
+  readonly validateBootOptions?: unknown;
 };
+
+function isStringSet(value: unknown): value is ReadonlySet<string> {
+  return value instanceof Set && [...value].every((entry) => typeof entry === "string");
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function validateBootOptionsError(detail: string): Error {
+  return new Error(`kumiko/schema.ts: \`VALIDATE_BOOT_OPTIONS\` ${detail}`);
+}
+
+function readOptionalOption<T>(
+  raw: object,
+  key: string,
+  isValid: (value: unknown) => value is T,
+  expected: string,
+): T | undefined {
+  const value: unknown = Reflect.get(raw, key);
+  if (value === undefined) return undefined;
+  if (!isValid(value)) throw validateBootOptionsError(`\`${key}\` must be ${expected}.`);
+  return value;
+}
+
+// Boundary check for `export const VALIDATE_BOOT_OPTIONS` in kumiko/schema.ts.
+// Only the options that change what validateBoot reports are honoured; `env` and
+// `entityFieldCipher` are runner-injected and deliberately ignored here.
+function parseValidateBootOptions(raw: unknown): ValidateBootOptions {
+  if (raw === undefined) return {};
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw validateBootOptionsError("must be an object (ValidateBootOptions).");
+  }
+  const navAllowlist = readOptionalOption(raw, "navAllowlist", isStringSet, "a Set<string>");
+  const navAllowlistExempt = readOptionalOption(
+    raw,
+    "navAllowlistExempt",
+    isStringSet,
+    "a Set<string>",
+  );
+  const warnOnUniqueAccessRoles = readOptionalOption(
+    raw,
+    "warnOnUniqueAccessRoles",
+    isBoolean,
+    "a boolean",
+  );
+  return {
+    ...(navAllowlist !== undefined && { navAllowlist }),
+    ...(navAllowlistExempt !== undefined && { navAllowlistExempt }),
+    ...(warnOnUniqueAccessRoles !== undefined && { warnOnUniqueAccessRoles }),
+  };
+}
 
 // Single load-path for kumiko/schema.ts (512/3) — `generate` and `validate`
 // both need ENTITY_METAS (and validate additionally wants FEATURES); this is
@@ -84,15 +137,19 @@ type SchemaMod = {
 // want a graceful exit code (validate) catch it themselves.
 async function loadSchemaModFromApp(schemaFile: string): Promise<SchemaMod> {
   // bun imports TS directly — no spawn needed.
-  const mod = (await import(schemaFile)) as { ENTITY_METAS?: unknown; FEATURES?: unknown };
-  if (!Array.isArray(mod.ENTITY_METAS)) {
+  const mod: Record<string, unknown> = await import(schemaFile);
+  if (!Array.isArray(mod["ENTITY_METAS"])) {
     throw new Error(
       `Schema file ${schemaFile} muss \`export const ENTITY_METAS: EntityTableMeta[]\` haben.`,
     );
   }
-  const entityMetas = mod.ENTITY_METAS as Parameters<typeof renderTablesDdl>[0];
+  const entityMetas = mod["ENTITY_METAS"] as Parameters<typeof renderTablesDdl>[0];
   assertUniqueTableNames(entityMetas);
-  return { entityMetas, features: mod.FEATURES };
+  return {
+    entityMetas,
+    features: mod["FEATURES"],
+    validateBootOptions: mod["VALIDATE_BOOT_OPTIONS"],
+  };
 }
 
 function nextSequenceNumber(migrationsDir: string): number {
@@ -279,7 +336,8 @@ export async function runSchemaCli(
       //   1. schema drift: would `generate` write a migration? (= an entity was
       //      added/changed but never generated → missing table → prod 500)
       //   2. boot validity: validateBoot over the composed FEATURES (QN/screen/
-      //      nav/role refs). Runs only if kumiko/schema.ts exports FEATURES.
+      //      nav/role refs). Runs only if kumiko/schema.ts exports FEATURES;
+      //      honours its optional VALIDATE_BOOT_OPTIONS export.
       //   3. migration-content drift: replay every committed *.sql file and
       //      diff the result against .snapshot.json — catches a migration
       //      file whose SQL body doesn't match what its own snapshot entry
@@ -337,6 +395,7 @@ export async function runSchemaCli(
       if (Array.isArray(mod.FEATURES)) {
         try {
           validateBoot(mod.FEATURES as readonly FeatureDefinition[], {
+            ...parseValidateBootOptions(schemaMod.validateBootOptions),
             env: withFileStoragePresence(process.env),
           });
           out.log("  ✓ boot: feature configuration is valid");

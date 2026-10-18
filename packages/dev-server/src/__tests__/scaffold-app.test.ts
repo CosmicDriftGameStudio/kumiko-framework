@@ -310,6 +310,16 @@ describe("scaffoldApp", () => {
     expect(schema.split("\n")[0]).toBe("// kumiko-managed");
     expect(schema).toContain("allAppFeatures(appConfig)");
     expect(schema).toContain("collectTableMetas");
+    expect(schema).toContain("export const VALIDATE_BOOT_OPTIONS = appConfig.validateBootOptions;");
+
+    // The runners take the same options kumiko.config.ts hands to `kumiko check`.
+    for (const entry of ["bin/main.ts", "bin/server.ts"]) {
+      const source = readFileSync(join(dest, entry), "utf-8");
+      expect(source).toContain('import appConfig from "../kumiko.config";');
+      expect(source).toContain(
+        "...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions }),",
+      );
+    }
 
     const kumikoBin = readFileSync(join(dest, "bin/kumiko.ts"), "utf-8");
     expect(kumikoBin).toContain("runSchemaCli");

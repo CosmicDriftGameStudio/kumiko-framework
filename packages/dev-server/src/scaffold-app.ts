@@ -325,9 +325,11 @@ type ImportSpec = {
   readonly specifier: string;
   readonly names: readonly string[];
   readonly typeOnly?: boolean;
+  readonly defaultName?: string;
 };
 
-function renderImportLine({ specifier, names, typeOnly }: ImportSpec): string {
+function renderImportLine({ specifier, names, typeOnly, defaultName }: ImportSpec): string {
+  if (defaultName !== undefined) return `import ${defaultName} from "${specifier}";`;
   const sorted = [...names].sort(compareImportKeys);
   const keyword = typeOnly === true ? "import type" : "import";
   const oneLine = `${keyword} { ${sorted.join(", ")} } from "${specifier}";`;
@@ -478,6 +480,7 @@ function renderMain(appName: string): string {
       names: ["requireKmsWiring", "resolveKmsWiring"],
     },
     { specifier: "../src/run-config", names: ["APP_FEATURES"] },
+    { specifier: "../kumiko.config", names: [], defaultName: "appConfig" },
     { specifier: "./env-schema", names: ["envSchema"] },
   ]);
   const authBlock = renderAdminAuthBlock(appName, [
@@ -509,6 +512,7 @@ const kmsWiring =
 
 await runProdApp({
   features: APP_FEATURES,
+  ...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions }),
   envSchema,
   staticDir: "./dist",
   ...kmsWiring,
@@ -523,6 +527,7 @@ function renderServer(appName: string): string {
     { specifier: "@cosmicdrift/kumiko-dev-server", names: ["runDevApp"] },
     { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
     { specifier: "../src/run-config", names: ["APP_FEATURES"] },
+    { specifier: "../kumiko.config", names: [], defaultName: "appConfig" },
     { specifier: "../src/seed", names: ["seedDemoTasks"] },
   ]);
   // Dev-only emailVerified skips the login verify gate for the seeded admin;
@@ -546,6 +551,7 @@ const DEFAULT_TENANT_ID = "${tenantId}" as TenantId;
 
 await runDevApp({
   features: APP_FEATURES,
+  ...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions }),
   welcomeBanner: true,
   clientEntry: "./src/client.tsx",
   seeds: [seedDemoTasks],
