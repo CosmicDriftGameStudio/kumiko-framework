@@ -84,12 +84,16 @@ export function createAccountSecurityFeature(
     });
 
     if (nav !== undefined) {
+      // Explicit property assignments: the feature-AST parser reads neither
+      // `??`, shorthand properties nor a conditional spread, and the boot validator treats
+      // `parent: undefined` as a top-level entry.
+      const { order: navOrder = DEFAULT_NAV_ORDER, parent: navParent } = nav;
       r.nav({
         id: ACCOUNT_SECURITY_SCREEN_ID,
         label: ACCOUNT_SECURITY_NAV_LABEL,
         screen: ACCOUNT_SECURITY_SCREEN_QN,
-        order: nav.order ?? DEFAULT_NAV_ORDER,
-        ...(nav.parent !== undefined && { parent: nav.parent }),
+        order: navOrder,
+        parent: navParent,
       });
     }
   });
