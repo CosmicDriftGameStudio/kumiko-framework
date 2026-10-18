@@ -9,6 +9,8 @@ import {
 import { TRUSTED_PROXY_HOPS_ENV as FRAMEWORK_TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
 import { SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  E2E_REMOTE_BASE_URL_ENV,
+  E2E_STORAGE_STATE_ENV,
   E2E_WORKERS_ENV,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
@@ -28,6 +30,8 @@ import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.ts";
 const TOUCHED_ENV = [
   SEED_TOKEN_ENV,
   E2E_WORKERS_ENV,
+  E2E_REMOTE_BASE_URL_ENV,
+  E2E_STORAGE_STATE_ENV,
   REAL_PROVIDERS_ENV,
   "CI",
   "SCREENSHOT_DIR",
@@ -47,6 +51,65 @@ afterEach(() => {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
+});
+
+describe("defineAppE2eConfig remote target", () => {
+  test("a remote base URL drops the web server and points the run at it", () => {
+    process.env[E2E_REMOTE_BASE_URL_ENV] = "https://staging.example.com";
+    process.env[E2E_STORAGE_STATE_ENV] = "/tmp/session.json";
+
+    const config = defineAppE2eConfig({ port: 4321 });
+
+    expect(config.webServer).toBeUndefined();
+    expect(config.use?.baseURL).toBe("https://staging.example.com");
+    expect(config.use?.storageState).toBe("/tmp/session.json");
+    expect(config.timeout).toBe(E2E_TIMEOUT_MS.test);
+    expect(config.use?.actionTimeout).toBe(E2E_TIMEOUT_MS.action);
+    expect(config.projects?.[0]?.use?.viewport).toBeDefined();
+  });
+
+  test("a remote base URL without a storage state sets none", () => {
+    process.env[E2E_REMOTE_BASE_URL_ENV] = "http://localhost:9999";
+
+    const config = defineAppE2eConfig({ port: 4321 });
+
+    expect(config.webServer).toBeUndefined();
+    expect(config.use?.baseURL).toBe("http://localhost:9999");
+    expect(config.use).not.toHaveProperty("storageState");
+  });
+
+  test("a remote target records no trace, screenshot or video", () => {
+    process.env[E2E_REMOTE_BASE_URL_ENV] = "https://staging.example.com";
+
+    const config = defineAppE2eConfig({ port: 4321 });
+
+    expect(config.use?.trace).toBe("off");
+    expect(config.use?.screenshot).toBe("off");
+    expect(config.use?.video).toBe("off");
+  });
+
+  test("without the remote env the local web server is unchanged", () => {
+    const config = defineAppE2eConfig({ port: 4321 });
+
+    expect(config.use?.trace).toBe("retain-on-failure");
+    expect(config.use?.screenshot).toBe("only-on-failure");
+    expect(config.webServer).toBeDefined();
+    expect(config.use?.baseURL).toBe("http://localhost:4321");
+    expect(config.use).not.toHaveProperty("storageState");
+  });
+
+  test.each(["ftp://example.com", "not a url", "file:///tmp/x"])(
+    "rejects %p as remote base URL",
+    (value) => {
+      process.env[E2E_REMOTE_BASE_URL_ENV] = value;
+      expect(() => defineAppE2eConfig({ port: 4321 })).toThrow(E2E_REMOTE_BASE_URL_ENV);
+    },
+  );
+
+  test("a storage state without a remote base URL fails instead of being ignored", () => {
+    process.env[E2E_STORAGE_STATE_ENV] = "/tmp/session.json";
+    expect(() => defineAppE2eConfig({ port: 4321 })).toThrow(E2E_STORAGE_STATE_ENV);
+  });
 });
 
 describe("defineAppE2eConfig defaults", () => {

@@ -49,6 +49,12 @@ test("member sees the note", async ({ seedTenant, page }) => {
 
 - `defineAppE2eConfig({ port, env?, locale?, projects?, serverEntry?, testDir?, testMatch? })`: parallelism, retries, timeouts and
   workers (`KUMIKO_E2E_WORKERS` overrides) are fixed by the template; projects cannot set them.
+- `KUMIKO_E2E_REMOTE_BASE_URL=https://staging.example.com` runs the same specs against an already running
+  instance: no web server is started and `baseURL` is that URL (http or https only). Add
+  `KUMIKO_E2E_STORAGE_STATE=<file>` for a session recorded with `playwright codegen --save-storage`;
+  timeouts, viewport and DPR stay with the template. The seed routes do not exist on such a target, so use
+  it for specs that only need an existing session. Trace, screenshot and video are off there, because a trace zip holds the target's session cookie and data. `csrfFetch` handles the `__Host-` prefixed csrf cookie
+  an https target sets.
 - The seed routes answer only with `KUMIKO_TEST_SEED=1`, outside `NODE_ENV=production`, and with the
   per-run `KUMIKO_TEST_SEED_TOKEN` in the `x-kumiko-test-seed` header. `defineAppE2eConfig` sets all three.
 - The template also sets `KUMIKO_DEV_STYLESHEET_WATCH=0`, so the dev-server builds the app's CSS once and
