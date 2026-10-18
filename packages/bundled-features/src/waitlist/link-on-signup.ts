@@ -30,8 +30,8 @@ function readSignupOwnerMembership(
   return { userId, tenantId: event.tenantId };
 }
 
-// Never throws on unreadable rows: this runs inside the signup transaction, which a
-// waitlist problem must not roll back.
+// An unreadable submittedAt sorts last instead of throwing: one bad row must not
+// stall the at-least-once consumer.
 function newestSubmittedFirst(a: Record<string, unknown>, b: Record<string, unknown>): number {
   return submittedAtMillis(b) - submittedAtMillis(a);
 }
