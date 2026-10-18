@@ -14,6 +14,7 @@
 
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
+import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { DbConnection } from "../db/connection.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import {
@@ -27,6 +28,7 @@ import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
 import type { SecretsContext } from "../secrets/index.ts";
 import type { FileStorageProvider } from "./types.ts";
+import { withUploadLedger } from "./upload-ledger.ts";
 
 const FEATURE_NAME = "file-foundation";
 
@@ -183,7 +185,7 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
     else cache.delete(message.tenantId);
   });
   deps.cacheSync?.onResync(() => cache.clear());
-  return (tenantId) => {
+  const resolveProvider = (tenantId: TenantId): Promise<FileStorageProvider> => {
     const cached = cache.get(tenantId);
     if (cached) return cached;
     const built = (async () => {
@@ -209,4 +211,5 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
     cache.set(tenantId, built);
     return built;
   };
+  return deps.db ? withUploadLedger(resolveProvider, deps.db) : resolveProvider;
 }

@@ -77,7 +77,7 @@ import {
   saveSnapshot,
 } from "../event-store/snapshot.ts";
 import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.ts";
-import { createFileContext } from "../files/file-handle.ts";
+import { createTenantFileContext } from "../files/file-handle.ts";
 import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import {
@@ -703,9 +703,7 @@ export async function buildHandlerContext(
   // _fileProviderResolver when a file-provider plugin is mounted; falls back
   // to a statically-injected context.files (tests).
   const fileResolver = context._fileProviderResolver;
-  const files = fileResolver
-    ? createFileContext(() => fileResolver(user.tenantId), user.tenantId)
-    : context.files;
+  const files = fileResolver ? createTenantFileContext(fileResolver, user.tenantId) : context.files;
   // ctx.derivatives builds on ctx.files (needs a FileContext to read the
   // original + write the variant) plus db (to look up the FileRef row) — so
   // it can only be constructed exactly when files+db both resolved; falls

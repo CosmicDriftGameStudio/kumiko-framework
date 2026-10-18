@@ -14,7 +14,12 @@ export { createFilesFeature, FILES_FEATURE } from "./feature.ts";
 export type { FileContext, FileHandle } from "./file-handle.ts";
 // `createFileHandle` is an implementation detail — construct handles via
 // `createFileContext(provider).ref(key)`, which is the AppContext surface.
-export { createFileContext, deriveKey, storageKeyStemPrefix } from "./file-handle.ts";
+export {
+  createFileContext,
+  createTenantFileContext,
+  deriveKey,
+  storageKeyStemPrefix,
+} from "./file-handle.ts";
 export { fileRefEntity } from "./file-ref-entity.ts";
 export { fileRefsTable } from "./file-ref-table.ts";
 export type {
@@ -49,6 +54,11 @@ export {
   tenantStorageUsageTable,
   transferTenantStorageUsage,
 } from "./storage-tracking.ts";
+export {
+  DEFAULT_UPLOAD_SWEEP_GRACE_HOURS,
+  MIN_UPLOAD_SWEEP_GRACE_HOURS,
+  sweepOrphanedUploads,
+} from "./sweep-orphaned-uploads.ts";
 export type {
   FileContentValidationResult,
   FileMetadata,
@@ -70,5 +80,10 @@ export {
   validateFile,
   validateFileContent,
 } from "./types.ts";
+export {
+  createFileUploadLedger,
+  fileUploadLedgerTable,
+  withUploadLedger,
+} from "./upload-ledger.ts";
 export type { ZipEntry } from "./zip-stream.ts";
 export { createZipStream } from "./zip-stream.ts";

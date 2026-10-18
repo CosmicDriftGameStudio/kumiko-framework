@@ -10,8 +10,8 @@ import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   type CreatedFileRef,
   type CreateFileRefInput,
-  createFileContext,
   createFileRefFromBytes,
+  createTenantFileContext,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 
@@ -31,9 +31,7 @@ export function makeSeedCreateFileRef(deps: {
     createFileRefFromBytes(
       {
         db: createTenantDb({ db, tenantId }),
-        files: fileResolver
-          ? createFileContext(() => fileResolver(tenantId), tenantId)
-          : context.files,
+        files: fileResolver ? createTenantFileContext(fileResolver, tenantId) : context.files,
         registry,
         user: createSystemUser(tenantId),
       },

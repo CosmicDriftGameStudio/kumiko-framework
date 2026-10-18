@@ -29,7 +29,7 @@ function recordingDb(captured: Captured[]): DbRunner {
   return {
     unsafe: async (sql: string, values: readonly unknown[]) => {
       captured.push({ sql, values });
-      return [] as unknown[];
+      return Object.assign([] as unknown[], { count: 0 });
     },
     begin: async () => {
       throw new Error("begin not used in these tests");

@@ -12,7 +12,13 @@
 // the erasure sweep recognizes it. Stable, reversible, no extra lookup tables.
 
 import type { FileContext, FileHandle } from "@cosmicdrift/kumiko-types/file-handle-types";
+import type {
+  FileProviderResolver,
+  FileUploadLedger,
+} from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 import { isDerivativeSuffix } from "../derivatives/variant-key.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
+import { InternalError } from "../errors/index.ts";
 import { assertSafeStorageKey, type FileStorageProvider } from "./types.ts";
 
 export type { FileContext, FileHandle };
@@ -56,18 +62,40 @@ export function createFileHandle(
 export function createFileContext(
   resolve: () => Promise<FileStorageProvider>,
   tenantId?: string,
+  uploadLedger?: FileUploadLedger,
 ): FileContext {
   let cached: Promise<FileStorageProvider> | undefined;
   const getProvider = () => {
     cached ??= resolve();
     return cached;
   };
+  const requireUploadLedger = (): FileUploadLedger => {
+    if (uploadLedger === undefined) {
+      throw new InternalError({
+        message:
+          "FileContext: no upload ledger is wired, so upload bytes would be unrecoverable after a crash. Build the context from a resolver made by withFileProviderResolver (or withUploadLedger)",
+      });
+    }
+    return uploadLedger;
+  };
+  const assertOwnKey = (method: string, key: string): void => {
+    if (tenantId !== undefined && !key.startsWith(`${tenantId}/`)) {
+      throw new Error(`FileContext.${method}: key must start with "${tenantId}/"`);
+    }
+  };
   return {
     ref: (key) => {
-      if (tenantId !== undefined && !key.startsWith(`${tenantId}/`)) {
-        throw new Error(`FileContext.ref: key must start with "${tenantId}/"`);
-      }
+      assertOwnKey("ref", key);
       return createFileHandle(key, getProvider);
+    },
+    writeUploadBytes: async (key, data, mimeType) => {
+      assertOwnKey("writeUploadBytes", key);
+      await requireUploadLedger().record(key);
+      await (await getProvider()).write(key, data, mimeType);
+    },
+    forgetUploadBytes: async (key) => {
+      assertOwnKey("forgetUploadBytes", key);
+      await requireUploadLedger().forget(key);
     },
     /** Validates only the storage key shape (assertSafeStorageKey), no tenant prefix: keys
      *  may outlive a tenant handover. The caller must ensure the fileRef row came from a
@@ -87,6 +115,19 @@ export function createFileContext(
       return (await getProvider()).list(prefix);
     },
   };
+}
+
+// The one way to build a tenant's FileContext from a resolver: carries the resolver's upload
+// ledger, so every context agrees on where upload bytes are tracked.
+export function createTenantFileContext(
+  resolver: FileProviderResolver,
+  tenantId: TenantId,
+): FileContext {
+  return createFileContext(
+    () => resolver(tenantId),
+    tenantId,
+    resolver.uploadLedgerFor?.(tenantId),
+  );
 }
 
 // Splits a key into the part before the last dot of its last path segment

@@ -368,8 +368,10 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // exist before the first upload. Skipped when no provider — the table
     // stays off tenant test DBs that never touch files.
     if (options.files) {
-      const { fileRefsTable } = await import("@cosmicdrift/kumiko-framework/files");
-      await unsafePushTables(testDb.db, { fileRefsTable });
+      const { fileRefsTable, fileUploadLedgerTable } = await import(
+        "@cosmicdrift/kumiko-framework/files"
+      );
+      await unsafePushTables(testDb.db, { fileRefsTable, fileUploadLedgerTable });
     }
 
     // Same table list as `kumiko schema generate` (collectTableMetas) — divergence
@@ -444,7 +446,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     | undefined;
   if (options.files) {
     const provider = options.files.storageProvider;
-    fileProviderResolver = () => Promise.resolve(provider);
+    const { withUploadLedger } = await import("@cosmicdrift/kumiko-framework/files");
+    fileProviderResolver = withUploadLedger(() => Promise.resolve(provider), testDb.db);
   }
 
   const observability = options.observability ?? createNoopProvider();

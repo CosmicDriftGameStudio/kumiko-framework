@@ -2,6 +2,12 @@ import { defineFeature, type FeatureDefinition } from "../engine/index.ts";
 import { bindReferencedFilesWrite } from "./bind-referenced-files.write.ts";
 import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 import type { FileAccessGuard } from "./file-routes.ts";
+import {
+  DEFAULT_UPLOAD_SWEEP_GRACE_HOURS,
+  MIN_UPLOAD_SWEEP_GRACE_HOURS,
+  sweepOrphanedUploads,
+} from "./sweep-orphaned-uploads.ts";
+import { fileUploadLedgerTable } from "./upload-ledger.ts";
 
 export { fileRefEntity } from "./file-ref-entity.ts";
 
@@ -21,6 +27,9 @@ export type FilesFeatureOptions = {
   readonly unclaimedUploadReaders?: readonly string[];
   // Global upload size default (per-field `maxSize` still wins). e.g. "10mb".
   readonly maxUploadSize?: string;
+  // Hours an upload may wait for its fileRef row before the hourly sweep deletes its bytes.
+  // Whole hours, at least 1; default 24.
+  readonly uploadSweepGraceHours?: number;
 };
 
 // files — `fileRef` als ganz normales ES-Entity. Upload/Delete laufen über
@@ -36,7 +45,17 @@ export type FilesFeatureOptions = {
 // file-routes + fileRefsTable; bundled-features/files re-exportiert nur.
 export const FILES_FEATURE = "files" as const;
 
+function assertValidSweepGraceHours(hours: number): void {
+  if (!Number.isInteger(hours) || hours < MIN_UPLOAD_SWEEP_GRACE_HOURS) {
+    throw new Error(
+      `createFilesFeature: uploadSweepGraceHours must be a whole number of hours >= ${MIN_UPLOAD_SWEEP_GRACE_HOURS}, got ${String(hours)}`,
+    );
+  }
+}
+
 export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDefinition {
+  const uploadSweepGraceHours = options.uploadSweepGraceHours ?? DEFAULT_UPLOAD_SWEEP_GRACE_HOURS;
+  assertValidSweepGraceHours(uploadSweepGraceHours);
   return defineFeature(FILES_FEATURE, (r) => {
     r.describe(
       "Exposes the `fileRef` entity from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and tenant-lifecycle cleanup deletes all refs on tenant destroy. Upload/download routes are registered by the server bootstrap when a `file-provider-*` feature is mounted; this feature carries their access/size policy via `createFilesFeature(opts?)`.",
@@ -48,6 +67,22 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
     });
     r.entity({ name: FILE_REF_ENTITY_NAME, ...fileRefEntity });
     r.writeHandler(bindReferencedFilesWrite);
+    r.storeTable(fileUploadLedgerTable, { reason: "coordination.file_upload_ledger" });
+    r.job({
+      name: "sweep-orphaned-uploads",
+      trigger: { cron: "0 * * * *" },
+      perTenant: true,
+      concurrency: "skip",
+      handler: async (_payload, ctx) => {
+        await sweepOrphanedUploads({
+          db: ctx.db,
+          files: ctx.files,
+          now: ctx.tz.now(),
+          graceHours: uploadSweepGraceHours,
+          log: ctx.log,
+        });
+      },
+    });
     return { routeOptions: options };
   });
 }

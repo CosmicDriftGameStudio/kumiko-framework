@@ -49,6 +49,7 @@ import {
   validateFile,
   validateFileContent,
 } from "../types.ts";
+import { fileUploadLedgerTable } from "../upload-ledger.ts";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
 // the query — the row just isn't there. Pre-v1 files-feature tests used
@@ -123,7 +124,7 @@ beforeAll(async () => {
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-test-"));
 
   // Create tables
-  await unsafePushTables(testDb.db, { fileRefsTable });
+  await unsafePushTables(testDb.db, { fileRefsTable, fileUploadLedgerTable });
   await unsafeCreateEntityTable(testDb.db, testTenantEntity);
   // Event-store table: the upload route appends files:event:uploaded in the
   // same tx as the FileRef insert. Without events, upload would 500.
@@ -1034,7 +1035,7 @@ describe("custom file access guard", () => {
   ): Promise<void> {
     const { storageProvider: providerOverride, ...routeOptions } = options;
     const isolatedDb = await createTestDb();
-    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    await unsafePushTables(isolatedDb.db, { fileRefsTable, fileUploadLedgerTable });
     await unsafeCreateEntityTable(isolatedDb.db, testTenantEntity);
     const storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-custom-"));
     const provider = providerOverride ?? createLocalProvider(storagePath);
@@ -1450,7 +1451,7 @@ describe("download-url endpoint", () => {
     }) => Promise<void>,
   ): Promise<void> {
     const isolatedDb = await createTestDb();
-    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    await unsafePushTables(isolatedDb.db, { fileRefsTable, fileUploadLedgerTable });
     await unsafeCreateEntityTable(isolatedDb.db, testTenantEntity);
     const isolatedRegistry = createRegistry([tenantFeature]);
     const isolatedServer = buildServer({
@@ -1772,7 +1773,7 @@ describe("byte-serving routes with field-encrypted fileName", () => {
     };
 
     const isolatedDb = await createTestDb();
-    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    await unsafePushTables(isolatedDb.db, { fileRefsTable, fileUploadLedgerTable });
     await unsafeCreateEntityTable(isolatedDb.db, testTenantEntity);
     const isolatedRegistry = createRegistry([tenantFeature]);
     const isolatedServer = buildServer({
@@ -1829,7 +1830,7 @@ describe("upload body-size limit", () => {
     body: (args: { app: Hono; jwt: JwtHelper; provider: InMemoryFileProvider }) => Promise<void>,
   ): Promise<void> {
     const isolatedDb = await createTestDb();
-    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    await unsafePushTables(isolatedDb.db, { fileRefsTable, fileUploadLedgerTable });
     const provider = createInMemoryFileProvider();
     const isolatedRegistry = createRegistry([
       createFilesFeature({ maxUploadSize: SMALL_MAX_UPLOAD_SIZE }),

@@ -1,5 +1,6 @@
-import { fetchOne } from "../db/query.ts";
+import { fetchOne, runnerCanBeginTransaction } from "../db/query.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
+import { tenantDbRunner } from "../db/tenant-db-runner.ts";
 import type {
   BeforeTransactionResult,
   Registry,
@@ -70,10 +71,11 @@ export async function createFileRefFromBytes(
     {
       user: ctx.user,
       tenantDb: ctx.db,
+      rowInOwnTransaction: runnerCanBeginTransaction(tenantDbRunner(ctx.db)),
       registry: ctx.registry,
       defaultMaxUploadSize:
         readFilesRouteOptions(ctx.registry).maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
-      writeBytes: (key, data, mimeType) => files.ref(key).write(data, mimeType),
+      writeBytes: (key, data, mimeType) => files.writeUploadBytes(key, data, mimeType),
       deleteBytes: (key) => files.ref(key).delete(),
     },
     {
@@ -108,7 +110,8 @@ function fileRejectedFailure(error: string) {
 
 // Pre-transaction half of createFileRefFromBytes: validates and writes the binary while no
 // transaction holds a connection. Pair it with createFileRefFromUploadedBytes inside the handler.
-// A crash between this phase and the commit leaves the bytes in storage; nothing sweeps them.
+// A crash between this phase and the commit leaves the bytes in storage; the upload ledger sweep
+// removes them after its grace period.
 export async function uploadFileBytesBeforeTransaction(
   ctx: UploadFileBytesContext,
   input: CreateFileRefInput,
@@ -127,7 +130,7 @@ export async function uploadFileBytesBeforeTransaction(
       registry: ctx.registry,
       defaultMaxUploadSize:
         readFilesRouteOptions(ctx.registry).maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
-      writeBytes: (key, data, mimeType) => files.ref(key).write(data, mimeType),
+      writeBytes: (key, data, mimeType) => files.writeUploadBytes(key, data, mimeType),
     },
     {
       fileName: input.fileName,
@@ -149,7 +152,10 @@ export async function uploadFileBytesBeforeTransaction(
       const committedRow = await fetchOne(ctx.db, fileRefsTable, {
         storageKey: uploaded.storageKey,
       });
-      if (!committedRow) await files.ref(uploaded.storageKey).delete();
+      // skip: a committed row owns the bytes, the commit already took the ledger entry
+      if (committedRow) return;
+      await files.ref(uploaded.storageKey).delete();
+      await files.forgetUploadBytes(uploaded.storageKey);
     },
   };
 }
