@@ -13,7 +13,11 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  expectSuccess,
+  resetPiiSubjectKmsForTests,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -284,12 +288,13 @@ describe("sync-subscription", () => {
     // as (job-runner.ts), unlike every other test here which authenticates
     // as a SystemAdmin over HTTP.
     const systemUser = createSystemUser(tenantId);
-    const result = (await stack.http.writeOk(
+    const result = await stack.dispatcher.write(
       SubscriptionFoundationHandlers.syncSubscription,
       {},
       systemUser,
-    )) as { synced: boolean };
-    expect(result).toEqual({ synced: true });
+    );
+    expectSuccess(result);
+    expect(result.data).toEqual({ synced: true });
   });
 
   test("the resolved provider plugin has no retrieveSubscription → provider_cannot_retrieve", async () => {

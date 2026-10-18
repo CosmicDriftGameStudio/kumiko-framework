@@ -236,7 +236,7 @@ describe("scenario 2b: find-for-auth is system-only", () => {
     });
 
     const foreignSystemCaller = createSystemUser(testTenantId(99));
-    const result = await stack.http.queryOk<{ id: number } | null>(
+    const result = await stack.dispatcher.query(
       UserQueries.findForAuth,
       { email: "cross-tenant@example.com" },
       foreignSystemCaller,

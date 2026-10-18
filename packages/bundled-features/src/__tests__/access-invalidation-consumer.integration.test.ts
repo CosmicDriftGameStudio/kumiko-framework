@@ -25,11 +25,13 @@ import { randomBytes } from "node:crypto";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
+  expectSuccess,
   resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -162,21 +164,14 @@ describe("access-invalidation event consumer", () => {
     await h.login("revoke2@example.com", "pw-long-enough");
     trackInvalidation(userId);
 
-    // Fresh sid per test — withMintedSession mints synchronously instead of
-    // relying on stack.http's per-userId sid cache, which would otherwise
-    // hand back a sid truncated out from under it by the next beforeEach's
-    // resetTestTables(userSessionTable).
-    const systemActor = await withMintedSession(sessionCreator, {
-      id: TestUsers.systemAdmin.id,
-      tenantId: TENANT,
-      roles: ["system"],
-    });
-    const result = await stack.http.write(
+    // The system identity exists in-process only (jobs, event consumers): a
+    // forged system token is stripped by JWT verify, so this drives the dispatcher.
+    const result = await stack.dispatcher.write(
       SessionHandlers.revokeAllForUser,
       { userId },
-      systemActor,
+      createSystemUser(TENANT),
     );
-    expect(result.status).toBe(200);
+    expectSuccess(result);
 
     // The write itself is anchored on SYSTEM_TENANT_ID (not TENANT) — this
     // is exactly the asymmetry #1559's handoff comment warns about. If the

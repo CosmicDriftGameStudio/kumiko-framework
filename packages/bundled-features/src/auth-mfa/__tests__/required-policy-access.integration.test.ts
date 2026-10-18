@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { asRawClient, configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, expectSuccess } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -130,10 +130,12 @@ describe("auth-mfa required policy", () => {
   );
 
   test("a system write overrides the app default for that tenant", async () => {
-    await stack.http.writeOk(
-      ConfigHandlers.set,
-      { key: mfaRequiredConfigHandle.name, value: "optional" },
-      createSystemUser(TENANT_ID),
+    expectSuccess(
+      await stack.dispatcher.write(
+        ConfigHandlers.set,
+        { key: mfaRequiredConfigHandle.name, value: "optional" },
+        createSystemUser(TENANT_ID),
+      ),
     );
     const body = await loginBody();
     expect(body.mfaSetupRequired).toBeUndefined();

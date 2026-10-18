@@ -217,11 +217,11 @@ describe("ctx.configFor gate", () => {
       adminA,
     );
     expect(viaAdmin.value).toBe(222);
-    const viaSystem = await stack.http.queryOk<{ value: unknown }>(
+    const viaSystem = await stack.dispatcher.query(
       READ_FOR_QUERY,
       { tenantId: TENANT_B },
       createSystemUser(TENANT_A),
     );
-    expect(viaSystem.value).toBe(222);
+    expect(viaSystem).toMatchObject({ value: 222 });
   });
 });

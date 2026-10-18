@@ -1,7 +1,8 @@
 // The schema lets a caller id through, but only a system identity gets it honored; HTTP users
-// can never present one (SYSTEM_ROLE is reserved), so both halves are pinned end to end here.
+// can never present one (SYSTEM_ROLE is reserved), so the system half runs in-process.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { expectError, expectSuccess } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -46,28 +47,30 @@ describe("entity create — caller-chosen id", () => {
   test("system-identity caller: the chosen id is honored", async () => {
     const chosenId = "00000000-0000-4000-8000-0000000000c1";
     const systemUser = createSystemUser(admin.tenantId, ["Admin"]);
-    const result = await stack.http.writeOk<{ id: string }>(
+    const result = await stack.dispatcher.write(
       CREATE_QN,
       { label: "from a job", id: chosenId },
       systemUser,
     );
-    expect(result.id).toBe(chosenId);
+    expectSuccess(result);
+    expect(result.data).toMatchObject({ id: chosenId });
   });
 
   test("system-identity caller retrying the same id → version_conflict, no duplicate row created", async () => {
     const chosenId = "00000000-0000-4000-8000-0000000000c2";
     const systemUser = createSystemUser(admin.tenantId, ["Admin"]);
-    await stack.http.writeOk<{ id: string }>(
+    const first = await stack.dispatcher.write(
       CREATE_QN,
       { label: "first attempt", id: chosenId },
       systemUser,
     );
-    const retry = await stack.http.writeErr(
+    expectSuccess(first);
+    const retry = await stack.dispatcher.write(
       CREATE_QN,
       { label: "redelivered event", id: chosenId },
       systemUser,
     );
-    expect(retry.code).toBe("version_conflict");
+    expectError(retry, "version_conflict");
   });
 
   test("ordinary end user: the payload id is ignored, a fresh id is minted", async () => {
@@ -82,11 +85,11 @@ describe("entity create — caller-chosen id", () => {
 
   test("malformed id → validation error, regardless of caller identity", async () => {
     const systemUser = createSystemUser(admin.tenantId, ["Admin"]);
-    const err = await stack.http.writeErr(
+    const err = await stack.dispatcher.write(
       CREATE_QN,
       { label: "bad id", id: "not-a-uuid" },
       systemUser,
     );
-    expect(err.code).toBe("validation_error");
+    expectError(err, "validation_error");
   });
 });

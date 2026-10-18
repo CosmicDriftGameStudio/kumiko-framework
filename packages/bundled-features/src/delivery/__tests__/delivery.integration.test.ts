@@ -26,7 +26,11 @@ import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { resetBlindIndexKeyForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  expectSuccess,
+  resetBlindIndexKeyForTests,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -480,10 +484,12 @@ beforeAll(async () => {
     TestUsers.systemAdmin,
   );
   for (const user of [admin, user1, user2]) {
-    await stack.http.writeOk(
-      "tenant:write:add-member",
-      { userId: user.id, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] },
-      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+    expectSuccess(
+      await stack.dispatcher.write(
+        "tenant:write:add-member",
+        { userId: user.id, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] },
+        createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+      ),
     );
   }
 });
@@ -1747,10 +1753,12 @@ describe("flow 15d: tenantUserIdsQuery handler with r.systemScope()", () => {
   test("ctx.systemDb.unsafeRaw works, ctx.db.unsafeRaw is denied, broadcast still resolves recipients", async () => {
     const foreignTenantId = "00000000-0000-4000-8000-0000000d15d0";
     const foreignUser = createTestUser({ id: 915, roles: ["User"] });
-    await stack.http.writeOk(
-      "tenant:write:add-member",
-      { userId: foreignUser.id, tenantId: foreignTenantId, roles: ["User"] },
-      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+    expectSuccess(
+      await stack.dispatcher.write(
+        "tenant:write:add-member",
+        { userId: foreignUser.id, tenantId: foreignTenantId, roles: ["User"] },
+        createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+      ),
     );
     const systemService = createDeliveryService({
       db,

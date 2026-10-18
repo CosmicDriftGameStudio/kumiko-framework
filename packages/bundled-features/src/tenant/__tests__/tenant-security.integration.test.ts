@@ -14,6 +14,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   expectErrorIncludes,
+  expectSuccess,
   rolesOf,
   seedRow,
   updateRows,
@@ -1291,10 +1292,12 @@ describe("addMember is system-context only across tenants", () => {
   });
 
   test("the system context can add a member to any tenant", async () => {
-    await stack.http.writeOk(
-      TenantHandlers.addMember,
-      { userId: tenantAdminAId, tenantId: TENANT_B_ID, roles: ["User"] },
-      createSystemUser(TENANT_A_ID, ["SystemAdmin"]),
+    expectSuccess(
+      await stack.dispatcher.write(
+        TenantHandlers.addMember,
+        { userId: tenantAdminAId, tenantId: TENANT_B_ID, roles: ["User"] },
+        createSystemUser(TENANT_A_ID, ["SystemAdmin"]),
+      ),
     );
     expect(
       await selectMany(stack.db, tenantMembershipsTable, {

@@ -7,7 +7,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectErrorIncludes, expectSuccess } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -197,12 +197,12 @@ describe("updateMemberRoles keeps roles the actor cannot grant", () => {
 
   test("system user replaces the full list", async () => {
     await freshMember(["Member", "DataProtectionOfficer"]);
-    const res = await stack.http.write(
+    const result = await stack.dispatcher.write(
       TenantHandlers.updateMemberRoles,
       { userId: memberId, roles: ["Editor"] },
       createSystemUser(tenantId),
     );
-    expect(res.status).toBe(200);
+    expectSuccess(result);
     expect(await rolesOfMember()).toEqual(["Editor"]);
   });
 });

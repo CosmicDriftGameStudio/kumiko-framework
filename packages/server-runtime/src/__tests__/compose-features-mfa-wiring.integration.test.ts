@@ -35,7 +35,11 @@ import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  deleteRows,
+  expectSuccess,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -194,10 +198,12 @@ describe("composeFeatures wiring — auth-mfa (kumiko-framework#266 Step 6)", ()
 });
 
 async function setPolicy(stack: TestStack, policy: "optional" | "admins" | "all"): Promise<void> {
-  await stack.http.writeOk(
-    "config:write:set",
-    { key: mfaRequiredConfigHandle.name, value: policy },
-    createSystemUser(TEST_TENANT_ID),
+  expectSuccess(
+    await stack.dispatcher.write(
+      "config:write:set",
+      { key: mfaRequiredConfigHandle.name, value: policy },
+      createSystemUser(TEST_TENANT_ID),
+    ),
   );
 }
 
