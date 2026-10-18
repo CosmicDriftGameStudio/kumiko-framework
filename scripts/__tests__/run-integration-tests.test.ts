@@ -52,7 +52,7 @@ describe("runIntegrationTests", () => {
     expect(code).not.toBe(0);
     expect(stdout).toContain("Integration run FAILED.");
     expect(stdout).toContain("1 pass");
-  }, 30_000);
+  });
 
   test("a directory with a clean exit stays green", async () => {
     tmpDir = writeFixture("");
@@ -60,7 +60,7 @@ describe("runIntegrationTests", () => {
 
     expect(code).toBe(0);
     expect(stdout).toContain("Integration run complete.");
-  }, 30_000);
+  });
 
   test("runs only the discovered files, not other test files whose path contains theirs", async () => {
     tmpDir = writeFixture("");
@@ -73,7 +73,7 @@ describe("runIntegrationTests", () => {
     expect(code).toBe(0);
     expect(stdout).toContain("Files: 1/1 executed");
     expect(stdout).not.toContain("must not run");
-  }, 30_000);
+  });
 
   function writeSubprocessLaneFixture(dir: string, testBody: string): void {
     const laneDir = join(dir, "packages", "cli", "src", "__tests__");
@@ -95,7 +95,7 @@ describe("runIntegrationTests", () => {
     expect(stdout.indexOf("Integration subprocess checks")).toBeGreaterThan(
       stdout.indexOf("=== Integration: 1 file(s)"),
     );
-  }, 30_000);
+  });
 
   test("a red subprocess-check lane fails the run even when the bulk lane is green", async () => {
     tmpDir = writeFixture("");
@@ -104,5 +104,5 @@ describe("runIntegrationTests", () => {
 
     expect(code).not.toBe(0);
     expect(stdout).toContain("Integration run FAILED.");
-  }, 30_000);
+  });
 });
