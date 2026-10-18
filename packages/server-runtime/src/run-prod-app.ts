@@ -853,7 +853,7 @@ function requireEnvSchema(envSchema: ComposedEnvSchema | undefined): ComposedEnv
         name: "envSchema",
         kind: "missing",
         message:
-          "runProdApp needs envSchema. Pass composeEnvSchema({ core: frameworkCoreEnvSchema, features, extend }): composeEnvSchema from @cosmicdrift/kumiko-framework/env, frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server, features the same list as runProdApp's.",
+          "runProdApp needs envSchema. Pass composeEnvSchema({ core: frameworkCoreEnvSchema, features, extend }): composeEnvSchema from @cosmicdrift/kumiko-framework/env, frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server/env-schema, features the same list as runProdApp's.",
       },
     ]);
   }
@@ -923,16 +923,24 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ];
     // biome-ignore lint/suspicious/noConsole: boot-mode output IS the deliverable
     console.log(renderEnvInspection(inspection));
-    const invalid = inspection.filter((row) => row.status === "invalid");
-    if (invalid.length > 0) {
+    if (inspection.some((row) => row.status === "invalid")) {
+      // Missing rows go into the same report: the run fails anyway, so the
+      // operator sees every variable to fix in one pass.
       reportBootError(
         new KumikoBootError(
-          invalid.map((row) => ({
-            name: row.name,
-            kind: "invalid" as const,
-            message: row.message ?? "invalid value",
-            source: row.source,
-          })),
+          inspection.flatMap((row) =>
+            row.status === "invalid" || row.status === "missing"
+              ? [
+                  {
+                    name: row.name,
+                    kind: row.status,
+                    message:
+                      row.message ?? (row.status === "missing" ? "missing" : "invalid value"),
+                    source: row.source,
+                  },
+                ]
+              : [],
+          ),
         ),
       );
       return makeDryRunHandle();
