@@ -39,6 +39,7 @@ export const DEFAULT_CSP_DIRECTIVES: Readonly<Record<string, readonly string[]>>
   "frame-ancestors": ["'none'"],
   "base-uri": ["'self'"],
   "form-action": ["'self'"],
+  "object-src": ["'none'"],
 };
 
 const SCRIPT_HASH_PATTERN = /^sha256-[A-Za-z0-9+/]{43}=$/;

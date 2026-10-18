@@ -13,7 +13,7 @@ An app that passes neither `securityHeaders` nor `rateLimit` to `runProdApp` sti
 Default value, with the inline-script hashes of the build appended to `script-src`:
 
 ```
-default-src 'self'; script-src 'self' 'sha256-…'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+default-src 'self'; script-src 'self' 'sha256-…'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
 ```
 
 `kumiko build` hashes every inline `<script>` (no `src`, executable type) of every HTML file in `dist/` and writes the result to `dist/csp-hashes.json`. `runProdApp` reads that file from `staticDir` at boot. Hashes come only from the build output, never from request data. If the file is missing or malformed, the CSP carries no hashes, inline scripts are blocked and boot logs a warning.

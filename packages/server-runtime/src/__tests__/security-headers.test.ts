@@ -16,7 +16,7 @@ describe("resolveSecurityHeaders", () => {
     expect(headers.get("x-content-type-options")).toBe("nosniff");
     expect(headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
     expect(headers.get("content-security-policy")).toBe(
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
     );
   });
 
@@ -47,7 +47,8 @@ describe("resolveSecurityHeaders", () => {
     expect(csp).toContain("connect-src 'self' https://api.stripe.com;");
     expect(csp).toContain("frame-src https://js.stripe.com");
     expect(csp).toContain("frame-ancestors https://partner.example;");
-    expect(csp).not.toContain("'none'");
+    expect(csp).not.toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
   });
 
   it("rejects csp.extend values that could open a new directive", () => {
