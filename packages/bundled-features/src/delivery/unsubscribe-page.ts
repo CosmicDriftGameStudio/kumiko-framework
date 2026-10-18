@@ -116,17 +116,18 @@ function footerHtml(chrome: MailChrome): string {
   const links = [chrome.imprint, chrome.privacy]
     .map((link) => (link === undefined ? "" : linkHtml(link)))
     .filter((html) => html !== "");
-  const lines = [
+  const lineHtmls = [
     ...(text === "" ? [] : [escapeHtml(text)]),
     ...(links.length === 0 ? [] : [links.join(" · ")]),
   ];
-  return lines.length === 0 ? "" : `<footer class="footer">${lines.join("<br>")}</footer>`;
+  const linesHtml = lineHtmls.join("<br>");
+  return linesHtml === "" ? "" : `<footer class="footer">${linesHtml}</footer>`;
 }
 
 function tokenForm(action: string, token: string, label: string, variant: string): string {
-  return `<form method="post" action="${action}">
+  return `<form method="post" action="${escapeHtmlAttr(action)}">
 <input type="hidden" name="token" value="${escapeHtmlAttr(token)}">
-<button type="submit" class="${variant}">${escapeHtml(label)}</button>
+<button type="submit" class="${escapeHtmlAttr(variant)}">${escapeHtml(label)}</button>
 </form>`;
 }
 
@@ -195,6 +196,8 @@ export function renderUnsubscribePage(input: UnsubscribePageInput): RenderedUnsu
   const { title, bodyHtml } = pageText(state, locale);
   const style = pageStyle(accentOf(chrome));
   const branded = chrome !== null && chrome !== undefined;
+  // html-ok: static CSS whose only variable is the hex-validated accent; escaping would break its quotes and the CSP hash.
+  const styleBlockHtml = `<style>${style}</style>`;
   const html = `<!doctype html>
 <html lang="${escapeHtmlAttr(locale)}">
 <head>
@@ -202,7 +205,7 @@ export function renderUnsubscribePage(input: UnsubscribePageInput): RenderedUnsu
 <meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<style>${style}</style>
+${styleBlockHtml}
 </head>
 <body>
 <main class="page">
