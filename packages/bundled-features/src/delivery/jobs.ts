@@ -26,6 +26,11 @@ import { appendAttemptEvent } from "./attempt-log.ts";
 import { buildChannelContext } from "./channel-context.ts";
 import { DeliveryJobs, deliveryIdempotencyRedisKey, deliveryPriorityRank } from "./constants.ts";
 import { collectChannels, redactedMessageOf } from "./delivery-service.ts";
+import {
+  openRecipientAddress,
+  type RecipientAddressField,
+  recipientAddressFieldSchema,
+} from "./recipient-address-seal.ts";
 import type {
   ChannelMessage,
   DeliveryChannel,
@@ -41,9 +46,8 @@ const channelMessageSchema = z.object({
   locale: z.string().optional(),
 });
 
-const renderJobPayloadSchema = z.object({
+const renderJobBaseSchema = z.object({
   channelName: z.string(),
-  address: z.string(),
   tenantId: z.string(),
   recipientId: z.string().nullable(),
   notificationType: z.string(),
@@ -53,18 +57,22 @@ const renderJobPayloadSchema = z.object({
   idempotencyKey: z.string().optional(),
 });
 
-const sendJobPayloadSchema = renderJobPayloadSchema.extend({
-  rendered: z
-    .object({
-      html: z.string(),
-      subject: z.string(),
-      text: z.string().optional(),
-      fromName: z.string().optional(),
-      replyTo: z.string().optional(),
-      attachments: z.array(emailAttachmentRefSchema).max(MAX_EMAIL_ATTACHMENTS).optional(),
-    })
-    .optional(),
-});
+const renderJobPayloadSchema = renderJobBaseSchema.and(recipientAddressFieldSchema);
+
+const sendJobPayloadSchema = renderJobBaseSchema
+  .extend({
+    rendered: z
+      .object({
+        html: z.string(),
+        subject: z.string(),
+        text: z.string().optional(),
+        fromName: z.string().optional(),
+        replyTo: z.string().optional(),
+        attachments: z.array(emailAttachmentRefSchema).max(MAX_EMAIL_ATTACHMENTS).optional(),
+      })
+      .optional(),
+  })
+  .and(recipientAddressFieldSchema);
 
 type RenderJobPayload = z.infer<typeof renderJobPayloadSchema>;
 
@@ -189,6 +197,22 @@ async function releasingKeyOnTerminalFailure<T>(
   }
 }
 
+// A missing or rotated key must not hide the original failure, so the log row just omits the address.
+async function addressForAttemptLog(
+  p: RecipientAddressField & { readonly tenantId: string },
+  ctx: JobContext,
+): Promise<string | null> {
+  try {
+    return await openRecipientAddress(
+      p,
+      p.tenantId as TenantId, // @cast-boundary engine-payload — job payload string is the stream tenant
+      ctx.configEncryption,
+    );
+  } catch {
+    return null;
+  }
+}
+
 // The job runner stores err.message in the run row, and BullMQ keeps failedReason and
 // the stack trace in Redis in plain text, so the rethrown error carries only the code.
 // The redacted message goes to the log.
@@ -209,7 +233,7 @@ async function failAttempt(
     db,
     registry,
     p.deliveryAttemptId,
-    entryFor(p, "failed", code, p.address),
+    entryFor(p, "failed", code, await addressForAttemptLog(p, ctx)),
   );
   throw new Error(code);
 }
@@ -280,18 +304,13 @@ async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext
   );
 
   try {
-    const result = await channel.send(p.address, toMessage(p), channelCtx, p.rendered);
+    const address = await openRecipientAddress(p, tenantId, ctx.configEncryption);
+    const result = await channel.send(address, toMessage(p), channelCtx, p.rendered);
     await appendAttemptEvent(
       db,
       registry,
       p.deliveryAttemptId,
-      entryFor(
-        p,
-        result.status,
-        result.error ?? null,
-        result.address ?? p.address,
-        result.confirmed,
-      ),
+      entryFor(p, result.status, result.error ?? null, result.address ?? address, result.confirmed),
     );
     // A soft failure ends the job successfully, so no retry follows and the caller's
     // retry must not be skipped as a duplicate.

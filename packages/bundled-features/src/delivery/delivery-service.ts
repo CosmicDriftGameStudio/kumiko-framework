@@ -24,7 +24,7 @@ import {
   assertNotifyTargetsOwnTenant,
   createEscapeHatchReporter,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { fileContextFromResolver } from "../file-foundation/index.ts";
@@ -46,6 +46,7 @@ import {
 } from "./db/queries/address-opt-outs.ts";
 import { selectNotificationPreferences } from "./db/queries/preferences.ts";
 import { notificationTypeNames } from "./notification-type-aliases.ts";
+import { sealRecipientAddress } from "./recipient-address-seal.ts";
 import {
   type ChannelContext,
   type ChannelMessage,
@@ -95,6 +96,9 @@ export type DeliveryServiceOptions = {
   // Credentials source for inline-delivered chat channels (webhook URL / bot
   // token). Jobs get ctx.secrets from the job runner instead.
   readonly secrets?: SecretsContext;
+  // Seals the recipient address inside queued job payloads (tenant scope). Absent means the
+  // payload carries the plaintext address.
+  readonly addressCipher?: EnvelopeCipher;
   // File storage for inline-delivered mails with attachments; jobs use their own ctx instead.
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
   // Tenant config for inline rendering (mail layout reads tenant name, locale);
@@ -134,6 +138,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     idempotencyRedis,
     jobRunner,
     secrets,
+    addressCipher,
     filesForTenant,
     tenantConfigFor,
     escapeHatchAuditSink,
@@ -429,7 +434,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         channel.render ? DeliveryJobs.render : DeliveryJobs.send,
         {
           channelName: channel.name,
-          address,
+          ...(await sealRecipientAddress(address, tenantId, addressCipher)),
           tenantId,
           recipientId,
           notificationType,
