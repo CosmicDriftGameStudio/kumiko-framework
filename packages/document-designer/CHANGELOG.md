@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.371.1
+
+### Patch Changes
+
+- 183d968: Document Designer client strings in Spanish
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: The Document Designer editor shows its own texts in Spanish
+  detail: The client translation bundle of the Document Designer (canvas caption, origin bar, tenant customisations, resources, PDF settings, preview and validation messages) had only en and de, so Spanish users saw these texts in English. It now ships an es block that uses tú and the same terms as locale-es (organización, diseño, marcador). A parity test keeps the keys and placeholders of en, de and es aligned.
+  -->
+- @cosmicdrift/kumiko-bundled-features@0.371.1
+  - @cosmicdrift/kumiko-framework@0.371.1
+  - @cosmicdrift/kumiko-headless@0.371.1
+  - @cosmicdrift/kumiko-renderer@0.371.1
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.371.1
+  - @cosmicdrift/kumiko-renderer-web@0.371.1
+  - @cosmicdrift/kumiko-types@0.371.1
+
 ## 0.371.0
 
 ### Patch Changes
