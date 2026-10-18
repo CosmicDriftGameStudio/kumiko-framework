@@ -21,3 +21,4 @@ export {
   type RateLimitResolver,
   type RateLimitResolverOptions,
 } from "./resolver.ts";
+export { createUnlimitedRateLimitResolver } from "./unlimited-resolver.ts";

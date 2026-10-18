@@ -160,6 +160,7 @@ import {
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
+  createUnlimitedRateLimitResolver,
   flushEscapeHatchAudits,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -1592,10 +1593,19 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   });
   const customSeeds = bootOptionWiring.customSeeds;
   const hasSeeds = customSeeds.length > 0 || options.seedsDir !== undefined;
+  // Seeds are bootstrap writes, not tenant traffic: they always get the unlimited resolver,
+  // even when the app has a real one, so a handler's rateLimit can neither fail nor drain them.
   const seedContext = hasSeeds
     ? withFileProviderResolver(
         registry,
-        { db, redis, entityCache, registry, ...extraContext },
+        {
+          db,
+          redis,
+          entityCache,
+          registry,
+          ...extraContext,
+          rateLimit: createUnlimitedRateLimitResolver(),
+        },
         cacheSync,
       )
     : undefined;
