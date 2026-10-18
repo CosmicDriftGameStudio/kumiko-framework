@@ -60,7 +60,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
-}, 60_000);
+});
 
 afterAll(async () => {
   await stack.cleanup();

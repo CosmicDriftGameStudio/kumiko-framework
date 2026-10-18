@@ -24,6 +24,9 @@ const SCAN: ScanSpec = {
 
 const EXCLUDE = /(\.d\.ts$|\/fixtures\/)/;
 const RELATIVE_JS_SPECIFIER = /^\.{1,2}\/.*\.jsx?$/;
+// A published bin that imports its own build output (`../dist/cli.js`) has no
+// `.ts` sibling to name; the `.js` there is the only file that exists.
+const BUILD_OUTPUT_SEGMENT = /(^|\/)dist\//;
 
 interface Finding {
   readonly line: number;
@@ -33,7 +36,8 @@ interface Finding {
 function relativeJsSpecifier(node: Node | undefined): string | undefined {
   const literal = node?.asKind(SyntaxKind.StringLiteral);
   const value = literal?.getLiteralValue();
-  return value !== undefined && RELATIVE_JS_SPECIFIER.test(value) ? value : undefined;
+  if (value === undefined || !RELATIVE_JS_SPECIFIER.test(value)) return undefined;
+  return BUILD_OUTPUT_SEGMENT.test(value) ? undefined : value;
 }
 
 function findJsSpecifiers(sf: SourceFile): Finding[] {

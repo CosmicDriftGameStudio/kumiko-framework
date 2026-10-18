@@ -3,7 +3,10 @@
   "sourceRoots": ["packages/*/src", "packages/*/bin", "apps/*/src", "packages/renderer-web/e2e", "samples", "scripts", "bin"],
   "testGlobs": [
     "packages/*/src/**/*.{test,integration}.{ts,tsx}",
-    "apps/*/src/**/*.{test,integration}.{ts,tsx}"
+    "apps/*/src/**/*.{test,integration}.{ts,tsx}",
+    "samples/recipes/*/src/**/*.{test,integration}.{ts,tsx}",
+    "scripts/**/*.{test,integration}.{ts,tsx}",
+    "bin/**/*.{test,integration}.{ts,tsx}"
   ],
   "uiRoots": [
     "packages/bundled-features/src/**/web",

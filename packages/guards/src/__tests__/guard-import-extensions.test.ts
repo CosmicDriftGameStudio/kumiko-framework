@@ -36,6 +36,8 @@ describe("Import-Extensions Guard", () => {
           `import { c } from "./c";`,
           `import { d } from "pkg/dist/d.js";`,
           `import data from "./data.json";`,
+          `import { cli } from "../dist/release/cli.js";`,
+          `export * from "./dist/index.js";`,
           `const note = "./not-an-import.js";`,
         ].join("\n"),
       }),

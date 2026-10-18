@@ -237,7 +237,7 @@ describe("inbound-mail triage sample", () => {
     } finally {
       await entry.stop();
     }
-  }, 30_000);
+  });
 });
 ```
 

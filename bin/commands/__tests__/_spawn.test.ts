@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { isProbeTimeout, run, runStreaming } from "../_spawn";
 
 function isAlive(pid: number): boolean {
@@ -57,10 +58,7 @@ describe("run timeout handling", () => {
       expect(isProbeTimeout(result)).toBe(true);
       const pid = Number(readFileSync(pidFile, "utf-8").trim());
       expect(Number.isInteger(pid)).toBe(true);
-      const deadline = Date.now() + 5000;
-      while (isAlive(pid) && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 25));
-      }
+      await waitFor(() => !isAlive(pid));
       expect(isAlive(pid)).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });

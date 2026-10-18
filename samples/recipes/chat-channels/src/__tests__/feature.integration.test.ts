@@ -149,7 +149,7 @@ describe("chat-channels recipe", () => {
     });
     expect(rows.map((r) => r["recipientAddress"])).toEqual(["ops"]);
     expect(JSON.stringify(rows)).not.toContain("XXXX");
-  }, 20000);
+  });
 
   test("announce rejects a caller without the Admin role", async () => {
     const attemptsBefore = await selectMany(db(), deliveryAttemptsTable, {

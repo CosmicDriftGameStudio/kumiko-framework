@@ -69,7 +69,7 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [widgetFeature] });
   await unsafeCreateEntityTable(stack.db, widgetEntity);
-}, 20000);
+});
 
 afterAll(async () => {
   await stack.cleanup();
