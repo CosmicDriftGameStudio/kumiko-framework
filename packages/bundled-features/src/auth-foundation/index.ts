@@ -1,7 +1,6 @@
 // Public API of the auth-foundation bundled-feature.
 
 export {
-  authFoundationFeature,
   createAuthFoundationFeature,
   type ResolvedTenantResolver,
   resolveSessionStore,

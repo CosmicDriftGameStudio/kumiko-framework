@@ -28,6 +28,17 @@ describe("dbConnectionOptionsFromEnv", () => {
     });
   });
 
+  test("a removed driver selection fails instead of being ignored", () => {
+    expect(() => dbConnectionOptionsFromEnv({ DB_PROVIDER: "bun" })).toThrow(
+      'DB_PROVIDER="bun" is no longer supported',
+    );
+  });
+
+  test("postgres or an empty driver selection is accepted", () => {
+    expect(dbConnectionOptionsFromEnv({ DB_PROVIDER: "postgres" })).toEqual({});
+    expect(dbConnectionOptionsFromEnv({ DB_PROVIDER: "" })).toEqual({});
+  });
+
   test("empty string is treated as unset", () => {
     const opts = dbConnectionOptionsFromEnv({
       DATABASE_POOL_MAX: "",

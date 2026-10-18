@@ -583,6 +583,26 @@ describe("upgrade command — --apply", () => {
     ]);
   });
 
+  test("a codemod named by several features in one version runs once", async () => {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "packages/bundled-features/src/files/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
+
+    expect(exit).toBe(0);
+    const marker = JSON.parse(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"));
+    expect(marker.codemods).toEqual([
+      { version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" },
+    ]);
+  });
+
   test("runs the codemod of an improvement entry, not only of breaking ones", async () => {
     const cwd = tmp({
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),

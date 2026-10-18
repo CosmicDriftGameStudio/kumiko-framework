@@ -5,8 +5,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";

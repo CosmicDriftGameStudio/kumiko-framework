@@ -90,9 +90,6 @@ export function createAuthFoundationFeature() {
   );
 }
 
-/** @deprecated Use createAuthFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const authFoundationFeature = createAuthFoundationFeature();
-
 /**
  * Tries every registered tokenVerifier provider's shape against `rawToken`
  * in registration order and calls the first match's verifier. Returns null

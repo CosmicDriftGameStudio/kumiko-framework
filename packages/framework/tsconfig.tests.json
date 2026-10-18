@@ -8,12 +8,7 @@
   "include": [
     "./src/**/__tests__/**/*",
     "./src/**/*.test.ts",
-    "./src/**/*.test.tsx",
-    "./src/stack/index.ts",
-    "./src/testing/index.ts",
-    "./src/testing/handler-context.ts",
-    "./src/testing/real-providers.ts",
-    "./src/testing/e2e-generator.ts"
+    "./src/**/*.test.tsx"
   ],
   "exclude": [
     "./src/__tests__/fixtures/migrate-db-raw",

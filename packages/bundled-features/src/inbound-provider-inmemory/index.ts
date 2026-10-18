@@ -6,7 +6,6 @@ export {
   failNextFetchWith,
   failNextVerifyWith,
   INMEMORY_PROVIDER_KEY,
-  inboundProviderInMemoryFeature,
   isWatching,
   resetInboundInMemory,
   seedInboundMessage,

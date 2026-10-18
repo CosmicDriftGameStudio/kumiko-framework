@@ -14,7 +14,7 @@ import type { RegisterEntityCrudOptions } from "./entity-handlers.js";
 import { registerCrudHandlers } from "./entity-handlers.js";
 import type { FeatureBuilderState } from "./feature-builder-state.js";
 import { resolveName } from "./handler-helpers.js";
-import { isObjectArgument, throwPositionalFormRemoved } from "./object-form.js";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.js";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -150,7 +150,7 @@ export function buildEntityHandlerMethods<TName extends string>(
 ) {
   const methods = {
     entity(definition: EntityObjectDefinition): EntityRef {
-      if (!isObjectArgument(definition)) throwPositionalFormRemoved(name, "entity");
+      if (!isObjectArgument(definition)) throwObjectArgumentRequired(name, "entity");
       const { name: entityName, backingTable, ...entityDefinition } = definition;
       state.entities[entityName] = entityDefinition;
       if (backingTable !== undefined) state.entityTables[entityName] = backingTable;
@@ -177,7 +177,7 @@ export function buildEntityHandlerMethods<TName extends string>(
     writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
       def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
     ): HandlerRef {
-      if (!isObjectArgument(def)) throwPositionalFormRemoved(name, "writeHandler");
+      if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "writeHandler");
       assertHandlerHasAccess(name, "writeHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "write", def.name);
       state.writeHandlers[def.name] = {
@@ -217,7 +217,7 @@ export function buildEntityHandlerMethods<TName extends string>(
     queryHandler<TName extends string, TSchema extends ZodType>(
       def: QueryHandlerDefinition<TName, TSchema>,
     ): HandlerRef {
-      if (!isObjectArgument(def)) throwPositionalFormRemoved(name, "queryHandler");
+      if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "queryHandler");
       assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "query", def.name);
       state.queryHandlers[def.name] = {

@@ -181,6 +181,3 @@ export function createLedgerFeature(opts: LedgerFeatureOptions = {}): typeof def
   const access = resolveAccess(opts);
   return defineFeature(LEDGER_FEATURE_NAME, (r) => registerLedger(r, access, opts.toggleable));
 }
-
-/** @deprecated Use createLedgerFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const ledgerFeature = createLedgerFeature();

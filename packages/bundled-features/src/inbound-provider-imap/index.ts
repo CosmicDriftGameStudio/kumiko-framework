@@ -9,7 +9,6 @@ export {
 export {
   createInboundProviderImapFeature,
   IMAP_PROVIDER_KEY,
-  inboundProviderImapFeature,
   setImapMailHostLookup,
 } from "./feature.js";
 export {

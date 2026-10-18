@@ -70,7 +70,7 @@ export {
   type SubscriptionEventPayload,
   subscriptionEventPayloadSchema,
 } from "./events.js";
-export { billingFoundationFeature, createBillingFoundationFeature } from "./feature.js";
+export { createBillingFoundationFeature } from "./feature.js";
 export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant.js";
 export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.js";
 export { billingPlansPanel, createBillingPlansScreen } from "./screens.js";

@@ -328,6 +328,20 @@ async function runCodemodScript(
   return { ok: exitCode === 0, output: `${stdout}${stderr}`.trim() };
 }
 
+// One codemod can back the breaking entries of many features in the same release
+// (each feature's changelog names its own removed export); it runs once per version.
+function uniqueCodemodRunsPerVersion<E extends ChangelogEntry & { codemod: string }>(
+  entries: readonly E[],
+): E[] {
+  const seenRuns = new Set<string>();
+  return entries.filter((e) => {
+    const runKey = `${e.version}\0${e.codemod}`;
+    if (seenRuns.has(runKey)) return false;
+    seenRuns.add(runKey);
+    return true;
+  });
+}
+
 function hasCodemod(e: ChangelogEntry): e is ChangelogEntry & { codemod: string } {
   return typeof e.codemod === "string" && e.codemod.length > 0;
 }
@@ -595,9 +609,9 @@ async function applyCodemods(
   const breaking = pending.filter((e) => e.type === "breaking");
   // A codemod is worth running whatever the entry's type: an improvement that
   // moves a module ships one too, and skipping it leaves the deprecated path in place.
-  const codemodEntries = pending
-    .filter(hasCodemod)
-    .sort((a, b) => compareVersions(a.version, b.version));
+  const codemodEntries = uniqueCodemodRunsPerVersion(
+    pending.filter(hasCodemod).sort((a, b) => compareVersions(a.version, b.version)),
+  );
   const manualEntries = breaking.filter(needsManualMigration);
 
   for (const e of manualEntries) {

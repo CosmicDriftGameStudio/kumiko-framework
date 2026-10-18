@@ -12,7 +12,7 @@ export {
   TagsQueries,
 } from "./constants.js";
 export { tagAssignmentEntity, tagEntity } from "./entity.js";
-export { createTagsFeature, type TagsFeatureOptions, tagsFeature } from "./feature.js";
+export { createTagsFeature, type TagsFeatureOptions } from "./feature.js";
 export {
   assignTagHandler,
   createAssignTagHandler,

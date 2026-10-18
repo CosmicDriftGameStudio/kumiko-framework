@@ -29,6 +29,3 @@ export function createTemplateResolverUserDataFeature() {
     { dedupeOptions: {} },
   );
 }
-
-/** @deprecated Use createTemplateResolverUserDataFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const templateResolverUserDataFeature = createTemplateResolverUserDataFeature();

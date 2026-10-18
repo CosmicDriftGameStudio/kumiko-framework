@@ -11,7 +11,7 @@ TypeScript source, and every breaking change ships a codemod or a migration note
 
 ## Canonical forms
 
-Registrar and factory calls take one options object. Positional forms are deprecated.
+Registrar and factory calls take one options object; positional forms are rejected.
 
 ```ts
 const feature = defineFeature("tasks", (r) => {

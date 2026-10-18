@@ -2,7 +2,7 @@ import { createInitialFeatureBuilderState } from "./feature-builder-state.js";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.js";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.js";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.js";
-import { isObjectArgument, throwPositionalFormRemoved, unwrapArrayForm } from "./object-form.js";
+import { isObjectArgument, throwObjectArgumentRequired, unwrapArrayForm } from "./object-form.js";
 import type { RequiresApi } from "./types/feature.js";
 import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types/index.js";
 
@@ -72,7 +72,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
     requires: (() => {
       const fn = (...args: readonly [{ readonly features: readonly string[] }]) => {
-        if (!args.every(isObjectArgument)) throwPositionalFormRemoved(name, "requires");
+        if (!args.every(isObjectArgument)) throwObjectArgumentRequired(name, "requires");
         state.requires.push(...resolveFeatureNamesArgs(args));
       };
       fn.projection = (tableName: string) => {

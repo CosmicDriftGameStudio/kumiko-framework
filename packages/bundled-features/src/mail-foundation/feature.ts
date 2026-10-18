@@ -188,9 +188,6 @@ export function createMailFoundationFeature() {
 // The typed handles below come from one shared instance; each factory call builds its own handle objects.
 const sharedMailFoundationFeature = createMailFoundationFeature();
 
-/** @deprecated Use createMailFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const mailFoundationFeature = sharedMailFoundationFeature;
-
 // =============================================================================
 // Transport-factory — looks up the registered plugin + delegates
 // =============================================================================

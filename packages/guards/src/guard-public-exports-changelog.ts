@@ -606,6 +606,21 @@ export function isCoveredByPendingChangeset(
   return texts.length > 0 && everyNameMentioned(texts, droppedNames);
 }
 
+// A removed feature folder has no changes.json the release fold could write to,
+// so its dropped exports are named by the breaking block of whichever feature
+// took them over; every name must still be mentioned by one block.
+export function pendingFeaturesFor(
+  cwd: string,
+  pkg: PackageName,
+  key: string,
+  pending: PendingBreakingChanges,
+): readonly string[] {
+  const feature = changesetFeatureFor(pkg, key);
+  if (pkg === "framework") return [feature];
+  if (existsSync(join(cwd, "packages/bundled-features/src", feature))) return [feature];
+  return [...pending.keys()];
+}
+
 // ── Write baseline ────────────────────────────────────────────────────────
 
 // An absent, unreadable or format-drifted old baseline means "nothing frozen
@@ -635,11 +650,10 @@ function uncoveredDrops(
   const uncovered: UncoveredFinding[] = [];
   for (const m of missing) {
     if (!isPackageName(m.pkg)) continue;
+    const coveringFeatures = pendingFeaturesFor(cwd, m.pkg, m.key, pendingBreakingChanges);
     if (
-      isCoveredByPendingChangeset(
-        pendingBreakingChanges,
-        changesetFeatureFor(m.pkg, m.key),
-        m.names,
+      coveringFeatures.some((feature) =>
+        isCoveredByPendingChangeset(pendingBreakingChanges, feature, m.names),
       )
     ) {
       continue;

@@ -29,7 +29,6 @@ export { tierAssignmentEntity } from "./entity.js";
 export {
   type CreateTierEngineOptions,
   createTierEngineFeature,
-  tierEngineFeature,
 } from "./feature.js";
 export {
   createTierOptionGate,

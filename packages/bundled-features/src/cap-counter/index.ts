@@ -49,7 +49,7 @@ export {
   type StockCapResult,
 } from "./enforce-cap.js";
 export { capCounterEntity } from "./entity.js";
-export { capCounterFeature, createCapCounterFeature } from "./feature.js";
+export { createCapCounterFeature } from "./feature.js";
 export { readPayloadField } from "./payload-field.js";
 export {
   type CapGuardContext,

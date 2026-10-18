@@ -18,10 +18,7 @@ export {
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events.js";
-export {
-  createDocumentIngestFoundationFeature,
-  documentIngestFoundationFeature,
-} from "./feature.js";
+export { createDocumentIngestFoundationFeature } from "./feature.js";
 export { readIngestPages, writeIngestPages } from "./pages.js";
 export {
   type DocumentIngestProviderOptions,

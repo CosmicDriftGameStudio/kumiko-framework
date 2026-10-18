@@ -236,6 +236,3 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
     Object.keys(opts).length === 0 ? { dedupeOptions: {} } : undefined,
   );
 }
-
-/** @deprecated Use createFileDerivativesFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const fileDerivativesFeature = createFileDerivativesFeature();

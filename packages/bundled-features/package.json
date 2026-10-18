@@ -75,7 +75,6 @@
     "./file-provider-s3": "./src/file-provider-s3/index.ts",
     "./file-provider-s3/lib": "./src/file-provider-s3/lib/index.ts",
     "./document-ingest-foundation": "./src/document-ingest-foundation/index.ts",
-    "./file-provider-s3-env": "./src/file-provider-s3-env/index.ts",
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
     "./file-derivatives": "./src/file-derivatives/index.ts",
     "./derivatives-sharp": "./src/derivatives-sharp/index.ts",
@@ -118,7 +117,6 @@
     "./channel-teams": "./src/channel-teams/index.ts",
     "./channel-telegram": "./src/channel-telegram/index.ts",
     "./renderer-pdf": "./src/renderer-pdf/index.ts",
-    "./files-provider-s3": "./src/files-provider-s3/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
     "./presets": "./src/presets/index.ts",
     "./secrets": "./src/secrets/index.ts",
@@ -406,10 +404,6 @@
         "types": "./dist/document-ingest-foundation/index.d.ts",
         "default": "./dist/document-ingest-foundation/index.js"
       },
-      "./file-provider-s3-env": {
-        "types": "./dist/file-provider-s3-env/index.d.ts",
-        "default": "./dist/file-provider-s3-env/index.js"
-      },
       "./file-provider-inmemory": {
         "types": "./dist/file-provider-inmemory/index.d.ts",
         "default": "./dist/file-provider-inmemory/index.js"
@@ -577,10 +571,6 @@
       "./renderer-pdf": {
         "types": "./dist/renderer-pdf/index.d.ts",
         "default": "./dist/renderer-pdf/index.js"
-      },
-      "./files-provider-s3": {
-        "types": "./dist/files-provider-s3/index.d.ts",
-        "default": "./dist/files-provider-s3/index.js"
       },
       "./rate-limiting": {
         "types": "./dist/rate-limiting/index.d.ts",

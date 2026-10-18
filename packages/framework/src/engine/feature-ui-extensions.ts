@@ -11,7 +11,7 @@ import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js"
 import { LifecycleHookTypes } from "./constants.js";
 import type { FeatureBuilderState } from "./feature-builder-state.js";
 import { resolveName } from "./handler-helpers.js";
-import { isObjectArgument, throwPositionalFormRemoved } from "./object-form.js";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.js";
 import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.js";
 import type { HttpRouteDefinition } from "./types/http-route.js";
 import type {
@@ -175,7 +175,7 @@ export function buildUiExtensionsMethods<TName extends string>(
 
   return {
     hook(definition: HookDefinition): void {
-      if (!isObjectArgument(definition)) throwPositionalFormRemoved(name, "hook");
+      if (!isObjectArgument(definition)) throwObjectArgumentRequired(name, "hook");
       const { type, target, handler: fn } = definition;
       const options: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration } = {
         ...(definition.phase !== undefined && { phase: definition.phase }),

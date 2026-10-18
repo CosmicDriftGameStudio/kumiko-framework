@@ -54,7 +54,7 @@ export {
   mailAccountEventPayloadSchema,
   mailThreadEventPayloadSchema,
 } from "./events.js";
-export { createInboundMailFoundationFeature, inboundMailFoundationFeature } from "./feature.js";
+export { createInboundMailFoundationFeature } from "./feature.js";
 export {
   createOAuthAccessTokenManager,
   inboundRefreshTokenSecretOptions,

@@ -16,6 +16,7 @@ import {
   mentionsExportName,
   owningChangelogPath,
   pendingBreakingChangesIn,
+  pendingFeaturesFor,
   readBaseBaseline,
   runPublicExportsChangelogCli,
   writeBaseline,
@@ -748,6 +749,43 @@ describe("coverage requires every dropped export to be named", () => {
     const pending = new Map([["framework", ["getUser removed"]]]);
     expect(isCoveredByPendingChangeset(pending, "framework", ["getUser", "getTenant"])).toBe(false);
     expect(isCoveredByPendingChangeset(pending, "framework", ["getUser"])).toBe(true);
+  });
+});
+
+describe("pendingFeaturesFor", () => {
+  const pending = new Map([
+    ["files", ["filesFeature removed"]],
+    ["framework", ["getUser removed"]],
+  ]);
+
+  test("an existing bundled feature folder only accepts its own blocks", () => {
+    const root = tmpDir("pending-features-");
+    try {
+      mkdirSync(join(root, "packages/bundled-features/src/legacy-files"), { recursive: true });
+      expect(pendingFeaturesFor(root, "bundled-features", "./legacy-files", pending)).toEqual([
+        "legacy-files",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a removed bundled feature folder accepts the block of any feature", () => {
+    const root = tmpDir("pending-features-");
+    try {
+      expect(pendingFeaturesFor(root, "bundled-features", "./legacy-files", pending)).toEqual([
+        "files",
+        "framework",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("framework drops stay on the framework feature", () => {
+    expect(pendingFeaturesFor(REAL_FRAMEWORK_ROOT, "framework", "./db", pending)).toEqual([
+      "framework",
+    ]);
   });
 });
 
