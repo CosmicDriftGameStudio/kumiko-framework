@@ -33,6 +33,7 @@ import {
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { rankPreferredLocales } from "@cosmicdrift/kumiko-framework/i18n";
 import { createMetricsForFactory } from "@cosmicdrift/kumiko-framework/observability";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -1099,6 +1100,10 @@ export async function createKumikoServer(
       html = await resolveAndInjectPageHead(html, options.resolvePageHead, {
         path: url.pathname,
         host,
+        preferredLocales: rankPreferredLocales({
+          queryLang: url.searchParams.get("lang"),
+          acceptLanguage: req.headers.get("accept-language"),
+        }),
         systemQuery: buildDevSystemQuery(req, socketAddress),
         requestSignal: req.signal,
       });

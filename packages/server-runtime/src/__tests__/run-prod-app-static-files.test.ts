@@ -445,6 +445,42 @@ describe("buildStaticFallback resolvePageHead", () => {
       ]);
     });
 
+    test("the resolver receives ?lang= first, then Accept-Language by q, and drops an invalid ?lang=", async () => {
+      const seen: (readonly string[])[] = [];
+      const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, undefined, {
+        resolvePageHead: async ({ preferredLocales }) => {
+          seen.push(preferredLocales);
+          return null;
+        },
+        dispatcher: spyDispatcher([]),
+      });
+      const acceptLanguage = { "accept-language": "it;q=0.9, en;q=0.8" };
+      const res = await handler(new Request("http://t/?lang=fr", { headers: acceptLanguage }));
+      await handler(new Request("http://t/?lang=%3Cscript%3E", { headers: acceptLanguage }));
+
+      expect(seen).toEqual([
+        ["fr", "it", "en"],
+        ["it", "en"],
+      ]);
+      expect(res.headers.get("vary")).toBe("Host, Accept-Language");
+    });
+
+    test("hostDispatch html with a page head varies on Host and Accept-Language", async () => {
+      await writeFile(
+        join(tmp, "tenant.html"),
+        "<!doctype html><html><head></head><body>ok</body></html>",
+      );
+      const handler = buildStaticFallback(
+        () => noRouteMatchedResponse(),
+        tmp,
+        () => ({ kind: "html", file: "tenant.html" }),
+        { resolvePageHead: async () => null, dispatcher: spyDispatcher([]) },
+      );
+      const res = await handler(new Request("http://t/", { headers: { host: "a.example" } }));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("vary")).toBe("Host, Accept-Language");
+    });
+
     test("the resolver's query runs under a request-context signal that aborts when the resolver times out", async () => {
       const signals: (AbortSignal | undefined)[] = [];
       const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, undefined, {

@@ -14,6 +14,8 @@ export {
   DEFAULT_LOCALE,
   isValidLocaleTag,
   pickAcceptLanguage,
+  rankAcceptLanguage,
+  rankPreferredLocales,
   resolveHeaderLocale,
 } from "./request-locale.ts";
 export { SETTINGS_HUB_I18N } from "./settings-hub-keys.ts";

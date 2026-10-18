@@ -31,7 +31,7 @@ describe("injectPageHead", () => {
 
 describe("resolveAndInjectPageHead", () => {
   const HTML = "<!doctype html><html><head><title>Shell</title></head><body>shell</body></html>";
-  const input = { path: "/", host: "t", systemQuery: async () => ({}) };
+  const input = { path: "/", host: "t", preferredLocales: [], systemQuery: async () => ({}) };
 
   test("resolved meta is injected as head tags", async () => {
     const out = await resolveAndInjectPageHead(
@@ -41,6 +41,19 @@ describe("resolveAndInjectPageHead", () => {
     );
     expect(out).toContain("<title>Vehicle X</title>");
     expect(out).toContain('<meta property="og:image" content="https://x/i.png" />');
+  });
+
+  test("the resolver receives the preferred locales of the request", async () => {
+    let seen: readonly string[] | undefined;
+    await resolveAndInjectPageHead(
+      HTML,
+      async (resolverInput) => {
+        seen = resolverInput.preferredLocales;
+        return null;
+      },
+      { ...input, preferredLocales: ["fr", "it", "en"] },
+    );
+    expect(seen).toEqual(["fr", "it", "en"]);
   });
 
   test("resolver throws → unchanged html, not a rejection", async () => {

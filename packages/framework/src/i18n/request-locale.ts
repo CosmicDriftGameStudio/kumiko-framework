@@ -38,15 +38,15 @@ export function canonicalizeLocaleTag(tag: string): string {
 type AcceptLanguageCandidate = { readonly tag: string; readonly q: number; readonly index: number };
 
 /**
- * Picks the best well-formed tag from an Accept-Language header (RFC 9110
- * §12.5.4): parses "tag;q=x" pairs, sorts by q descending (header order
- * breaks ties), and returns the first tag that passes isValidLocaleTag.
- * Tags with q=0 (explicitly excluded) are dropped entirely.
+ * Well-formed tags of an Accept-Language header (RFC 9110 §12.5.4) in
+ * preference order: "tag;q=x" pairs sorted by q descending, header order
+ * breaking ties. Tags with q=0 (explicitly excluded) and malformed tags are
+ * dropped. Tags are returned as sent, not canonicalized or deduped.
  */
-export function pickAcceptLanguage(header: string | undefined): string | undefined {
-  if (header === undefined || header.length === 0) return undefined;
+export function rankAcceptLanguage(header: string | undefined): string[] {
+  if (header === undefined || header.length === 0) return [];
 
-  const candidates: AcceptLanguageCandidate[] = header
+  return header
     .split(",")
     .map((part, index): AcceptLanguageCandidate | undefined => {
       const [tagRaw, ...params] = part.trim().split(";");
@@ -58,9 +58,30 @@ export function pickAcceptLanguage(header: string | undefined): string | undefin
       return { tag, q, index };
     })
     .filter((c): c is AcceptLanguageCandidate => c !== undefined && c.q > 0)
-    .sort((a, b) => b.q - a.q || a.index - b.index);
+    .sort((a, b) => b.q - a.q || a.index - b.index)
+    .map((c) => c.tag);
+}
 
-  return candidates[0]?.tag;
+/** Picks the best well-formed tag from an Accept-Language header, see rankAcceptLanguage. */
+export function pickAcceptLanguage(header: string | undefined): string | undefined {
+  return rankAcceptLanguage(header)[0];
+}
+
+/**
+ * Ordered locale preference of a page request: a valid `?lang=` first, then
+ * every Accept-Language tag by q. Canonicalized and deduped (case-insensitive),
+ * so a resolver can walk the list and take the first locale it has content for.
+ */
+export function rankPreferredLocales(options: {
+  readonly queryLang?: string | null | undefined;
+  readonly acceptLanguage?: string | null | undefined;
+}): string[] {
+  const ranked: string[] = [];
+  if (options.queryLang != null && isValidLocaleTag(options.queryLang)) {
+    ranked.push(options.queryLang);
+  }
+  ranked.push(...rankAcceptLanguage(options.acceptLanguage ?? undefined));
+  return [...new Set(ranked.map(canonicalizeLocaleTag))];
 }
 
 /**
