@@ -14,8 +14,8 @@
 // (subscription-stripe, channel-email, …). Those stubs are only for
 // boot-validation — no real transport/provider call happens.
 
-import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAccountSecurityFeature } from "@cosmicdrift/kumiko-bundled-features/account-security";
+import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
