@@ -22,6 +22,8 @@ export {
 // kein Bun-Toolchain-Bundle mehr in Production-Reads (z.B. wenn drizzle-kit
 // die App-Config unter Node lädt).
 export {
+  type AuthStackOptions,
+  composeAuthStack,
   composeFileStack,
   composeGdprStack,
   composeIdentityStack,
@@ -29,6 +31,8 @@ export {
   composeOpsStack,
   composePagesStack,
   composeRendererStack,
+  composeSaasStack,
+  composeSecurityStack,
   composeUserDataRightsStack,
   type FileProviderKind,
   type FileStackOptions,
@@ -39,6 +43,9 @@ export {
   type MailTransportKind,
   type OpsStackOptions,
   type PagesStackOptions,
+  type SaasStackBilling,
+  type SaasStackOptions,
+  type SecurityStackOptions,
   stackFeatureNames,
   type UserDataRightsStackOptions,
 } from "./compose-stacks.js";

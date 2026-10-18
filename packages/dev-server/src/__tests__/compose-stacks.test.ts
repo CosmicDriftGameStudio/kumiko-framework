@@ -1,8 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import {
+  dsgvoSelfServiceFeatures,
+  securityBaselineFeatures,
+} from "@cosmicdrift/kumiko-bundled-features/presets";
+import type { CreateTierEngineOptions } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
+  composeAuthStack,
   composeFileStack,
   composeGdprStack,
   composeIdentityStack,
@@ -10,6 +17,8 @@ import {
   composeOpsStack,
   composePagesStack,
   composeRendererStack,
+  composeSaasStack,
+  composeSecurityStack,
   composeUserDataRightsStack,
   stackFeatureNames,
 } from "../compose-stacks.js";
@@ -269,5 +278,109 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
     const names = stackFeatureNames(composeIdentityStack({ mfa: TEST_MFA }));
     expect(names).toContain("sessions");
     expect(names).toContain("auth-mfa");
+  });
+});
+
+const TIERS: CreateTierEngineOptions<{ readonly seats: number }> = {
+  defaultTier: "free",
+  tierMap: {
+    free: { features: [], caps: { seats: 1 } },
+    pro: { features: [], caps: { seats: 10 } },
+  },
+};
+
+describe("auth, saas and security stacks", () => {
+  test("composeAuthStack with mfa adds account-security after auth-mfa", () => {
+    expect(stackFeatureNames(composeAuthStack({ mfa: TEST_MFA }))).toEqual([
+      "auth-foundation",
+      "sessions",
+      "auth-mfa",
+      "account-security",
+    ]);
+  });
+
+  test("composeAuthStack without mfa mounts no account-security", () => {
+    expect(stackFeatureNames(composeAuthStack())).toEqual(["auth-foundation", "sessions"]);
+  });
+
+  test("composeSaasStack stripe leaves subscription-stripe to the billing option", () => {
+    expect(
+      stackFeatureNames(
+        composeSaasStack({
+          billing: "stripe",
+          tiers: TIERS,
+          caps: {
+            caps: [{ id: "seats", label: "Seats", limit: () => null, usage: async () => null }],
+          },
+          waitlist: {},
+        }),
+      ),
+    ).toEqual(["billing-foundation", "tier-engine", "cap-counter", "cap-overview", "waitlist"]);
+  });
+
+  test("composeSaasStack mollie mounts subscription-mollie itself", () => {
+    const names = stackFeatureNames(
+      composeSaasStack({
+        billing: "mollie",
+        mollie: {
+          apiKey: "test_mollie_key",
+          webhookUrl: "https://app.example/api/subscription/webhook/mollie",
+          priceToTier: {},
+          priceToConfig: {},
+        },
+        tiers: TIERS,
+      }),
+    );
+    expect(names).toEqual(["billing-foundation", "tier-engine", "subscription-mollie"]);
+  });
+
+  test("composeSecurityStack mounts the security baseline", () => {
+    expect(stackFeatureNames(composeSecurityStack())).toEqual([
+      "sessions",
+      "crypto-shredding",
+      "rate-limiting",
+      "audit",
+    ]);
+    expect(stackFeatureNames(composeSecurityStack({ includeSessions: false }))).toEqual([
+      "crypto-shredding",
+      "rate-limiting",
+      "audit",
+    ]);
+  });
+
+  test("composeGdprStack selfService keeps the dsgvoSelfServiceFeatures order", () => {
+    expect(stackFeatureNames(composeGdprStack({ selfService: {} }))).toEqual(
+      stackFeatureNames(dsgvoSelfServiceFeatures()),
+    );
+  });
+
+  test("auth + security + gdpr + ops + saas boot together without duplicates", () => {
+    const features = composeFeatures(
+      [
+        ...composeAuthStack(),
+        ...composeSecurityStack(),
+        ...composeGdprStack({ selfService: {}, tenantLifecycle: true }),
+        ...composeFileStack({ providers: ["inmemory"] }),
+        createUserDataRightsDefaultsFeature(),
+        ...composeOpsStack({ rateLimiting: true }),
+        ...composeSaasStack({ billing: "stripe", tiers: TIERS }),
+      ],
+      { includeBundled: true },
+    );
+    const names = stackFeatureNames(features);
+    expect(names.filter((name) => name === "sessions")).toHaveLength(1);
+    expect(names.filter((name) => name === "audit")).toHaveLength(1);
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("composeSecurityStack and securityBaselineFeatures dedupe mid-migration", () => {
+    const security = composeFeatures(
+      [...composeAuthStack(), ...securityBaselineFeatures(), ...composeSecurityStack()],
+      { includeBundled: true },
+    );
+    expect(stackFeatureNames(security).filter((name) => name === "crypto-shredding")).toHaveLength(
+      1,
+    );
+    expect(() => validateBoot(security)).not.toThrow();
   });
 });

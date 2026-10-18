@@ -81,6 +81,10 @@
     "./build-prod-bundle": {
       "types": "./src/build-prod-bundle.ts",
       "default": "./src/build-prod-bundle.ts"
+    },
+    "./boot-options/billing": {
+      "types": "./src/boot-options/billing-option.ts",
+      "default": "./src/boot-options/billing-option.ts"
     }
   },
   "dependencies": {
@@ -165,6 +169,10 @@
       "./build-prod-bundle": {
         "types": "./dist/build-prod-bundle.d.ts",
         "default": "./dist/build-prod-bundle.js"
+      },
+      "./boot-options/billing": {
+        "types": "./dist/boot-options/billing-option.d.ts",
+        "default": "./dist/boot-options/billing-option.js"
       }
     }
   },

@@ -261,6 +261,22 @@ export type BootCheckContext = {
 };
 export type BootCheckFn = (ctx: BootCheckContext) => void;
 
+/** runProdApp options a stack can depend on; runProdApp checks the set at boot. */
+export type BootOptionName =
+  | "mail"
+  | "kmsMode"
+  | "fileStorage"
+  | "billing"
+  | "demoMode"
+  | "seeds"
+  | "signals"
+  | "rateLimit";
+
+export type StackBootRequirement = {
+  readonly stack: string;
+  readonly options: readonly BootOptionName[];
+};
+
 export type FeatureDefinition = {
   readonly name: string;
   // Docs-lead paragraph declared via r.describe(). Flows through the
@@ -341,6 +357,8 @@ export type FeatureDefinition = {
    * feature-authored message (framework wraps it with `[Feature <name>]`).
    */
   readonly bootChecks: readonly BootCheckFn[];
+  // Set by the compose*Stack helpers on the feature that needs the option.
+  readonly bootRequires?: StackBootRequirement;
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;

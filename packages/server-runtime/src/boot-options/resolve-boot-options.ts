@@ -122,7 +122,7 @@ export async function resolveBootOptionWiring(
       mounted,
       "billing.stripe",
       [BILLING_FOUNDATION_FEATURE, TIER_ENGINE_FEATURE],
-      "Mount createBillingFoundationFeature() and createTierEngineFeature().",
+      "Mount createBillingFoundationFeature() and createTierEngineFeature(), or composeSaasStack from @cosmicdrift/kumiko-dev-server/compose-stacks.",
     );
     rejectDoubleMount(mounted, "billing.stripe", SUBSCRIPTION_STRIPE_FEATURE);
     const billing = resolveBillingOption(options.billing, envSource);

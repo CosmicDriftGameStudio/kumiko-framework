@@ -750,6 +750,15 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/compose-stacks": {
+      "name": "@cosmicdrift/kumiko-sample-compose-stacks",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+      },
+    },
     "samples/recipes/cross-feature-events": {
       "name": "@cosmicdrift/kumiko-sample-cross-feature-events",
       "dependencies": {
@@ -1182,6 +1191,7 @@
       "name": "@cosmicdrift/kumiko-sample-security-baseline",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
@@ -1487,6 +1497,8 @@
     "@cosmicdrift/kumiko-sample-chat-channels": ["@cosmicdrift/kumiko-sample-chat-channels@workspace:samples/recipes/chat-channels"],
 
     "@cosmicdrift/kumiko-sample-compliance-profiles-demo": ["@cosmicdrift/kumiko-sample-compliance-profiles-demo@workspace:samples/recipes/compliance-profiles-demo"],
+
+    "@cosmicdrift/kumiko-sample-compose-stacks": ["@cosmicdrift/kumiko-sample-compose-stacks@workspace:samples/recipes/compose-stacks"],
 
     "@cosmicdrift/kumiko-sample-config-demo": ["@cosmicdrift/kumiko-sample-config-demo@workspace:samples/apps/config-demo"],
 

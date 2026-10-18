@@ -22,6 +22,8 @@ export type DsgvoSelfServiceOptions = {
 // comment. text-content + legal-pages stay out deliberately — legal-pages
 // has an app-specific wrapLayout, text-content is a standalone foundation;
 // both are spread in by the app itself.
+/** @deprecated Removed in the next release. Use `composeGdprStack({ selfService: { userDataRights } })`
+ *  from `@cosmicdrift/kumiko-dev-server/compose-stacks`. */
 export function dsgvoSelfServiceFeatures(opts: DsgvoSelfServiceOptions = {}): FeatureDefinition[] {
   return [
     createDataRetentionFeature(),

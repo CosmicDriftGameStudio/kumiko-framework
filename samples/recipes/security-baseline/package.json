@@ -1,9 +1,10 @@
 {
   "name": "@cosmicdrift/kumiko-sample-security-baseline",
-  "description": "securityBaselineFeatures() preset: sessions, crypto-shredding, rate-limiting, audit — plus the NODE_ENV=production boot warning when one is missing.",
+  "description": "composeSecurityStack(): sessions, crypto-shredding, rate-limiting, audit — plus the NODE_ENV=production boot warning when one is missing.",
   "private": true,
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

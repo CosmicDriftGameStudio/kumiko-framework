@@ -189,6 +189,7 @@ import { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.js";
 import { installShutdownSignals, type SignalsOption } from "./boot-options/process-signals.js";
 import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.js";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.js";
+import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.js";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.js";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
@@ -783,11 +784,10 @@ export type RunProdAppOptions = {
    *  the fetch-handler directly (Bun.serve isn't available under vitest +
    *  node), then call handle.listen() manually if needed. */
   readonly autoListen?: boolean;
-  /** Feature-toggle resolver — durchgereicht an createApiEntrypoint's
-   *  dispatcherOptions. Sprint-8 Tier-Composition: per-Tenant unterschied-
-   *  liche features aktiv via globalFeatureToggleRuntime. Pattern:
-   *  createLateBoundHolder + post-boot runtime.initialize in einem
-   *  seed-fn (db ist erst nach migrations + features ready). */
+  /** Per-tenant feature resolver, passed to the dispatcher.
+   *  @deprecated Removed in the next release. `createTierEngineFeature({ tierMap })`
+   *  (or `composeSaasStack`) builds the resolver at boot, and prod-only features
+   *  come from the `mail`, `fileStorage` and `billing` options. */
   readonly effectiveFeatures?: EffectiveFeaturesResolver;
   /** Composed Zod-schema for env-validation (from `composeEnvSchema({
    *  core, features, extend })` in @cosmicdrift/kumiko-framework/env):
@@ -1024,9 +1024,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     validateEnv(decryptedEnvSource);
   }
 
-  // Declarative boot options (mail, kmsMode, fileStorage, billing, demoMode,
-  // seed shortcuts) fail here, before any connection. Their defaults sit under
+  // Stacks whose boot options are missing and the declarative boot options
+  // (mail, kmsMode, fileStorage, billing, demoMode, seed shortcuts) fail here, before any connection. Their defaults sit under
   // the env so an explicitly set variable wins.
+  assertStackBootRequirements(options);
   const bootOptionWiring = await resolveBootOptionWiring(options, decryptedEnvSource);
   const envSource: Record<string, string | undefined> =
     Object.keys(bootOptionWiring.envDefaults).length > 0

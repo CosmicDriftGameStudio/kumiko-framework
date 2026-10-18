@@ -1,0 +1,11 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-compose-stacks",
+  "description": "compose*Stack helpers for auth, security, GDPR and SaaS billing, and the runProdApp check that names a stack whose boot option is missing.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*"
+  }
+}
