@@ -4,9 +4,9 @@ import {
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  type AppContext,
   access,
   createSystemUser,
-  type HandlerContext,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
@@ -28,7 +28,7 @@ export function normalizeEmail(email: string): string {
   return email.toLowerCase();
 }
 
-export function waitlistDb(ctx: HandlerContext): TenantDb {
+export function waitlistDb(ctx: Pick<AppContext, "systemDb">): TenantDb {
   if (!ctx.systemDb) {
     throw new InternalError({
       message: "waitlist requires ctx.systemDb — is r.systemScope() set on the feature?",

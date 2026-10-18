@@ -28,6 +28,10 @@ export const WAITLIST_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Invited",
     de: "Eingeladen",
   },
+  "waitlist:entity:waitlistEntry:field:status:option:provisioned": {
+    en: "Provisioned",
+    de: "Eingerichtet",
+  },
   "waitlist:entity:waitlistEntry:field:status:option:rejected": {
     en: "Rejected",
     de: "Abgelehnt",
