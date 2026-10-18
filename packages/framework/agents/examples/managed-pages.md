@@ -61,6 +61,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 
 await runProdApp({
+  envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: [
     createManagedPagesFeature({
       // Host → tenantId. Single-tenant returns a constant; multi-tenant maps

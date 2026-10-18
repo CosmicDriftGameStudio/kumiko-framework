@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "generated": "2026-10-15",
-  "totalSuspect": 193,
+  "generated": "2026-10-18",
+  "totalSuspect": 182,
   "perFile": {
     "packages/bundled-features/src/auth-email-password/handlers/switch-tenant-mfa-gate.write.ts": {
       "TenantId": 1
@@ -82,7 +82,7 @@
       "{ rows: readonly Record<string, unknown>[] }": 1
     },
     "packages/bundled-features/src/user/seeding.ts": {
-      "number": 2,
+      "number": 1,
       "string": 1
     },
     "packages/bundled-features/src/workflow-runner/event-subscriber.ts": {
@@ -108,9 +108,6 @@
     "packages/framework/src/api/auth-routes.ts": {
       "number": 1
     },
-    "packages/framework/src/api/routes.ts": {
-      "T": 1
-    },
     "packages/framework/src/crypto/kms-adapter.ts": {
       "TenantId": 1
     },
@@ -124,9 +121,6 @@
     "packages/framework/src/db/eagerload.ts": {
       "Array< Record<string, unknown> >": 1
     },
-    "packages/framework/src/db/event-store-executor-context.ts": {
-      "Record<string, unknown>": 1
-    },
     "packages/framework/src/db/event-store-executor-write.ts": {
       "Record<string, unknown>": 1
     },
@@ -134,10 +128,7 @@
       "Snapshot": 1
     },
     "packages/framework/src/db/query.ts": {
-      "T": 1,
-      "TenantDbDelegate": 1,
-      "TLeft": 1,
-      "TRight": 1
+      "TenantDbDelegate": 1
     },
     "packages/framework/src/db/schema-inspection.ts": {
       "{ unsafe?: UnsafeFn }": 1
@@ -176,7 +167,6 @@
       "SecretOptions": 1
     },
     "packages/framework/src/engine/feature-entity-handlers.ts": {
-      "EntityDefinition": 1,
       "PipelineDef": 1,
       "RelationDefinition": 2,
       "string": 2,
@@ -316,9 +306,6 @@
     "packages/renderer-web/src/app/create-app.tsx": {
       "string | undefined": 1
     },
-    "packages/renderer-web/src/app/dashboard-body.tsx": {
-      "StatTone": 1
-    },
     "packages/renderer-web/src/layout/shell-header.tsx": {
       "HTMLElement": 1
     },
@@ -328,9 +315,6 @@
       "{ readonly children?: ReactNode }": 1,
       "{ readonly type?: string } & StickyPrimaryActionMarker": 1,
       "FieldIconKey": 1
-    },
-    "packages/renderer-web/src/primitives/narrow-pinned-footer.tsx": {
-      "Partial<FooterNodeProps>": 2
     },
     "packages/renderer-web/src/sse/live-events.ts": {
       "LiveEvent[\"data\"]": 1
@@ -385,9 +369,6 @@
     },
     "packages/testing/src/stack/request-helper.ts": {
       "{ isSuccess?: boolean; error?: WireErrorBody | string; }": 1
-    },
-    "packages/testing/src/stack/test-stack.ts": {
-      "PgClient | undefined": 1
     },
     "packages/types/src/fields.ts": {
       "FieldDefinition[\"type\"][]": 1

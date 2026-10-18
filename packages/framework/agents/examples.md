@@ -30,6 +30,7 @@
 | `embedded` | Embedded fields on entities. Structured JSON without the JSON part. | `examples/embedded.md` |
 | `embedded-entity-form` | RenderEdit hosted in a Drawer, no screen or route — externally-sourced prefill, controlled mode, and a custom write handler instead of the built-in CRUD create. | `examples/embedded-entity-form.md` |
 | `encrypted-tenant-config` | Per-tenant secrets via config-key encryption — Stripe-API-key pattern. | `examples/encrypted-tenant-config.md` |
+| `env-composition` | Typed app env from the env blocks bundled features register, plus app-level blocks in extend. | `examples/env-composition.md` |
 | `error-contract` | Typed errors on the wire. With snake_case reasons, because we care. | `examples/error-contract.md` |
 | `event-sourcing` | Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.appendEvent + r.projection + r.multiStreamProjection + ctx.loadAggregate (asOf) + ctx.archiveStream + ctx.queryProjection. | `examples/event-sourcing.md` |
 | `feature-toggles` | Runtime feature-toggle flip — two toggleable features, one registers a cross-feature hook on the other; disabling either has the documented effect without reboot. | `examples/feature-toggles.md` |

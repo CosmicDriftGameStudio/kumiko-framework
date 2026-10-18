@@ -71,6 +71,7 @@ import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/le
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 await runProdApp({
+  envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: [
     createTemplateResolverFeature(),
     createLegalPagesFeature(),

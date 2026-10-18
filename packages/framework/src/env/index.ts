@@ -412,13 +412,11 @@ export function composeEnvSchema<
 
   declareKmsCiphertextTwins(merged, sources, kmsFields);
 
-  return {
-    // @cast-boundary schema-walk — the loops above merge exactly the core, feature and extend shapes the type names; a key clash throws instead of overwriting.
-    schema: z.object(merged) as z.ZodObject<
-      ComposedEnvShape<TFeatures, TCore, TExtend, TOptionalFeatures>
-    >,
-    sources,
-  };
+  // @cast-boundary schema-walk — the loops above merge exactly the core, feature and extend shapes the type names; a key clash throws instead of overwriting.
+  const schema = z.object(merged) as z.ZodObject<
+    ComposedEnvShape<TFeatures, TCore, TExtend, TOptionalFeatures>
+  >;
+  return { schema, sources };
 }
 
 // --- Errors ---

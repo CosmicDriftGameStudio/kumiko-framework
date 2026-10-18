@@ -41,6 +41,7 @@ import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -101,6 +102,7 @@ describe("restrict: team cannot be deleted with members", () => {
           id: team.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "team",
+          event: createTestStoredEvent(),
         },
         { db: stack.db },
       ),
@@ -123,6 +125,7 @@ describe("restrict: team cannot be deleted with members", () => {
           id: team.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "team",
+          event: createTestStoredEvent(),
         },
         { db: stack.db },
       ),
@@ -172,6 +175,7 @@ describe("cascade: deleting member removes tasks", () => {
         id: member.id,
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "member",
+        event: createTestStoredEvent(),
       },
       { db: stack.db },
     );

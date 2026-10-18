@@ -77,6 +77,7 @@ const masterKeyProvider = createEnvMasterKeyProvider({ env: process.env });
 const resolver = createConfigResolver();
 
 await runProdApp({
+  envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   extraContext: ({ db, registry }) => ({
     configResolver: resolver,
     _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
