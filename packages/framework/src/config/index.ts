@@ -1,6 +1,7 @@
 // The app's single config file (kumiko.config.ts). Type-only imports keep it
 // loadable by tooling (kumiko check, agent lint, port registry) without
 // pulling the engine runtime.
+import type { ValidateBootOptions } from "../engine/boot-validator.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
 
 export type AppInfraPorts = {
@@ -26,6 +27,12 @@ export type AppClientConfig = {
   readonly entries: readonly string[];
 };
 
+/** The boot-validator options an app owns; `env` and the cipher are injected by the runners. */
+export type AppValidateBootOptions = Pick<
+  ValidateBootOptions,
+  "navAllowlist" | "navAllowlistExempt" | "warnOnUniqueAccessRoles"
+>;
+
 export type AppConfig = {
   /** Features mounted in every environment: dev, tests, prod. */
   readonly features: readonly FeatureDefinition[];
@@ -33,6 +40,8 @@ export type AppConfig = {
   readonly prodFeatures?: readonly FeatureDefinition[];
   readonly client: AppClientConfig;
   readonly ports: AppPorts;
+  /** Passed to validateBoot by `kumiko check` and, via the app's bin files, by the runners. */
+  readonly validateBootOptions?: AppValidateBootOptions;
 };
 
 export const APP_CONFIG_FILE = "kumiko.config.ts";

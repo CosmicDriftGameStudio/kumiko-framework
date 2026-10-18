@@ -9,4 +9,7 @@ import appConfig from "../kumiko.config";
 
 export const FEATURES: readonly FeatureDefinition[] = allAppFeatures(appConfig);
 
+// `kumiko check` validates the boot with the options kumiko.config.ts declares.
+export const VALIDATE_BOOT_OPTIONS = appConfig.validateBootOptions;
+
 export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);
