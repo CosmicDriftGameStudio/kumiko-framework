@@ -557,7 +557,7 @@ function writePartialMarker(
   );
 }
 
-// Runs every pending breaking entry's codemod, oldest version first (so a
+// Runs every pending entry's codemod, oldest version first (so a
 // later codemod can assume an earlier one already ran). Stops on the first
 // failure; codemods that already ran are kept in a partial marker. Writes the
 // marker whenever dryRun is false —
@@ -593,7 +593,9 @@ async function applyCodemods(
   }
 
   const breaking = pending.filter((e) => e.type === "breaking");
-  const codemodEntries = breaking
+  // A codemod is worth running whatever the entry's type: an improvement that
+  // moves a module ships one too, and skipping it leaves the deprecated path in place.
+  const codemodEntries = pending
     .filter(hasCodemod)
     .sort((a, b) => compareVersions(a.version, b.version));
   const manualEntries = breaking.filter(needsManualMigration);
@@ -609,7 +611,7 @@ async function applyCodemods(
   if (codemodEntries.length === 0) {
     out.log(
       breaking.length > 0
-        ? "  No automatable codemods among the pending breaking changes."
+        ? "  No automatable codemods among the pending changes."
         : "  ✓ No breaking changes pending.",
     );
     if (!dryRun) {
@@ -769,7 +771,7 @@ kumiko-upgrade --resolve <id|version>[,<id|version>...] --reason "<text>" [--not
   --dir <path>       target directory to check/apply against (default: cwd)
   --json             machine-readable output
   --verbose          include full migration details for each pending entry
-  --apply            run codemods for pending breaking changes and write the upgrade marker
+  --apply            run codemods for pending changes and write the upgrade marker
                      (one run moves the marker to the installed version; manual migrations stay listed as open)
   --resolve <refs>   mark open manual migrations as done; ref = full id or a version with exactly one open entry
   --reason <text>    required with --resolve, max 500 characters

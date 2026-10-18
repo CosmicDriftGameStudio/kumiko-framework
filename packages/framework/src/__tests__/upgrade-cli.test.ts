@@ -454,10 +454,13 @@ const REAL_FRAMEWORK_SRC = join(import.meta.dir, "..");
 const REAL_FRAMEWORK_PACKAGE_DIR = join(REAL_FRAMEWORK_SRC, "..");
 const REAL_CODEMOD = "scripts/codemod/crypto-shredding-testing-move.ts";
 
-function breakingEntryWithCodemod(codemod: string | undefined): string {
+function breakingEntryWithCodemod(
+  codemod: string | undefined,
+  type: "breaking" | "improvement" = "breaking",
+): string {
   const entry: Record<string, unknown> = {
     version: "0.167.0",
-    type: "breaking",
+    type,
     title: "helper moved",
     migration: "import from /testing",
   };
@@ -575,6 +578,27 @@ describe("upgrade command — --apply", () => {
     const marker = JSON.parse(readFileSync(markerPath, "utf-8"));
     expect(marker.version).toBe("0.190.0");
     expect(typeof marker.appliedAt).toBe("string");
+    expect(marker.codemods).toEqual([
+      { version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" },
+    ]);
+  });
+
+  test("runs the codemod of an improvement entry, not only of breaking ones", async () => {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD, "improvement"),
+      "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
+
+    expect(exit).toBe(0);
+    const rewritten = readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8");
+    expect(rewritten).toContain('from "@cosmicdrift/kumiko-framework/testing"');
+    const marker = JSON.parse(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"));
     expect(marker.codemods).toEqual([
       { version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" },
     ]);
