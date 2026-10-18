@@ -10,6 +10,7 @@ export {
   withEscapeHatchAuditScope,
 } from "../observability/escape-hatch-report.ts";
 export { normalizePayloadBucketValue } from "../rate-limit/bucket.ts";
+export { createUnlimitedRateLimitResolver } from "../rate-limit/unlimited-resolver.ts";
 export type { AppendDomainEventCoreDeps } from "./append-event-core.ts";
 export { appendDomainEventCore } from "./append-event-core.ts";
 export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver.ts";
