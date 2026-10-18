@@ -92,7 +92,6 @@ export async function reserveCalendarCapUsage(
             capName: spec.capName,
             periodStartIso: spec.periodStartIso,
             actualAmount,
-            reservedAmount: spec.amount,
           },
           outsideTransaction,
         );

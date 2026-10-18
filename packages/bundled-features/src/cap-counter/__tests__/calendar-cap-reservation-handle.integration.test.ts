@@ -1,6 +1,15 @@
 // calendarCapReservationHandle over real HTTP: a handler reserves, later requests consume per unit.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  setSystemTime,
+  test,
+} from "bun:test";
 import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEntityExecutor,
@@ -21,8 +30,8 @@ import {
   calendarCapReservationHandle,
   reserveCalendarCapUsage,
 } from "../calendar-cap-usage-reservation.js";
-import { settleCalendarCapReservation } from "../cap-reservation.js";
-import { CapCounterQueries } from "../constants.js";
+import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.js";
+import { CAP_RESERVATION_TTL_MINUTES, CapCounterQueries } from "../constants.js";
 import { capCounterEntity } from "../entity.js";
 import { capCounterFeature } from "../feature.js";
 import { capReservationsTable } from "../tables.js";
@@ -44,8 +53,8 @@ const handlePayload = z.object({
 const releasePayload = handlePayload.omit({ units: true });
 const settlePayload = releasePayload.extend({
   actual: z.number().int().min(0),
-  reserved: z.number().int().min(1),
 });
+const sweepPayload = z.object({ capName: z.string() });
 
 const capHandleFeature = defineFeature("caphandle", (r) => {
   r.writeHandler({
@@ -100,8 +109,17 @@ const capHandleFeature = defineFeature("caphandle", (r) => {
         capName: payload.capName,
         periodStartIso: PERIOD,
         actualAmount: payload.actual,
-        reservedAmount: payload.reserved,
       });
+      return { isSuccess: true as const, data: {} };
+    },
+  } satisfies WriteHandlerDef);
+  r.writeHandler({
+    name: "sweep",
+    schema: sweepPayload,
+    access: { roles: ["TenantAdmin"] },
+    handler: async (event, ctx) => {
+      const payload = sweepPayload.parse(event.payload);
+      await releaseExpiredCapReservations(ctx, payload.capName);
       return { isSuccess: true as const, data: {} };
     },
   } satisfies WriteHandlerDef);
@@ -111,6 +129,7 @@ const RESERVE_QN = "caphandle:write:reserve";
 const CONSUME_QN = "caphandle:write:consume";
 const RELEASE_QN = "caphandle:write:release";
 const SETTLE_QN = "caphandle:write:settle";
+const SWEEP_QN = "caphandle:write:sweep";
 
 let stack: TestStack;
 
@@ -121,6 +140,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+});
+
+afterEach(() => {
+  setSystemTime();
 });
 
 beforeEach(async () => {
@@ -145,6 +168,13 @@ async function readCounterValue(
     user,
   );
   return row === null ? undefined : row.value;
+}
+
+async function sweepAfterTtl(user: ReturnType<typeof adminFor>, capName: string) {
+  setSystemTime(
+    Temporal.Now.instant().add({ minutes: CAP_RESERVATION_TTL_MINUTES + 1 }).epochMilliseconds,
+  );
+  await stack.http.writeOk(SWEEP_QN, { capName }, user);
 }
 
 async function reserve(user: ReturnType<typeof adminFor>, capName: string, amount: number) {
@@ -232,11 +262,7 @@ describe("calendarCapReservationHandle", () => {
   test("consume after a settle is rejected, release gives nothing back", async () => {
     const user = adminFor(3205);
     const reservationId = await reserve(user, "settled-cap", 4);
-    await stack.http.writeOk(
-      SETTLE_QN,
-      { capName: "settled-cap", reservationId, actual: 2, reserved: 4 },
-      user,
-    );
+    await stack.http.writeOk(SETTLE_QN, { capName: "settled-cap", reservationId, actual: 2 }, user);
     expect(await readCounterValue(user, "settled-cap")).toBe(2);
 
     const rejected = await stack.http.writeErr(
@@ -257,17 +283,103 @@ describe("calendarCapReservationHandle", () => {
 
     const tooLow = await stack.http.writeErr(
       SETTLE_QN,
-      { capName: "total-cap", reservationId, actual: 2, reserved: 5 },
+      { capName: "total-cap", reservationId, actual: 2 },
       user,
     );
     expect(tooLow.httpStatus).toBe(422);
     expect(await readCounterValue(user, "total-cap")).toBe(5);
 
+    await stack.http.writeOk(SETTLE_QN, { capName: "total-cap", reservationId, actual: 5 }, user);
+    expect(await readCounterValue(user, "total-cap")).toBe(5);
+  });
+
+  test("settle after a sweep of a partly consumed reservation books the total exactly once", async () => {
+    const user = adminFor(3207);
+    const reservationId = await reserve(user, "sweep-settle-cap", 5);
     await stack.http.writeOk(
-      SETTLE_QN,
-      { capName: "total-cap", reservationId, actual: 5, reserved: 5 },
+      CONSUME_QN,
+      { capName: "sweep-settle-cap", reservationId, units: 2 },
       user,
     );
-    expect(await readCounterValue(user, "total-cap")).toBe(5);
+
+    await sweepAfterTtl(user, "sweep-settle-cap");
+    expect(await readCounterValue(user, "sweep-settle-cap")).toBe(2);
+
+    await stack.http.writeOk(
+      SETTLE_QN,
+      { capName: "sweep-settle-cap", reservationId, actual: 5 },
+      user,
+    );
+    expect(await readCounterValue(user, "sweep-settle-cap")).toBe(5);
+
+    await stack.http.writeOk(
+      SETTLE_QN,
+      { capName: "sweep-settle-cap", reservationId, actual: 5 },
+      user,
+    );
+    expect(await readCounterValue(user, "sweep-settle-cap")).toBe(5);
+  });
+
+  test("release after a sweep of a partly consumed reservation gives nothing back twice", async () => {
+    const user = adminFor(3208);
+    const reservationId = await reserve(user, "sweep-release-cap", 5);
+    await stack.http.writeOk(
+      CONSUME_QN,
+      { capName: "sweep-release-cap", reservationId, units: 2 },
+      user,
+    );
+
+    await sweepAfterTtl(user, "sweep-release-cap");
+    await stack.http.writeOk(RELEASE_QN, { capName: "sweep-release-cap", reservationId }, user);
+    expect(await readCounterValue(user, "sweep-release-cap")).toBe(2);
+
+    await stack.http.writeOk(RELEASE_QN, { capName: "sweep-release-cap", reservationId }, user);
+    expect(await readCounterValue(user, "sweep-release-cap")).toBe(2);
+  });
+
+  test("consume after a sweep is remembered so the later settle does not count it twice", async () => {
+    const user = adminFor(3209);
+    const reservationId = await reserve(user, "sweep-consume-cap", 5);
+    await stack.http.writeOk(
+      CONSUME_QN,
+      { capName: "sweep-consume-cap", reservationId, units: 2 },
+      user,
+    );
+    await sweepAfterTtl(user, "sweep-consume-cap");
+
+    await stack.http.writeOk(
+      CONSUME_QN,
+      { capName: "sweep-consume-cap", reservationId, units: 1 },
+      user,
+    );
+    expect(await readCounterValue(user, "sweep-consume-cap")).toBe(3);
+
+    await stack.http.writeOk(
+      SETTLE_QN,
+      { capName: "sweep-consume-cap", reservationId, actual: 5 },
+      user,
+    );
+    expect(await readCounterValue(user, "sweep-consume-cap")).toBe(5);
+  });
+
+  test("settle below the units consumed before a sweep is rejected and changes nothing", async () => {
+    const user = adminFor(3210);
+    const reservationId = await reserve(user, "sweep-low-cap", 5);
+    await stack.http.writeOk(
+      CONSUME_QN,
+      { capName: "sweep-low-cap", reservationId, units: 2 },
+      user,
+    );
+    await sweepAfterTtl(user, "sweep-low-cap");
+
+    const rejected = await stack.http.writeErr(
+      SETTLE_QN,
+      { capName: "sweep-low-cap", reservationId, actual: 1 },
+      user,
+    );
+
+    expect(rejected.httpStatus).toBe(422);
+    expect(rejected.details).toMatchObject({ reason: "cap_settle_below_consumed" });
+    expect(await readCounterValue(user, "sweep-low-cap")).toBe(2);
   });
 });

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-17T17:27:49.849Z",
+  "generatedAt": "2026-10-17T23:42:00.304Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3652,6 +3652,17 @@
         },
         {
           "name": "settled_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "consumed_amount",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "0"
+        },
+        {
+          "name": "released_at",
           "pgType": "timestamptz",
           "notNull": false
         }
