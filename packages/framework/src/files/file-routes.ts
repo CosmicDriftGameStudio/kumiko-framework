@@ -40,6 +40,7 @@ import type { RecordReadCheck } from "./record-read-check.ts";
 import { type RecordWriteCheck, RecordWriteDecisions } from "./record-write-check.ts";
 import { neutralFileNameForMimeType } from "./resolve-content-type.ts";
 import { parseMaxSize, resolveServedContentType } from "./types.ts";
+import { createFileUploadLedger } from "./upload-ledger.ts";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.
@@ -300,6 +301,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     const data = new Uint8Array(await file.arrayBuffer());
     const storageProvider = await options.resolveProvider(user.tenantId);
+    const uploadLedger = createFileUploadLedger(db, user.tenantId);
     const outcome = await storeFileAsFileRef(
       {
         user,
@@ -307,7 +309,10 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         rowInOwnTransaction: true,
         registry: options.registry,
         defaultMaxUploadSize: options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
-        writeBytes: (key, bytes, mimeType) => storageProvider.write(key, bytes, mimeType),
+        writeBytes: async (key, bytes, mimeType) => {
+          await uploadLedger.record(key);
+          await storageProvider.write(key, bytes, mimeType);
+        },
         deleteBytes: (key) => storageProvider.delete(key),
       },
       { fileName: file.name, declaredMimeType: file.type, data, entityType, entityId, fieldName },

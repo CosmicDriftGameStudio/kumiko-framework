@@ -24,4 +24,10 @@ export type FileContext = {
   // refFromFileRef; deleting a handed-over file needs it to reach the derivatives.
   listFromFileRef(row: { readonly storageKey: string }): Promise<readonly string[]>;
   list(prefix: string): Promise<readonly string[]>;
+  // The only write path for bytes that a fileRef row will claim: records the key in the upload
+  // ledger first, so a crash before the commit leaves something the sweep can find. A plain
+  // `ref(key).write()` is not tracked and is never swept (derivatives, exports).
+  writeUploadBytes(key: string, data: Uint8Array, mimeType: string): Promise<void>;
+  // Drops the ledger entry of bytes that were deleted again without a committed fileRef row.
+  forgetUploadBytes(key: string): Promise<void>;
 };

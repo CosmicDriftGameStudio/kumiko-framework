@@ -30,7 +30,7 @@ import {
 } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import { isKumikoError } from "../errors/kumiko-error.ts";
-import { createFileContext } from "../files/file-handle.ts";
+import { createTenantFileContext } from "../files/file-handle.ts";
 import { createFallbackLogger } from "../logging/index.ts";
 import type { Logger } from "../logging/types.ts";
 import {
@@ -1234,9 +1234,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // through the same _fileProviderResolver for jobs as for write-handlers,
     // otherwise event-triggered jobs silently get an unresolved ctx.files.
     const fileResolver = context._fileProviderResolver;
-    const files = fileResolver
-      ? createFileContext(() => fileResolver(tenantId), tenantId)
-      : context.files;
+    const files = fileResolver ? createTenantFileContext(fileResolver, tenantId) : context.files;
     const jobSystemUser = createSystemUser(tenantId);
     // Same buildHandlerContext parity as ctx.files above: ctx.notify/ctx.config
     // must resolve for jobs the same way they do for write-handlers, or an

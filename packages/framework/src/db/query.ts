@@ -5,7 +5,7 @@
 //   fetchOne<T>(db, table, where) → T | undefined
 //   insertOne<T>(db, table, values) → T | undefined
 //   updateMany<T>(db, table, set, where) → readonly T[]
-//   deleteMany(db, table, where) → void
+//   deleteMany(db, table, where) → number of deleted rows
 //   countWhere(db, table, where?) → number
 //   upsertByPk / upsertOnConflict / incrementCounter
 //   deleteManyBatched(db, table, where, { limit }) → { deleted, batches }
@@ -208,7 +208,7 @@ type TenantDbDelegate = {
     set: Record<string, unknown>,
     where: WhereObject,
   ): Promise<readonly TRow[]>;
-  deleteMany(table: TableLike, where: WhereObject): Promise<void>;
+  deleteMany(table: TableLike, where: WhereObject): Promise<number>;
   aggregate(
     table: TableLike,
     spec: AggregateSpec,
@@ -1349,7 +1349,7 @@ export async function deleteMany(
   db: AnyDb,
   table: WritableTable,
   where: WhereObject,
-): Promise<void> {
+): Promise<number> {
   const scoped = tenantDbDelegate(db);
   if (scoped) {
     return scoped.deleteMany(table, where);
@@ -1358,10 +1358,16 @@ export async function deleteMany(
   const w = buildWhereClause(info, where, 1);
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;
   if (w.sqlText) sqlText += ` WHERE ${w.sqlText}`;
-  await unsafeLoggingClosedConnection(db, sqlText, w.values, {
+  const result = await unsafeLoggingClosedConnection(db, sqlText, w.values, {
     operation: "deleteMany",
     table: info.name,
   });
+  // postgres-js reports the affected-row count of a DELETE on the result, no RETURNING needed.
+  const count = propertyOf(result, "count");
+  if (typeof count !== "number") {
+    throw new Error(`deleteMany(${info.name}): the driver result carries no affected-row count`);
+  }
+  return count;
 }
 
 type InsertEntry = {

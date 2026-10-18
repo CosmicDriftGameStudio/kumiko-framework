@@ -44,6 +44,6 @@ export function updateRows<TRow = unknown>(
   return updateMany<TRow>(db, table as EntityTableMeta, set, where);
 }
 
-export function deleteRows(db: AnyDb, table: SeedTable, where: WhereObject): Promise<void> {
+export function deleteRows(db: AnyDb, table: SeedTable, where: WhereObject): Promise<number> {
   return deleteMany(db, table as EntityTableMeta, where);
 }

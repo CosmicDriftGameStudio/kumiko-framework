@@ -743,7 +743,9 @@ function buildTenantDb(
           );
         }
         report("global-write", globalWriteReason());
-        return withDbSpan("delete", table, async () => bunDeleteMany(db, table, where));
+        return withDbSpan("delete", table, async () => {
+          await bunDeleteMany(db, table, where);
+        });
       },
       // @cast-boundary phantom-brand — GlobalWrites is only present in the type when TTable is not ExecutorOnly; the object above always carries the methods.
     } as GlobalTableDb<TTable>;
@@ -851,7 +853,7 @@ function buildTenantDb(
       return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, filter));
     },
 
-    deleteMany(table: Table, where: WhereObject): Promise<void> {
+    deleteMany(table: Table, where: WhereObject): Promise<number> {
       const writeDenied = writesDenied("ctx.db.deleteMany");
       if (writeDenied) return Promise.reject(writeDenied);
       if (!where || Object.keys(where).length === 0) {

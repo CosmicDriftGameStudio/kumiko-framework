@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-18T09:31:03.995Z",
+  "generatedAt": "2026-10-18T23:19:31.488Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3746,6 +3746,34 @@
         {
           "name": "store_delivery_attempts_tenant_id_created_at_idx",
           "columns": ["tenant_id", "created_at"]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "store_file_upload_ledger",
+      "columns": [
+        {
+          "name": "storage_key",
+          "pgType": "text",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_file_upload_ledger_created_at_idx",
+          "columns": ["created_at"]
         }
       ],
       "source": "unmanaged"

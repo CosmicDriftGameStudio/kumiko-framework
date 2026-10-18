@@ -31,7 +31,7 @@ import {
 } from "../engine/types/index.ts";
 import type { ErrorDocsConfig } from "../errors/docs-url.ts";
 import { assertSeedModeNotInProduction } from "../event-store/seed-clock.ts";
-import { createFileContext } from "../files/file-handle.ts";
+import { createTenantFileContext } from "../files/file-handle.ts";
 import type { FileRoutesOptions } from "../files/file-routes.ts";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.ts";
 import { makeFileProviderResolver } from "../files/provider-resolver.ts";
@@ -732,7 +732,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // cross-feature ctx.appendEvent calls at emit-site.
       const mspOwner = msp.name.split(":")[0];
       const mspFiles = fileProviderResolver
-        ? createFileContext(() => fileProviderResolver(event.tenantId), event.tenantId)
+        ? createTenantFileContext(fileProviderResolver, event.tenantId)
         : undefined;
       const applyCtx = createMultiStreamApplyContext({
         registry: options.registry,

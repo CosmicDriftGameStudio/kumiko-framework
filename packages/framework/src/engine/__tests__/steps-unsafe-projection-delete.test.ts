@@ -15,7 +15,10 @@ const testTable = table("test_projection", {
 
 // bun-db path: step calls deleteMany(tenantDbRunner(ctx.db), table, where) which
 // lands on asRawClient(runner).unsafe(sqlText, params).
-const unsafeMock = mock(async (_sqlText: string, _params: unknown[]): Promise<unknown[]> => []);
+const unsafeMock = mock(
+  async (_sqlText: string, _params: unknown[]): Promise<unknown[]> =>
+    Object.assign([] as unknown[], { count: 0 }),
+);
 const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
 const ctxDb = createTenantDb({ db: rawDb, tenantId: testTenantId(1) });
 

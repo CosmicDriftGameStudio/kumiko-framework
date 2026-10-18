@@ -2,7 +2,7 @@ import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { isUuid, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createFileContext,
+  createTenantFileContext,
   type FileContext,
   type FileProviderResolver,
   fileRefsTable,
@@ -44,7 +44,7 @@ export function fileContextFromResolver(
 ): FileContext {
   // @cast-boundary engine-payload — tenantId comes from a trusted job payload or session
   const brandedTenantId = tenantId as TenantId;
-  return createFileContext(() => resolver(brandedTenantId), tenantId);
+  return createTenantFileContext(resolver, brandedTenantId);
 }
 
 export class FileRefTooLargeError extends Error {

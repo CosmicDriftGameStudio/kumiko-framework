@@ -25,6 +25,7 @@ import {
   createFileRefFromBytes,
   createFilesFeature,
   fileRefsTable,
+  fileUploadLedgerTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import {
   createEventConsumerStateTable,
@@ -82,7 +83,7 @@ beforeAll(async () => {
     await createArchivedStreamsTable(db);
     await createProjectionStateTable(db);
     await createEventConsumerStateTable(db);
-    await unsafePushTables(db, { configValuesTable, fileRefsTable });
+    await unsafePushTables(db, { configValuesTable, fileRefsTable, fileUploadLedgerTable });
   } finally {
     await close();
   }

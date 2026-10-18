@@ -6,7 +6,7 @@ import {
   type Registry,
   type SessionUser,
 } from "../engine/types/index.ts";
-import type { WriteFailure } from "../errors/index.ts";
+import { InternalError, type WriteFailure } from "../errors/index.ts";
 import { generateId } from "../utils/index.ts";
 import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
@@ -17,6 +17,7 @@ import {
   validateFile,
   validateFileContent,
 } from "./types.ts";
+import { takeUploadLedgerEntry } from "./upload-ledger.ts";
 
 export const DEFAULT_MAX_UPLOAD_SIZE = "10mb";
 
@@ -80,6 +81,7 @@ export type StoreFileDeps = {
   readonly rowInOwnTransaction?: boolean;
   readonly registry: Registry | undefined;
   readonly defaultMaxUploadSize: string;
+  // Must record the upload in the ledger before the bytes land (FileContext.writeUploadBytes).
   readonly writeBytes: (storageKey: string, data: Uint8Array, mimeType: string) => Promise<void>;
   readonly deleteBytes: (storageKey: string) => Promise<void>;
 };
@@ -239,6 +241,14 @@ export async function createFileRefRow(
     deps.tenantDb,
   );
   if (!result.isSuccess) return { failure: result };
+  // Throws instead of returning a failure: a returned failure would still commit in the
+  // own-transaction path, leaving a fileRef row whose bytes the sweep already deleted.
+  if (!(await takeUploadLedgerEntry(deps.tenantDb, uploaded.storageKey))) {
+    throw new InternalError({
+      message:
+        "upload expired: the bytes were swept before the fileRef row was created, upload again",
+    });
+  }
   return {
     fileRef: {
       id: fileRefId,
@@ -259,7 +269,7 @@ export async function storeFileAsFileRef(
   if (upload.kind === "rejected") return upload;
 
   // A failed create deletes the bytes again; a later rollback of an enclosing transaction or a
-  // crash cannot, so those bytes stay in storage (no job sweeps an original without a fileRef row).
+  // crash cannot, so the upload ledger sweep removes those bytes after its grace period.
   // Losing a row on append-failure is acceptable; a committed row with a missing binary is not.
   // A throwing projection on fileRef.created fails the create by exception, not by WriteFailure.
   const deleteUploadedBytes = async (): Promise<void> => {

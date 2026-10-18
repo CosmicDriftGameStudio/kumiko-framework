@@ -7,7 +7,7 @@ describe("db-cleanup", () => {
     const mockDb = {
       unsafe: async (sql: string) => {
         sqlLog.push(sql);
-        return [];
+        return Object.assign([], { count: 0 });
       },
     };
 
@@ -23,7 +23,7 @@ describe("db-cleanup", () => {
     const mockDb = {
       unsafe: async (sql: string) => {
         sqlLog.push(sql);
-        return [];
+        return Object.assign([], { count: 0 });
       },
     };
 

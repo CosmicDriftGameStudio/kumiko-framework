@@ -93,7 +93,8 @@ export type TenantDb = {
     set: Record<string, unknown>,
     where: WhereObject,
   ): Promise<readonly T[]>;
-  deleteMany(table: WritableTable, where: WhereObject): Promise<void>;
+  // Resolves to the number of deleted rows.
+  deleteMany(table: WritableTable, where: WhereObject): Promise<number>;
 };
 
 // Symbol.for (global registry) so the brand identity matches even if kumiko-types
