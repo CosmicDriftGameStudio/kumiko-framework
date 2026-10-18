@@ -1439,6 +1439,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "waitlist:entity:waitlistEntry:field:portfolio": "Portafolio",
   "waitlist:entity:waitlistEntry:field:status": "Estado",
   "waitlist:entity:waitlistEntry:field:status:option:invited": "Invitado",
+  "waitlist:entity:waitlistEntry:field:status:option:provisioned": "Aprovisionado",
   "waitlist:entity:waitlistEntry:field:status:option:pending": "Pendiente",
   "waitlist:entity:waitlistEntry:field:status:option:rejected": "Rechazado",
   "waitlist:entity:waitlistEntry:field:submittedAt": "Creado",

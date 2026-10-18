@@ -3229,7 +3229,9 @@
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
+        "waitlist:write:export",
         "waitlist:write:invite",
+        "waitlist:write:purge",
         "waitlist:write:reject",
         "waitlist:write:submit"
       ],
