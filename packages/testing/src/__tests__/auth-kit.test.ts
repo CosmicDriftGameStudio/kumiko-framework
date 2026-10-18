@@ -43,6 +43,24 @@ describe("csrfHeaderFromCookies", () => {
     expect(csrfHeaderFromCookies(cookies)).toEqual({ [CSRF_HEADER_NAME]: "csrf-value" });
   });
 
+  test("echoes the __Host- prefixed csrf cookie a https server sets", () => {
+    expect(
+      csrfHeaderFromCookies([
+        { name: "__Host-kumiko_auth", value: "jwt" },
+        { name: "__Host-kumiko_csrf", value: "https-csrf" },
+      ]),
+    ).toEqual({ [CSRF_HEADER_NAME]: "https-csrf" });
+  });
+
+  test("prefers the prefixed cookie when both names are present", () => {
+    expect(
+      csrfHeaderFromCookies([
+        { name: "kumiko_csrf", value: "plain" },
+        { name: "__Host-kumiko_csrf", value: "prefixed" },
+      ]),
+    ).toEqual({ [CSRF_HEADER_NAME]: "prefixed" });
+  });
+
   test("sends no header when the cookie is absent", () => {
     expect(csrfHeaderFromCookies([{ name: "kumiko_auth", value: "jwt" }])).toEqual({});
     expect(csrfHeaderFromCookies([])).toEqual({});

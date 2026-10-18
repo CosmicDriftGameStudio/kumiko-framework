@@ -17,6 +17,8 @@ import { isRealProviderRun } from "../helpers/real-providers.ts";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   DESKTOP_VIEWPORT,
+  E2E_REMOTE_BASE_URL_ENV,
+  E2E_STORAGE_STATE_ENV,
   E2E_WORKERS_ENV,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
@@ -187,6 +189,50 @@ function seedTokenForRun(): string {
   return process.env[SEED_TOKEN_ENV];
 }
 
+type RemoteTarget = { readonly baseURL: string; readonly storageState: string | undefined };
+
+// A set KUMIKO_E2E_REMOTE_BASE_URL points the run at an already running instance (staging, prod)
+// instead of a locally started server. The session comes from a Playwright storageState file the
+// operator recorded, so no login is automated against the remote.
+function remoteTargetFromEnv(
+  env: Readonly<Record<string, string | undefined>>,
+): RemoteTarget | undefined {
+  const rawBaseUrl = env[E2E_REMOTE_BASE_URL_ENV];
+  const storageState = env[E2E_STORAGE_STATE_ENV];
+  const hasStorageState = storageState !== undefined && storageState !== "";
+  if (rawBaseUrl === undefined || rawBaseUrl === "") {
+    if (hasStorageState) {
+      throw new Error(
+        `defineAppE2eConfig: ${E2E_STORAGE_STATE_ENV} is only used together with ${E2E_REMOTE_BASE_URL_ENV}`,
+      );
+    }
+    return undefined;
+  }
+  let url: URL;
+  try {
+    url = new URL(rawBaseUrl);
+  } catch {
+    throw new Error(
+      `defineAppE2eConfig: ${E2E_REMOTE_BASE_URL_ENV} must be an http(s) URL, got "${rawBaseUrl}"`,
+    );
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(
+      `defineAppE2eConfig: ${E2E_REMOTE_BASE_URL_ENV} must be an http(s) URL, got "${rawBaseUrl}"`,
+    );
+  }
+  return { baseURL: rawBaseUrl, storageState: hasStorageState ? storageState : undefined };
+}
+
+// A remote target is a real deployment: trace zips hold its session cookie and data, and a
+// failure screenshot or video shows them, so nothing is recorded there.
+function failureRecording(
+  remote: RemoteTarget | undefined,
+): Pick<NonNullable<PlaywrightTestConfig["use"]>, "trace" | "screenshot" | "video"> {
+  if (remote === undefined) return { trace: "retain-on-failure", screenshot: "only-on-failure" };
+  return { trace: "off", screenshot: "off", video: "off" };
+}
+
 export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConfig {
   const {
     port,
@@ -208,7 +254,8 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
   if (!isScreenshotRun() && /(?:^|\/)screenshots\/?$/.test(testDir)) {
     requireScreenshotDir();
   }
-  const baseURL = `http://localhost:${port}`;
+  const remote = remoteTargetFromEnv(process.env);
+  const baseURL = remote?.baseURL ?? `http://localhost:${port}`;
   const realRun = isRealProviderRun();
 
   return defineConfig({
@@ -227,10 +274,10 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
     use: {
       baseURL,
       locale,
-      trace: "retain-on-failure",
-      screenshot: "only-on-failure",
+      ...failureRecording(remote),
       actionTimeout: E2E_TIMEOUT_MS.action,
       navigationTimeout: E2E_TIMEOUT_MS.navigation,
+      ...(remote?.storageState !== undefined && { storageState: remote.storageState }),
       ...(permissions !== undefined && { permissions: [...permissions] }),
       ...(launchOptions !== undefined && { launchOptions }),
     },
@@ -245,36 +292,38 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
       },
       ...projects,
     ],
-    webServer: {
-      command: serverCommand,
-      url: baseURL,
-      env: {
-        ...infraEnvDefaults(),
-        ...PLAYWRIGHT_DEMO_ENV,
-        ...env,
-        PORT: String(port),
-        [SEED_ENABLE_ENV]: "1",
-        [SEED_TOKEN_ENV]: seedTokenForRun(),
-        // A Tailwind --watch process subscribes to the whole app cwd
-        // recursively (Tailwind v4, no gitignore filter); every Playwright
-        // artifact write under test-results/ would then count as a rebuild.
-        [STYLESHEET_WATCH_ENV]: "0",
-        // E2E runs against prod-shaped bundles: splitting, no sourcemap,
-        // NODE_ENV=production — matches what actually ships.
-        [PROD_BUNDLES_ENV]: "1",
-        // E2e clients all share ::1, so the default trustedProxyHops (0,
-        // socket-only) would collapse every seeded user into one rate-limit
-        // bucket. loginViaApi sends a synthetic per-user X-Forwarded-For, so
-        // trust exactly one hop to give each user its own bucket. An explicit
-        // `trustedProxyHops` / `auth.trustedProxyHops` in the consumer's
-        // server entrypoint wins over this env and brings the shared bucket
-        // (and 429s) back — such a server must read the value from the env.
-        [TRUSTED_PROXY_HOPS_ENV]: "1",
+    ...(remote === undefined && {
+      webServer: {
+        command: serverCommand,
+        url: baseURL,
+        env: {
+          ...infraEnvDefaults(),
+          ...PLAYWRIGHT_DEMO_ENV,
+          ...env,
+          PORT: String(port),
+          [SEED_ENABLE_ENV]: "1",
+          [SEED_TOKEN_ENV]: seedTokenForRun(),
+          // A Tailwind --watch process subscribes to the whole app cwd
+          // recursively (Tailwind v4, no gitignore filter); every Playwright
+          // artifact write under test-results/ would then count as a rebuild.
+          [STYLESHEET_WATCH_ENV]: "0",
+          // E2E runs against prod-shaped bundles: splitting, no sourcemap,
+          // NODE_ENV=production — matches what actually ships.
+          [PROD_BUNDLES_ENV]: "1",
+          // E2e clients all share ::1, so the default trustedProxyHops (0,
+          // socket-only) would collapse every seeded user into one rate-limit
+          // bucket. loginViaApi sends a synthetic per-user X-Forwarded-For, so
+          // trust exactly one hop to give each user its own bucket. An explicit
+          // `trustedProxyHops` / `auth.trustedProxyHops` in the consumer's
+          // server entrypoint wins over this env and brings the shared bucket
+          // (and 429s) back — such a server must read the value from the env.
+          [TRUSTED_PROXY_HOPS_ENV]: "1",
+        },
+        reuseExistingServer: false,
+        timeout: E2E_TIMEOUT_MS.webServer,
+        stdout: "pipe",
+        stderr: "pipe",
       },
-      reuseExistingServer: false,
-      timeout: E2E_TIMEOUT_MS.webServer,
-      stdout: "pipe",
-      stderr: "pipe",
-    },
+    }),
   });
 }

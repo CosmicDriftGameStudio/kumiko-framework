@@ -1,4 +1,8 @@
-import { CSRF_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
+import {
+  CSRF_COOKIE_BASE,
+  sessionCookieName,
+  sessionCookieNameCandidates,
+} from "@cosmicdrift/kumiko-types/session-cookies";
 
 export const KUMIKO_SECRETS_MASTER_KEY_V1 = "a3VtaWtvLXNjcmVlbnNob3QtZGV2LW1hc3Rlci0zMmI=";
 
@@ -11,6 +15,9 @@ export const PLAYWRIGHT_DEMO_ENV = {
 
 // e2e servers run on plain http, so the cookies are never Secure and keep the unprefixed names.
 export const CSRF_COOKIE_NAME = sessionCookieName(CSRF_COOKIE_BASE, { secure: false });
+// Against a remote https target the server sets the `__Host-` prefixed cookie, so reading a csrf
+// cookie has to try both names, prefixed first.
+export const CSRF_COOKIE_NAMES = sessionCookieNameCandidates(CSRF_COOKIE_BASE);
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
 
 // Duplicated from kumiko-framework (SEED_MODE_ENV): the Playwright config runs under Node
@@ -19,6 +26,8 @@ export const SEED_ENABLE_ENV = "KUMIKO_TEST_SEED";
 export const SEED_TOKEN_ENV = "KUMIKO_TEST_SEED_TOKEN";
 export const SEED_TOKEN_HEADER = "x-kumiko-test-seed";
 export const E2E_WORKERS_ENV = "KUMIKO_E2E_WORKERS";
+export const E2E_REMOTE_BASE_URL_ENV = "KUMIKO_E2E_REMOTE_BASE_URL";
+export const E2E_STORAGE_STATE_ENV = "KUMIKO_E2E_STORAGE_STATE";
 
 // Same literal as kumiko-dev-server's createKumikoServer (STYLESHEET_WATCH_ENV),
 // duplicated because the Playwright config runs under Node and can't import

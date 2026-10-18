@@ -5,7 +5,7 @@ import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import { type APIRequestContext, type APIResponse, expect, type Page } from "@playwright/test";
 import * as z from "zod";
 import type { BoundApi } from "../seed-types";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "./constants";
+import { CSRF_COOKIE_NAMES, CSRF_HEADER_NAME } from "./constants";
 
 export type LoginCredentials = {
   readonly email: string;
@@ -37,8 +37,11 @@ const errorEnvelope = z.looseObject({ error: z.looseObject({ code: z.string() })
 export function csrfHeaderFromCookies(
   cookies: readonly { readonly name: string; readonly value: string }[],
 ): Record<string, string> {
-  const token = cookies.find((cookie) => cookie.name === CSRF_COOKIE_NAME)?.value;
-  return token === undefined ? {} : { [CSRF_HEADER_NAME]: token };
+  for (const name of CSRF_COOKIE_NAMES) {
+    const token = cookies.find((cookie) => cookie.name === name)?.value;
+    if (token !== undefined) return { [CSRF_HEADER_NAME]: token };
+  }
+  return {};
 }
 
 export async function csrfFetch(
