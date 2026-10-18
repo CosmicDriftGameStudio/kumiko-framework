@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated mailFoundationFeature constant is removed",
+    "detail": "mailFoundationFeature was kept next to createMailFoundationFeature() for one release. Mount the feature by calling createMailFoundationFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces mailFoundationFeature with createMailFoundationFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

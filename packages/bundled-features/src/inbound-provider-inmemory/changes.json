@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated inboundProviderInMemoryFeature constant is removed",
+    "detail": "inboundProviderInMemoryFeature was kept next to createInboundProviderInMemoryFeature() for one release. Mount the feature by calling createInboundProviderInMemoryFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces inboundProviderInMemoryFeature with createInboundProviderInMemoryFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

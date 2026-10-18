@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "SaveContext.event and DeleteContext.event are required",
+    "detail": "postSave and postDelete hooks always receive the stored event, so event is no longer optional on SaveContext and DeleteContext. Hooks read the caller from event.createdBy instead of guarding for undefined.",
+    "migration": "Code that builds a SaveContext or DeleteContext by hand, usually in tests, sets event, for example with createTestStoredEvent() from @cosmicdrift/kumiko-testing/helpers. Drop optional chaining on ctx.event in hooks."
+  },
+  {
     "version": "0.365.0",
     "type": "improvement",
     "title": "DASHBOARD_STAT_TONES is the single source for dashboard stat tones",

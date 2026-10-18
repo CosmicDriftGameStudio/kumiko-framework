@@ -1,5 +1,149 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.370.0
+
+### Minor Changes
+
+- 8ff5d19: envSchema required, boot dry run checks the env without values
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: runProdApp requires envSchema
+  detail: envSchema on runProdApp is no longer optional. Without it the boot throws a KumikoBootError that points to composeEnvSchema. An app without its own variables passes composeEnvSchema({ core: frameworkCoreEnvSchema, features }).
+  migration: Pass envSchema: composeEnvSchema({ core: frameworkCoreEnvSchema, features }) to runProdApp, with composeEnvSchema from @cosmicdrift/kumiko-framework/env and frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server/env-schema. App-level variables go into extend. Delete hand-written env checks that ran before runProdApp; the schema covers them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: KUMIKO_DRY_RUN_ENV=boot prints an env table and exits 0 on missing values
+  detail: The boot dry run lists every variable of the composed schema with its feature, whether it is required, and whether it is set, missing or invalid. DATABASE_URL, REDIS_URL and JWT_SECRET appear with source server-runtime when the schema does not declare them, since runProdApp reads them itself. Values are never printed, and a validation message that quotes the value is replaced. A keyring the master-key provider cannot use fails the dry run. An invalid value exits 1. A missing required value exits 0 and says the feature wiring was not validated; with every variable present the dry run validates the wiring as before. NODE_ENV=production does not change this. The MFA secret binding and other env reads run after this exit, so an empty env no longer crashes the dry run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: inspectEnv, renderEnvInspection and the dry-run mode parser
+  detail: inspectEnv(schema, env, { sources }) checks each field on its own and returns its status (set, unset, missing, invalid) without the value; renderEnvInspection renders those rows as the boot table. parseDryRunEnvMode reads KUMIKO_DRY_RUN_ENV (1, true, human, json, pulumi, k8s, boot) and isDryRunEnvActive tells module-level code whether a dry run is running. DRY_RUN_ENV_VAR names the variable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createEnvMasterKeyProvider defers the keyring check in a dry run
+  detail: While KUMIKO_DRY_RUN_ENV is set, createEnvMasterKeyProvider no longer throws at construction on a missing or malformed keyring; the first key operation throws instead. Apps that build the provider at module load can run the boot dry run on an empty env. Outside a dry run the check still runs at construction, and the boot probe for encrypted entity fields forces it in both cases.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp binds the MFA token secrets
+  detail: When auth-mfa is mounted and JWT_SECRET is set, runDevApp binds the MFA token secrets the same way runProdApp does.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: setupTestStack binds the MFA token secrets
+  detail: setupTestStack binds the auth-mfa token secrets from the stack's JWT secret, independent of the host env, so tests that mount auth-mfa without explicit secrets keep working.
+  -->
+- a02e354: New bundled feature host-routing
+  
+  <!-- kumiko-changes
+  feature: host-routing
+  type: improvement
+  title: createHostRoutingFeature and createHostDispatch route tenants by host or path
+  detail: One HostRoutingOptions object ({ tenantBy: "host" } or { tenantBy: "path", tenantPathPrefix }, plus baseDomain, apex, tenant, unknownTenant?, hosts?, locales?) drives both halves. createHostRoutingFeature registers an authoritative Host-header tenant resolver in host mode and, in both modes, an existence check that admits only enabled, active tenants. apexAnonymousTenantId gives anonymous apex calls a tenant (e.g. SYSTEM_TENANT_ID); without it the apex answers tenant_required. createHostDispatch is a runProdApp hostDispatch: HTML file and optional CSP per surface (without csp the runProdApp default applies), a 301 from the default-locale prefix to the unprefixed path, and 404 for unknown tenants and hosts. toDevHostDispatch(dispatch, { entries, staticDir }) from @cosmicdrift/kumiko-dev-server plugs the same decision into the dev server. Apps with their own routing feature and hostDispatch move to these; app-specific redirects or custom domains wrap the dispatch function.
+  -->
+- 79a0aa6: Stacks name the runProdApp option they need, plus auth, SaaS and security stacks
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp names the stack and the boot option it is missing
+  detail: Features returned by the compose*Stack helpers carry bootRequires ({ stack, options }), a new optional FeatureDefinition field; BootOptionName and StackBootRequirement are exported from @cosmicdrift/kumiko-framework/engine. runProdApp checks them before it wires the boot options and fails with "[runProdApp] stacks in `features` need boot options that are not set:" followed by one line per gap, for example "composeSaasStack needs the boot option `billing`: set billing: { stripe: { priceToTier }, defaultTier }". composeMailStack and composeUserDataRightsStack need mail (or a mounted channel-email), composeFileStack without providers needs fileStorage (or a mounted file provider), composeGdprStack and composeSecurityStack need kmsMode (or kms / allowPlaintextPii), composeSecurityStack also fails with rateLimit: false, composeSaasStack with billing "stripe" needs billing (or a mounted subscription provider). composeFileStack takes providers as optional now. The renderer, pages, ops and identity stacks need no option. resolveBillingOption is exported from @cosmicdrift/kumiko-server-runtime/boot-options/billing for tests that mount the billing wiring on a test stack.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeAuthStack, composeSaasStack and composeSecurityStack
+  detail: composeAuthStack({ sessions?, mfa?, accountSecurity? }) mounts auth-foundation and sessions, with mfa also auth-mfa and account-security; the password login still comes from the auth option or composeFeatures. composeSaasStack({ billing: "stripe" | "mollie", tiers, caps?, waitlist?, billingFoundation? }) mounts billing-foundation and tier-engine, cap-counter plus cap-overview with caps, waitlist with waitlist. With "stripe" the runProdApp billing option mounts subscription-stripe and the tier-sync webhook route; with "mollie" the stack mounts subscription-mollie from the mollie options and the app adds the webhook route. composeSecurityStack({ includeSessions? }) mounts sessions, crypto-shredding, rate-limiting and audit. composeGdprStack({ selfService: { userDataRights? } }) adds sessions, user-data-rights and user-profile in the order dsgvoSelfServiceFeatures used. billing-foundation requires tenant-lifecycle and compliance-profiles, which composeGdprStack({ tenantLifecycle: true }) mounts. user-profile in selfService requires user-data-rights-defaults and auth-email-password; composeUserDataRightsStack mounts the defaults, and the login comes from the auth option. Recipe: samples/recipes/compose-stacks.
+  -->
+  
+  <!-- kumiko-changes
+  feature: presets
+  type: improvement
+  title: securityBaselineFeatures and dsgvoSelfServiceFeatures are deprecated
+  detail: Both presets stay for one release. Replace securityBaselineFeatures({ includeSessions }) with composeSecurityStack({ includeSessions }) and dsgvoSelfServiceFeatures({ userDataRights }) with composeGdprStack({ selfService: { userDataRights } }), both from @cosmicdrift/kumiko-dev-server/compose-stacks. The stacks mount the same features in the same order.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp effectiveFeatures is deprecated
+  detail: effectiveFeatures stays for one release. createTierEngineFeature({ tierMap }), or composeSaasStack, builds the per-tenant feature resolver at boot, and the prod-only features come from the mail, fileStorage and billing options.
+  -->
+- c051152: Managed files, kumiko.config.ts with defineAppConfig, script standard and port registry
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: defineAppConfig in @cosmicdrift/kumiko-framework/config, plus biome and tsconfig presets for apps
+  detail: kumiko.config.ts default-exports defineAppConfig({ features, prodFeatures?, client: { entries }, ports: { dev, e2e, infra? } }). defineAppConfig throws on ports outside 1..65535, a port claimed twice within the app, an empty client.entries list and entries that leave the app. allAppFeatures(config) returns features plus prodFeatures. New exports @cosmicdrift/kumiko-framework/biome (Biome 2.5.7 preset with vcs.useIgnoreFile false) and @cosmicdrift/kumiko-framework/tsconfig.app.json; an app's biome.json and tsconfig.json extend them and keep their own overrides next to extends.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Managed files: one template source for the scaffold, kumiko check managed and kumiko sync-managed
+  detail: deploy/Dockerfile, deploy/Dockerfile.dockerignore, deploy/migrate-step.sh, .husky/pre-push, .github/workflows/{ci,release,cache-cleanup}.yml, the bunfigs and kumiko/schema.ts carry a kumiko-managed marker on line 1 (line 2 after a shebang or # syntax= line). kumiko new app writes them, plus kumiko.config.ts, bin/server.ts (was bin/dev.ts), bin/env-schema.ts, e2e/_helpers and src/__tests__/_setup.ts; bunfig.ci.toml is gone. kumiko/schema.ts is generated from kumiko.config.ts. kumiko-init-deploy prints a deprecation notice and goes away in the next release. Release targets come from package.json#kumiko.deploy.namespace and .deployment (default: the app name).
+  migration: Existing apps: add kumiko.config.ts with defineAppConfig, then run kumiko sync-managed (dry run), kumiko sync-managed --write --adopt for files that are identical or should follow the template, and mark deliberate deviations with "# kumiko-managed: local <reason>" on line 2. Until kumiko.config.ts calls defineAppConfig, kumiko check only warns about drift and missing scripts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko check gains the managed and scripts steps; new kumiko sync-managed and kumiko ports
+  detail: kumiko check managed compares framework-owned files with the installed templates and prints a diff; files with a local marker are skipped and listed. kumiko check scripts requires dev, build, start, typecheck, lint, check, test, test:unit, test:integration, test:integration:ci, test:dom (with uiRoots), test:real, e2e, e2e:real, screenshots and prepare, and lists extras. Both steps fail only once the app calls defineAppConfig. kumiko check accepts step ids as positional filters (kumiko check managed scripts). kumiko sync-managed [--write] [--adopt] writes the templates; it never overwrites a file without marker unless --adopt is passed, never touches local files and refuses symlinked paths. kumiko ports [workspace-root] lists the ports of every app below the root and exits 1 on a collision. kumiko agent lint also checks prodFeatures.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: renderTestSetup writes the standard test scripts, bunfig.dom.toml and the helper homes
+  detail: The scaffolded test setup now adds test:unit, test:integration:ci, test:dom and screenshots, writes bunfig.dom.toml (with @happy-dom/global-registrator as devDependency), e2e/_helpers/index.ts and src/__tests__/_setup.ts.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [8ff5d19]
+- Updated dependencies [a02e354]
+- Updated dependencies [a02e354]
+- Updated dependencies [79a0aa6]
+- Updated dependencies [2930518]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [4a6e151]
+- Updated dependencies [a02e354]
+- Updated dependencies [c051152]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [75c45e4]
+- Updated dependencies [2930518]
+- Updated dependencies [cbaaeb8]
+- Updated dependencies [2930518]
+- Updated dependencies [2930518]
+- Updated dependencies [7fa8420]
+- Updated dependencies [8ff5d19]
+  - @cosmicdrift/kumiko-server-runtime@0.370.0
+  - @cosmicdrift/kumiko-framework@0.370.0
+  - @cosmicdrift/kumiko-testing@0.370.0
+  - @cosmicdrift/kumiko-bundled-features@0.370.0
+  - @cosmicdrift/kumiko-types@0.370.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.370.0
+  - @cosmicdrift/kumiko-headless@0.370.0
+  - @cosmicdrift/kumiko-renderer-web@0.370.0
+
 ## 0.369.0
 
 ### Minor Changes

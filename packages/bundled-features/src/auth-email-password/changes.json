@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "createAuthEmailPasswordFeature carries its env schema type",
+    "detail": "createAuthEmailPasswordFeature returns the feature typed with authEmailPasswordEnvSchema, so composeEnvSchema types JWT_SECRET and JWT_ISSUER."
+  },
+  {
     "version": "0.366.0",
     "type": "fix",
     "title": "Removed unused AuthHandlers.inviteCancel constant",

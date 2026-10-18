@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "s3EnvSchema and createS3EnvSchema declare the S3 provider variables",
+    "detail": "s3EnvSchema covers S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY, S3_ENDPOINT and S3_FORCE_PATH_STYLE; createFileProviderS3Feature({ fromEnv: true }) registers it. createS3EnvSchema({ prefix }) builds the same block under another prefix, for example RELEASES_S3_. The endpoint must use https unless the host is loopback, and a blank endpoint counts as unset."
+  },
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The file-provider-s3-env and files-provider-s3 subpaths are removed",
+    "detail": "Both deprecated re-export subpaths of the S3 merge are gone. The env-driven provider is createFileProviderS3Feature({ fromEnv: true }) from @cosmicdrift/kumiko-bundled-features/file-provider-s3 and replaces fileProviderS3EnvFeature. S3ProviderConfig, createS3Provider, createS3ProviderFromEnv, parseS3EnvConfig and resolveForcePathStyle come from @cosmicdrift/kumiko-bundled-features/file-provider-s3/lib.",
+    "migration": "Run bun kumiko-upgrade --apply. It rewrites fileProviderS3EnvFeature to createFileProviderS3Feature({ fromEnv: true }) and moves files-provider-s3 imports to file-provider-s3/lib.",
+    "codemod": "scripts/codemod/s3-imports.ts"
+  },
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated fileProviderS3Feature constant is removed",
+    "detail": "fileProviderS3Feature was kept next to createFileProviderS3Feature() for one release. Mount the feature by calling createFileProviderS3Feature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces fileProviderS3Feature with createFileProviderS3Feature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.368.0",
     "type": "breaking",
     "title": "The S3 file providers merge into createFileProviderS3Feature({ fromEnv })",

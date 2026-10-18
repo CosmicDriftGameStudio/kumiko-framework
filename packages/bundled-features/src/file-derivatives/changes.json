@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated fileDerivativesFeature constant is removed",
+    "detail": "fileDerivativesFeature was kept next to createFileDerivativesFeature() for one release. Mount the feature by calling createFileDerivativesFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces fileDerivativesFeature with createFileDerivativesFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.313.0",
     "type": "fix",
     "title": "file-derivatives fileRef mode now 404s a disabled/destroy-lifecycle tenant like an unknown fileRef",

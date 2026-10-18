@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated derivativesSharpFeature constant is removed",
+    "detail": "derivativesSharpFeature was kept next to createDerivativesSharpFeature() for one release. Mount the feature by calling createDerivativesSharpFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces derivativesSharpFeature with createDerivativesSharpFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.352.0",
     "type": "fix",
     "title": "sharp is bumped to 0.35.5 to pick up the librsvg security fix",

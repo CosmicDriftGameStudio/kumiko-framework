@@ -1,5 +1,169 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.370.0
+
+### Minor Changes
+
+- 8ff5d19: envSchema required, boot dry run checks the env without values
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: runProdApp requires envSchema
+  detail: envSchema on runProdApp is no longer optional. Without it the boot throws a KumikoBootError that points to composeEnvSchema. An app without its own variables passes composeEnvSchema({ core: frameworkCoreEnvSchema, features }).
+  migration: Pass envSchema: composeEnvSchema({ core: frameworkCoreEnvSchema, features }) to runProdApp, with composeEnvSchema from @cosmicdrift/kumiko-framework/env and frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server/env-schema. App-level variables go into extend. Delete hand-written env checks that ran before runProdApp; the schema covers them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: KUMIKO_DRY_RUN_ENV=boot prints an env table and exits 0 on missing values
+  detail: The boot dry run lists every variable of the composed schema with its feature, whether it is required, and whether it is set, missing or invalid. DATABASE_URL, REDIS_URL and JWT_SECRET appear with source server-runtime when the schema does not declare them, since runProdApp reads them itself. Values are never printed, and a validation message that quotes the value is replaced. A keyring the master-key provider cannot use fails the dry run. An invalid value exits 1. A missing required value exits 0 and says the feature wiring was not validated; with every variable present the dry run validates the wiring as before. NODE_ENV=production does not change this. The MFA secret binding and other env reads run after this exit, so an empty env no longer crashes the dry run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: inspectEnv, renderEnvInspection and the dry-run mode parser
+  detail: inspectEnv(schema, env, { sources }) checks each field on its own and returns its status (set, unset, missing, invalid) without the value; renderEnvInspection renders those rows as the boot table. parseDryRunEnvMode reads KUMIKO_DRY_RUN_ENV (1, true, human, json, pulumi, k8s, boot) and isDryRunEnvActive tells module-level code whether a dry run is running. DRY_RUN_ENV_VAR names the variable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createEnvMasterKeyProvider defers the keyring check in a dry run
+  detail: While KUMIKO_DRY_RUN_ENV is set, createEnvMasterKeyProvider no longer throws at construction on a missing or malformed keyring; the first key operation throws instead. Apps that build the provider at module load can run the boot dry run on an empty env. Outside a dry run the check still runs at construction, and the boot probe for encrypted entity fields forces it in both cases.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp binds the MFA token secrets
+  detail: When auth-mfa is mounted and JWT_SECRET is set, runDevApp binds the MFA token secrets the same way runProdApp does.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: setupTestStack binds the MFA token secrets
+  detail: setupTestStack binds the auth-mfa token secrets from the stack's JWT secret, independent of the host env, so tests that mount auth-mfa without explicit secrets keep working.
+  -->
+- 79a0aa6: Stacks name the runProdApp option they need, plus auth, SaaS and security stacks
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp names the stack and the boot option it is missing
+  detail: Features returned by the compose*Stack helpers carry bootRequires ({ stack, options }), a new optional FeatureDefinition field; BootOptionName and StackBootRequirement are exported from @cosmicdrift/kumiko-framework/engine. runProdApp checks them before it wires the boot options and fails with "[runProdApp] stacks in `features` need boot options that are not set:" followed by one line per gap, for example "composeSaasStack needs the boot option `billing`: set billing: { stripe: { priceToTier }, defaultTier }". composeMailStack and composeUserDataRightsStack need mail (or a mounted channel-email), composeFileStack without providers needs fileStorage (or a mounted file provider), composeGdprStack and composeSecurityStack need kmsMode (or kms / allowPlaintextPii), composeSecurityStack also fails with rateLimit: false, composeSaasStack with billing "stripe" needs billing (or a mounted subscription provider). composeFileStack takes providers as optional now. The renderer, pages, ops and identity stacks need no option. resolveBillingOption is exported from @cosmicdrift/kumiko-server-runtime/boot-options/billing for tests that mount the billing wiring on a test stack.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeAuthStack, composeSaasStack and composeSecurityStack
+  detail: composeAuthStack({ sessions?, mfa?, accountSecurity? }) mounts auth-foundation and sessions, with mfa also auth-mfa and account-security; the password login still comes from the auth option or composeFeatures. composeSaasStack({ billing: "stripe" | "mollie", tiers, caps?, waitlist?, billingFoundation? }) mounts billing-foundation and tier-engine, cap-counter plus cap-overview with caps, waitlist with waitlist. With "stripe" the runProdApp billing option mounts subscription-stripe and the tier-sync webhook route; with "mollie" the stack mounts subscription-mollie from the mollie options and the app adds the webhook route. composeSecurityStack({ includeSessions? }) mounts sessions, crypto-shredding, rate-limiting and audit. composeGdprStack({ selfService: { userDataRights? } }) adds sessions, user-data-rights and user-profile in the order dsgvoSelfServiceFeatures used. billing-foundation requires tenant-lifecycle and compliance-profiles, which composeGdprStack({ tenantLifecycle: true }) mounts. user-profile in selfService requires user-data-rights-defaults and auth-email-password; composeUserDataRightsStack mounts the defaults, and the login comes from the auth option. Recipe: samples/recipes/compose-stacks.
+  -->
+  
+  <!-- kumiko-changes
+  feature: presets
+  type: improvement
+  title: securityBaselineFeatures and dsgvoSelfServiceFeatures are deprecated
+  detail: Both presets stay for one release. Replace securityBaselineFeatures({ includeSessions }) with composeSecurityStack({ includeSessions }) and dsgvoSelfServiceFeatures({ userDataRights }) with composeGdprStack({ selfService: { userDataRights } }), both from @cosmicdrift/kumiko-dev-server/compose-stacks. The stacks mount the same features in the same order.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp effectiveFeatures is deprecated
+  detail: effectiveFeatures stays for one release. createTierEngineFeature({ tierMap }), or composeSaasStack, builds the per-tenant feature resolver at boot, and the prod-only features come from the mail, fileStorage and billing options.
+  -->
+- 75c45e4: runProdApp declares mail, KMS, file storage, billing, demo mode, seeds and signal handling as options
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp boot options for mail, kmsMode, fileStorage, billing, demoMode, seeds and signals
+  detail: New optional runProdApp fields replace hand-wired bin/main.ts code. mail ({ transport: "smtp-env" | "inmemory" | EmailTransport, from?, resolveEmail?, tenantTransport? }) mounts channel-email and routes the auth mails through it; needs delivery. kmsMode ("required" | "optional" | { plaintextReason }) builds KMS and blind-index key from PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL and KUMIKO_BLIND_INDEX_KEY and cannot be combined with kms, blindIndexKey or allowPlaintextPii. fileStorage ({ provider: "s3-env" | "inmemory" | "auto" }) mounts the file provider; auto picks S3 when S3_* is complete and aborts a production boot on a partial S3 env; needs file-foundation. billing ({ stripe: { priceToTier, webhookPath? }, defaultTier }) mounts subscription-stripe and the tier-sync webhook route; needs billing-foundation and tier-engine. demoMode ({ readOnly, notice? }) serves GET /demo-mode and answers writes with 403 demo_read_only while readOnly; demo account credentials are published only when listed in notice.accounts. seeds also takes { demoTenant, demoAdminFromEnv, sysadminFromEnv, run }; the array form still works, but code indexing RunProdAppOptions["seeds"][number] must switch to ProdSeedFn. SIGTERM/SIGINT now run stop() with a 25 s drain timeout (signals: { drainTimeoutMs }) and exit 1 on timeout or error instead of always 0; signals: false hands the signals to the host. The env blocks the options read (SMTP_* for mail smtp-env, S3_* for fileStorage s3-env/auto, the KMS block for kmsMode, STRIPE_* for billing, DEMO_* for the seed shortcuts) join the app's envSchema for the boot dry run and the env validation without the app composing them; keys the option cannot run without (SMTP_HOST, the four S3 keys under s3-env, the seeded accounts) are required there. Without the new fields the boot behaves as before. createSubscriptionTierSync().createWebhookRoute takes an optional { path }. kmsEnvSchema is also exported from @cosmicdrift/kumiko-bundled-features/crypto-shredding/env, which loads without the crypto-shredding feature. Recipe: samples/recipes/prod-boot-options.
+  -->
+- cbaaeb8: runProdApp ships a CSP and L1/L2 rate limits by default
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp sets a Content-Security-Policy and L1/L2 rate limits without configuration
+  detail: Without options, runProdApp now sends a default CSP (default-src 'self'; script-src 'self' plus the sha256 hashes of the build's inline scripts; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none') and limits requests per client IP to 600/60 s (L1) and 30/60 s on /api/auth/* (L2). kumiko build writes dist/csp-hashes.json from every HTML file it outputs; without that file the CSP has no hashes and boot warns. securityHeaders.csp takes false (off), a string (replaces the default) or { extend: { directive: [sources] } }. rateLimit: false disables both layers, partial values override only the named fields. Apps with their own CSP set the header through securityHeaders.csp as a string or move their additions to extend; apps that need neither opt out with csp: false and rateLimit: false. Behind a reverse proxy set trustedProxyHops, otherwise all clients share one rate-limit bucket. Details in docs/reference/security-defaults.md.
+  -->
+- 8ff5d19: Follow-ups from the shim removal: typed hook events, a standalone EventDef factory and stricter escapeHatch checks
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: SaveContext.event and DeleteContext.event are required
+  detail: postSave and postDelete hooks always receive the stored event, so event is no longer optional on SaveContext and DeleteContext. Hooks read the caller from event.createdBy instead of guarding for undefined.
+  migration: Code that builds a SaveContext or DeleteContext by hand, usually in tests, sets event, for example with createTestStoredEvent() from @cosmicdrift/kumiko-testing/helpers. Drop optional chaining on ctx.event in hooks.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: createTestStoredEvent builds a StoredEvent fixture
+  detail: createTestStoredEvent(overrides) from @cosmicdrift/kumiko-testing/helpers returns a complete StoredEvent with stable defaults, for hook tests that construct SaveContext or DeleteContext directly.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createEventDef builds an EventDef without a registrar
+  detail: createEventDef({ feature, name, schema, version?, piiFields? }) from @cosmicdrift/kumiko-framework/engine returns the same EventDef that r.defineEvent returns, including the PII field validation, so shared event definitions can live outside a defineFeature callback.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: escapeHatch on a spread entity query handler requires SystemAdmin access
+  detail: A query handler that spreads defineEntityListHandler or defineEntityDetailHandler and adds escapeHatch afterwards skipped the SystemAdmin-only access check that the factory option enforces. Registration now applies the same check and throws for any other access.
+  migration: Pass escapeHatch as an option of defineEntityListHandler or defineEntityDetailHandler with access { roles: access.systemAdmin }, or write a plain r.queryHandler that does not reuse the entity convention handler when a tenant-scoped query needs a raw lookup.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: makeSeedCreateFileRef is exported
+  detail: makeSeedCreateFileRef and the SeedCreateFileRef type are exported from @cosmicdrift/kumiko-server-runtime, so app seed scripts can create file references the same way the bootstrap seeder does.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Runtime-isolation guard resolves imports through the TypeScript resolver
+  detail: The runtime-isolation guard resolves import and re-export targets with ts.resolveModuleName, so path aliases and package exports are followed, and classifies e2e directories as test code. resolveImportTargetPath is exported for other guards.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [8ff5d19]
+- Updated dependencies [a02e354]
+- Updated dependencies [a02e354]
+- Updated dependencies [79a0aa6]
+- Updated dependencies [2930518]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [4a6e151]
+- Updated dependencies [a02e354]
+- Updated dependencies [c051152]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [75c45e4]
+- Updated dependencies [2930518]
+- Updated dependencies [2930518]
+- Updated dependencies [2930518]
+- Updated dependencies [7fa8420]
+- Updated dependencies [8ff5d19]
+  - @cosmicdrift/kumiko-framework@0.370.0
+  - @cosmicdrift/kumiko-bundled-features@0.370.0
+  - @cosmicdrift/kumiko-types@0.370.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.370.0
+  - @cosmicdrift/kumiko-headless@0.370.0
+  - @cosmicdrift/kumiko-renderer-web@0.370.0
+
 ## 0.369.0
 
 ### Minor Changes

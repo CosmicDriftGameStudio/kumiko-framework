@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated readinessFeature constant is removed",
+    "detail": "readinessFeature was kept next to createReadinessFeature() for one release. Mount the feature by calling createReadinessFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces readinessFeature with createReadinessFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

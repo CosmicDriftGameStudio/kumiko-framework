@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated tierEngineFeature constant is removed",
+    "detail": "tierEngineFeature was kept next to createTierEngineFeature() for one release. Mount the feature by calling createTierEngineFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces tierEngineFeature with createTierEngineFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.365.0",
     "type": "improvement",
     "title": "set-tenant-tier accepts an optional source so a manual grant can return to billing control",

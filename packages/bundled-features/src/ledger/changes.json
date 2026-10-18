@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated ledgerFeature constant is removed",
+    "detail": "ledgerFeature was kept next to createLedgerFeature() for one release. Mount the feature by calling createLedgerFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces ledgerFeature with createLedgerFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Document the duplicate check required before the (tenant_id, source_ref) unique index",

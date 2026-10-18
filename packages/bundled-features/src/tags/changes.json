@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated tagsFeature constant is removed",
+    "detail": "tagsFeature was kept next to createTagsFeature() for one release. Mount the feature by calling createTagsFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces tagsFeature with createTagsFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.338.0",
     "type": "breaking",
     "title": "ownership.write applies to assign-tag, remove-tag and add-note",

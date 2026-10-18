@@ -1,5 +1,517 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.370.0
+
+### Minor Changes
+
+- a02e354: New bundled feature account-security
+  
+  <!-- kumiko-changes
+  feature: account-security
+  type: improvement
+  title: createAccountSecurityFeature bundles the self-service screen for MFA and own sessions
+  detail: createAccountSecurityFeature({ nav?, access? }) registers account-security:screen:account-security, a dashboard that embeds the auth-mfa enable, regenerate and disable screens and the sessions list of the signed-in user. It owns no handlers; mount it next to auth-mfa and sessions, or let composeAuthStack({ mfa }) mount it. Without nav the screen is dormant (no sidebar entry); nav takes { order?, parent? } with order 90 by default. access defaults to every signed-in user. Apps with a local copy of this screen replace it with the bundled feature.
+  -->
+- a02e354: New bundled feature host-routing
+  
+  <!-- kumiko-changes
+  feature: host-routing
+  type: improvement
+  title: createHostRoutingFeature and createHostDispatch route tenants by host or path
+  detail: One HostRoutingOptions object ({ tenantBy: "host" } or { tenantBy: "path", tenantPathPrefix }, plus baseDomain, apex, tenant, unknownTenant?, hosts?, locales?) drives both halves. createHostRoutingFeature registers an authoritative Host-header tenant resolver in host mode and, in both modes, an existence check that admits only enabled, active tenants. apexAnonymousTenantId gives anonymous apex calls a tenant (e.g. SYSTEM_TENANT_ID); without it the apex answers tenant_required. createHostDispatch is a runProdApp hostDispatch: HTML file and optional CSP per surface (without csp the runProdApp default applies), a 301 from the default-locale prefix to the unprefixed path, and 404 for unknown tenants and hosts. toDevHostDispatch(dispatch, { entries, staticDir }) from @cosmicdrift/kumiko-dev-server plugs the same decision into the dev server. Apps with their own routing feature and hostDispatch move to these; app-specific redirects or custom domains wrap the dispatch function.
+  -->
+- 79a0aa6: Stacks name the runProdApp option they need, plus auth, SaaS and security stacks
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp names the stack and the boot option it is missing
+  detail: Features returned by the compose*Stack helpers carry bootRequires ({ stack, options }), a new optional FeatureDefinition field; BootOptionName and StackBootRequirement are exported from @cosmicdrift/kumiko-framework/engine. runProdApp checks them before it wires the boot options and fails with "[runProdApp] stacks in `features` need boot options that are not set:" followed by one line per gap, for example "composeSaasStack needs the boot option `billing`: set billing: { stripe: { priceToTier }, defaultTier }". composeMailStack and composeUserDataRightsStack need mail (or a mounted channel-email), composeFileStack without providers needs fileStorage (or a mounted file provider), composeGdprStack and composeSecurityStack need kmsMode (or kms / allowPlaintextPii), composeSecurityStack also fails with rateLimit: false, composeSaasStack with billing "stripe" needs billing (or a mounted subscription provider). composeFileStack takes providers as optional now. The renderer, pages, ops and identity stacks need no option. resolveBillingOption is exported from @cosmicdrift/kumiko-server-runtime/boot-options/billing for tests that mount the billing wiring on a test stack.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeAuthStack, composeSaasStack and composeSecurityStack
+  detail: composeAuthStack({ sessions?, mfa?, accountSecurity? }) mounts auth-foundation and sessions, with mfa also auth-mfa and account-security; the password login still comes from the auth option or composeFeatures. composeSaasStack({ billing: "stripe" | "mollie", tiers, caps?, waitlist?, billingFoundation? }) mounts billing-foundation and tier-engine, cap-counter plus cap-overview with caps, waitlist with waitlist. With "stripe" the runProdApp billing option mounts subscription-stripe and the tier-sync webhook route; with "mollie" the stack mounts subscription-mollie from the mollie options and the app adds the webhook route. composeSecurityStack({ includeSessions? }) mounts sessions, crypto-shredding, rate-limiting and audit. composeGdprStack({ selfService: { userDataRights? } }) adds sessions, user-data-rights and user-profile in the order dsgvoSelfServiceFeatures used. billing-foundation requires tenant-lifecycle and compliance-profiles, which composeGdprStack({ tenantLifecycle: true }) mounts. user-profile in selfService requires user-data-rights-defaults and auth-email-password; composeUserDataRightsStack mounts the defaults, and the login comes from the auth option. Recipe: samples/recipes/compose-stacks.
+  -->
+  
+  <!-- kumiko-changes
+  feature: presets
+  type: improvement
+  title: securityBaselineFeatures and dsgvoSelfServiceFeatures are deprecated
+  detail: Both presets stay for one release. Replace securityBaselineFeatures({ includeSessions }) with composeSecurityStack({ includeSessions }) and dsgvoSelfServiceFeatures({ userDataRights }) with composeGdprStack({ selfService: { userDataRights } }), both from @cosmicdrift/kumiko-dev-server/compose-stacks. The stacks mount the same features in the same order.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp effectiveFeatures is deprecated
+  detail: effectiveFeatures stays for one release. createTierEngineFeature({ tierMap }), or composeSaasStack, builds the per-tenant feature resolver at boot, and the prod-only features come from the mail, fileStorage and billing options.
+  -->
+- 2930518: Mail editor: informal German, tenant sender hint, readable button chips
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Designer addresses the user informally in German, points tenant-routed senders to Email sending and renders chips inside buttons
+  detail: All German document designer strings use du like the rest of the framework; the formal locale overrides keep Sie. For a notification with tenantTransport the sender hint in the mail editor says the address comes from the tenant's Email sending settings and links to that screen when the app mounts it; TemplateUsageEntry gains tenantTransport. A placeholder chip inside a button block is now drawn in inverted colors so the button text stays readable in the editor.
+  -->
+- 8ff5d19: Env blocks per feature and a typed composeEnvSchema
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: composeEnvSchema returns a typed schema
+  detail: composeEnvSchema infers the merged shape from core, extend and every feature typed with featureWithEnvSchema(feature, schema), so parseEnv(composed.schema, …) returns typed values instead of a string record. optionalFeatures types those fields optional. A feature list widened to FeatureDefinition[] still compiles and contributes no keys to the type. extend may now repeat a feature's field when it is the same instance, so an app can spread a block such as stripeEnvSchema next to the mounted feature; a different field under that key still throws.
+  -->
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: improvement
+  title: kmsEnvSchema declares the subject-key KMS variables
+  detail: kmsEnvSchema lists the 13 KMS slots (PLATFORM_KEK, its rotation predecessor and versions, KUMIKO_BLIND_INDEX_KEY, SUBJECT_KEYS_DATABASE_URL, the _CIPHERTEXT twins and the Key Manager coordinates), all optional. createCryptoShreddingFeature registers it, so composeEnvSchema picks it up.
+  -->
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: smtpEnvSchema declares the SMTP_* variables
+  detail: smtpEnvSchema covers SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS and SMTP_FROM, all optional, and createChannelEmailFeature registers it. It lives next to createSmtpTransportFromEnv, which reads these variables.
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: improvement
+  title: s3EnvSchema and createS3EnvSchema declare the S3 provider variables
+  detail: s3EnvSchema covers S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY, S3_ENDPOINT and S3_FORCE_PATH_STYLE; createFileProviderS3Feature({ fromEnv: true }) registers it. createS3EnvSchema({ prefix }) builds the same block under another prefix, for example RELEASES_S3_. The endpoint must use https unless the host is loopback, and a blank endpoint counts as unset.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: stripeEnvSchema adds price slots to the Stripe env block
+  detail: stripeEnvSchema({ prices: ["PRO", "TEAM"] }) returns the bridge keys plus one optional STRIPE_PRICE_<NAME> per price, each checked for the price_ prefix. Spread it into composeEnvSchema({ extend }) next to createSubscriptionStripeFeature; the shared bridge fields are no key clash.
+  -->
+  
+  <!-- kumiko-changes
+  feature: foundation-shared
+  type: improvement
+  title: buildInfoEnvSchema and demoAdminEnvSchema
+  detail: buildInfoEnvSchema declares BUILD_VERSION and BUILD_TIME. demoAdminEnvSchema declares the seed logins DEMO_ADMIN_EMAIL and DEMO_SYSADMIN_EMAIL (required), their passwords (optional, at least 16 characters) and an optional DEMO_TENANT_ID. Apps add both through extend.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: MFA token secrets are optional and bound at boot
+  detail: setupTokenSecret and challengeTokenSecret on createAuthMfaFeature are optional. Unset, the boot binds them through bindMfaTokenSecretsFromFeature(feature)(masterSecret, env): MFA_SETUP_TOKEN_SECRET and MFA_CHALLENGE_TOKEN_SECRET from env when set, otherwise derived from the master secret. mfaTokenSecretsEnvSchema declares both variables and the feature registers it next to the secrets master-key slot. A handler called before the binding throws instead of signing with an empty key.
+  -->
+  
+  <!-- kumiko-changes
+  feature: secrets
+  type: improvement
+  title: createSecretsFeature carries its env schema type
+  detail: createSecretsFeature returns the feature typed with secretsEnvSchema, so composeEnvSchema types the KUMIKO_SECRETS_MASTER_KEY_* variables.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: createAuthEmailPasswordFeature carries its env schema type
+  detail: createAuthEmailPasswordFeature returns the feature typed with authEmailPasswordEnvSchema, so composeEnvSchema types JWT_SECRET and JWT_ISSUER.
+  -->
+- a02e354: legal-pages: terms routes, layout helper and boot seed
+  
+  <!-- kumiko-changes
+  feature: legal-pages
+  type: improvement
+  title: legal-pages serves terms of service, ships a layout helper and a boot seed
+  detail: createLegalPagesFeature({ terms: true }) adds /legal/nutzungsbedingungen and /legal/terms (slug terms, de/en, never boot-required). createLegalPagesLayout({ siteName, css?, stylesheetHrefs?, headerHtml?, footerHtml?, contentClass? }) builds a wrapLayout with the app's chrome. legalContentSeed({ blocks } | { path }) returns a seed for runProdApp seeds that writes the blocks into SYSTEM_TENANT and updates existing ones, so the JSON stays authoritative. legalPagePath(routes, slug, lang) from the client-safe ./legal-pages/constants subpath gives static sites the same paths. Defaults are unchanged.
+  -->
+- 8ff5d19: The deprecated compatibility paths from 0.366 to 0.368 are removed
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createDbConnection takes only the options object, the bun-db subpath is gone
+  detail: The positional createDbConnection(url, options) overload and the deprecated @cosmicdrift/kumiko-framework/bun-db subpath are removed. createDbConnection({ url, ...options }) and the query helpers come from @cosmicdrift/kumiko-framework/db. Removed from /bun-db: DeleteManyBatchedOptions, DeleteManyBatchedResult, IncrementCounterOptions, InnerJoinRow, InnerJoinSpec, InsertOnConflictDoNothingOptions, JoinColumnPair, JsonTextMatch, SelectOptions, TableInfo, UpsertOnConflictOptions, WhereObject, WhereOperator, WhereValue, aggregateWhere, asEntityTableMeta, asRawClient, countWhere, deleteMany, deleteManyBatched, extractTableInfo, fetchOne, incrementCounter, insertMany, insertOnConflictDoNothing, insertOne, instantToTimestamptzParam, isTimestamptzType, requireEntityTableMeta, runInSavepoint, runInSavepointIfSupported, runnerCanBeginTransaction, selectInnerJoin, selectMany, transaction, unsafeReadRetrying, updateMany, upsertByPk, upsertOnConflict.
+  migration: Run bun kumiko-upgrade --apply. It rewrites positional calls to createDbConnection({ url, ... }) and moves bun-db imports to @cosmicdrift/kumiko-framework/db.
+  codemod: scripts/codemod/db-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: DB_PROVIDER other than postgres fails at boot
+  detail: dbConnectionOptionsFromEnv used to ignore DB_PROVIDER, so DB_PROVIDER=bun booted postgres-js while the deployment still claimed Bun.SQL. Any value other than empty or "postgres" now throws with a hint to remove the variable.
+  migration: Remove DB_PROVIDER from the environment, Helm values and Pulumi config. postgres-js is the only driver.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createTenantDb takes only the options object
+  detail: The positional createTenantDb(db, tenantId, ...) overload is removed. createTenantDb({ db, tenantId, ... }) is the only form.
+  migration: Run bun kumiko-upgrade --apply. It rewrites positional calls to createTenantDb({ db, tenantId, ... }).
+  codemod: scripts/codemod/tenant-db-options.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: The test stack is no longer re-exported from the framework
+  detail: The subpaths @cosmicdrift/kumiko-framework/stack, /testing, /testing/handler-context, /testing/real-providers and /testing/e2e-generator are removed, and so is the optional peer dependency on @cosmicdrift/kumiko-testing. The test stack and helpers live only in @cosmicdrift/kumiko-testing. Removed from /stack: CreateTestDbOptions, EventCollector, RequestHelper, TestDb, TestRedis, TestStack, TestStackOptions, TestUsers, createEventCollector, createRequestHelper, createTestDb, createTestRedis, createTestUser, drainEventConsumers, pushEntityProjectionTables, resetEventStore, setupTestStack, testTenantId, testUserId, unsafeCreateEntityTable, unsafeEnsureEntityTable, unsafePushTables. Removed from /testing and its subpaths: ClearableTable, E2EGeneratorOptions, E2ETestSpec, EditFillOp, LateBoundHolder, ManualClock, MutableMasterKeyProvider, ParsedSetCookie, REAL_PROVIDERS_ENV, RecordingProvider, bridgeStub, buildMultipartBody, captureClosedConnectionError, clearTables, createLateBoundHolder, createManualClock, createMutableMasterKeyProvider, createRecordingProvider, createTestEnvelopeCipher, createTestMasterKeyProvider, deleteRows, describeFileProviderContract, expectError, expectErrorIncludes, expectSuccess, generateE2ESpec, generateZodFixture, getSetCookieRaw, getSetCookieValue, getSetCookies, isRealProviderRun, patchFileInstanceofForBunTest, requireRealProviders, resetBlindIndexKeyForTests, resetEntityFieldEncryptionCacheForTests, resetEventPiiCatalogForTests, resetPiiSubjectKmsForTests, resetTestTables, rolesOf, seedRow, seedRows, sharedItemEntity, sharedItemTable, sharedUserEntity, sharedUserTable, sharedWidgetEntity, sharedWidgetTable, sleep, updateRows, waitFor, withBootValidatorFixture, withoutAmbientTemporal, zipWithEntries.
+  migration: Run bun kumiko-upgrade --apply. It moves the imports to the matching @cosmicdrift/kumiko-testing subpaths. Add @cosmicdrift/kumiko-testing to devDependencies if it is not there yet.
+  codemod: scripts/codemod/testing-move.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: breaking
+  title: The file-provider-s3-env and files-provider-s3 subpaths are removed
+  detail: Both deprecated re-export subpaths of the S3 merge are gone. The env-driven provider is createFileProviderS3Feature({ fromEnv: true }) from @cosmicdrift/kumiko-bundled-features/file-provider-s3 and replaces fileProviderS3EnvFeature. S3ProviderConfig, createS3Provider, createS3ProviderFromEnv, parseS3EnvConfig and resolveForcePathStyle come from @cosmicdrift/kumiko-bundled-features/file-provider-s3/lib.
+  migration: Run bun kumiko-upgrade --apply. It rewrites fileProviderS3EnvFeature to createFileProviderS3Feature({ fromEnv: true }) and moves files-provider-s3 imports to file-provider-s3/lib.
+  codemod: scripts/codemod/s3-imports.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: compliance-profiles-ops
+  type: breaking
+  title: The deprecated complianceProfilesOpsFeature constant is removed
+  detail: complianceProfilesOpsFeature was kept next to createComplianceProfilesOpsFeature() for one release. Mount the feature by calling createComplianceProfilesOpsFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces complianceProfilesOpsFeature with createComplianceProfilesOpsFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: breaking
+  title: The deprecated readinessFeature constant is removed
+  detail: readinessFeature was kept next to createReadinessFeature() for one release. Mount the feature by calling createReadinessFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces readinessFeature with createReadinessFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: breaking
+  title: The deprecated tierEngineFeature constant is removed
+  detail: tierEngineFeature was kept next to createTierEngineFeature() for one release. Mount the feature by calling createTierEngineFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces tierEngineFeature with createTierEngineFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: breaking
+  title: The deprecated capCounterFeature constant is removed
+  detail: capCounterFeature was kept next to createCapCounterFeature() for one release. Mount the feature by calling createCapCounterFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces capCounterFeature with createCapCounterFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: breaking
+  title: The deprecated customFieldsFeature constant is removed
+  detail: customFieldsFeature was kept next to createCustomFieldsFeature() for one release. Mount the feature by calling createCustomFieldsFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces customFieldsFeature with createCustomFieldsFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: breaking
+  title: The deprecated tagsFeature constant is removed
+  detail: tagsFeature was kept next to createTagsFeature() for one release. Mount the feature by calling createTagsFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces tagsFeature with createTagsFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant-settings
+  type: breaking
+  title: The deprecated tenantSettingsFeature constant is removed
+  detail: tenantSettingsFeature was kept next to createTenantSettingsFeature() for one release. Mount the feature by calling createTenantSettingsFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces tenantSettingsFeature with createTenantSettingsFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: breaking
+  title: The deprecated foldersFeature constant is removed
+  detail: foldersFeature was kept next to createFoldersFeature() for one release. Mount the feature by calling createFoldersFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces foldersFeature with createFoldersFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: notes-history
+  type: breaking
+  title: The deprecated notesHistoryFeature constant is removed
+  detail: notesHistoryFeature was kept next to createNotesHistoryFeature() for one release. Mount the feature by calling createNotesHistoryFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces notesHistoryFeature with createNotesHistoryFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: notes-history-user-data
+  type: breaking
+  title: The deprecated notesHistoryUserDataFeature constant is removed
+  detail: notesHistoryUserDataFeature was kept next to createNotesHistoryUserDataFeature() for one release. Mount the feature by calling createNotesHistoryUserDataFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces notesHistoryUserDataFeature with createNotesHistoryUserDataFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: form-draft
+  type: breaking
+  title: The deprecated formDraftFeature constant is removed
+  detail: formDraftFeature was kept next to createFormDraftFeature() for one release. Mount the feature by calling createFormDraftFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces formDraftFeature with createFormDraftFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: form-draft-user-data
+  type: breaking
+  title: The deprecated formDraftUserDataFeature constant is removed
+  detail: formDraftUserDataFeature was kept next to createFormDraftUserDataFeature() for one release. Mount the feature by calling createFormDraftUserDataFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces formDraftUserDataFeature with createFormDraftUserDataFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver-user-data
+  type: breaking
+  title: The deprecated templateResolverUserDataFeature constant is removed
+  detail: templateResolverUserDataFeature was kept next to createTemplateResolverUserDataFeature() for one release. Mount the feature by calling createTemplateResolverUserDataFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces templateResolverUserDataFeature with createTemplateResolverUserDataFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: folders-user-data
+  type: breaking
+  title: The deprecated foldersUserDataFeature constant is removed
+  detail: foldersUserDataFeature was kept next to createFoldersUserDataFeature() for one release. Mount the feature by calling createFoldersUserDataFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces foldersUserDataFeature with createFoldersUserDataFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: breaking
+  title: The deprecated ledgerFeature constant is removed
+  detail: ledgerFeature was kept next to createLedgerFeature() for one release. Mount the feature by calling createLedgerFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces ledgerFeature with createLedgerFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: The deprecated billingFoundationFeature constant is removed
+  detail: billingFoundationFeature was kept next to createBillingFoundationFeature() for one release. Mount the feature by calling createBillingFoundationFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces billingFoundationFeature with createBillingFoundationFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-foundation
+  type: breaking
+  title: The deprecated authFoundationFeature constant is removed
+  detail: authFoundationFeature was kept next to createAuthFoundationFeature() for one release. Mount the feature by calling createAuthFoundationFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces authFoundationFeature with createAuthFoundationFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-foundation
+  type: breaking
+  title: The deprecated mailFoundationFeature constant is removed
+  detail: mailFoundationFeature was kept next to createMailFoundationFeature() for one release. Mount the feature by calling createMailFoundationFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces mailFoundationFeature with createMailFoundationFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: The deprecated inboundMailFoundationFeature constant is removed
+  detail: inboundMailFoundationFeature was kept next to createInboundMailFoundationFeature() for one release. Mount the feature by calling createInboundMailFoundationFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces inboundMailFoundationFeature with createInboundMailFoundationFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-inmemory
+  type: breaking
+  title: The deprecated inboundProviderInMemoryFeature constant is removed
+  detail: inboundProviderInMemoryFeature was kept next to createInboundProviderInMemoryFeature() for one release. Mount the feature by calling createInboundProviderInMemoryFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces inboundProviderInMemoryFeature with createInboundProviderInMemoryFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: breaking
+  title: The deprecated inboundProviderImapFeature constant is removed
+  detail: inboundProviderImapFeature was kept next to createInboundProviderImapFeature() for one release. Mount the feature by calling createInboundProviderImapFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces inboundProviderImapFeature with createInboundProviderImapFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: breaking
+  title: The deprecated mailTransportSmtpFeature constant is removed
+  detail: mailTransportSmtpFeature was kept next to createMailTransportSmtpFeature() for one release. Mount the feature by calling createMailTransportSmtpFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces mailTransportSmtpFeature with createMailTransportSmtpFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-transport-inmemory
+  type: breaking
+  title: The deprecated mailTransportInMemoryFeature constant is removed
+  detail: mailTransportInMemoryFeature was kept next to createMailTransportInMemoryFeature() for one release. Mount the feature by calling createMailTransportInMemoryFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces mailTransportInMemoryFeature with createMailTransportInMemoryFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-foundation
+  type: breaking
+  title: The deprecated fileFoundationFeature constant is removed
+  detail: fileFoundationFeature was kept next to createFileFoundationFeature() for one release. Mount the feature by calling createFileFoundationFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces fileFoundationFeature with createFileFoundationFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: breaking
+  title: The deprecated documentIngestFoundationFeature constant is removed
+  detail: documentIngestFoundationFeature was kept next to createDocumentIngestFoundationFeature() for one release. Mount the feature by calling createDocumentIngestFoundationFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces documentIngestFoundationFeature with createDocumentIngestFoundationFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-provider-inmemory
+  type: breaking
+  title: The deprecated fileProviderInMemoryFeature constant is removed
+  detail: fileProviderInMemoryFeature was kept next to createFileProviderInMemoryFeature() for one release. Mount the feature by calling createFileProviderInMemoryFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces fileProviderInMemoryFeature with createFileProviderInMemoryFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-derivatives
+  type: breaking
+  title: The deprecated fileDerivativesFeature constant is removed
+  detail: fileDerivativesFeature was kept next to createFileDerivativesFeature() for one release. Mount the feature by calling createFileDerivativesFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces fileDerivativesFeature with createFileDerivativesFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: derivatives-sharp
+  type: breaking
+  title: The deprecated derivativesSharpFeature constant is removed
+  detail: derivativesSharpFeature was kept next to createDerivativesSharpFeature() for one release. Mount the feature by calling createDerivativesSharpFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces derivativesSharpFeature with createDerivativesSharpFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa-user-data
+  type: breaking
+  title: The deprecated authMfaUserDataFeature constant is removed
+  detail: authMfaUserDataFeature was kept next to createAuthMfaUserDataFeature() for one release. Mount the feature by calling createAuthMfaUserDataFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces authMfaUserDataFeature with createAuthMfaUserDataFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: breaking
+  title: The deprecated workflowRunnerFeature constant is removed
+  detail: workflowRunnerFeature was kept next to createWorkflowRunnerFeature() for one release. Mount the feature by calling createWorkflowRunnerFeature().
+  migration: Run bun kumiko-upgrade --apply. It replaces workflowRunnerFeature with createWorkflowRunnerFeature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: breaking
+  title: The deprecated fileProviderS3Feature constant is removed
+  detail: fileProviderS3Feature was kept next to createFileProviderS3Feature() for one release. Mount the feature by calling createFileProviderS3Feature().
+  migration: Run bun kumiko-upgrade --apply. It replaces fileProviderS3Feature with createFileProviderS3Feature().
+  codemod: scripts/codemod/feature-factory.ts
+  -->
+- 75c45e4: runProdApp declares mail, KMS, file storage, billing, demo mode, seeds and signal handling as options
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp boot options for mail, kmsMode, fileStorage, billing, demoMode, seeds and signals
+  detail: New optional runProdApp fields replace hand-wired bin/main.ts code. mail ({ transport: "smtp-env" | "inmemory" | EmailTransport, from?, resolveEmail?, tenantTransport? }) mounts channel-email and routes the auth mails through it; needs delivery. kmsMode ("required" | "optional" | { plaintextReason }) builds KMS and blind-index key from PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL and KUMIKO_BLIND_INDEX_KEY and cannot be combined with kms, blindIndexKey or allowPlaintextPii. fileStorage ({ provider: "s3-env" | "inmemory" | "auto" }) mounts the file provider; auto picks S3 when S3_* is complete and aborts a production boot on a partial S3 env; needs file-foundation. billing ({ stripe: { priceToTier, webhookPath? }, defaultTier }) mounts subscription-stripe and the tier-sync webhook route; needs billing-foundation and tier-engine. demoMode ({ readOnly, notice? }) serves GET /demo-mode and answers writes with 403 demo_read_only while readOnly; demo account credentials are published only when listed in notice.accounts. seeds also takes { demoTenant, demoAdminFromEnv, sysadminFromEnv, run }; the array form still works, but code indexing RunProdAppOptions["seeds"][number] must switch to ProdSeedFn. SIGTERM/SIGINT now run stop() with a 25 s drain timeout (signals: { drainTimeoutMs }) and exit 1 on timeout or error instead of always 0; signals: false hands the signals to the host. The env blocks the options read (SMTP_* for mail smtp-env, S3_* for fileStorage s3-env/auto, the KMS block for kmsMode, STRIPE_* for billing, DEMO_* for the seed shortcuts) join the app's envSchema for the boot dry run and the env validation without the app composing them; keys the option cannot run without (SMTP_HOST, the four S3 keys under s3-env, the seeded accounts) are required there. Without the new fields the boot behaves as before. createSubscriptionTierSync().createWebhookRoute takes an optional { path }. kmsEnvSchema is also exported from @cosmicdrift/kumiko-bundled-features/crypto-shredding/env, which loads without the crypto-shredding feature. Recipe: samples/recipes/prod-boot-options.
+  -->
+- 2930518: SecretsHandlers and SecretsQueries constants
+  
+  <!-- kumiko-changes
+  feature: secrets
+  type: improvement
+  title: secrets exports SecretsHandlers (set, delete) and SecretsQueries (list) handler names
+  detail: Apps dispatch secrets:write:set, secrets:write:delete and the list query through the exported constants like ConfigHandlers, instead of string literals.
+  -->
+- 2930518: Template variable labels can be i18n keys
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: templateVariable label accepts an i18n key; the designer shows the translation instead of the raw name
+  detail: A label given as i18n key (templateVariable.text({ label: "billing:mail.variable.invoiceNumber" }) plus r.translations in each locale) is translated in the designer's variable rail, in the chips on the paper, in the steps and repeat block heads, in the placeholder, button, repeat and steps pickers of the editor toolbar and in the missing-variables footer; the raw variable name stays visible as tooltip. Plain-text labels keep working, a key without translation falls back to the key text. The server preview (sampleValuesFor, now with an optional labelText translator) names sample values by the translated label in the draft's locale. variableLabelMap in document-designer now takes the translator as first argument. VariableChips in the renderer takes optional labels.
+  -->
+- 2930518: Unsubscribe pages wear the tenant's mail look
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Unsubscribe confirmation, result and link-invalid pages look like the tenant's mails
+  detail: The pages behind a mail's unsubscribe link now show the tenant's brand row (logo from managed-pages branding or the initial tile, name, brand suffix), the accent color, the site band and the mail footer (footer text, imprint, privacy) in a centered card with the bundled IBM Plex Sans font served same-origin, no external font CDN. Every state (confirm, unsubscribed with undo, subscribed again, failed, link invalid or expired) is translated in en, de and es and fits 375 px. The page answers with its own CSP (default-src 'none', the style block by sha256 hash, font-src 'self', img-src 'self' data: plus the logo's https origin, form-action 'self'). A browser GET or form POST with an invalid or expired token now gets a 400 HTML page instead of JSON (expired tokens keep the tenant's look and the mail's language, forged ones get the plain page in the Accept-Language language); JSON and one-click requests answer as before. Mail renderers can implement the new optional RendererPlugin.readMailChrome (renderer-mail-html does) which the system-only query delivery:query:unsubscribePageChrome reads. renderUnsubscribeResultPage takes an optional chrome and the new kind "invalid" for an app's own dead links; apps with their own CSP need style-src 'unsafe-inline' and the logo origin for it.
+  -->
+- 7fa8420: Waitlist: linkOnSignup, configurable submit rate limit, export and purge, legacy migration
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: breaking
+  title: Waitlist gets linkOnSignup, a configurable submit rate limit, export and purge handlers and a status provisioned
+  detail: createWaitlistFeature({ linkOnSignup: true }) marks an invited entry provisioned, with linkedTenantId and provisionedAt, when its email becomes the first TenantAdmin member of a tenant; a multi-stream consumer on the membership event does this asynchronously. rateLimit replaces the default of 5 submits per IP per 10 minutes, or { disabled: true, reason } turns it off. waitlist:write:export and waitlist:write:purge are SystemAdmin-only (exportPurge: false leaves them out); purge needs confirmCount to match the current number of entries and shreds the personal-data keys only after every entry was forgotten. The entity gains the status provisioned and the column provisionedAt, so apps that mount the feature generate a schema migration. kumiko ops waitlist-migrate --from offlot|publicstatus [--dry-run] copies a legacy waitlist table into the entity idempotently. Details in docs/guides/waitlist.md.
+  migration: Apps that mount the waitlist feature run `kumiko schema generate <name>` and commit the migration: read_waitlist_entries gains the nullable column provisioned_at, and the status value provisioned is added. An app with its own waitlist (offlot-app, publicstatus, solon) mounts createWaitlistFeature() and copies the old rows with `kumiko ops waitlist-migrate --from offlot|publicstatus --dry-run` first. offlot-app keeps its legacy rows in the table read_waitlist_entries, the name the framework projection uses: copy or rename that table before the first boot and pass --source-table. The submit limit is keyed per IP and handler; behind a reverse proxy set trustedProxyHops, otherwise all visitors share one bucket of 5 submits per 10 minutes. With linkOnSignup the new consumer starts at the beginning of the event log and also provisions entries invited earlier.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [8ff5d19]
+- Updated dependencies [79a0aa6]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [4a6e151]
+- Updated dependencies [c051152]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [2930518]
+- Updated dependencies [8ff5d19]
+  - @cosmicdrift/kumiko-framework@0.370.0
+  - @cosmicdrift/kumiko-types@0.370.0
+  - @cosmicdrift/kumiko-renderer@0.370.0
+  - @cosmicdrift/kumiko-headless@0.370.0
+  - @cosmicdrift/kumiko-renderer-web@0.370.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.370.0
+
 ## 0.369.0
 
 ### Minor Changes

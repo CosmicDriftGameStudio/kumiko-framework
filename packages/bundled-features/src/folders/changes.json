@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated foldersFeature constant is removed",
+    "detail": "foldersFeature was kept next to createFoldersFeature() for one release. Mount the feature by calling createFoldersFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces foldersFeature with createFoldersFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.354.0",
     "type": "fix",
     "title": "folder:delete removes assignments whose host entity is gone instead of refusing forever",

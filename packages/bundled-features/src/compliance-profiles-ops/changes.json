@@ -1,0 +1,10 @@
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated complianceProfilesOpsFeature constant is removed",
+    "detail": "complianceProfilesOpsFeature was kept next to createComplianceProfilesOpsFeature() for one release. Mount the feature by calling createComplianceProfilesOpsFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces complianceProfilesOpsFeature with createComplianceProfilesOpsFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

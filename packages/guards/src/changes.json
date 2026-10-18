@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "import-extensions guard reports relative .js and .jsx specifiers",
+    "detail": "The import-extensions guard fails on a relative specifier that ends in .js or .jsx in a .ts or .tsx file (import, export from, import type and import()). Declaration files and fixtures are skipped. The message points to the import-extensions codemod. There is no baseline."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "Runtime-isolation guard resolves imports through the TypeScript resolver",
+    "detail": "The runtime-isolation guard resolves import and re-export targets with ts.resolveModuleName, so path aliases and package exports are followed, and classifies e2e directories as test code. resolveImportTargetPath is exported for other guards."
+  },
+  {
     "version": "0.366.0",
     "type": "improvement",
     "title": "kumiko-guards gains the api-object-form guard",

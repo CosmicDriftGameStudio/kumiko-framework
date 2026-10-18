@@ -1,0 +1,10 @@
+[
+  {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated templateResolverUserDataFeature constant is removed",
+    "detail": "templateResolverUserDataFeature was kept next to createTemplateResolverUserDataFeature() for one release. Mount the feature by calling createTemplateResolverUserDataFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces templateResolverUserDataFeature with createTemplateResolverUserDataFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  }
+]

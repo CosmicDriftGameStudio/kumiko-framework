@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "setupTestStack binds the MFA token secrets",
+    "detail": "setupTestStack binds the auth-mfa token secrets from the stack's JWT secret, independent of the host env, so tests that mount auth-mfa without explicit secrets keep working."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "renderTestSetup writes the standard test scripts, bunfig.dom.toml and the helper homes",
+    "detail": "The scaffolded test setup now adds test:unit, test:integration:ci, test:dom and screenshots, writes bunfig.dom.toml (with @happy-dom/global-registrator as devDependency), e2e/_helpers/index.ts and src/__tests__/_setup.ts."
+  },
+  {
+    "version": "0.370.0",
+    "type": "improvement",
+    "title": "createTestStoredEvent builds a StoredEvent fixture",
+    "detail": "createTestStoredEvent(overrides) from @cosmicdrift/kumiko-testing/helpers returns a complete StoredEvent with stable defaults, for hook tests that construct SaveContext or DeleteContext directly."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "E2E webServer env no longer overrides keys from .env.local or .env.<NODE_ENV>",

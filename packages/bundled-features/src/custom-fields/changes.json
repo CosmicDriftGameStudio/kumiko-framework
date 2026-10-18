@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.370.0",
+    "type": "breaking",
+    "title": "The deprecated customFieldsFeature constant is removed",
+    "detail": "customFieldsFeature was kept next to createCustomFieldsFeature() for one release. Mount the feature by calling createCustomFieldsFeature().",
+    "migration": "Run bun kumiko-upgrade --apply. It replaces customFieldsFeature with createCustomFieldsFeature().",
+    "codemod": "scripts/codemod/feature-factory.ts"
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "update-tenant-field no longer hides `type` from the handler schema",

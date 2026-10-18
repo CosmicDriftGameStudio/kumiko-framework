@@ -1,5 +1,45 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.370.0
+
+### Minor Changes
+
+- 2930518: Unsubscribe pages wear the tenant's mail look
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Unsubscribe confirmation, result and link-invalid pages look like the tenant's mails
+  detail: The pages behind a mail's unsubscribe link now show the tenant's brand row (logo from managed-pages branding or the initial tile, name, brand suffix), the accent color, the site band and the mail footer (footer text, imprint, privacy) in a centered card with the bundled IBM Plex Sans font served same-origin, no external font CDN. Every state (confirm, unsubscribed with undo, subscribed again, failed, link invalid or expired) is translated in en, de and es and fits 375 px. The page answers with its own CSP (default-src 'none', the style block by sha256 hash, font-src 'self', img-src 'self' data: plus the logo's https origin, form-action 'self'). A browser GET or form POST with an invalid or expired token now gets a 400 HTML page instead of JSON (expired tokens keep the tenant's look and the mail's language, forged ones get the plain page in the Accept-Language language); JSON and one-click requests answer as before. Mail renderers can implement the new optional RendererPlugin.readMailChrome (renderer-mail-html does) which the system-only query delivery:query:unsubscribePageChrome reads. renderUnsubscribeResultPage takes an optional chrome and the new kind "invalid" for an app's own dead links; apps with their own CSP need style-src 'unsafe-inline' and the logo origin for it.
+  -->
+
+### Patch Changes
+
+- a02e354: New bundled feature account-security
+  
+  <!-- kumiko-changes
+  feature: account-security
+  type: improvement
+  title: createAccountSecurityFeature bundles the self-service screen for MFA and own sessions
+  detail: createAccountSecurityFeature({ nav?, access? }) registers account-security:screen:account-security, a dashboard that embeds the auth-mfa enable, regenerate and disable screens and the sessions list of the signed-in user. It owns no handlers; mount it next to auth-mfa and sessions, or let composeAuthStack({ mfa }) mount it. Without nav the screen is dormant (no sidebar entry); nav takes { order?, parent? } with order 90 by default. access defaults to every signed-in user. Apps with a local copy of this screen replace it with the bundled feature.
+  -->
+- 2930518: Mail editor: informal German, tenant sender hint, readable button chips
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Designer addresses the user informally in German, points tenant-routed senders to Email sending and renders chips inside buttons
+  detail: All German document designer strings use du like the rest of the framework; the formal locale overrides keep Sie. For a notification with tenantTransport the sender hint in the mail editor says the address comes from the tenant's Email sending settings and links to that screen when the app mounts it; TemplateUsageEntry gains tenantTransport. A placeholder chip inside a button block is now drawn in inverted colors so the button text stays readable in the editor.
+  -->
+- Updated dependencies [8ff5d19]
+- Updated dependencies [79a0aa6]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [4a6e151]
+- Updated dependencies [c051152]
+- Updated dependencies [8ff5d19]
+- Updated dependencies [8ff5d19]
+  - @cosmicdrift/kumiko-framework@0.370.0
+
 ## 0.369.0
 
 ### Minor Changes
