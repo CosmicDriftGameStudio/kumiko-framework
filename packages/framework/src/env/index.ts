@@ -579,6 +579,55 @@ export function parseEnvDryRun<S extends z.ZodObject<z.ZodRawShape>>(
   return out as Partial<z.infer<S>>;
 }
 
+export type EnvFieldStatus = "set" | "unset" | "missing" | "invalid";
+
+export type EnvFieldInspection = {
+  readonly name: string;
+  readonly klass: EnvFieldClass;
+  readonly source: string;
+  readonly status: EnvFieldStatus;
+  /** Zod's issue text for an invalid value; never the value itself. */
+  readonly message?: string;
+};
+
+/** Checks every field of `schema` on its own against `env`, for the boot dry
+ *  run: a missing required value is reported, not thrown, so the inventory
+ *  renders on an empty env. Object-level refinements do not run here; once
+ *  nothing is missing or invalid, parseEnv validates the whole object. */
+export function inspectEnv(
+  schema: z.ZodObject<z.ZodRawShape>,
+  env: Readonly<Record<string, string | undefined>>,
+  options: Pick<ParseEnvOptions, "sources"> = {},
+): readonly EnvFieldInspection[] {
+  const cleaned: Record<string, string> = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (v !== undefined) cleaned[k] = v;
+  }
+  const relaxed = relaxCiphertextOnlySlots(schema, cleaned);
+  return Object.entries(zodShape(relaxed)).map(([name, field]): EnvFieldInspection => {
+    const klass = classifyField(field);
+    const source = options.sources?.[name] ?? "unknown";
+    const raw = cleaned[name];
+    if (raw === undefined) {
+      return { name, klass, source, status: klass === "required" ? "missing" : "unset" };
+    }
+    const issue = firstFieldIssue(field, raw);
+    return issue === undefined
+      ? { name, klass, source, status: "set" }
+      : { name, klass, source, status: "invalid", message: issue };
+  });
+}
+
+function firstFieldIssue(field: z.ZodType, raw: string): string | undefined {
+  try {
+    const result = field.safeParse(raw);
+    return result.success ? undefined : (result.error.issues[0]?.message ?? "invalid value");
+  } catch {
+    // The thrown message may quote the value, so it is not passed on.
+    return "a field refinement threw while checking the value";
+  }
+}
+
 export function camelCase(snakeShout: string): string {
   const parts = snakeShout.toLowerCase().split("_").filter(Boolean);
   if (parts.length === 0) return snakeShout.toLowerCase();

@@ -279,6 +279,29 @@ export type TestStackOptions = {
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
 
+type MfaTokenSecretBinder = (
+  masterSecret: string,
+  env: Readonly<Record<string, string | undefined>>,
+) => void;
+
+// Mirrors bindMfaTokenSecretsFromFeature from bundled-features/auth-mfa,
+// which this package cannot import: bundled-features is an optional peer.
+function isMfaTokenSecretBinder(value: unknown): value is MfaTokenSecretBinder {
+  return typeof value === "function";
+}
+
+// The env is empty on purpose: test secrets derive from jwtSecret,
+// independent of the host env.
+function bindMfaTokenSecrets(features: readonly FeatureDefinition[], jwtSecret: string): void {
+  for (const { exports } of features) {
+    if (typeof exports !== "object" || exports === null || !("bindTokenSecrets" in exports)) {
+      continue;
+    }
+    const { bindTokenSecrets } = exports;
+    if (isMfaTokenSecretBinder(bindTokenSecrets)) bindTokenSecrets(jwtSecret, {});
+  }
+}
+
 export async function setupTestStack(options: TestStackOptions): Promise<TestStack> {
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
   const enabledHooks = options.systemHooks ?? ["sse", "search"];
@@ -298,6 +321,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // Nav/workspace refs fail the prod boot too; the subset check tolerates refs into unmounted features.
   validateNavBootSubset(options.features);
   if (options.validateBoot === "full") validateBoot(options.features);
+  bindMfaTokenSecrets(options.features, jwtSecret);
 
   // Forward db-name/persistent-flag through to createTestDb. The
   // defaults (undefined dbName, persistent:false) keep the legacy

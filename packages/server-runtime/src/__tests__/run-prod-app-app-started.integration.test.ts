@@ -3,6 +3,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
   APP_INSTANCE_STREAM_TYPE,
   APP_STARTED_EVENT_TYPE,
@@ -17,6 +18,8 @@ import {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import postgres from "postgres";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+
+const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const TEST_DB = `kumiko_runprod_appstarted_${Date.now().toString(36)}`;
 const ADMIN_URL = process.env["TEST_DATABASE_URL"] ?? "";
@@ -34,6 +37,7 @@ function bootWith(extraEnv: Record<string, string>): Promise<ProdAppHandle> {
       PORT: "0",
       ...extraEnv,
     },
+    envSchema: noAppEnvSchema,
     autoListen: false,
     migrations: false,
   });

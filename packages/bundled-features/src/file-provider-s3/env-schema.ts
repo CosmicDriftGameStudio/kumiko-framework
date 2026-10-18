@@ -5,6 +5,7 @@ const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 // The bucket holds tenant files, so a remote endpoint must be https; plain
 // http stays allowed for a loopback MinIO in dev and CI.
 function isHttpsOrLoopbackHttp(value: string): boolean {
+  if (!URL.canParse(value)) return false;
   const url = new URL(value);
   return url.protocol === "https:" || LOOPBACK_HOSTNAMES.has(url.hostname);
 }

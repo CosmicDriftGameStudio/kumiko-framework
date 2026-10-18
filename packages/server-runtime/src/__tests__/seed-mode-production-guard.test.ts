@@ -1,10 +1,13 @@
 // The seed-mode boot guard reads process.env (not envSource) and must fire in the
 // prod and worker entrypoints before any DB/Redis connection is attempted.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { SEED_MODE_ENV, SeedModeDisabledError } from "@cosmicdrift/kumiko-framework/event-store";
 import { runProdApp } from "../run-prod-app.js";
 import { runWorkerApp } from "../run-worker-app.js";
 import { makeProbeFeature } from "./boot-probe-fixture.js";
+
+const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const probeFeature = makeProbeFeature({
   name: "seed-guard-probe",
@@ -37,6 +40,7 @@ describe("seed mode under NODE_ENV=production", () => {
     await expect(
       runProdApp({
         features: [probeFeature],
+        envSchema: noAppEnvSchema,
         autoListen: false,
         migrations: false,
         envSource: { ...UNREACHABLE_ENV },

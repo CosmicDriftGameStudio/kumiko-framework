@@ -6,6 +6,8 @@ import { composeAppEnv } from "../env";
 const masterKey = randomBytes(32).toString("base64");
 
 const minimalValidValues = {
+  DATABASE_URL: "postgres://app@localhost/app",
+  REDIS_URL: "redis://localhost:6379",
   KUMIKO_SECRETS_MASTER_KEY_V1: masterKey,
   DEMO_ADMIN_EMAIL: "admin@example.com",
   DEMO_SYSADMIN_EMAIL: "root@example.com",
@@ -48,6 +50,7 @@ describe("env composition", () => {
       report = err.format();
     }
 
+    expect(report).toContain("DATABASE_URL (framework-core, required, missing)");
     expect(report).toContain("KUMIKO_SECRETS_MASTER_KEY_V1 (secrets, required, missing)");
     expect(report).toContain("DEMO_ADMIN_EMAIL (app, required, missing)");
     expect(report).toContain("APP_PUBLIC_URL (app, required, missing)");

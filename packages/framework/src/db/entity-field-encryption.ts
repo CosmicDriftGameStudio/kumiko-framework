@@ -216,13 +216,15 @@ export function validateEntityFieldEncryptionAvailable(
   // skip: an injected cipher (test seam / custom KMS) or the runner's boot cipher satisfies availability
   if (bootCipher ?? injectedCipher) return;
   try {
+    // currentVersion() forces the keyring check: under KUMIKO_DRY_RUN_ENV the
+    // provider defers it past construction.
     createEnvMasterKeyProvider({
       env: {
         ...env,
         KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:
           env["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
       },
-    });
+    }).currentVersion();
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new Error(

@@ -15,6 +15,7 @@ import {
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
   createArchivedStreamsTable,
   createEventsTable,
@@ -27,6 +28,8 @@ import {
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+
+const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const TEST_DB = `kumiko_runprod_seeddeps_${Date.now().toString(36)}`;
@@ -99,6 +102,7 @@ describe("runProdApp seeds", () => {
         JWT_SECRET: "test-runprod-secret-32-chars-min!!",
         PORT: "0",
       },
+      envSchema: noAppEnvSchema,
       autoListen: false,
       migrations: false,
       seeds: [

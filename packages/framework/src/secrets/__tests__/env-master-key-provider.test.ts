@@ -117,3 +117,16 @@ describe("EnvMasterKeyProvider — wrap/unwrap", () => {
     expect(await provider.isAvailable()).toBe(true);
   });
 });
+
+describe("EnvMasterKeyProvider — dry run", () => {
+  test("defers the keyring check to the first key operation", async () => {
+    const provider = createEnvMasterKeyProvider({ env: env({ KUMIKO_DRY_RUN_ENV: "boot" }) });
+
+    expect(() => provider.currentVersion()).toThrow();
+    await expect(provider.wrapDek(randomBytes(32))).rejects.toThrow();
+  });
+
+  test("still fails at construction outside a dry run", () => {
+    expect(() => createEnvMasterKeyProvider({ env: env({}) })).toThrow();
+  });
+});

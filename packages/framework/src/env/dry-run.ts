@@ -14,6 +14,7 @@ import {
   type ComposedEnvSchema,
   classifyField,
   type EnvFieldClass,
+  type EnvFieldInspection,
   getDefaultValue,
   getFieldDescription,
   pulumiConfigKey,
@@ -21,6 +22,28 @@ import {
 } from "./index.js";
 
 export type DryRunMode = "human" | "json" | "pulumi" | "k8s";
+
+/** `boot` runs the boot validators without connecting anywhere; the other
+ *  modes only render the env inventory. */
+export type DryRunEnvMode = DryRunMode | "boot";
+
+export const DRY_RUN_ENV_VAR = "KUMIKO_DRY_RUN_ENV";
+
+/** Reads `KUMIKO_DRY_RUN_ENV`. `1` and `true` mean `human`; an unknown value
+ *  returns undefined, so the caller decides whether to warn or boot. */
+export function parseDryRunEnvMode(raw: string | undefined): DryRunEnvMode | undefined {
+  if (!raw) return undefined;
+  const value = raw.toLowerCase();
+  if (value === "1" || value === "true" || value === "human") return "human";
+  if (value === "json" || value === "pulumi" || value === "k8s" || value === "boot") return value;
+  return undefined;
+}
+
+/** True while any dry-run mode is requested, for code that runs at module
+ *  load (key providers, secret derivation) and must not throw on missing env. */
+export function isDryRunEnvActive(env: Readonly<Record<string, string | undefined>>): boolean {
+  return parseDryRunEnvMode(env[DRY_RUN_ENV_VAR]) !== undefined;
+}
 
 export type DryRunOptions = {
   /** From composeEnvSchema. Drives the per-row feature-attribution. */
@@ -208,5 +231,43 @@ function renderK8s(fields: readonly EnvField[], options: DryRunOptions): string 
       lines.push(`  # ${f.name}: "<set-me>"${comment}`);
     }
   }
+  return `${lines.join("\n")}\n`;
+}
+
+function inspectionStatus(row: EnvFieldInspection): string {
+  return row.status === "invalid" ? `invalid: ${row.message ?? "invalid value"}` : row.status;
+}
+
+/** Table for `KUMIKO_DRY_RUN_ENV=boot`: one row per variable with its source,
+ *  whether it is required, and whether it is set. Values are never printed. */
+export function renderEnvInspection(rows: readonly EnvFieldInspection[]): string {
+  const header = { name: "VARIABLE", source: "SOURCE", klass: "KIND" };
+  const nameWidth = Math.max(header.name.length, ...rows.map((r) => r.name.length));
+  const sourceWidth = Math.max(header.source.length, ...rows.map((r) => r.source.length));
+  const klassWidth = Math.max(header.klass.length, ...rows.map((r) => r.klass.length));
+  const line = (name: string, source: string, klass: string, status: string) =>
+    `  ${name.padEnd(nameWidth)}  ${source.padEnd(sourceWidth)}  ${klass.padEnd(klassWidth)}  ${status}`;
+  const order: Record<EnvFieldClass, number> = { required: 0, optional: 1, withDefault: 2 };
+  const sorted = [...rows].sort(
+    (a, b) =>
+      order[a.klass] - order[b.klass] ||
+      a.source.localeCompare(b.source) ||
+      a.name.localeCompare(b.name),
+  );
+  const missing = rows.filter((r) => r.status === "missing").length;
+  const invalid = rows.filter((r) => r.status === "invalid").length;
+  const lines = [
+    "Env check (values are not printed):",
+    line(header.name, header.source, header.klass, "STATUS"),
+    ...sorted.map((r) => line(r.name, r.source, r.klass, inspectionStatus(r))),
+    "",
+  ];
+  if (invalid > 0) lines.push(`${invalid} variable(s) invalid.`);
+  if (missing > 0) {
+    lines.push(
+      `${missing} required variable(s) missing. Feature wiring was NOT validated; set them and rerun to check it.`,
+    );
+  }
+  if (invalid === 0 && missing === 0) lines.push("All variables present.");
   return `${lines.join("\n")}\n`;
 }

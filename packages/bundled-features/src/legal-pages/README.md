@@ -23,6 +23,7 @@ import {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 runProdApp({
+  envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: [
     createTemplateResolverFeature(),  // legal-pages requires template-resolver
     createLegalPagesFeature(),

@@ -2,8 +2,14 @@
   "name": "@cosmicdrift/kumiko-sample-env-composition",
   "description": "Typed app env from the env blocks bundled features register, plus app-level blocks in extend.",
   "private": true,
+  "scripts": {
+    "start": "bun bin/server.ts",
+    "test": "bun test"
+  },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-    "@cosmicdrift/kumiko-framework": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*"
   }
 }

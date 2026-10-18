@@ -16,6 +16,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
   createArchivedStreamsTable,
   createEventsTable,
@@ -33,6 +34,8 @@ import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+
+const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const TEST_DB = `kumiko_runprod_seedfiles_${Date.now().toString(36)}`;
@@ -125,6 +128,7 @@ async function bootWithSeed(
         appOverrides: new Map([["file-foundation:config:provider", "inmemory"]]),
       }),
     },
+    envSchema: noAppEnvSchema,
     autoListen: false,
     migrations: false,
     seeds: [seed],

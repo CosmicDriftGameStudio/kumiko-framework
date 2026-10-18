@@ -868,7 +868,9 @@
       "name": "@cosmicdrift/kumiko-sample-env-composition",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-server-runtime": "workspace:*",
       },
     },
     "samples/recipes/error-contract": {

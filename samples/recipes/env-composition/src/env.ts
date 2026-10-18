@@ -16,6 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { stripeEnvSchema } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
+import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
 
@@ -39,9 +40,8 @@ const appEnvSchema = z.object({
   APP_PUBLIC_URL: z.url().describe("Public origin of the app, used in mail links."),
 });
 
-export function composeAppEnv() {
-  return composeEnvSchema({
-    features: createEnvCompositionFeatures(),
-    extend: appEnvSchema,
-  });
+export function composeAppEnv(
+  features: ReturnType<typeof createEnvCompositionFeatures> = createEnvCompositionFeatures(),
+) {
+  return composeEnvSchema({ core: frameworkCoreEnvSchema, features, extend: appEnvSchema });
 }

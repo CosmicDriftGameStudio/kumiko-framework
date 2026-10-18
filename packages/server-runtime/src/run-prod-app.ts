@@ -63,7 +63,11 @@ import {
   resolveAnonymousAccessFromRegistry,
   resolveTokenVerifier,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import {
+  AUTH_MFA_FEATURE,
+  AuthMfaHandlers,
+  bindMfaTokenSecretsFromFeature,
+} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
   PAT_FEATURE,
   patRateLimitFromFeature,
@@ -118,12 +122,20 @@ import {
 } from "@cosmicdrift/kumiko-framework/entrypoint";
 import {
   type ComposedEnvSchema,
+  inspectEnv,
   KumikoBootError,
   kmsSlotsOf,
   parseEnv,
   withOptionalEnvKeys,
 } from "@cosmicdrift/kumiko-framework/env";
-import { type DryRunMode, renderDryRun } from "@cosmicdrift/kumiko-framework/env/dry-run";
+import {
+  DRY_RUN_ENV_VAR,
+  type DryRunEnvMode,
+  type DryRunMode,
+  parseDryRunEnvMode,
+  renderDryRun,
+  renderEnvInspection,
+} from "@cosmicdrift/kumiko-framework/env/dry-run";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createEsOperationsTable,
@@ -240,18 +252,18 @@ function readEnv(
 // `boot` is the C1 smoke-test path — validators run, no DB/Redis connect,
 // exit after registry-build. Render-modes (human|json|pulumi|k8s|1)
 // inspect the env-schema and exit before any feature wiring.
-type RunMode = DryRunMode | "boot";
+type RunMode = DryRunEnvMode;
 
 function parseRunMode(raw: string | undefined): RunMode | null {
-  if (!raw) return null;
-  const v = raw.toLowerCase();
-  if (v === "1" || v === "true" || v === "human") return "human";
-  if (v === "json" || v === "pulumi" || v === "k8s" || v === "boot") return v;
-  // biome-ignore lint/suspicious/noConsole: boot-time warn for typo discovery
-  console.warn(
-    `[runProdApp] KUMIKO_DRY_RUN_ENV="${raw}" unrecognized ` +
-      `(expected 1|human|json|pulumi|k8s|boot); continuing with normal boot.`,
-  );
+  const mode = parseDryRunEnvMode(raw);
+  if (mode !== undefined) return mode;
+  if (raw) {
+    // biome-ignore lint/suspicious/noConsole: boot-time warn for typo discovery
+    console.warn(
+      `[runProdApp] ${DRY_RUN_ENV_VAR}="${raw}" unrecognized ` +
+        `(expected 1|human|json|pulumi|k8s|boot); continuing with normal boot.`,
+    );
+  }
   return null;
 }
 
@@ -712,16 +724,16 @@ export type RunProdAppOptions = {
    *  seed-fn (db ist erst nach migrations + features ready). */
   readonly effectiveFeatures?: EffectiveFeaturesResolver;
   /** Composed Zod-schema for env-validation (from `composeEnvSchema({
-   *  features, extend })` in @cosmicdrift/kumiko-framework/env). When set:
+   *  core, features, extend })` in @cosmicdrift/kumiko-framework/env):
    *  - `process.env` is parsed against it BEFORE any boot work; missing
    *    or invalid vars throw a `KumikoBootError` listing ALL problems
    *    at once (not first-fail).
    *  - `KUMIKO_DRY_RUN_ENV=human|json|pulumi|k8s` introspects the schema
    *    and prints the env-var inventory, then exits without booting.
-   *
-   *  9.1 is additive: features that still read `process.env` directly
-   *  keep working. Migration to the schema is Sprint-9.2-9.5. */
-  readonly envSchema?: ComposedEnvSchema;
+   *  - `KUMIKO_DRY_RUN_ENV=boot` prints a per-variable table. With required
+   *    values missing it exits 0 without validating the feature wiring; an
+   *    invalid value exits 1; a complete env runs the boot validators. */
+  readonly envSchema: ComposedEnvSchema;
   /** Prefix for `pulumi config set <prefix><CamelCase(VAR)>` in dry-run
    *  output and boot-error suggestions. Without this, suggestions use
    *  bare `camelCase(VAR)` and ops has to guess the app prefix. */
@@ -814,6 +826,21 @@ function warnLegacyJwtSecretOnce(): void {
   );
 }
 
+// JS callers and apps built against older typings can still omit it.
+function requireEnvSchema(envSchema: ComposedEnvSchema | undefined): ComposedEnvSchema {
+  if (envSchema === undefined) {
+    throw new KumikoBootError([
+      {
+        name: "envSchema",
+        kind: "missing",
+        message:
+          "runProdApp needs envSchema. Pass composeEnvSchema({ core: frameworkCoreEnvSchema, features, extend }): composeEnvSchema from @cosmicdrift/kumiko-framework/env, frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server, features the same list as runProdApp's.",
+      },
+    ]);
+  }
+  return envSchema;
+}
+
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   assertSeedModeNotInProduction();
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
@@ -823,9 +850,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //      with ALL problems aggregated (not first-fail), before we waste
   //      seconds on a Postgres connection that was never configured.
   //
-  //    Both code paths are no-ops when no envSchema is passed — Sprint-9
-  //    migration is per-feature additive; pre-migration apps keep the
-  //    legacy `requireEnv("DATABASE_URL")` checks below.
+  //    The dry-run exits sit before every other env read (KEK decrypt,
+  //    JWT secret, MFA token secrets), so a build pipeline without deploy
+  //    secrets can run them.
   //
   //    Ordering invariant: this step runs BEFORE the Temporal polyfill,
   //    so env-schemas MUST use only Temporal-free Zod types. Don't author
@@ -834,63 +861,85 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    .min / .email / .url cover every env-var shape we've actually
   //    needed in 9.1's audit (37 references, 25 distinct vars).
   const rawEnvSource = options.envSource ?? process.env;
-  const runMode = parseRunMode(rawEnvSource["KUMIKO_DRY_RUN_ENV"]);
-  const composedEnvSchema = options.envSchema;
+  const runMode = parseRunMode(rawEnvSource[DRY_RUN_ENV_VAR]);
+  const composedEnvSchema = requireEnvSchema(options.envSchema);
+  const effectiveEnvSchema = options.masterKey
+    ? withOptionalEnvKeys(composedEnvSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
+    : composedEnvSchema.schema;
+  const reportBootError = (err: KumikoBootError): void => {
+    const reporter = options.bootErrorReporter ?? defaultBootErrorReporter;
+    reporter(err);
+  };
   const validateEnv = (source: Record<string, string | undefined>): void => {
-    // skip: app declares no env schema, nothing to validate
-    if (!composedEnvSchema) return;
     try {
-      const schema = options.masterKey
-        ? withOptionalEnvKeys(composedEnvSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
-        : composedEnvSchema.schema;
-      parseEnv(schema, source, {
+      parseEnv(effectiveEnvSchema, source, {
         sources: composedEnvSchema.sources,
         ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
       });
     } catch (err) {
-      if (err instanceof KumikoBootError) {
-        const reporter = options.bootErrorReporter ?? defaultBootErrorReporter;
-        reporter(err);
-      }
+      if (err instanceof KumikoBootError) reportBootError(err);
       throw err;
     }
   };
-  if (options.envSchema) {
-    if (isRenderMode(runMode)) {
-      // biome-ignore lint/suspicious/noConsole: dry-run output IS the deliverable
-      console.log(
-        renderDryRun(options.envSchema, runMode, {
-          ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
-          sources: options.envSchema.sources,
-        }),
+  if (isRenderMode(runMode)) {
+    // biome-ignore lint/suspicious/noConsole: dry-run output IS the deliverable
+    console.log(
+      renderDryRun(composedEnvSchema, runMode, {
+        ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
+        sources: composedEnvSchema.sources,
+      }),
+    );
+    // Tests inject envSource and want a return-value, not exit. Detecting
+    // "this is a test" via envSource is brittle; instead exit when running
+    // against the real process.env (the deploy-flow), return otherwise.
+    if (options.envSource === undefined) {
+      process.exit(0);
+    }
+    return makeDryRunHandle();
+  }
+  if (runMode === "boot") {
+    const inspection = inspectEnv(effectiveEnvSchema, rawEnvSource, {
+      sources: composedEnvSchema.sources,
+    });
+    // biome-ignore lint/suspicious/noConsole: boot-mode output IS the deliverable
+    console.log(renderEnvInspection(inspection));
+    const invalid = inspection.filter((row) => row.status === "invalid");
+    if (invalid.length > 0) {
+      reportBootError(
+        new KumikoBootError(
+          invalid.map((row) => ({
+            name: row.name,
+            kind: "invalid" as const,
+            message: row.message ?? "invalid value",
+            source: row.source,
+          })),
+        ),
       );
-      // Tests inject envSource and want a return-value, not exit. Detecting
-      // "this is a test" via envSource is brittle; instead exit when running
-      // against the real process.env (the deploy-flow), return otherwise.
+      return makeDryRunHandle();
+    }
+    // A build pipeline has no deploy secrets: the inventory is the result,
+    // and the wiring check below needs every value, so it stops here.
+    if (inspection.some((row) => row.status === "missing")) {
       if (options.envSource === undefined) {
         process.exit(0);
       }
       return makeDryRunHandle();
     }
-    // boot-mode AND normal-boot both run env-validation. boot-mode wants
-    // a real env-check (all required vars present + schema-valid) before
-    // it asserts feature-wiring works.
-    validateEnv(rawEnvSource);
   }
+  // boot-mode with a complete env AND normal boot run the full validation,
+  // including object-level refinements the per-field check skips.
+  validateEnv(rawEnvSource);
 
   // Slots the schema marks `kms` are decrypted once here so every consumer
   // below (boot probe, master-key keyring, config) sees the same resolved env.
-  const envSource: Record<string, string | undefined> = options.envSchema
-    ? await resolvePlatformKeks(rawEnvSource, {
-        slots: kmsSlotsOf(options.envSchema.schema),
-        logPrefix: "[runProdApp]",
-      })
-    : rawEnvSource;
+  const envSource: Record<string, string | undefined> = await resolvePlatformKeks(rawEnvSource, {
+    slots: kmsSlotsOf(composedEnvSchema.schema),
+    logPrefix: "[runProdApp]",
+  });
   // The first parse relaxes ciphertext-only slots, so their decrypted
   // plaintext never met the slot's own validators (.regex/.min/.refine).
   if (
-    options.envSchema &&
-    kmsSlotsOf(options.envSchema.schema).some(
+    kmsSlotsOf(composedEnvSchema.schema).some(
       (slot) => rawEnvSource[slot] === undefined && envSource[slot] !== undefined,
     )
   ) {
@@ -1176,6 +1225,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // über die auth-routes.
   // Secure-by-default (#1372): sessionStore provider → resolveSessionStore.
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
+  if (mfaFeature) bindMfaTokenSecretsFromFeature(mfaFeature)?.(jwtSecret, envSource);
   if (mfaFeature && registry.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined) {
     throw new Error(
       `[runProdApp] auth-mfa is mounted but ${AuthHandlers.switchTenantMfaGate} is not registered: ` +

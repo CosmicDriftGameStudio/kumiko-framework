@@ -817,7 +817,9 @@ bun run boot
 \`\`\`
 
 Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature composition
-+ env schema, exits 0 without touching DB/Redis. Useful in CI. It needs
++ env schema, exits 0 without touching DB/Redis. Useful in CI. It prints every
+variable with its feature and status, never the value. An invalid value exits 1;
+a missing one exits 0 without validating the wiring, so set
 \`DEMO_ADMIN_PASSWORD\` (min 12 chars, \`openssl rand -hex 24\`) in \`.env\`.
 
 Without \`PLATFORM_KEK\` / \`SUBJECT_KEYS_DATABASE_URL\` / \`KUMIKO_BLIND_INDEX_KEY\`
