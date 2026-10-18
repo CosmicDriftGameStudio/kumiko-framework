@@ -1,4 +1,8 @@
-export { createEmailChannel, type EmailChannelOptions } from "./email-channel.js";
+export {
+  createEmailChannel,
+  type EmailChannelOptions,
+  type TenantTransportResolver,
+} from "./email-channel.js";
 export { createChannelEmailFeature } from "./feature.js";
 export { guardEmailMessage, withPiiCiphertextGuard } from "./pii-guard.js";
 export {

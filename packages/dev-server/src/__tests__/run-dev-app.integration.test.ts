@@ -7,6 +7,10 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import {
+  DELIVERY_UNSUBSCRIBE_PATH,
+  signUnsubscribeToken,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
@@ -408,5 +412,45 @@ describe("runDevApp — default PII KMS on an ephemeral DB", () => {
     await handle.stop();
     handle = undefined;
     expect(configuredPiiSubjectKms()).toBe(replacement);
+  });
+});
+
+describe("runDevApp — unsubscribe option mounts the framework unsubscribe routes", () => {
+  const UNSUBSCRIBE_SECRET = "dev-unsubscribe-secret-at-least-32-chars";
+
+  async function confirmPageFor(h: KumikoServerHandle): Promise<Response> {
+    const token = await signUnsubscribeToken(
+      {
+        userId: "u-1",
+        tenantId: TestUsers.systemAdmin.tenantId,
+        notificationType: "shop:notify:news",
+        channel: "email",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+    return h.fetch(
+      new Request(`http://test${DELIVERY_UNSUBSCRIBE_PATH}?token=${encodeURIComponent(token)}`),
+    );
+  }
+
+  test("with the option, a signed link opens the confirmation page", async () => {
+    handle = await runDevApp({
+      features: [validFeature()],
+      port: 0,
+      unsubscribe: { secret: UNSUBSCRIBE_SECRET },
+      envSource: { ...process.env, APP_BASE_URL: "http://localhost:3000" },
+    });
+    const res = await confirmPageFor(handle);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain(
+      `<form method="post" action="${DELIVERY_UNSUBSCRIBE_PATH}">`,
+    );
+  });
+
+  test("without the option, the path is not served", async () => {
+    handle = await runDevApp({ features: [validFeature()], port: 0 });
+    const res = await confirmPageFor(handle);
+    expect(res.status).not.toBe(200);
+    expect(await res.text()).not.toContain(`action="${DELIVERY_UNSUBSCRIBE_PATH}"`);
   });
 });

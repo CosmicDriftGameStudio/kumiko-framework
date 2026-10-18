@@ -163,16 +163,19 @@ const NO_SELECTOR_GATING: SelectorGating = {
 type HubContext = {
   readonly declaredTranslationKeys: ReadonlySet<string>;
   readonly selectorOptions: ReadonlyMap<string, readonly string[]>;
+  readonly selectorOptionFeatures: ReadonlyMap<string, ReadonlyMap<string, string>>;
   readonly translationsByKey: ReadonlyMap<string, TranslationEntry>;
 };
 
 // Verbatim (unprefixed) keys as the client sees them — NOT getAllTranslations()
 // (server-merged, "feature:"-prefixed, see build-app-schema.ts:77-81).
+// Merged per locale: a locale feature (localeDe) declares the same key with only its
+// own language, and mounted first it must not drop the owning feature's en text.
 function collectDeclaredTranslations(registry: Registry): ReadonlyMap<string, TranslationEntry> {
   const declared = new Map<string, TranslationEntry>();
   for (const f of registry.features.values()) {
     for (const [key, values] of Object.entries(f.translations ?? {})) {
-      if (!declared.has(key)) declared.set(key, values);
+      declared.set(key, { ...values, ...declared.get(key) });
     }
   }
   return declared;
@@ -185,6 +188,23 @@ function collectSelectorOptions(registry: Registry): Map<string, readonly string
     if (pluginIds.length > 0) options.set(selectorKey, pluginIds);
   }
   return options;
+}
+
+// selector key → plugin id → plugin feature, for every selectable plugin, also those
+// without settings of their own (no panel, but still an option with a name).
+function collectSelectorOptionFeatures(
+  registry: Registry,
+): Map<string, ReadonlyMap<string, string>> {
+  const byKey = new Map<string, ReadonlyMap<string, string>>();
+  for (const [extensionName, selectorKey] of registry.getAllExtensionSelectors()) {
+    const featureByPluginId = new Map<string, string>();
+    for (const usage of registry.getExtensionUsages(extensionName)) {
+      if (usage.featureName === undefined || featureByPluginId.has(usage.entityName)) continue;
+      featureByPluginId.set(usage.entityName, toKebab(usage.featureName));
+    }
+    byKey.set(selectorKey, featureByPluginId);
+  }
+  return byKey;
 }
 
 function collectVisibleSelectorOwners(
@@ -401,7 +421,7 @@ function buildSelectorOwnerDashboard(
   const translations: Record<string, TranslationEntry> = {};
 
   translations[`screen:${selectionScreenId}.title`] = PROVIDER_PANEL_TITLE_ENTRY;
-  Object.assign(translations, providerOptionTranslations(selectionScreen, plugins, hub));
+  Object.assign(translations, providerOptionTranslations(selectionScreen, hub));
 
   for (const plugin of plugins) {
     const visibleWhen = {
@@ -473,6 +493,13 @@ function buildSelectorOwnerDashboard(
 // Everything generated for one audience scope: the audience-parent nav, the
 // per-feature configEdit screens+navs, and (tenant-scope only, when secrets
 // are enabled) the secrets screen. Null when nothing is visible at this scope.
+// The secrets set handler also admits the machine role for server-side writes; like the
+// config keys' write roles, that role must not reach a screen or nav access gate.
+function withoutMachineRole(rule: AccessRule | undefined): AccessRule | undefined {
+  if (rule === undefined || !("roles" in rule)) return rule;
+  return { ...rule, roles: rule.roles.filter((role) => role !== MACHINE_WRITE_ROLE) };
+}
+
 function buildScopeResult(
   scope: ConfigScope,
   masked: readonly MaskedKey[],
@@ -489,7 +516,7 @@ function buildScopeResult(
   if (visible.length === 0 && !includeSecrets) return null;
 
   const configAccess = rolesToAccess(visible.flatMap((v) => v.roles));
-  const secretsAccess = secretsWriteHandler?.access;
+  const secretsAccess = withoutMachineRole(secretsWriteHandler?.access);
   const gating =
     scope === "tenant"
       ? planSelectorGating(registry, visible, declaredSecrets, secretsEnabled)
@@ -540,6 +567,7 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
   const hub: HubContext = {
     declaredTranslationKeys: new Set(translationsByKey.keys()),
     selectorOptions: collectSelectorOptions(registry),
+    selectorOptionFeatures: collectSelectorOptionFeatures(registry),
     translationsByKey,
   };
 
@@ -669,7 +697,12 @@ function buildSecretsEditScreen(
       if (s.def.required === true) requiredFields.push(fieldId);
       if (s.def.writeRoles !== undefined) fieldAccess[fieldId] = { roles: [...s.def.writeRoles] };
     }
-    const titleKey = `${feature}.settings`;
+    // Opt-in `${feature}.settings.secrets`: in a selector dashboard this section sits right
+    // under the plugin's own settings section, which already carries `${feature}.settings`.
+    const secretsTitleKey = `${feature}.settings.secrets`;
+    const titleKey = declaredTranslationKeys.has(secretsTitleKey)
+      ? secretsTitleKey
+      : `${feature}.settings`;
     sections.push({
       ...(declaredTranslationKeys.has(titleKey) && { title: titleKey }),
       fields: fieldIds,
@@ -864,16 +897,16 @@ type ScreenOptions = {
 // copy, under the option-label key the configEdit renderer already derives.
 function providerOptionTranslations(
   selectionScreen: ConfigEditScreenDefinition,
-  plugins: readonly GatedPlugin[],
   hub: HubContext,
 ): Record<string, TranslationEntry> {
   const out: Record<string, TranslationEntry> = {};
   for (const [fieldId, qn] of Object.entries(selectionScreen.configKeys)) {
-    if (!hub.selectorOptions.has(qn)) continue;
-    for (const plugin of plugins) {
-      const label = hub.translationsByKey.get(`${plugin.feature}.settings`);
+    const featureByPluginId = hub.selectorOptionFeatures.get(qn);
+    if (featureByPluginId === undefined) continue;
+    for (const [pluginId, feature] of featureByPluginId) {
+      const label = hub.translationsByKey.get(`${feature}.settings`);
       if (label === undefined) continue;
-      const key = `${fieldLabelKey(SETTINGS_HUB_FEATURE, CONFIG_EDIT_ENTITY, fieldId)}:option:${plugin.pluginId}`;
+      const key = `${fieldLabelKey(SETTINGS_HUB_FEATURE, CONFIG_EDIT_ENTITY, fieldId)}:option:${pluginId}`;
       out[key] = label;
     }
   }

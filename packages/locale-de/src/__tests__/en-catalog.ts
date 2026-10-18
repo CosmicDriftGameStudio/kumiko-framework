@@ -1716,4 +1716,33 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Sent through the tenant's normal delivery path to your own address.",
   "documentDesigner.mail.testMail.sent": "Test mail sent to your address: {subject}",
   "documentDesigner.mail.testMail.rateLimited": "Too many test mails, please try again later.",
+  "screen:mail-foundation-tenant.title": "Email sending",
+  "mail-foundation.settings": "Email sending",
+  "mail-foundation.provider": "Own mail server",
+  "mail-foundation.provider.description":
+    "Without one, the platform sends the mails. Reset the choice to go back to that.",
+  "screen:mail-transport-smtp-tenant.title": "SMTP server",
+  "mail-transport-inmemory.settings": "Test inbox (in memory)",
+  "mail-transport-smtp.settings": "SMTP server",
+  "screen:mail-foundation-tenant-selection.title": "Provider",
+  "config:entity:__config-edit__:field:provider:option:inmemory": "Test inbox (in memory)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "SMTP server",
+  "mail-transport-smtp.settings.secrets": "SMTP sign-in",
+  "mail-transport-smtp.settings.description":
+    "The connection details come from your mail provider, for example Brevo, Postmark, Amazon SES or your own server.",
+  "mail-transport-smtp.host": "Server address",
+  "mail-transport-smtp.host.description":
+    "Host name of the SMTP server, for example smtp.example.com.",
+  "mail-transport-smtp.port": "Port number",
+  "mail-transport-smtp.port.description":
+    "Usually 587. Use 465 when your provider asks for SSL/TLS.",
+  "mail-transport-smtp.secure": "SSL/TLS from the start",
+  "mail-transport-smtp.secure.description":
+    "Turn on for port 465. Leave off for 587, which switches to encryption by itself.",
+  "mail-transport-smtp.authUser": "User name",
+  "mail-transport-smtp.authUser.description":
+    "Login name at the SMTP server, often an email address.",
+  "mail-transport-smtp.from": "Sender address",
+  "mail-transport-smtp.from.description":
+    "The address mails are sent from, for example status@example.com. Your provider must allow it.",
 };

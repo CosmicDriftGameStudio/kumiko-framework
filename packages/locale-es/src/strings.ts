@@ -1757,4 +1757,32 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.sent": "Correo de prueba enviado a tu dirección: {subject}",
   "documentDesigner.mail.testMail.rateLimited":
     "Demasiados correos de prueba, inténtalo de nuevo más tarde.",
+  "screen:mail-foundation-tenant.title": "Envío de correo",
+  "mail-foundation.settings": "Envío de correo",
+  "mail-foundation.provider": "Servidor de correo propio",
+  "mail-foundation.provider.description":
+    "Sin él, la plataforma envía los correos. Restablece la selección para volver a eso.",
+  "screen:mail-transport-smtp-tenant.title": "Servidor SMTP",
+  "mail-transport-inmemory.settings": "Buzón de prueba (en memoria)",
+  "mail-transport-smtp.settings": "Servidor SMTP",
+  "screen:mail-foundation-tenant-selection.title": "Proveedor",
+  "config:entity:__config-edit__:field:provider:option:inmemory": "Buzón de prueba (en memoria)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Servidor SMTP",
+  "mail-transport-smtp.settings.secrets": "Acceso SMTP",
+  "mail-transport-smtp.settings.description":
+    "Los datos de conexión te los da tu proveedor de correo, por ejemplo Brevo, Postmark, Amazon SES o tu propio servidor.",
+  "mail-transport-smtp.host": "Dirección del servidor",
+  "mail-transport-smtp.host.description":
+    "Nombre de host del servidor SMTP, por ejemplo smtp.example.com.",
+  "mail-transport-smtp.port": "Puerto",
+  "mail-transport-smtp.port.description": "Normalmente 587. Usa 465 si tu proveedor pide SSL/TLS.",
+  "mail-transport-smtp.secure": "SSL/TLS desde el inicio",
+  "mail-transport-smtp.secure.description":
+    "Actívalo para el puerto 465. Déjalo desactivado para 587, que activa el cifrado por sí mismo.",
+  "mail-transport-smtp.authUser": "Nombre de usuario",
+  "mail-transport-smtp.authUser.description":
+    "Nombre de inicio de sesión en el servidor SMTP, a menudo una dirección de correo.",
+  "mail-transport-smtp.from": "Dirección del remitente",
+  "mail-transport-smtp.from.description":
+    "La dirección desde la que se envían los correos, por ejemplo status@example.com. Tu proveedor debe permitirla.",
 };

@@ -627,6 +627,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       readonly renamedFrom?: readonly string[];
       readonly systemOnly?: boolean;
       readonly unsubscribe?: boolean;
+      readonly tenantTransport?: boolean;
     },
   ): void;
   notification(definition: {
@@ -643,6 +644,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     readonly renamedFrom?: readonly string[];
     readonly systemOnly?: boolean;
     readonly unsubscribe?: boolean;
+    readonly tenantTransport?: boolean;
   }): void;
 
   translations(def: TranslationsDef): void;

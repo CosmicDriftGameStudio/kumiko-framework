@@ -12,7 +12,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { lookup } from "node:dns/promises";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  defineFeature,
+  defineWriteHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -373,5 +377,53 @@ describe("scenario 5: mail-host guard", () => {
     } finally {
       delete process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
     }
+  });
+});
+
+// A boot migration moves an app's own SMTP settings into these keys from a wire hook,
+// which only has dispatchSystemWrite (system identity plus SystemAdmin).
+describe("server-side writes of the tenant mail settings", () => {
+  test("the system identity writes the provider, the SMTP keys and the password", async () => {
+    const tenantId = testTenantId(470);
+    const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
+    const writes = [
+      {
+        qn: ConfigHandlers.set,
+        payload: { key: "mail-transport-smtp:config:host", value: "smtp.test" },
+      },
+      {
+        qn: ConfigHandlers.set,
+        payload: { key: "mail-transport-smtp:config:auth-user", value: "u" },
+      },
+      {
+        qn: ConfigHandlers.set,
+        payload: { key: "mail-transport-smtp:config:from", value: "a@b.test" },
+      },
+      { qn: "secrets:write:set", payload: { key: SMTP_PASSWORD.name, value: "migrated-password" } },
+      {
+        qn: ConfigHandlers.set,
+        payload: { key: "mail-foundation:config:provider", value: "smtp" },
+      },
+    ];
+    for (const write of writes) {
+      const result = await stack.dispatcher.write(write.qn, write.payload, systemUser);
+      expect(result.isSuccess, write.qn).toBe(true);
+    }
+    const built = await stack.dispatcher.write(TEST_HANDLER_QN, {}, systemUser);
+    expect(built).toMatchObject({ isSuccess: true, data: { hasSend: true } });
+  });
+
+  test("a platform admin without the tenant admin role cannot set a tenant's provider", async () => {
+    const platformAdmin = createTestUser({
+      id: 471,
+      tenantId: testTenantId(471),
+      roles: ["SystemAdmin"],
+    });
+    const denied = await stack.http.writeErr(
+      ConfigHandlers.set,
+      { key: "mail-foundation:config:provider", value: "smtp" },
+      platformAdmin,
+    );
+    expect(denied.code).toBe("access_denied");
   });
 });

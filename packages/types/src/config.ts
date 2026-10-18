@@ -588,6 +588,9 @@ export type NotificationDefinition = {
   // delivery adds a signed data.unsubscribeUrl per recipient, so the mail carries List-Unsubscribe
   // (and one-click) without app code; a caller-supplied unsubscribeUrl wins.
   readonly unsubscribe?: boolean;
+  // channel-email sends it through the tenant's own mail transport when the channel has a
+  // tenantTransport; every other notification goes through the app transport.
+  readonly tenantTransport?: boolean;
 };
 
 // --- Translations ---

@@ -6,6 +6,7 @@ import {
   type AttachmentOrigin,
   type ChannelContext,
   type ChannelMessage,
+  currentNotificationType,
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   DELIVERY_UNSUBSCRIBE_PATH,
   type DeliveryChannel,
@@ -163,17 +164,35 @@ async function resolveAttachments(
   return { kind: "resolved", attachments: resolved };
 }
 
-export type EmailChannelOptions = {
-  /** The app-wide transport, used for every tenant `tenantTransport` returns null for. */
-  readonly transport: EmailTransport;
-  /** Resolves the sending tenant's own transport, null when it has none. Built per send and
-   *  never cached, so a provider change applies to the next mail; a throw fails the send. */
-  readonly tenantTransport?: (ctx: ChannelContext) => Promise<EmailTransport | null>;
+/** Resolves the sending tenant's own transport, null when it has none. Built per send and
+ *  never cached, so a provider change applies to the next mail; a throw fails the send. */
+export type TenantTransportResolver = (ctx: ChannelContext) => Promise<EmailTransport | null>;
+
+// The app transport may only be left out when tenant transports exist: a channel with
+// neither could never send.
+type EmailChannelTransports =
+  | {
+      /** The app-wide transport for every mail that does not go through a tenant transport. */
+      readonly transport: EmailTransport;
+      /** Used only for notifications declared with `tenantTransport: true`. */
+      readonly tenantTransport?: TenantTransportResolver;
+    }
+  | {
+      readonly transport?: undefined;
+      readonly tenantTransport: TenantTransportResolver;
+    };
+
+export type EmailChannelOptions = EmailChannelTransports & {
   readonly resolveEmail: (
     userId: string,
     ctx: { db: unknown; tenantId: TenantId },
   ) => Promise<string | null>;
 };
+
+function isTenantTransportNotification(ctx: ChannelContext, notificationType: string): boolean {
+  const current = currentNotificationType(ctx.registry, notificationType);
+  return ctx.registry.getAllNotifications().get(current)?.tenantTransport === true;
+}
 
 export function createEmailChannel(options: EmailChannelOptions): DeliveryChannel {
   const { transport, resolveEmail, tenantTransport } = options;
@@ -213,8 +232,12 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
     };
   }
 
-  async function transportFor(ctx: ChannelContext): Promise<EmailTransport> {
+  async function transportFor(
+    message: ChannelMessage,
+    ctx: ChannelContext,
+  ): Promise<EmailTransport | undefined> {
     if (tenantTransport === undefined) return transport;
+    if (!isTenantTransportNotification(ctx, message.notificationType)) return transport;
     return (await tenantTransport(ctx)) ?? transport;
   }
 
@@ -260,7 +283,15 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
         return { status: "failed", error: "send_failed", address };
       }
       const resolvedAttachments = resolution.attachments;
-      const sendTransport = await transportFor(ctx);
+      const sendTransport = await transportFor(message, ctx);
+      if (sendTransport === undefined) {
+        // Configuration, not a transient error: a retry cannot conjure a transport.
+        createFallbackLogger("delivery").warn("no mail transport for this mail, send failed", {
+          tenantId: ctx.tenantId,
+          notificationType: message.notificationType,
+        });
+        return { status: "failed", error: "missing_credentials", address };
+      }
       await sendTransport.send(
         guardEmailMessage({
           to: address,

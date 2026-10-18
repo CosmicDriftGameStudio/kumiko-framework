@@ -60,6 +60,7 @@ const tenantOrigins = new Map<TenantId, () => Promise<string | null>>([
 ]);
 
 const optOutsSeenByApp: Array<{ payload: UnsubscribeAddressPayload; tenantId: TenantId }> = [];
+const rawOptOutJobPayloads: unknown[] = [];
 
 const appFeature = defineFeature("unsub-origin", (r) => {
   r.requires({ features: ["delivery"] });
@@ -70,6 +71,7 @@ const appFeature = defineFeature("unsub-origin", (r) => {
     async (payload, ctx) => {
       const tenantId = ctx.triggeredBy?.tenantId;
       if (tenantId === undefined) throw new Error("opt-out job without a tenant");
+      rawOptOutJobPayloads.push(payload);
       optOutsSeenByApp.push({ payload: unsubscribeAddressPayloadSchema.parse(payload), tenantId });
     },
   );
@@ -246,6 +248,22 @@ describe("app hook after an address opt-out", () => {
         tenantId: tenantWithOrigin,
       },
     ]);
+  });
+
+  test("the job payload carries only the address hash, never the address", async () => {
+    const address = "Pii.Reader@external.test";
+    const link = await mailNews(address, tenantWithOrigin);
+    rawOptOutJobPayloads.length = 0;
+
+    expect((await oneClick(link)).status).toBe(200);
+    await stack.drainJobs();
+
+    expect(rawOptOutJobPayloads).toHaveLength(1);
+    const [raw] = rawOptOutJobPayloads;
+    expect(Object.keys(raw ?? {}).sort()).toEqual(["addressHash", "channel", "notificationType"]);
+    const serialized = JSON.stringify(raw).toLowerCase();
+    expect(serialized).not.toContain("pii.reader");
+    expect(serialized).not.toContain("external.test");
   });
 
   test("a forged token opts nobody out and fires no job", async () => {

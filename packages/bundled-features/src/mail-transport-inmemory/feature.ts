@@ -96,6 +96,9 @@ export function createMailTransportInMemoryFeature() {
         }, // @wrapper-known semantic-alias
       };
       r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
+      r.translations({
+        keys: { "mail-transport-inmemory.settings": { en: "Test inbox (in memory)" } },
+      });
     },
     { dedupeOptions: {} },
   );

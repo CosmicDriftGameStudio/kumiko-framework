@@ -1,7 +1,9 @@
-// With mail-foundation mounted the email channel sends through the tenant's own
-// provider; tenants without a provider fall back to the app transport. A tenant
-// whose provider is configured but broken must fail, never fall back silently.
-// A provider that reads a tenant secret must get that tenant's secret, inline and in jobs.
+// With mail-foundation mounted the email channel sends notifications flagged
+// `tenantTransport: true` through the tenant's own provider; tenants without a provider
+// fall back to the app transport. A tenant whose provider is configured but broken must
+// fail, never fall back silently. Unflagged notifications (password reset and the like)
+// always take the app transport. A provider that reads a tenant secret must get that
+// tenant's secret, inline and in jobs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -92,6 +94,23 @@ const keyedProviderFeature = defineFeature("mail-transport-keyed", (r) => {
   return { apiKey };
 });
 
+const TENANT_ROUTED_NOTIFICATIONS = [
+  "tenant-a",
+  "tenant-b",
+  "tenant-c",
+  "tenant-broken",
+  "tenant-b-job",
+  "keyed-e",
+  "keyed-f",
+  "keyed-e-job",
+  "keyed-f-job",
+] as const;
+
+const appNotificationsFeature = defineFeature("app", (r) => {
+  for (const name of TENANT_ROUTED_NOTIFICATIONS) r.notification(name, { tenantTransport: true });
+  r.notification("password-reset", {});
+});
+
 const tenantA: TenantId = testTenantId(601);
 const tenantB: TenantId = testTenantId(602);
 const tenantWithoutProvider: TenantId = testTenantId(603);
@@ -136,6 +155,7 @@ beforeAll(async () => {
       createMailTransportInMemoryFeature(),
       brokenProviderFeature,
       keyedProviderFeature,
+      appNotificationsFeature,
       createPlainFallbackEmailFeature({
         transport: appTransport,
         tenantTransport: tenantMailTransport,
@@ -278,6 +298,19 @@ describe("channel-email resolves the transport per tenant", () => {
 
     expect(appTransport.sent).toHaveLength(0);
     expect(await attemptStatuses(type)).toEqual(["failed"]);
+  });
+
+  test("an unflagged notification takes the app transport even where the tenant provider is broken", async () => {
+    clearInbox(tenantA);
+    appTransport.sent.length = 0;
+    await notifyInline(tenantBrokenProvider, "reset-d@test.local", "app:notify:password-reset");
+    await notifyInline(tenantA, "reset-a@test.local", "app:notify:password-reset");
+
+    expect(appTransport.sent.map((m) => m.to)).toEqual([
+      "reset-d@test.local",
+      "reset-a@test.local",
+    ]);
+    expect(getInbox(tenantA)).toHaveLength(0);
   });
 
   test("the render and send jobs resolve the transport from the job's tenant config", async () => {

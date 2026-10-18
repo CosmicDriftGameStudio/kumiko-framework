@@ -7,7 +7,7 @@ import {
   EMAIL_CHANNEL_NAME,
 } from "../../delivery/index.js";
 import { fileContextForTenant } from "../../file-foundation/index.js";
-import { TEST_MAIL_NOTIFICATION_TYPE, TEST_MAIL_SUBJECT_PREFIX } from "../constants.js";
+import { TEST_MAIL_SUBJECT_PREFIX } from "../constants.js";
 import { TemplateResolverErrors } from "../qualified-names.js";
 import { renderTemplatePreview } from "../template-preview.js";
 import { localeSchema, templateSlugSchema } from "./shared.js";
@@ -75,6 +75,7 @@ export const sendTestWrite = defineWriteHandler({
       sseBroker: undefined,
       tenantId: event.user.tenantId,
       secrets: ctx.secrets,
+      config: ctx.config,
       readAttachment: createEmailAttachmentReader(
         ctx.db,
         ctx.registry,
@@ -98,7 +99,8 @@ export const sendTestWrite = defineWriteHandler({
       const result = await channel.send(
         address,
         {
-          notificationType: TEST_MAIL_NOTIFICATION_TYPE,
+          // The template slug is the notification name, so the test mail takes the transport the real mail takes.
+          notificationType: event.payload.slug,
           title: subject,
           body: undefined,
           data: undefined,
