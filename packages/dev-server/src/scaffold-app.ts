@@ -1,17 +1,18 @@
 // scaffoldApp — generate a runnable Kumiko app workspace from a name.
 //
 // Used by `kumiko new app <name>`. Produces the minimal app shape that
-// `KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts` runs successfully against:
-// run-config with 5 foundation features, bin/main.ts with auth-admin
-// stub, package.json with @cosmicdrift/* deps, tsconfig, .env.example,
-// README.
+// `KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts` and `kumiko check` run green
+// against. Every framework-owned file (deploy, workflows, bunfigs, presets,
+// kumiko/schema.ts) comes from the managed-files registry, the same renders
+// `kumiko check managed` compares against.
 //
 // Generated files are emitted already formatted to Biome's output (import
 // order, 100-col wrapping, trailing commas) so a fresh app passes `biome check`.
 // Static files (package.json, tsconfig, .env, README) stay text-based.
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { APP_CONFIG_FILE } from "@cosmicdrift/kumiko-framework/config";
 import {
   collectTableMetas,
   generateMigration,
@@ -20,6 +21,7 @@ import {
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { isKebabSegment } from "./kebab.js";
+import { PREPARE_SCRIPT, resolveManagedAppFacts, syncManagedFiles } from "./managed-files/index.js";
 import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.js";
 import {
   createDemoTasksFeature,
@@ -29,7 +31,6 @@ import {
   renderDemoTasksIndex,
   renderDemoTasksWebIndex,
 } from "./scaffold-demo-tasks.js";
-import { scaffoldDeploy } from "./scaffold-deploy.js";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
 // importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
@@ -86,9 +87,9 @@ export type ScaffoldAppOptions = {
    *  (the historical foundation). create-kumiko-app passes the picker output
    *  here so the generated APP_FEATURES reflects the user's selection. */
   readonly features?: ReadonlyArray<ScaffoldFeatureEntry>;
-  /** Test wiring (bunfigs, scripts, example tests, e2e) — `renderTestSetup` from
-   *  @cosmicdrift/kumiko-testing/scaffold. Without it the app gets the legacy
-   *  bunfig pair and no example tests. */
+  /** Test wiring (scripts, example tests, e2e) — `renderTestSetup` from
+   *  @cosmicdrift/kumiko-testing/scaffold. Without it the app gets the managed
+   *  bunfigs but no example tests and fewer standard scripts. */
   readonly testSetup?: ScaffoldTestSetupFactory;
 };
 
@@ -119,25 +120,11 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "package.json"), renderPackageJson(options.name, version, testSetup));
   files.push("package.json");
 
-  write(join(destination, "tsconfig.json"), renderTsconfig());
-  files.push("tsconfig.json");
-
   write(join(destination, "kumiko.json"), renderKumikoManifest());
   files.push("kumiko.json");
 
-  write(join(destination, "biome.json"), renderBiomeJson());
-  files.push("biome.json");
-
   write(join(destination, ".gitignore"), SCAFFOLD_GITIGNORE);
   files.push(".gitignore");
-
-  if (testSetup === undefined) {
-    write(join(destination, "bunfig.toml"), renderBunfigToml());
-    files.push("bunfig.toml");
-
-    write(join(destination, "bunfig.ci.toml"), renderBunfigCiToml());
-    files.push("bunfig.ci.toml");
-  }
 
   write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
   files.push("src/run-config.ts");
@@ -157,14 +144,17 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
   files.push("src/seed.ts");
 
-  write(join(destination, "kumiko", "schema.ts"), renderKumikoSchema());
-  files.push("kumiko/schema.ts");
+  write(join(destination, APP_CONFIG_FILE), renderAppConfig());
+  files.push(APP_CONFIG_FILE);
 
   write(join(destination, "bin", "main.ts"), renderMain(options.name));
   files.push("bin/main.ts");
 
-  write(join(destination, "bin", "dev.ts"), renderDev(options.name));
-  files.push("bin/dev.ts");
+  write(join(destination, "bin", "server.ts"), renderServer(options.name));
+  files.push("bin/server.ts");
+
+  write(join(destination, "bin", "env-schema.ts"), renderEnvSchema(options.name));
+  files.push("bin/env-schema.ts");
 
   write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
   files.push("bin/kumiko.ts");
@@ -184,19 +174,21 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   await writeInitMigration(destination, options.features);
   files.push("kumiko/migrations/0001_init.sql", "kumiko/migrations/.snapshot.json");
 
-  const deploy = scaffoldDeploy({ appName: options.name, destination });
-  for (const f of deploy.files) {
-    if (f.written) {
-      files.push(relative(destination, f.path));
-    }
-  }
-
   if (testSetup !== undefined) {
     for (const [rel, content] of Object.entries(testSetup.files)) {
       mkdirSync(dirname(join(destination, rel)), { recursive: true });
       write(join(destination, rel), content);
       files.push(rel);
     }
+  }
+
+  const managedFacts = resolveManagedAppFacts({
+    appRoot: destination,
+    appName: options.name,
+    uiRoots: SCAFFOLD_UI_ROOTS,
+  });
+  for (const action of syncManagedFiles(managedFacts, { write: true, adopt: false })) {
+    if (action.action === "create") files.push(action.path);
   }
 
   write(
@@ -227,15 +219,17 @@ function write(path: string, content: string): void {
 
 function appScripts(testSetup: ScaffoldTestSetup | undefined): Record<string, string> {
   return {
-    dev: "bun --watch bin/dev.ts",
+    dev: "bun --watch bin/server.ts",
     build: "bun kumiko-build",
     start: "bun run bin/main.ts",
     boot: "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
     typecheck: "tsc --noEmit",
     lint: "biome check .",
-    ...(testSetup?.scripts ?? { test: "bun --config=bunfig.ci.toml test --dots" }),
+    check: "kumiko check",
+    ...(testSetup?.scripts ?? { test: "bun --config=bunfig.toml test --dots" }),
     "schema:apply": "bun kumiko-schema apply",
     "schema:generate": "bun kumiko-schema generate",
+    prepare: PREPARE_SCRIPT,
   };
 }
 
@@ -263,6 +257,7 @@ function renderPackageJson(
       },
       devDependencies: sortedByName({
         "@biomejs/biome": SCAFFOLD_BIOME_VERSION,
+        "@cosmicdrift/kumiko-cli": version,
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -279,126 +274,6 @@ function renderPackageJson(
 
 function sortedByName(record: Readonly<Record<string, string>>): Record<string, string> {
   return Object.fromEntries(Object.entries(record).sort(([a], [b]) => (a < b ? -1 : 1)));
-}
-
-function renderTsconfig(): string {
-  return `${JSON.stringify(
-    {
-      compilerOptions: {
-        strict: true,
-        noUncheckedIndexedAccess: true,
-        forceConsistentCasingInFileNames: true,
-        verbatimModuleSyntax: true,
-        target: "ESNext",
-        module: "ESNext",
-        moduleResolution: "bundler",
-        esModuleInterop: true,
-        skipLibCheck: true,
-        lib: ["ESNext", "DOM"],
-        types: ["bun-types"],
-        jsx: "react-jsx",
-        noEmit: true,
-      },
-      include: ["bin", "src", "kumiko", "e2e", "playwright.config.ts"],
-    },
-    null,
-    2,
-  )}\n`;
-}
-
-function renderBiomeJson(): string {
-  return `${JSON.stringify(
-    {
-      $schema: `https://biomejs.dev/schemas/${SCAFFOLD_BIOME_VERSION}/schema.json`,
-      vcs: {
-        enabled: true,
-        clientKind: "git",
-        useIgnoreFile: true,
-        defaultBranch: "main",
-      },
-      files: {
-        includes: [
-          "src/**",
-          "bin/**",
-          "kumiko/**",
-          "e2e/**",
-          "playwright.config.ts",
-          "!**/dist",
-          "!kumiko/migrations",
-        ],
-      },
-      formatter: {
-        enabled: true,
-        indentStyle: "space",
-        indentWidth: 2,
-        lineWidth: 100,
-        lineEnding: "lf",
-      },
-      css: {
-        parser: { cssModules: false, tailwindDirectives: true },
-      },
-      javascript: {
-        formatter: {
-          quoteStyle: "double",
-          jsxQuoteStyle: "double",
-          semicolons: "always",
-          trailingCommas: "all",
-          arrowParentheses: "always",
-        },
-      },
-      json: { formatter: { indentWidth: 2, lineWidth: 80 } },
-      linter: {
-        enabled: true,
-        rules: {
-          preset: "recommended",
-          correctness: { noUnusedVariables: "error", noUnusedImports: "error" },
-          suspicious: { noExplicitAny: "error", noDebugger: "error", noConsole: "warn" },
-          complexity: { useLiteralKeys: "off" },
-          style: { useConst: "error" },
-          nursery: { noFloatingPromises: "error" },
-        },
-      },
-      overrides: [
-        {
-          includes: ["**/*.test.ts", "**/*.spec.ts", "**/*.integration.ts", "**/*.e2e.ts"],
-          linter: {
-            rules: {
-              suspicious: { noConsole: "off" },
-              style: { noNonNullAssertion: "off" },
-            },
-          },
-        },
-      ],
-    },
-    null,
-    2,
-  )}\n`;
-}
-
-function renderBunfigToml(): string {
-  return `[install]
-linker = "hoisted"
-
-[test]
-pathIgnorePatterns = [
-  "**/e2e/**",
-  "**/*.spec.ts",
-  "**/dist/**",
-]
-`;
-}
-
-function renderBunfigCiToml(): string {
-  return `[install]
-linker = "hoisted"
-
-[test]
-pathIgnorePatterns = [
-  "**/e2e/**",
-  "**/*.spec.ts",
-  "**/dist/**",
-]
-`;
 }
 
 const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
@@ -533,46 +408,53 @@ ${passwordAndExtras}
   },`;
 }
 
-function renderMain(appName: string): string {
-  const tenantId = deriveTenantId(appName);
-  const imports = renderSortedImports([
-    { specifier: "@cosmicdrift/kumiko-dev-server/env-schema", names: ["frameworkCoreEnvSchema"] },
-    { specifier: "@cosmicdrift/kumiko-server-runtime", names: ["composeFeatures", "runProdApp"] },
-    { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
-    { specifier: "@cosmicdrift/kumiko-framework/env", names: ["composeEnvSchema"] },
-    {
-      specifier: "@cosmicdrift/kumiko-framework/crypto",
-      names: ["requireKmsWiring", "resolveKmsWiring"],
-    },
-    { specifier: "zod", names: ["z"] },
-    { specifier: "../src/run-config", names: ["APP_FEATURES", "HAS_AUTH"] },
-  ]);
-  const authBlock = renderAdminAuthBlock(appName, [
-    "// runProdApp validates envSchema before seeding: a missing or short value aborts the boot.",
-    'password: process.env["DEMO_ADMIN_PASSWORD"] ?? "",',
-    'displayName: "Admin",',
-  ]);
+// Ports match runDevApp's default and kumiko-testing's SCAFFOLD_E2E_PORT.
+const SCAFFOLD_DEV_PORT = 4173;
+const SCAFFOLD_E2E_PORT = 4174;
 
-  // The envSchema must cover the SAME features runProdApp mounts at boot:
-  // `auth: { admin: … }` makes runProdApp auto-mix config/user/tenant/
-  // auth-email-password, so the JWT_SECRET (min-32) declaration has to be part
-  // of the boot-gate here too. Subject-key KMS is optional locally (plaintext +
-  // loud warning) but required under NODE_ENV=production (fw#2317 / #2339).
-  return `// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
-// composeFeatures + validateBoot + createRegistry without DB/Redis-connect
-// (see @cosmicdrift/kumiko-server-runtime runProdApp). The real dev boot
-// runs via \`bunx kumiko dev\` (in-repo dev-tool) with a Docker stack — DX-1.0
-// only covers the boot-mode path; \`kumiko dev\` lands in a later DX phase.
+function renderAppConfig(): string {
+  const imports = renderSortedImports([
+    { specifier: "@cosmicdrift/kumiko-framework/config", names: ["defineAppConfig"] },
+    {
+      specifier: "@cosmicdrift/kumiko-server-runtime/compose-features",
+      names: ["composeFeatures"],
+    },
+    { specifier: "./src/run-config", names: ["APP_FEATURES", "HAS_AUTH"] },
+  ]);
+  return `// The one place the tooling reads: features for schema, migrations and agent
+// lint, client entries, and the ports this app claims (see \`kumiko ports\`).
+// features is the composed list, so the bundled auth features count too.
 
 ${imports}
 
-const DEFAULT_TENANT_ID = "${tenantId}" as TenantId;
+export default defineAppConfig({
+  features: composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH }),
+  client: { entries: ["src/client.tsx"] },
+  ports: { dev: ${SCAFFOLD_DEV_PORT}, e2e: ${SCAFFOLD_E2E_PORT} },
+});
+`;
+}
 
-const bootFeatures = composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH });
+function renderEnvSchema(appName: string): string {
+  const imports = renderSortedImports([
+    { specifier: "@cosmicdrift/kumiko-dev-server/env-schema", names: ["frameworkCoreEnvSchema"] },
+    { specifier: "@cosmicdrift/kumiko-framework/config", names: ["allAppFeatures"] },
+    { specifier: "@cosmicdrift/kumiko-framework/env", names: ["composeEnvSchema"] },
+    { specifier: "zod", names: ["z"] },
+  ]);
+  // The schema must cover the SAME features runProdApp mounts at boot:
+  // `auth: { admin: … }` makes runProdApp auto-mix config/user/tenant/
+  // auth-email-password, so their JWT_SECRET (min-32) declaration is part of the
+  // boot gate. kumiko.config.ts already holds that composed list.
+  return `// Env contract of the production processes (bin/main.ts, bin/kumiko.ts).
+// Importing it must not read process.env; validation happens in runProdApp.
 
-const envSchema = composeEnvSchema({
+${imports}
+import appConfig from "../kumiko.config";
+
+export const envSchema = composeEnvSchema({
   core: frameworkCoreEnvSchema,
-  features: bootFeatures,
+  features: allAppFeatures(appConfig),
   extend: z.object({
     DEMO_ADMIN_PASSWORD: z
       .string()
@@ -583,6 +465,36 @@ const envSchema = composeEnvSchema({
       .meta({ kumiko: { pulumi: { secret: true } } }),
   }),
 });
+`;
+}
+
+function renderMain(appName: string): string {
+  const tenantId = deriveTenantId(appName);
+  const imports = renderSortedImports([
+    { specifier: "@cosmicdrift/kumiko-server-runtime", names: ["runProdApp"] },
+    { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
+    {
+      specifier: "@cosmicdrift/kumiko-framework/crypto",
+      names: ["requireKmsWiring", "resolveKmsWiring"],
+    },
+    { specifier: "../src/run-config", names: ["APP_FEATURES"] },
+    { specifier: "./env-schema", names: ["envSchema"] },
+  ]);
+  const authBlock = renderAdminAuthBlock(appName, [
+    "// runProdApp validates envSchema before seeding: a missing or short value aborts the boot.",
+    'password: process.env["DEMO_ADMIN_PASSWORD"] ?? "",',
+    'displayName: "Admin",',
+  ]);
+
+  // Subject-key KMS is optional locally (plaintext + loud warning) but required
+  // under NODE_ENV=production (fw#2317 / #2339).
+  return `// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
+// composeFeatures + validateBoot + createRegistry without DB/Redis-connect
+// (see @cosmicdrift/kumiko-server-runtime runProdApp).
+
+${imports}
+
+const DEFAULT_TENANT_ID = "${tenantId}" as TenantId;
 
 const kmsOpts = {
   logPrefix: "[${appName}]",
@@ -605,7 +517,7 @@ ${authBlock}
 `;
 }
 
-function renderDev(appName: string): string {
+function renderServer(appName: string): string {
   const tenantId = deriveTenantId(appName);
   const imports = renderSortedImports([
     { specifier: "@cosmicdrift/kumiko-dev-server", names: ["runDevApp"] },
@@ -621,7 +533,7 @@ function renderDev(appName: string): string {
     "emailVerified: true,",
   ]);
 
-  return `// Dev bootstrap. \`bun --watch bin/dev.ts\` (see package.json scripts.dev)
+  return `// Dev bootstrap. \`bun --watch bin/server.ts\` (see package.json scripts.dev)
 // starts a full-featured dev server with auto-reload on code changes.
 // setupTestStack creates missing entity tables automatically — a new
 // r.entity(...) in a feature becomes a CREATE TABLE on the next reboot,
@@ -849,13 +761,23 @@ bun run schema:generate <name>
 \`deploy/Dockerfile\` + \`deploy/migrate-step.sh\` are scaffolded for container
 deploys. Build context = app repo root; migrations ship in \`kumiko/migrations/\`.
 
+## Managed files
+
+Files whose first line reads \`kumiko-managed\` (deploy/, .github/workflows/,
+.husky/pre-push, the bunfigs, kumiko/schema.ts) belong to the framework.
+\`bun run check\` reports drift against the installed version;
+\`bunx kumiko sync-managed --write\` restores them. To keep a local change, add
+\`# kumiko-managed: local <reason>\` as line 2.
+
 ## Architecture
 
 - \`src/run-config.ts\` — single source of truth: which features your app mounts (\`APP_FEATURES\`, \`HAS_AUTH\`).
 - \`src/features/tasks/\` — demo feature (entity + handlers + screens + nav).
 - \`src/seed.ts\` — dev seed for demo tasks (\`bun dev\` only).
-- \`kumiko/schema.ts\` — same feature set → \`ENTITY_METAS\` for \`kumiko schema\`.
-- \`bin/dev.ts\` — dev-server entry (\`bun dev\`).
+- \`kumiko.config.ts\` — the composed feature list, client entries and ports the tooling reads.
+- \`kumiko/schema.ts\` — generated (\`kumiko-managed\`): \`ENTITY_METAS\` from kumiko.config.ts for \`kumiko schema\`.
+- \`bin/server.ts\` — dev-server entry (\`bun dev\`).
+- \`bin/env-schema.ts\` — env contract of the production processes.
 - \`bin/main.ts\` — production-bootstrap (\`bun run start\`).
 - \`bin/kumiko.ts\` — schema + consumer-ops CLI bundled into \`dist-server/kumiko.js\`.
 - \`docker-compose.yml\` — local Postgres + Redis for \`bun dev\`.
@@ -873,35 +795,16 @@ function renderStylesCss(): string {
   ].join("\n");
 }
 
-function renderKumikoSchema(): string {
-  return [
-    "// Live ENTITY_METAS source for `kumiko schema generate|apply|status`.",
-    "//",
-    "// Computes table-metas from the SAME composeFeatures(APP_FEATURES) the",
-    "// runtime sees (runProdApp/runDevApp) — migration and runtime cannot drift.",
-    "",
-    'import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";',
-    'import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";',
-    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
-    'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
-    "",
-    "export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...APP_FEATURES], {",
-    "  includeBundled: HAS_AUTH,",
-    "});",
-    "",
-    "export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);",
-    "",
-  ].join("\n");
-}
-
 // `kumiko check` fails a kind "app" without uiRoots, so a fresh app must declare them.
+const SCAFFOLD_UI_ROOTS = ["src/features/*/web"] as const;
+
 function renderKumikoManifest(): string {
   return `${JSON.stringify(
     {
       kind: "app",
       sourceRoots: ["src", "bin"],
       testGlobs: ["src/**/*.{test,integration}.{ts,tsx}"],
-      uiRoots: ["src/features/*/web"],
+      uiRoots: SCAFFOLD_UI_ROOTS,
       excludes: ["**/node_modules/**", "**/dist/**"],
     },
     null,
@@ -918,20 +821,20 @@ function renderBinKumiko(): string {
     "// consumer status|restart <name>` to recover a dead event consumer without",
     "// ad-hoc SQL. kumiko-build bundles this file to dist-server/kumiko.js.",
     "",
-    'import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";',
+    'import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";',
     'import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";',
-    'import { composeEnvSchema, kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";',
+    'import { kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";',
     'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
-    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
-    'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
+    'import appConfig from "../kumiko.config";',
+    'import { envSchema } from "./env-schema";',
     "",
     "const [, , cmd, ...rest] = Bun.argv;",
     "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
     "const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };",
     "",
     'if (cmd === "schema") {',
-    "  const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });",
-    "  const kmsSlots = kmsSlotsOf(composeEnvSchema({ core: frameworkCoreEnvSchema, features }).schema);",
+    "  const features = allAppFeatures(appConfig);",
+    "  const kmsSlots = kmsSlotsOf(envSchema.schema);",
     "  process.exit(",
     "    await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features, kmsSlots }),",
     "  );",
@@ -943,7 +846,7 @@ function renderBinKumiko(): string {
     "",
     "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
     "console.error(",
-    `  \`\\n  Unknown: kumiko \${cmd ?? ""} — only 'kumiko schema <sub>' or 'kumiko consumer <sub>' in the standalone bundle.\\n\`,`,
+    `  \`\\n  Unknown: kumiko \${cmd ?? ""} — the standalone bundle only runs 'kumiko schema' and 'kumiko consumer'.\\n\`,`,
     ");",
     "process.exit(1);",
     "",

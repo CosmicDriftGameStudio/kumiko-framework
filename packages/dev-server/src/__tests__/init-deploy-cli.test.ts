@@ -24,6 +24,12 @@ describe("runInitDeployCli", () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
+  it("warns that it is deprecated in favour of managed files", async () => {
+    const { out, errs } = makeOut();
+    await runInitDeployCli({ argv: ["--app", "myapp"], cwd: tmp, out });
+    expect(errs.some((e) => e.includes("deprecated") && e.includes("sync-managed"))).toBe(true);
+  });
+
   it("scaffolds with an explicit --app and reports exit 0", async () => {
     const { out, logs } = makeOut();
     const code = await runInitDeployCli({ argv: ["--app", "myapp"], cwd: tmp, out });

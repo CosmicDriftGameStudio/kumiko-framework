@@ -34,6 +34,12 @@
       "types": "./src/compliance/index.ts",
       "default": "./src/compliance/index.ts"
     },
+    "./config": {
+      "types": "./src/config/index.ts",
+      "default": "./src/config/index.ts"
+    },
+    "./biome": "./presets/biome-app.json",
+    "./tsconfig.app.json": "./presets/tsconfig.app.json",
     "./es-ops": {
       "types": "./src/es-ops/index.ts",
       "default": "./src/es-ops/index.ts"
@@ -223,6 +229,12 @@
         "types": "./dist/compliance/index.d.ts",
         "default": "./dist/compliance/index.js"
       },
+      "./config": {
+        "types": "./dist/config/index.d.ts",
+        "default": "./dist/config/index.js"
+      },
+      "./biome": "./presets/biome-app.json",
+      "./tsconfig.app.json": "./presets/tsconfig.app.json",
       "./es-ops": {
         "types": "./dist/es-ops/index.d.ts",
         "default": "./dist/es-ops/index.js"
@@ -384,6 +396,7 @@
   },
   "files": [
     "dist",
+    "presets",
     "src/changes.json",
     "src/scripts/codemod",
     "README.md",

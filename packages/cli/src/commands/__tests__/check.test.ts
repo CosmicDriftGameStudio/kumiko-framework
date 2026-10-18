@@ -42,6 +42,8 @@ type Calls = {
   readonly checks: string[][];
   readonly schema: string[][];
   readonly schemaCwd: string[];
+  readonly managed: string[];
+  readonly scripts: string[];
 };
 
 type Harness = {
@@ -80,10 +82,20 @@ function harness(
     readonly appSchemaMissing?: boolean;
     readonly guardsLoadError?: Error;
     readonly schemaLoadError?: Error;
-    readonly exitCodes?: Partial<Record<"guards" | "ui" | "checks" | "schema", number>>;
+    readonly exitCodes?: Partial<
+      Record<"guards" | "ui" | "checks" | "schema" | "managed" | "scripts", number>
+    >;
   } = {},
 ): Harness {
-  const calls: Calls = { guards: [], ui: [], checks: [], schema: [], schemaCwd: [] };
+  const calls: Calls = {
+    guards: [],
+    ui: [],
+    checks: [],
+    schema: [],
+    schemaCwd: [],
+    managed: [],
+    scripts: [],
+  };
   const logs: string[] = [];
   const errs: string[] = [];
   const codes = options.exitCodes ?? {};
@@ -144,17 +156,29 @@ function harness(
         if (options.schemaLoadError) throw options.schemaLoadError;
         return schemaCli;
       },
+      loadAppSteps: async () => ({
+        runManagedCheckStep: async (_out, repoRoot) => {
+          calls.managed.push(repoRoot);
+          return codes.managed ?? 0;
+        },
+        runScriptsCheckStep: async (_out, repoRoot) => {
+          calls.scripts.push(repoRoot);
+          return codes.scripts ?? 0;
+        },
+      }),
     },
   };
 }
 
 describe("resolveCheckSteps", () => {
-  test('kind "app" with uiRoots resolves boot, guards, ui, checks', () => {
+  test('kind "app" with uiRoots resolves boot, guards, ui, checks, managed, scripts', () => {
     expect(stepIds(manifest({ uiRoots: ["src/**/web"] }))).toEqual([
       "boot",
       "guards",
       "ui",
       "checks",
+      "managed",
+      "scripts",
     ]);
   });
 
@@ -172,7 +196,13 @@ describe("resolveCheckSteps", () => {
 
   test("empty uiRoots on an app drops the UI step and records a waiver", () => {
     const resolved = stepsOf(manifest({ uiRoots: [] }));
-    expect(resolved.steps.map((s) => s.id)).toEqual(["boot", "guards", "checks"]);
+    expect(resolved.steps.map((s) => s.id)).toEqual([
+      "boot",
+      "guards",
+      "checks",
+      "managed",
+      "scripts",
+    ]);
     expect(resolved.waivers.join("\n")).toContain("uiRoots is []");
   });
 
@@ -201,7 +231,7 @@ describe("resolveCheckSteps", () => {
   });
 
   test('a kind "app" repo without kumiko/schema.ts gets no boot step', () => {
-    expect(stepIds(manifest(), false)).toEqual(["guards", "checks"]);
+    expect(stepIds(manifest(), false)).toEqual(["guards", "checks", "managed", "scripts"]);
   });
 
   test("every step states why it was selected", () => {
@@ -221,6 +251,32 @@ describe("kumiko check", () => {
     expect(h.calls.guards).toEqual([[]]);
     expect(h.calls.ui).toEqual([[]]);
     expect(h.calls.checks).toEqual([[]]);
+    expect(h.calls.managed).toEqual([h.repoDir]);
+    expect(h.calls.scripts).toEqual([h.repoDir]);
+  });
+
+  test("positional step ids run only those steps", async () => {
+    const h = harness();
+    const code = await runCheck({ argv: ["managed"], cwd: h.cwd, out: h.out }, h.deps);
+    expect(code).toBe(0);
+    expect(h.calls.managed).toEqual([h.repoDir]);
+    expect(h.calls.scripts).toEqual([]);
+    expect(h.calls.guards).toEqual([]);
+    expect(h.calls.schema).toEqual([]);
+  });
+
+  test("a step id outside the repo's plan fails instead of running nothing", async () => {
+    const h = harness({ repoManifest: manifest({ kind: "library" }) });
+    const code = await runCheck({ argv: ["managed"], cwd: h.cwd, out: h.out }, h.deps);
+    expect(code).toBe(1);
+    expect(h.errs.join("\n")).toContain("managed");
+    expect(h.calls.guards).toEqual([]);
+  });
+
+  test("a failing managed step fails the command", async () => {
+    const h = harness({ exitCodes: { managed: 1 } });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(1);
+    expect(h.calls.scripts).toEqual([h.repoDir]);
   });
 
   test('kind "app" without uiRoots exits 1 with a hint before any step runs, also with --explain', async () => {
@@ -292,7 +348,10 @@ describe("kumiko check", () => {
     expect(h.calls.checks).toEqual([]);
     expect(h.calls.schema).toEqual([]);
     const printed = h.logs.join("\n");
-    for (const id of ["boot", "guards", "ui", "checks"]) expect(printed).toContain(id);
+    for (const id of ["boot", "guards", "ui", "checks", "managed", "scripts"]) {
+      expect(printed).toContain(id);
+    }
+    expect(h.calls.managed).toEqual([]);
   });
 
   test("a missing guards package fails loud with an install hint — never a silent skip", async () => {

@@ -18,6 +18,7 @@
     "runtime": "dev",
     "bunOnlyExports": [
       ".",
+      "./managed-files",
       "./setup-test-stack-from-features"
     ]
   },
@@ -37,6 +38,10 @@
     "./env-schema": {
       "types": "./src/env-schema.ts",
       "default": "./src/env-schema.ts"
+    },
+    "./managed-files": {
+      "types": "./src/managed-files/index.ts",
+      "default": "./src/managed-files/index.ts"
     },
     "./setup-test-stack-from-features": {
       "types": "./src/setup-test-stack-from-features.ts",
@@ -98,6 +103,10 @@
       "./env-schema": {
         "types": "./dist/env-schema.d.ts",
         "default": "./dist/env-schema.js"
+      },
+      "./managed-files": {
+        "types": "./dist/managed-files/index.d.ts",
+        "default": "./dist/managed-files/index.js"
       },
       "./setup-test-stack-from-features": {
         "types": "./dist/setup-test-stack-from-features.d.ts",

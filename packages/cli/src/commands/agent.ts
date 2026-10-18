@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { loadAppConfig } from "./load-app-config";
+import { allConfiguredFeatures, loadAppConfig } from "./load-app-config";
 import type { CliCommand } from "./types";
 
 const LINT_SUBCOMMAND = "lint";
@@ -24,8 +24,9 @@ export const agentCommand: CliCommand = {
       ctx.out.err("");
       ctx.out.err("  Create a file that exports your features:");
       ctx.out.err("    // kumiko.config.ts");
+      ctx.out.err('    import { defineAppConfig } from "@cosmicdrift/kumiko-framework/config";');
       ctx.out.err('    import { myFeature } from "./src/features/my-feature";');
-      ctx.out.err("    export default { features: [myFeature] };");
+      ctx.out.err("    export default defineAppConfig({ features: [myFeature], client, ports });");
       ctx.out.err("");
       return 1;
     }
@@ -36,8 +37,9 @@ export const agentCommand: CliCommand = {
       "@cosmicdrift/kumiko-bundled-features/agent-tools"
     );
 
-    const gaps = findAgentDocGaps(config.features);
-    const translationGaps = findHandlerTranslationGaps(config.features);
+    const features = allConfiguredFeatures(config);
+    const gaps = findAgentDocGaps(features);
+    const translationGaps = findHandlerTranslationGaps(features);
 
     if (gaps.length === 0 && translationGaps.length === 0) {
       ctx.out.log("");

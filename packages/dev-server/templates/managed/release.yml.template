@@ -1,0 +1,55 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Full 40-char main SHA; image sha-<7> must exist"
+        required: true
+        type: string
+
+concurrency:
+  group: release-{{appName}}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify SHA
+        env:
+          SHA: ${{ inputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::sha must be a full 40-char lowercase hex SHA."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error::$SHA is not an ancestor of origin/main."
+            exit 1
+          fi
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&status=success" --jq '.total_count')
+          if [ "${count:-0}" -le 0 ]; then
+            echo "::error::No successful CI push run found for $SHA."
+            exit 1
+          fi
+
+  deploy:
+    needs: verify
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-deploy.yml@main
+    with:
+      namespace: {{namespace}}
+      deployment: {{deployment}}
+      image-name: {{appName}}
+      git_sha: ${{ inputs.sha }}
+    secrets: inherit

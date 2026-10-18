@@ -7,21 +7,24 @@ import { renderTestSetup, SCAFFOLD_E2E_PORT, SCAFFOLD_INTEGRATION_PARALLEL } fro
 const setup = renderTestSetup({ appName: "my-shop", frameworkVersion: "^0.13.0" });
 
 describe("renderTestSetup", () => {
-  test("ships the four bunfigs, e2e wiring and one example per test class", () => {
+  test("ships the four bunfigs, e2e wiring, helper homes and one example per test class", () => {
     expect(Object.keys(setup.files).sort()).toEqual([
+      "bunfig.dom.toml",
       "bunfig.integration.toml",
       "bunfig.real.toml",
       "bunfig.toml",
+      "e2e/_helpers/index.ts",
       "e2e/server.ts",
       "e2e/smoke.spec.ts",
       "playwright.config.ts",
+      "src/__tests__/_setup.ts",
       "src/__tests__/run-config.test.ts",
       "src/__tests__/tasks.integration.test.ts",
     ]);
   });
 
   test("bunfigs are the shared presets plus the hoisted linker the scaffold always had", () => {
-    const shared = renderBunfigFiles({ install: { linker: "hoisted" } });
+    const shared = renderBunfigFiles({ install: { linker: "hoisted" }, dom: true });
     for (const [name, content] of Object.entries(shared)) {
       expect(setup.files[name]).toBe(content);
     }
@@ -95,5 +98,11 @@ describe("renderTestSetup", () => {
     );
     const generated = setup.files["src/__tests__/tasks.integration.test.ts"] ?? "";
     expect(generated.replaceAll("tasksFeature", "taskFeature")).toBe(sample);
+    const sampleSetup = readFileSync(
+      join(import.meta.dir, "../../../../samples/apps/ui-walkthrough/src/__tests__/_setup.ts"),
+      "utf8",
+    );
+    const generatedSetup = setup.files["src/__tests__/_setup.ts"] ?? "";
+    expect(generatedSetup.replaceAll("tasksFeature", "taskFeature")).toBe(sampleSetup);
   });
 });

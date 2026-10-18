@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-app-config",
+  "description": "kumiko.config.ts with defineAppConfig: the one feature list, client entries and ports the tooling reads.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

@@ -3,11 +3,15 @@ import { checkCommand } from "./check";
 import { consumerCommand } from "./consumer";
 import { handbuchCommand } from "./handbuch";
 import { opsCommand } from "./ops";
+import { portsCommand } from "./ports";
 import { projectCommand } from "./project";
+import { syncManagedCommand } from "./sync-managed";
 import type { CliCommand } from "./types";
 
 export const APP_COMMANDS: ReadonlyArray<CliCommand> = [
   checkCommand,
+  syncManagedCommand,
+  portsCommand,
   agentCommand,
   projectCommand,
   consumerCommand,
@@ -20,6 +24,7 @@ export function findAppCommand(id: string): CliCommand | undefined {
 }
 
 export {
+  type AppCheckSteps,
   type CheckDeps,
   type CheckStep,
   type CheckStepId,
@@ -27,4 +32,13 @@ export {
   runCheck,
 } from "./check";
 export type { CliCommand, CliCommandContext } from "./types";
-export { agentCommand, checkCommand, consumerCommand, handbuchCommand, opsCommand, projectCommand };
+export {
+  agentCommand,
+  checkCommand,
+  consumerCommand,
+  handbuchCommand,
+  opsCommand,
+  portsCommand,
+  projectCommand,
+  syncManagedCommand,
+};

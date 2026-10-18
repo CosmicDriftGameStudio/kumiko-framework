@@ -1,0 +1,65 @@
+# CI for {{appName}}: a thin orchestrator over the reusable workflows in
+# cosmicdriftgamestudio/infra. Jobs only this app needs go into an unmanaged
+# workflow next to this one (e.g. ci-extra.yml).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  HUSKY: "0"
+
+jobs:
+  test:
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-test.yml@main
+    with:
+      ui-guards: {{uiGuards}}
+      # The boot gate in kumiko-schema validate demands a provider for file
+      # fields; CI only checks that one is configured.
+      file-storage-provider: "inmemory"
+    secrets: inherit
+
+  integration:
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-integration.yml@main
+{{#minio}}
+    with:
+      minio: true
+{{/minio}}
+    secrets: inherit
+
+  # merge_group included: as a required check in a merge queue, e2e would
+  # otherwise never report and block the merge.
+  e2e:
+    if: contains(fromJSON('["pull_request","merge_group"]'), github.event_name)
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-e2e.yml@main
+{{#e2eInputs}}
+    with:
+{{/e2eInputs}}
+{{#meilisearch}}
+      meilisearch: true
+{{/meilisearch}}
+{{#minio}}
+      minio: true
+{{/minio}}
+    secrets: inherit
+
+  # Build on main only; the rollout runs through the manual release workflow.
+  build:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, integration]
+    permissions:
+      contents: read
+      packages: write
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_docker-build-push.yml@main
+    with:
+      image-name: {{appName}}
+      dockerfile: deploy/Dockerfile
+    secrets: inherit

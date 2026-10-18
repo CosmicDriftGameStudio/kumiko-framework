@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { seedTenant } from "@cosmicdrift/kumiko-testing";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { taskFeature } from "../features/tasks";
+import { setupTasksStack } from "./_setup";
 
 const TASK_CREATE = "tasks:write:task:create";
 const TASK_LIST = "tasks:query:task:list";
@@ -11,7 +11,7 @@ type TaskList = { rows: { title: string }[] };
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupAppTestStack([taskFeature]);
+  stack = await setupTasksStack();
 });
 
 afterAll(async () => {
