@@ -28,14 +28,28 @@ detail: The merged env, including the defaults of declarative boot options such 
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: file-provider-s3
 type: improvement
-title: S3 endpoint over http outside production, anonymousAccess warning, billing afterSync
-detail: s3EndpointSchema rejects http on non-loopback hosts only when NODE_ENV=production, so compose hostnames such as minio work in smoke setups. A boot warning names anonymousAccess when host-routing, managed-pages or legal-pages is mounted without it. The billing webhook sync calls afterSync({ tenantId, tier, changed, event }) after every webhook, with changed false when the tier stayed the same.
+title: S3 endpoint over http outside production
+detail: s3EndpointSchema rejects http on non-loopback hosts only when NODE_ENV=production, so compose hostnames such as minio work in smoke setups.
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: auth-foundation
+type: improvement
+title: Boot warning when anonymous routes run without anonymousAccess
+detail: A boot warning names anonymousAccess when host-routing, managed-pages or legal-pages is mounted without it; anonymous requests get no tenant until the option is set.
+-->
+
+<!-- kumiko-changes
+feature: billing-foundation
+type: improvement
+title: Billing webhook sync exposes afterSync
+detail: The billing webhook sync calls afterSync({ tenantId, tier, changed, event }) after every webhook, with changed false when the tier stayed the same.
+-->
+
+<!-- kumiko-changes
+feature: delivery
 type: improvement
 title: Unsubscribe endpoint answers form posts with an HTML page
 detail: POST on the delivery unsubscribe route returns an HTML confirmation page for a form post and JSON for a bare POST. The behavior is unchanged; this only documents it.
