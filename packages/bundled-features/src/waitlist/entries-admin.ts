@@ -44,6 +44,7 @@ export async function purgeWaitlistRows(
   }
   throwIfErasureFailed(failures);
   const kms = configuredPiiSubjectKms();
+  // skip: no PII key service configured, so there are no record keys to shred.
   if (!kms) return;
   for (const id of forgottenIds) {
     await kms.eraseKey(

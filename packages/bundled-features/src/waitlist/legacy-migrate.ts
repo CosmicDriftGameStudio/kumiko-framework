@@ -53,7 +53,7 @@ type LegacyRow = Readonly<Record<string, unknown>>;
 function toInstant(value: unknown): Temporal.Instant | undefined {
   if (value === null || value === undefined) return undefined;
   if (value instanceof Temporal.Instant) return value;
-  if (value instanceof Date) return Temporal.Instant.fromEpochMilliseconds(value.getTime());
+  if (value instanceof Date) return Temporal.Instant.from(value.toISOString());
   if (typeof value !== "string") return undefined;
   try {
     return Temporal.Instant.from(value);
