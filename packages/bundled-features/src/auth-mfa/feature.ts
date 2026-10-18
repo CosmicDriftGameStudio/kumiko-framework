@@ -1,7 +1,8 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { secretsEnvSchema } from "../secrets/index.js";
+import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.js";
+import { authMfaEnvSchema } from "./env.js";
 import { createDisableHandler } from "./handlers/disable.write.js";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.js";
 import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write.js";
@@ -16,6 +17,11 @@ import { createMfaCodeVerifier, type MfaCodeVerifier } from "./mfa-code-verifier
 import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker.js";
 import { userMfaEntity } from "./schema/user-mfa.js";
 import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens.js";
+import {
+  type MfaTokenSecretsEnv,
+  type ResolvedMfaTokenSecrets,
+  resolveMfaTokenSecretsFromEnv,
+} from "./token-secrets.js";
 
 const REENCRYPT_ESCAPE_HATCH_REASON =
   "re-encrypts MFA secrets of every tenant's users with the new master key";
@@ -24,16 +30,17 @@ export type AuthMfaFeatureOptions = {
   // HMAC secret for the stateless enable-flow token (carries the generated
   // TOTP secret + recovery-code hashes between enable.start and
   // enable.confirm). Distinct secret from any other token flow in the app —
-  // do not reuse passwordReset.hmacSecret.
-  readonly setupTokenSecret: string;
+  // do not reuse passwordReset.hmacSecret. Unset: MFA_SETUP_TOKEN_SECRET or
+  // derived from the master secret when the boot binds the token secrets.
+  readonly setupTokenSecret?: string;
   // otpauth:// URI issuer — shown in the user's authenticator app next to
   // the account label ("Kumiko: jane@example.com").
   readonly issuer: string;
   // HMAC secret for the login-flow challenge token (carries {userId,
   // tenantId} between the password-check and /auth/mfa/verify). Distinct
   // secret from setupTokenSecret — a compromised setup-token secret must
-  // not also forge login challenges.
-  readonly challengeTokenSecret: string;
+  // not also forge login challenges. Unset: same fallback as setupTokenSecret.
+  readonly challengeTokenSecret?: string;
   // App-wide MFA enforcement default when no tenant row overrides it.
   // Tenant admins cannot change the policy (system-only write), so this plus
   // system writes is the only way to set it. Defaults to "optional".
@@ -94,6 +101,25 @@ export function mfaVerifierFromFeature(feature: FeatureDefinition): MfaCodeVerif
   return undefined;
 }
 
+export type BindMfaTokenSecrets = (masterSecret: string, env: MfaTokenSecretsEnv) => void;
+
+// Reads the token-secret binder off a mounted auth-mfa feature's exports.
+// run{Prod,Dev}App and setupTestStack call it with the JWT secret once the
+// env is validated, so a dry run never needs the master secret.
+export function bindMfaTokenSecretsFromFeature(
+  feature: FeatureDefinition,
+): BindMfaTokenSecrets | undefined {
+  const exports = feature.exports;
+  if (exports && typeof exports === "object" && "bindTokenSecrets" in exports) {
+    const { bindTokenSecrets } = exports;
+    if (typeof bindTokenSecrets === "function") {
+      // @cast-boundary feature-exports — feature.exports is untyped by design
+      return bindTokenSecrets as BindMfaTokenSecrets;
+    }
+  }
+  return undefined;
+}
+
 export type BindRevokeAllPatTokens = (revoker: (userId: string) => Promise<number>) => void;
 
 // Reads the late-bind setter off a mounted auth-mfa feature's exports —
@@ -114,8 +140,19 @@ export function bindRevokeAllPatTokensFromFeature(
   return undefined;
 }
 
-export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefinition {
-  return defineFeature("auth-mfa", (r) => {
+function hasBothExplicitSecrets(opts: AuthMfaFeatureOptions): boolean {
+  return (
+    opts.setupTokenSecret !== undefined &&
+    opts.setupTokenSecret.trim() !== "" &&
+    opts.challengeTokenSecret !== undefined &&
+    opts.challengeTokenSecret.trim() !== ""
+  );
+}
+
+export function createAuthMfaFeature(
+  opts: AuthMfaFeatureOptions,
+): FeatureWithEnvSchema<FeatureDefinition, typeof authMfaEnvSchema.shape> {
+  const feature: FeatureDefinition = defineFeature("auth-mfa", (r) => {
     r.describe(
       "TOTP-based two-factor authentication: enable/disable flow with QR-code setup, 8 single-use recovery codes, and (once wired into a login flow) a second login step after password verification. Secrets are envelope-encrypted at rest via the same MasterKeyProvider as `secrets`/`config`.",
     );
@@ -124,10 +161,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       category: "identity",
       recommended: true,
     });
-    // Same field instances as `secrets`, so composeEnvSchema treats them as one
-    // shared variable; an app mounting auth-mfa without `secrets` still gets the
-    // KEK slot (and its _CIPHERTEXT twin) declared.
-    r.envSchema(secretsEnvSchema);
+    r.envSchema(authMfaEnvSchema);
     r.requires({ features: ["user"] });
     r.requires({ features: ["config"] });
     // verify.write.ts dispatches "tenant:query:memberships" — without this
@@ -183,27 +217,58 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     const sharedPatRevoker = (userId: string): Promise<number> =>
       revokeAllPatTokens?.(userId) ?? Promise.resolve(0);
 
+    // Handlers and the status checker read the secrets through these getters
+    // on each call, so the boot can bind them after env validation. Never
+    // spread these objects: a spread would read the getter eagerly.
+    let boundTokenSecrets: ResolvedMfaTokenSecrets | undefined = hasBothExplicitSecrets(opts)
+      ? resolveMfaTokenSecretsFromEnv("", {}, opts)
+      : undefined;
+    const tokenSecrets = (): ResolvedMfaTokenSecrets => {
+      if (boundTokenSecrets === undefined) {
+        throw new Error(
+          "[auth-mfa] token secrets are not bound: pass setupTokenSecret/challengeTokenSecret, or call bindMfaTokenSecretsFromFeature(feature)(masterSecret, env) in a custom boot (runProdApp, runDevApp and setupTestStack do this).",
+        );
+      }
+      return boundTokenSecrets;
+    };
+    const bindTokenSecrets: BindMfaTokenSecrets = (masterSecret, env) => {
+      boundTokenSecrets = resolveMfaTokenSecretsFromEnv(masterSecret, env, opts);
+    };
+
     const handlers = {
       enableStart: r.writeHandler(
-        createEnableStartHandler({ setupTokenSecret: opts.setupTokenSecret, issuer: opts.issuer }),
+        createEnableStartHandler({
+          get setupTokenSecret() {
+            return tokenSecrets().setupTokenSecret;
+          },
+          issuer: opts.issuer,
+        }),
       ),
       enableStartPreauth: r.writeHandler(
         createEnableStartPreauthHandler({
-          challengeTokenSecret: opts.challengeTokenSecret,
-          setupTokenSecret: opts.setupTokenSecret,
+          get challengeTokenSecret() {
+            return tokenSecrets().challengeTokenSecret;
+          },
+          get setupTokenSecret() {
+            return tokenSecrets().setupTokenSecret;
+          },
           issuer: opts.issuer,
         }),
       ),
       enableConfirm: r.writeHandler(
         createEnableConfirmHandler({
-          setupTokenSecret: opts.setupTokenSecret,
+          get setupTokenSecret() {
+            return tokenSecrets().setupTokenSecret;
+          },
           revokeAllOtherSessions: sharedRevoker,
           revokeAllPatTokens: sharedPatRevoker,
         }),
       ),
       enableConfirmPreauth: r.writeHandler(
         createEnableConfirmPreauthHandler({
-          setupTokenSecret: opts.setupTokenSecret,
+          get setupTokenSecret() {
+            return tokenSecrets().setupTokenSecret;
+          },
           revokeAllOtherSessions: sharedRevoker,
           revokeAllPatTokens: sharedPatRevoker,
         }),
@@ -218,7 +283,11 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
         createRegenerateRecoveryHandler({ revokeAllOtherSessions: sharedRevoker }),
       ),
       verify: r.writeHandler(
-        createMfaVerifyHandler({ challengeTokenSecret: opts.challengeTokenSecret }),
+        createMfaVerifyHandler({
+          get challengeTokenSecret() {
+            return tokenSecrets().challengeTokenSecret;
+          },
+        }),
       ),
     };
 
@@ -231,7 +300,9 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // from inside its own dispatcher call), not a raw db handle assembled
     // at app-boot time.
     const checkMfaStatus = createMfaStatusChecker({
-      challengeTokenSecret: opts.challengeTokenSecret,
+      get challengeTokenSecret() {
+        return tokenSecrets().challengeTokenSecret;
+      },
       ...(opts.requiredPolicy && { requiredPolicy: opts.requiredPolicy }),
     });
 
@@ -254,6 +325,8 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       checkMfaStatus,
       verifyMfaCode,
       bindRevokeAllPatTokens,
+      bindTokenSecrets,
     };
   });
+  return featureWithEnvSchema(feature, authMfaEnvSchema);
 }

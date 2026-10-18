@@ -14,5 +14,6 @@ export {
 export {
   createSubscriptionStripeFeature,
   type SubscriptionStripeOptions,
+  stripeEnvSchema,
   subscriptionStripeEnvSchema,
 } from "./feature.js";

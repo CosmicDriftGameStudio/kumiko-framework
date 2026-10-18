@@ -8,13 +8,16 @@ export {
   MFA_ENABLE_SCREEN_ID,
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
 } from "./constants.js";
+export { authMfaEnvSchema, mfaTokenSecretsEnvSchema } from "./env.js";
 export type {
   AuthMfaFeatureOptions,
   BindMfaRevokeAllOtherSessions,
+  BindMfaTokenSecrets,
   BindRevokeAllPatTokens,
 } from "./feature.js";
 export {
   bindMfaRevokeAllOtherSessionsFromFeature,
+  bindMfaTokenSecretsFromFeature,
   bindRevokeAllPatTokensFromFeature,
   createAuthMfaFeature,
   mfaStatusCheckerFromFeature,
@@ -25,6 +28,8 @@ export type { MfaStatusChecker, MfaStatusCheckResult } from "./mfa-status-checke
 export { userMfaEntity, userMfaTable } from "./schema/user-mfa.js";
 export {
   type MfaTokenSecretOverrides,
+  type MfaTokenSecretsEnv,
   type ResolvedMfaTokenSecrets,
   resolveMfaTokenSecrets,
+  resolveMfaTokenSecretsFromEnv,
 } from "./token-secrets.js";

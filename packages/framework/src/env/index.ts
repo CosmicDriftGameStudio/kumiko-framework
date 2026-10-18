@@ -146,34 +146,118 @@ export function getFieldDescription(field: z.ZodType): string | undefined {
   return zodDescription(field);
 }
 
+// --- Typed feature env ---
+
+/** A feature whose registered env schema is visible in its type, so
+ *  `composeEnvSchema` can type the merged schema from the feature list. */
+export type FeatureWithEnvSchema<
+  TFeature extends FeatureDefinition,
+  TShape extends z.ZodRawShape,
+> = TFeature & { readonly envSchema: z.ZodObject<TShape> };
+
+function registersEnvSchema<TFeature extends FeatureDefinition, TShape extends z.ZodRawShape>(
+  feature: TFeature,
+  schema: z.ZodObject<TShape>,
+): feature is FeatureWithEnvSchema<TFeature, TShape> {
+  return feature.envSchema === schema;
+}
+
+/** Returns `feature` typed with the env schema it registered via
+ *  `r.envSchema(schema)`. Throws when the feature registered another
+ *  instance, so the type never claims fields the runtime schema lacks. */
+export function featureWithEnvSchema<
+  TFeature extends FeatureDefinition,
+  TShape extends z.ZodRawShape,
+>(feature: TFeature, schema: z.ZodObject<TShape>): FeatureWithEnvSchema<TFeature, TShape> {
+  if (!registersEnvSchema(feature, schema)) {
+    throw new Error(
+      `[Feature ${feature.name}] featureWithEnvSchema: the feature did not register this schema instance via r.envSchema().`,
+    );
+  }
+  return feature;
+}
+
+// A feature typed as plain FeatureDefinition carries `ZodRawShape`, whose
+// index signature would swallow every typed key of the intersection.
+type EmptyShape = Record<never, never>;
+
+type DeclaredEnvShape<TFeature> = TFeature extends {
+  readonly envSchema: z.ZodObject<infer TShape extends z.ZodRawShape>;
+}
+  ? string extends keyof TShape
+    ? EmptyShape
+    : TShape
+  : EmptyShape;
+
+type UnionToIntersection<TUnion> = (
+  TUnion extends unknown
+    ? (value: TUnion) => void
+    : never
+) extends (value: infer TIntersection) => void
+  ? TIntersection
+  : never;
+
+type OptionalShape<TShape extends z.ZodRawShape> = {
+  [Key in keyof TShape]: z.ZodOptional<TShape[Key]>;
+};
+
+type FeaturesEnvShape<TFeatures extends readonly FeatureDefinition[]> = UnionToIntersection<
+  DeclaredEnvShape<TFeatures[number]>
+>;
+
+type FlattenShape<TShape> = { [Key in keyof TShape]: TShape[Key] } & {};
+
+type KnownShape<TShape extends z.ZodRawShape> = string extends keyof TShape ? EmptyShape : TShape;
+
+/** The merged shape `composeEnvSchema` returns. With `optionalFeatures`
+ *  every feature field is typed optional: the type cannot tell which feature
+ *  a name refers to, and over-reporting `undefined` is the safe side. */
+export type ComposedEnvShape<
+  TFeatures extends readonly FeatureDefinition[],
+  TCore extends z.ZodRawShape,
+  TExtend extends z.ZodRawShape,
+  TOptionalFeatures extends readonly string[] | undefined,
+> = Extract<
+  FlattenShape<
+    KnownShape<TCore> &
+      (TOptionalFeatures extends readonly string[]
+        ? OptionalShape<FeaturesEnvShape<TFeatures> & z.ZodRawShape>
+        : FeaturesEnvShape<TFeatures>) &
+      KnownShape<TExtend>
+  >,
+  z.ZodRawShape
+>;
+
 // --- Compose ---
 
-export type ComposeEnvSchemaOptions = {
-  /** All features whose envSchemas should be merged. */
-  readonly features: readonly FeatureDefinition[];
+export type ComposeEnvSchemaOptions<
+  TFeatures extends readonly FeatureDefinition[] = readonly FeatureDefinition[],
+  TCore extends z.ZodRawShape = z.ZodRawShape,
+  TExtend extends z.ZodRawShape = z.ZodRawShape,
+  TOptionalFeatures extends readonly string[] | undefined = readonly string[] | undefined,
+> = {
+  /** All features whose envSchemas should be merged. Bundled features type
+   *  their fragment, so passing the list inline types the merged schema. */
+  readonly features: TFeatures;
   /** App-specific env-vars (e.g. `STUDIO_ADMIN_EMAIL`). Keys here are
    *  tagged as source "app" in the resulting sources map. */
-  readonly extend?: z.ZodObject<z.ZodRawShape>;
+  readonly extend?: z.ZodObject<TExtend>;
   /** Feature-names whose env-vars should be auto-`.optional()`-wrapped.
    *  Lets an app opt out of e.g. `channel-email-smtp`'s vars without
    *  manually `.partial()`-ing each shape at the call-site. */
-  readonly optionalFeatures?: readonly string[];
+  readonly optionalFeatures?: TOptionalFeatures;
   /** Framework-core env-vars (PORT, DATABASE_URL, REDIS_URL, …) from
    *  `@cosmicdrift/kumiko-dev-server`. Keys here are tagged as source
    *  "framework-core" in error output. Conflict-detection runs across
    *  core/features/extend as one merged pool — same key declared in two
    *  layers throws KumikoBootError at compose-time. */
-  readonly core?: z.ZodObject<z.ZodRawShape>;
+  readonly core?: z.ZodObject<TCore>;
 };
 
-export type ComposedEnvSchema = {
-  /** The merged Zod schema. Type-erased to `ZodObject<ZodRawShape>` — TS
-   *  can't variadic-merge N generic feature schemas without tuple gymnastics
-   *  that hurt readability. For type-safe `z.infer` in app code, build a
-   *  parallel typed schema manually (see Plan-Doc
-   *  `kumiko-studio/docs/plans/sprint-9-env-schemas.md` → API-Design)
-   *  and only pass `composed.schema` to `runProdApp` for validation. */
-  readonly schema: z.ZodObject<z.ZodRawShape>;
+export type ComposedEnvSchema<TShape extends z.ZodRawShape = z.ZodRawShape> = {
+  /** The merged Zod schema, typed from core, the typed feature fragments and
+   *  extend; `parseEnv(composed.schema, env)` returns the typed env. */
+  readonly schema: z.ZodObject<TShape>;
   /** env-var-name → declaring source-name: feature-name from `r.envSchema()`,
    *  "app" from `extend`, or "framework-core" from `core`. */
   readonly sources: Readonly<Record<string, string>>;
@@ -255,7 +339,14 @@ function declareKmsCiphertextTwins(
   }
 }
 
-export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvSchema {
+export function composeEnvSchema<
+  const TFeatures extends readonly FeatureDefinition[],
+  TCore extends z.ZodRawShape = EmptyShape,
+  TExtend extends z.ZodRawShape = EmptyShape,
+  const TOptionalFeatures extends readonly string[] | undefined = undefined,
+>(
+  options: ComposeEnvSchemaOptions<TFeatures, TCore, TExtend, TOptionalFeatures>,
+): ComposedEnvSchema<ComposedEnvShape<TFeatures, TCore, TExtend, TOptionalFeatures>> {
   const optionalSet = new Set(options.optionalFeatures ?? []);
   const merged: Record<string, z.ZodType> = {};
   const sources: Record<string, string> = {};
@@ -299,14 +390,17 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
 
   if (options.extend) {
     for (const [key, field] of Object.entries(zodShape(options.extend))) {
+      // An app spreading a feature's own fragment into extend re-declares the
+      // same instance; that is the feature's variable, not a second owner.
+      if (featureFields.get(key) === field) continue;
       if (merged[key] !== undefined) {
         throw new KumikoBootError([
           {
             name: key,
             kind: "invalid",
             message:
-              `env-var conflict: "${key}" declared by both "${sources[key]}" ` +
-              `and the app's extend block — rename one.`,
+              `env-var conflict: "${key}" is declared by "${sources[key]}" and again in the app's extend block — ` +
+              `drop it from extend, the declaring source already owns it.`,
           },
         ]);
       }
@@ -319,7 +413,10 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
   declareKmsCiphertextTwins(merged, sources, kmsFields);
 
   return {
-    schema: z.object(merged),
+    // @cast-boundary schema-walk — the loops above merge exactly the core, feature and extend shapes the type names; a key clash throws instead of overwriting.
+    schema: z.object(merged) as z.ZodObject<
+      ComposedEnvShape<TFeatures, TCore, TExtend, TOptionalFeatures>
+    >,
     sources,
   };
 }

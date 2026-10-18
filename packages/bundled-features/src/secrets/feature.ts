@@ -5,6 +5,7 @@ import {
   type FeatureDefinition,
   SYSTEM_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { SETTINGS_HUB_I18N } from "@cosmicdrift/kumiko-framework/i18n";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
@@ -147,10 +148,12 @@ function withSystemWriter(rule: AccessRule): AccessRule {
   return { ...rule, roles: [SYSTEM_ROLE, ...rule.roles] };
 }
 
-export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureDefinition {
+export function createSecretsFeature(
+  opts: SecretsFeatureOptions = {},
+): FeatureWithEnvSchema<FeatureDefinition, typeof secretsEnvSchema.shape> {
   const access = resolveSecretsAccess(opts);
   const writeAccess = withSystemWriter(access);
-  return defineFeature(SECRETS_FEATURE_NAME, (r) => {
+  const feature: FeatureDefinition = defineFeature(SECRETS_FEATURE_NAME, (r) => {
     r.describe(
       'Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: ["TenantAdmin"] }; adopt the host\'s role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: { reason } } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins). Server-side code writes a tenant secret with `dispatchSystemWrite({ handlerQn: "secrets:write:set", payload, tenantId })`: set and delete also admit the in-process system identity, so such writes pass the same declared-key and value checks.',
     );
@@ -219,4 +222,5 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
     // ops-tool (see docs/plans/architecture/event-dispatcher.md §retention).
     // No per-feature retention-job anymore.
   });
+  return featureWithEnvSchema(feature, secretsEnvSchema);
 }

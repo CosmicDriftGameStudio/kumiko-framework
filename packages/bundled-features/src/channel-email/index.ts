@@ -3,6 +3,7 @@ export {
   type EmailChannelOptions,
   type TenantTransportResolver,
 } from "./email-channel.js";
+export { smtpEnvSchema } from "./env.js";
 export { createChannelEmailFeature } from "./feature.js";
 export { guardEmailMessage, withPiiCiphertextGuard } from "./pii-guard.js";
 export {

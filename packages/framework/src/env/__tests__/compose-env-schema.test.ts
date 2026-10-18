@@ -4,6 +4,7 @@ import { defineFeature } from "../../engine/define-feature.js";
 import {
   camelCase,
   composeEnvSchema,
+  featureWithEnvSchema,
   KumikoBootError,
   kmsSlotsOf,
   parseEnv,
@@ -67,7 +68,9 @@ describe("composeEnvSchema", () => {
       r.envSchema(shared);
     });
 
-    const composed = composeEnvSchema({ features: [a, b] });
+    const composed = composeEnvSchema({
+      features: [featureWithEnvSchema(a, shared), featureWithEnvSchema(b, shared)],
+    });
 
     expect(composed.sources).toEqual({ MAIL_ALLOWED_HOSTS: "feat-a" });
     expect(composed.schema.parse({ MAIL_ALLOWED_HOSTS: "mailpit" })).toEqual({

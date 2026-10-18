@@ -38,6 +38,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
 import {
   STRIPE_API_KEY_CONFIG,
@@ -85,6 +86,32 @@ export const subscriptionStripeEnvSchema = z.object({
     .meta({ kumiko: { pulumi: { secret: true } } })
     .optional(),
 });
+
+type StripePriceEnvShape<TPrice extends string> = {
+  [Key in `STRIPE_PRICE_${TPrice}`]: z.ZodOptional<z.ZodString>;
+};
+
+/** Stripe env block plus one `STRIPE_PRICE_<NAME>` slot per price the app
+ *  maps to a tier, e.g. `stripeEnvSchema({ prices: ["PRO", "TEAM"] })`.
+ *  Shares its bridge fields with `subscriptionStripeEnvSchema`, so spreading
+ *  it into `composeEnvSchema({ extend })` next to the mounted feature is no
+ *  key clash. */
+export function stripeEnvSchema<const TPrice extends string>(options: {
+  readonly prices: readonly TPrice[];
+}) {
+  const priceShape = Object.fromEntries(
+    options.prices.map((price) => [
+      `STRIPE_PRICE_${price}`,
+      z
+        .string()
+        .regex(/^price_/, `STRIPE_PRICE_${price} must start with 'price_'`)
+        .optional()
+        .describe(`Stripe price id (\`price_...\`) of the ${price} plan.`),
+    ]),
+    // @cast-boundary schema-walk — Object.fromEntries widens to an index signature; the entries are exactly one optional string per listed price.
+  ) as StripePriceEnvShape<TPrice>;
+  return z.object({ ...subscriptionStripeEnvSchema.shape, ...priceShape });
+}
 
 export type SubscriptionStripeOptions = {
   /** Bridge-fallback webhook-secret. Optional: v2 liest aus dem
@@ -141,9 +168,9 @@ function validateOneOffPriceIds(priceIds: readonly string[]): void {
  */
 export function createSubscriptionStripeFeature(
   options: SubscriptionStripeOptions = {},
-): FeatureDefinition {
+): FeatureWithEnvSchema<FeatureDefinition, typeof subscriptionStripeEnvSchema.shape> {
   validateOneOffPriceIds(options.oneOffPriceIds ?? []);
-  return defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
+  const feature: FeatureDefinition = defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
     r.describe(
       'Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements webhook verify, checkout, portal, cancel, `retrievePrices` (10-minute TTL-cached price lookup for the billing-plans catalog), `createPlanSwitchSession` (auto-provisions a Customer-Portal configuration for switching an existing subscription to another plan tier — each tier needs its own Stripe product), `retrieveSubscription` (live provider-side snapshot for the `sync-subscriptions` backfill job, mapped identically to the webhook path), plus `isBillingEnabled` (billingLive + an api-key existence probe, no secret read).',
     );
@@ -248,4 +275,5 @@ export function createSubscriptionStripeFeature(
 
     return { configKeys };
   });
+  return featureWithEnvSchema(feature, subscriptionStripeEnvSchema);
 }
