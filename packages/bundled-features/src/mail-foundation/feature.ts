@@ -45,6 +45,7 @@ import {
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { MAIL_FOUNDATION_I18N } from "./i18n.js";
 
 const FEATURE_NAME = "mail-foundation";
 
@@ -102,6 +103,10 @@ export type MailTransportContext = {
  */
 export type MailTransportPlugin = {
   readonly build: (ctx: MailTransportContext, tenantId: string) => Promise<EmailTransport>;
+  /** `false` keeps the provider out of the generated settings: it can still be set by a
+   *  seed or config write, but a tenant admin is never offered it (e.g. a test inbox
+   *  that swallows every mail). */
+  readonly selectableInSettings?: false;
 };
 
 // extension-usage `options` is engine-payload (unknown) — structurally validate
@@ -169,16 +174,7 @@ export function createMailFoundationFeature() {
       // while their plugin is the one this key selects.
       r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);
 
-      r.translations({
-        keys: {
-          "screen:mail-foundation-tenant.title": { en: "Email sending" },
-          "mail-foundation.settings": { en: "Email sending" },
-          "mail-foundation.provider": { en: "Own mail server" },
-          "mail-foundation.provider.description": {
-            en: "Without one, the platform sends the mails. Reset the choice to go back to that.",
-          },
-        },
-      });
+      r.translations({ keys: MAIL_FOUNDATION_I18N });
 
       return {
         /** Config-key-handle for the provider-selector. */

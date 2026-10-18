@@ -1,5 +1,4 @@
 export const MAIL_TRANSPORT_SMTP_I18N = {
-  "screen:mail-transport-smtp-tenant.title": { en: "SMTP server" },
   // Also the option label of mail-foundation's provider select.
   "mail-transport-smtp.settings": { en: "SMTP server" },
   "mail-transport-smtp.settings.secrets": { en: "SMTP sign-in" },

@@ -148,7 +148,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.subject": "{app} — Ihr Datenexport ist bereit",
   "config.settings.audience.user": "Gilt nur für Sie.",
   "config.settings.extensionSelectorHint":
-    "Wählen Sie einen Anbieter und speichern Sie. Seine Einstellungen erscheinen darunter.",
+    "Wählen Sie einen Anbieter. Seine Einstellungen erscheinen darunter und werden mit ihm gespeichert.",
   "kumiko.config.cascade.origin.user": "Von Ihnen gesetzt. Standard ist {value}.",
   "kumiko.config.cascade.originNoDefault.user": "Von Ihnen gesetzt.",
   "kumiko.config.source.user": "Ihr Wert",

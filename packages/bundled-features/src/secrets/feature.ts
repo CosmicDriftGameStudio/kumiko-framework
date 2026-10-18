@@ -64,6 +64,11 @@ export {
 } from "./secrets-context.js";
 export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./table.js";
 
+// The settings form saves config values and secrets in one /api/batch; the secret
+// write has to join that transaction so a rejected command rolls it back too.
+export const JOIN_REQUEST_TRANSACTION_REASON =
+  "the secret write runs on the request transaction so a failing batch rolls it back together with the config writes";
+
 // AppContext carries ctx.secrets via extraContext. requireSecretsContext
 // wraps that raw context so every `.get(...)` call auto-includes the
 // current user + handler as audit metadata — feature code can't forget

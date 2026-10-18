@@ -456,9 +456,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Se aplica a todos en esta organización. Donde aquí no hay valor, se muestran los valores predeterminados de la plataforma.",
   "config.settings.audience.user": "Solo se aplica a ti.",
   "config.settings.extensionSelectorHint":
-    "Elige un proveedor y guarda. Su configuración aparece debajo.",
+    "Elige un proveedor. Su configuración aparece debajo y se guarda junto con él.",
   "config.settings.provider": "Proveedor",
-  "config.settings.saveProvider": "Guardar proveedor",
   "config.settings.system": "Plataforma",
   "config.settings.tenant": "Organización",
   "config.settings.title": "Ajustes",
@@ -1762,11 +1761,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider": "Servidor de correo propio",
   "mail-foundation.provider.description":
     "Sin él, la plataforma envía los correos. Restablece la selección para volver a eso.",
-  "screen:mail-transport-smtp-tenant.title": "Servidor SMTP",
   "mail-transport-inmemory.settings": "Buzón de prueba (en memoria)",
   "mail-transport-smtp.settings": "Servidor SMTP",
   "screen:mail-foundation-tenant-selection.title": "Proveedor",
-  "config:entity:__config-edit__:field:provider:option:inmemory": "Buzón de prueba (en memoria)",
   "config:entity:__config-edit__:field:provider:option:smtp": "Servidor SMTP",
   "mail-transport-smtp.settings.secrets": "Acceso SMTP",
   "mail-transport-smtp.settings.description":

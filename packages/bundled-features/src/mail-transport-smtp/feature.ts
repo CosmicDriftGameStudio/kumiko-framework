@@ -47,9 +47,10 @@ import {
   type MailTransportPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import { SMTP_CONFIG_KEYS } from "./config-keys.js";
 import { MAIL_TRANSPORT_SMTP_I18N } from "./i18n.js";
 
 const FEATURE_NAME = "mail-transport-smtp";
@@ -108,72 +109,7 @@ export function createMailTransportSmtpFeature() {
         required: true,
       });
 
-      // No SystemAdmin write: the password is a tenant secret, so platform-level SMTP keys
-      // could never form a working transport (see mail-foundation's provider key).
-      const tenantAdminWrite = access.withSystem(access.roles("TenantAdmin"));
-      const tenantAdminRead = access.roles("TenantAdmin", "SystemAdmin");
-      // required: true ↔ the requireNonEmpty calls in buildSmtpTransport — keep in sync.
-      const configKeys = r.config({
-        keys: {
-          host: createTenantConfig("text", {
-            required: true,
-            default: "",
-            write: tenantAdminWrite,
-            read: tenantAdminRead,
-            mask: {
-              title: "mail-transport-smtp.host",
-              description: "mail-transport-smtp.host.description",
-              icon: "server",
-              order: 1,
-            },
-          }),
-          port: createTenantConfig("number", {
-            default: 587,
-            bounds: { min: 1, max: 65535 },
-            write: tenantAdminWrite,
-            mask: {
-              title: "mail-transport-smtp.port",
-              description: "mail-transport-smtp.port.description",
-              icon: "hash",
-              order: 2,
-            },
-          }),
-          secure: createTenantConfig("boolean", {
-            default: false,
-            write: tenantAdminWrite,
-            mask: {
-              title: "mail-transport-smtp.secure",
-              description: "mail-transport-smtp.secure.description",
-              icon: "lock",
-              order: 3,
-            },
-          }),
-          authUser: createTenantConfig("text", {
-            required: true,
-            default: "",
-            write: tenantAdminWrite,
-            read: tenantAdminRead,
-            mask: {
-              title: "mail-transport-smtp.authUser",
-              description: "mail-transport-smtp.authUser.description",
-              icon: "user",
-              order: 4,
-            },
-          }),
-          from: createTenantConfig("text", {
-            required: true,
-            default: "",
-            write: tenantAdminWrite,
-            read: tenantAdminRead,
-            mask: {
-              title: "mail-transport-smtp.from",
-              description: "mail-transport-smtp.from.description",
-              icon: "mail",
-              order: 5,
-            },
-          }),
-        },
-      });
+      const configKeys = r.config({ keys: SMTP_CONFIG_KEYS });
 
       r.translations({ keys: MAIL_TRANSPORT_SMTP_I18N });
 

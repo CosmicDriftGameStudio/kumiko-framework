@@ -1,6 +1,6 @@
 // The generated Settings-Hub dashboard of an extension selector, rendered from
-// the REAL generator output (buildConfigFeatureSchema) — selection form plus
-// per-provider config/secrets panels that show only for the saved provider.
+// the REAL generator output (buildConfigFeatureSchema) — one form for the provider
+// and every provider's settings and secrets, shown for the provider picked in the form.
 //
 // `as unknown as Dispatcher[...]`: each mock lambda implements only the overload
 // the test exercises.
@@ -12,7 +12,6 @@ import {
   createRegistry,
   createTenantConfig,
   defineFeature,
-  SELECTED_EXTENSIONS_QUERY,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
@@ -113,38 +112,65 @@ function renderHub(dispatcher: Dispatcher, schema: FeatureSchema = hubSchema): v
   );
 }
 
-function hubQuery(selected: Record<string, string>): Dispatcher["query"] {
+type HubState = { readonly provider?: string; readonly passwordStored?: boolean };
+
+const SMTP_PASSWORD_KEY = "mail-smtp:secret:password";
+
+function hubQuery(state: HubState): Dispatcher["query"] {
   return (async (type: string) => {
-    if (type === SELECTED_EXTENSIONS_QUERY) return { isSuccess: true, data: selected };
     if (type === "config:query:values") {
-      const provider = selected["mailTransport"];
       return {
         isSuccess: true,
         data:
-          provider === undefined
+          state.provider === undefined
             ? {}
-            : { "mail-foundation:config:provider": { value: provider, scope: "tenant" } },
+            : {
+                "mail-foundation:config:provider": {
+                  value: state.provider,
+                  scope: "tenant",
+                  source: "tenant-row",
+                },
+              },
       };
     }
-    return { isSuccess: true, data: [] };
+    if (type === "secrets:query:list") {
+      return {
+        isSuccess: true,
+        data: state.passwordStored ? [{ key: SMTP_PASSWORD_KEY, redactedPreview: null }] : [],
+      };
+    }
+    return { isSuccess: true, data: {} };
   }) as unknown as Dispatcher["query"];
 }
 
-describe("generated extension-selector dashboard", () => {
-  test("shows only the selected provider's config and secrets panels", async () => {
-    renderHub(createMockDispatcher({ query: hubQuery({ mailTransport: "smtp" }) }));
+function batchSpy() {
+  return mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    isSuccess: true as const,
+    results: [],
+  }));
+}
 
-    await waitFor(() => screen.getByTestId("dashboard-panel-mail-smtp-config"));
-    expect(screen.getByTestId("dashboard-panel-selection")).toBeTruthy();
-    await waitFor(() => screen.getByTestId("dashboard-panel-mail-smtp-secrets"));
-    expect(screen.queryByTestId("dashboard-panel-mail-inmemory-config")).toBeNull();
+function inputOf(fieldName: string): HTMLInputElement {
+  const input = screen.getByTestId(`field-${fieldName}`).querySelector("input");
+  if (!input) throw new Error(`expected an input for ${fieldName}`);
+  return input;
+}
+
+describe("generated extension-selector dashboard", () => {
+  test("shows the saved provider's settings and secret, not the other provider's", async () => {
+    renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }));
+
+    await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
+    expect(screen.getByTestId("field-mail-smtp-password")).toBeTruthy();
+    expect(screen.queryByTestId("field-mail-inmemory-capture")).toBeNull();
+    expect(screen.queryByTestId("dashboard-panel-mail-smtp-config")).toBeNull();
   });
 
   test("generated panels render chromeless: no padded scroll surface or card around the embedded form", async () => {
-    renderHub(createMockDispatcher({ query: hubQuery({ mailTransport: "smtp" }) }));
-    await waitFor(() => screen.getByTestId("dashboard-panel-mail-smtp-config"));
+    renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }));
+    await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
     const panel = screen.getByTestId("dashboard-panel-selection");
-    await waitFor(() => panel.querySelector("form"));
+    expect(panel.querySelector("form")).not.toBeNull();
     expect(panel.querySelector("[data-slot=card]")).toBeNull();
     expect(panel.querySelector("[data-testid=render-edit-form-scroll]")).toBeNull();
   });
@@ -163,47 +189,97 @@ describe("generated extension-selector dashboard", () => {
           : screenDef,
       ),
     };
-    renderHub(createMockDispatcher({ query: hubQuery({ mailTransport: "smtp" }) }), framed);
-    await waitFor(() => screen.getByTestId("dashboard-panel-mail-smtp-config"));
+    renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }), framed);
+    await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
     const panel = screen.getByTestId("dashboard-panel-selection");
-    await waitFor(() =>
-      expect(panel.querySelector("[data-testid=render-edit-form-scroll]")).not.toBeNull(),
-    );
+    expect(panel.querySelector("[data-testid=render-edit-form-scroll]")).not.toBeNull();
   });
 
-  test("another provider swaps the panels", async () => {
-    renderHub(createMockDispatcher({ query: hubQuery({ mailTransport: "inmemory" }) }));
+  test("picking another provider swaps the settings before anything is saved", async () => {
+    renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }));
+    await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
 
-    await waitFor(() => screen.getByTestId("dashboard-panel-mail-inmemory-config"));
-    expect(screen.queryByTestId("dashboard-panel-mail-smtp-config")).toBeNull();
-    expect(screen.queryByTestId("dashboard-panel-mail-smtp-secrets")).toBeNull();
+    await userEvent.setup().click(screen.getByRole("radio", { name: "inmemory" }));
+
+    await waitFor(() => screen.getByTestId("field-mail-inmemory-capture"));
+    expect(screen.queryByTestId("field-mail-smtp-host")).toBeNull();
+    expect(screen.queryByTestId("field-mail-smtp-password")).toBeNull();
   });
 
-  test("saving the selection works while the hidden provider panels hold a required secret", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+  test("one save writes the provider, its settings and its password", async () => {
+    const batch = batchSpy();
     renderHub(
       createMockDispatcher({
         query: hubQuery({}),
-        batch: batchSpy as unknown as Dispatcher["batch"],
+        batch: batch as unknown as Dispatcher["batch"],
       }),
     );
-
-    await waitFor(() => screen.getByTestId("dashboard-panel-selection"));
-    expect(screen.queryByTestId("dashboard-panel-mail-smtp-secrets")).toBeNull();
-
     const user = userEvent.setup();
     await user.click(await screen.findByRole("radio", { name: "smtp" }));
+    await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
+    await user.type(inputOf("mail-smtp-host"), "smtp.example.test");
+    await user.type(inputOf("mail-smtp-password"), "smtp-password-for-the-test");
     await user.click(screen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
-    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+    await waitFor(() => expect(batch).toHaveBeenCalledTimes(1));
+    expect(batch.mock.calls[0]?.[0]).toEqual([
       {
         type: "config:write:set",
         payload: { key: "mail-foundation:config:provider", value: "smtp", scope: "tenant" },
       },
+      {
+        type: "config:write:set",
+        payload: { key: "mail-smtp:config:host", value: "smtp.example.test", scope: "tenant" },
+      },
+      {
+        type: "secrets:write:set",
+        payload: { key: SMTP_PASSWORD_KEY, value: "smtp-password-for-the-test" },
+      },
+    ]);
+  });
+
+  test("input for a provider that is no longer picked is not saved", async () => {
+    const batch = batchSpy();
+    renderHub(
+      createMockDispatcher({
+        query: hubQuery({}),
+        batch: batch as unknown as Dispatcher["batch"],
+      }),
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("radio", { name: "smtp" }));
+    await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
+    await user.type(inputOf("mail-smtp-host"), "smtp.example.test");
+    await user.click(screen.getByRole("radio", { name: "inmemory" }));
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batch).toHaveBeenCalledTimes(1));
+    expect(batch.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "mail-foundation:config:provider", value: "inmemory", scope: "tenant" },
+      },
+    ]);
+  });
+
+  test("a stored password shows as set and removing it deletes the secret", async () => {
+    const batch = batchSpy();
+    renderHub(
+      createMockDispatcher({
+        query: hubQuery({ provider: "smtp", passwordStored: true }),
+        batch: batch as unknown as Dispatcher["batch"],
+      }),
+    );
+    await waitFor(() => screen.getByTestId("field-mail-smtp-password"));
+    expect(inputOf("mail-smtp-password").placeholder).toBe("Set — leave empty to keep it");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Remove stored value" }));
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batch).toHaveBeenCalledTimes(1));
+    expect(batch.mock.calls[0]?.[0]).toEqual([
+      { type: "secrets:write:delete", payload: { key: SMTP_PASSWORD_KEY } },
     ]);
   });
 });

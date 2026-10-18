@@ -22,8 +22,8 @@ import { isEncryptedAtRest } from "./config-helpers.js";
 import type { ConfigScope } from "./constants.js";
 import {
   EXTENSION_SELECTOR_HINT_KEY,
-  SELECTED_EXTENSIONS_QUERY,
-  selectablePluginIds,
+  isSelectableInSettings,
+  settingsSelectablePluginIds,
 } from "./extension-selector-plugins.js";
 import {
   createBooleanField,
@@ -32,9 +32,10 @@ import {
   createTextField,
 } from "./factories.js";
 import { isKebabSegment, toKebab } from "./qualified-name.js";
+import { isFieldsEditSection, sectionFieldSpecs } from "./screen-helpers.js";
 import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./types/config.js";
 import type { Registry, SecretKeyDefinition } from "./types/feature.js";
-import type { FieldDefinition, OptionsQueryPayload } from "./types/fields.js";
+import type { FieldCondition, FieldDefinition, OptionsQueryPayload } from "./types/fields.js";
 import type { AccessRule } from "./types/handlers.js";
 import { isOpenToAllGranted } from "./types/handlers.js";
 import type { ExtensionSelectorPanel } from "./types/index.js";
@@ -43,6 +44,7 @@ import type {
   ConfigEditScreenDefinition,
   DashboardPanelDefinition,
   DashboardScreenDefinition,
+  EditFieldSpec,
   EditFieldsSection,
   ScreenDefinition,
   SecretsEditScreenDefinition,
@@ -88,7 +90,7 @@ const PROVIDER_PANEL_TITLE_ENTRY: TranslationEntry = {
   es: "Proveedor",
 };
 const PROVIDER_SECTION_TITLE_KEY = "config.settings.provider";
-const SAVE_PROVIDER_LABEL_KEY = "config.settings.saveProvider";
+const SECRETS_SECTION_DESCRIPTION_KEY = "config.secrets.description";
 
 const audienceNavShortId = (scope: ConfigScope): string => `audience-${scope}`;
 
@@ -137,10 +139,11 @@ type ScopeResult = {
   readonly translations?: TranslationKeys;
 };
 
-// Its tenant keys/secrets become panels of the selector owner's dashboard, not own navs.
+// Its tenant keys/secrets join the selector owner's provider form, not own navs.
 type GatedPlugin = {
   readonly feature: string;
   readonly extension: string;
+  readonly selectorQn: string;
   readonly pluginId: string;
   readonly scopedKeys: readonly ScopedKey[];
   readonly secrets: readonly DeclaredSecret[];
@@ -181,11 +184,13 @@ function collectDeclaredTranslations(registry: Registry): ReadonlyMap<string, Tr
   return declared;
 }
 
+// A selector whose plugins are all hidden from settings still renders as a select
+// (with no option), never as a free text field.
 function collectSelectorOptions(registry: Registry): Map<string, readonly string[]> {
   const options = new Map<string, readonly string[]>();
   for (const [extensionName, selectorKey] of registry.getAllExtensionSelectors()) {
-    const pluginIds = selectablePluginIds(registry, extensionName);
-    if (pluginIds.length > 0) options.set(selectorKey, pluginIds);
+    if (registry.getExtensionUsages(extensionName).length === 0) continue;
+    options.set(selectorKey, settingsSelectablePluginIds(registry, extensionName));
   }
   return options;
 }
@@ -198,7 +203,7 @@ function collectSelectorOptionFeatures(
   const byKey = new Map<string, ReadonlyMap<string, string>>();
   for (const [extensionName, selectorKey] of registry.getAllExtensionSelectors()) {
     const featureByPluginId = new Map<string, string>();
-    for (const usage of registry.getExtensionUsages(extensionName)) {
+    for (const usage of registry.getExtensionUsages(extensionName).filter(isSelectableInSettings)) {
       if (usage.featureName === undefined || featureByPluginId.has(usage.entityName)) continue;
       featureByPluginId.set(usage.entityName, toKebab(usage.featureName));
     }
@@ -278,15 +283,28 @@ function planSelectorGating(
     const usages = [...registry.getExtensionUsages(extension)].sort((a, b) =>
       (a.featureName ?? "").localeCompare(b.featureName ?? ""),
     );
+    const selectorQn = registry.getAllExtensionSelectors().get(extension);
+    if (selectorQn === undefined) continue;
     for (const usage of usages) {
       if (usage.featureName === undefined) continue;
       const feature = toKebab(usage.featureName);
       if (usageCountByFeature.get(feature) !== 1 || selectorFeatures.has(feature)) continue;
       const scopedKeys = visible.filter((v) => v.key.ownerFeature === feature);
-      const secrets = secretsEnabled ? declaredSecrets.filter((s) => s.feature === feature) : [];
+      // The provider form has no per-field access gate, so a secret with its own write
+      // roles stays on the secrets screen, which enforces them.
+      const secrets = secretsEnabled
+        ? declaredSecrets.filter((s) => s.feature === feature && s.def.writeRoles === undefined)
+        : [];
       if (scopedKeys.length === 0 && secrets.length === 0) continue;
       const plugins = pluginsByOwnerGroup.get(ownerGroup) ?? [];
-      plugins.push({ feature, extension, pluginId: usage.entityName, scopedKeys, secrets });
+      plugins.push({
+        feature,
+        extension,
+        selectorQn,
+        pluginId: usage.entityName,
+        scopedKeys,
+        secrets,
+      });
       pluginsByOwnerGroup.set(ownerGroup, plugins);
       pluginFeatures.add(feature);
       for (const s of secrets) secretQns.add(s.qn);
@@ -369,10 +387,6 @@ function buildFeatureScreensAndNavs(
   return out;
 }
 
-function pluginTenantScreenId(plugin: GatedPlugin): string {
-  return `${plugin.feature}-tenant`;
-}
-
 function assertUniquePanelIds(
   ownerGroup: string,
   panels: DashboardPanelDefinition[],
@@ -390,8 +404,9 @@ function assertUniquePanelIds(
   return panels;
 }
 
-// Plugin screens keep their `${F}-tenant` ids so consumer title keys stay valid;
-// they are dormant because only this dashboard embeds them.
+// One form for the provider and the settings of every provider: a single save writes
+// all of it, so switching sections can't drop typed input. Each plugin's fields are
+// shown only while its provider is picked in the form; hidden fields are not saved.
 function buildSelectorOwnerDashboard(
   ownerGroup: string,
   ownerKeys: readonly MaskedKey[],
@@ -406,75 +421,52 @@ function buildSelectorOwnerDashboard(
   translations: Record<string, TranslationEntry>;
 } {
   const selectionScreenId = `${ownerGroup}-tenant-selection`;
-  const selectionScreen: ConfigEditScreenDefinition = {
-    ...buildScreen(selectionScreenId, "tenant", ownerGroup, ownerKeys, ownerAccess, hub, {
+  const form = new ProviderFormBuilder(
+    selectionScreenId,
+    buildScreen(selectionScreenId, "tenant", ownerGroup, ownerKeys, ownerAccess, hub, {
       description: EXTENSION_SELECTOR_HINT_KEY,
       sectionTitle: PROVIDER_SECTION_TITLE_KEY,
-      submitLabel: SAVE_PROVIDER_LABEL_KEY,
     }),
-    dormant: true,
-  };
-  const screens: ScreenDefinition[] = [selectionScreen];
-  const configPanels: DashboardPanelDefinition[] = [];
-  const secretsPanels: DashboardPanelDefinition[] = [];
+  );
   const accessRules: (AccessRule | undefined)[] = [ownerAccess];
   const translations: Record<string, TranslationEntry> = {};
 
   translations[`screen:${selectionScreenId}.title`] = PROVIDER_PANEL_TITLE_ENTRY;
-  Object.assign(translations, providerOptionTranslations(selectionScreen, hub));
+  Object.assign(translations, providerOptionTranslations(form.base, hub));
 
   for (const plugin of plugins) {
-    const visibleWhen = {
-      query: SELECTED_EXTENSIONS_QUERY,
-      field: plugin.extension,
-      eq: plugin.pluginId,
-    };
+    const providerFieldId = form.fieldIdOfConfigKey(plugin.selectorQn);
+    const visible = { field: providerFieldId, eq: plugin.pluginId };
+    let pluginSection: EditFieldsSection | undefined;
     if (plugin.scopedKeys.length > 0) {
       const pluginAccess = rolesToAccess(plugin.scopedKeys.flatMap((v) => v.roles));
-      const ordered = sortByMaskOrder(plugin.scopedKeys.map((v) => v.key));
-      screens.push({
-        ...buildScreen(
-          pluginTenantScreenId(plugin),
-          "tenant",
-          plugin.feature,
-          ordered,
-          pluginAccess,
-          hub,
-          { description: null },
-        ),
-        dormant: true,
-      });
+      const pluginScreen = buildScreen(
+        `${plugin.feature}-tenant`,
+        "tenant",
+        plugin.feature,
+        sortByMaskOrder(plugin.scopedKeys.map((v) => v.key)),
+        pluginAccess,
+        hub,
+        { description: null, fieldIdOf: qualifiedFieldId },
+      );
+      pluginSection = form.addConfigFields(pluginScreen, visible);
       accessRules.push(pluginAccess);
-      configPanels.push({
-        kind: "screen",
-        id: `${plugin.feature}-config`,
-        screen: pluginTenantScreenId(plugin),
-        visibleWhen,
-        chromeless: true,
-      });
     }
     if (plugin.secrets.length > 0) {
-      const secretsScreenId = `${plugin.feature}-tenant-secrets`;
       const generated = buildSecretsEditScreen(
-        secretsScreenId,
+        `${plugin.feature}-tenant-secrets`,
         plugin.secrets,
         secretsAccess,
         hub.declaredTranslationKeys,
       );
-      screens.push({ ...generated.screen, dormant: true });
+      form.addSecretFields(generated.screen, plugin.feature, visible, pluginSection);
       Object.assign(translations, generated.translations);
       accessRules.push(secretsAccess);
-      secretsPanels.push({
-        kind: "screen",
-        id: `${plugin.feature}-secrets`,
-        screen: secretsScreenId,
-        visibleWhen,
-        chromeless: true,
-      });
     }
   }
 
   const access = unionAccessRules(accessRules);
+  const selectionScreen: ConfigEditScreenDefinition = { ...form.build(access), dormant: true };
   const dashboard: DashboardScreenDefinition = {
     id: `${ownerGroup}-tenant`,
     type: "dashboard",
@@ -482,12 +474,147 @@ function buildSelectorOwnerDashboard(
     panels: assertUniquePanelIds(ownerGroup, [
       { kind: "screen", id: "selection", screen: selectionScreenId, chromeless: true },
       ...ownerPanels,
-      ...configPanels,
-      ...secretsPanels,
     ]),
     access,
   };
-  return { screens: [dashboard, ...screens], access, translations };
+  return { screens: [dashboard, selectionScreen], access, translations };
+}
+
+// A plugin key keeps its feature in the field id: the provider form holds the keys of
+// several features side by side.
+function qualifiedFieldId(k: MaskedKey): string {
+  return `${k.ownerFeature}-${k.shortKey}`;
+}
+
+class ProviderFormBuilder {
+  private readonly configKeys: Record<string, string>;
+  private readonly secretKeys: Record<string, string> = {};
+  private readonly fields: Record<string, FieldDefinition>;
+  private readonly fieldLabels: Record<string, string>;
+  private readonly fieldDescriptions: Record<string, string>;
+  private readonly requiredFields: string[];
+  private readonly sections: EditFieldsSection[];
+
+  constructor(
+    private readonly screenId: string,
+    readonly base: ConfigEditScreenDefinition,
+  ) {
+    this.configKeys = { ...base.configKeys };
+    this.fields = { ...base.fields };
+    this.fieldLabels = { ...base.fieldLabels };
+    this.fieldDescriptions = { ...base.fieldDescriptions };
+    this.requiredFields = [...(base.requiredFields ?? [])];
+    this.sections = base.layout.sections.filter(isFieldsEditSection);
+  }
+
+  fieldIdOfConfigKey(qn: string): string {
+    const entry = Object.entries(this.base.configKeys).find(([, keyQn]) => keyQn === qn);
+    if (entry === undefined) {
+      throw new Error(`[Settings-Hub] selector key "${qn}" is not on "${this.screenId}".`);
+    }
+    return entry[0];
+  }
+
+  addConfigFields(
+    pluginScreen: ConfigEditScreenDefinition,
+    visible: FieldCondition,
+  ): EditFieldsSection | undefined {
+    for (const [id, qn] of Object.entries(pluginScreen.configKeys)) {
+      this.claim(id, qn);
+      this.configKeys[id] = qn;
+      const field = pluginScreen.fields[id];
+      if (field !== undefined) this.fields[id] = field;
+    }
+    Object.assign(this.fieldLabels, pluginScreen.fieldLabels);
+    Object.assign(this.fieldDescriptions, pluginScreen.fieldDescriptions);
+    this.requiredFields.push(...(pluginScreen.requiredFields ?? []));
+    const section = pluginScreen.layout.sections.find(isFieldsEditSection);
+    if (section === undefined) return undefined;
+    const { groups: _groups, ...flatSection } = section;
+    const gated: EditFieldsSection = {
+      ...flatSection,
+      fields: gateFields(sectionFieldSpecs(section), visible),
+    };
+    this.sections.push(gated);
+    return gated;
+  }
+
+  // A plugin's sign-in data gets its own section when the plugin names one, else it
+  // continues the plugin's settings section.
+  addSecretFields(
+    secretsScreen: SecretsEditScreenDefinition,
+    feature: string,
+    visible: FieldCondition,
+    pluginSection: EditFieldsSection | undefined,
+  ): void {
+    for (const [id, qn] of Object.entries(secretsScreen.secretKeys)) {
+      this.claim(id, qn);
+      this.secretKeys[id] = qn;
+      this.fields[id] = createTextField({
+        personal: false,
+        reason: "system_metadata",
+        writeOnly: true,
+      });
+    }
+    Object.assign(this.fieldLabels, secretsScreen.fieldLabels);
+    Object.assign(this.fieldDescriptions, secretsScreen.fieldHints);
+    this.requiredFields.push(...(secretsScreen.requiredFields ?? []));
+    const secretsTitleKey = `${feature}.settings.secrets`;
+    for (const section of secretsScreen.sections) {
+      // kumiko-lint-ignore section-fields-raw a secretsEdit section is a flat key list without groups
+      const fields = gateFields(section.fields, visible);
+      const ownSection = section.title === secretsTitleKey || pluginSection === undefined;
+      if (ownSection) {
+        this.sections.push({
+          title: section.title ?? `${feature}.settings`,
+          description: SECRETS_SECTION_DESCRIPTION_KEY,
+          fields,
+        });
+        continue;
+      }
+      const index = this.sections.indexOf(pluginSection);
+      this.sections[index] = {
+        ...pluginSection,
+        fields: [...sectionFieldSpecs(pluginSection), ...fields],
+      };
+    }
+  }
+
+  build(access: AccessRule): ConfigEditScreenDefinition {
+    const {
+      fieldDescriptions: _baseDescriptions,
+      requiredFields: _baseRequired,
+      ...base
+    } = this.base;
+    return {
+      ...base,
+      configKeys: this.configKeys,
+      ...(Object.keys(this.secretKeys).length > 0 && { secretKeys: this.secretKeys }),
+      fields: this.fields,
+      fieldLabels: this.fieldLabels,
+      ...(Object.keys(this.fieldDescriptions).length > 0 && {
+        fieldDescriptions: this.fieldDescriptions,
+      }),
+      ...(this.requiredFields.length > 0 && { requiredFields: this.requiredFields }),
+      layout: { ...base.layout, sections: this.sections },
+      access,
+    };
+  }
+
+  private claim(id: string, qn: string): void {
+    const previous = this.configKeys[id] ?? this.secretKeys[id];
+    if (previous !== undefined) {
+      throw new Error(
+        `[Settings-Hub] "${previous}" and "${qn}" both resolve to field id "${id}" on "${this.screenId}" — rename one key.`,
+      );
+    }
+  }
+}
+
+function gateFields(fields: readonly EditFieldSpec[], visible: FieldCondition): EditFieldSpec[] {
+  return fields.map((spec) =>
+    typeof spec === "string" ? { field: spec, visible } : { ...spec, visible },
+  );
 }
 
 // Everything generated for one audience scope: the audience-parent nav, the
@@ -786,8 +913,9 @@ function buildScreen(
   // feature's group (100% of today's apps — byte-identical output). Only a
   // cross-feature `group` (feature !== ownerFeature) needs the owner prefix,
   // to keep two features sharing a group from clobbering the same shortKey.
-  const fieldId = (k: MaskedKey): string =>
-    k.feature === k.ownerFeature ? k.shortKey : `${k.ownerFeature}-${k.shortKey}`;
+  const fieldId =
+    options.fieldIdOf ??
+    ((k: MaskedKey): string => (k.feature === k.ownerFeature ? k.shortKey : qualifiedFieldId(k)));
   const seenFieldIds = new Map<string, string>();
   for (const k of keys) {
     const id = fieldId(k);
@@ -822,7 +950,6 @@ function buildScreen(
     ...(Object.keys(fieldDescriptions).length > 0 && { fieldDescriptions }),
     ...(requiredFields.length > 0 && { requiredFields }),
     ...(screenDescription !== undefined && { description: screenDescription }),
-    ...(options.submitLabel !== undefined && { submitLabel: options.submitLabel }),
     layout: { sections: [section], width: "full", variant: "settings-list" },
     access,
   };
@@ -890,7 +1017,7 @@ function buildSettingsSection(
 type ScreenOptions = {
   readonly description?: string | null;
   readonly sectionTitle?: string;
-  readonly submitLabel?: string;
+  readonly fieldIdOf?: (k: MaskedKey) => string;
 };
 
 // Option labels of the provider select: each plugin feature's `<feature>.settings`

@@ -719,17 +719,20 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           userId: forgetUserId,
         });
 
-        // Without an app callback the default mail goes out when a mail transport and a
-        // mail renderer are mounted. The user is already erased here, so it bypasses the
-        // delivery log: an attempt row would be new personal data.
+        // Without an app callback the default mail goes out when an email channel or a
+        // mail transport, plus a mail renderer, are mounted. The user is already erased
+        // here, so it bypasses the delivery log: an attempt row would be new personal data.
         const forgetConfigResolver = ctx.configResolver;
         const sendDeletionExecutedEmail =
           opts.sendDeletionExecutedEmail ??
-          (isMailTransportAvailable(forgetRegistry) && isMailRendererAvailable(forgetRegistry)
+          ((isGdprMailDeliveryAvailable(forgetRegistry) ||
+            isMailTransportAvailable(forgetRegistry)) &&
+          isMailRendererAvailable(forgetRegistry)
             ? makeDefaultDeletionExecutedEmail(
                 {
                   registry: forgetRegistry,
                   db: forgetDb,
+                  ...(ctx.secrets !== undefined && { secrets: ctx.secrets }),
                   resolveTransport: makeTenantMailTransportResolver({
                     registry: forgetRegistry,
                     configResolver: forgetConfigResolver,

@@ -18,12 +18,12 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
-import { mailFoundationFeature } from "../../mail-foundation/feature.js";
+import { createMailFoundationFeature } from "../../mail-foundation/feature.js";
 import { tenantMailTransport } from "../../mail-foundation/index.js";
 import {
   clearInbox,
+  createMailTransportInMemoryFeature,
   getInbox,
-  mailTransportInMemoryFeature,
 } from "../../mail-transport-inmemory/index.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
@@ -69,8 +69,8 @@ beforeAll(async () => {
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      mailFoundationFeature,
-      mailTransportInMemoryFeature,
+      createMailFoundationFeature(),
+      createMailTransportInMemoryFeature(),
       createChannelEmailFeature({
         transport: appTransport,
         tenantTransport: tenantMailTransport,

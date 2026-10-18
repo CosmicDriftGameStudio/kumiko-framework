@@ -1,5 +1,5 @@
 // Tenant admins edit their own SMTP server in the generated Settings-Hub: provider
-// select, SMTP connection keys and the password secret on one dashboard, with every
+// select, SMTP connection keys and the password secret in one form with one save, with every
 // label translated. No platform-scope screen: a platform-level provider would be
 // inherited by every tenant without that tenant's password.
 
@@ -9,23 +9,27 @@ import {
   createRegistry,
   defineFeature,
   type ScreenDefinition,
+  selectablePluginIds,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
 import { createConfigFeature } from "../../config/feature.js";
-import { mailFoundationFeature } from "../../mail-foundation/feature.js";
-import { mailTransportInMemoryFeature } from "../../mail-transport-inmemory/index.js";
+import {
+  createMailFoundationFeature,
+  MAIL_TRANSPORT_EXTENSION,
+} from "../../mail-foundation/feature.js";
+import { createMailTransportInMemoryFeature } from "../../mail-transport-inmemory/index.js";
 import { createSecretsFeature } from "../../secrets/feature.js";
-import { mailTransportSmtpFeature } from "../feature.js";
+import { createMailTransportSmtpFeature } from "../feature.js";
 
 function features() {
   return [
     createConfigFeature(),
     createSecretsFeature(),
-    mailFoundationFeature,
-    mailTransportSmtpFeature,
+    createMailFoundationFeature(),
+    createMailTransportSmtpFeature(),
   ];
 }
 
@@ -43,14 +47,11 @@ function screenOf<T extends ScreenDefinition["type"]>(
   return found as Extract<ScreenDefinition, { type: T }>; // @cast-boundary type checked on the line above
 }
 
-function sectionText(screen: ScreenDefinition): { title?: string; description?: string } {
-  if (screen.type !== "configEdit") return {};
-  const section = screen.layout.sections[0];
-  if (section === undefined || !("fields" in section)) return {};
-  return {
-    ...(section.title !== undefined && { title: section.title }),
-    ...(section.description !== undefined && { description: section.description }),
-  };
+function sectionTexts(screen: ScreenDefinition): (string | undefined)[] {
+  if (screen.type !== "configEdit") return [];
+  return screen.layout.sections.flatMap((section) =>
+    "fields" in section ? [section.title, section.description] : [],
+  );
 }
 
 describe("mail transport settings for tenant admins", () => {
@@ -58,32 +59,39 @@ describe("mail transport settings for tenant admins", () => {
     expect(() => validateBoot(features())).not.toThrow();
   });
 
-  test("one tenant dashboard: provider select, SMTP connection, SMTP password", () => {
+  test("one form saves the provider, the SMTP connection and the SMTP password", () => {
     const built = schema();
     const dashboard = screenOf(built, "mail-foundation-tenant", "dashboard");
-    expect(dashboard.panels.map((panel) => panel.id)).toEqual([
-      "selection",
-      "mail-transport-smtp-config",
-      "mail-transport-smtp-secrets",
-    ]);
+    expect(dashboard.panels.map((panel) => panel.id)).toEqual(["selection"]);
     expect(dashboard.access).toEqual({ roles: ["TenantAdmin"] });
+    expect(built.screens.map((s) => s.id)).not.toContain("mail-transport-smtp-tenant");
+    expect(built.screens.map((s) => s.id)).not.toContain("mail-transport-smtp-tenant-secrets");
 
-    const selection = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
-    expect(selection.fields["provider"]).toMatchObject({ type: "select", options: ["smtp"] });
-
-    const smtp = screenOf(built, "mail-transport-smtp-tenant", "configEdit");
-    expect(Object.values(smtp.configKeys)).toEqual([
+    const form = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
+    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["smtp"] });
+    expect(Object.values(form.configKeys)).toEqual([
+      "mail-foundation:config:provider",
       "mail-transport-smtp:config:host",
       "mail-transport-smtp:config:port",
       "mail-transport-smtp:config:secure",
       "mail-transport-smtp:config:auth-user",
       "mail-transport-smtp:config:from",
     ]);
-    const secrets = screenOf(built, "mail-transport-smtp-tenant-secrets", "secretsEdit");
-    expect(secrets.sections?.map((section) => section.title)).toEqual([
+    expect(form.secretKeys).toEqual({
+      "mail-transport-smtp-smtp-password": "mail-transport-smtp:secret:smtp-password",
+    });
+    expect(form.fields["mail-transport-smtp-smtp-password"]).toMatchObject({
+      type: "text",
+      writeOnly: true,
+    });
+    expect(
+      form.layout.sections.map((section) => ("title" in section ? section.title : "")),
+    ).toEqual([
+      "config.settings.provider",
+      "mail-transport-smtp.settings",
       "mail-transport-smtp.settings.secrets",
     ]);
-    expect(Object.values(secrets.secretKeys)).toEqual(["mail-transport-smtp:secret:smtp-password"]);
+    expect(form.submitLabel).toBeUndefined();
   });
 
   test("no platform screen for the provider or the SMTP keys", () => {
@@ -101,15 +109,23 @@ describe("mail transport settings for tenant admins", () => {
     const germanOnly = defineFeature("locale-test", (r) => {
       r.translations({ keys: { "mail-transport-smtp.settings": { de: "SMTP-Server" } } });
     });
-    const built = buildConfigFeatureSchema(
-      createRegistry([germanOnly, ...features(), mailTransportInMemoryFeature]),
-    );
+    const built = buildConfigFeatureSchema(createRegistry([germanOnly, ...features()]));
     const optionKey = "config:entity:__config-edit__:field:provider:option:";
     expect(built.translations?.[`${optionKey}smtp`]).toEqual({
       en: "SMTP server",
       de: "SMTP-Server",
     });
-    expect(built.translations?.[`${optionKey}inmemory`]).toEqual({ en: "Test inbox (in memory)" });
+  });
+
+  test("the in-memory test inbox is never offered, but stays a valid stored provider", () => {
+    const registry = createRegistry([...features(), createMailTransportInMemoryFeature()]);
+    const built = buildConfigFeatureSchema(registry);
+    const form = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
+    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["smtp"] });
+    expect(
+      built.translations?.["config:entity:__config-edit__:field:provider:option:inmemory"],
+    ).toBeUndefined();
+    expect(selectablePluginIds(registry, MAIL_TRANSPORT_EXTENSION)).toEqual(["inmemory", "smtp"]);
   });
 
   test("every visible label resolves in en, de and es", () => {
@@ -127,22 +143,14 @@ describe("mail transport settings for tenant admins", () => {
       if (text !== undefined) en.set(key, translationValueOtherText(text));
     }
 
-    const selection = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
-    const smtp = screenOf(built, "mail-transport-smtp-tenant", "configEdit");
+    const form = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
     const nav = built.navs.find((n) => n.id === "mail-foundation-tenant");
-    const smtpSection = sectionText(smtp);
     const ownKeys = [
       nav?.label,
       "screen:mail-foundation-tenant.title",
-      ...Object.values(selection.fieldLabels ?? {}),
-      "mail-foundation.provider.description",
-      smtpSection.title,
-      smtpSection.description,
-      ...Object.values(smtp.fieldLabels ?? {}),
-      ...Object.values(smtp.configKeys).map((qn) => registry.getConfigKey(qn)?.mask?.description),
-      "mail-transport-smtp.settings.secrets",
-      "config.secret.mail-transport-smtp.smtp-password.label",
-      "config.secret.mail-transport-smtp.smtp-password.hint",
+      ...sectionTexts(form),
+      ...Object.values(form.fieldLabels ?? {}),
+      ...Object.values(form.fieldDescriptions ?? {}),
     ];
     for (const key of ownKeys) {
       if (key === undefined) throw new Error("missing label key");

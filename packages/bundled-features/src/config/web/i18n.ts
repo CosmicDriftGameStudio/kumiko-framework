@@ -32,9 +32,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "config.errors.unknownKey": "Unknown configuration key.",
     "config.errors.unknownExtensionPlugin": "This provider is not available.",
     "config.settings.extensionSelectorHint":
-      "Choose a provider and save. Its settings appear below.",
+      "Choose a provider. Its settings appear below and are saved together with it.",
     "config.settings.provider": "Provider",
-    "config.settings.saveProvider": "Save provider",
     "config.settings.audience.system":
       "Applies to every tenant unless a tenant sets its own value.",
     "config.settings.audience.tenant":

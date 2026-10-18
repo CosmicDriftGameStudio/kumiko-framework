@@ -6,13 +6,12 @@ import { validateBoot } from "../boot-validator.js";
 import { buildConfigFeatureSchema, SETTINGS_HUB_FEATURE } from "../build-config-feature-schema.js";
 import { access, createSystemConfig, createTenantConfig } from "../config-helpers.js";
 import { defineFeature } from "../define-feature.js";
-import { SELECTED_EXTENSIONS_QUERY } from "../extension-selector-plugins.js";
+import { selectablePluginIds } from "../extension-selector-plugins.js";
 import { createRegistry } from "../registry.js";
 import type {
   ConfigEditScreenDefinition,
   FeatureDefinition,
   ScreenDefinition,
-  SecretsEditScreenDefinition,
 } from "../types/index.js";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin", "Admin");
@@ -120,22 +119,11 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(screen.fields["provider"]?.type).toBe("text");
   });
 
-  test("owner tenant screen is a dashboard: selection, plugin config panels, plugin secrets panel", () => {
+  test("owner tenant screen is a dashboard around one provider form", () => {
     const schema = build(gatedFeatures());
     const dashboard = screenOf(schema, "mail-foundation-tenant", "dashboard");
     expect(dashboard.description).toBeUndefined();
     expect(dashboard.showUpdatedAt).toBe(false);
-    for (const panel of dashboard.panels) {
-      if (panel.kind === "screen") expect(panel.chromeless).toBe(true);
-    }
-    const selection = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
-    const selectionSection = selection.layout.sections[0];
-    expect(
-      selectionSection && "description" in selectionSection
-        ? selectionSection.description
-        : undefined,
-    ).toBe("config.settings.extensionSelectorHint");
-    expect(selection.submitLabel).toBe("config.settings.saveProvider");
     expect(dashboard.panels).toEqual([
       {
         kind: "screen",
@@ -143,41 +131,111 @@ describe("buildConfigFeatureSchema — extension selector", () => {
         screen: "mail-foundation-tenant-selection",
         chromeless: true,
       },
+    ]);
+  });
+
+  test("the provider form holds every provider's settings and secrets, each shown only while it is picked", () => {
+    const schema = build(gatedFeatures());
+    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    expect(form.submitLabel).toBeUndefined();
+    expect(form.configKeys).toEqual({
+      provider: "mail-foundation:config:provider",
+      "mail-inmemory-capture": "mail-inmemory:config:capture",
+      "mail-smtp-host": "mail-smtp:config:host",
+    });
+    expect(form.secretKeys).toEqual({ "mail-smtp-password": "mail-smtp:secret:password" });
+    expect(form.fields["mail-smtp-password"]).toMatchObject({ type: "text", writeOnly: true });
+    expect(form.fieldLabels?.["mail-smtp-password"]).toBe("config.secret.mail-smtp.password.label");
+    expect(form.requiredFields).toEqual(["mail-smtp-password"]);
+    expect(form.layout.sections).toEqual([
       {
-        kind: "screen",
-        id: "mail-inmemory-config",
-        screen: "mail-inmemory-tenant",
-        chromeless: true,
-        visibleWhen: { query: SELECTED_EXTENSIONS_QUERY, field: "mailTransport", eq: "inmemory" },
+        title: "config.settings.provider",
+        description: "config.settings.extensionSelectorHint",
+        fields: ["provider"],
       },
       {
-        kind: "screen",
-        id: "mail-smtp-config",
-        screen: "mail-smtp-tenant",
-        chromeless: true,
-        visibleWhen: { query: SELECTED_EXTENSIONS_QUERY, field: "mailTransport", eq: "smtp" },
+        title: "mail-inmemory.settings",
+        fields: [
+          { field: "mail-inmemory-capture", visible: { field: "provider", eq: "inmemory" } },
+        ],
       },
       {
-        kind: "screen",
-        id: "mail-smtp-secrets",
-        screen: "mail-smtp-tenant-secrets",
-        chromeless: true,
-        visibleWhen: { query: SELECTED_EXTENSIONS_QUERY, field: "mailTransport", eq: "smtp" },
+        title: "mail-smtp.settings",
+        fields: [
+          { field: "mail-smtp-host", visible: { field: "provider", eq: "smtp" } },
+          { field: "mail-smtp-password", visible: { field: "provider", eq: "smtp" } },
+        ],
       },
     ]);
   });
 
-  test("embedded screens are dormant and plugin features lose their tenant nav", () => {
-    const schema = build(gatedFeatures());
-    for (const id of [
+  test("a plugin that names its secrets section gets it as an own section", () => {
+    const titledSmtp = defineFeature("mail-smtp", (r) => {
+      r.requires({ features: ["mail-foundation"] });
+      r.useExtension("mailTransport", "smtp");
+      r.translations({ keys: { "mail-smtp.settings.secrets": { en: "SMTP sign-in" } } });
+      r.secret("password", { label: { en: "SMTP password" }, scope: "tenant" });
+    });
+    const schema = build([secretsFeature(), mailFoundation(), titledSmtp]);
+    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    expect(form.layout.sections[1]).toEqual({
+      title: "mail-smtp.settings.secrets",
+      description: "config.secrets.description",
+      fields: [{ field: "mail-smtp-password", visible: { field: "provider", eq: "smtp" } }],
+    });
+  });
+
+  test("a secret with its own write roles stays on the secrets screen", () => {
+    const gatedSecret = defineFeature("mail-smtp", (r) => {
+      r.requires({ features: ["mail-foundation"] });
+      r.useExtension("mailTransport", "smtp");
+      r.config({
+        keys: {
+          host: createTenantConfig("text", {
+            default: "",
+            write: TENANT_ADMIN_WRITE,
+            mask: { title: "smtp.host" },
+          }),
+        },
+      });
+      r.secret("password", {
+        label: { en: "SMTP password" },
+        scope: "tenant",
+        writeRoles: ["SystemAdmin"],
+      });
+    });
+    const schema = build([secretsFeature(), mailFoundation(), gatedSecret]);
+    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    expect(Object.keys(form.configKeys)).toEqual(["provider", "mail-smtp-host"]);
+    expect(form.secretKeys).toBeUndefined();
+    expect(Object.keys(screenOf(schema, "secrets", "secretsEdit").secretKeys)).toEqual([
+      "mail-smtp-password",
+    ]);
+  });
+
+  test("a plugin registered as not selectable in settings is no option, but the server still accepts it", () => {
+    const testInbox = defineFeature("mail-test-inbox", (r) => {
+      r.requires({ features: ["mail-foundation"] });
+      r.useExtension("mailTransport", "test-inbox", { selectableInSettings: false });
+    });
+    const registry = createRegistry([secretsFeature(), mailFoundation(), smtp, testInbox]);
+    const form = screenOf(
+      buildConfigFeatureSchema(registry),
       "mail-foundation-tenant-selection",
-      "mail-smtp-tenant",
-      "mail-inmemory-tenant",
-    ]) {
-      expect(screenOf(schema, id, "configEdit").dormant).toBe(true);
-    }
-    expect(screenOf(schema, "mail-smtp-tenant-secrets", "secretsEdit").dormant).toBe(true);
+      "configEdit",
+    );
+    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["smtp"] });
+    expect(selectablePluginIds(registry, "mailTransport")).toEqual(["smtp", "test-inbox"]);
+  });
+
+  test("embedded form is dormant and plugin features lose their tenant screens and nav", () => {
+    const schema = build(gatedFeatures());
+    expect(screenOf(schema, "mail-foundation-tenant-selection", "configEdit").dormant).toBe(true);
     expect(screenOf(schema, "mail-foundation-tenant", "dashboard").dormant).toBeUndefined();
+    const screenIds = schema.screens.map((s) => s.id);
+    for (const id of ["mail-smtp-tenant", "mail-inmemory-tenant", "mail-smtp-tenant-secrets"]) {
+      expect(screenIds).not.toContain(id);
+    }
 
     const navIds = schema.navs.map((n) => n.id);
     expect(navIds).toContain("mail-foundation-tenant");
@@ -197,30 +255,9 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     const dashboard = screenOf(schema, "mail-foundation-tenant", "dashboard");
     expect(dashboard.access).toEqual({ roles: ["TenantAdmin", "Admin", "SystemAdmin"] });
     expect(nav?.access).toEqual(dashboard.access);
-  });
-
-  test("plugin panel keeps title source: the plugin screen still uses its own settings section", () => {
-    const schema = build(gatedFeatures());
-    const pluginScreen: ConfigEditScreenDefinition = screenOf(
-      schema,
-      "mail-smtp-tenant",
-      "configEdit",
+    expect(screenOf(schema, "mail-foundation-tenant-selection", "configEdit").access).toEqual(
+      dashboard.access,
     );
-    expect(pluginScreen.configKeys).toEqual({ host: "mail-smtp:config:host" });
-    expect(pluginScreen.layout.sections[0]).toMatchObject({ title: "mail-smtp.settings" });
-  });
-
-  test("plugin secrets panel reuses the global secrets access object", () => {
-    const schema = build(gatedFeatures());
-    const panelScreen: SecretsEditScreenDefinition = screenOf(
-      schema,
-      "mail-smtp-tenant-secrets",
-      "secretsEdit",
-    );
-    const globalScreen = screenOf(schema, "secrets", "secretsEdit");
-    expect(panelScreen.access).toBe(globalScreen.access);
-    expect(panelScreen.requiredFields).toEqual(["mail-smtp-password"]);
-    expect(Object.keys(panelScreen.secretKeys)).toEqual(["mail-smtp-password"]);
   });
 
   test("global secrets screen drops gated secrets", () => {
@@ -280,8 +317,8 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(Object.keys(screenOf(schema, "secrets", "secretsEdit").secretKeys)).toEqual([
       "mail-smtp-password",
     ]);
-    const dashboard = screenOf(schema, "mail-foundation-tenant", "dashboard");
-    expect(dashboard.panels.map((p) => p.id)).toEqual(["selection", "mail-inmemory-config"]);
+    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    expect(Object.keys(form.configKeys)).toEqual(["provider", "mail-inmemory-capture"]);
   });
 
   test("plugin feature shared by two selectors keeps today's behaviour", () => {
@@ -356,12 +393,14 @@ describe("buildConfigFeatureSchema — extension selector", () => {
 });
 
 describe("generated selector dashboard — boot validation", () => {
-  // Re-registers the GENERATED hub screens on the config stand-in so
-  // validateBoot runs its real dashboard/screen-panel/query-ref checks on them.
-  function hubHostFeature(withQuery: boolean): FeatureDefinition {
+  // Re-registers the GENERATED hub screens on the config stand-in so validateBoot runs
+  // its real dashboard/configEdit checks (config keys and secret keys) on them.
+  function hubHostFeature(
+    rewrite: (screen: ScreenDefinition) => ScreenDefinition = (s) => s,
+  ): FeatureDefinition {
     const schema = build(gatedFeatures());
     // i18n coverage of the hub is asserted in the i18n-keys boot test; here every
-    // required key is defined so only the screen/panel/query checks can fail.
+    // required key is defined so only the screen/panel checks can fail.
     const translationKeys = Object.fromEntries(
       schema.screens
         .flatMap((s) =>
@@ -371,25 +410,39 @@ describe("generated selector dashboard — boot validation", () => {
     );
     return defineFeature("config", (r) => {
       r.translations({ keys: { ...translationKeys, ...SETTINGS_HUB_I18N } });
-      if (withQuery) {
-        r.queryHandler({
-          name: "config-value:selected-extensions",
-          schema: z.object({}),
-          access: { openToAll: { reason: "test stand-in" } },
-          handler: async () => ({}),
-        });
-      }
-      for (const screen of schema.screens) r.screen(screen);
+      for (const screen of schema.screens) r.screen(rewrite(screen));
     });
   }
 
-  test("panel targets resolve to embeddable generated screens and the visibleWhen query is registered", () => {
-    expect(() => validateBoot([hubHostFeature(true), ...gatedFeatures()])).not.toThrow();
+  function withSecretKeys(
+    secretKeys: Readonly<Record<string, string>>,
+  ): (screen: ScreenDefinition) => ScreenDefinition {
+    return (screen) =>
+      screen.type === "configEdit" && screen.secretKeys !== undefined
+        ? ({ ...screen, secretKeys } satisfies ConfigEditScreenDefinition)
+        : screen;
+  }
+
+  test("the provider form and its dashboard pass the boot checks", () => {
+    expect(() => validateBoot([hubHostFeature(), ...gatedFeatures()])).not.toThrow();
   });
 
-  test("a visibleWhen query that is not a registered handler is rejected", () => {
-    expect(() => validateBoot([hubHostFeature(false), ...gatedFeatures()])).toThrow(
-      /visibleWhen query "config:query:config-value:selected-extensions"/,
+  test("a form field mapped to an undeclared secret is rejected", () => {
+    const host = hubHostFeature(withSecretKeys({ "mail-smtp-password": "mail-smtp:secret:nope" }));
+    expect(() => validateBoot([host, ...gatedFeatures()])).toThrow(
+      /secret "mail-smtp:secret:nope" is not declared/,
     );
+  });
+
+  test("a secret mapped onto a readable field is rejected", () => {
+    const host = hubHostFeature((screen) =>
+      screen.type === "configEdit" && screen.secretKeys !== undefined
+        ? {
+            ...screen,
+            fields: { ...screen.fields, "mail-smtp-password": { type: "text" } },
+          }
+        : screen,
+    );
+    expect(() => validateBoot([host, ...gatedFeatures()])).toThrow(/no writeOnly text field/);
   });
 });

@@ -436,9 +436,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.settings.audience.tenant":
     "Applies to everyone in this tenant. Platform defaults are shown where nothing is set here.",
   "config.settings.audience.user": "Only applies to you.",
-  "config.settings.extensionSelectorHint": "Choose a provider and save. Its settings appear below.",
+  "config.settings.extensionSelectorHint":
+    "Choose a provider. Its settings appear below and are saved together with it.",
   "config.settings.provider": "Provider",
-  "config.settings.saveProvider": "Save provider",
   "config.settings.system": "Platform",
   "config.settings.tenant": "Tenant",
   "config.settings.title": "Settings",
@@ -1721,11 +1721,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail-foundation.provider": "Own mail server",
   "mail-foundation.provider.description":
     "Without one, the platform sends the mails. Reset the choice to go back to that.",
-  "screen:mail-transport-smtp-tenant.title": "SMTP server",
   "mail-transport-inmemory.settings": "Test inbox (in memory)",
   "mail-transport-smtp.settings": "SMTP server",
   "screen:mail-foundation-tenant-selection.title": "Provider",
-  "config:entity:__config-edit__:field:provider:option:inmemory": "Test inbox (in memory)",
   "config:entity:__config-edit__:field:provider:option:smtp": "SMTP server",
   "mail-transport-smtp.settings.secrets": "SMTP sign-in",
   "mail-transport-smtp.settings.description":

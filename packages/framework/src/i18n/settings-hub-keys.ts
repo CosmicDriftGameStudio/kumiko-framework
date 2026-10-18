@@ -18,10 +18,9 @@ export const SETTINGS_HUB_I18N: TranslationKeys = {
   "config.settings.tenant": { en: "Tenant" },
   "config.settings.user": { en: "Personal" },
   "config.settings.extensionSelectorHint": {
-    en: "Choose a provider and save. Its settings appear below.",
+    en: "Choose a provider. Its settings appear below and are saved together with it.",
   },
   "config.settings.provider": { en: "Provider" },
-  "config.settings.saveProvider": { en: "Save provider" },
   "config.settings.audience.system": {
     en: "Applies to every tenant unless a tenant sets its own value.",
   },
