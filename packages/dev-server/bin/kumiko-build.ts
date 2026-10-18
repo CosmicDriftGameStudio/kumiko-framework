@@ -1,20 +1,24 @@
 #!/usr/bin/env bun
-// kumiko-build — Production-Build für Kumiko-Apps. Convention-driven:
+// kumiko-build — production build for Kumiko apps. Convention-driven:
 //
 //   package.json "kumiko.clientEntries"/"kumiko.clientEntry",
-//     or src/client.tsx | src/styles.css | public/   →  Client-Bundle (dist/)
-//   bin/main.ts                                       →  Server-Bundle (dist-server/)
+//     or src/client.tsx | src/styles.css | public/   →  client bundle (dist/)
+//   bin/main.ts                                       →  server bundle (dist-server/)
 //
-// Beide werden gebaut wenn die jeweiligen Conventions getroffen sind, sonst
-// übersprungen. Ein Workspace mit nur bin/main.ts kriegt nur den Server-
-// Bundle, ein Browser-only-Sample nur den Client.
+// Both are built when their conventions match, otherwise skipped. A workspace
+// with only bin/main.ts gets just the server bundle, a browser-only sample
+// just the client.
 //
 //   {
 //     "scripts": { "build": "kumiko-build" }
 //   }
 //
-// Optionaler Pfad-Parameter überschreibt cwd:
+// An optional path argument overrides cwd:
 //   kumiko-build samples/apps/showcase
+//
+// Extra server entry points (repeatable, paths relative to the app dir), each
+// emitted as dist-server/<basename>.js:
+//   kumiko-build --entry bin/remote-probe.ts
 
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -24,6 +28,7 @@ import {
   discoverServerEntry,
   formatBuildResult,
   formatServerBuildResult,
+  parseKumikoBuildArgs,
   readClientEntriesConfig,
   readExtraRuntimeExternals,
   resolveClientEntries,
@@ -31,19 +36,19 @@ import {
 
 if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
   process.stdout.write(
-    "Usage: kumiko-build [app-dir]   build client (dist/) and server (dist-server/) bundles\n",
+    "Usage: kumiko-build [app-dir] [--entry <path>]...   build client (dist/) and server (dist-server/) bundles; --entry adds a server entry point (dist-server/<basename>.js)\n",
   );
   process.exit(0);
 }
-
-const explicit = process.argv.slice(2).find((arg) => !arg.startsWith("-"));
-const cwd = explicit ? resolve(process.cwd(), explicit) : process.cwd();
 
 const red = "\x1b[31m";
 const yellow = "\x1b[33m";
 const reset = "\x1b[0m";
 
 try {
+  const buildArgs = parseKumikoBuildArgs(process.argv.slice(2));
+  const cwd = buildArgs.appDir ? resolve(process.cwd(), buildArgs.appDir) : process.cwd();
+
   // Read once up front — resolveClientEntries can throw (mutual exclusion,
   // malformed declaration, unmigrated legacy client-*.tsx files) and that
   // must surface through the same ✗/exit(1) path as every other build error.
@@ -77,6 +82,7 @@ try {
     const result = await buildServerBundle({
       cwd,
       ...(extraRuntimeExternals.length > 0 && { extraRuntimeExternals }),
+      ...(buildArgs.extraEntries.length > 0 && { extraEntries: buildArgs.extraEntries }),
     });
     const ms = Math.round(performance.now() - t0);
     // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg

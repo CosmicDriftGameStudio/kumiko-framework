@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildServerBundle, readExtraRuntimeExternals } from "../build-server-bundle.ts";
+import {
+  buildServerBundle,
+  parseKumikoBuildArgs,
+  readExtraRuntimeExternals,
+} from "../build-server-bundle.ts";
 
 // Baut ein Mini-App-Fixture (bin/main.ts + bin/kumiko.ts teilen ein Modul) und
 // prüft das Variante-B-Verhalten: ein Bun.build-Call → server.js + kumiko.js als
@@ -314,4 +318,112 @@ describe("buildServerBundle + package.json extras (#1484)", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+describe("buildServerBundle extraEntries", () => {
+  function writeProbe(dir: string, relativePath: string, label: string): void {
+    mkdirSync(join(dir, relativePath, ".."), { recursive: true });
+    writeFileSync(
+      join(dir, relativePath),
+      `import { shared } from "../src/shared";\nconsole.log("${label}", shared());\n`,
+    );
+  }
+
+  test("emits <basename>.js per extra entry, sharing the framework chunk", async () => {
+    const dir = makeFixture();
+    try {
+      writeProbe(dir, "bin/remote-probe.ts", "probe");
+      const result = await buildServerBundle({
+        cwd: dir,
+        outDir: join(dir, "dist-server"),
+        extraEntries: ["bin/remote-probe.ts"],
+      });
+      expect(result.entries.map((e) => e.file).sort()).toEqual([
+        "kumiko.js",
+        "remote-probe.js",
+        "server.js",
+      ]);
+      expect(readFileSync(join(result.outDir, "remote-probe.js"), "utf8")).toContain("chunk-");
+      const run = Bun.spawnSync(["bun", join(result.outDir, "remote-probe.js")]);
+      expect(run.stdout.toString().trim()).toBe("probe 42");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a missing extra entry throws naming the path and leaves the previous output alone", async () => {
+    const dir = makeFixture();
+    try {
+      mkdirSync(join(dir, "dist-server"));
+      writeFileSync(join(dir, "dist-server/previous.js"), "// previous build\n");
+      await expect(
+        buildServerBundle({
+          cwd: dir,
+          outDir: join(dir, "dist-server"),
+          extraEntries: ["bin/not-there.ts"],
+        }),
+      ).rejects.toThrow("bin/not-there.ts");
+      expect(existsSync(join(dir, "dist-server/previous.js"))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test.each([
+    ["server.js (main.ts is renamed to it)", "tools/main.ts"],
+    ["kumiko.js", "tools/kumiko.ts"],
+    ["worker.js", "tools/worker.ts"],
+    ["bootstrap.js", "tools/bootstrap.ts"],
+  ])("an extra entry colliding with %s throws", async (_label, entry) => {
+    const dir = makeFixture();
+    try {
+      writeProbe(dir, entry, "dup");
+      await expect(
+        buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server"), extraEntries: [entry] }),
+      ).rejects.toThrow("built-in entry");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("two extra entries with the same basename throw", async () => {
+    const dir = makeFixture();
+    try {
+      writeProbe(dir, "bin/a/probe.ts", "a");
+      writeProbe(dir, "bin/b/probe.ts", "b");
+      await expect(
+        buildServerBundle({
+          cwd: dir,
+          outDir: join(dir, "dist-server"),
+          extraEntries: ["bin/a/probe.ts", "bin/b/probe.ts"],
+        }),
+      ).rejects.toThrow("both emit probe.js");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("parseKumikoBuildArgs", () => {
+  test("collects repeatable --entry flags (both spellings) and the app dir", () => {
+    expect(parseKumikoBuildArgs(["apps/shop", "--entry", "bin/a.ts", "--entry=bin/b.ts"])).toEqual({
+      appDir: "apps/shop",
+      extraEntries: ["bin/a.ts", "bin/b.ts"],
+    });
+    expect(parseKumikoBuildArgs([])).toEqual({ appDir: undefined, extraEntries: [] });
+  });
+
+  test("a flag before the app dir does not turn into the app dir", () => {
+    expect(parseKumikoBuildArgs(["--entry", "bin/a.ts", "apps/shop"])).toEqual({
+      appDir: "apps/shop",
+      extraEntries: ["bin/a.ts"],
+    });
+  });
+
+  test.each([[["--entry"]], [["--entry="]], [["--bogus"]], [["a", "b"]]])(
+    "%j is rejected",
+    (args) => {
+      expect(() => parseKumikoBuildArgs(args)).toThrow("kumiko-build:");
+    },
+  );
 });

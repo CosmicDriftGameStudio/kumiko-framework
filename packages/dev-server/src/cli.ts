@@ -8,6 +8,7 @@ export {
   discoverServerEntry,
   formatBuildResult,
   formatServerBuildResult,
+  parseKumikoBuildArgs,
   readClientEntriesConfig,
   readExtraRuntimeExternals,
   resolveClientEntries,

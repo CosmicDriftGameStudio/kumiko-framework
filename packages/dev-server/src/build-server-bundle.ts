@@ -12,11 +12,14 @@
 //                             background worker as its own process from the same image)
 //   bin/bootstrap.ts       →  dist-server/bootstrap.js (optional, next to bin/main.ts:
 //                             one-shot runBootstrap provisioning, run as a k8s Job)
+//   extraEntries[i]        →  dist-server/<basename>.js (opt-in, e.g. a probe script
+//                             `bin/remote-probe.ts`; CLI: repeatable `--entry <path>`)
 //   dist-server/package.json → runtime-deps mit gepinnten Versionen
 //
 // All entries are built in ONE Bun.build call with `splitting`: the framework
-// lands once as shared chunk-*.js and server.js, kumiko.js, worker.js and
-// bootstrap.js are thin entries importing it. Separate bundles would inline ~14 MB per entry.
+// lands once as shared chunk-*.js and server.js, kumiko.js, worker.js,
+// bootstrap.js and the extra entries are thin entries importing it. Separate
+// bundles would inline ~14 MB per entry.
 //
 // Output:
 //
@@ -25,6 +28,7 @@
 //     kumiko.js            ← Migrate-CLI-Entry (wenn bin/kumiko.ts gefunden)
 //     worker.js            ← worker entry (if bin/worker.ts sits next to main.ts)
 //     bootstrap.js         ← provisioning entry (if bin/bootstrap.ts sits next to main.ts)
+//     <basename>.js        ← one per extraEntries path
 //     chunk-*.js           ← geteilte Framework-Chunks
 //     package.json         ← runtime-deps mit gepinnten Versionen
 //
@@ -42,7 +46,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { parseJsonOrThrow, parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 
 const hasBun = typeof Bun !== "undefined";
@@ -96,6 +100,11 @@ export type BuildServerBundleOptions = {
   readonly extraRuntimeExternals?: readonly string[];
   /** Zusätzliche Build-only-Externals. App-spezifisch — Default leer. */
   readonly extraBuildOnlyExternals?: readonly string[];
+  /** Additional entry points (paths relative to cwd, e.g. "bin/remote-probe.ts"),
+   *  each emitted as `<basename>.js` next to server.js and sharing its chunks.
+   *  A missing file or a basename that collides with a built-in entry or another
+   *  extra entry throws. */
+  readonly extraEntries?: readonly string[];
 };
 
 export type BuildServerBundleEntry = {
@@ -105,7 +114,7 @@ export type BuildServerBundleEntry = {
 
 export type BuildServerBundleResult = {
   readonly outDir: string;
-  /** Named entry files (server.js, plus kumiko.js, worker.js and bootstrap.js when present). */
+  /** Named entry files (server.js, plus kumiko.js, worker.js, bootstrap.js and extra entries when present). */
   readonly entries: readonly BuildServerBundleEntry[];
   /** Geteilte Framework-Chunks (von splitting). */
   readonly chunks: readonly BuildServerBundleEntry[];
@@ -118,6 +127,42 @@ export type BuildServerBundleResult = {
 // ist die Runtime-Convention; der Entry wird von nichts importiert (nur die
 // chunks werden referenziert, per relativem Pfad), darum ist der Rename sicher.
 const ENTRY_RENAMES: Readonly<Record<string, string>> = { "main.js": "server.js" };
+
+const OPTIONAL_SIBLING_ENTRY_NAMES = ["worker", "bootstrap"] as const;
+
+// Output names the built-in entries occupy ("main" is renamed to server.js).
+const RESERVED_ENTRY_OUTPUT_NAMES: ReadonlySet<string> = new Set([
+  "server.js",
+  "main.js",
+  "kumiko.js",
+  ...OPTIONAL_SIBLING_ENTRY_NAMES.map((name) => `${name}.js`),
+]);
+
+function resolveExtraEntries(cwd: string, extraEntries: readonly string[]): string[] {
+  const claimedOutputNames = new Map<string, string>();
+  return extraEntries.map((entry) => {
+    const absolute = resolve(cwd, entry);
+    if (!existsSync(absolute) || !statSync(absolute).isFile()) {
+      throw new Error(
+        `[buildServerBundle] extra entry "${entry}" does not exist (resolved to ${absolute}).`,
+      );
+    }
+    const outputName = `${basename(absolute, extname(absolute))}.js`;
+    if (RESERVED_ENTRY_OUTPUT_NAMES.has(outputName)) {
+      throw new Error(
+        `[buildServerBundle] extra entry "${entry}" would emit ${outputName}, which a built-in entry already uses. Rename the file.`,
+      );
+    }
+    const previous = claimedOutputNames.get(outputName);
+    if (previous !== undefined) {
+      throw new Error(
+        `[buildServerBundle] extra entries "${previous}" and "${entry}" both emit ${outputName}. Rename one of the files.`,
+      );
+    }
+    claimedOutputNames.set(outputName, entry);
+    return absolute;
+  });
+}
 
 export async function buildServerBundle(
   options: BuildServerBundleOptions = {},
@@ -144,6 +189,8 @@ export async function buildServerBundle(
     );
   }
 
+  const extraEntryPaths = resolveExtraEntries(cwd, options.extraEntries ?? []);
+
   const externals = [
     ...RUNTIME_EXTERNALS,
     ...BUILD_ONLY_EXTERNALS,
@@ -156,10 +203,15 @@ export async function buildServerBundle(
 
   // Ein Bun.build-Call mit allen Entries + splitting → das Framework wird
   // einmal als shared chunk abgelegt statt pro Entry inlined.
-  const optionalSiblingEntries = ["worker", "bootstrap"]
-    .map((baseName) => discoverSiblingEntry(dirname(serverEntry), baseName))
-    .filter((path): path is string => path !== undefined);
-  const entrypoints = [serverEntry, ...(kumikoCli ? [kumikoCli] : []), ...optionalSiblingEntries];
+  const optionalSiblingEntries = OPTIONAL_SIBLING_ENTRY_NAMES.map((baseName) =>
+    discoverSiblingEntry(dirname(serverEntry), baseName),
+  ).filter((path): path is string => path !== undefined);
+  const entrypoints = [
+    serverEntry,
+    ...(kumikoCli ? [kumikoCli] : []),
+    ...optionalSiblingEntries,
+    ...extraEntryPaths,
+  ];
   const result = await Bun.build({
     entrypoints,
     outdir: outDir,
@@ -236,6 +288,36 @@ function findRepoRoot(start: string): string | undefined {
     cur = parent;
   }
   return undefined;
+}
+
+export type KumikoBuildArgs = {
+  readonly appDir: string | undefined;
+  readonly extraEntries: readonly string[];
+};
+
+/** Parse `kumiko-build [app-dir] [--entry <path>]...` (also `--entry=<path>`).
+ *  Unknown flags and a missing `--entry` value throw instead of being ignored. */
+export function parseKumikoBuildArgs(args: readonly string[]): KumikoBuildArgs {
+  let appDir: string | undefined;
+  const extraEntries: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === undefined) break;
+    if (arg === "--entry" || arg.startsWith("--entry=")) {
+      const value = arg === "--entry" ? args[++i] : arg.slice("--entry=".length);
+      if (value === undefined || value === "") {
+        throw new Error("kumiko-build: --entry needs a path, e.g. --entry bin/remote-probe.ts");
+      }
+      extraEntries.push(value);
+    } else if (arg.startsWith("-")) {
+      throw new Error(`kumiko-build: unknown option ${arg}`);
+    } else if (appDir === undefined) {
+      appDir = arg;
+    } else {
+      throw new Error(`kumiko-build: unexpected argument ${arg}`);
+    }
+  }
+  return { appDir, extraEntries };
 }
 
 /** Read `package.json#kumiko.extraRuntimeExternals` for kumiko-build (#1484).

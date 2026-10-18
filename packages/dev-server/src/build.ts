@@ -24,5 +24,7 @@ export {
   buildServerBundle,
   discoverServerEntry,
   formatServerBuildResult,
+  type KumikoBuildArgs,
+  parseKumikoBuildArgs,
   readExtraRuntimeExternals,
 } from "./build-server-bundle.ts";

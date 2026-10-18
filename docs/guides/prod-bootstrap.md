@@ -17,7 +17,11 @@ legacy password seed.
 ## Entry point
 
 Create `bin/bootstrap.ts` next to `bin/server.ts`. `buildServerBundle` picks it
-up and emits `dist-server/bootstrap.js`.
+up and emits `dist-server/bootstrap.js`. Any other one-shot script (for
+example a remote probe) is bundled the same way when you pass it to
+`kumiko-build --entry bin/remote-probe.ts` (repeatable) or to
+`buildServerBundle({ extraEntries })`; it lands as `dist-server/<basename>.js`
+and shares the framework chunks.
 
 ```ts illustration
 import { runBootstrap } from "@cosmicdrift/kumiko-server-runtime";
