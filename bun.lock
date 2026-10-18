@@ -1063,6 +1063,14 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/prod-boot-options": {
+      "name": "@cosmicdrift/kumiko-sample-prod-boot-options",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+      },
+    },
     "samples/recipes/public-share-token": {
       "name": "@cosmicdrift/kumiko-sample-public-share-token",
       "dependencies": {
@@ -1530,6 +1538,8 @@
     "@cosmicdrift/kumiko-sample-pdf-audit-export": ["@cosmicdrift/kumiko-sample-pdf-audit-export@workspace:samples/recipes/pdf-audit-export"],
 
     "@cosmicdrift/kumiko-sample-pipeline-basics": ["@cosmicdrift/kumiko-sample-pipeline-basics@workspace:samples/recipes/pipeline-basics"],
+
+    "@cosmicdrift/kumiko-sample-prod-boot-options": ["@cosmicdrift/kumiko-sample-prod-boot-options@workspace:samples/recipes/prod-boot-options"],
 
     "@cosmicdrift/kumiko-sample-public-share-token": ["@cosmicdrift/kumiko-sample-public-share-token@workspace:samples/recipes/public-share-token"],
 

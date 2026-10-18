@@ -1,0 +1,13 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-prod-boot-options",
+  "description": "runProdApp boot options: mail, kmsMode, fileStorage, demoMode and signal handling declared as options instead of hand-wired in bin/main.ts.",
+  "private": true,
+  "scripts": {
+    "start": "bun bin/server.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*"
+  }
+}

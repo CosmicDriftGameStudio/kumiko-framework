@@ -9,6 +9,20 @@ export {
   readBundledAsset,
   resolveBundledAsset,
 } from "./bundled-assets.js";
+export type { BillingBootOption } from "./boot-options/billing-option.js";
+export type {
+  DemoAccountRole,
+  DemoModeNotice,
+  DemoModeOption,
+} from "./boot-options/demo-mode.js";
+export type {
+  FileStorageBootOption,
+  FileStorageProviderName,
+} from "./boot-options/file-storage-option.js";
+export type { KmsMode } from "./boot-options/kms-mode.js";
+export type { MailBootOption } from "./boot-options/mail-option.js";
+export type { SignalsOption } from "./boot-options/process-signals.js";
+export type { ProdSeedsConfig, ProdSeedTenant } from "./boot-options/seed-shortcuts.js";
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.js";
 export type { RateLimitOption } from "./rate-limit-defaults.js";
 export type { RunBootstrapOptions } from "./run-bootstrap.js";
