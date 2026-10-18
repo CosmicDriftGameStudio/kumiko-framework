@@ -64,7 +64,11 @@ import type {
   DashboardValueFormat,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
-import { currencyDecimals, type Translate } from "@cosmicdrift/kumiko-headless";
+import {
+  currencyDecimals,
+  EMPTY_VALUE_PLACEHOLDER,
+  type Translate,
+} from "@cosmicdrift/kumiko-headless";
 import {
   type DashboardBodyProps,
   dispatcherErrorText,
@@ -526,7 +530,8 @@ function StatPanelBody({
   const value =
     typeof rawValue === "number"
       ? formats.formatPanelValue(panel.valueFormat)(rawValue)
-      : (resolveDashboardText(rawValue, translate, formats) ?? fallbackText(rawValue, "—"));
+      : (resolveDashboardText(rawValue, translate, formats) ??
+        fallbackText(rawValue, EMPTY_VALUE_PLACEHOLDER));
   const spark = readSparkline(panel, record);
   const testId = `dashboard-panel-${panel.id}`;
   const subText = resolveDashboardText(sub, translate, formats) ?? fallbackText(sub, undefined);
@@ -982,7 +987,8 @@ function FeedPanelBody({
           const trailing = resolveDashboardText(row.trailing, translate, formats);
           return {
             id: String(i),
-            primary: resolveDashboardText(row.primary, translate, formats) ?? "—",
+            primary:
+              resolveDashboardText(row.primary, translate, formats) ?? EMPTY_VALUE_PLACEHOLDER,
             ...(trailing !== undefined && { trailing }),
           };
         });
@@ -1027,8 +1033,8 @@ function ProgressListPanelBody({
           const sub = resolveDashboardText(row.sub, translate, formats);
           return {
             id: String(i),
-            label: resolveDashboardText(row.label, translate, formats) ?? "—",
-            value: resolveDashboardText(row.value, translate, formats) ?? "—",
+            label: resolveDashboardText(row.label, translate, formats) ?? EMPTY_VALUE_PLACEHOLDER,
+            value: resolveDashboardText(row.value, translate, formats) ?? EMPTY_VALUE_PLACEHOLDER,
             fraction: row.fraction,
             ...(sub !== undefined && { sub }),
           };

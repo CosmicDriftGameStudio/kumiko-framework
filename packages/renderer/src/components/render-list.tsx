@@ -11,7 +11,7 @@ import type {
   RuntimeRenderer,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
+import { computeListViewModel, EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
 import type { ListSort } from "../hooks/use-list-url-state.ts";
@@ -332,10 +332,10 @@ export function RenderList(props: RenderListProps): ReactNode {
         }
         // Renderer-Side-Fallback (kein Server-Eagerload aktiv).
         if (Array.isArray(value)) {
-          if (value.length === 0) return "—";
+          if (value.length === 0) return EMPTY_VALUE_PLACEHOLDER;
           return value.map((v) => map?.get(String(v)) ?? String(v)).join(", ");
         }
-        if (value === null || value === undefined || value === "") return "—";
+        if (value === null || value === undefined || value === "") return EMPTY_VALUE_PLACEHOLDER;
         const idStr = String(value);
         return map?.get(idStr) ?? idStr;
       };

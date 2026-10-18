@@ -17,7 +17,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListColumnFileDisplay, ListRowViewModel } from "@cosmicdrift/kumiko-headless";
-import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
+import { applyFormatSpec, EMPTY_VALUE_PLACEHOLDER, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
   DataTableRowAction,
   DataTableRowActionMode,
@@ -2409,7 +2409,7 @@ function BooleanCell({
         <Check aria-hidden="true" className="h-4 w-4" />
       ) : (
         <span aria-hidden="true" className="text-muted-foreground">
-          {EMPTY_CELL_PLACEHOLDER}
+          {EMPTY_VALUE_PLACEHOLDER}
         </span>
       )}
       <span className="sr-only">{label}</span>
@@ -3245,8 +3245,6 @@ type DataTableCellProps = {
   readonly compactFile?: boolean;
 };
 
-const EMPTY_CELL_PLACEHOLDER = "–";
-
 type TableItem =
   | {
       readonly kind: "group";
@@ -3330,7 +3328,7 @@ function DataTableCell({
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">
-        {EMPTY_CELL_PLACEHOLDER}
+        {EMPTY_VALUE_PLACEHOLDER}
       </span>
     );
   }
@@ -3347,7 +3345,7 @@ function DataTableCell({
   if (isUnlabeledFalse(type, value, renderer)) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">
-        {EMPTY_CELL_PLACEHOLDER}
+        {EMPTY_VALUE_PLACEHOLDER}
       </span>
     );
   }

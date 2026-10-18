@@ -1,3 +1,4 @@
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 // Export section (Art. 20) — the one part of user-data-rights' privacy-center
 // screen that stays custom (fw#2312). Registered as an EditExtensionSection
@@ -57,7 +58,7 @@ function failureKey(error: unknown): string {
 // Roher ISO-Instant → nur der Datums-Teil ist relevant; reiner String-Slice,
 // kein Date-API (no-date-api-Guard) und universell. Leer/null → "—".
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return EMPTY_VALUE_PLACEHOLDER;
   const tIndex = iso.indexOf("T");
   return tIndex > 0 ? iso.slice(0, tIndex) : iso;
 }

@@ -62,6 +62,7 @@ export {
 export {
   applyFormatSpec,
   currencyDecimals,
+  EMPTY_VALUE_PLACEHOLDER,
   escapeHtml,
   escapeHtmlAttr,
   escapeXml,

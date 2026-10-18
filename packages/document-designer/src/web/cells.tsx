@@ -1,7 +1,7 @@
 // @runtime client
 
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { toInstant } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER, toInstant } from "@cosmicdrift/kumiko-headless";
 import {
   type ColumnRendererComponent,
   type ColumnRendererProps,
@@ -15,14 +15,12 @@ import { type OverviewRowView, parseOverviewRow } from "./overview-row.ts";
 import { statusLabel, statusTone } from "./status-label.ts";
 import { templateTitle, usedByLabel } from "./used-by-label.ts";
 
-const EMPTY_MARK = "–";
-
 function withRow(
   row: Readonly<Record<string, unknown>>,
   render: (r: OverviewRowView) => ReactNode,
 ) {
   const parsed = parseOverviewRow(row);
-  return parsed === null ? EMPTY_MARK : render(parsed);
+  return parsed === null ? EMPTY_VALUE_PLACEHOLDER : render(parsed);
 }
 
 export function TitleCell({ row }: ColumnRendererProps): ReactNode {
@@ -70,7 +68,7 @@ export function OriginCell({ row }: ColumnRendererProps): ReactNode {
 export function createLocalesCell(appLocales: readonly string[]): ColumnRendererComponent {
   return function LocalesCell({ row }: ColumnRendererProps): ReactNode {
     return withRow(row, (r) => {
-      if (r.kind === "mail-layout" || r.kind === "pdf-layout") return EMPTY_MARK;
+      if (r.kind === "mail-layout" || r.kind === "pdf-layout") return EMPTY_VALUE_PLACEHOLDER;
       const present = new Set(r.locales);
       const shown = [...appLocales, ...r.locales.filter((l) => !appLocales.includes(l))];
       return (
@@ -136,7 +134,7 @@ function formatModifiedDate(value: string): string {
 export function ModifiedCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) =>
     r.modifiedAt === "" ? (
-      EMPTY_MARK
+      EMPTY_VALUE_PLACEHOLDER
     ) : (
       <span className="whitespace-nowrap" title={formatWhen(r.modifiedAt)}>
         {formatModifiedDate(r.modifiedAt)}
@@ -163,7 +161,7 @@ function OverriddenByCount({
     slug,
     kind,
   });
-  if (data === null) return EMPTY_MARK;
+  if (data === null) return EMPTY_VALUE_PLACEHOLDER;
   const label =
     data.totalTenants === null
       ? t("documentDesigner.overriddenBy.tenants", { active: data.activeOverrides })
@@ -176,6 +174,10 @@ function OverriddenByCount({
 
 export function OverriddenByCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) =>
-    r.origin === "system" ? <OverriddenByCount slug={r.slug} kind={r.kind} /> : EMPTY_MARK,
+    r.origin === "system" ? (
+      <OverriddenByCount slug={r.slug} kind={r.kind} />
+    ) : (
+      EMPTY_VALUE_PLACEHOLDER
+    ),
   );
 }

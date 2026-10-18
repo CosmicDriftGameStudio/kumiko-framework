@@ -9,6 +9,7 @@ import {
   applyFormatSpec,
   currencyDecimals,
   type EditFieldViewModel,
+  EMPTY_VALUE_PLACEHOLDER,
   type FieldIssue,
 } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
@@ -573,7 +574,8 @@ function ReadOnlyReferenceValue({
     : typeof field.value === "string" && field.value !== ""
       ? [field.value]
       : [];
-  if (ids.length === 0) return <Text testId={`field-value-${field.field}`}>—</Text>;
+  if (ids.length === 0)
+    return <Text testId={`field-value-${field.field}`}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
   const rows = queryResult.data?.rows ?? [];
   // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row —
   // same central fallback as useReferenceLookup (render-list.tsx), so a
@@ -1062,7 +1064,7 @@ function readOnlyDisplayText(
   t: ReturnType<typeof useTranslation>,
 ): string {
   const { type, value } = field;
-  if (value === undefined || value === null || value === "") return "—";
+  if (value === undefined || value === null || value === "") return EMPTY_VALUE_PLACEHOLDER;
   if (type === "text" && field.writeOnly === true) return t("kumiko.field.writeOnly.set");
   if (type === "text" && field.format === "password") return "••••••••";
   switch (type) {
@@ -1074,7 +1076,7 @@ function readOnlyDisplayText(
       return applyFormatSpec({ format: "timestamp", locale: field.dateLocale ?? appLocale }, value);
     case "locatedTimestamp": {
       const located = locatedValue(value);
-      if (located === "" || located.at === "") return "—";
+      if (located === "" || located.at === "") return EMPTY_VALUE_PLACEHOLDER;
       return applyFormatSpec(
         { format: "timestamp", locale: field.dateLocale ?? appLocale },
         located.utc ?? located.at,
@@ -1085,13 +1087,13 @@ function readOnlyDisplayText(
     case "decimal": {
       const n = numberValue(value);
       return n === ""
-        ? "—"
+        ? EMPTY_VALUE_PLACEHOLDER
         : new Intl.NumberFormat(appLocale, { useGrouping: field.grouping ?? true }).format(n);
     }
     case "money": {
       const currency = resolveMoneyCurrency(value, field.currency);
       const minor = moneyMinorValue(value, currency);
-      if (minor === "") return "—";
+      if (minor === "") return EMPTY_VALUE_PLACEHOLDER;
       const major = minor / 10 ** currencyDecimals(currency);
       return new Intl.NumberFormat(appLocale, { style: "currency", currency }).format(major);
     }
@@ -1099,7 +1101,7 @@ function readOnlyDisplayText(
     case "multiSelect": {
       const labels = field.optionLabels;
       const values = Array.isArray(value) ? value : [value];
-      if (values.length === 0) return "—";
+      if (values.length === 0) return EMPTY_VALUE_PLACEHOLDER;
       return values
         .map((v) => (typeof v === "string" ? (labels?.[v] ?? v) : stringValue(v)))
         .join(", ");

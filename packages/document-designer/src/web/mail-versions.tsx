@@ -1,3 +1,4 @@
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 import { formatWhen, useAppFeatures, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
@@ -54,7 +55,7 @@ function VersionRows({
           label={t("documentDesigner.mail.versions.line", {
             version: row.version,
             when: formatWhen(row.createdAt),
-            name: names.get(row.createdBy) ?? "–",
+            name: names.get(row.createdBy) ?? EMPTY_VALUE_PLACEHOLDER,
           })}
           trailing={
             row.version === currentVersion ? (

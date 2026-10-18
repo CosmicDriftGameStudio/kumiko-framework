@@ -1,5 +1,6 @@
 // @runtime client
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import {
   dispatcherErrorText,
   formatWhen,
@@ -27,7 +28,7 @@ function statusSentence(t: Translate, row: TemplateRowView): string {
   if (besideActive !== null) return besideActive;
   if (row.status === "active") {
     return t("documentDesigner.mail.origin.activeSince", {
-      when: row.modifiedAt === null ? "–" : formatWhen(row.modifiedAt),
+      when: row.modifiedAt === null ? EMPTY_VALUE_PLACEHOLDER : formatWhen(row.modifiedAt),
     });
   }
   return t(

@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { fireEvent, render, screen, within } from "./test-utils.tsx";
 
@@ -27,14 +28,14 @@ describe("list board fidelity", () => {
     expect(idleIcon?.classList.contains("opacity-0")).toBe(true);
   });
 
-  test("empty cell renders an en dash", () => {
+  test("empty cell renders the shared empty-value placeholder", () => {
     render(
       <DataTable
         columns={[{ field: "name", label: "Name", type: "text", sortable: false }]}
         rows={[{ id: "r1", values: { name: null } }]}
       />,
     );
-    expect(screen.getByTestId("cell-r1-name").textContent).toBe("–");
+    expect(screen.getByTestId("cell-r1-name").textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
   });
 
   test("number and money columns are right-aligned in header and cells", () => {
