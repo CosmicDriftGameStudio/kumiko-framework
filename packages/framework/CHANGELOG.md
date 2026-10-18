@@ -1,5 +1,43 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.369.0
+
+### Minor Changes
+
+- 57c0cff: Tenant admins edit their own mail server in the settings
+  
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: breaking
+  title: Tenant admins edit their own SMTP server on the Email sending screen
+  detail: mail-foundation's provider key and the SMTP keys (host, port, SSL/TLS, user name, sender address) carry settings masks, so the generated Settings-Hub shows tenant admins one Email sending form: the provider choice, the chosen provider's connection fields and its password, each field with a help text and every label in English, German and Spanish, saved together by one Save button in one /api/batch. Switching the provider swaps the fields at once; fields of a provider that is not selected are not saved. A selector owner's selection screen (`<owner>-tenant-selection`) now carries the plugins' config keys (field id `<owner>-<key>`) and secrets (field id `<plugin>-<key>`, listed in the new ConfigEditScreenDefinition.secretKeys) behind a visible condition on the provider field; the separate `<plugin>-tenant` and `<plugin>-tenant-secrets` screens and their dashboard panels are gone, and so is the `config.settings.saveProvider` label. A secret with its own writeRoles stays on the global secrets screen. Boot validation checks every secretKeys field (tenant scope, writeOnly text, declared secret). The configEdit renderer loads secretKeys fields from secrets:query:list (set or unset, no preview), writes them with secrets:write:set or secrets:write:delete in the same batch, and leaves hidden fields out. The provider key is no longer required: empty means the tenant has no own server and the platform sends, so readiness no longer reports it as missing (createTransportForTenant still throws on an empty provider). The provider and SMTP keys are written by TenantAdmin and the system identity, no longer by SystemAdmin, because a platform-level provider would reach every tenant without that tenant's password. The secrets set and delete handlers also admit the system identity, so server code stores a tenant secret via dispatchSystemWrite through the same key and value checks as an admin; the settings screens keep showing only the human roles. The provider choice shows each plugin's `<feature>.settings` name, also for a plugin without settings of its own, and keeps the English name when a locale feature mounted earlier declares the same key in its own language only. A MailTransportPlugin with `selectableInSettings: false` stays allowed on the server but is not offered in the form; the in-memory transport sets it, because apps mount it next to smtp in production and a tenant admin picking it would drop every mail. A plugin's secrets section takes an optional `<feature>.settings.secrets` title (SMTP password under "SMTP sign-in").
+  migration: E2E specs that used the testIds `dashboard-panel-<plugin>-tenant`, `dashboard-panel-<plugin>-tenant-secrets` or the separate secret input of these screens address the fields of `<owner>-tenant-selection` instead (one Save). Code that wrote these keys as a SystemAdmin user writes them as the tenant's TenantAdmin or via dispatchSystemWrite. Apps that relied on readiness flagging an empty provider check it themselves.
+  -->
+- 57c0cff: Only notifications marked tenantTransport go through the tenant's own mail provider
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: breaking
+  title: The tenant mail transport applies per notification
+  detail: r.notification(name, { tenantTransport: true }) marks a notification whose mails go through the tenant's own mail transport. channel-email consults its tenantTransport resolver only for these (also under a renamedFrom name); every other notification, such as password reset or sign-in mails, always takes the app transport, even when the tenant has a provider. With tenantTransport set, transport may be omitted: a mail that then has no transport fails with missing_credentials instead of throwing. The template test mail (template-resolver send-test) now gets the tenant config in its channel context and uses the template's notification, so it leaves through the same transport as the real mail.
+  migration: Apps that pass tenantTransport to createChannelEmailFeature add `tenantTransport: true` to every r.notification whose mails should go through the tenant's provider; without the flag those mails now go through the app transport. Apps without an app SMTP server can drop transport and keep tenantTransport.
+  -->
+
+### Patch Changes
+
+- a4cab24: kumiko-upgrade --apply runs the codemod of every pending entry, not only of breaking ones
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: kumiko-upgrade --apply runs codemods of improvement entries too
+  detail: The apply step only ran codemods attached to breaking entries. The 0.368.0 entry that moves the test stack to kumiko-testing is an improvement with a codemod (testing-move), so `bun kumiko-upgrade --apply` skipped it and left the deprecated framework paths in place. Every pending entry with a codemod now runs, in version order; manual-migration reporting is unchanged. Apps whose marker is already at 0.368.0 no longer see that entry as pending, so they run `bun kumiko-upgrade --apply --from 0.367.0` once, or the codemod directly: `bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/testing-move.ts . --write`.
+  -->
+- Updated dependencies [57c0cff]
+- Updated dependencies [57c0cff]
+  - @cosmicdrift/kumiko-types@0.369.0
+  - @cosmicdrift/kumiko-http@0.369.0
+
 ## 0.368.0
 
 ### Minor Changes

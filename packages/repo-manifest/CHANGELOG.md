@@ -1,5 +1,9 @@
 # @cosmicdrift/kumiko-repo-manifest
 
+## 0.369.0
+
+No changes in this release.
+
 ## 0.368.0
 
 No changes in this release.
