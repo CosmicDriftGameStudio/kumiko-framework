@@ -267,6 +267,20 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "packages/locale-fr": {
+      "name": "@cosmicdrift/kumiko-locale-fr",
+      "version": "0.371.1",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
+    "packages/locale-it": {
+      "name": "@cosmicdrift/kumiko-locale-it",
+      "version": "0.371.1",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "packages/renderer": {
       "name": "@cosmicdrift/kumiko-renderer",
       "version": "0.371.1",
@@ -582,6 +596,8 @@
         "@cosmicdrift/kumiko-headless": "workspace:*",
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-locale-es": "workspace:*",
+        "@cosmicdrift/kumiko-locale-fr": "workspace:*",
+        "@cosmicdrift/kumiko-locale-it": "workspace:*",
         "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
         "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
@@ -1451,6 +1467,10 @@
     "@cosmicdrift/kumiko-locale-de": ["@cosmicdrift/kumiko-locale-de@workspace:packages/locale-de"],
 
     "@cosmicdrift/kumiko-locale-es": ["@cosmicdrift/kumiko-locale-es@workspace:packages/locale-es"],
+
+    "@cosmicdrift/kumiko-locale-fr": ["@cosmicdrift/kumiko-locale-fr@workspace:packages/locale-fr"],
+
+    "@cosmicdrift/kumiko-locale-it": ["@cosmicdrift/kumiko-locale-it@workspace:packages/locale-it"],
 
     "@cosmicdrift/kumiko-marketing-demo": ["@cosmicdrift/kumiko-marketing-demo@workspace:samples/apps/marketing-demo"],
 

@@ -2,8 +2,9 @@
 /**
  * Guard: locale bundle values must follow Mandant/Organización terminology (#2200, fw#2355).
  *
- * German UI copy always says "Mandant" (never "Tenant"/"Organisation"); Spanish always
- * says "Organización" (never the "tenant" loanword). Only translation *values* are
+ * German UI copy always says "Mandant" (never "Tenant"/"Organisation"); Spanish, French
+ * and Italian always say "Organización"/"organisation"/"organizzazione" (never the
+ * "tenant" loanword). Only translation *values* are
  * checked — JSON key names like `tenant.members.*` are ignored. Role identifiers
  * such as TenantAdmin/SystemAdmin in prose are allowed.
  *
@@ -29,7 +30,12 @@ const SCAN: ScanSpec = {
   scope: "source",
   extensions: ["ts"],
   kinds: ["framework"],
-  frameworkWithin: ["packages/locale-de/src/strings.ts", "packages/locale-es/src/strings.ts"],
+  frameworkWithin: [
+    "packages/locale-de/src/strings.ts",
+    "packages/locale-es/src/strings.ts",
+    "packages/locale-fr/src/strings.ts",
+    "packages/locale-it/src/strings.ts",
+  ],
 };
 const IGNORE_TAG = "kumiko-lint-ignore i18n-locale-terminology";
 
@@ -38,7 +44,9 @@ type LocaleRule = {
   readonly forbidden: readonly RegExp[];
 };
 
-const RULES: Record<"de" | "es", LocaleRule> = {
+type TerminologyLocale = "de" | "es" | "fr" | "it";
+
+const RULES: Record<TerminologyLocale, LocaleRule> = {
   de: {
     preferred: "Mandant",
     // Tenants? covers plural; Organisation(en|s)? without trailing \b so
@@ -50,11 +58,21 @@ const RULES: Record<"de" | "es", LocaleRule> = {
     preferred: "Organización",
     forbidden: [/\btenants?\b/i],
   },
+  fr: {
+    preferred: "organisation",
+    forbidden: [/\btenants?\b/i],
+  },
+  it: {
+    preferred: "organizzazione",
+    forbidden: [/\btenants?\b/i],
+  },
 };
 
-function localeFromPath(filePath: string): "de" | "es" | undefined {
+function localeFromPath(filePath: string): TerminologyLocale | undefined {
   if (filePath.includes("locale-de/src/strings.ts")) return "de";
   if (filePath.includes("locale-es/src/strings.ts")) return "es";
+  if (filePath.includes("locale-fr/src/strings.ts")) return "fr";
+  if (filePath.includes("locale-it/src/strings.ts")) return "it";
   return undefined;
 }
 
@@ -104,7 +122,7 @@ export function findViolations(files: readonly SourceFile[]): GuardViolation[] {
 export const guard: AstGuard = {
   name: "i18n-Locale-Terminology Guard",
   scan: SCAN,
-  hint: "DE: Mandant instead of Tenant/Organisation; ES: Organización instead of the tenant loanword. Roles like TenantAdmin are fine.",
+  hint: "DE: Mandant instead of Tenant/Organisation; ES/FR/IT: Organización/organisation/organizzazione instead of the tenant loanword. Roles like TenantAdmin are fine.",
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations = findViolations(files)
       .map((v) => ({ ...v, file: relFromRepoRoot(v.file, roots) }))

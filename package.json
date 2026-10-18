@@ -45,6 +45,8 @@
     "packages/renderer-web",
     "packages/locale-es",
     "packages/locale-de",
+    "packages/locale-fr",
+    "packages/locale-it",
     "packages/document-designer",
     "packages/renderer-mail-html",
     "packages/renderer-puppeteer-client",

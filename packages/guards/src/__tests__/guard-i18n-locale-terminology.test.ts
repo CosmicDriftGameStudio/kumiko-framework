@@ -12,6 +12,16 @@ function esBundle(code: string) {
   return project.createSourceFile("/repo/packages/locale-es/src/strings.ts", code);
 }
 
+function frBundle(code: string) {
+  const project = new Project({ useInMemoryFileSystem: true });
+  return project.createSourceFile("/repo/packages/locale-fr/src/strings.ts", code);
+}
+
+function itBundle(code: string) {
+  const project = new Project({ useInMemoryFileSystem: true });
+  return project.createSourceFile("/repo/packages/locale-it/src/strings.ts", code);
+}
+
 describe("guard-i18n-locale-terminology", () => {
   test("flags Tenant in a German translation value", () => {
     const sf = deBundle(`export const localeDeBundle = { "x.y": "Bitte Tenant wählen" };`);
@@ -72,5 +82,25 @@ describe("guard-i18n-locale-terminology", () => {
   test("allows Organización in Spanish values", () => {
     const sf = esBundle(`export const localeEsBundle = { "x.y": "Seleccione una Organización" };`);
     expect(findViolations([sf])).toHaveLength(0);
+  });
+
+  test("flags the tenant loanword in French values and allows organisation", () => {
+    const dirty = frBundle(`export const localeFrBundle = { "x.y": "Choisissez un tenant" };`);
+    const violations = findViolations([dirty]);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("[fr]");
+    const clean = frBundle(
+      `export const localeFrBundle = { "x.y": "Choisissez une organisation" };`,
+    );
+    expect(findViolations([clean])).toHaveLength(0);
+  });
+
+  test("flags the tenant loanword in Italian values and allows organizzazione", () => {
+    const dirty = itBundle(`export const localeItBundle = { "x.y": "Tutti i tenants" };`);
+    const violations = findViolations([dirty]);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("[it]");
+    const clean = itBundle(`export const localeItBundle = { "x.y": "Scegli un'organizzazione" };`);
+    expect(findViolations([clean])).toHaveLength(0);
   });
 });

@@ -60,7 +60,7 @@ const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
   [/(?:^|\/)ui-types\//, "client"],
 
   // Same reasoning, two more shapes: a `web.ts`/`web/` subpath is the
-  // established convention (locale-de, locale-es, bundled-features) for the
+  // established convention (locale-de, locale-es, locale-fr, locale-it, bundled-features) for the
   // client-safe slice of an otherwise `"runtime"`-marked package — the
   // package.json marker classifies the whole package, this carves the
   // deliberately-named exception back out. Deliberately workspace-wide (any
@@ -79,10 +79,10 @@ const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
   // More single-file carve-outs, same "package marker is coarser than the
   // file" shape, verified case by case rather than by a directory
   // convention:
-  //  - locale-{de,es}/src/strings.ts: pure string-constant data (zero
+  //  - locale-{de,es,fr,it}/src/strings.ts: pure string-constant data (zero
   //    imports), re-exported by the already-client `web.ts` sibling in the
   //    same package but shadowed by the package's own `"runtime"` marker.
-  [/^packages\/locale-(?:de|es)\/src\/strings\.ts$/, "client"],
+  [/^packages\/locale-(?:de|es|fr|it)\/src\/strings\.ts$/, "client"],
   //  - dev-server/src/env-schema.ts: a zod-only schema, no dev-server-
   //    internal imports — safe to carve out on its own.
   [/^packages\/dev-server\/src\/env-schema\.ts$/, "client"],
