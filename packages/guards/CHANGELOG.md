@@ -1,5 +1,53 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.368.0
+
+### Patch Changes
+
+- fbc0759: One DB connection factory: createDbConnection({ url, ... }) on postgres-js, and the query helpers move from the bun-db subpath into the db subpath
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createDbConnection({ url, ... }) is the only connection factory, query helpers move from /bun-db to /db
+  detail: |
+    postgres-js is the only DB driver. createDbConnection takes one options object, is synchronous and accepts the new options ssl and onNotice. The Bun.SQL provider, createConnection, createPgConnection and DB_PROVIDER are removed. The query helpers (selectMany, insertOne, transaction, asRawClient, ...) keep their API and are now exported from @cosmicdrift/kumiko-framework/db. The `tx` handed to the transaction() callback is typed as DbTx (the postgres-js transaction handle it always was at runtime) instead of the Bun.SQL instance type; a helper that takes `db: DbConnection` and receives that tx needs `DbRunner` or `DbTx`.
+  
+    The positional form createDbConnection(url, options) and the @cosmicdrift/kumiko-framework/bun-db subpath keep working as deprecated aliases and are removed in the first release after 2026-10-29.
+  
+    old -> new:
+      createConnection(url, options) (async) -> createDbConnection({ url, ...options }) (sync)
+      createPgConnection(url, options) -> createDbConnection({ url, ...options })
+      createDbConnection(url, options) -> createDbConnection({ url, ...options }) (positional form is deprecated)
+      @cosmicdrift/kumiko-framework/bun-db -> @cosmicdrift/kumiko-framework/db (deprecated alias until the first release after 2026-10-29)
+  
+    Removed without replacement: createBunDbConnection, bunDbConnectionOptionsFromEnv, the BunDbConnection, BunDbTx, BunDbRunner and BunDbConnectionOptions types, DbPoolHandle (use DbConnectionHandle), the PgListenClient re-export from /bun-db (import it from @cosmicdrift/kumiko-types/db-connection) and the DB_PROVIDER environment variable.
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites bun-db imports to /db, createDbConnection(url, options) and createConnection/createPgConnection calls to the object form, and reports leftovers (removed Bun.SQL exports, DB_PROVIDER) with file and line. Remove DB_PROVIDER from your env files.
+  codemod: scripts/codemod/db-factory.ts
+  -->
+- 1404b33: Test stack and test helpers move from kumiko-framework to kumiko-testing; the old framework paths stay as deprecated re-exports
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Test stack and helpers moved to kumiko-testing, old framework paths are deprecated
+  detail: |
+    Everything a test needs now lives in @cosmicdrift/kumiko-testing. Its core (stack, helpers, preload, bunfig, integration-runner) depends only on kumiko-framework and kumiko-types; bundled-features and dev-server are optional peers used by the root entry and /e2e. Install kumiko-testing as a dev dependency where tests import it.
+  
+    The old framework paths re-export the new ones and are removed in the first release after 2026-10-29. Production symbols that tests also use stay in the framework.
+  
+    old -> new:
+      @cosmicdrift/kumiko-framework/stack -> @cosmicdrift/kumiko-testing/stack
+      TestUsers, testTenantId, testUserId, createTestUser from /stack -> @cosmicdrift/kumiko-framework/seeding
+      @cosmicdrift/kumiko-framework/testing -> @cosmicdrift/kumiko-testing/helpers
+      bridgeStub from /testing and /testing/handler-context -> @cosmicdrift/kumiko-framework/engine
+      @cosmicdrift/kumiko-framework/testing/real-providers -> @cosmicdrift/kumiko-testing/helpers/real-providers
+      @cosmicdrift/kumiko-framework/testing/e2e-generator -> @cosmicdrift/kumiko-testing/helpers/e2e-generator
+  migration: Run `bun kumiko-upgrade --apply`. It rewrites imports from the old paths and splits mixed imports by target. Add @cosmicdrift/kumiko-testing to devDependencies where it is missing.
+  codemod: scripts/codemod/testing-move.ts
+  -->
+- @cosmicdrift/kumiko-repo-manifest@0.368.0
+
 ## 0.367.0
 
 ### Patch Changes

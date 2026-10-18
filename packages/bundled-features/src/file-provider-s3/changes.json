@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "version": "0.368.0",
+    "type": "breaking",
+    "title": "The S3 file providers merge into createFileProviderS3Feature({ fromEnv })",
+    "detail": "createFileProviderS3Feature() mounts the per-tenant config provider as before. createFileProviderS3Feature({ fromEnv: true }) mounts the env-configured provider (feature name, provider key \"s3-env\" and requires unchanged). The S3 client helpers (createS3Provider, createS3ProviderFromEnv, parseS3EnvConfig, resolveForcePathStyle, S3ProviderConfig) move to the new subpath @cosmicdrift/kumiko-bundled-features/file-provider-s3/lib.\n\nThe subpaths file-provider-s3-env and files-provider-s3 keep working as deprecated re-exports and are removed in the first release after 2026-10-29.\n\nold -> new:\n  fileProviderS3EnvFeature from .../file-provider-s3-env -> createFileProviderS3Feature({ fromEnv: true }) from .../file-provider-s3\n  fileProviderS3Feature -> createFileProviderS3Feature()\n  @cosmicdrift/kumiko-bundled-features/files-provider-s3 -> @cosmicdrift/kumiko-bundled-features/file-provider-s3/lib",
+    "migration": "Run `bun kumiko-upgrade --apply`. It rewrites the imports and the env feature mount, and reports `typeof fileProviderS3EnvFeature` and re-exports of it with file and line.",
+    "codemod": "scripts/codemod/s3-imports.ts"
+  }
+]

@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.368.0",
+    "type": "breaking",
+    "title": "@app/define and kumiko codegen are removed",
+    "detail": "The .kumiko/ codegen (define.ts, types.generated.d.ts, schemas.generated.ts) is gone: runCodegen, scanEvents and their types are no longer exported, the dev server no longer watches r.defineEvent calls, `kumiko codegen` is removed, `kumiko-build --check` is removed and kumiko-build no longer runs a codegen pass. The scaffolded .gitignore no longer lists .kumiko/, so the upgrade marker .kumiko/upgrade-state.json can be committed. ctx.appendEvent stays bound to the augmentable KumikoEventTypeMap; to emit an event with a payload checked against its definition use emitEvent(ctx, eventDef, { aggregateId, aggregateType, payload, headers? }) with the EventDef that r.defineEvent returns (emitEvent now also accepts headers).",
+    "migration": "Replace `@app/define` imports with direct framework imports (defineWriteHandler/defineQueryHandler/defineFeature from @cosmicdrift/kumiko-framework/engine, events via r.defineEvent and emitEvent) and drop the `file:./.kumiko` dependency plus the bunfig/tsconfig resolver entries. Known sites: publicstatus 43 files, kumiko-platform 13 (samples), solon 3, money-horse 1, phronexsis 1."
+  },
+  {
+    "version": "0.368.0",
+    "type": "improvement",
+    "title": "Scaffolded apps get AGENTS.md from a template with placeholders",
+    "detail": "The scaffold renders AGENTS.md from templates/AGENTS.app.md instead of a fixed string. It fills in the app name, the mounted features and the commands that exist in the generated package.json. Purpose, production URL and app-specific rules stay as visible TODO(app owner) placeholders. CLAUDE.md is unchanged: it imports the framework guide and AGENTS.md."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "New projects read the prod admin password from DEMO_ADMIN_PASSWORD",
