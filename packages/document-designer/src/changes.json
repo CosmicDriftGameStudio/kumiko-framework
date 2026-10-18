@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.1",
+    "type": "fix",
+    "title": "The Document Designer editor shows its own texts in Spanish",
+    "detail": "The client translation bundle of the Document Designer (canvas caption, origin bar, tenant customisations, resources, PDF settings, preview and validation messages) had only en and de, so Spanish users saw these texts in English. It now ships an es block that uses tú and the same terms as locale-es (organización, diseño, marcador). A parity test keeps the keys and placeholders of en, de and es aligned."
+  },
+  {
     "version": "0.370.0",
     "type": "fix",
     "title": "Designer addresses the user informally in German, points tenant-routed senders to Email sending and renders chips inside buttons",
