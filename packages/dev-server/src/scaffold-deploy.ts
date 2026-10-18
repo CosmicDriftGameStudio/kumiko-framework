@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { isKebabSegment } from "./kebab.js";
 
@@ -31,6 +32,9 @@ export type RenderDeployFilesOptions = {
    *  `destination`. Lets the caller scaffold into one dir while detecting
    *  optional surfaces in another (rare — mostly destination = sourceDir). */
   readonly sourceDir?: string;
+  /** Registry configs to treat as present although they may not exist yet:
+   *  the managed-files sync writes bunfig.toml in the same pass as the Dockerfile. */
+  readonly ensuredRegistryConfigFiles?: readonly RegistryConfigFile[];
 };
 
 export type ScaffoldDeployOptions = RenderDeployFilesOptions & {
@@ -141,7 +145,11 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
   // a `seeds/` directory (e.g. studio) crash in Docker-build with
   // `failed to compute cache key: "/app/seeds": not found`.
   const sourceDir = options.sourceDir ?? destinationRoot;
-  const detected = detectOptionalSurfaces(sourceDir, options.appName);
+  const detected = detectOptionalSurfaces(
+    sourceDir,
+    options.appName,
+    options.ensuredRegistryConfigFiles ?? [],
+  );
   if (detected.hasPrivateGhPackages && detected.registryConfigFiles.length === 0) {
     // The Dockerfile only forwards the auth build-arg; without a registry
     // config scope entry bun resolves @cosmicdriftgamestudio/* against npmjs
@@ -253,10 +261,18 @@ const LOCAL_DEP_SPEC_RE = /^(file:|workspace:|link:)/;
 // interpolated into a shell string, not passed through a driver's escaping.
 const DB_IDENTIFIER_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$/;
 
+// Kubernetes object names (RFC 1123 label); they are interpolated into the
+// generated release workflow, so nothing outside this charset may pass.
+const K8S_NAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
 const kumikoDeployConfigSchema = z
   .object({
     dbUser: z.string().regex(DB_IDENTIFIER_RE).optional(),
     dbName: z.string().regex(DB_IDENTIFIER_RE).optional(),
+    /** Namespace of the prod deployment; default = appName. */
+    namespace: z.string().regex(K8S_NAME_RE).optional(),
+    /** Name of the prod Deployment; default = appName. */
+    deployment: z.string().regex(K8S_NAME_RE).optional(),
     // "directory" is the only behaviour left; the key stays valid so existing
     // package.json files keep scaffolding.
     stackNetwork: z
@@ -290,6 +306,30 @@ function parseDeployConfig(raw: unknown): KumikoDeployConfig {
   throw new Error(
     `scaffoldDeploy: invalid package.json#${location} — ${issue?.message ?? "validation failed"}`,
   );
+}
+
+export type KumikoReleaseTarget = { readonly namespace: string; readonly deployment: string };
+
+/** Release target from `package.json#kumiko.deploy`; throws on an invalid deploy config. */
+export function readReleaseTarget(sourceDir: string, appName: string): KumikoReleaseTarget {
+  const pkgJsonPath = join(sourceDir, "package.json");
+  const raw: unknown = existsSync(pkgJsonPath)
+    ? parseJsonOrThrow<unknown>(readFileSync(pkgJsonPath, "utf-8"), pkgJsonPath)
+    : undefined;
+  const config = parseDeployConfig(extractDeployConfigRaw(raw));
+  const namespace = config.namespace ?? appName;
+  const deployment = config.deployment ?? appName;
+  for (const [field, value] of [
+    ["namespace", namespace],
+    ["deployment", deployment],
+  ] as const) {
+    if (!K8S_NAME_RE.test(value)) {
+      throw new Error(
+        `scaffoldDeploy: "${value}" cannot serve as the release ${field} (must match ${K8S_NAME_RE}); set package.json#kumiko.deploy.${field}`,
+      );
+    }
+  }
+  return { namespace, deployment };
 }
 
 function resolveDbIdentifier(
@@ -327,7 +367,11 @@ function resolveDeployConfig(
   };
 }
 
-function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDeployDetected {
+function detectOptionalSurfaces(
+  sourceDir: string,
+  appName: string,
+  ensuredRegistryConfigFiles: readonly RegistryConfigFile[],
+): ScaffoldDeployDetected {
   const hasSeeds = existsSync(join(sourceDir, "seeds"));
   let hasPrivateGhPackages = false;
   let installFromFullTree = false;
@@ -368,7 +412,9 @@ function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDep
       console.warn(message);
     }
   }
-  const registryConfigFiles = REGISTRY_CONFIG_FILES.filter((f) => existsSync(join(sourceDir, f)));
+  const registryConfigFiles = REGISTRY_CONFIG_FILES.filter(
+    (f) => ensuredRegistryConfigFiles.includes(f) || existsSync(join(sourceDir, f)),
+  );
   return {
     hasSeeds,
     hasPrivateGhPackages,
@@ -379,10 +425,11 @@ function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDep
 }
 
 // Unconsumed-mustache guard. After step 1+2 the only legitimate `{{`
-// survivors are Docker/Go template tags (`{{.Name}}`, leading `.`). An
+// survivors are Docker/Go template tags (`{{.Name}}`, leading `.`) and GitHub
+// Actions expressions (`${{ github.sha }}`, leading `$`). An
 // orphan close-tag (`{{/foo}}` without an opener) matches neither step and
 // would otherwise leak into the rendered file as a silent failure.
-const ORPHAN_MUSTACHE_RE = /\{\{(?!\.)[^}]*\}\}/;
+const ORPHAN_MUSTACHE_RE = /(?<!\$)\{\{(?!\.)[^}]*\}\}/;
 
 export function render(
   source: string,
@@ -408,7 +455,7 @@ export function render(
   // narrow: lowercase-leading identifier followed by alphanumerics. That
   // excludes Docker/Go template syntax like `{{.Name}}` (leading `.`)
   // which appears verbatim in the migrate-step.sh shell snippet.
-  result = result.replace(/\{\{([a-z][a-zA-Z0-9]*)\}\}/g, (full, key: string) => {
+  result = result.replace(/(?<!\$)\{\{([a-z][a-zA-Z0-9]*)\}\}/g, (full, key: string) => {
     const value = subs[key];
     if (value === undefined) {
       throw new Error(`scaffoldDeploy.render: unknown placeholder "${full}"`);

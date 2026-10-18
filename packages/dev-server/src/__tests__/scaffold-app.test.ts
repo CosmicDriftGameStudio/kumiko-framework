@@ -13,14 +13,18 @@ const SCAFFOLD_FILES = [
   "kumiko.json",
   "biome.json",
   "bunfig.toml",
-  "bunfig.ci.toml",
+  "bunfig.integration.toml",
+  "bunfig.real.toml",
+  "bunfig.dom.toml",
+  "kumiko.config.ts",
   "src/run-config.ts",
   "src/features/tasks/feature.ts",
   "src/features/tasks/index.ts",
   "src/seed.ts",
   "kumiko/schema.ts",
   "bin/main.ts",
-  "bin/dev.ts",
+  "bin/server.ts",
+  "bin/env-schema.ts",
   "bin/kumiko.ts",
   "src/client.tsx",
   "src/styles.css",
@@ -31,6 +35,10 @@ const SCAFFOLD_FILES = [
   "deploy/Dockerfile",
   "deploy/Dockerfile.dockerignore",
   "deploy/migrate-step.sh",
+  ".husky/pre-push",
+  ".github/workflows/cache-cleanup.yml",
+  ".github/workflows/ci.yml",
+  ".github/workflows/release.yml",
   "README.md",
   "AGENTS.md",
   "CLAUDE.md",
@@ -148,13 +156,14 @@ describe("scaffoldApp", () => {
     expect(pkg.dependencies["@cosmicdrift/kumiko-framework"]).toBe("^0.13.0");
     expect(pkg.dependencies["@cosmicdrift/kumiko-renderer-web"]).toBe("^0.13.0");
     expect(pkg.scripts["boot"]).toContain("KUMIKO_DRY_RUN_ENV=boot");
-    expect(pkg.scripts["dev"]).toBe("bun --watch bin/dev.ts");
+    expect(pkg.scripts["dev"]).toBe("bun --watch bin/server.ts");
+    expect(pkg.scripts["check"]).toBe("kumiko check");
     expect(pkg.scripts["build"]).toBe("bun kumiko-build");
     expect(pkg.scripts["start"]).toBe("bun run bin/main.ts");
     expect(pkg.scripts["lint"]).toBe("biome check .");
   });
 
-  test("without testSetup the scaffold keeps the legacy bunfig pair and test script", async () => {
+  test("without testSetup the scaffold still writes the managed bunfigs and a unit test script", async () => {
     const dest = join(tmp, "my-shop");
     const result = await scaffoldApp({ name: "my-shop", destination: dest });
 
@@ -162,19 +171,20 @@ describe("scaffoldApp", () => {
       scripts: Record<string, string>;
       devDependencies: Record<string, string>;
     };
-    expect(pkg.scripts["test"]).toBe("bun --config=bunfig.ci.toml test --dots");
+    expect(pkg.scripts["test"]).toBe("bun --config=bunfig.toml test --dots");
     expect(Object.keys(pkg.scripts)).not.toContain("e2e");
     expect(Object.keys(pkg.devDependencies)).not.toContain("@cosmicdrift/kumiko-testing");
-    expect(result.files).toContain("bunfig.ci.toml");
+    expect(result.files).toContain("bunfig.integration.toml");
+    expect(result.files).not.toContain("bunfig.ci.toml");
     expect(existsSync(join(dest, "e2e"))).toBe(false);
     expect(readFileSync(join(dest, "README.md"), "utf-8")).not.toContain("## Testing");
   });
 
-  test("scaffolded bunfig.toml and bunfig.ci.toml have no [test].concurrency key", async () => {
+  test("scaffolded bunfigs have no [test].concurrency key", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
-    for (const file of ["bunfig.toml", "bunfig.ci.toml"]) {
+    for (const file of ["bunfig.toml", "bunfig.integration.toml", "bunfig.dom.toml"]) {
       const parsed = Bun.TOML.parse(readFileSync(join(dest, file), "utf-8")) as {
         test: Record<string, unknown>;
       };
@@ -220,11 +230,13 @@ describe("scaffoldApp", () => {
       "boot",
       "typecheck",
       "lint",
+      "check",
       "test",
       "test:integration",
       "e2e",
       "schema:apply",
       "schema:generate",
+      "prepare",
     ]);
     expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toBe("stub-version");
     const names = Object.keys(pkg.devDependencies);
@@ -236,20 +248,32 @@ describe("scaffoldApp", () => {
     expect(readme.endsWith(STUB_TEST_SETUP.rulesMarkdown)).toBe(true);
   });
 
-  test("tsconfig and biome cover the e2e sources", async () => {
+  test("tsconfig and biome extend the framework presets, which cover the e2e sources", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest, testSetup: () => STUB_TEST_SETUP });
 
     const tsconfig = JSON.parse(readFileSync(join(dest, "tsconfig.json"), "utf-8")) as {
+      extends: string;
       include: string[];
     };
-    expect(tsconfig.include).toEqual(expect.arrayContaining(["e2e", "playwright.config.ts"]));
-    const biome = JSON.parse(readFileSync(join(dest, "biome.json"), "utf-8")) as {
-      files: { includes: string[] };
-    };
-    expect(biome.files.includes).toEqual(
-      expect.arrayContaining(["e2e/**", "playwright.config.ts"]),
+    expect(tsconfig.extends).toBe("@cosmicdrift/kumiko-framework/tsconfig.app.json");
+    expect(tsconfig.include).toEqual(
+      expect.arrayContaining(["e2e", "kumiko.config.ts", "playwright.config.ts"]),
     );
+    const biome = JSON.parse(readFileSync(join(dest, "biome.json"), "utf-8")) as {
+      extends: string[];
+    };
+    expect(biome.extends).toEqual(["@cosmicdrift/kumiko-framework/biome"]);
+    const preset = JSON.parse(
+      readFileSync(
+        Bun.resolveSync("@cosmicdrift/kumiko-framework/biome", import.meta.dir),
+        "utf-8",
+      ),
+    ) as { files: { includes: string[] }; vcs: { useIgnoreFile: boolean } };
+    expect(preset.files.includes).toEqual(
+      expect.arrayContaining(["e2e/**", "kumiko.config.ts", "playwright.config.ts"]),
+    );
+    expect(preset.vcs.useIgnoreFile).toBe(false);
   });
 
   test("src/seed.ts bare return has a skip comment directly above it (kumiko-guard-silent-skip)", async () => {
@@ -272,22 +296,45 @@ describe("scaffoldApp", () => {
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS "read_users"');
   });
 
-  test("kumiko/schema.ts + bin/kumiko.ts wire HAS_AUTH single-source", async () => {
+  test("kumiko.config.ts is the single feature source for kumiko/schema.ts and bin/kumiko.ts", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
+    const config = readFileSync(join(dest, "kumiko.config.ts"), "utf-8");
+    expect(config).toContain("export default defineAppConfig({");
+    expect(config).toContain("composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH })");
+    expect(config).toContain('client: { entries: ["src/client.tsx"] }');
+    expect(config).toContain("ports: { dev: 4173, e2e: 4174 }");
+
     const schema = readFileSync(join(dest, "kumiko/schema.ts"), "utf-8");
-    expect(schema).toContain("APP_FEATURES, HAS_AUTH");
+    expect(schema.split("\n")[0]).toBe("// kumiko-managed");
+    expect(schema).toContain("allAppFeatures(appConfig)");
     expect(schema).toContain("collectTableMetas");
 
     const kumikoBin = readFileSync(join(dest, "bin/kumiko.ts"), "utf-8");
     expect(kumikoBin).toContain("runSchemaCli");
     expect(kumikoBin).toContain("runConsumerCli");
-    expect(kumikoBin).toContain("includeBundled: HAS_AUTH");
-    expect(kumikoBin).toContain(
-      "kmsSlotsOf(composeEnvSchema({ core: frameworkCoreEnvSchema, features }).schema)",
-    );
+    expect(kumikoBin).toContain("const features = allAppFeatures(appConfig);");
+    expect(kumikoBin).toContain("kmsSlotsOf(envSchema.schema)");
     expect(kumikoBin).toContain("{ features, kmsSlots }");
+  });
+
+  test("framework-owned files carry the kumiko-managed marker", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    for (const file of [
+      ".github/workflows/ci.yml",
+      ".github/workflows/release.yml",
+      ".github/workflows/cache-cleanup.yml",
+      ".husky/pre-push",
+      "deploy/migrate-step.sh",
+    ]) {
+      expect(readFileSync(join(dest, file), "utf-8")).toContain("# kumiko-managed\n");
+    }
+    const release = readFileSync(join(dest, ".github/workflows/release.yml"), "utf-8");
+    expect(release).toContain("my-shop");
+    expect(release).not.toMatch(/(?<!\$)\{\{/);
   });
 
   test("kumiko.json declares kind app with uiRoots so `kumiko check` accepts a fresh app", async () => {
@@ -300,11 +347,11 @@ describe("scaffoldApp", () => {
     expect(manifest.uiRoots).toEqual(["src/features/*/web"]);
   });
 
-  test("bin/dev.ts contains runDevApp + welcomeBanner + admin login + clientEntry", async () => {
+  test("bin/server.ts contains runDevApp + welcomeBanner + admin login + clientEntry", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
-    const dev = readFileSync(join(dest, "bin/dev.ts"), "utf-8");
+    const dev = readFileSync(join(dest, "bin/server.ts"), "utf-8");
     expect(dev).toContain("runDevApp");
     expect(dev).toContain("welcomeBanner: true");
     expect(dev).toContain("admin@my-shop.local");
@@ -446,15 +493,17 @@ describe("scaffoldApp", () => {
     expect(main).toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/);
   });
 
-  test("bin/main.ts composes the auth-mode feature set into envSchema (JWT_SECRET boot-gate)", async () => {
+  test("bin/env-schema.ts composes the auth-mode feature set into envSchema (JWT_SECRET boot-gate)", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
+    const envSchema = readFileSync(join(dest, "bin/env-schema.ts"), "utf-8");
+    expect(envSchema).toContain("composeEnvSchema({");
+    expect(envSchema).toContain("core: frameworkCoreEnvSchema,");
+    expect(envSchema).toContain("features: allAppFeatures(appConfig),");
     const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
-    expect(main).toContain("composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH })");
-    expect(main).toContain("composeEnvSchema({");
-    expect(main).toContain("core: frameworkCoreEnvSchema,");
-    expect(main).toContain("features: bootFeatures,");
+    expect(main).toContain('import { envSchema } from "./env-schema";');
+    expect(main).toContain("  envSchema,");
   });
 
   // kumiko-framework#2330: the --yes recommended set mounts PII-annotated

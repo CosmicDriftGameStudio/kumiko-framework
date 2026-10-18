@@ -135,6 +135,7 @@ The scaffold (`bun create kumiko-app <name>`) produces this layout. Keep it.
 
 | Path | Content |
 | --- | --- |
+| `kumiko.config.ts` | `defineAppConfig({ features, prodFeatures?, client, ports })`: the one list the tooling reads |
 | `src/run-config.ts` | `APP_FEATURES`, the mounted feature list |
 | `src/features/<name>/feature.ts` | `defineFeature(...)` with entities, handlers, screens, navs |
 | `src/features/<name>/index.ts` | Public exports of the feature |
@@ -143,7 +144,17 @@ The scaffold (`bun create kumiko-app <name>`) produces this layout. Keep it.
 | `src/__tests__/*.test.ts` | Unit tests, no services |
 | `src/__tests__/*.integration.test.ts` | Integration tests against Postgres and Redis |
 | `e2e/*.spec.ts` | Playwright tests against a booted app |
-| `kumiko/schema.ts`, `kumiko/migrations/` | Database schema and generated migrations |
+| `kumiko/schema.ts`, `kumiko/migrations/` | Generated schema shim over `kumiko.config.ts`, and the migrations |
+| `bin/server.ts`, `bin/main.ts`, `bin/env-schema.ts` | Dev server, production boot, env contract |
+| `e2e/_helpers/`, `src/__tests__/_setup.ts` | Shared e2e helpers and the shared integration stack setup |
+
+Files whose first line reads `kumiko-managed` (deploy/, `.github/workflows/`,
+`.husky/pre-push`, the bunfigs, `kumiko/schema.ts`) belong to the framework.
+`bun run check` reports drift against the installed version and
+`bunx kumiko sync-managed --write` restores them. Keep a deliberate change with
+`# kumiko-managed: local <reason>` on line 2. `biome.json` and `tsconfig.json`
+extend `@cosmicdrift/kumiko-framework/biome` and `.../tsconfig.app.json`; put
+app overrides next to `extends`. Full list: `docs/reference/app-skeleton.md`.
 
 The scaffolded `src/features/tasks/feature.ts` and
 `src/__tests__/tasks.integration.test.ts` are the smallest complete pair of
@@ -155,6 +166,8 @@ feature and test. Start from them.
 | --- | --- |
 | Run the app with demo data | `bun dev` |
 | Boot validation without serving | `bun run boot` |
+| Boot, guards, managed files and script standard | `bun run check` |
+| Restore framework-owned files | `bunx kumiko sync-managed --write` |
 | Types | `bun run typecheck` |
 | Lint | `bun run lint` |
 | Unit tests | `bun run test` |

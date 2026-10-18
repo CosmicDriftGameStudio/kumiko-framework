@@ -10,6 +10,7 @@
 | `apex-landing` | Apex landing page composed from other features — hero copy from template-resolver, prices and caps from tier-engine — rendered to one static HTML string. | `examples/apex-landing.md` |
 | `apex-surface-auth` | Apex-Surface: öffentliche Account-Flows (Login/Register/PW/Löschen) via createPublicSurface + AuthShell, inkl. anonymem email-verifiziertem Deletion-Flow. | `examples/apex-surface-auth.md` |
 | `api-worker-split` | Split deploy topology: API process (runSingleInstance:false, enqueue-only) + worker process (consumes worker-lane jobs, applies multiStreamProjections, writes results back through the worker dispatcher). | `examples/api-worker-split.md` |
+| `app-config` | kumiko.config.ts with defineAppConfig: the one feature list, client entries and ports the tooling reads. | `examples/app-config.md` |
 | `auth-claims` | r.authClaims() — features contribute identity facts into the JWT at login time with auto-prefixed keys. | `examples/auth-claims.md` |
 | `auth-foundation-providers` | Register custom tenantResolver / tenantExistence via auth-foundation extension points (no anonymousAccess callbacks). | `examples/auth-foundation-providers.md` |
 | `auth-mfa` | createAuthMfaFeature — TOTP/2FA enrollment, login challenge, and recovery codes wired into auth-email-password. | `examples/auth-mfa.md` |

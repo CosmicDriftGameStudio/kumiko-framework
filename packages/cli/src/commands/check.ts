@@ -5,7 +5,16 @@ import type { CliCommand, CliCommandContext } from "./types";
 
 const APP_SCHEMA_FILE = "kumiko/schema.ts";
 
-export type CheckStepId = "boot" | "guards" | "ui" | "checks";
+export type CheckStepId = "boot" | "guards" | "ui" | "checks" | "managed" | "scripts";
+
+const CHECK_STEP_IDS: readonly CheckStepId[] = [
+  "boot",
+  "guards",
+  "ui",
+  "checks",
+  "managed",
+  "scripts",
+];
 
 export type CheckStep = {
   readonly id: CheckStepId;
@@ -73,6 +82,20 @@ export function resolveCheckSteps(manifest: RepoManifest, facts: RepoFacts): Che
     label: "Repo checks",
     why: `kind "${manifest.kind}" — testGlobs ${manifest.testGlobs.join(", ")}`,
   });
+  if (manifest.kind === "app") {
+    steps.push(
+      {
+        id: "managed",
+        label: "Managed files",
+        why: 'kind "app" — framework-owned files against the installed template',
+      },
+      {
+        id: "scripts",
+        label: "Standard scripts",
+        why: 'kind "app" — package.json scripts against the script standard',
+      },
+    );
+  }
   return { kind: "steps", steps, waivers };
 }
 
@@ -86,16 +109,48 @@ export type SchemaCli = Pick<
   "runSchemaCli"
 >;
 
+export type AppCheckSteps = {
+  readonly runManagedCheckStep: typeof import("./check-managed").runManagedCheckStep;
+  readonly runScriptsCheckStep: typeof import("./check-scripts").runScriptsCheckStep;
+};
+
 export type CheckDeps = {
   readonly loadGuards: () => Promise<GuardsCli>;
   readonly loadSchemaCli: () => Promise<SchemaCli>;
+  readonly loadAppSteps: () => Promise<AppCheckSteps>;
 };
 
 // Lazy: `kumiko new app` must not pay for ts-morph or the framework runtime.
 const DEFAULT_DEPS: CheckDeps = {
   loadGuards: () => import("@cosmicdrift/kumiko-guards"),
   loadSchemaCli: () => import("@cosmicdrift/kumiko-framework/schema-cli"),
+  loadAppSteps: async () => ({
+    runManagedCheckStep: (await import("./check-managed")).runManagedCheckStep,
+    runScriptsCheckStep: (await import("./check-scripts")).runScriptsCheckStep,
+  }),
 };
+
+function isCheckStepId(arg: string): arg is CheckStepId {
+  return CHECK_STEP_IDS.some((id) => id === arg);
+}
+
+// Positional step ids narrow the run to those steps; an id outside the repo's
+// plan is an error rather than a silent no-op.
+function selectRequestedSteps(
+  ctx: CliCommandContext,
+  plannedSteps: readonly CheckStep[],
+): readonly CheckStep[] | undefined {
+  const onlySteps = ctx.argv.filter(isCheckStepId);
+  const notApplicable = onlySteps.filter((id) => !plannedSteps.some((step) => step.id === id));
+  if (notApplicable.length > 0) {
+    ctx.out.err(`  ✗ step(s) not part of this repo's plan: ${notApplicable.join(", ")}`);
+    ctx.out.err("");
+    return undefined;
+  }
+  return onlySteps.length === 0
+    ? plannedSteps
+    : plannedSteps.filter((step) => onlySteps.includes(step.id));
+}
 
 export async function runCheck(
   ctx: CliCommandContext,
@@ -123,7 +178,7 @@ export async function runCheck(
     return 1;
   }
 
-  const flagsError = guards.cliFlagsError("check", ctx.argv, CHECK_FLAGS);
+  const flagsError = guards.cliFlagsError("check", ctx.argv, [...CHECK_FLAGS, ...CHECK_STEP_IDS]);
   if (flagsError !== undefined) {
     ctx.out.err("");
     ctx.out.err(`  ${flagsError}`);
@@ -131,24 +186,12 @@ export async function runCheck(
     return 1;
   }
 
-  let repo: ReturnType<GuardsCli["findLocalRepo"]>;
-  try {
-    repo = guards.findLocalRepo(ctx.cwd);
-  } catch (e) {
-    ctx.out.err("");
-    ctx.out.err(`  ✗ ${e instanceof Error ? e.message : String(e)}`);
-    ctx.out.err("");
-    return 1;
-  }
-  if (repo === undefined) {
-    ctx.out.err("");
-    ctx.out.err(`  ✗ No Kumiko repo above ${ctx.cwd}.`);
-    ctx.out.err(`    Add a ${REPO_MANIFEST_FILE} at the repo root (kind, sourceRoots, testGlobs).`);
-    ctx.out.err("");
-    return 1;
-  }
+  const repo = findCheckedRepo(ctx, guards);
+  if (repo === undefined) return 1;
 
-  const steps = printCheckPlan(ctx, repo);
+  const plannedSteps = printCheckPlan(ctx, repo);
+  if (plannedSteps === undefined) return 1;
+  const steps = selectRequestedSteps(ctx, plannedSteps);
   if (steps === undefined) return 1;
 
   if (steps.length === 0) {
@@ -165,12 +208,32 @@ export async function runCheck(
   let failed = 0;
   for (const step of steps) {
     ctx.out.log(`  ▸ ${step.label}`);
-    failed += await runStepReportingThrow(step, ctx, repo.absPath, guards, deps);
+    failed += await runStepReportingThrow(step, ctx, repo, guards, deps);
   }
   return failed > 0 ? 1 : 0;
 }
 
 type LocalRepo = NonNullable<ReturnType<GuardsCli["findLocalRepo"]>>;
+
+/** Returns undefined when no repo can be checked; the reason is already printed. */
+function findCheckedRepo(ctx: CliCommandContext, guards: GuardsCli): LocalRepo | undefined {
+  let repo: ReturnType<GuardsCli["findLocalRepo"]>;
+  try {
+    repo = guards.findLocalRepo(ctx.cwd);
+  } catch (e) {
+    ctx.out.err("");
+    ctx.out.err(`  ✗ ${e instanceof Error ? e.message : String(e)}`);
+    ctx.out.err("");
+    return undefined;
+  }
+  if (repo === undefined) {
+    ctx.out.err("");
+    ctx.out.err(`  ✗ No Kumiko repo above ${ctx.cwd}.`);
+    ctx.out.err(`    Add a ${REPO_MANIFEST_FILE} at the repo root (kind, sourceRoots, testGlobs).`);
+    ctx.out.err("");
+  }
+  return repo;
+}
 
 /** Returns undefined when the manifest cannot be checked; the reason is already printed. */
 function printCheckPlan(ctx: CliCommandContext, repo: LocalRepo): readonly CheckStep[] | undefined {
@@ -199,12 +262,12 @@ function printCheckPlan(ctx: CliCommandContext, repo: LocalRepo): readonly Check
 async function runStepReportingThrow(
   step: { readonly id: CheckStepId; readonly label: string },
   ctx: CliCommandContext,
-  repoRoot: string,
+  repo: LocalRepo,
   guards: GuardsCli,
   deps: CheckDeps,
 ): Promise<number> {
   try {
-    return await runStep(step.id, ctx, repoRoot, guards, deps);
+    return await runStep(step.id, ctx, repo, guards, deps);
   } catch (e) {
     ctx.out.err(`  ✗ ${step.label}: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
@@ -214,7 +277,7 @@ async function runStepReportingThrow(
 async function runStep(
   id: CheckStepId,
   ctx: CliCommandContext,
-  repoRoot: string,
+  repo: LocalRepo,
   guards: GuardsCli,
   deps: CheckDeps,
 ): Promise<number> {
@@ -222,8 +285,20 @@ async function runStep(
     case "boot": {
       const { runSchemaCli } = await deps.loadSchemaCli();
       // findLocalRepo walks upwards, so ctx.cwd may be a subdirectory without kumiko/schema.ts.
-      return await runSchemaCli(["validate"], repoRoot, ctx.out);
+      return await runSchemaCli(["validate"], repo.absPath, ctx.out);
     }
+    case "managed":
+      return (await deps.loadAppSteps()).runManagedCheckStep(
+        ctx.out,
+        repo.absPath,
+        repo.manifest.uiRoots ?? [],
+      );
+    case "scripts":
+      return (await deps.loadAppSteps()).runScriptsCheckStep(
+        ctx.out,
+        repo.absPath,
+        repo.manifest.uiRoots ?? [],
+      );
     case "guards":
       return guards.runGuardsCli([]);
     case "ui":
@@ -235,7 +310,7 @@ async function runStep(
 
 export const checkCommand: CliCommand = {
   id: "check",
-  description: "Boot validation + guard suites, step list derived from kumiko.json",
+  description: "Boot validation, guard suites, managed files and scripts; steps from kumiko.json",
   help: [
     `Derives the step list from ${REPO_MANIFEST_FILE} instead of a hand-written command chain:`,
     "",
@@ -244,6 +319,10 @@ export const checkCommand: CliCommand = {
     "  ui       uiRoots declared      UI guards (App-Mounting 2.0)",
     '           kind "app" must declare uiRoots; uiRoots: [] skips the UI guards on purpose',
     '  checks   kind != "tooling"     repo checks over sourceRoots + testGlobs',
+    '  managed  kind "app"            framework-owned files against the installed template',
+    '  scripts  kind "app"            package.json scripts against the script standard',
+    "",
+    "Pass step ids to run only those steps: `kumiko check managed scripts`.",
     "",
     "Flags:",
     "  --explain    print the resolved step list and the guards' own scan explanation, run nothing",

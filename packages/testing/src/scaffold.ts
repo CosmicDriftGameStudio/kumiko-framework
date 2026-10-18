@@ -21,6 +21,8 @@ export const SCAFFOLD_E2E_PORT = 4174;
 export const SCAFFOLD_INTEGRATION_PARALLEL = 4;
 
 const PLAYWRIGHT_VERSION = "^1.62.1";
+// bunfig.dom.toml preloads kumiko-testing's dom preload, which registers happy-dom.
+const HAPPY_DOM_VERSION = "^20.11.2";
 
 const TEST_RUNTIME_DIRECTIVE = "// @runtime test";
 
@@ -81,22 +83,8 @@ function renderE2eServer(appName: string): string {
 function renderE2eSmokeSpec(): string {
   return [
     TEST_RUNTIME_DIRECTIVE,
-    'import type { SeedPart } from "@cosmicdrift/kumiko-testing";',
     'import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";',
-    'import type { Page } from "@playwright/test";',
-    "",
-    `const TASK_CREATE = ${JSON.stringify(TASK_CREATE)};`,
-    "",
-    "function withTask(title: string): SeedPart {",
-    "  return async ({ tenant }) => {",
-    '    await tenant.api.writeOk(TASK_CREATE, { title, status: "todo", priority: 1 });',
-    "  };",
-    "}",
-    "",
-    "async function openTasks(page: Page): Promise<void> {",
-    '  await page.goto("/");',
-    '  await page.getByRole("link", { name: "Tasks" }).first().click();',
-    "}",
+    'import { openTasks, withTask } from "./_helpers";',
     "",
     'test("a seeded task shows up on the tasks screen", async ({ seedTenant, page }) => {',
     '  const tenant = await seedTenant({ with: [withTask("Water the plants")] });',
@@ -113,6 +101,41 @@ function renderE2eSmokeSpec(): string {
     '  await expect(page.getByText("Own task")).toBeVisible();',
     '  await expect(page.getByText("Secret plans")).toHaveCount(0);',
     "});",
+    "",
+  ].join("\n");
+}
+
+function renderE2eHelpers(): string {
+  return [
+    TEST_RUNTIME_DIRECTIVE,
+    'import type { SeedPart } from "@cosmicdrift/kumiko-testing";',
+    'import type { Page } from "@playwright/test";',
+    "",
+    `const TASK_CREATE = ${JSON.stringify(TASK_CREATE)};`,
+    "",
+    "export function withTask(title: string): SeedPart {",
+    "  return async ({ tenant }) => {",
+    '    await tenant.api.writeOk(TASK_CREATE, { title, status: "todo", priority: 1 });',
+    "  };",
+    "}",
+    "",
+    "export async function openTasks(page: Page): Promise<void> {",
+    '  await page.goto("/");',
+    '  await page.getByRole("link", { name: "Tasks" }).first().click();',
+    "}",
+    "",
+  ].join("\n");
+}
+
+function renderIntegrationSetup(): string {
+  return [
+    'import { setupAppTestStack } from "@cosmicdrift/kumiko-testing";',
+    'import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";',
+    'import { tasksFeature } from "../features/tasks";',
+    "",
+    "export function setupTasksStack(): Promise<TestStack> {",
+    "  return setupAppTestStack([tasksFeature]);",
+    "}",
     "",
   ].join("\n");
 }
@@ -140,9 +163,9 @@ function renderUnitTest(): string {
 function renderIntegrationTest(): string {
   return [
     'import { afterAll, beforeAll, describe, expect, test } from "bun:test";',
-    'import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";',
+    'import { seedTenant } from "@cosmicdrift/kumiko-testing";',
     'import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";',
-    'import { tasksFeature } from "../features/tasks";',
+    'import { setupTasksStack } from "./_setup";',
     "",
     `const TASK_CREATE = ${JSON.stringify(TASK_CREATE)};`,
     `const TASK_LIST = ${JSON.stringify(TASK_LIST)};`,
@@ -152,7 +175,7 @@ function renderIntegrationTest(): string {
     "let stack: TestStack;",
     "",
     "beforeAll(async () => {",
-    "  stack = await setupAppTestStack([tasksFeature]);",
+    "  stack = await setupTasksStack();",
     "});",
     "",
     "afterAll(async () => {",
@@ -178,18 +201,25 @@ function renderIntegrationTest(): string {
 
 export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup {
   const { appName, frameworkVersion, port = SCAFFOLD_E2E_PORT } = input;
+  const unitTestScript = `bun --config=${BUNFIG_FILES.unit} test --timeout=${TEST_TIMEOUT_MS.unit} --dots`;
+  const integrationTestScript = `bun kumiko-testing integration --parallel ${SCAFFOLD_INTEGRATION_PARALLEL}`;
   return {
     files: {
-      ...renderBunfigFiles({ install: { linker: "hoisted" } }),
+      ...renderBunfigFiles({ install: { linker: "hoisted" }, dom: true }),
       "playwright.config.ts": renderPlaywrightConfig(port),
+      "e2e/_helpers/index.ts": renderE2eHelpers(),
       "e2e/server.ts": renderE2eServer(appName),
       "e2e/smoke.spec.ts": renderE2eSmokeSpec(),
+      "src/__tests__/_setup.ts": renderIntegrationSetup(),
       "src/__tests__/run-config.test.ts": renderUnitTest(),
       "src/__tests__/tasks.integration.test.ts": renderIntegrationTest(),
     },
     scripts: {
-      test: `bun --config=${BUNFIG_FILES.unit} test --timeout=${TEST_TIMEOUT_MS.unit} --dots`,
-      "test:integration": `bun kumiko-testing integration --parallel ${SCAFFOLD_INTEGRATION_PARALLEL}`,
+      test: unitTestScript,
+      "test:unit": unitTestScript,
+      "test:integration": integrationTestScript,
+      "test:integration:ci": integrationTestScript,
+      "test:dom": `bun --config=${BUNFIG_FILES.dom} test --timeout=${TEST_TIMEOUT_MS.unit} --dots .test.tsx`,
       // bunfig.real.toml's pathIgnorePatterns can only blacklist (no "!" negation,
       // verified against bun 1.4), so it can't express "match only *.real.test.ts"
       // on its own — every *.test.ts file matches bun's default test glob too,
@@ -201,9 +231,11 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
       "test:bunfig": "bun kumiko-testing bunfig --hoisted",
       e2e: "bunx --bun playwright test",
       "e2e:real": `${REAL_PROVIDERS_ENV}=1 bunx --bun playwright test`,
+      screenshots: "SCREENSHOT_DIR=docs/screenshots bunx --bun playwright test",
     },
     devDependencies: {
       "@cosmicdrift/kumiko-testing": frameworkVersion,
+      "@happy-dom/global-registrator": HAPPY_DOM_VERSION,
       "@playwright/test": PLAYWRIGHT_VERSION,
     },
     rulesMarkdown: RULES_MARKDOWN,

@@ -1,12 +1,13 @@
 // A fresh scaffold must pass `bun run lint` (biome check .) without rework.
-// Scaffolds live in the system tmpdir: under the repo, its .gitignore would
-// make Biome's VCS integration ignore every generated file.
+// Scaffolds live in the repo's ignored .tmp-fixtures so biome.json's
+// `extends: ["@cosmicdrift/kumiko-framework/biome"]` resolves through the
+// workspace node_modules; the preset turns off Biome's VCS ignore file, so the
+// repo's .gitignore does not hide the generated files.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { SCAFFOLD_BIOME_VERSION, scaffoldApp } from "@cosmicdrift/kumiko-dev-server";
 import { runCreate } from "../index";
@@ -16,9 +17,11 @@ const repoBiomeVersion = (JSON.parse(readFileSync(biomePackageJson, "utf8")) as 
   .version;
 const biomeBin = join(dirname(biomePackageJson), "bin", "biome");
 
+const FIXTURE_ROOT = join(import.meta.dir, "..", "..", "..", "..", ".tmp-fixtures");
 const tmpRoots: string[] = [];
 function makeTmpRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "kumiko-scaffold-lint-"));
+  mkdirSync(FIXTURE_ROOT, { recursive: true });
+  const root = mkdtempSync(join(FIXTURE_ROOT, "scaffold-lint-"));
   tmpRoots.push(root);
   return root;
 }
@@ -74,7 +77,8 @@ describe("scaffold lint", () => {
       devDependencies: Record<string, string>;
     };
     expect(pkg.devDependencies["@biomejs/biome"]).toBe(SCAFFOLD_BIOME_VERSION);
-    expect(readFileSync(join(destination, "biome.json"), "utf8")).toContain(
+    const preset = createRequire(import.meta.url).resolve("@cosmicdrift/kumiko-framework/biome");
+    expect(readFileSync(preset, "utf8")).toContain(
       `/schemas/${SCAFFOLD_BIOME_VERSION}/schema.json`,
     );
   });

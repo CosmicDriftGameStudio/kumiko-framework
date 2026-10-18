@@ -135,9 +135,9 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(main).not.toContain("emailVerified");
   });
 
-  test("bin/dev.ts seeds the admin as emailVerified: true so login doesn't 422", async () => {
+  test("bin/server.ts seeds the admin as emailVerified: true so login doesn't 422", async () => {
     await scaffoldApp({ name: "my-notes", destination: appRoot });
-    const dev = readFileSync(join(appRoot, "bin/dev.ts"), "utf-8");
+    const dev = readFileSync(join(appRoot, "bin/server.ts"), "utf-8");
     expect(dev).toContain("admin: {");
     expect(dev).toContain("emailVerified: true,");
   });

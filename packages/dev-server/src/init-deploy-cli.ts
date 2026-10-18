@@ -28,7 +28,14 @@ export type RunInitDeployCliOptions = {
 const USAGE =
   "Usage: kumiko-init-deploy --app <name> [--port <n>] [--github-org <org>] [--out <dir>] [--force | --check]";
 
+// Kept for one release so existing pipelines keep running; deploy/ is now a
+// managed-files group that `kumiko new app` writes and `kumiko sync-managed` updates.
+const DEPRECATION_NOTICE =
+  "  ! kumiko-init-deploy is deprecated and will be removed in the next release: deploy/ files are managed files now. Use `kumiko check managed` and `kumiko sync-managed --write`.";
+
 const HELP = `${USAGE}
+
+${DEPRECATION_NOTICE}
 
   --app <name>         app name (default: package.json "name" without its @scope/)
   --port <n>           port the container exposes
@@ -123,6 +130,7 @@ export async function runInitDeployCli({
     out.log(HELP);
     return 0;
   }
+  out.err(DEPRECATION_NOTICE);
   const args = parseArgs(argv);
   const force = getFlag(args, "force");
   const check = getFlag(args, "check");

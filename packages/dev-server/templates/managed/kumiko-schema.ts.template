@@ -1,0 +1,12 @@
+// Input of the schema tooling (kumiko-schema generate|apply|validate and the
+// boot step of kumiko check), derived from kumiko.config.ts. Edit the feature
+// lists there.
+
+import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
+import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import appConfig from "../kumiko.config";
+
+export const FEATURES: readonly FeatureDefinition[] = allAppFeatures(appConfig);
+
+export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);
