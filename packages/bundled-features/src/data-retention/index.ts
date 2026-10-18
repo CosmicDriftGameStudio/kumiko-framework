@@ -19,3 +19,9 @@ export {
   tenantRetentionOverrideTable,
 } from "./feature.ts";
 export { computeCutoff, type Instant } from "./keep-for.ts";
+export {
+  type RetentionCleanupSkip,
+  type RunRetentionCleanupArgs,
+  type RunRetentionCleanupResult,
+  runRetentionCleanup,
+} from "./run-retention-cleanup.ts";
