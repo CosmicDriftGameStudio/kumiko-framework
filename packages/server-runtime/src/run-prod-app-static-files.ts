@@ -7,6 +7,7 @@ import {
   computeWeakEtag,
   createClientIpResolver,
 } from "@cosmicdrift/kumiko-framework/api";
+import { rankPreferredLocales } from "@cosmicdrift/kumiko-framework/i18n";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ASSETS_DIR } from "./build-prod-bundle.ts";
@@ -255,6 +256,10 @@ export function buildStaticFallback(
     const injected = await resolveAndInjectPageHead(text, pageHead.resolvePageHead, {
       path: url.pathname,
       host,
+      preferredLocales: rankPreferredLocales({
+        queryLang: url.searchParams.get("lang"),
+        acceptLanguage: req.headers.get("accept-language"),
+      }),
       systemQuery,
       requestSignal: req.signal,
     });
@@ -320,7 +325,7 @@ export function buildStaticFallback(
     }
     // Per-host body (hostDispatch picks the file by host) → Vary: Host,
     // otherwise a shared cache could serve Host A's HTML to Host B.
-    const extraHeaders: Record<string, string> = { vary: "Host" };
+    const extraHeaders: Record<string, string> = { vary: pageHead ? PAGE_HEAD_VARY : "Host" };
     if (csp) extraHeaders["content-security-policy"] = csp;
     const withHead = await applyPageHead(req, html, socketAddress);
     return serveHtmlFile(req, "/index.html", withHead, extraHeaders, status);
@@ -379,7 +384,7 @@ export function buildStaticFallback(
     const index = await readHtmlFile(indexHtml);
     if (index) {
       const withHead = await applyPageHead(req, index, socketAddress);
-      return serveHtmlFile(req, "/index.html", withHead);
+      return serveHtmlFile(req, "/index.html", withHead, pageHead && { vary: PAGE_HEAD_VARY });
     }
 
     // Kein Hono-Match, keine Disk-Datei, kein index.html → liefer den
@@ -387,6 +392,10 @@ export function buildStaticFallback(
     return honoRes;
   };
 }
+
+// The resolved page head depends on host and preferred locale; ?lang= is part of the URL and
+// already keys the cache.
+const PAGE_HEAD_VARY = "Host, Accept-Language";
 
 // Map URL-Pfad → Cache-Policy. Hashed-Asset-Pfade (/assets/*) sind
 // unveränderlich, der Rest bleibt revalidate/no-cache damit Updates ohne

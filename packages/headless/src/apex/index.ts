@@ -580,6 +580,9 @@ export type PageHeadSystemQuery = (
 export type PageHeadResolver = (input: {
   readonly path: string;
   readonly host: string;
+  // Ordered, canonicalized, deduped: a valid `?lang=` first, then Accept-Language by q. Empty when
+  // the request states no preference.
+  readonly preferredLocales: readonly string[];
   // Already bound to `signal`: queries issued through it stop once the request is gone or the
   // resolver timed out. Aborts at query boundaries; an in-flight statement is not cancelled.
   readonly systemQuery: PageHeadSystemQuery;
@@ -589,6 +592,7 @@ export type PageHeadResolver = (input: {
 export type PageHeadResolveInput = {
   readonly path: string;
   readonly host: string;
+  readonly preferredLocales: readonly string[];
   readonly systemQuery: PageHeadSystemQuery;
   // The HTTP request's own signal (client disconnect), folded into the resolver's signal.
   readonly requestSignal?: AbortSignal | undefined;
@@ -639,6 +643,7 @@ async function resolvePageHeadWithTimeout(
     const resolved = resolvePageHead({
       path: input.path,
       host: input.host,
+      preferredLocales: input.preferredLocales,
       signal,
       systemQuery: (type, payload, tenantId) => systemQuery(type, payload, tenantId, { signal }),
     }).catch(() => null);
