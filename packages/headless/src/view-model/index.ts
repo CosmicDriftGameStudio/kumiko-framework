@@ -22,6 +22,7 @@ export {
   fieldOptionLabelKeyPrefix,
 } from "./list.ts";
 export type {
+  CellLink,
   EditExtensionSectionViewModel,
   EditFieldSpec,
   EditFieldsSectionViewModel,
@@ -39,6 +40,7 @@ export type {
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
+  RuntimeCellLink,
   RuntimeRenderer,
   ScreenSlots,
   Translate,

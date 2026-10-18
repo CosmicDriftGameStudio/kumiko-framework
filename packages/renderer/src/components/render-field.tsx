@@ -13,11 +13,20 @@ import {
   type FieldIssue,
 } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  Fragment,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useColumnRenderer } from "../app/column-renderers.tsx";
 import { extensionSectionName } from "../app/extension-sections.tsx";
 import { toKebab } from "../app/qn.ts";
+import { useReferenceLinkResolver } from "../app/reference-link.ts";
 import { screenAccessAllows } from "../app/screen-access.ts";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
@@ -560,8 +569,9 @@ function ReadOnlyReferenceValue({
   readonly field: EditFieldViewModel;
   readonly featureName: string;
 }): ReactNode {
-  const { Text } = usePrimitives();
+  const { Text, Link } = usePrimitives();
   const t = useTranslation();
+  const resolveReferenceLink = useReferenceLinkResolver();
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
   const isMultiple = field.refMultiple === true;
@@ -582,12 +592,34 @@ function ReadOnlyReferenceValue({
   // reference field showing one on the detail path also gets a label
   // instead of the raw id.
   const systemLabel = SYSTEM_REFERENCE_LABELS[`${refFeature}:${refEntity}`];
-  const labels = ids.map((id) => {
-    if (systemLabel !== undefined && id === systemLabel.id) return t(systemLabel.labelKey);
+  const parts = ids.map((id) => {
+    if (systemLabel !== undefined && id === systemLabel.id) {
+      return { id, label: t(systemLabel.labelKey), link: undefined };
+    }
     const row = rows.find((r) => String(r["id"] ?? "") === id);
-    return row !== undefined ? String(row[labelKey] ?? id) : id;
+    if (row === undefined) return { id, label: id, link: undefined };
+    return { id, label: String(row[labelKey] ?? id), link: resolveReferenceLink(refEntity, id) };
   });
-  return <Text testId={`field-value-${field.field}`}>{labels.join(", ")}</Text>;
+  return (
+    <Text testId={`field-value-${field.field}`}>
+      {parts.map(({ id, label, link }, index) => (
+        <Fragment key={id}>
+          {index > 0 && ", "}
+          {link === undefined ? (
+            label
+          ) : (
+            <Link
+              href={link.href}
+              onPress={link.onPress}
+              testId={`field-link-${field.field}-${id}`}
+            >
+              {label}
+            </Link>
+          )}
+        </Fragment>
+      ))}
+    </Text>
+  );
 }
 
 // Field types whose read display already isn't a boxed "disabled input" look

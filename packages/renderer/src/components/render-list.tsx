@@ -1,4 +1,3 @@
-import type { EagerloadedRow } from "@cosmicdrift/kumiko-framework/db";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -8,12 +7,14 @@ import type {
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
+  RuntimeCellLink,
   RuntimeRenderer,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel, EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
+import { useReferenceLinkResolver } from "../app/reference-link.ts";
 import type { ListSort } from "../hooks/use-list-url-state.ts";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
@@ -303,6 +304,7 @@ export function RenderList(props: RenderListProps): ReactNode {
       return { ...prev, [field]: map };
     });
   }, []);
+  const resolveReferenceLink = useReferenceLinkResolver();
   const enrichedColumns = useMemo((): readonly ListColumnViewModel[] => {
     if (referenceColumns.length === 0) return vm.columns;
     return vm.columns.map((col: ListColumnViewModel) => {
@@ -312,6 +314,23 @@ export function RenderList(props: RenderListProps): ReactNode {
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
       const labelField = col.refLabelField ?? "id";
+      const refEntity = col.refEntity ?? "";
+      // Only a row the user can see is linkable: resolved by the server
+      // eagerload or by the lookup query. A multi-reference stays text.
+      const linkFor: RuntimeCellLink = (value, row) => {
+        if (value === null || value === undefined || value === "" || Array.isArray(value)) {
+          return undefined;
+        }
+        const id = String(value);
+        const eagerloaded = eagerloadedRef(row, col.field);
+        // The server leaves a missing or unreadable target out; null is treated the same.
+        const resolved =
+          (typeof eagerloaded === "object" &&
+            eagerloaded !== null &&
+            !Array.isArray(eagerloaded)) ||
+          map?.has(id);
+        return resolved === true ? resolveReferenceLink(refEntity, id) : undefined;
+      };
       const renderer: RuntimeRenderer = (
         value: unknown,
         row?: Readonly<Record<string, unknown>>,
@@ -321,14 +340,12 @@ export function RenderList(props: RenderListProps): ReactNode {
         // resolved Row — kein Roundtrip durch die Bridge-Map nötig
         // und keine limit:200-Constraint. EagerloadedRow-Type aus
         // @cosmicdrift/kumiko-framework/db pinnt die Form von _refs.
-        const eagerloadedRow = row as EagerloadedRow | undefined;
-        const resolved = eagerloadedRow?._refs?.[col.field];
+        const resolved = eagerloadedRef(row, col.field);
         if (Array.isArray(resolved) && resolved.length > 0) {
           return resolved.map((r) => String(r[labelField] ?? r["id"] ?? "")).join(", ");
         }
-        if (resolved !== undefined && !Array.isArray(resolved)) {
-          const single = resolved as Record<string, unknown>; // @cast-boundary render-helper
-          return String(single[labelField] ?? single["id"] ?? "");
+        if (isPlainRecord(resolved)) {
+          return String(resolved[labelField] ?? resolved["id"] ?? "");
         }
         // Renderer-Side-Fallback (kein Server-Eagerload aktiv).
         if (Array.isArray(value)) {
@@ -339,9 +356,9 @@ export function RenderList(props: RenderListProps): ReactNode {
         const idStr = String(value);
         return map?.get(idStr) ?? idStr;
       };
-      return { ...col, renderer };
+      return { ...col, renderer, linkFor };
     });
-  }, [vm.columns, referenceColumns, referenceLookups]);
+  }, [vm.columns, referenceColumns, referenceLookups, resolveReferenceLink]);
   const enrichedVm = useMemo(
     (): Omit<ListViewModel, "columns"> & { columns: readonly ListColumnViewModel[] } => ({
       ...vm,
@@ -685,4 +702,19 @@ function ToolbarActionView({
       )}
     </>
   );
+}
+
+type EagerloadedRef = Record<string, unknown> | readonly Record<string, unknown>[] | undefined;
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// The server leaves a missing or unreadable target out of `_refs`, and a null
+// entry means the same: both read as unresolved.
+function eagerloadedRef(row: unknown, field: string): EagerloadedRef {
+  if (!isPlainRecord(row) || !isPlainRecord(row["_refs"])) return undefined;
+  const ref = row["_refs"][field];
+  if (Array.isArray(ref)) return ref.filter(isPlainRecord);
+  return isPlainRecord(ref) ? ref : undefined;
 }

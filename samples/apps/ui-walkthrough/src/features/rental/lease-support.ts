@@ -62,6 +62,7 @@ const leaseRowSchema = z.object({
   beginn: readDateSchema,
   status: z.string(),
   ende: readDateSchema.nullish(),
+  vorgaenger: z.string().nullish(),
   grundmiete: moneySchema,
   kuendigungsfrist: z.string().nullish(),
   zahltag: z.number().nullish(),

@@ -7,6 +7,7 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "screen:lease-list.title": "Mietverträge",
     "screen:lease-list-short.title": "Mietverträge (gekündigt)",
+    "screen:lease-succession-list.title": "Nachfolge",
     "screen:lease-edit.title": "Mietvertrag",
     "screen:lease-detail.title": "Mietvertrag",
     "screen:lease-hub.title": "Mietvertrag Hub",
@@ -56,6 +57,7 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:lease:field:liegenschaft": "Liegenschaft",
     "rental:entity:lease:field:beginn": "Beginn",
     "rental:entity:lease:field:ende": "Ende",
+    "rental:entity:lease:field:vorgaenger": "Vorgänger",
     "rental:entity:lease:field:status": "Status",
     "rental:entity:lease:field:status:option:active": "Aktiv",
     "rental:entity:lease:field:status:option:terminated": "Gekündigt",
@@ -119,6 +121,7 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "screen:lease-list.title": "Leases",
     "screen:lease-list-short.title": "Leases (terminated)",
+    "screen:lease-succession-list.title": "Succession",
     "screen:lease-edit.title": "Lease",
     "screen:lease-detail.title": "Lease",
     "screen:lease-hub.title": "Lease hub",
@@ -166,6 +169,7 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:lease:field:liegenschaft": "Property",
     "rental:entity:lease:field:beginn": "Start",
     "rental:entity:lease:field:ende": "End",
+    "rental:entity:lease:field:vorgaenger": "Predecessor",
     "rental:entity:lease:field:status": "Status",
     "rental:entity:lease:field:status:option:active": "Active",
     "rental:entity:lease:field:status:option:terminated": "Terminated",

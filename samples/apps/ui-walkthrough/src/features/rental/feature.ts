@@ -30,6 +30,7 @@ import {
   leaseListEmptyScreen,
   leaseListScreen,
   leaseListShortScreen,
+  leaseSuccessionListScreen,
   partyEditScreen,
   positionEditScreen,
   recordPositionsScreen,
@@ -98,6 +99,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
         einheit: lease.einheit ?? "",
         liegenschaft: lease.liegenschaft ?? "",
         ende: "",
+        vorgaenger: lease.vorgaenger ?? "",
         kontostand: "0,00 €",
         notizen: "",
         partyCount: await countChildren(partyExecutor),
@@ -241,6 +243,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(leaseHubScreen);
   r.screen(leaseDetailGapsScreen);
   r.screen(leaseListEmptyScreen);
+  r.screen(leaseSuccessionListScreen);
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
   r.screen(recordPositionsScreen);
