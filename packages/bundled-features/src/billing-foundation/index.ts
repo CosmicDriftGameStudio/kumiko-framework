@@ -79,6 +79,7 @@ export {
   effectiveTierFromSubscription,
   SUBSCRIPTION_WEBHOOK_PATH,
   type SubscriptionTierSyncDeps,
+  type TierSyncResult,
 } from "./subscription-tier-sync.ts";
 export {
   type BillingFoundationOptions,

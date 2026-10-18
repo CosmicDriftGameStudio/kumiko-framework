@@ -39,6 +39,10 @@ import {
   writeSnapshotJson,
 } from "./db/index.ts";
 import { validateBoot } from "./engine/boot-validator.ts";
+import {
+  FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
+  FILE_STORAGE_PROVIDER_ENV,
+} from "./engine/extension-names.ts";
 import { createRegistry } from "./engine/registry.ts";
 import type { FeatureDefinition } from "./engine/types/feature.ts";
 import { createEventsTable } from "./event-store/index.ts";
@@ -56,6 +60,17 @@ export type SchemaCliOut = {
 };
 
 const SNAPSHOT_FILENAME = ".snapshot.json";
+
+// `validate` only sees the composed FEATURES. The file provider normally comes from
+// runProdApp's `fileStorage` option, which defaults FILE_STORAGE_PROVIDER at boot, so
+// an unset variable here is no misconfiguration. The deploy env is checked by the real boot.
+function withFileStoragePresence(
+  env: Readonly<Record<string, string | undefined>>,
+): Record<string, string | undefined> {
+  return env[FILE_STORAGE_PROVIDER_ENV] === undefined
+    ? { ...env, [FILE_STORAGE_PROVIDER_ENV]: FILE_STORAGE_PROVIDER_BOOT_SENTINEL }
+    : { ...env };
+}
 
 type SchemaMod = {
   readonly entityMetas: Parameters<typeof renderTablesDdl>[0];
@@ -321,7 +336,9 @@ export async function runSchemaCli(
       // 2. Boot validity — needs the composed feature set.
       if (Array.isArray(mod.FEATURES)) {
         try {
-          validateBoot(mod.FEATURES as readonly FeatureDefinition[]);
+          validateBoot(mod.FEATURES as readonly FeatureDefinition[], {
+            env: withFileStoragePresence(process.env),
+          });
           out.log("  ✓ boot: feature configuration is valid");
         } catch (e) {
           ok = false;

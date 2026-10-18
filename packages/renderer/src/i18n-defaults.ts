@@ -297,6 +297,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "errors.feature.disabled": "This feature is currently unavailable.",
     "errors.access.denied": "You don't have permission to do this.",
+    "errors.demoReadOnly": "This live demo is read-only.",
     "errors.notFound": "Not found.",
     "errors.conflict": "Conflict — the operation could not be completed.",
     "errors.versionConflict": "The record was modified in the meantime. Reload and try again.",

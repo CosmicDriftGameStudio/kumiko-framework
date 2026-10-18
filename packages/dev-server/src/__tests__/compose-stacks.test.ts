@@ -6,8 +6,9 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/presets";
 import type { CreateTierEngineOptions } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { type FeatureDefinition, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   composeAuthStack,
   composeFileStack,
@@ -57,6 +58,34 @@ describe("composeStacks", () => {
       "file-provider-s3",
       "files",
     ]);
+  });
+
+  test("composePagesStack({ terms }) also serves the terms routes", () => {
+    const paths = (feature: FeatureDefinition | undefined): string[] =>
+      Object.values(feature?.httpRoutes ?? {}).map((route) => route.path);
+    const withTerms = paths(composePagesStack({ terms: true })[0]);
+    const withoutTerms = paths(composePagesStack()[0]);
+    expect(withTerms).toContain("/legal/terms");
+    expect(withoutTerms).not.toContain("/legal/terms");
+  });
+
+  test("composeGdprStack({ access }) sets the compliance-profiles handler roles", () => {
+    const profiles = (features: readonly FeatureDefinition[]): FeatureDefinition | undefined =>
+      features.find((f) => f.name === "compliance-profiles");
+    const narrowed = profiles(composeGdprStack({ access: ["SystemAdmin"] }));
+    const defaulted = profiles(composeGdprStack());
+    const rolesOfFirstWrite = (f: FeatureDefinition | undefined): readonly string[] =>
+      rolesOf(Object.values(f?.writeHandlers ?? {})[0]?.access);
+    expect(rolesOfFirstWrite(narrowed)).toEqual(["SystemAdmin"]);
+    expect(rolesOfFirstWrite(defaulted)).toContain("TenantAdmin");
+  });
+
+  test("composeOpsStack({ access }) sets the delivery handler roles", () => {
+    const delivery = (features: readonly FeatureDefinition[]): FeatureDefinition | undefined =>
+      features.find((f) => f.name === "delivery");
+    const narrowed = delivery(composeOpsStack({ delivery: true, access: ["SystemAdmin"] }));
+    const first = Object.values(narrowed?.queryHandlers ?? {})[0];
+    expect(rolesOf(first?.access)).toEqual(["SystemAdmin"]);
   });
 
   test("composeGdprStack retention-first (money-horse / publicstatus pattern)", () => {

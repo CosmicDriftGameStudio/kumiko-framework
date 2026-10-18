@@ -236,6 +236,34 @@ describe("hooks/pre-push shim", () => {
     expect(output).toContain(`PWD=${repoDir}`);
   });
 
+  test("the walk stops at an enclosing repository and ignores a bin above it", () => {
+    const outerDir = join(tmp, "outer");
+    const enclosingRepo = join(outerDir, "enclosing");
+    const repoDir = join(enclosingRepo, "repo");
+    initGitRepo(enclosingRepo);
+    initGitRepo(repoDir);
+    writeStubBin(join(outerDir, "node_modules", ".bin"), stubBinScript());
+
+    const { output, exitCode } = runHook(repoDir, tmp);
+
+    expect(exitCode).not.toBe(0);
+    expect(output).not.toContain("BIN_RAN");
+    expect(output).toContain("kumiko-pre-push not found in any node_modules/.bin");
+  });
+
+  test("a bin inside the enclosing repository is still found", () => {
+    const enclosingRepo = join(tmp, "enclosing");
+    const repoDir = join(enclosingRepo, "repo");
+    initGitRepo(enclosingRepo);
+    initGitRepo(repoDir);
+    writeStubBin(join(enclosingRepo, "node_modules", ".bin"), stubBinScript());
+
+    const { output, exitCode } = runHook(repoDir, tmp);
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("BIN_RAN");
+  });
+
   test("a broken repo-local symlink is skipped in favor of an ancestor's bin", () => {
     const parentDir = join(tmp, "parent");
     const repoDir = join(parentDir, "repo");

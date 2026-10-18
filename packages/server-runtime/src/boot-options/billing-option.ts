@@ -1,6 +1,7 @@
 import {
   createSubscriptionTierSync,
   SUBSCRIPTION_WEBHOOK_PATH,
+  type TierSyncResult,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
   createSubscriptionStripeFeature,
@@ -35,6 +36,8 @@ export type BillingBootOption = {
   readonly tierNames?: readonly string[];
   /** Default `"fail-webhook"`: Stripe retries, so a failed tier sync gets another attempt. */
   readonly onTierSyncError?: "log" | "fail-webhook";
+  /** Runs after every webhook whose tier sync succeeded, also when the tier stayed the same (`changed: false`). */
+  readonly afterSync?: (result: TierSyncResult<string>) => Promise<void>;
 };
 
 const PROVIDER_NAME_PARAM = ":providerName";
@@ -75,6 +78,7 @@ export function resolveBillingOption(
     isTierName: (value: string): value is string => tierNames.has(value),
     defaultTier: billing.defaultTier,
     onSyncError: billing.onTierSyncError ?? "fail-webhook",
+    ...(billing.afterSync && { afterSync: billing.afterSync }),
   });
   return { feature, route: tierSync.createWebhookRoute({ path: webhookPath }) };
 }

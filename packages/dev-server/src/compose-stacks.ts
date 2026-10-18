@@ -90,6 +90,8 @@ export type MailStackOptions = {
 
 export type PagesStackOptions = {
   readonly wrapLayout?: LegalPagesOptions["wrapLayout"];
+  /** Also serves the terms routes, see LegalPagesOptions.terms. */
+  readonly terms?: LegalPagesOptions["terms"];
 };
 
 export type GdprStackOptions = {
@@ -104,6 +106,8 @@ export type GdprStackOptions = {
    *  satisfies auth-foundation's boot check (#1570). Pass providers when the
    *  app also wants Bearer/PAT auth. */
   readonly providers?: readonly FeatureDefinition[];
+  /** Roles allowed to use the compliance-profiles handlers; default access.admin. */
+  readonly access?: readonly string[];
 };
 
 export type UserDataRightsStackOptions = {
@@ -115,6 +119,8 @@ export type UserDataRightsStackOptions = {
 // options is deduped at boot, differing options throw "Duplicate feature".
 export type OpsStackOptions = {
   readonly delivery?: boolean;
+  /** Roles allowed to use the delivery handlers; default access.admin. */
+  readonly access?: readonly string[];
   readonly audit?: boolean;
   readonly jobs?: boolean;
   readonly rateLimiting?: boolean;
@@ -151,9 +157,10 @@ export function composePagesStack(options: PagesStackOptions = {}): FeatureDefin
   // r.requires fails the boot. Mounting it here instead would collide with
   // composeRendererStack (createRegistry rejects duplicate features).
   return [
-    createLegalPagesFeature(
-      options.wrapLayout !== undefined ? { wrapLayout: options.wrapLayout } : {},
-    ),
+    createLegalPagesFeature({
+      ...(options.wrapLayout !== undefined && { wrapLayout: options.wrapLayout }),
+      ...(options.terms !== undefined && { terms: options.terms }),
+    }),
   ];
 }
 
@@ -211,7 +218,9 @@ export function composeFileStack(options: FileStackOptions = {}): FeatureDefinit
 export function composeGdprStack(options: GdprStackOptions = {}): FeatureDefinition[] {
   const order = options.order ?? "retention-first";
   const retention = withBootRequires(createDataRetentionFeature(), "composeGdprStack", ["kmsMode"]);
-  const compliance = createComplianceProfilesFeature();
+  const compliance = createComplianceProfilesFeature(
+    options.access !== undefined ? { access: options.access } : {},
+  );
   const out: FeatureDefinition[] =
     order === "compliance-first" ? [compliance, retention] : [retention, compliance];
   if (options.tenantLifecycle) out.push(createTenantLifecycleFeature());
@@ -255,7 +264,8 @@ export function composeOpsStack(options: OpsStackOptions = {}): FeatureDefinitio
   const jobs = options.jobs ?? true;
   const rateLimiting = options.rateLimiting ?? false;
   const out: FeatureDefinition[] = [];
-  if (delivery) out.push(createDeliveryFeature());
+  if (delivery)
+    out.push(createDeliveryFeature(options.access !== undefined ? { access: options.access } : {}));
   if (audit) out.push(createAuditFeature());
   if (jobs) out.push(createJobsFeature());
   if (rateLimiting) out.push(createRateLimitingFeature());

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { isDryRunEnvActive, parseDryRunEnvMode, renderEnvInspection } from "../dry-run.ts";
-import { inspectEnv } from "../index.ts";
+import { classifyField, inspectEnv, KumikoBootError, parseEnv } from "../index.ts";
 
 const schema = z.object({
   DATABASE_URL: z.url(),
@@ -71,5 +71,29 @@ describe("parseDryRunEnvMode", () => {
     expect(isDryRunEnvActive({ KUMIKO_DRY_RUN_ENV: "boot" })).toBe(true);
     expect(isDryRunEnvActive({ KUMIKO_DRY_RUN_ENV: "yes" })).toBe(false);
     expect(isDryRunEnvActive({})).toBe(false);
+  });
+});
+
+describe(".required() over optional fields", () => {
+  const requiredSchema = z.object({ PASSWORD: z.string().min(4).optional() }).required();
+
+  test("classifies the field as required and missing", () => {
+    expect(classifyField(requiredSchema.shape.PASSWORD)).toBe("required");
+    expect(inspectEnv(requiredSchema, {})[0]).toMatchObject({
+      klass: "required",
+      status: "missing",
+    });
+  });
+
+  test("parseEnv reports it as required, not as nonoptional", () => {
+    try {
+      parseEnv(requiredSchema, {});
+      throw new Error("expected parseEnv to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(KumikoBootError);
+      const message = error instanceof Error ? error.message : "";
+      expect(message).toContain("required");
+      expect(message).not.toContain("nonoptional");
+    }
   });
 });

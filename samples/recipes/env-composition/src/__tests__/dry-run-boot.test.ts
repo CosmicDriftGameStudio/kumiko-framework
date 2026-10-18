@@ -85,7 +85,10 @@ describe("KUMIKO_DRY_RUN_ENV=boot", () => {
 
   test("exits 1 on an invalid value and never prints it", async () => {
     const endpoint = "http://s3.leak-check.example.com";
-    const { stdout, stderr, exitCode } = await runBootDryRun({ S3_ENDPOINT: endpoint });
+    const { stdout, stderr, exitCode } = await runBootDryRun({
+      NODE_ENV: "production",
+      S3_ENDPOINT: endpoint,
+    });
 
     expect(exitCode).toBe(1);
     expect(stdout).toMatch(/S3_ENDPOINT\s+file-provider-s3-env\s+optional\s+invalid/);

@@ -99,15 +99,22 @@ describe("s3EnvSchema", () => {
     expect(parseEnv(s3EnvSchema, { S3_ENDPOINT: "" }).S3_ENDPOINT).toBeUndefined();
   });
 
-  it("rejects plain http to a remote host and a non-boolean path-style flag", () => {
-    expect(
-      invalidNames(() =>
-        parseEnv(s3EnvSchema, {
-          S3_ENDPOINT: "http://s3.example.com",
-          S3_FORCE_PATH_STYLE: "1",
-        }),
-      ),
-    ).toEqual(["S3_ENDPOINT:invalid", "S3_FORCE_PATH_STYLE:invalid"]);
+  it("rejects plain http to a remote host in production and a non-boolean path-style flag", () => {
+    const originalNodeEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      expect(
+        invalidNames(() =>
+          parseEnv(s3EnvSchema, {
+            S3_ENDPOINT: "http://s3.example.com",
+            S3_FORCE_PATH_STYLE: "1",
+          }),
+        ),
+      ).toEqual(["S3_ENDPOINT:invalid", "S3_FORCE_PATH_STYLE:invalid"]);
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalNodeEnv;
+    }
   });
 
   it("builds a prefixed block with typed keys", () => {

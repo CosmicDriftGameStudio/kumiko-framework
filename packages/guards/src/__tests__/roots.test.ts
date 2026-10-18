@@ -170,6 +170,35 @@ describe("resolveRepoRoots — real git worktree integration", () => {
   });
 });
 
+describe("findLocalRepo — the nearest kumiko.json beats the git root", () => {
+  test("an app with its own kumiko.json inside a larger git checkout resolves to the app", () => {
+    const ws = workspace();
+    const outer = join(ws, "studio");
+    writeRepo(outer, { name: "studio", layout: "flat" });
+    const env: Record<string, string> = {
+      ...gitEnv(),
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CEILING_DIRECTORIES: ws,
+    };
+    expect(Bun.spawnSync(["git", "-C", outer, "init", "-q", "-b", "main"], { env }).success).toBe(
+      true,
+    );
+    const inner = join(outer, "apps", "widget");
+    writeRepo(inner, {
+      name: "widget",
+      layout: { manifest: { kind: "app", sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] } },
+    });
+    const deep = join(inner, "src", "nested");
+    mkdirSync(deep, { recursive: true });
+
+    const local = findLocalRepo(deep);
+
+    expect(local?.absPath).toBe(inner);
+    expect(local?.manifestSource).toBe("file");
+    rmSync(ws, { recursive: true, force: true });
+  });
+});
+
 describe("findLocalRepo — kind 'framework' is reserved for kumiko-framework", () => {
   test("a foreign repo declaring kind framework fails root resolution", () => {
     const ws = workspace();

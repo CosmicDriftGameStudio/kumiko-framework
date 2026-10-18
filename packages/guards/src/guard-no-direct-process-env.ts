@@ -5,7 +5,7 @@
  * Apps with composed env-schemas (`bin/env.ts`) must read runtime config from
  * the validated `env` export — not scattered `process.env.X` in prod paths.
  *
- * Scans bin/main.ts, other bin ts files (excl. allowlist), and src (excl. tests)
+ * Scans bin/main.ts, other bin ts files incl. subfolders such as bin/ops/ (excl. allowlist), and src (excl. tests)
  * in every repo that ships `bin/env.ts`. Allowed raw process.env:
  *   - bin/env.ts     — sole parseEnv input
  *   - bin/server.ts  — dev entrypoint (runDevApp)
@@ -21,9 +21,9 @@ import { scanLinesForPredicate } from "./_lib/scan-lines";
 // .tsx deliberately excluded — client screens have no runtime process.env
 // access (bundler boundary), only .ts server/bin code reads process.env
 // directly. Add .tsx here if that ever stops being true.
-const SCAN_PATTERNS: ReadonlyArray<string> = ["bin/*.ts", "src/**/*.ts"];
+const SCAN_PATTERNS: ReadonlyArray<string> = ["bin/**/*.ts", "src/**/*.ts"];
 
-/** bin/*.ts paths that may read process.env directly (see header). */
+/** bin ts paths that may read process.env directly (see header). */
 export const ALLOWED_BIN_FILES: ReadonlySet<string> = new Set([
   "bin/env.ts",
   "bin/server.ts",

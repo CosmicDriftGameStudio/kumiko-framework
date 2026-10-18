@@ -27,6 +27,7 @@ export type SubscriptionWebhookRouteOptions = {
     dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
     tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId,
     deps: import("@cosmicdrift/kumiko-framework/api").SignatureExtraRouteDeps,
+    event: SubscriptionEvent | PaymentEvent,
   ) => Promise<import("@cosmicdrift/kumiko-framework/engine").WriteResult>;
 };
 
@@ -113,7 +114,7 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
         return respondFromDispatch(
           c,
           dispatched.isSuccess && options.afterDispatch
-            ? await options.afterDispatch(dispatched, tenantId, deps)
+            ? await options.afterDispatch(dispatched, tenantId, deps, parsed)
             : dispatched,
           "subscription_payment_webhook_processing_failed",
           "Internal error processing payment event",
@@ -138,7 +139,7 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
       return respondFromDispatch(
         c,
         dispatched.isSuccess && options.afterDispatch
-          ? await options.afterDispatch(dispatched, tenantId, deps)
+          ? await options.afterDispatch(dispatched, tenantId, deps, parsed)
           : dispatched,
         "subscription_webhook_processing_failed",
         "Internal error processing subscription event",

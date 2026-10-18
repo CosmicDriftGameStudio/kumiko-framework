@@ -11,8 +11,9 @@ if [ -z "$REPO_ROOT" ]; then
   exit 1
 fi
 
-# Walk up to / so a worktree without its own node_modules resolves via the
-# parent install; `[ -x ]` also skips a broken (uninstalled) symlink.
+# Walk up so a worktree without its own node_modules resolves via the parent
+# install, but not past an enclosing repository: a bin above that boundary
+# belongs to another project. `[ -x ]` also skips a broken (uninstalled) symlink.
 BIN=""
 DIR="$REPO_ROOT"
 while true; do
@@ -22,6 +23,9 @@ while true; do
     break
   fi
   if [ "$DIR" = "/" ]; then
+    break
+  fi
+  if [ "$DIR" != "$REPO_ROOT" ] && [ -e "$DIR/.git" ]; then
     break
   fi
   DIR="$(dirname "$DIR")"

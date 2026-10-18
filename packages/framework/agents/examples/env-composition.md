@@ -135,7 +135,10 @@ describe("KUMIKO_DRY_RUN_ENV=boot", () => {
 
   test("exits 1 on an invalid value and never prints it", async () => {
     const endpoint = "http://s3.leak-check.example.com";
-    const { stdout, stderr, exitCode } = await runBootDryRun({ S3_ENDPOINT: endpoint });
+    const { stdout, stderr, exitCode } = await runBootDryRun({
+      NODE_ENV: "production",
+      S3_ENDPOINT: endpoint,
+    });
 
     expect(exitCode).toBe(1);
     expect(stdout).toMatch(/S3_ENDPOINT\s+file-provider-s3-env\s+optional\s+invalid/);
@@ -206,11 +209,18 @@ describe("env composition", () => {
     expect(report).not.toContain("S3_BUCKET");
   });
 
-  test("rejects a remote http S3 endpoint", () => {
+  test("rejects a remote http S3 endpoint in production", () => {
     const composed = composeAppEnv();
-    expect(() =>
-      parseEnv(composed.schema, { ...minimalValidValues, S3_ENDPOINT: "http://s3.example.com" }),
-    ).toThrow(KumikoBootError);
+    const originalNodeEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      expect(() =>
+        parseEnv(composed.schema, { ...minimalValidValues, S3_ENDPOINT: "http://s3.example.com" }),
+      ).toThrow(KumikoBootError);
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalNodeEnv;
+    }
   });
 });
 ```

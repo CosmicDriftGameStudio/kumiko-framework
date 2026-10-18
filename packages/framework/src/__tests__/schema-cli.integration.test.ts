@@ -386,6 +386,36 @@ export const FEATURES = [];
     expect(cap.log.join("\n")).toContain("feature configuration is valid");
   });
 
+  test("file fields without FILE_STORAGE_PROVIDER pass: runProdApp's fileStorage option defaults it", async () => {
+    const engineSrc = join(import.meta.dir, "../engine/index.ts");
+    writeFileSync(
+      join(appCwd, "kumiko/schema.ts"),
+      `import { createEntity, defineFeature } from "${engineSrc}";
+export const ENTITY_METAS = [
+  { tableName: "read_widgets", source: "unmanaged", indexes: [],
+    columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true, defaultSql: "gen_random_uuid()" }] },
+];
+export const FEATURES = [
+  defineFeature("docs", (r) => {
+    r.entity({ name: "doc", ...createEntity({ table: "Docs", fields: { photo: { type: "image" } } }) });
+  }),
+];
+`,
+    );
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    const previous = process.env["FILE_STORAGE_PROVIDER"];
+    delete process.env["FILE_STORAGE_PROVIDER"];
+    try {
+      const cap = captureOut();
+      const code = await runSchemaCli(["validate"], appCwd, cap.out);
+      expect(cap.err.join("\n")).not.toContain("FILE_STORAGE_PROVIDER");
+      expect(cap.log.join("\n")).toContain("feature configuration is valid");
+      expect(code).toBe(0);
+    } finally {
+      if (previous !== undefined) process.env["FILE_STORAGE_PROVIDER"] = previous;
+    }
+  });
+
   test("FEATURES with a bad nav→screen ref → validateBoot fails, exit 1 (512/1)", async () => {
     // Absolute file import (not the package name): appCwd is a bare tmpdir
     // with no node_modules of its own — a real app resolves

@@ -3,11 +3,15 @@
 // Tooling (ts-morph) als Dependency — Prod-Apps ziehen so kein
 // Dev-Tooling mehr in ihre node_modules.
 
-export type { BillingBootOption } from "./boot-options/billing-option.ts";
+export { type BillingBootOption, resolveBillingOption } from "./boot-options/billing-option.ts";
 export type {
   DemoAccountRole,
   DemoModeNotice,
   DemoModeOption,
+} from "./boot-options/demo-mode.ts";
+export {
+  buildDemoModeRoute,
+  withDemoReadOnlyFetch,
 } from "./boot-options/demo-mode.ts";
 export type {
   FileStorageBootOption,
@@ -30,6 +34,7 @@ export { runBootstrap } from "./run-bootstrap.ts";
 export type {
   AccountUnlockSetup,
   EmailVerificationSetup,
+  HostDispatchFn,
   InviteSetup,
   PageHeadMeta,
   PageHeadResolver,
@@ -41,7 +46,7 @@ export type {
   RunProdAppOptions,
   SignupSetup,
 } from "./run-prod-app.ts";
-export { requireEnv, runProdApp } from "./run-prod-app.ts";
+export { parseRunMode, requireEnv, runProdApp } from "./run-prod-app.ts";
 export type {
   RunWorkerAppOptions,
   WorkerAppHandle,

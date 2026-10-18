@@ -493,6 +493,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.access.denied": "You don't have permission to do this.",
   "errors.cap.exceeded": "Limit reached. Upgrade your plan or wait for the next period.",
   "errors.conflict": "Conflict — the operation could not be completed.",
+  "errors.demoReadOnly": "This live demo is read-only.",
   "errors.download.urlMissing": "Download unavailable — please try again.",
   "errors.feature.disabled": "This feature is currently unavailable.",
   "errors.internal": "Something went wrong. Please try again later.",

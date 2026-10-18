@@ -25,7 +25,7 @@ default-src 'self'; script-src 'self' 'sha256-…'; style-src 'self' 'unsafe-inl
 | `"…"` | this string replaces the default (no hashes added) |
 | `{ extend: { "connect-src": ["https://api.stripe.com"] } }` | adds sources to default directives or adds new directives |
 
-```ts
+```ts illustration
 await runProdApp({
   securityHeaders: {
     csp: {
