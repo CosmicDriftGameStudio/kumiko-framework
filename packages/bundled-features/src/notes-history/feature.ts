@@ -138,6 +138,3 @@ export function createNotesHistoryFeature(
     registerNotesHistory(r, resolveAccess(opts), opts.ownership, opts.parents),
   );
 }
-
-/** @deprecated Use createNotesHistoryFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const notesHistoryFeature = createNotesHistoryFeature();

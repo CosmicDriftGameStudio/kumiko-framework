@@ -26,6 +26,3 @@ export function createDerivativesSharpFeature() {
     { dedupeOptions: {} },
   );
 }
-
-/** @deprecated Use createDerivativesSharpFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const derivativesSharpFeature = createDerivativesSharpFeature();

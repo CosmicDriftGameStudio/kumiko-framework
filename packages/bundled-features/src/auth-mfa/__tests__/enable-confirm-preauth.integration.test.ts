@@ -40,11 +40,11 @@ import { userEntity, userTable } from "../../user/schema/user.js";
 import { base32Decode } from "../base32.js";
 import { mfaRequiredConfigHandle } from "../config.js";
 import { AuthMfaHandlers } from "../constants.js";
+import { createAuthMfaFeature } from "../feature.js";
 import {
   bindMfaRevokeAllOtherSessionsFromFeature,
-  createAuthMfaFeature,
   mfaStatusCheckerFromFeature,
-} from "../feature.js";
+} from "../feature-exports.js";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
 import { currentTotpCode } from "../totp.js";
 

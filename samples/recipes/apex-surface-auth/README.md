@@ -73,6 +73,7 @@ anonymous **email-verified** deletion flow from `user-data-rights`:
 
 ```ts illustration
 runProdApp({
+  envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: composeApexAccountApp({
     deletionTokenSecret: process.env.DELETION_TOKEN_SECRET!,
     deletionVerifyUrl: "https://app.example.com/delete-account/confirm",

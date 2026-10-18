@@ -207,6 +207,3 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof default
     registerTags(r, access, opts.toggleable, opts.ownership, opts.parents),
   );
 }
-
-/** @deprecated Use createTagsFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const tagsFeature = createTagsFeature();

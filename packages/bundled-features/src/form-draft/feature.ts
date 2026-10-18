@@ -59,6 +59,3 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
 export function createFormDraftFeature() {
   return defineFeature(FORM_DRAFT_FEATURE_NAME, registerFormDraft, { dedupeOptions: {} });
 }
-
-/** @deprecated Use createFormDraftFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const formDraftFeature = createFormDraftFeature();

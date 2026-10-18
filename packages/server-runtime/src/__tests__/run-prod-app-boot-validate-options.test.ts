@@ -3,8 +3,11 @@
 // after validateBoot and before any DB/Redis connection, so no infra is needed.
 
 import { describe, expect, spyOn, test } from "bun:test";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "../run-prod-app.js";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
+
+const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const probeFeature = makeProbeFeature({
   name: "prod-validate-options-probe",
@@ -31,6 +34,7 @@ describe("runProdApp validateBootOptions", () => {
     try {
       const withOption = await runProdApp({
         features: [probeFeature],
+        envSchema: noAppEnvSchema,
         autoListen: false,
         migrations: false,
         validateBootOptions: { warnOnUniqueAccessRoles: true },
@@ -42,6 +46,7 @@ describe("runProdApp validateBootOptions", () => {
       warnSpy.mockClear();
       const withoutOption = await runProdApp({
         features: [probeFeature],
+        envSchema: noAppEnvSchema,
         autoListen: false,
         migrations: false,
         envSource: { ...BOOT_ENV },

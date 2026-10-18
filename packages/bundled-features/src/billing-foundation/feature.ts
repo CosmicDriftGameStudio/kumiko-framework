@@ -281,6 +281,3 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     Object.keys(options).length === 0 ? { dedupeOptions: {} } : undefined,
   );
 }
-
-/** @deprecated Use createBillingFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const billingFoundationFeature = createBillingFoundationFeature();

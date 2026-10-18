@@ -13,7 +13,13 @@
 
 import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs";
 import * as path from "node:path";
-import type { ImportDeclaration, SourceFile } from "ts-morph";
+import {
+  type ExportDeclaration,
+  type ImportDeclaration,
+  type Project,
+  type SourceFile,
+  ts,
+} from "ts-morph";
 
 const RUNTIME_KINDS = ["runtime", "client", "prod", "dev", "tooling", "test"] as const;
 
@@ -34,26 +40,24 @@ export const COMPAT: Record<Runtime, ReadonlySet<Runtime>> = {
   test: new Set(["runtime", "client", "prod", "dev", "tooling", "test"]),
 };
 
-/**
- * Classify a file by its path relative to the repo root. Returns null
- * if no path-pattern matched (caller falls back to workspace / default).
- *
- * Pure function — accepts a repo-relative path string, no I/O.
- */
-export function classifyByPath(repoRelativePath: string): Runtime | null {
-  const rel = repoRelativePath.replace(/\\/g, "/");
-  if (/\/(__tests__|testing)\//.test(rel)) return "test";
-  if (/\/testing\.tsx?$/.test(rel)) return "test";
-  if (/\.(test|integration|e2e|spec)\.[tj]sx?$/.test(rel)) return "test";
-  if (/(?:^|\/)scripts\//.test(rel)) return "tooling";
-  if (/(?:^|\/)bin\//.test(rel)) return "tooling";
-  if (/\/drizzle\/[^/]+\.ts$/.test(rel)) return "tooling";
-  if (/\/drizzle\.config\.[tj]s$/.test(rel)) return "tooling";
+// First match wins, so the test rules stay ahead of the tooling and client carve-outs.
+const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
+  [/\/(__tests__|testing)\//, "test"],
+  [/\/testing\.tsx?$/, "test"],
+  [/\.(test|integration|e2e|spec)\.[tj]sx?$/, "test"],
+  // Playwright suites live in e2e/ at the repo root, next to a package or a
+  // sample and import kumiko-testing/e2e; without this rule they read as
+  // runtime code importing the test tier. Deliberately not any nested e2e/.
+  [/^(?:e2e|packages\/[^/]+\/e2e|samples\/(?:.+\/)?e2e)\//, "test"],
+  [/(?:^|\/)scripts\//, "tooling"],
+  [/(?:^|\/)bin\//, "tooling"],
+  [/\/drizzle\/[^/]+\.ts$/, "tooling"],
+  [/\/drizzle\.config\.[tj]s$/, "tooling"],
 
   // Shared UI types are used by both client and runtime. In the kumiko isolation
   // model, "client" is the most permissive production category that "runtime"
   // can also import.
-  if (/(?:^|\/)ui-types\//.test(rel)) return "client";
+  [/(?:^|\/)ui-types\//, "client"],
 
   // Same reasoning, two more shapes: a `web.ts`/`web/` subpath is the
   // established convention (locale-de, locale-es, bundled-features) for the
@@ -68,8 +72,9 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
   // `utils`/`errors` are common enough directory names elsewhere that a
   // repo-wide match risks misclassifying an unrelated server-only folder in
   // some other package.
-  if (/(?:^|\/)web\//.test(rel) || /\/web\.tsx?$/.test(rel)) return "client";
-  if (/^packages\/framework\/src\/(?:time|utils|engine\/types|errors)\//.test(rel)) return "client";
+  [/(?:^|\/)web\//, "client"],
+  [/\/web\.tsx?$/, "client"],
+  [/^packages\/framework\/src\/(?:time|utils|engine\/types|errors)\//, "client"],
 
   // More single-file carve-outs, same "package marker is coarser than the
   // file" shape, verified case by case rather than by a directory
@@ -77,11 +82,23 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
   //  - locale-{de,es}/src/strings.ts: pure string-constant data (zero
   //    imports), re-exported by the already-client `web.ts` sibling in the
   //    same package but shadowed by the package's own `"runtime"` marker.
-  if (/^packages\/locale-(?:de|es)\/src\/strings\.ts$/.test(rel)) return "client";
+  [/^packages\/locale-(?:de|es)\/src\/strings\.ts$/, "client"],
   //  - dev-server/src/env-schema.ts: a zod-only schema, no dev-server-
   //    internal imports — safe to carve out on its own.
-  if (/^packages\/dev-server\/src\/env-schema\.ts$/.test(rel)) return "client";
+  [/^packages\/dev-server\/src\/env-schema\.ts$/, "client"],
+];
 
+/**
+ * Classify a file by its path relative to the repo root. Returns null
+ * if no path-pattern matched (caller falls back to workspace / default).
+ *
+ * Pure function — accepts a repo-relative path string, no I/O.
+ */
+export function classifyByPath(repoRelativePath: string): Runtime | null {
+  const rel = repoRelativePath.replace(/\\/g, "/");
+  for (const [pattern, runtime] of PATH_RULES) {
+    if (pattern.test(rel)) return runtime;
+  }
   return null;
 }
 
@@ -166,7 +183,7 @@ export function isValueImport(decl: ImportDeclaration): boolean {
 
 export type ValueModuleEdge = {
   readonly spec: string;
-  readonly target: SourceFile;
+  readonly targetPath: string;
   readonly line: number;
 };
 
@@ -180,11 +197,11 @@ export function valueModuleEdges(sf: SourceFile): ValueModuleEdge[] {
   const edges: ValueModuleEdge[] = [];
   for (const decl of sf.getImportDeclarations()) {
     if (!isValueImport(decl)) continue;
-    const target = decl.getModuleSpecifierSourceFile();
-    if (!target) continue;
+    const targetPath = resolveImportTargetPath(decl);
+    if (!targetPath) continue;
     edges.push({
       spec: decl.getModuleSpecifierValue(),
-      target,
+      targetPath,
       line: decl.getStartLineNumber(),
     });
   }
@@ -192,12 +209,60 @@ export function valueModuleEdges(sf: SourceFile): ValueModuleEdge[] {
     if (decl.isTypeOnly()) continue;
     const named = decl.getNamedExports();
     if (named.length > 0 && named.every((n) => n.isTypeOnly())) continue;
-    const target = decl.getModuleSpecifierSourceFile();
     const spec = decl.getModuleSpecifierValue();
-    if (!target || spec === undefined) continue;
-    edges.push({ spec, target, line: decl.getStartLineNumber() });
+    const targetPath = resolveImportTargetPath(decl);
+    if (!targetPath || spec === undefined) continue;
+    edges.push({ spec, targetPath, line: decl.getStartLineNumber() });
   }
   return edges;
+}
+
+const moduleResolutionCaches = new WeakMap<Project, ts.ModuleResolutionCache>();
+const javaScriptExtensions: ReadonlySet<string> = new Set([
+  ts.Extension.Js,
+  ts.Extension.Jsx,
+  ts.Extension.Mjs,
+  ts.Extension.Cjs,
+]);
+
+/**
+ * Resolve an import or re-export to its target file path without touching the
+ * type checker. ts-morph's `getModuleSpecifierSourceFile()` goes through
+ * `getSymbol()`, which creates the full program and binds every file: on a
+ * multi-repo scan that doubled the RSS past the CI runner's memory. Plain
+ * `ts.resolveModuleName` yields the same real paths for workspace files. JS
+ * targets are dropped unless `allowJs` is on, because the program never
+ * contained them either.
+ */
+export function resolveImportTargetPath(
+  decl: ImportDeclaration | ExportDeclaration,
+): string | undefined {
+  const spec = decl.getModuleSpecifierValue();
+  if (spec === undefined) return undefined;
+  const project = decl.getProject();
+  const options = project.getCompilerOptions();
+  const host = project.getModuleResolutionHost();
+  let cache = moduleResolutionCaches.get(project);
+  if (!cache) {
+    cache = ts.createModuleResolutionCache(
+      host.getCurrentDirectory?.() ?? process.cwd(),
+      ts.sys.useCaseSensitiveFileNames
+        ? (fileName) => fileName
+        : (fileName) => fileName.toLowerCase(),
+      options,
+    );
+    moduleResolutionCaches.set(project, cache);
+  }
+  const resolved = ts.resolveModuleName(
+    spec,
+    decl.getSourceFile().getFilePath(),
+    options,
+    host,
+    cache,
+  ).resolvedModule;
+  if (!resolved) return undefined;
+  if (!options.allowJs && javaScriptExtensions.has(resolved.extension)) return undefined;
+  return resolved.resolvedFileName;
 }
 
 /**
@@ -237,10 +302,12 @@ export function computeClientReachablePaths(
     if (fp.includes("/node_modules/") || fp.includes("/dist/")) continue;
     if (reached.has(fp)) continue;
     reached.add(fp);
-    for (const { target } of valueModuleEdges(sf)) {
-      const targetPath = toEffectivePath(target.getFilePath());
+    const project = sf.getProject();
+    for (const edge of valueModuleEdges(sf)) {
+      const targetPath = toEffectivePath(edge.targetPath);
       if (targetPath.includes("/node_modules/") || targetPath.includes("/dist/")) continue;
-      if (!reached.has(targetPath)) queue.push(target);
+      if (reached.has(targetPath)) continue;
+      queue.push(project.getSourceFile(targetPath) ?? project.addSourceFileAtPath(targetPath));
     }
   }
   return reached;
@@ -446,8 +513,7 @@ export function findRuntimeIsolationViolations(
     const fileRt = classify(fp, repoRoot, workspaceCache, clientReachable, directiveOf);
     stats[fileRt]++;
 
-    for (const { spec, target, line } of valueModuleEdges(sf)) {
-      const targetPath = target.getFilePath();
+    for (const { spec, targetPath, line } of valueModuleEdges(sf)) {
       if (targetPath.includes("/node_modules/")) continue;
       if (!withinRoot(targetPath)) {
         noteOutside(targetPath);

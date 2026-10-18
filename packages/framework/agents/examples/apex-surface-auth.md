@@ -81,6 +81,7 @@ anonymous **email-verified** deletion flow from `user-data-rights`:
 
 ```ts illustration
 runProdApp({
+  envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: composeApexAccountApp({
     deletionTokenSecret: process.env.DELETION_TOKEN_SECRET!,
     deletionVerifyUrl: "https://app.example.com/delete-account/confirm",
@@ -299,7 +300,7 @@ describe("apex-surface-auth recipe", () => {
 // SERVER-WIRING: die App aktiviert `anonymousAccess` (defaultTenantId = der
 // Apex-Host-Tenant), damit /api/write die anonymen Deletion-Handler erreicht:
 //
-//   runProdApp({ features: composeApexAccountApp({...}),
+//   runProdApp({ features: composeApexAccountApp({...}), envSchema,
 //                anonymousAccess: { defaultTenantId: APEX_TENANT_ID } })
 
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";

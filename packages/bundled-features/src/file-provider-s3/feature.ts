@@ -136,9 +136,6 @@ export function createFileProviderS3Feature(options: FileProviderS3FeatureOption
     : createTenantConfigFileProviderS3Feature();
 }
 
-/** @deprecated Use createFileProviderS3Feature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const fileProviderS3Feature = createFileProviderS3Feature();
-
 // Typed config/secret handles are identical across instances, so one module-level instance serves them.
 const tenantConfigFeature = createTenantConfigFileProviderS3Feature();
 

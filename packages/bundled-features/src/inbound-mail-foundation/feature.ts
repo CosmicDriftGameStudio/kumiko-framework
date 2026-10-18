@@ -271,6 +271,3 @@ export function createInboundMailFoundationFeature() {
     { dedupeOptions: {} },
   );
 }
-
-/** @deprecated Use createInboundMailFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const inboundMailFoundationFeature = createInboundMailFoundationFeature();

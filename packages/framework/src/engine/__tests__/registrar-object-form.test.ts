@@ -201,10 +201,9 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
   });
 });
 
-// The positional overloads were removed in 0.366. The static types reject them, so the
-// runtime fallback is reached through Reflect.apply, like untyped JS callers or stale
-// generated code would reach it.
-describe("registrar — removed positional form fails at registration", () => {
+// The static types reject positional calls, so the runtime check is reached through
+// Reflect.apply, like untyped JS callers or stale generated code would reach it.
+describe("registrar — a positional call fails at registration", () => {
   const schema = z.object({});
   const handler = async () => ({ isSuccess: true as const, data: {} });
   const access = { openToAll: { reason: "test" } } as const;
@@ -236,12 +235,12 @@ describe("registrar — removed positional form fails at registration", () => {
   ];
 
   for (const { method, call } of positionalCalls) {
-    test(`r.${method}: a positional call throws and points at the codemod`, () => {
+    test(`r.${method}: a positional call throws instead of registering`, () => {
       expect(() =>
         defineFeature("legacy", (r) => {
           call(r);
         }),
-      ).toThrow(`positional r.${method}(…) removed in 0.366, run \`bun kumiko-upgrade --apply\``);
+      ).toThrow(`[Feature legacy] r.${method}() takes one options object`);
     });
   }
 });

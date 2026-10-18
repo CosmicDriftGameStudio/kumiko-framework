@@ -643,6 +643,3 @@ export function createTierEngineFeature<
     Object.keys(opts).length === 0 ? { dedupeOptions: {} } : undefined,
   );
 }
-
-/** @deprecated Use createTierEngineFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const tierEngineFeature: FeatureDefinition = createTierEngineFeature();

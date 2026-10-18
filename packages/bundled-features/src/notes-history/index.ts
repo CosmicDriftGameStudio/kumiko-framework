@@ -16,7 +16,6 @@ export {
 export {
   createNotesHistoryFeature,
   type NotesHistoryFeatureOptions,
-  notesHistoryFeature,
 } from "./feature.js";
 export {
   addNoteHandler,

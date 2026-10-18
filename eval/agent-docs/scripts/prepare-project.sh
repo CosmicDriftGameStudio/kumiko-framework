@@ -70,7 +70,6 @@ node_modules/
 dist/
 dist-server/
 .env
-.kumiko/
 test-results/
 playwright-report/
 GITIGNORE

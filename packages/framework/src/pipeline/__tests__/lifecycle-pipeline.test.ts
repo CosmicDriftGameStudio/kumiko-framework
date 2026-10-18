@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import {
   createEntity,
@@ -41,6 +42,7 @@ function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHo
 
 const savectx: SaveContext = {
   kind: "save",
+  event: createTestStoredEvent(),
   id: 1,
   data: { email: "test@test.de", tenantId: "00000000-0000-4000-8000-000000000001" },
   changes: { email: "test@test.de" },
@@ -488,6 +490,7 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
 
   const baseSaveCtx: SaveContext = {
     kind: "save",
+    event: createTestStoredEvent(),
     id: 1,
     data: { name: "x", tenantId: tenantA },
     changes: { name: "x" },
@@ -584,6 +587,7 @@ describe("buildEventId — dedup key construction", () => {
 
 const deletectx: DeleteContext = {
   kind: "delete",
+  event: createTestStoredEvent(),
   id: 1,
   data: { email: "test@test.de" },
   entityName: "user",

@@ -11,7 +11,6 @@ export { folderAssignmentEntity, folderEntity } from "./entity.js";
 export {
   createFoldersFeature,
   type FoldersFeatureOptions,
-  foldersFeature,
 } from "./feature.js";
 export { clearFolderHandler, createClearFolderHandler } from "./handlers/clear-folder.write.js";
 export { createSetFolderHandler, setFolderHandler } from "./handlers/set-folder.write.js";

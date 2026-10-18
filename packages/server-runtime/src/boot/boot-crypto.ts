@@ -38,19 +38,7 @@ export function resolveBootCrypto(
   envSource: Record<string, string | undefined>,
   masterKeyOverride?: MasterKeyProvider,
 ): BootCrypto {
-  const masterKeyProvider =
-    masterKeyOverride ??
-    (envHasMasterKek(envSource)
-      ? createEnvMasterKeyProvider({
-          // CURRENT_VERSION default "1" spiegelt secretsEnvSchema — ohne
-          // ihn wirft der raw-env-Provider, obwohl V1 gesetzt ist.
-          env: {
-            ...envSource,
-            KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:
-              envSource["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
-          },
-        })
-      : undefined);
+  const masterKeyProvider = masterKeyOverride ?? envMasterKeyProviderIfConfigured(envSource);
 
   const dekCache = createDekCache();
   const configCipher = masterKeyProvider
@@ -64,4 +52,23 @@ export function resolveBootCrypto(
     ...(entityFieldCipher && { entityFieldCipher }),
     dekCache,
   };
+}
+
+function envMasterKeyProviderIfConfigured(
+  envSource: Record<string, string | undefined>,
+): MasterKeyProvider | undefined {
+  if (!envHasMasterKek(envSource)) return undefined;
+  const provider = createEnvMasterKeyProvider({
+    // CURRENT_VERSION default "1" spiegelt secretsEnvSchema — ohne
+    // ihn wirft der raw-env-Provider, obwohl V1 gesetzt ist.
+    env: {
+      ...envSource,
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:
+        envSource["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
+    },
+  });
+  // The provider defers its keyring check under KUMIKO_DRY_RUN_ENV; the boot
+  // must still reject a malformed keyring there.
+  provider.currentVersion();
+  return provider;
 }

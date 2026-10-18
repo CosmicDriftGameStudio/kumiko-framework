@@ -28,22 +28,15 @@ export type DbConnectionHandle = {
 // close() must always bound how long shutdown waits.
 export const DEFAULT_DB_CLOSE_TIMEOUT_SECONDS = 5;
 
-export function createDbConnection(options: CreateDbConnectionOptions): DbConnectionHandle;
-/**
- * @deprecated Positional form, use `createDbConnection({ url, ... })`. Run
- * `bun kumiko-upgrade --apply` to rewrite call sites. Removed in the first release after 2026-10-29.
- */
-export function createDbConnection(url: string, options?: DbConnectionOptions): DbConnectionHandle;
-export function createDbConnection(
-  urlOrOptions: string | CreateDbConnectionOptions,
-  legacyOptions: DbConnectionOptions = {},
-): DbConnectionHandle {
-  const { url, ...options }: CreateDbConnectionOptions =
-    typeof urlOrOptions === "string" ? { ...legacyOptions, url: urlOrOptions } : urlOrOptions;
-
+export function createDbConnection({
+  url,
+  ...options
+}: CreateDbConnectionOptions): DbConnectionHandle {
   const pgOptions: PostgresDriverOptions = {};
   if (options.maxConnections !== undefined) pgOptions.max = options.maxConnections;
-  if (options.idleTimeoutSeconds !== undefined) pgOptions.idle_timeout = options.idleTimeoutSeconds;
+  if (options.idleTimeoutSeconds !== undefined) {
+    pgOptions.idle_timeout = options.idleTimeoutSeconds;
+  }
   if (options.connectTimeoutSeconds !== undefined) {
     pgOptions.connect_timeout = options.connectTimeoutSeconds;
   }
@@ -56,13 +49,27 @@ export function createDbConnection(
     db: client,
     client,
     close: () =>
-      client.end({ timeout: options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS }),
+      client.end({
+        timeout: options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS,
+      }),
   };
+}
+
+// DB_PROVIDER=bun selected the removed Bun.SQL driver; ignoring it would boot
+// postgres-js under a config that still claims Bun.SQL.
+function assertNoRemovedDbProvider(env: Readonly<Record<string, string | undefined>>): void {
+  const provider = env["DB_PROVIDER"];
+  if (provider !== undefined && provider !== "" && provider !== "postgres") {
+    throw new Error(
+      `DB_PROVIDER="${provider}" is no longer supported: postgres-js is the only driver. Remove DB_PROVIDER from the environment.`,
+    );
+  }
 }
 
 export function dbConnectionOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): DbConnectionOptions {
+  assertNoRemovedDbProvider(env);
   const opts: {
     -readonly [K in keyof DbConnectionOptions]: DbConnectionOptions[K];
   } = {};

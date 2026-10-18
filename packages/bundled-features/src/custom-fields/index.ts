@@ -17,7 +17,6 @@ export {
 export {
   type CustomFieldsFeatureOptions,
   createCustomFieldsFeature,
-  customFieldsFeature,
 } from "./feature.js";
 export {
   type ClearCustomFieldPayload,

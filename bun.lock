@@ -226,12 +226,6 @@
         "bun-types": "^1.3.13",
         "pino-pretty": "^13.1.3",
       },
-      "peerDependencies": {
-        "@cosmicdrift/kumiko-testing": ">=0.366.0 <1.0.0",
-      },
-      "optionalPeers": [
-        "@cosmicdrift/kumiko-testing",
-      ],
     },
     "packages/guards": {
       "name": "@cosmicdrift/kumiko-guards",
@@ -871,6 +865,15 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/env-composition": {
+      "name": "@cosmicdrift/kumiko-sample-env-composition",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+      },
+    },
     "samples/recipes/error-contract": {
       "name": "@cosmicdrift/kumiko-sample-error-contract",
       "dependencies": {
@@ -1485,6 +1488,8 @@
     "@cosmicdrift/kumiko-sample-embedded-entity-form": ["@cosmicdrift/kumiko-sample-embedded-entity-form@workspace:samples/recipes/embedded-entity-form"],
 
     "@cosmicdrift/kumiko-sample-encrypted-tenant-config": ["@cosmicdrift/kumiko-sample-encrypted-tenant-config@workspace:samples/recipes/encrypted-tenant-config"],
+
+    "@cosmicdrift/kumiko-sample-env-composition": ["@cosmicdrift/kumiko-sample-env-composition@workspace:samples/recipes/env-composition"],
 
     "@cosmicdrift/kumiko-sample-error-contract": ["@cosmicdrift/kumiko-sample-error-contract@workspace:samples/recipes/error-contract"],
 

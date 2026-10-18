@@ -63,7 +63,8 @@ import { createUserFeature } from "../../user/feature.js";
 import { userEntity, userTable } from "../../user/schema/user.js";
 import { base32Decode } from "../base32.js";
 import { AuthMfaHandlers } from "../constants.js";
-import { bindMfaRevokeAllOtherSessionsFromFeature, createAuthMfaFeature } from "../feature.js";
+import { createAuthMfaFeature } from "../feature.js";
+import { bindMfaRevokeAllOtherSessionsFromFeature } from "../feature-exports.js";
 import { userMfaEntity } from "../schema/user-mfa.js";
 import { currentTotpCode } from "../totp.js";
 

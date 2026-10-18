@@ -34,3 +34,4 @@ export { writeSecurityBaselines } from "./_lib/security-baseline-cli";
 export { GUARD_FLAGS, GUARDS, runGuardsCli } from "./run-guards";
 export { REPO_CHECK_FLAGS, REPO_CHECKS, runRepoChecksCli } from "./run-repo-checks";
 export { runUiGuardsCli, UI_GUARD_FLAGS, UI_GUARDS } from "./run-ui-guards";
+export { resolveImportTargetPath } from "./runtime-isolation-classify";

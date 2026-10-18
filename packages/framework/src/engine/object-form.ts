@@ -1,6 +1,5 @@
 // Shared helpers for registrar methods that take a single object argument
-// (`r.entity({ name: "item", ... })`). The positional overloads are gone; the
-// runtime check below turns a leftover positional call into a pointer at the codemod.
+// (`r.entity({ name: "item", ... })`).
 
 export function splitNamedDefinition<T extends { readonly name: string }>(
   definition: T,
@@ -26,10 +25,8 @@ export function isObjectArgument(value: unknown): boolean {
   return typeof value === "object" && value !== null;
 }
 
-// Removed in the first release after 2026-10-29; until then a positional call fails with
-// a pointer at the codemod instead of an obscure "undefined is not a function".
-export function throwPositionalFormRemoved(featureName: string, method: string): never {
-  throw new Error(
-    `[Feature ${featureName}] positional r.${method}(…) removed in 0.366, run \`bun kumiko-upgrade --apply\``,
-  );
+// Untyped JS callers bypass the types; without this check a positional call would
+// register a definition built from undefined fields instead of failing.
+export function throwObjectArgumentRequired(featureName: string, method: string): never {
+  throw new Error(`[Feature ${featureName}] r.${method}() takes one options object`);
 }

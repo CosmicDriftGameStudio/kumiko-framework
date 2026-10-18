@@ -15,7 +15,6 @@ export { accountEntity, scheduleEntity, transactionEntity } from "./entity.js";
 export {
   createLedgerFeature,
   type LedgerFeatureOptions,
-  ledgerFeature,
 } from "./feature.js";
 export {
   confirmSchedulePeriodHandler,

@@ -52,8 +52,8 @@
     "version": "0.368.0",
     "type": "breaking",
     "title": "HandlerContext and AppContext no longer expose _userId and _handlerType",
-    "detail": "The dispatcher no longer sets _userId and _handlerType on the context of write handlers, query handlers and hooks. The caller identity is ctx.user.id. requireSecretsContext reads ctx._userId first and falls back to ctx.user.id, so passing a handler context to it keeps the same audit identity. Provider contexts (FileProviderContext, MailTransportContext, InboundMailContext) keep their own _userId. JobContext._userId is unchanged.",
-    "migration": "Replace ctx._userId with ctx.user.id in write/query handlers and hooks. Known sites: one file each in money-horse, offlot-app, phronexsis and kumiko-enterprise. _handlerType had no readers."
+    "detail": "The dispatcher no longer sets _userId and _handlerType on the context of write handlers, query handlers and hooks. The caller identity is ctx.user.id in handlers and result.event.createdBy in postSave and postDelete hooks. requireSecretsContext reads ctx._userId first and falls back to ctx.user.id, so passing a handler context to it keeps the same audit identity. Provider contexts (FileProviderContext, MailTransportContext, InboundMailContext) keep their own _userId. JobContext._userId is unchanged.",
+    "migration": "Replace ctx._userId with ctx.user.id in write and query handlers. postSave and postDelete hooks get an AppContext without user; read the caller there from result.event.createdBy. Known sites: one file each in money-horse, offlot-app, phronexsis and kumiko-enterprise. _handlerType had no readers."
   },
   {
     "version": "0.368.0",

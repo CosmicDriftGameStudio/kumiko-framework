@@ -3,7 +3,7 @@ export type {
   PublicVariantResolveApexTenant,
   PublicVariantTenantResolution,
 } from "./feature.js";
-export { createFileDerivativesFeature, fileDerivativesFeature } from "./feature.js";
+export { createFileDerivativesFeature } from "./feature.js";
 export type {
   DerivativePublicPredicateArgs,
   DerivativePublicPredicatePlugin,

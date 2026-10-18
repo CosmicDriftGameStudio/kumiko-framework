@@ -4,6 +4,7 @@ export {
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
 } from "./constants.js";
+export { kmsEnvSchema } from "./env.js";
 export { createCryptoShreddingFeature } from "./feature.js";
 export {
   forgetSubjectSchema,

@@ -39,3 +39,29 @@ export function resolveMfaTokenSecrets(
     ),
   };
 }
+
+export type MfaTokenSecretsEnv = {
+  readonly MFA_SETUP_TOKEN_SECRET?: string | undefined;
+  readonly MFA_CHALLENGE_TOKEN_SECRET?: string | undefined;
+};
+
+function nonBlank(value: string | undefined): string | undefined {
+  return value !== undefined && value.trim() !== "" ? value : undefined;
+}
+
+/** Precedence per secret: explicit option, then `MFA_*_TOKEN_SECRET` from
+ *  env, then derivation from `masterSecret`. Blank values count as absent. */
+export function resolveMfaTokenSecretsFromEnv(
+  masterSecret: string,
+  env: MfaTokenSecretsEnv,
+  explicit: MfaTokenSecretOverrides = {},
+): ResolvedMfaTokenSecrets {
+  const setupTokenSecret =
+    nonBlank(explicit.setupTokenSecret) ?? nonBlank(env.MFA_SETUP_TOKEN_SECRET);
+  const challengeTokenSecret =
+    nonBlank(explicit.challengeTokenSecret) ?? nonBlank(env.MFA_CHALLENGE_TOKEN_SECRET);
+  return resolveMfaTokenSecrets(masterSecret, {
+    ...(setupTokenSecret !== undefined && { setupTokenSecret }),
+    ...(challengeTokenSecret !== undefined && { challengeTokenSecret }),
+  });
+}

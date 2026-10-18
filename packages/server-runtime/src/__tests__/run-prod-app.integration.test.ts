@@ -43,6 +43,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
   createArchivedStreamsTable,
   createEventsTable,
@@ -63,6 +64,8 @@ import { Queue } from "bullmq";
 import postgres from "postgres";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+
+const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 // tmp-Verzeichnisse pro Test, in afterEach geräumt. Tests die staticDir
 // brauchen registrieren ihren Pfad hier.
@@ -278,6 +281,7 @@ async function boot(
   try {
     const handle = await runProdApp({
       features: [widgetFeature],
+      envSchema: noAppEnvSchema,
       autoListen: false,
       migrations: false,
       ...(seedFn && { seeds: [seedFn] }),

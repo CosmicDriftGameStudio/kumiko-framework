@@ -15,7 +15,6 @@ export {
   MAIL_TRANSPORT_EXTENSION,
   type MailTransportContext,
   type MailTransportPlugin,
-  mailFoundationFeature,
   type TenantMailTransportScope,
   tenantMailTransport,
 } from "./feature.js";

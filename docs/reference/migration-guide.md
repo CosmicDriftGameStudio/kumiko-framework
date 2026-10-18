@@ -98,9 +98,9 @@ old -> new:
 
 **HandlerContext and AppContext no longer expose _userId and _handlerType**
 
-The dispatcher no longer sets _userId and _handlerType on the context of write handlers, query handlers and hooks. The caller identity is ctx.user.id. requireSecretsContext reads ctx._userId first and falls back to ctx.user.id, so passing a handler context to it keeps the same audit identity. Provider contexts (FileProviderContext, MailTransportContext, InboundMailContext) keep their own _userId. JobContext._userId is unchanged.
+The dispatcher no longer sets _userId and _handlerType on the context of write handlers, query handlers and hooks. The caller identity is ctx.user.id in handlers and result.event.createdBy in postSave and postDelete hooks. requireSecretsContext reads ctx._userId first and falls back to ctx.user.id, so passing a handler context to it keeps the same audit identity. Provider contexts (FileProviderContext, MailTransportContext, InboundMailContext) keep their own _userId. JobContext._userId is unchanged.
 
-**Migration:** Replace ctx._userId with ctx.user.id in write/query handlers and hooks. Known sites: one file each in money-horse, offlot-app, phronexsis and kumiko-enterprise. _handlerType had no readers.
+**Migration:** Replace ctx._userId with ctx.user.id in write and query handlers. postSave and postDelete hooks get an AppContext without user; read the caller there from result.event.createdBy. Known sites: one file each in money-horse, offlot-app, phronexsis and kumiko-enterprise. _handlerType had no readers.
 
 ## 0.367.0
 
@@ -293,7 +293,7 @@ The plugin serves kind mail. It resolves the template by slug (contentFormat htm
 
 **Package moved to the framework under the @cosmicdrift scope**
 
-Renamed from @cosmicdriftgamestudio/kumiko-renderer-mail-html (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-mail-html on npmjs; the API is unchanged.
+Renamed from @cosmicdriftgamestudio/kumiko-renderer-mail-html (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-mail-html on npmjs. The rename itself changes no API; the other 0.363.0 entries list the API changes of this release.
 
 **Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-mail-html with @cosmicdrift/kumiko-renderer-mail-html in package.json and in every import; install from npmjs instead of GitHub Packages.
 
@@ -307,7 +307,7 @@ The plugin resolves the document-pdf template and its pdf-layout (header, signat
 
 **Package moved to the framework under the @cosmicdrift scope**
 
-Renamed from @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-puppeteer-client on npmjs; the API is unchanged.
+Renamed from @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-puppeteer-client on npmjs. The rename itself changes no API; the other 0.363.0 entries list the API changes of this release.
 
 **Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client with @cosmicdrift/kumiko-renderer-puppeteer-client in package.json and in every import; install from npmjs instead of GitHub Packages.
 

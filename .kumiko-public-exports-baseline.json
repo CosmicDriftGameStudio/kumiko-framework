@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-10-17",
-  "asOfVersion": "0.365.1",
+  "generated": "2026-10-18",
+  "asOfVersion": "0.369.0",
   "packages": {
     "framework": {
       "./compliance": [
@@ -228,7 +228,9 @@
         "HANDLER_FIELD_REFERENCES_META_KEY",
         "HTTP_ERROR_CODE_PATTERN",
         "HandlerContext",
+        "HandlerFieldPathSegment",
         "HandlerFieldReference",
+        "HandlerFieldReferenceAtPath",
         "HandlerFieldReferenceMeta",
         "HandlerHeaderUpdate",
         "HasManyRelation",
@@ -506,6 +508,7 @@
         "assignableAppRolesFromUsages",
         "assignableAppRolesOf",
         "availableSelectOptions",
+        "bridgeStub",
         "buildAppSchema",
         "buildConfigFeatureSchema",
         "buildInsertSchema",
@@ -602,6 +605,7 @@
         "guardTransition",
         "handlerFieldLabelKey",
         "handlerFieldReference",
+        "handlerFieldReferences",
         "handlerTitleKey",
         "hasAccess",
         "i18nKey",
@@ -644,6 +648,7 @@
         "qn",
         "qualifyTranslationKey",
         "readClaim",
+        "readHandlerFieldReferences",
         "removePattern",
         "renderFeatureFile",
         "renderPattern",
@@ -1186,47 +1191,6 @@
         "validationErrorFromZod",
         "writeFailure"
       ],
-      "./bun-db": [
-        "DeleteManyBatchedOptions",
-        "DeleteManyBatchedResult",
-        "IncrementCounterOptions",
-        "InnerJoinRow",
-        "InnerJoinSpec",
-        "InsertOnConflictDoNothingOptions",
-        "JoinColumnPair",
-        "JsonTextMatch",
-        "SelectOptions",
-        "TableInfo",
-        "UpsertOnConflictOptions",
-        "WhereObject",
-        "WhereOperator",
-        "WhereValue",
-        "aggregateWhere",
-        "asEntityTableMeta",
-        "asRawClient",
-        "countWhere",
-        "deleteMany",
-        "deleteManyBatched",
-        "extractTableInfo",
-        "fetchOne",
-        "incrementCounter",
-        "insertMany",
-        "insertOnConflictDoNothing",
-        "insertOne",
-        "instantToTimestamptzParam",
-        "isTimestamptzType",
-        "requireEntityTableMeta",
-        "runInSavepoint",
-        "runInSavepointIfSupported",
-        "runnerCanBeginTransaction",
-        "selectInnerJoin",
-        "selectMany",
-        "transaction",
-        "unsafeReadRetrying",
-        "updateMany",
-        "upsertByPk",
-        "upsertOnConflict"
-      ],
       "./db": [
         "AppliedMigration",
         "ApplyResult",
@@ -1235,6 +1199,7 @@
         "ColumnMeta",
         "CompositePrimaryKeyMeta",
         "CreateDbConnectionOptions",
+        "CreateTenantDbOptions",
         "CursorQueryOptions",
         "CursorResult",
         "DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX",
@@ -2044,7 +2009,11 @@
         "EventStoreSeedExisting",
         "RunEventStoreSeedOptions",
         "SeedIfExists",
-        "runEventStoreSeed"
+        "TestUsers",
+        "createTestUser",
+        "runEventStoreSeed",
+        "testTenantId",
+        "testUserId"
       ],
       "./secrets": [
         "ContainsSecret",
@@ -2137,6 +2106,7 @@
         "encryptPiiValueForSubject",
         "isLocalKeyKmsAdapter",
         "isPiiCiphertext",
+        "isRecordKeyedField",
         "isSelfPiiField",
         "requireKmsWiring",
         "requireKmsWiringAsync",
@@ -2187,93 +2157,6 @@
         "getStringFlag",
         "parseArgs"
       ],
-      "./stack": [
-        "CreateTestDbOptions",
-        "EventCollector",
-        "RequestHelper",
-        "TestDb",
-        "TestRedis",
-        "TestStack",
-        "TestStackOptions",
-        "TestUsers",
-        "createEventCollector",
-        "createRequestHelper",
-        "createTestDb",
-        "createTestRedis",
-        "createTestUser",
-        "drainEventConsumers",
-        "pushEntityProjectionTables",
-        "resetEventStore",
-        "setupTestStack",
-        "testTenantId",
-        "testUserId",
-        "unsafeCreateEntityTable",
-        "unsafeEnsureEntityTable",
-        "unsafePushTables"
-      ],
-      "./testing": [
-        "ClearableTable",
-        "E2EGeneratorOptions",
-        "E2ETestSpec",
-        "EditFillOp",
-        "LateBoundHolder",
-        "ManualClock",
-        "MutableMasterKeyProvider",
-        "ParsedSetCookie",
-        "REAL_PROVIDERS_ENV",
-        "RecordingProvider",
-        "bridgeStub",
-        "buildMultipartBody",
-        "captureClosedConnectionError",
-        "clearTables",
-        "createLateBoundHolder",
-        "createManualClock",
-        "createMutableMasterKeyProvider",
-        "createRecordingProvider",
-        "createTestEnvelopeCipher",
-        "createTestMasterKeyProvider",
-        "deleteRows",
-        "describeFileProviderContract",
-        "expectError",
-        "expectErrorIncludes",
-        "expectSuccess",
-        "generateE2ESpec",
-        "generateZodFixture",
-        "getSetCookieRaw",
-        "getSetCookieValue",
-        "getSetCookies",
-        "isRealProviderRun",
-        "patchFileInstanceofForBunTest",
-        "requireRealProviders",
-        "resetBlindIndexKeyForTests",
-        "resetEntityFieldEncryptionCacheForTests",
-        "resetEventPiiCatalogForTests",
-        "resetPiiSubjectKmsForTests",
-        "resetTestTables",
-        "rolesOf",
-        "seedRow",
-        "seedRows",
-        "sharedItemEntity",
-        "sharedItemTable",
-        "sharedUserEntity",
-        "sharedUserTable",
-        "sharedWidgetEntity",
-        "sharedWidgetTable",
-        "sleep",
-        "updateRows",
-        "waitFor",
-        "withBootValidatorFixture",
-        "withoutAmbientTemporal",
-        "zipWithEntries"
-      ],
-      "./testing/handler-context": [
-        "bridgeStub"
-      ],
-      "./testing/real-providers": [
-        "REAL_PROVIDERS_ENV",
-        "isRealProviderRun",
-        "requireRealProviders"
-      ],
       "./internal/request-context": [
         "RequestContextData",
         "readonlyRequestContext",
@@ -2282,12 +2165,35 @@
         "runWithOrigin",
         "runWithWriteOrigin"
       ],
-      "./testing/e2e-generator": [
-        "E2EGeneratorOptions",
-        "E2ETestSpec",
-        "EditFillOp",
-        "generateE2ESpec",
-        "generateZodFixture"
+      "./internal/stack-support": [
+        "AnyDb",
+        "Lifecycle",
+        "SEARCHABLE_FALSE_WHITELIST",
+        "addMissingColumns",
+        "addMissingIndexes",
+        "columnNamesOf",
+        "createDatabase",
+        "createDbConnection",
+        "createRateLimitResolver",
+        "databaseExists",
+        "dropDatabaseIfExists",
+        "featureHasI18nSurface",
+        "isClosedConnectionError",
+        "requiredKeysFromFeature",
+        "schemaTableName",
+        "tableToMeta",
+        "truncateTablesRestartIdentity",
+        "unsafeCreateEntityTable",
+        "unsafeEnsureEntityTable",
+        "unsafePushTables",
+        "validateNavBootSubset",
+        "validateOwnershipBoot"
+      ],
+      "./internal/testing": [
+        "resetBlindIndexKeyForTests",
+        "resetEntityFieldEncryptionCacheForTests",
+        "resetEventPiiCatalogForTests",
+        "resetPiiSubjectKmsForTests"
       ],
       "./time": [
         "Clock",
@@ -2579,7 +2485,7 @@
         "complianceProfilesClient"
       ],
       "./compliance-profiles-ops": [
-        "complianceProfilesOpsFeature"
+        "createComplianceProfilesOpsFeature"
       ],
       "./config": [
         "AppConfigOverrides",
@@ -2644,7 +2550,7 @@
         "READINESS_FEATURE",
         "ReadinessMissingSecret",
         "ReadinessQueries",
-        "readinessFeature"
+        "createReadinessFeature"
       ],
       "./jobs": [
         "JOBS_FEATURE",
@@ -2694,8 +2600,7 @@
         "isTierAssignmentSource",
         "isTrialActive",
         "tierAssignmentAggregateId",
-        "tierAssignmentEntity",
-        "tierEngineFeature"
+        "tierAssignmentEntity"
       ],
       "./tier-engine/web": [
         "TierEngineClientOptions",
@@ -2707,6 +2612,8 @@
         "CAP_COUNTER_ROLLING_AGGREGATE_TYPE",
         "CAP_TOLERANCES",
         "CalendarCapDef",
+        "CalendarCapReservationHandle",
+        "CalendarCapReservationHandleSpec",
         "CalendarCapResolver",
         "CalendarCapUsageReservation",
         "CalendarCapUsageReservationSpec",
@@ -2715,6 +2622,9 @@
         "CapExceededError",
         "CapGuardContext",
         "CapLimitContext",
+        "CapReservationOverConsumedError",
+        "CapReservationSettledError",
+        "CapSettleBelowConsumedError",
         "CapToleranceProfile",
         "CapToleranceProfileName",
         "EnforceCapResult",
@@ -2733,12 +2643,13 @@
         "ValueCapGuard",
         "ValueCapSpec",
         "bookCapUsage",
+        "calendarCapReservationHandle",
         "calendarMonthPeriodEndIso",
         "capCounterAggregateId",
         "capCounterEntity",
-        "capCounterFeature",
         "capReservationsTable",
         "capReservationsTableMeta",
+        "createCapCounterFeature",
         "createStockCapGuard",
         "createValueCapGuard",
         "currentCalendarMonthStartIso",
@@ -2831,7 +2742,6 @@
         "createCustomFieldsFeature",
         "customFieldClearedSchema",
         "customFieldSetSchema",
-        "customFieldsFeature",
         "customFieldsField",
         "defineFieldPayloadSchema",
         "deleteFieldPayloadSchema",
@@ -2885,7 +2795,6 @@
         "tagAssignmentAggregateId",
         "tagAssignmentEntity",
         "tagEntity",
-        "tagsFeature",
         "updateTagHandler",
         "updateTagPayloadSchema"
       ],
@@ -2896,8 +2805,7 @@
         "TenantSettingsKeyOptions",
         "buildTenantSettingsKeys",
         "createTenantSettingsFeature",
-        "defineCreateWithTenantDefaults",
-        "tenantSettingsFeature"
+        "defineCreateWithTenantDefaults"
       ],
       "./tags/web": [
         "EntityTags",
@@ -2935,7 +2843,6 @@
         "folderAssignmentAggregateId",
         "folderAssignmentEntity",
         "folderEntity",
-        "foldersFeature",
         "setFolderHandler",
         "setFolderPayloadSchema"
       ],
@@ -2971,8 +2878,7 @@
         "noteEntryTable",
         "noteMentionEntity",
         "noteMentionExecutor",
-        "noteMentionTable",
-        "notesHistoryFeature"
+        "noteMentionTable"
       ],
       "./notes-history/web": [
         "NOTES_SECTION_EXTENSION_NAME",
@@ -2982,8 +2888,8 @@
         "notesHistoryClient"
       ],
       "./notes-history-user-data": [
-        "eraseNoteBodiesReachingSubject",
-        "notesHistoryUserDataFeature"
+        "createNotesHistoryUserDataFeature",
+        "eraseNoteBodiesReachingSubject"
       ],
       "./form-draft": [
         "DiscardDraftPayload",
@@ -3000,12 +2906,12 @@
         "ListDraftsPayload",
         "ListDraftsResult",
         "SaveDraftPayload",
+        "createFormDraftFeature",
         "discardDraftPayloadSchema",
         "discardDraftWrite",
         "formDraftBlobSchema",
         "formDraftEntity",
         "formDraftExecutor",
-        "formDraftFeature",
         "formDraftTable",
         "getDraftPayloadSchema",
         "getDraftQuery",
@@ -3016,13 +2922,13 @@
         "saveDraftWrite"
       ],
       "./form-draft-user-data": [
-        "formDraftUserDataFeature"
+        "createFormDraftUserDataFeature"
       ],
       "./template-resolver-user-data": [
-        "templateResolverUserDataFeature"
+        "createTemplateResolverUserDataFeature"
       ],
       "./folders-user-data": [
-        "foldersUserDataFeature"
+        "createFoldersUserDataFeature"
       ],
       "./ledger": [
         "ACCOUNT_TYPES",
@@ -3070,7 +2976,6 @@
         "createTransactionPayloadSchema",
         "findReversedIds",
         "incomeStatement",
-        "ledgerFeature",
         "mergeScheduleActuals",
         "postingSchema",
         "projectSchedule",
@@ -3167,7 +3072,6 @@
         "SubscriptionTierSyncDeps",
         "SubscriptionView",
         "SubscriptionWebhookRouteOptions",
-        "billingFoundationFeature",
         "billingPlansPanel",
         "consentPayloadSchema",
         "createBillingFoundationFeature",
@@ -3266,7 +3170,7 @@
         "TenantResolverProvider",
         "TenantResolverTrust",
         "TokenShape",
-        "authFoundationFeature",
+        "createAuthFoundationFeature",
         "isAuthProviderPlugin",
         "isSessionStoreProvider",
         "isTenantExistenceProvider",
@@ -3285,9 +3189,12 @@
         "MAIL_TRANSPORT_EXTENSION",
         "MailTransportContext",
         "MailTransportPlugin",
+        "TenantMailTransportScope",
+        "createMailFoundationFeature",
         "createTransportForTenant",
+        "createTransportForTenantIfConfigured",
         "isMailTransportPlugin",
-        "mailFoundationFeature"
+        "tenantMailTransport"
       ],
       "./inbound-mail-foundation": [
         "INBOUND_MAIL_FOUNDATION_FEATURE",
@@ -3339,10 +3246,10 @@
         "SyncCursorPayload",
         "VerifyOAuthStateResult",
         "createInboundMailConnectRoutes",
+        "createInboundMailFoundationFeature",
         "createInboundMailSupervisor",
         "createOAuthAccessTokenManager",
         "inboundCredentialSecretKey",
-        "inboundMailFoundationFeature",
         "inboundMessageAggregateId",
         "inboundMessageEntity",
         "inboundMessageEventPayloadSchema",
@@ -3372,10 +3279,10 @@
       ],
       "./inbound-provider-inmemory": [
         "INMEMORY_PROVIDER_KEY",
+        "createInboundProviderInMemoryFeature",
         "emitWatchError",
         "failNextFetchWith",
         "failNextVerifyWith",
-        "inboundProviderInMemoryFeature",
         "isWatching",
         "resetInboundInMemory",
         "seedInboundMessage"
@@ -3387,8 +3294,8 @@
         "ParseCredentialResult",
         "assertUidValidity",
         "buildProviderMessageId",
+        "createInboundProviderImapFeature",
         "imapCredentialDocumentSchema",
-        "inboundProviderImapFeature",
         "mapImapError",
         "normalizeReferences",
         "parseImapCredentialDocument",
@@ -3397,30 +3304,38 @@
       ],
       "./mail-transport-smtp": [
         "SMTP_PASSWORD",
+        "createMailTransportSmtpFeature",
         "mailTransportSmtpEnvSchema",
-        "mailTransportSmtpFeature",
         "setSmtpMailHostLookup"
       ],
       "./mail-transport-inmemory": [
         "clearInbox",
-        "getInbox",
-        "mailTransportInMemoryFeature"
+        "createMailTransportInMemoryFeature",
+        "getInbox"
       ],
       "./file-foundation": [
         "FileProviderContext",
         "FileProviderPlugin",
         "FileRefContent",
         "FileRefTooLargeError",
+        "createFileFoundationFeature",
         "createFileProviderForTenant",
         "fileContextForTenant",
         "fileContextFromResolver",
-        "fileFoundationFeature",
         "isFileProviderPlugin",
         "readFileRefContent"
       ],
       "./file-provider-s3": [
+        "FileProviderS3FeatureOptions",
         "S3_SECRET_ACCESS_KEY",
-        "fileProviderS3Feature"
+        "createFileProviderS3Feature"
+      ],
+      "./file-provider-s3/lib": [
+        "S3ProviderConfig",
+        "createS3Provider",
+        "createS3ProviderFromEnv",
+        "parseS3EnvConfig",
+        "resolveForcePathStyle"
       ],
       "./document-ingest-foundation": [
         "DOCUMENT_INGEST_AGGREGATE_TYPE",
@@ -3436,10 +3351,10 @@
         "EXT_DOCUMENT_INGEST_PROVIDER",
         "IngestPage",
         "ResolvedDocumentIngestProvider",
+        "createDocumentIngestFoundationFeature",
         "documentExtractEntity",
         "documentExtractsTable",
         "documentIngestAggregateId",
-        "documentIngestFoundationFeature",
         "documentIngestProviderOptionsSchema",
         "documentIngestProviderTrigger",
         "documentIngestRequestedPayloadSchema",
@@ -3450,12 +3365,9 @@
         "writeDocumentExtractForLiveFileRef",
         "writeIngestPages"
       ],
-      "./file-provider-s3-env": [
-        "fileProviderS3EnvFeature"
-      ],
       "./file-provider-inmemory": [
         "clearStorage",
-        "fileProviderInMemoryFeature",
+        "createFileProviderInMemoryFeature",
         "listKeys"
       ],
       "./file-derivatives": [
@@ -3466,13 +3378,12 @@
         "PublicVariantTenantResolution",
         "card",
         "createFileDerivativesFeature",
-        "fileDerivativesFeature",
         "full",
         "hero",
         "thumb"
       ],
       "./derivatives-sharp": [
-        "derivativesSharpFeature",
+        "createDerivativesSharpFeature",
         "imageMetadata"
       ],
       "./files": [
@@ -3649,6 +3560,7 @@
         "backfillUserStreamTenants",
         "createUserFeature",
         "isPrincipalBlocked",
+        "isPrincipalRowBlocked",
         "principalStatusPlugin",
         "resolveUserDisplayNames",
         "userEntity",
@@ -3933,8 +3845,13 @@
         "RateLimitConfig",
         "RenderedMessage",
         "RenderedPdfAttachmentRef",
+        "UNSUBSCRIBE_PAGE_EN",
+        "UnsubscribeAddressPayload",
+        "UnsubscribeLinkConfig",
+        "UnsubscribeResultPage",
         "UnsubscribeRouteOptions",
         "UnsubscribeTokenPayload",
+        "buildChannelContext",
         "chatConnectionNameSchema",
         "chatMessageText",
         "chatWebhookUrlSchema",
@@ -3948,6 +3865,7 @@
         "createEmailAttachmentReader",
         "createTemplateMailRenderer",
         "createUnsubscribeRoutes",
+        "currentNotificationType",
         "deliveryAttemptsTable",
         "emailAttachmentRefSchema",
         "fileAttachmentRefSchema",
@@ -3959,6 +3877,7 @@
         "notificationPreferenceEntity",
         "notificationPreferencesTable",
         "postChatWebhook",
+        "renderUnsubscribeResultPage",
         "renderedPdfAttachmentRefSchema",
         "resolveChatWebhookTarget",
         "runAttemptLogRetention",
@@ -3968,6 +3887,7 @@
         "toAttachmentRef",
         "toChannelResult",
         "truncateChars",
+        "unsubscribeAddressPayloadSchema",
         "withoutDeliveryEnvelopeKeys"
       ],
       "./delivery/web": [
@@ -3991,6 +3911,7 @@
         "EmailTransport",
         "SmtpEnv",
         "SmtpTransportOptions",
+        "TenantTransportResolver",
         "createChannelEmailFeature",
         "createEmailChannel",
         "createInMemoryTransport",
@@ -4046,13 +3967,6 @@
         "createRendererPdfFeature",
         "pdfTableDocumentSchema",
         "renderTablePdf"
-      ],
-      "./files-provider-s3": [
-        "S3ProviderConfig",
-        "createS3Provider",
-        "createS3ProviderFromEnv",
-        "parseS3EnvConfig",
-        "resolveForcePathStyle"
       ],
       "./rate-limiting": [
         "RATE_LIMITING_FEATURE",
@@ -4146,7 +4060,7 @@
         "userMfaTable"
       ],
       "./auth-mfa-user-data": [
-        "authMfaUserDataFeature"
+        "createAuthMfaUserDataFeature"
       ],
       "./auth-mfa/web": [
         "AuthMfaClientFeature",
@@ -4235,10 +4149,12 @@
         "ContentFormat",
         "DEFAULT_MAIL_LAYOUT_SLUG",
         "DEFAULT_PDF_LAYOUT_SLUG",
+        "DOCUMENT_CONDITION_ATTRIBUTE",
         "DOCUMENT_HTML_KINDS",
         "DOCUMENT_NODE_NAMES",
         "DOCUMENT_TEXT_ALIGNMENTS",
         "DocumentButton",
+        "DocumentCondition",
         "DocumentDivider",
         "DocumentDraftOutcome",
         "DocumentHtmlKind",
@@ -4327,6 +4243,7 @@
         "documentViolationsToFieldIssues",
         "evaluateDocumentDraft",
         "fileAttachmentsOf",
+        "flattenParagraphsToLineBreaks",
         "hasPlaceholderProblems",
         "imageLinksOf",
         "isAllowedDocumentLinkHref",
@@ -4335,6 +4252,7 @@
         "isDocumentResourceKey",
         "isHexColor",
         "isMailTemplateMeta",
+        "isSystemOnlyTemplate",
         "localeSchema",
         "mailLayoutAppearance",
         "mapRecordToVariables",
@@ -4367,9 +4285,11 @@
         "validateTemplatePlaceholders"
       ],
       "./template-resolver/document-schema": [
+        "DOCUMENT_CONDITION_ATTRIBUTE",
         "DOCUMENT_NODE_NAMES",
         "DOCUMENT_TEXT_ALIGNMENTS",
         "DocumentButton",
+        "DocumentCondition",
         "DocumentDivider",
         "DocumentLink",
         "DocumentPageBreak",
@@ -4621,10 +4541,10 @@
         "WorkflowRunFailedPayload",
         "WorkflowRunStartedPayload",
         "WorkflowSuspensionUnsupportedError",
+        "createWorkflowRunnerFeature",
         "registerEventTrigger",
         "startAndRunWorkflow",
-        "workflowRunAggregateId",
-        "workflowRunnerFeature"
+        "workflowRunAggregateId"
       ]
     }
   }

@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
 import { MIN_HMAC_SECRET_LENGTH } from "./constants.js";
 import type { AuthMailLocale } from "./email-templates.js";
@@ -151,7 +152,7 @@ export type AuthEmailPasswordOptions = {
 // membership resolution. No direct imports of foreign tables.
 export function createAuthEmailPasswordFeature(
   opts: AuthEmailPasswordOptions = {},
-): FeatureDefinition {
+): FeatureWithEnvSchema<FeatureDefinition, typeof authEmailPasswordEnvSchema.shape> {
   // ≥32 chars, symmetric to the JWT_SECRET env check: a short HMAC secret
   // makes reset/verify tokens forgeable — that's account takeover, so the
   // factory fails fast instead of trusting the caller.
@@ -174,7 +175,7 @@ export function createAuthEmailPasswordFeature(
   const strictVerification =
     opts.emailVerification !== undefined && (opts.emailVerification.mode ?? "strict") === "strict";
 
-  return defineFeature("auth-email-password", (r) => {
+  const feature: FeatureDefinition = defineFeature("auth-email-password", (r) => {
     r.describe(
       "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, tenant invite, and account-unlock — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`, `accountUnlock`) to `createAuthEmailPasswordFeature(opts)`. All five magic-link flows dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify/unlock) or opaque-random in Redis (signup/invite). `accountUnlock` is the self-service escape hatch for `accountLockout`'s monotonic failure-counter (#1266): confirming the mailed token clears the Redis lockout state without touching the user entity. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
     );
@@ -293,4 +294,5 @@ export function createAuthEmailPasswordFeature(
 
     return { handlers, queries };
   });
+  return featureWithEnvSchema(feature, authEmailPasswordEnvSchema);
 }

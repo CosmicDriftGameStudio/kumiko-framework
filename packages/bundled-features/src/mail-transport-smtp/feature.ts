@@ -137,9 +137,6 @@ export function createMailTransportSmtpFeature() {
 // The typed handles below come from one shared instance; each factory call builds its own handle objects.
 const sharedMailTransportSmtpFeature = createMailTransportSmtpFeature();
 
-/** @deprecated Use createMailTransportSmtpFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
-export const mailTransportSmtpFeature = sharedMailTransportSmtpFeature;
-
 /** Typed handle for the SMTP password — exported so seeds + tests can
  *  set it via `secrets:write:set` with the full qualified-name. */
 export const SMTP_PASSWORD = sharedMailTransportSmtpFeature.exports.password;

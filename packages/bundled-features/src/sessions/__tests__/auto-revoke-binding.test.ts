@@ -4,6 +4,7 @@ import {
   dedupeFeatures,
   type SaveContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import { bindAutoRevokeFromFeature, createSessionsFeature } from "../feature.js";
 
 // The postSave hook is registered unconditionally; the revoker arrives either
@@ -14,6 +15,7 @@ import { bindAutoRevokeFromFeature, createSessionsFeature } from "../feature.js"
 
 const passwordChange: SaveContext = {
   kind: "save",
+  event: createTestStoredEvent(),
   id: "user-1",
   data: {},
   changes: { passwordHash: "new-hash" },

@@ -7,8 +7,11 @@
 // the PORT test would bind the default instead of the injected port.
 
 import { describe, expect, test } from "bun:test";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "../run-prod-app.js";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
+
+const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const probeFeature = makeProbeFeature({
   name: "env-source-probe",
@@ -35,6 +38,7 @@ describe("runProdApp boot-mode env-source", () => {
     try {
       handle = await runProdApp({
         features: [probeFeature],
+        envSchema: noAppEnvSchema,
         autoListen: false,
         migrations: false,
         // REDIS_URL points at an unreachable port — boot-mode must NOT
@@ -76,6 +80,7 @@ describe("runProdApp boot-mode env-source", () => {
     try {
       const handle = await runProdApp({
         features: [probeFeature],
+        envSchema: noAppEnvSchema,
         autoListen: false,
         migrations: false,
         envSource: { ...DUMMY_ENV, REDIS_URL: `redis://127.0.0.1:${listener.port}` },
@@ -101,6 +106,7 @@ describe("runProdApp boot-mode env-source", () => {
     try {
       const handle = await runProdApp({
         features: [probeFeature],
+        envSchema: noAppEnvSchema,
         autoListen: false,
         migrations: false,
         envSource: { ...DUMMY_ENV, PORT: "8123" },
@@ -128,6 +134,7 @@ describe("runProdApp boot-mode env-source", () => {
       try {
         const handle = await runProdApp({
           features: [probeFeature],
+          envSchema: noAppEnvSchema,
           autoListen: false,
           migrations: false,
           envSource: { ...DUMMY_ENV, ...extraEnv },

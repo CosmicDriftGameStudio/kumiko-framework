@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { SseEvent } from "@cosmicdrift/kumiko-framework/api";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestStoredEvent } from "../../helpers/stored-event-fixture.js";
 import { createEventCollector } from "../event-collector.js";
 
 const probeSseEvent: SseEvent = { type: "probe", data: {} };
 const probeSaveContext: SaveContext = {
   kind: "save",
+  event: createTestStoredEvent(),
   id: "e1",
   data: {},
   changes: {},

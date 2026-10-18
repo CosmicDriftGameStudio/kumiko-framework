@@ -76,7 +76,7 @@ export type PersonalAccessTokensOptions = {
    *  explanatory text or a header component above the list. Default: neither. */
   readonly listScreen?: Pick<ProjectionListScreenDefinition, "description" | "slots">;
   // Opt-in MFA re-auth gate for minting a token — wired via
-  // mfaVerifierFromFeature (auth-mfa/feature.ts) at app-composition time. No
+  // mfaVerifierFromFeature (auth-mfa/feature-exports.ts) at app-composition time. No
   // hard dependency on the optional auth-mfa feature.
   readonly mfaVerifier?: CreatePatOptions["mfaVerifier"];
   // Password-change revoker — same constructor-option-or-late-bind duality as

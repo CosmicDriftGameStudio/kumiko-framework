@@ -14,11 +14,10 @@
 // **Pattern-Vorbild:** mirrors file-provider-inmemory (zero admin seeding,
 // only the file-foundation plugin-point required).
 //
-// **Env vars** (read by createS3ProviderFromEnv, prefix `S3_`):
-//   required — S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY
-//   optional — S3_ENDPOINT (S3-compat stores incl. Hetzner Object Storage),
-//              S3_FORCE_PATH_STYLE
-// Missing required vars throw on the FIRST file op (inside the export cron).
+// **Env vars** (read by createS3ProviderFromEnv, declared in s3EnvSchema):
+//   S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY, optional S3_ENDPOINT
+//   and S3_FORCE_PATH_STYLE. The schema keeps them optional because apps mount
+//   this provider next to another one; missing vars throw on the FIRST file op.
 // The user-data-rights boot guard surfaces that at boot instead.
 
 import type {
@@ -26,13 +25,15 @@ import type {
   FileProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import { s3EnvSchema } from "./env-schema.js";
 import { createS3ProviderFromEnv } from "./lib/env-helper.js";
 
 const FEATURE_NAME = "file-provider-s3-env";
 
 export function createFileProviderS3EnvFeature() {
-  return defineFeature(
+  const feature = defineFeature(
     FEATURE_NAME,
     (r) => {
       r.describe(
@@ -47,6 +48,7 @@ export function createFileProviderS3EnvFeature() {
       // env, not the per-tenant config + secrets store. Only the file-foundation
       // plugin-extension-point must be mounted.
       r.requires({ features: ["file-foundation"] });
+      r.envSchema(s3EnvSchema);
 
       const plugin: FileProviderPlugin = {
         // tenantId ignored: one shared bucket serves all tenants (isolation via
@@ -59,4 +61,5 @@ export function createFileProviderS3EnvFeature() {
     },
     { dedupeOptions: {} },
   );
+  return featureWithEnvSchema(feature, s3EnvSchema);
 }

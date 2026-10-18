@@ -105,6 +105,7 @@ export {
   type RegisterEntityCrudOptions,
 } from "./entity-handlers.js";
 export { declareEscapeHatch } from "./escape-hatch-declaration.js";
+export { type CreateEventDefOptions, createEventDef } from "./event-def.js";
 export type { EmitCtx } from "./event-helpers.js";
 export { emitEvent, typedPayload } from "./event-helpers.js";
 export type { KumikoExtensionName, TenantResourceExtensionName } from "./extension-names.js";

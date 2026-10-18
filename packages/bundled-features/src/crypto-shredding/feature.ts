@@ -1,13 +1,15 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { CRYPTO_SHREDDING_FEATURE_NAME } from "./constants.js";
+import { kmsEnvSchema } from "./env.js";
 import {
   forgetSubjectWrite,
   subjectForgetDeniedSchema,
   subjectForgottenSchema,
 } from "./handlers/forget-subject.write.js";
 
-export function createCryptoShreddingFeature(): FeatureDefinition {
-  return defineFeature(
+export function createCryptoShreddingFeature() {
+  const feature = defineFeature(
     CRYPTO_SHREDDING_FEATURE_NAME,
     (r) => {
       r.describe(
@@ -17,6 +19,7 @@ export function createCryptoShreddingFeature(): FeatureDefinition {
         displayLabel: "Crypto-Shredding",
         category: "compliance",
       });
+      r.envSchema(kmsEnvSchema);
 
       // `reason` is operator free text and may name the subject, yet stays plaintext: the forget
       // erases the subject key before the audit append, so a forget of the actor's own tenant
@@ -27,4 +30,5 @@ export function createCryptoShreddingFeature(): FeatureDefinition {
     },
     { dedupeOptions: {} },
   );
+  return featureWithEnvSchema(feature, kmsEnvSchema);
 }

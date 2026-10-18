@@ -506,41 +506,8 @@ export type CreateTenantDbOptions = {
   readonly grants?: TenantDbGrants;
 };
 
-// Runners (postgres-js Sql/tx handles) are functions and RawDbClient mocks carry no own
-// `tenantId`/`db`, so a runner is never mistaken for the options object.
-function isCreateTenantDbOptions(
-  value: DbRunner | CreateTenantDbOptions,
-): value is CreateTenantDbOptions {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    Object.hasOwn(value, "tenantId") &&
-    Object.hasOwn(value, "db")
-  );
-}
-
-export function createTenantDb(options: CreateTenantDbOptions): TenantDb;
-/** @deprecated Positional form, use createTenantDb({ db, tenantId, ... }). Run `bun kumiko-upgrade --apply` to rewrite call sites. Removed in the first release after 2026-10-29. */
-export function createTenantDb(
-  db: DbRunner,
-  tenantId: TenantId,
-  mode?: TenantDbMode,
-  tracer?: Tracer,
-  meter?: Meter,
-  signal?: AbortSignal,
-  grants?: TenantDbGrants,
-): TenantDb;
-export function createTenantDb(
-  dbOrOptions: DbRunner | CreateTenantDbOptions,
-  tenantId?: TenantId,
-  mode?: TenantDbMode,
-  tracer?: Tracer,
-  meter?: Meter,
-  signal?: AbortSignal,
-  grants?: TenantDbGrants,
-): TenantDb {
-  if (isCreateTenantDbOptions(dbOrOptions)) return buildTenantDb(dbOrOptions);
-  return buildTenantDb({ db: dbOrOptions, tenantId, mode, tracer, meter, signal, grants });
+export function createTenantDb(options: CreateTenantDbOptions): TenantDb {
+  return buildTenantDb(options);
 }
 
 // Untyped JS callers or an `as` cast can still hand in undefined; a scoped handle

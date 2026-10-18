@@ -227,14 +227,14 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     return { code, output: `${stdout}${stderr}`, stdout };
   }
 
-  test("boot without DEMO_ADMIN_PASSWORD aborts and names the variable", async () => {
-    const { code, output } = await runGeneratedMain(
+  test("boot dry run without DEMO_ADMIN_PASSWORD exits 0 and lists the variable as missing", async () => {
+    const { code, output, stdout } = await runGeneratedMain(
       "boot-nopw",
       { KUMIKO_DRY_RUN_ENV: "boot" },
       { withAdminPassword: false },
     );
-    expect(code, output).not.toBe(0);
-    expect(output).toContain("DEMO_ADMIN_PASSWORD");
+    expect(code, output).toBe(0);
+    expect(stdout).toMatch(/^\s+DEMO_ADMIN_PASSWORD\s+\S+\s+required\s+missing$/m);
   });
 
   test("boot with the empty DEMO_ADMIN_PASSWORD from .env.example aborts and names the variable", async () => {

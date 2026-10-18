@@ -4,6 +4,7 @@
 // the bottom for the env contract.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { isDryRunEnvActive } from "../env/dry-run.js";
 import { InternalError } from "../errors/index.js";
 import type { MasterKeyProvider } from "./types.js";
 
@@ -26,18 +27,15 @@ export function createEnvMasterKeyProvider(
 ): MasterKeyProvider {
   const env = opts.env ?? process.env;
 
-  const keyring = loadKeyring(env);
-  const current = resolveCurrentVersion(env);
-
-  // --- Boot validation (after keyring + current are known) -------------
-  if (!keyring.has(current)) {
-    throw new InternalError({
-      message:
-        `[secrets] currentVersion=${current} not present in keyring ` +
-        `(have versions: ${[...keyring.keys()].sort().join(",")}). ` +
-        `Check KUMIKO_SECRETS_MASTER_KEY_V${current} is set.`,
-    });
-  }
+  let loaded: LoadedKeyring | undefined;
+  const keyringState = (): LoadedKeyring => {
+    loaded ??= loadValidatedKeyring(env);
+    return loaded;
+  };
+  // Apps build this provider at module load, before runProdApp runs. A dry
+  // run inspects an env that may hold no key yet, so the check moves to the
+  // first key operation there; a real boot still fails here, at construction.
+  if (!isDryRunEnvActive(env) && !isDryRunEnvActive(process.env)) keyringState();
 
   // --- KEK-wrap / unwrap boilerplate (AES-256-GCM) ---------------------
   // The DEK is the plaintext here; we encrypt it with the KEK. Same
@@ -45,6 +43,7 @@ export function createEnvMasterKeyProvider(
 
   return {
     async wrapDek(dek) {
+      const { keyring, current } = keyringState();
       const kek = keyring.get(current);
       if (!kek) {
         // Should never reach here — boot validation above guarantees the
@@ -68,6 +67,7 @@ export function createEnvMasterKeyProvider(
     },
 
     async unwrapDek(encryptedDek, kekVersion) {
+      const { keyring } = keyringState();
       const kek = keyring.get(kekVersion);
       if (!kek) {
         throw new InternalError({
@@ -86,7 +86,7 @@ export function createEnvMasterKeyProvider(
     },
 
     currentVersion() {
-      return current;
+      return keyringState().current;
     },
 
     async isAvailable() {
@@ -96,6 +96,22 @@ export function createEnvMasterKeyProvider(
       return true;
     },
   };
+}
+
+type LoadedKeyring = { readonly keyring: Keyring; readonly current: number };
+
+function loadValidatedKeyring(env: Readonly<Record<string, string | undefined>>): LoadedKeyring {
+  const keyring = loadKeyring(env);
+  const current = resolveCurrentVersion(env);
+  if (!keyring.has(current)) {
+    throw new InternalError({
+      message:
+        `[secrets] currentVersion=${current} not present in keyring ` +
+        `(have versions: ${[...keyring.keys()].sort().join(",")}). ` +
+        `Check KUMIKO_SECRETS_MASTER_KEY_V${current} is set.`,
+    });
+  }
+  return { keyring, current };
 }
 
 // ENV schema (Decision 1 — per-version variables):

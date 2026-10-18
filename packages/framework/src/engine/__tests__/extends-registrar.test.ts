@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import { AccessDeniedError } from "../../errors/index.js";
 import {
@@ -18,6 +19,7 @@ import type { AppContext, SaveContext } from "../types/index.js";
 const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;
 const dummySaveContext: SaveContext = {
   kind: "save",
+  event: createTestStoredEvent(),
   id: "vehicle-1" as SaveContext["id"],
   data: {},
   changes: {},

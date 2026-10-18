@@ -31,6 +31,7 @@ import {
   AUTH_MFA_FEATURE,
   AuthMfaHandlers,
   bindMfaRevokeAllOtherSessionsFromFeature,
+  bindMfaTokenSecretsFromFeature,
   bindRevokeAllPatTokensFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
@@ -488,6 +489,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   let tokenVerifier: TokenVerifier | undefined;
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
+  // Same master secret as runProdApp. Without JWT_SECRET the feature keeps
+  // its explicit secrets, or its handlers report the missing binding.
+  const devMasterSecret = envSource["JWT_SECRET"];
+  if (mfaFeature && devMasterSecret) {
+    bindMfaTokenSecretsFromFeature(mfaFeature)?.(devMasterSecret, envSource);
+  }
   if (
     effectiveAuth &&
     mfaFeature &&

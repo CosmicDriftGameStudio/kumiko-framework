@@ -3,6 +3,5 @@
 export {
   clearStorage,
   createFileProviderInMemoryFeature,
-  fileProviderInMemoryFeature,
   listKeys,
 } from "./feature.js";
