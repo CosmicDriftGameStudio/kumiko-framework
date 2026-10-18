@@ -18,7 +18,6 @@ import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const SCAN: ScanSpec = {
-  kinds: ALL_REPO_KINDS,
   scope: "source+tests",
   extensions: ["ts", "tsx"],
 };
@@ -60,7 +59,7 @@ export const guard: AstGuard = {
   hint:
     "Relative imports name the source file: `./foo.js` -> `./foo.ts`, `./Comp.jsx` -> `./Comp.tsx`. " +
     "Run the import-extensions codemod: `bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/import-extensions.ts . --write`. " +
-    "The tsconfig needs `allowImportingTsExtensions` and `rewriteRelativeImportExtensions`.",
+    "The tsconfig needs `allowImportingTsExtensions` (and `rewriteRelativeImportExtensions` when tsc emits).",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

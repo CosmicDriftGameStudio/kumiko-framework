@@ -185,6 +185,7 @@ function renderTsconfig(): string {
         target: "ESNext",
         module: "ESNext",
         moduleResolution: "bundler",
+        allowImportingTsExtensions: true,
         esModuleInterop: true,
         skipLibCheck: true,
         lib: ["ESNext"],

@@ -80,8 +80,8 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 ## Releases
 
 Releases go through changesets: add `.changeset/<name>.md` with a `kumiko-changes` block.
-The Version PR is merged on Thursdays, only by the framework owner; a hotfix outside that
-window needs a written reason. See [stability policy](docs/reference/stability-policy.md).
+The Version PR is merged by the framework owner session once the work package is green; there
+is no fixed release day. See [stability policy](docs/reference/stability-policy.md).
 
 ## Links
 
