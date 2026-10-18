@@ -418,7 +418,8 @@ export type UnsubscribeResultPage =
   // Without a resubscribeToken the page offers no undo button.
   | { readonly kind: "unsubscribed"; readonly resubscribeToken?: string }
   | { readonly kind: "resubscribed" }
-  | { readonly kind: "failed" };
+  | { readonly kind: "failed" }
+  | { readonly kind: "invalid" };
 
 /** The result page the unsubscribe routes answer with, for apps serving their own
  *  (e.g. legacy) unsubscribe links. Texts come from the mail translations of `locale`;

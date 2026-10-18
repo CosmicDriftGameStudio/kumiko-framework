@@ -38,4 +38,10 @@ describe("renderUnsubscribeResultPage", () => {
     );
     expect(renderUnsubscribeResultPage({ kind: "failed" })).toContain('<html lang="en">');
   });
+
+  test("an app's own dead link gets the link-invalid page without a form", () => {
+    const html = renderUnsubscribeResultPage({ kind: "invalid", locale: "es" });
+    expect(html).toContain("<title>Enlace no válido</title>");
+    expect(html).not.toContain("<form");
+  });
 });
