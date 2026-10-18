@@ -90,6 +90,70 @@ function accountOptions(value: boolean | SeededAccountOptions): SeededAccountOpt
   return typeof value === "object" ? value : {};
 }
 
+function membershipOf(tenant: ResolvedTenant, roles: readonly string[]) {
+  return { tenantId: tenant.id, tenantKey: tenant.key, tenantName: tenant.name, roles };
+}
+
+function seedAccount(admin: SeedAdminOptions): DbSeedFn {
+  return async (db) => {
+    await seedAdminGuarded(db, admin);
+  };
+}
+
+function buildDemoAdminSeed(
+  value: boolean | SeededAccountOptions,
+  demoTenant: ResolvedTenant | undefined,
+  envSource: Record<string, string | undefined>,
+): DbSeedFn {
+  if (!demoTenant) {
+    throw new Error("[runProdApp] seeds.demoAdminFromEnv needs seeds.demoTenant.");
+  }
+  const options = accountOptions(value);
+  const account = requireAccountEnv(
+    envSource,
+    "DEMO_ADMIN_EMAIL",
+    "DEMO_ADMIN_PASSWORD",
+    "demoAdminFromEnv",
+  );
+  return seedAccount({
+    ...account,
+    displayName: options.displayName ?? "Admin",
+    memberships: [membershipOf(demoTenant, options.roles ?? DEFAULT_DEMO_ADMIN_ROLES)],
+    ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
+  });
+}
+
+function buildSysadminSeed(
+  value: NonNullable<ProdSeedsConfig["sysadminFromEnv"]>,
+  demoTenant: ResolvedTenant | undefined,
+  envSource: Record<string, string | undefined>,
+): DbSeedFn {
+  const options = typeof value === "object" ? value : {};
+  const tenant = options.tenant
+    ? resolveTenant(options.tenant, envSource, "sysadminFromEnv.tenant")
+    : demoTenant;
+  if (!tenant) {
+    throw new Error(
+      "[runProdApp] seeds.sysadminFromEnv needs seeds.demoTenant or sysadminFromEnv.tenant for its login membership.",
+    );
+  }
+  const account = requireAccountEnv(
+    envSource,
+    "DEMO_SYSADMIN_EMAIL",
+    "DEMO_SYSADMIN_PASSWORD",
+    "sysadminFromEnv",
+  );
+  // Verified by default: with strict verification an undelivered mail would
+  // otherwise lock out the only SystemAdmin.
+  return seedAccount({
+    ...account,
+    displayName: options.displayName ?? "Sysadmin",
+    globalRoles: [ROLES.SystemAdmin],
+    emailVerified: options.emailVerified ?? true,
+    memberships: [membershipOf(tenant, options.roles ?? DEFAULT_SYSADMIN_TENANT_ROLES)],
+  });
+}
+
 /** Validates env and options at boot (before any connection) and returns the
  *  seeds to run once the database is up. */
 export function resolveSeedShortcuts(
@@ -121,68 +185,10 @@ export function resolveSeedShortcuts(
     });
   }
   if (seeds.demoAdminFromEnv) {
-    if (!demoTenant) {
-      throw new Error("[runProdApp] seeds.demoAdminFromEnv needs seeds.demoTenant.");
-    }
-    const options = accountOptions(seeds.demoAdminFromEnv);
-    const account = requireAccountEnv(
-      deps.envSource,
-      "DEMO_ADMIN_EMAIL",
-      "DEMO_ADMIN_PASSWORD",
-      "demoAdminFromEnv",
-    );
-    const admin: SeedAdminOptions = {
-      ...account,
-      displayName: options.displayName ?? "Admin",
-      memberships: [
-        {
-          tenantId: demoTenant.id,
-          tenantKey: demoTenant.key,
-          tenantName: demoTenant.name,
-          roles: options.roles ?? DEFAULT_DEMO_ADMIN_ROLES,
-        },
-      ],
-      ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
-    };
-    result.push(async (db) => {
-      await seedAdminGuarded(db, admin);
-    });
+    result.push(buildDemoAdminSeed(seeds.demoAdminFromEnv, demoTenant, deps.envSource));
   }
   if (seeds.sysadminFromEnv) {
-    const options = typeof seeds.sysadminFromEnv === "object" ? seeds.sysadminFromEnv : {};
-    const tenant = options.tenant
-      ? resolveTenant(options.tenant, deps.envSource, "sysadminFromEnv.tenant")
-      : demoTenant;
-    if (!tenant) {
-      throw new Error(
-        "[runProdApp] seeds.sysadminFromEnv needs seeds.demoTenant or sysadminFromEnv.tenant for its login membership.",
-      );
-    }
-    const account = requireAccountEnv(
-      deps.envSource,
-      "DEMO_SYSADMIN_EMAIL",
-      "DEMO_SYSADMIN_PASSWORD",
-      "sysadminFromEnv",
-    );
-    // Verified by default: with strict verification an undelivered mail would
-    // otherwise lock out the only SystemAdmin.
-    const sysadmin: SeedAdminOptions = {
-      ...account,
-      displayName: options.displayName ?? "Sysadmin",
-      globalRoles: [ROLES.SystemAdmin],
-      emailVerified: options.emailVerified ?? true,
-      memberships: [
-        {
-          tenantId: tenant.id,
-          tenantKey: tenant.key,
-          tenantName: tenant.name,
-          roles: options.roles ?? DEFAULT_SYSADMIN_TENANT_ROLES,
-        },
-      ],
-    };
-    result.push(async (db) => {
-      await seedAdminGuarded(db, sysadmin);
-    });
+    result.push(buildSysadminSeed(seeds.sysadminFromEnv, demoTenant, deps.envSource));
   }
   return result;
 }
