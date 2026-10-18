@@ -31,6 +31,14 @@ export {
   parentRowIsVisible,
 } from "./parent-visibility.ts";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.ts";
+export {
+  collectSingleFileHolders,
+  type FileFieldPlan,
+  type FileRefPurgeOutcome,
+  planFileFields,
+  purgeRowFileRefs,
+  type SingleFileHolder,
+} from "./purge-row-file-refs.ts";
 export { rateLimitedTextResponse } from "./rate-limited-text-response.ts";
 export {
   redactBotTokens,

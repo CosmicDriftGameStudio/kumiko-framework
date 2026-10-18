@@ -63,6 +63,7 @@ import {
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants.ts";
+import { purgeFilesReachingSubject } from "../purge-files-reaching-subject.ts";
 
 export { subjectIdSchema };
 
@@ -300,7 +301,8 @@ function sweepErrorLabel(err: unknown): string {
 
 // The key is already erased when this runs, so a failing sweep must not skip the
 // audit event: the failure is returned as a label for the event instead of thrown.
-// The savepoint keeps a database error from aborting the handler transaction.
+// Each step runs in its own savepoint: a database error must not abort the handler
+// transaction, and one failing step must not skip or roll back the others.
 async function sweepDerivedSubjectData(
   ctx: HandlerContext,
   subject: SubjectId,
@@ -308,38 +310,49 @@ async function sweepDerivedSubjectData(
   crossTenantRunner: DbRunner,
   audit: { readonly requestId: string; readonly erasedBy: string },
 ): Promise<string | undefined> {
-  try {
-    await runInSavepointIfSupported(crossTenantRunner, async (crossTenantSubjectRunner) => {
-      // Blind-index sweep (#818): nulls bidx columns now so the deterministic
-      // HMAC doesn't stay equality-matchable; raw because the ciphertext prefix addresses the subject across tenants.
-      await nullBlindIndexesForSubject(crossTenantSubjectRunner, ctx.registry.features, subjectKey);
+  const failureLabels: string[] = [];
+  const runStep = async (step: (runner: DbRunner) => Promise<void>): Promise<void> => {
+    try {
+      await runInSavepointIfSupported(crossTenantRunner, step);
+    } catch (err) {
+      failureLabels.push(sweepErrorLabel(err));
+    }
+  };
 
-      // Derived search index still holds plaintext (#1610) — purge next to the
-      // blind-index sweep. No adapter → no-op (apps without search).
-      if (ctx.searchAdapter) {
-        await purgeSearchDocumentsForSubject(
-          crossTenantSubjectRunner,
-          ctx.registry.features,
-          ctx.searchAdapter,
-          subjectKey,
-          subject,
-        );
-      }
+  await runStep(async (crossTenantSubjectRunner) => {
+    // Blind-index sweep (#818): nulls bidx columns now so the deterministic
+    // HMAC doesn't stay equality-matchable; raw because the ciphertext prefix addresses the subject across tenants.
+    await nullBlindIndexesForSubject(crossTenantSubjectRunner, ctx.registry.features, subjectKey);
 
-      // Note bodies are keyed per note, so the subject's own key never reaches them.
-      if (ctx.registry.features.has("notes-history")) {
-        await eraseNoteBodiesReachingSubject({
-          db: crossTenantSubjectRunner,
-          subject,
-          erasedBy: audit.erasedBy,
-          requestId: audit.requestId,
-        });
-      }
-    });
-    return undefined;
-  } catch (err) {
-    return sweepErrorLabel(err);
-  }
+    // Derived search index still holds plaintext (#1610) — purge next to the
+    // blind-index sweep. No adapter → no-op (apps without search).
+    if (ctx.searchAdapter) {
+      await purgeSearchDocumentsForSubject(
+        crossTenantSubjectRunner,
+        ctx.registry.features,
+        ctx.searchAdapter,
+        subjectKey,
+        subject,
+      );
+    }
+
+    // Note bodies are keyed per note, so the subject's own key never reaches them.
+    if (ctx.registry.features.has("notes-history")) {
+      await eraseNoteBodiesReachingSubject({
+        db: crossTenantSubjectRunner,
+        subject,
+        erasedBy: audit.erasedBy,
+        requestId: audit.requestId,
+      });
+    }
+  });
+
+  // File columns hold only the fileRef id, so the key erase never reaches the bytes.
+  await runStep((crossTenantSubjectRunner) =>
+    purgeFilesReachingSubject({ ctx, db: crossTenantSubjectRunner, subject, subjectKey }),
+  );
+
+  return failureLabels[0];
 }
 
 // Email subscribers and other non-user entities use user-style subject keys
@@ -441,7 +454,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     reason:
       "the denial and SUBJECT_FORGOTTEN audit appends name the caller's own tenant stream on the outside-transaction db; " +
       "the tenant-scope and retention checks run against the subject's tenant, not necessarily the caller's; " +
-      "the blind-index sweep and search purge address the subject across tenants; the user " +
+      "the blind-index sweep, search purge and file purge address the subject across tenants; the user " +
       "lifecycle update and PAT revoke run on the SYSTEM user stream.",
   },
   handler: async (event, ctx) => {
