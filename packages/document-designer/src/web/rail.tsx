@@ -40,6 +40,7 @@ const TRAILING_TONE = {
 export function RailRow({
   symbol,
   label,
+  nameHint,
   required,
   trailing,
   trailingTone = "muted",
@@ -50,6 +51,8 @@ export function RailRow({
 }: {
   readonly symbol?: string;
   readonly label: string;
+  /** Technical name behind a translated label, shown as tooltip. */
+  readonly nameHint?: string;
   readonly required?: boolean;
   readonly trailing?: ReactNode;
   readonly trailingTone?: keyof typeof TRAILING_TONE;
@@ -71,6 +74,7 @@ export function RailRow({
           trailing !== undefined && "max-w-[65%] shrink-0",
           bad === true && "text-status-bad",
         )}
+        title={nameHint !== undefined && nameHint !== label ? nameHint : undefined}
       >
         {label}
         {required === true && <span className="font-semibold text-status-bad"> *</span>}

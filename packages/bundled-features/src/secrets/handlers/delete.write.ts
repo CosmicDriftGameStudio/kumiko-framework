@@ -2,7 +2,7 @@ import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framewo
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { announceSecretChange } from "../announce-secret-change.js";
-import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
+import { DEFAULT_SECRETS_ACCESS, SecretsHandlers } from "../constants.js";
 import { JOIN_REQUEST_TRANSACTION_REASON, requireSecretsContext } from "../feature.js";
 import { checkSecretKeyWrite } from "../write-gate.js";
 
@@ -18,7 +18,7 @@ export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS)
     access,
     escapeHatch: { grants: ["unsafeRaw"], reason: JOIN_REQUEST_TRANSACTION_REASON },
     handler: async (event, ctx) => {
-      const secrets = requireSecretsContext(ctx, "secrets:write:delete").withRunner(
+      const secrets = requireSecretsContext(ctx, SecretsHandlers.delete).withRunner(
         ctx.db.unsafeRaw(),
       );
       const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, event.payload.key, {

@@ -27,3 +27,7 @@ export const TENANT_ADMIN_EMAIL = "a.berger@nordlicht-immobilien.de";
 export const TENANT_ADMIN_PASSWORD = "nordlicht-berger";
 export const PLATFORM_ADMIN_EMAIL = "plattform@kumiko.dev";
 export const PLATFORM_ADMIN_PASSWORD = "kumiko-plattform";
+
+// Signs the unsubscribe links of the sample's mails; the e2e signs its own links with it.
+// A real app reads it from its secret store.
+export const UNSUBSCRIBE_SECRET = "ui-walkthrough-unsubscribe-secret-sample-only";

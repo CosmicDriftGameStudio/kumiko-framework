@@ -152,10 +152,13 @@ const HEADING_LEVELS = { "1": 1, "2": 2, "3": 3 } as const;
 
 const PLACEHOLDER_HREF = /^\{\{([^{}]+)\}\}$/;
 
+function variableLabelOf(name: string, labels: Readonly<Record<string, string>>): string {
+  return Object.hasOwn(labels, name) ? (labels[name] ?? name) : name;
+}
+
 function buttonTargetLabel(href: string, labels: Readonly<Record<string, string>>): string {
   const name = PLACEHOLDER_HREF.exec(href)?.[1];
-  if (name === undefined) return href;
-  return Object.hasOwn(labels, name) ? (labels[name] ?? name) : name;
+  return name === undefined ? href : variableLabelOf(name, labels);
 }
 
 // The bubble menu registers its plugin once per mount, so a rebuilt editor needs a fresh mount.
@@ -277,11 +280,12 @@ type OptionSelectProps = {
   readonly id: string;
   readonly label: string;
   readonly names: readonly string[];
+  readonly labels: Readonly<Record<string, string>>;
   readonly value: string;
   readonly onChange: (name: string) => void;
 };
 
-function NameSelect({ id, label, names, value, onChange }: OptionSelectProps): ReactNode {
+function NameSelect({ id, label, names, labels, value, onChange }: OptionSelectProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
     <Field id={id} label={label}>
@@ -292,7 +296,7 @@ function NameSelect({ id, label, names, value, onChange }: OptionSelectProps): R
         value={value}
         onChange={onChange}
         display="dropdown"
-        options={names.map((name) => ({ value: name, label: name }))}
+        options={names.map((name) => ({ value: name, label: variableLabelOf(name, labels) }))}
       />
     </Field>
   );
@@ -303,10 +307,18 @@ type PanelProps = {
   readonly editorId: string;
   readonly kind: PanelKind;
   readonly variables: readonly string[];
+  readonly variableLabels: Readonly<Record<string, string>>;
   readonly onClose: () => void;
 };
 
-function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps): ReactNode {
+function InsertPanel({
+  editor,
+  editorId,
+  kind,
+  variables,
+  variableLabels,
+  onClose,
+}: PanelProps): ReactNode {
   const { Button, Field, Input } = usePrimitives();
   const t = useTranslation();
   const [href, setHref] = useState(() => {
@@ -407,6 +419,7 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
         <div className="flex flex-wrap gap-1">
           <VariableChips
             variables={selectable}
+            labels={variableLabels}
             onInsert={(name) => insertAndClose({ type: "variable", attrs: { name } })}
           />
         </div>
@@ -460,6 +473,7 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
             id={`${idPrefix}-target`}
             label={t("template-resolver.documentEditor.buttonTarget")}
             names={selectable}
+            labels={variableLabels}
             value={selectedName}
             onChange={setChosenName}
           />
@@ -479,6 +493,7 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
           id={`${idPrefix}-list`}
           label={t("template-resolver.documentEditor.repeatList")}
           names={selectable}
+          labels={variableLabels}
           value={selectedName}
           onChange={setChosenName}
         />
@@ -489,6 +504,7 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
             id={`${idPrefix}-steps-variable`}
             label={t("template-resolver.documentEditor.stepsVariable")}
             names={selectable}
+            labels={variableLabels}
             value={selectedName}
             onChange={setChosenName}
           />
@@ -832,6 +848,8 @@ export default function DocumentTiptapEditor({
         "[&_[data-align=left]]:text-left [&_[data-align=center]]:text-center [&_[data-align=right]]:text-right [&_[data-align=justify]]:text-justify",
         "[&_p[data-size=small]]:text-xs [&_p[data-size=small]]:text-muted-foreground",
         "[&_a[data-button]]:inline-block [&_a[data-button]]:rounded-full [&_a[data-button]]:bg-primary [&_a[data-button]]:px-4 [&_a[data-button]]:py-1.5 [&_a[data-button]]:text-primary-foreground [&_a[data-button]]:no-underline",
+        // A chip in the button would be primary on primary; it inverts to stay readable.
+        "[&_a[data-button]_[data-variable-chip]]:border-primary-foreground/40 [&_a[data-button]_[data-variable-chip]]:bg-primary-foreground/15 [&_a[data-button]_[data-variable-chip]]:text-primary-foreground",
         "[&_hr]:my-3 [&_hr]:border-input",
         "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
       )}
@@ -1041,6 +1059,7 @@ export default function DocumentTiptapEditor({
       editorId={id}
       kind={openPanel}
       variables={variables}
+      variableLabels={stableLabels}
       onClose={() => setOpenPanel(null)}
     />
   );

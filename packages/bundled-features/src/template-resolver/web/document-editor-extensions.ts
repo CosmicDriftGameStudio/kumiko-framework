@@ -75,8 +75,11 @@ export function createVariableView(
       systemVariables.includes(name) ? SYSTEM_CHIP_CLASS : USER_CHIP_CLASS,
     );
     dom.contentEditable = "false";
-    dom.append(document.createTextNode(label !== undefined && label !== "" ? label : name));
-    if (!labelOnly && label !== undefined && label !== "" && label !== name) {
+    dom.setAttribute("data-variable-chip", "");
+    const hasOwnLabel = label !== undefined && label !== "" && label !== name;
+    dom.append(document.createTextNode(hasOwnLabel ? label : name));
+    if (hasOwnLabel) dom.title = name;
+    if (!labelOnly && hasOwnLabel) {
       dom.append(createElementWithClass("small", "font-mono text-[10px] opacity-75", name));
     }
     return { dom };

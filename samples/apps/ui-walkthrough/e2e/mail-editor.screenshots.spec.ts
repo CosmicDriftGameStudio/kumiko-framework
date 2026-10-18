@@ -116,7 +116,7 @@ test("mail-editor-draft-beside-active", async ({ page }) => {
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
   await expect(page.getByTestId("document-designer-editor-active-status")).toHaveCount(0);
   await expect(page.getByTestId("mail-origin-bar")).toContainText(
-    "Verschickt wird Version 1, Ihr Entwurf (Version 2) ist noch nicht veröffentlicht.",
+    "Verschickt wird Version 1, dein Entwurf (Version 2) ist noch nicht veröffentlicht.",
   );
   await expectTitleFits(page);
   await shot(page, "mail-editor-draft-beside-active");

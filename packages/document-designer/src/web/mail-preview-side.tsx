@@ -6,6 +6,7 @@ import type { MailPreview, MailValidation, PreviewCheck } from "./mail-types.js"
 import { usePreviewRecordPicker } from "./preview-record-picker.js";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
 import type { OwnAddress } from "./use-own-address.js";
+import { variableLabelText } from "./used-by-label.js";
 
 const noop = (): void => undefined;
 
@@ -43,7 +44,8 @@ function SampleValues({
           <RailRow
             key={name}
             testId={`mail-sample-${name}`}
-            label={validation?.variables[name]?.label ?? name}
+            label={variableLabelText(t, name, validation?.variables[name]?.label)}
+            nameHint={name}
             bad={missing}
             trailing={
               missing

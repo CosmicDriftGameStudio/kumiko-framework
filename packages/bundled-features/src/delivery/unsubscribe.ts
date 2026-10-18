@@ -6,19 +6,22 @@ import {
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { mailT, resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
-import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import type { Context } from "hono";
 import * as jose from "jose";
 import * as z from "zod";
+import type { MailChrome } from "../renderer-foundation/index.js";
 import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import {
   DELIVERY_RESUBSCRIBE_PATH,
   DELIVERY_UNSUBSCRIBE_PATH,
   DeliveryErrors,
   DeliveryHandlers,
+  DeliveryQueries,
 } from "./constants.js";
-import "./unsubscribe-page-strings.js";
+import { renderUnsubscribePage, type UnsubscribePageState } from "./unsubscribe-page.js";
 
 // The mail's locale, so the pages behind the link speak the mail's language. Optional: links
 // signed before the claim existed keep verifying and fall back to English.
@@ -109,6 +112,32 @@ const UNSUBSCRIBE_TOKEN_INVALID_BODY = {
   error: { code: "unsubscribe_token_invalid", message: "Invalid or expired token" },
 } as const;
 
+// jose checks the signature and the issuer before the expiry, so the claims of an
+// expired token are authentic: enough to dress the "link expired" page in the
+// tenant's look and language, never enough to write.
+const expiredTokenScopeSchema = z.object({
+  iss: z.literal(UNSUBSCRIBE_ISSUER),
+  tenantId: z.string().min(1),
+  locale: localeClaimSchema,
+});
+
+class ExpiredUnsubscribeTokenRejection extends ExtraRouteRejection {
+  constructor(
+    readonly tenantId: TenantId,
+    readonly locale: string | undefined,
+  ) {
+    super(400, UNSUBSCRIBE_TOKEN_INVALID_BODY, "unsubscribe token expired");
+  }
+}
+
+function expiredTokenRejection(err: unknown): ExpiredUnsubscribeTokenRejection | null {
+  if (!(err instanceof jose.errors.JWTExpired)) return null;
+  const scope = expiredTokenScopeSchema.safeParse(err.payload);
+  if (!scope.success) return null;
+  // @cast-boundary engine-bridge — string post-zod → branded TenantId
+  return new ExpiredUnsubscribeTokenRejection(scope.data.tenantId as TenantId, scope.data.locale);
+}
+
 export async function signUnsubscribeToken(
   payload: UnsubscribeTokenPayload,
   secret: string,
@@ -188,11 +217,6 @@ type VerifiedUnsubscribe =
 // RFC 8058 fixed value — both the List-Unsubscribe-Post header and the body a
 // one-click client POSTs.
 export const DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE = "List-Unsubscribe=One-Click" as const;
-
-const CONFIRMATION_PAGE_HEADERS = {
-  "Cache-Control": "no-store",
-  "Referrer-Policy": "no-referrer",
-} as const;
 
 // Undo token, handed out only in the response of a successful unsubscribe. A
 // separate audience and a short expiry keep the long-lived mailed unsubscribe
@@ -302,10 +326,13 @@ async function verifyUnsubscribeToken(
     };
   } catch (err) {
     if (err instanceof ExtraRouteRejection) throw err;
-    throw new ExtraRouteRejection(
-      400,
-      UNSUBSCRIBE_TOKEN_INVALID_BODY,
-      "unsubscribe token verification failed",
+    throw (
+      expiredTokenRejection(err) ??
+      new ExtraRouteRejection(
+        400,
+        UNSUBSCRIBE_TOKEN_INVALID_BODY,
+        "unsubscribe token verification failed",
+      )
     );
   }
 }
@@ -387,76 +414,144 @@ function pageLocale(locale: string | undefined): string {
   return resolveMailLocale(locale ?? "en");
 }
 
-function htmlPage(locale: string, title: string, bodyHtml: string): string {
-  return `<!doctype html>
-<html lang="${escapeHtmlAttr(locale)}">
-<head>
-<meta charset="utf-8">
-<meta name="robots" content="noindex">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtmlAttr(title)}</title>
-</head>
-<body>
-${bodyHtml}
-</body>
-</html>`;
-}
-
-function confirmationPage(token: string, locale: string | undefined): string {
-  const lang = pageLocale(locale);
-  return htmlPage(
-    lang,
-    mailT(lang, "mail.unsubscribe.confirmTitle"),
-    `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.confirmQuestion"))}</p>
-<form method="post" action="${DELIVERY_UNSUBSCRIBE_PATH}">
-<input type="hidden" name="token" value="${escapeHtmlAttr(token)}">
-<button type="submit">${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.confirmButton"))}</button>
-</form>`,
-  );
-}
-
 export type UnsubscribeResultPage =
   // Without a resubscribeToken the page offers no undo button.
   | { readonly kind: "unsubscribed"; readonly resubscribeToken?: string }
   | { readonly kind: "resubscribed" }
-  | { readonly kind: "failed" };
+  | { readonly kind: "failed" }
+  | { readonly kind: "invalid" };
 
-/** The plain result page the unsubscribe routes answer with, for apps serving their own
- *  (e.g. legacy) unsubscribe links. Texts come from the mail translations of `locale`. */
+/** The result page the unsubscribe routes answer with, for apps serving their own
+ *  (e.g. legacy) unsubscribe links. Texts come from the mail translations of `locale`;
+ *  `chrome` (the mail renderer's readMailChrome) adds the tenant's brand row and footer.
+ *  Served under runProdApp's default CSP the style block and the same-origin font pass;
+ *  an https logo additionally needs its origin, e.g.
+ *  `securityHeaders: { csp: { extend: { "img-src": [logoOrigin] } } }`. A hand-written CSP
+ *  needs `style-src 'unsafe-inline'` as well. */
 export function renderUnsubscribeResultPage(
-  page: UnsubscribeResultPage & { readonly locale?: string | undefined },
+  page: UnsubscribeResultPage & {
+    readonly locale?: string | undefined;
+    readonly chrome?: MailChrome | null | undefined;
+  },
 ): string {
-  const lang = pageLocale(page.locale);
-  switch (page.kind) {
-    case "unsubscribed": {
-      const undoForm =
-        page.resubscribeToken === undefined
-          ? ""
-          : `
-<form method="post" action="${DELIVERY_RESUBSCRIBE_PATH}">
-<input type="hidden" name="token" value="${escapeHtmlAttr(page.resubscribeToken)}">
-<button type="submit">${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.undoButton"))}</button>
-</form>`;
-      return htmlPage(
-        lang,
-        mailT(lang, "mail.unsubscribe.doneTitle"),
-        `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.doneMessage"))}</p>${undoForm}`,
-      );
-    }
-    case "resubscribed":
-      return htmlPage(
-        lang,
-        mailT(lang, "mail.unsubscribe.resubscribedTitle"),
-        `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.resubscribedMessage"))}</p>`,
-      );
-    case "failed": {
-      const message = mailT(lang, "mail.unsubscribe.failed");
-      return htmlPage(lang, message, `<p>${escapeHtmlAttr(message)}</p>`);
-    }
-  }
+  const { locale, chrome, ...state } = page;
+  return renderUnsubscribePage({ state, locale: pageLocale(locale), chrome }).html;
 }
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
+
+const mailChromeLinkSchema = z.object({ label: z.string(), url: z.string() });
+const mailChromeSchema = z
+  .object({
+    tenantName: z.string(),
+    brandSuffix: z.string(),
+    logoUrl: z.string().optional(),
+    accentColor: z.string().optional(),
+    siteUrl: z.string().optional(),
+    footerText: z.string().optional(),
+    imprint: mailChromeLinkSchema.optional(),
+    privacy: mailChromeLinkSchema.optional(),
+  })
+  .nullable();
+
+// Branding is decoration: an opt-out that went through must never turn into an
+// error page because a footer resolver or the config read failed.
+async function readPageChrome(
+  deps: SignatureExtraRouteDeps,
+  tenantId: TenantId,
+  locale: string,
+): Promise<MailChrome | null> {
+  try {
+    const result = await deps.dispatchSystemQuery({
+      handlerQn: DeliveryQueries.unsubscribePageChrome,
+      payload: { locale },
+      tenantId,
+    });
+    const parsed = mailChromeSchema.safeParse(result);
+    return parsed.success ? parsed.data : null;
+  } catch (err) {
+    createFallbackLogger("delivery").warn("unsubscribe page shown without tenant branding", {
+      errorName: err instanceof Error ? err.name : typeof err,
+    });
+    return null;
+  }
+}
+
+type PageScope = { readonly tenantId: TenantId | undefined; readonly locale: string | undefined };
+
+// no-referrer on every page: the GET page carries the token in its URL, and the
+// tenant logo and site link would otherwise receive it in the Referer header.
+const PAGE_HEADERS = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+} as const;
+
+async function pageResponse(
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+  c: Context<any, any>,
+  deps: SignatureExtraRouteDeps,
+  state: UnsubscribePageState,
+  scope: PageScope,
+  status: 200 | 400 | 409 | 500,
+): Promise<Response> {
+  const locale = pageLocale(scope.locale);
+  const chrome =
+    scope.tenantId === undefined ? null : await readPageChrome(deps, scope.tenantId, locale);
+  const page = renderUnsubscribePage({ state, locale, chrome });
+  return c.html(page.html, status, {
+    ...PAGE_HEADERS,
+    "Content-Security-Policy": page.contentSecurityPolicy,
+  });
+}
+
+type RejectedForPage = { readonly kind: "rejected" } & PageScope;
+
+function localeFromAcceptLanguage(header: string | undefined): string | undefined {
+  const first = header?.split(",")[0]?.split(";")[0]?.trim();
+  return first !== undefined && first !== "" && localeClaimSchema.safeParse(first).success
+    ? first
+    : undefined;
+}
+
+// A browser lands on a page even for a dead link; API callers keep the JSON 400 from
+// verifyUnsubscribeToken. The rejected result never reaches a write.
+async function verifyForPage(
+  token: string | undefined,
+  encodedSecret: Uint8Array,
+  purpose: TokenPurpose,
+  headers: SignatureExtraRouteVerifyRequest["headers"],
+): Promise<VerifiedUnsubscribe | RejectedForPage> {
+  try {
+    return await verifyUnsubscribeToken(token, encodedSecret, purpose);
+  } catch (err) {
+    if (err instanceof ExpiredUnsubscribeTokenRejection) {
+      return {
+        kind: "rejected",
+        tenantId: err.tenantId,
+        locale: err.locale ?? localeFromAcceptLanguage(headers["accept-language"]),
+      };
+    }
+    if (err instanceof ExtraRouteRejection) {
+      return {
+        kind: "rejected",
+        tenantId: undefined,
+        locale: localeFromAcceptLanguage(headers["accept-language"]),
+      };
+    }
+    throw err;
+  }
+}
+
+async function verifyPost(
+  request: SignatureExtraRouteVerifyRequest,
+  token: string | undefined,
+  encodedSecret: Uint8Array,
+  purpose: TokenPurpose,
+): Promise<VerifiedUnsubscribe | RejectedForPage> {
+  return isFormRequest(request.headers["content-type"])
+    ? verifyForPage(token, encodedSecret, purpose, request.headers)
+    : verifyUnsubscribeToken(token, encodedSecret, purpose);
+}
 
 function isFormRequest(contentType: string | undefined): boolean {
   return contentType?.includes("application/x-www-form-urlencoded") === true;
@@ -499,52 +594,52 @@ export function createUnsubscribeRoutes(
   assertUnsubscribeSecret(options.secret, "createUnsubscribeRoutes");
   const encodedSecret = new TextEncoder().encode(options.secret);
 
-  const confirmRoute = signatureRoute<{ token: string; locale: string | undefined }>({
+  const confirmRoute = signatureRoute<
+    ({ readonly kind: "confirm"; readonly token: string } & PageScope) | RejectedForPage
+  >({
     method: "GET",
     path: DELIVERY_UNSUBSCRIBE_PATH,
     entry: "signature",
-    verify: async ({ query }) => {
+    verify: async ({ query, headers }) => {
       const token = query["token"];
-      if (!token) {
-        throw new ExtraRouteRejection(
-          400,
-          UNSUBSCRIBE_TOKEN_INVALID_BODY,
-          "missing unsubscribe token",
-        );
-      }
-      const verified = await verifyUnsubscribeToken(token, encodedSecret, "unsubscribe");
-      return { token, locale: verified.locale };
+      const verified = await verifyForPage(token, encodedSecret, "unsubscribe", headers);
+      if (verified.kind === "rejected") return verified;
+      // verifyForPage only accepts a present token, the check is for the type.
+      if (token === undefined) return { kind: "rejected", tenantId: undefined, locale: undefined };
+      return { kind: "confirm", token, tenantId: verified.tenantId, locale: verified.locale };
     },
-    handler: async (c, { token, locale }) =>
-      c.html(confirmationPage(token, locale), 200, CONFIRMATION_PAGE_HEADERS),
+    handler: async (c, verified, deps) =>
+      verified.kind === "rejected"
+        ? pageResponse(c, deps, { kind: "invalid" }, verified, 400)
+        : pageResponse(c, deps, { kind: "confirm", token: verified.token }, verified, 200),
   });
 
-  const writeRoute = signatureRoute<VerifiedUnsubscribe>({
+  const writeRoute = signatureRoute<VerifiedUnsubscribe | RejectedForPage>({
     method: "POST",
     path: DELIVERY_UNSUBSCRIBE_PATH,
     entry: "signature",
     verify: async (request) =>
-      verifyUnsubscribeToken(tokenFromPostRequest(request), encodedSecret, "unsubscribe"),
+      verifyPost(request, tokenFromPostRequest(request), encodedSecret, "unsubscribe"),
     handler: async (c, verified, deps) => {
+      if (verified.kind === "rejected") {
+        return pageResponse(c, deps, { kind: "invalid" }, verified, 400);
+      }
       // Token-verify passed — everything below is a legitimate write. Don't
       // swallow write-errors as "invalid token", that would mask real bugs
       // (e.g. events-table missing, DB down) behind a misleading 400.
       const succeeded = await dispatchUnsubscribeWrite(verified, deps);
       if (!succeeded) {
-        return c.html(
-          renderUnsubscribeResultPage({ kind: "failed", locale: verified.locale }),
-          500,
-          NO_STORE_HEADERS,
-        );
+        return pageResponse(c, deps, { kind: "failed" }, verified, 500);
       }
-      return c.html(
-        renderUnsubscribeResultPage({
+      return pageResponse(
+        c,
+        deps,
+        {
           kind: "unsubscribed",
           resubscribeToken: await signResubscribeToken(verified, encodedSecret),
-          locale: verified.locale,
-        }),
+        },
+        verified,
         200,
-        NO_STORE_HEADERS,
       );
     },
   });
@@ -552,26 +647,27 @@ export function createUnsubscribeRoutes(
   // Undo direction: token only from the JSON/form body, never the query
   // (see tokenFromRequestBody) — no GET confirmation-page variant,
   // this is a one-shot POST from the unsubscribe-page's "Undo" button.
-  const resubscribeRoute = signatureRoute<VerifiedUnsubscribe>({
+  const resubscribeRoute = signatureRoute<VerifiedUnsubscribe | RejectedForPage>({
     method: "POST",
     path: DELIVERY_RESUBSCRIBE_PATH,
     entry: "signature",
     verify: async (request) =>
-      verifyUnsubscribeToken(tokenFromRequestBody(request), encodedSecret, "resubscribe"),
+      verifyPost(request, tokenFromRequestBody(request), encodedSecret, "resubscribe"),
     handler: async (c, verified, deps) => {
+      if (verified.kind === "rejected") {
+        return pageResponse(c, deps, { kind: "invalid" }, verified, 400);
+      }
       const outcome = await dispatchResubscribeWrite(verified, deps);
       // The undo button on the unsubscribed page posts a form; a browser should land on a page.
       if (isFormRequest(c.req.header("content-type"))) {
         return outcome === "success"
-          ? c.html(
-              renderUnsubscribeResultPage({ kind: "resubscribed", locale: verified.locale }),
-              200,
-              NO_STORE_HEADERS,
-            )
-          : c.html(
-              renderUnsubscribeResultPage({ kind: "failed", locale: verified.locale }),
+          ? pageResponse(c, deps, { kind: "resubscribed" }, verified, 200)
+          : pageResponse(
+              c,
+              deps,
+              { kind: "failed" },
+              verified,
               outcome === "limit_reached" ? 409 : 500,
-              NO_STORE_HEADERS,
             );
       }
       if (outcome === "limit_reached") {

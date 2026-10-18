@@ -53,6 +53,8 @@ import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import {
   createSecretsContext,
   createSecretsFeature,
+  SecretsHandlers,
+  SecretsQueries,
   type StoredEnvelope,
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
@@ -167,7 +169,7 @@ afterAll(async () => {
 describe("1. at-rest representation", () => {
   test("set stores envelope only — plaintext nowhere in the row", async () => {
     await stack.http.writeOk(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: STRIPE_API_KEY.name, value: "sk_test_SuperSecretLivePlatz12345" },
       tenantAdmin,
     );
@@ -190,7 +192,7 @@ describe("2. list shows preview only", () => {
   test("redactedPreview uses billing's domain-aware redact function", async () => {
     const list = await stack.http.queryOk<
       Array<{ key: string; redactedPreview: string | null; kekVersion: number }>
-    >("secrets:query:list", {}, tenantAdmin);
+    >(SecretsQueries.list, {}, tenantAdmin);
 
     const stripe = list.find((r) => r.key === STRIPE_API_KEY.name);
     expect(stripe).toBeDefined();

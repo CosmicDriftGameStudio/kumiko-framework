@@ -13,6 +13,7 @@ import {
   ValidationError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml } from "@cosmicdrift/kumiko-headless";
 import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.js";
 import { fileContextForTenant } from "../file-foundation/index.js";
@@ -56,13 +57,17 @@ const SAMPLE_LINK = "https://example.com";
 const SAMPLE_DATE = "2026-01-15";
 const SAMPLE_LIST_ROWS = 3;
 
-function sampleScalar(name: string, def: TemplateScalarVariableDef): unknown {
+// A variable label is an i18n key or plain text; an unknown key reads as itself.
+type LabelText = (label: string) => string;
+
+function sampleScalar(name: string, def: TemplateScalarVariableDef, labelText: LabelText): unknown {
   if (def.example !== undefined) return def.example;
+  const label = def.label === undefined ? name : labelText(def.label);
   switch (def.type) {
     case "text":
-      return `[${def.label ?? name}]`;
+      return `[${label}]`;
     case "richText":
-      return `<p>[${escapeHtml(def.label ?? name)}]</p>`;
+      return `<p>[${escapeHtml(label)}]</p>`;
     case "link":
       return SAMPLE_LINK;
     case "money":
@@ -76,28 +81,38 @@ function sampleScalar(name: string, def: TemplateScalarVariableDef): unknown {
 
 function sampleRow(
   item: TemplateListVariableDef["item"],
+  labelText: LabelText,
   given: Readonly<Record<string, unknown>> = {},
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {};
-  for (const [name, def] of Object.entries(item)) row[name] = sampleScalar(name, def);
+  for (const [name, def] of Object.entries(item)) row[name] = sampleScalar(name, def, labelText);
   return { ...row, ...given };
 }
 
-function sampleList(def: TemplateListVariableDef): Record<string, unknown>[] {
+function sampleList(def: TemplateListVariableDef, labelText: LabelText): Record<string, unknown>[] {
   const rows = (def.example ?? [])
     .slice(0, SAMPLE_LIST_ROWS)
-    .map((given) => sampleRow(def.item, given));
-  while (rows.length < SAMPLE_LIST_ROWS) rows.push(sampleRow(def.item));
+    .map((given) => sampleRow(def.item, labelText, given));
+  while (rows.length < SAMPLE_LIST_ROWS) rows.push(sampleRow(def.item, labelText));
   return rows;
 }
 
 // Declared examples win; the fallbacks are deterministic so a preview never differs between calls.
-export function sampleValuesFor(variables: TemplateVariables): Record<string, unknown> {
+export function sampleValuesFor(
+  variables: TemplateVariables,
+  labelText: LabelText = (label) => label,
+): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const [name, def] of Object.entries(variables)) {
-    values[name] = def.type === "list" ? sampleList(def) : sampleScalar(name, def);
+    values[name] =
+      def.type === "list" ? sampleList(def, labelText) : sampleScalar(name, def, labelText);
   }
   return values;
+}
+
+function labelTextFor(ctx: HandlerContext, locale: string): LabelText {
+  const i18n = createI18n(ctx.registry, { defaultLocale: "en" });
+  return (label) => i18n.t(label, locale);
 }
 
 export type PreviewCheckCode =
@@ -494,7 +509,7 @@ export async function evaluateDocumentDraft(
     content: evaluation.content ?? "",
     meta: meta.ok ? readPdfTemplateMeta(meta.meta) : null,
     variableSchema: draft.variableSchema,
-    sampleValues: sampleValuesFor(response.variables),
+    sampleValues: sampleValuesFor(response.variables, labelTextFor(ctx, draft.locale)),
   };
 }
 
@@ -654,7 +669,7 @@ export async function renderTemplatePreview(
 
   const content = evaluation.content ?? "";
   const meta = parseTemplateMeta(input.kind, parseStoredJson(evaluation.metaJson));
-  const sampleValues = sampleValuesFor(validation.variables);
+  const sampleValues = sampleValuesFor(validation.variables, labelTextFor(ctx, input.locale));
 
   if (input.kind === "document-pdf") {
     return renderDocumentPreview(ctx, user, {

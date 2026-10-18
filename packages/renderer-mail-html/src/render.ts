@@ -13,7 +13,9 @@
 import {
   type InlineAttachmentRef,
   type MailAttachmentRef,
+  type MailChromeRequest,
   type MailDraft,
+  type MailChrome as MailPageChrome,
   type RenderedTemplateRef,
   type RendererContext,
   RendererError,
@@ -77,7 +79,9 @@ import {
   layoutLinksToPlaceholder,
   type MailFooter,
   type MailFooterResolver,
+  resolvedFooterLink,
   safeFooterUrl,
+  webHost,
 } from "./mail-footer.js";
 import { mailChromeText } from "./mail-strings.js";
 import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.js";
@@ -753,6 +757,42 @@ function renderFooterParts(args: {
           layoutLinksUnsubscribe,
         })
       : "",
+  };
+}
+
+export async function readMailChrome(
+  req: MailChromeRequest,
+  ctx: RendererContext,
+  options: MailHtmlRenderOptions = {},
+): Promise<MailPageChrome> {
+  const { locale } = req;
+  const [tenantName, footer, siteUrl, brandSuffix, logoUrl, accentColor] = await Promise.all([
+    readTenantName(ctx),
+    resolveMailFooter(options, ctx, locale),
+    resolveMailSiteUrl(options, ctx, locale),
+    resolveBrandSuffix(options, ctx, locale),
+    readBrandingLogoUrl(ctx),
+    readBrandingAccentColor(ctx),
+  ]);
+  const footerText = footer?.text?.trim() ?? "";
+  const imprint = resolvedFooterLink(
+    footer?.imprint,
+    mailChromeText(locale, "mail.footer.imprint"),
+  );
+  const privacy = resolvedFooterLink(
+    footer?.privacy,
+    mailChromeText(locale, "mail.footer.privacy"),
+  );
+  const safeSiteUrl = siteUrl?.trim();
+  return {
+    tenantName,
+    brandSuffix,
+    ...(logoUrl !== undefined && { logoUrl }),
+    ...(accentColor !== undefined && { accentColor }),
+    ...(safeSiteUrl !== undefined && webHost(safeSiteUrl) !== null && { siteUrl: safeSiteUrl }),
+    ...(footerText !== "" && { footerText }),
+    ...(imprint !== undefined && { imprint }),
+    ...(privacy !== undefined && { privacy }),
   };
 }
 

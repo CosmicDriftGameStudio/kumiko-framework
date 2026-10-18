@@ -43,6 +43,22 @@ describe("sampleValuesFor", () => {
     expect(sampleValuesFor(variables)).toEqual(expected);
   });
 
+  test("a label given as i18n key names the sample by its translation", () => {
+    const labelText = (label: string): string =>
+      label === "status:mail.variable.pageName" ? "Name der Statusseite" : label;
+    const values = sampleValuesFor(
+      {
+        pageName: templateVariable.text({ label: "status:mail.variable.pageName" }),
+        lines: templateVariable.list({
+          entry: templateVariable.richText({ label: "status:mail.variable.pageName" }),
+        }),
+      },
+      labelText,
+    );
+    expect(values["pageName"]).toBe("[Name der Statusseite]");
+    expect(values["lines"]).toContainEqual({ entry: "<p>[Name der Statusseite]</p>" });
+  });
+
   test("a list without example gets three rows built from the item fallbacks", () => {
     const values = sampleValuesFor({
       positions: templateVariable.list({

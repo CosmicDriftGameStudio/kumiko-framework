@@ -77,7 +77,9 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
   await expect(frame).toBeVisible();
   await expect(frame).toHaveAttribute("sandbox", "");
   await expect(
-    page.frameLocator('[data-testid="mail-preview-iframe"]').getByText("Rechnung online ansehen"),
+    page
+      .frameLocator('[data-testid="mail-preview-iframe"]')
+      .getByText("Rechnung RE-2026-0142 online ansehen"),
   ).toBeVisible();
   // The logo appears once, from the tenant layout header.
   await expect(page.frameLocator('[data-testid="mail-preview-iframe"]').locator("img")).toHaveCount(
@@ -123,4 +125,34 @@ test("switching the language with unsaved changes asks first and keeps the input
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(subject).toContainText("(geprüft)");
+});
+
+test("the rail and the paper name placeholders by their translated labels, the button shows its chip", async ({
+  page,
+}) => {
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto(
+    `/mail-editor?kind=mail&slug=${encodeURIComponent("billing:notify:invoice-issued")}`,
+  );
+  await expect(editorTitle(page)).toContainText("Rechnung versendet");
+
+  // The label is the i18n key billing:mail.variable.invoiceNumber; the raw name stays a tooltip.
+  const railRow = page.getByTestId("mail-placeholder-invoiceNumber");
+  await expect(railRow).toContainText("Rechnungsnummer");
+  await expect(railRow).not.toContainText("billing:mail.variable");
+  await expect(railRow.locator("[title='invoiceNumber']")).toHaveCount(1);
+
+  const button = page.locator(".ProseMirror a[data-button]").first();
+  const chip = button.locator("span", { hasText: "Rechnungsnummer" }).first();
+  await expect(chip).toBeVisible();
+  const contrast = await chip.evaluate((element) => {
+    const anchor = element.closest("a");
+    if (anchor === null) return null;
+    return {
+      chipText: getComputedStyle(element).color,
+      buttonBackground: getComputedStyle(anchor).backgroundColor,
+    };
+  });
+  expect(contrast).not.toBeNull();
+  expect(contrast?.chipText).not.toBe(contrast?.buttonBackground);
 });

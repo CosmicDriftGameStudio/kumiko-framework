@@ -9,11 +9,18 @@
 // kein Auto-Mint-JWT mehr. Persistent-DB-Modus über KUMIKO_DEV_DB_NAME
 // in der Umgebung.
 
+import { createUnsubscribeRoutes } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { APP_FEATURES } from "../run-config";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  BETA_TENANT_ID,
+  DEV_TENANT_ID,
+  UNSUBSCRIBE_SECRET,
+} from "./auth-constants";
 import { seedTasks } from "./seed";
 import { seedRental } from "./seed-rental";
 import { seedTemplates } from "./seed-templates";
@@ -33,6 +40,8 @@ await runDevApp({
   port: Number.parseInt(process.env["PORT"] ?? "4173", 10),
   // Logo and attachment uploads of the mail editor need a file store.
   files: { storageProvider: createInMemoryFileProvider() },
+  // The pages behind a mail's unsubscribe link, dressed in the tenant's mail look.
+  extraRoutes: createUnsubscribeRoutes({ secret: UNSUBSCRIBE_SECRET }),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],

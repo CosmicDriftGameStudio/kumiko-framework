@@ -45,3 +45,6 @@ export const DocumentDesignerCells = {
 } as const;
 
 export const DEFAULT_TEMPLATE_LOCALES: readonly string[] = ["de", "en"];
+
+// Generated settings screen where a tenant admin picks its mail provider.
+export const TENANT_MAIL_SENDING_SCREEN_ID = "mail-foundation-tenant";

@@ -14,6 +14,7 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { localeEs } from "@cosmicdrift/kumiko-locale-es";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { TENANT_ADMIN_EMAIL } from "./app/auth-constants";
@@ -24,6 +25,8 @@ import { vehiclesFeature } from "./features/vehicles";
 
 export const APP_FEATURES = [
   localeDe(),
+  // Spanish mail copy: subscribers whose mails go out in Spanish land on Spanish unsubscribe pages.
+  localeEs(),
   taskFeature,
   rentalFeature,
   vehiclesFeature,
@@ -43,11 +46,17 @@ export const APP_FEATURES = [
             imprint: { label: "Impressum", url: "https://nordlicht-immobilien.de/impressum" },
             privacy: { label: "Datenschutz", url: "https://nordlicht-immobilien.de/datenschutz" },
           }
-        : {
-            text: "Sent via the Nordlicht tenant portal",
-            imprint: { label: "Imprint", url: "https://nordlicht-immobilien.de/imprint" },
-            privacy: { label: "Privacy", url: "https://nordlicht-immobilien.de/privacy" },
-          },
+        : locale.startsWith("es")
+          ? {
+              text: "Enviado a través del portal de inquilinos Nordlicht",
+              imprint: { label: "Aviso legal", url: "https://nordlicht-immobilien.de/imprint" },
+              privacy: { label: "Privacidad", url: "https://nordlicht-immobilien.de/privacy" },
+            }
+          : {
+              text: "Sent via the Nordlicht tenant portal",
+              imprint: { label: "Imprint", url: "https://nordlicht-immobilien.de/imprint" },
+              privacy: { label: "Privacy", url: "https://nordlicht-immobilien.de/privacy" },
+            },
   }),
   // The PDF preview of the template editor prints through the puppeteer-service
   // (PUPPETEER_SERVICE_URL / PUPPETEER_AUTH_TOKEN); the e2e config starts one.

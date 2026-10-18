@@ -5,10 +5,16 @@ import {
   PlaceholderLineEditor,
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  useAppFeatures,
+  useNav,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";
-import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
+import { DEFAULT_LAYOUT_SLUG, TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.js";
 import type { EditorVocabulary } from "./mail-edit-center.js";
 import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.js";
 import type { OverviewRowView } from "./overview-row.js";
@@ -16,7 +22,52 @@ import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
 import type { InsertTargets } from "./use-insert-targets.js";
 import { usageParts } from "./used-by-label.js";
 
-type Usage = { readonly feature: string; readonly notification: string };
+type Usage = {
+  readonly feature: string;
+  readonly notification: string;
+  readonly tenantTransport?: boolean;
+};
+
+function useTemplateUsage(slug: string): readonly Usage[] {
+  const { data } = useQuery<{ readonly usedBy: readonly Usage[] }>(TemplateResolverQueries.usage, {
+    slug,
+    kind: "mail",
+  });
+  return data?.usedBy ?? [];
+}
+
+function useHasScreen(screenId: string): boolean {
+  const features = useAppFeatures();
+  return features.some((feature) => feature.screens.some((screen) => screen.id === screenId));
+}
+
+// A notification routed through the tenant transport sends from the tenant's own provider, so
+// the hint points there instead of to the platform.
+function SenderHint({ slug }: { readonly slug: string }): ReactNode {
+  const t = useTranslation();
+  const nav = useNav();
+  const { Link } = usePrimitives();
+  const tenantRouted = useTemplateUsage(slug).some((usage) => usage.tenantTransport === true);
+  const hasSettingsScreen = useHasScreen(TENANT_MAIL_SENDING_SCREEN_ID);
+  if (!tenantRouted) return <RailHint>{t("documentDesigner.mail.props.senderHint")}</RailHint>;
+  return (
+    <RailHint>
+      {t("documentDesigner.mail.props.senderHintTenant")}
+      {hasSettingsScreen && (
+        <>
+          {" "}
+          <Link
+            href={nav.hrefFor({ screenId: TENANT_MAIL_SENDING_SCREEN_ID })}
+            onPress={() => nav.navigate({ screenId: TENANT_MAIL_SENDING_SCREEN_ID })}
+            testId="mail-sender-settings-link"
+          >
+            {t("documentDesigner.mail.props.senderSettingsLink")}
+          </Link>
+        </>
+      )}
+    </RailHint>
+  );
+}
 
 export function layoutOptionLabel(
   t: (key: string, params?: Readonly<Record<string, unknown>>) => string,
@@ -55,13 +106,10 @@ function layoutOptions(
 
 function UsageRows({ slug }: { readonly slug: string }): ReactNode {
   const t = useTranslation();
-  const { data } = useQuery<{ readonly usedBy: readonly Usage[] }>(TemplateResolverQueries.usage, {
-    slug,
-    kind: "mail",
-  });
+  const usedBy = useTemplateUsage(slug);
   return (
     <>
-      {(data?.usedBy ?? []).map((usage) => {
+      {usedBy.map((usage) => {
         const parts = usageParts(t, usage);
         return (
           <RailRow
@@ -143,10 +191,12 @@ export function AttachmentSection({
 }
 
 export function PropertiesSection({
+  slug,
   draft,
   layouts,
   onChange,
 }: {
+  readonly slug: string;
   readonly draft: MailDraft;
   readonly layouts: readonly OverviewRowView[];
   readonly onChange: (patch: Partial<MailDraft>) => void;
@@ -183,7 +233,7 @@ export function PropertiesSection({
           />
         </Field>
       </RailField>
-      <RailHint>{t("documentDesigner.mail.props.senderHint")}</RailHint>
+      <SenderHint slug={slug} />
       <RailField>
         <Field id="mail-reply-to" label={t("documentDesigner.mail.props.replyTo")}>
           <Input

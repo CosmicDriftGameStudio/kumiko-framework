@@ -74,6 +74,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "data-retention:query:policy-for expose=true risk=low",
   "delivery:query:log expose=true risk=low",
   "delivery:query:preferences expose=true risk=low",
+  "delivery:query:unsubscribePageChrome expose=false risk=low",
   "delivery:write:resubscribeAddress expose=false risk=high",
   "delivery:write:resubscribeUser expose=false risk=mid",
   "delivery:write:setPreference expose=true risk=mid",

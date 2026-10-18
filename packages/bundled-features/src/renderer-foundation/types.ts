@@ -189,12 +189,32 @@ export type RendererContext = {
 // - Domain failures throw `RendererError`, not a bare Error.
 // - `ctx` is required; plugins without service deps ignore it. Function-arg
 //   variance still lets `(req) => ...` implementations satisfy the contract.
+export type MailChromeLink = { readonly label: string; readonly url: string };
+
+/** The tenant's mail look with every text resolved for one locale, for pages a
+ *  recipient reaches from a mail link. URLs are http(s) only, the logo https only,
+ *  the accent color a #rrggbb hex. */
+export type MailChrome = {
+  readonly tenantName: string;
+  readonly brandSuffix: string;
+  readonly logoUrl?: string;
+  readonly accentColor?: string;
+  readonly siteUrl?: string;
+  readonly footerText?: string;
+  readonly imprint?: MailChromeLink;
+  readonly privacy?: MailChromeLink;
+};
+
+export type MailChromeRequest = { readonly locale: string };
+
 export type RendererPlugin = {
   readonly name: string;
   readonly kinds: ReadonlyArray<RenderKind>;
   render(req: RenderRequest, ctx: RendererContext): Promise<RenderResponse>;
   /** Optional: plugins that print documents offer a preview that never reaches the print service. */
   previewDocument?(req: DocumentPreviewRequest, ctx: RendererContext): Promise<DocumentPreview>;
+  /** Optional: mail plugins hand out their brand row and footer for pages outside a mail. */
+  readMailChrome?(req: MailChromeRequest, ctx: RendererContext): Promise<MailChrome>;
 };
 
 export class RendererError extends Error {

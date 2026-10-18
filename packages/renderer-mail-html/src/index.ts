@@ -18,4 +18,5 @@ export {
   type MailHtmlRenderOptions,
   type MailSiteUrlResolver,
   mailHtmlRender,
+  readMailChrome,
 } from "./render.js";

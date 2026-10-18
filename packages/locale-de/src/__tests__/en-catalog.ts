@@ -1139,9 +1139,14 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail.unsubscribe.doneTitle": "Unsubscribed",
   "mail.unsubscribe.doneMessage": "You have been unsubscribed.",
   "mail.unsubscribe.undoButton": "Undo",
+  "mail.unsubscribe.undoHint": "Unsubscribed by mistake? You can undo it within the next hour.",
   "mail.unsubscribe.resubscribedTitle": "Subscribed again",
   "mail.unsubscribe.resubscribedMessage": "You have been subscribed again.",
   "mail.unsubscribe.failed": "That did not work. Please try again later.",
+  "mail.unsubscribe.failedTitle": "Something went wrong",
+  "mail.unsubscribe.invalidTitle": "Link no longer valid",
+  "mail.unsubscribe.invalidMessage":
+    "This link is invalid or has expired. Please use the unsubscribe link in a more recent email.",
   "templateResolver.errors.systemOnlyTemplate":
     "Only the platform maintains this template; it cannot be overridden per tenant.",
   "templateResolver.errors.template.targetExists":
@@ -1625,6 +1630,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.props.senderDefault": "Default sender of the tenant",
   "documentDesigner.mail.props.senderPlaceholder": "Name shown to recipients",
   "documentDesigner.mail.props.senderHint": "The address comes from the platform's mail delivery.",
+  "documentDesigner.mail.props.senderHintTenant":
+    "The address comes from your organization's email sending settings.",
+  "documentDesigner.mail.props.senderSettingsLink": "Open email sending",
   "documentDesigner.mail.props.replyTo": "Reply to",
   "documentDesigner.mail.props.category": "Category",
   "documentDesigner.mail.props.transactional": "Transactional",

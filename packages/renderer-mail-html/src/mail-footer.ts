@@ -27,7 +27,7 @@ function linkHtml(link: LabeledLink, color = "#888"): string | null {
   return `<a href="${escapeHtmlAttr(url)}" style="color:${escapeHtmlAttr(color)}">${escapeHtml(link.label)}</a>`;
 }
 
-function webHost(url: string): string | null {
+export function webHost(url: string): string | null {
   try {
     const parsed = new URL(url);
     return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.host : null;
@@ -59,6 +59,16 @@ export function buildMailBandLinksHtml(input: {
         ),
   ];
   return links.filter((link) => link !== null).join(" · ");
+}
+
+export function resolvedFooterLink(
+  link: MailFooterLink | undefined,
+  fallbackLabel: string,
+): LabeledLink | undefined {
+  if (link === undefined) return undefined;
+  const url = link.url.trim();
+  const label = (link.label ?? fallbackLabel).trim();
+  return SAFE_FOOTER_URL.test(url) && label !== "" ? { label, url } : undefined;
 }
 
 export function safeFooterUrl(link: MailFooterLink | undefined): string {

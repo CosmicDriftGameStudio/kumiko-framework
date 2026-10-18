@@ -1172,9 +1172,15 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail.unsubscribe.doneTitle": "Abgemeldet",
   "mail.unsubscribe.doneMessage": "Diese E-Mails kommen nicht mehr.",
   "mail.unsubscribe.undoButton": "Rückgängig",
+  "mail.unsubscribe.undoHint":
+    "Aus Versehen abgemeldet? Das lässt sich innerhalb der nächsten Stunde rückgängig machen.",
   "mail.unsubscribe.resubscribedTitle": "Wieder angemeldet",
   "mail.unsubscribe.resubscribedMessage": "Diese E-Mails kommen wieder.",
   "mail.unsubscribe.failed": "Das hat nicht geklappt. Bitte später noch einmal versuchen.",
+  "mail.unsubscribe.failedTitle": "Etwas ist schiefgelaufen",
+  "mail.unsubscribe.invalidTitle": "Link nicht mehr gültig",
+  "mail.unsubscribe.invalidMessage":
+    "Dieser Link ist ungültig oder abgelaufen. Bitte den Abmeldelink aus einer neueren E-Mail verwenden.",
   "templateResolver.errors.systemOnlyTemplate":
     "Diese Vorlage pflegt nur die Plattform; sie lässt sich nicht pro Mandant überschreiben.",
   "templateResolver.errors.template.targetExists":
@@ -1474,7 +1480,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.origin.system": "System-Vorlage",
   "documentDesigner.origin.override": "Mandanten-Anpassung",
   "documentDesigner.origin.draftBesideActive":
-    "Verschickt wird Version {active}, Ihr Entwurf (Version {draft}) ist noch nicht veröffentlicht.",
+    "Verschickt wird Version {active}, dein Entwurf (Version {draft}) ist noch nicht veröffentlicht.",
   "documentDesigner.status.active": "Aktiv",
   "documentDesigner.status.draft": "Entwurf",
   "documentDesigner.status.archived": "Archiviert",
@@ -1595,13 +1601,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.language.en": "Englisch",
   "documentDesigner.mail.language.es": "Spanisch",
   "documentDesigner.mail.origin.overrides": "Überschreibt die System-Vorlage v{version}.",
-  "documentDesigner.mail.origin.tenantOnly": "Diese Vorlage gibt es nur für Ihren Mandanten.",
+  "documentDesigner.mail.origin.tenantOnly": "Diese Vorlage gibt es nur für deinen Mandanten.",
   "documentDesigner.mail.origin.activeSince": "Aktiv seit {when}.",
   "documentDesigner.mail.origin.notPublished": "Noch nicht veröffentlicht.",
   "documentDesigner.mail.origin.archived": "Archiviert.",
   "documentDesigner.mail.origin.reset": "Zurücksetzen",
   "documentDesigner.mail.origin.system":
-    "Sie sehen die System-Vorlage v{version}. Speichern legt eine Anpassung für Ihren Mandanten an.",
+    "Du siehst die System-Vorlage v{version}. Speichern legt eine Anpassung für deinen Mandanten an.",
   "documentDesigner.mail.origin.platform":
     "System-Vorlage v{version}. Speichern ändert sie für alle Mandanten ohne eigene Anpassung.",
   "documentDesigner.mail.origin.missing": "Für {language} gibt es noch keine Fassung.",
@@ -1613,13 +1619,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.languageAdjective.en": "englische",
   "documentDesigner.mail.languageAdjective.es": "spanische",
   "documentDesigner.mail.origin.copyNote":
-    "Beim Kopieren einer System-Fassung kommen Bilder und Anhänge nicht mit; laden Sie sie danach neu hoch.",
+    "Beim Kopieren einer System-Fassung kommen Bilder und Anhänge nicht mit; lade sie danach neu hoch.",
   "documentDesigner.mail.origin.createBlank": "Leer anlegen",
   "documentDesigner.mail.origin.creating":
-    "Neue Fassung für {language}. Sie wird erst mit Speichern angelegt.",
+    "Neue Fassung für {language}. Die Fassung wird erst mit Speichern angelegt.",
   "documentDesigner.mail.reset.title": "Auf System-Vorlage zurücksetzen?",
   "documentDesigner.mail.reset.description":
-    "Ihre Anpassung dieser Vorlage wird in allen Sprachen entfernt. Danach gilt wieder die System-Vorlage.",
+    "Deine Anpassung dieser Vorlage wird in allen Sprachen entfernt. Danach gilt wieder die System-Vorlage.",
   "documentDesigner.mail.reset.confirm": "Zurücksetzen",
   "documentDesigner.mail.placeholder.title": "Platzhalter",
   "documentDesigner.mail.placeholder.missing": "fehlt",
@@ -1665,6 +1671,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.props.senderDefault": "Standard-Absender des Mandanten",
   "documentDesigner.mail.props.senderPlaceholder": "Name, den Empfänger sehen",
   "documentDesigner.mail.props.senderHint": "Die Adresse kommt vom Mail-Versand der Plattform.",
+  "documentDesigner.mail.props.senderHintTenant":
+    "Die Adresse kommt aus dem E-Mail-Versand deines Mandanten.",
+  "documentDesigner.mail.props.senderSettingsLink": "E-Mail-Versand öffnen",
   "documentDesigner.mail.props.replyTo": "Antwort an",
   "documentDesigner.mail.props.category": "Kategorie",
   "documentDesigner.mail.props.transactional": "Transaktional",
@@ -1716,11 +1725,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.footer.ok": "Bereit zum Veröffentlichen.",
   "documentDesigner.mail.footer.savedAt": "Zuletzt gespeichert {when}",
   "documentDesigner.mail.discard.title": "Änderungen verwerfen?",
-  "documentDesigner.mail.discard.description": "Ihre ungespeicherten Änderungen gehen verloren.",
+  "documentDesigner.mail.discard.description": "Deine ungespeicherten Änderungen gehen verloren.",
   "documentDesigner.mail.discard.confirm": "Verwerfen",
   "documentDesigner.mail.leave.title": "Ungespeicherte Änderungen",
   "documentDesigner.mail.leave.description":
-    "Speichern Sie Ihre Änderungen als Entwurf, verwerfen Sie sie oder bleiben Sie auf dieser Seite.",
+    "Speichere deine Änderungen als Entwurf, verwirf sie oder bleib auf dieser Seite.",
   "documentDesigner.mail.leave.save": "Als Entwurf speichern",
   "documentDesigner.mail.leave.discard": "Verwerfen",
   "documentDesigner.mail.preview.bar":
@@ -1748,15 +1757,15 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Das hat der Server beim Rendern dieser Mail gefunden.",
   "documentDesigner.mail.testMail.title": "Test-Mail",
   "documentDesigner.mail.testMail.recipient": "Empfänger",
-  "documentDesigner.mail.testMail.ownAddress": "Ihre Adresse",
+  "documentDesigner.mail.testMail.ownAddress": "Deine Adresse",
   "documentDesigner.mail.testMail.changeAddress": "Adresse ändern",
   "documentDesigner.mail.testMail.prefixSubject": "Betreff mit Präfix [TEST]",
   "documentDesigner.mail.testMail.attachments": "Anhang mitsenden",
   "documentDesigner.mail.testMail.noAttachments": "Diese Vorlage hat keine Anhänge",
   "documentDesigner.mail.testMail.send": "Test-Mail senden",
   "documentDesigner.mail.testMail.hint":
-    "Versand über den normalen Zustellweg des Mandanten an Ihre eigene Adresse.",
-  "documentDesigner.mail.testMail.sent": "Test-Mail an Ihre Adresse gesendet: {subject}",
+    "Versand über den normalen Zustellweg des Mandanten an deine eigene Adresse.",
+  "documentDesigner.mail.testMail.sent": "Test-Mail an deine Adresse gesendet: {subject}",
   "documentDesigner.mail.testMail.rateLimited":
     "Zu viele Test-Mails, bitte später erneut versuchen.",
   "screen:mail-foundation-tenant.title": "E-Mail-Versand",

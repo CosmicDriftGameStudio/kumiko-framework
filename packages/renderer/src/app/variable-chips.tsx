@@ -11,29 +11,41 @@ export type VariableChipsProps = {
   readonly variables: readonly string[];
   readonly onInsert: (name: string) => void;
   readonly disabled?: boolean;
+  /** Display text per variable name; a named chip keeps the raw name as tooltip. */
+  readonly labels?: Readonly<Record<string, string>>;
 };
 
 // No wrapping element: @cosmicdrift/kumiko-renderer is DOM-free (native impls
 // have no <div>), and layout is a platform concern anyway — the caller
 // (PlainContentEditor et al.) places these buttons in its own container.
-export function VariableChips({ variables, onInsert, disabled }: VariableChipsProps): ReactNode {
+export function VariableChips({
+  variables,
+  onInsert,
+  disabled,
+  labels,
+}: VariableChipsProps): ReactNode {
   const { Button } = usePrimitives();
   const t = useTranslation();
   return (
     <Fragment>
-      {variables.map((name) => (
-        <Button
-          key={name}
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          onClick={() => onInsert(name)}
-          ariaLabel={t("kumiko.contentEditor.insertVariable", { name })}
-        >
-          {`{{${name}}}`}
-        </Button>
-      ))}
+      {variables.map((name) => {
+        const label =
+          labels !== undefined && Object.hasOwn(labels, name) ? labels[name] : undefined;
+        return (
+          <Button
+            key={name}
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={disabled}
+            onClick={() => onInsert(name)}
+            ariaLabel={t("kumiko.contentEditor.insertVariable", { name: label ?? name })}
+            {...(label !== undefined && { title: name })}
+          >
+            {label ?? `{{${name}}}`}
+          </Button>
+        );
+      })}
     </Fragment>
   );
 }

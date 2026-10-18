@@ -13,6 +13,8 @@ export type TemplateUsageEntry = {
   readonly notification: string;
   readonly trigger: string | null;
   readonly role: UsageRole;
+  /** The mail goes through the tenant's own transport when it has a provider. */
+  readonly tenantTransport: boolean;
 };
 
 /** Layout slug of the effective stored mail template, by notification qualified
@@ -60,6 +62,7 @@ export function collectTemplateUsage(
         notification: parsed.name,
         trigger: notification.trigger?.on ?? null,
         role,
+        tenantTransport: notification.tenantTransport === true,
       });
     }
   }

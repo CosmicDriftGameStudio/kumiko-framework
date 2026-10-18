@@ -9,6 +9,7 @@ import {
 } from "./mail-draft.js";
 import type { LinkedResourceView, MailValidation } from "./mail-types.js";
 import { RailHint, RailRow, RailSection } from "./rail.js";
+import { variableLabelText } from "./used-by-label.js";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
@@ -53,7 +54,8 @@ export function PlaceholderSection({
               key={name}
               testId={`${idPrefix}-placeholder-${name}`}
               symbol={PLACEHOLDER_SYMBOL[variable.type]}
-              label={variable.label ?? name}
+              label={variableLabelText(t, name, variable.label)}
+              nameHint={name}
               required={variable.required === true}
               bad={validation.missingRequired.includes(name)}
               trailing={status.text}

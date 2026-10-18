@@ -13,6 +13,26 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Ihr eigenes Layout wird entfernt, danach gilt wieder das System-Layout.",
   "documentDesigner.editor.dirtySwitch.description":
     "Beim Wechsel der Layout-Art gehen Ihre ungespeicherten Änderungen verloren.",
+  "documentDesigner.origin.draftBesideActive":
+    "Verschickt wird Version {active}, Ihr Entwurf (Version {draft}) ist noch nicht veröffentlicht.",
+  "documentDesigner.mail.origin.tenantOnly": "Diese Vorlage gibt es nur für Ihren Mandanten.",
+  "documentDesigner.mail.origin.system":
+    "Sie sehen die System-Vorlage v{version}. Speichern legt eine Anpassung für Ihren Mandanten an.",
+  "documentDesigner.mail.props.senderHintTenant":
+    "Die Adresse kommt aus dem E-Mail-Versand Ihres Mandanten.",
+  "documentDesigner.mail.origin.copyNote":
+    "Beim Kopieren einer System-Fassung kommen Bilder und Anhänge nicht mit; laden Sie sie danach neu hoch.",
+  "documentDesigner.mail.origin.creating":
+    "Neue Fassung für {language}. Sie wird erst mit Speichern angelegt.",
+  "documentDesigner.mail.reset.description":
+    "Ihre Anpassung dieser Vorlage wird in allen Sprachen entfernt. Danach gilt wieder die System-Vorlage.",
+  "documentDesigner.mail.discard.description": "Ihre ungespeicherten Änderungen gehen verloren.",
+  "documentDesigner.mail.leave.description":
+    "Speichern Sie Ihre Änderungen als Entwurf, verwerfen Sie sie oder bleiben Sie auf dieser Seite.",
+  "documentDesigner.mail.testMail.ownAddress": "Ihre Adresse",
+  "documentDesigner.mail.testMail.hint":
+    "Versand über den normalen Zustellweg des Mandanten an Ihre eigene Adresse.",
+  "documentDesigner.mail.testMail.sent": "Test-Mail an Ihre Adresse gesendet: {subject}",
   "auth.errors.accountRestricted":
     "Konto nach Art. 18 DSGVO eingeschränkt. Heben Sie die Einschränkung auf, um sich wieder anzumelden.",
   "auth.errors.invalidResetToken":

@@ -308,6 +308,7 @@ describe("template-resolver :: usage", () => {
       notification: string;
       trigger: string;
       role: string;
+      tenantTransport: boolean;
     }>;
   };
 
@@ -324,6 +325,7 @@ describe("template-resolver :: usage", () => {
         notification: "hello",
         trigger: "lifecycle-mailer:write:create",
         role: "template",
+        tenantTransport: false,
       },
     ]);
   });

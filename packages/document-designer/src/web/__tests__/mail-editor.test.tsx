@@ -2,8 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
+  AppFeaturesProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
+  type FeatureSchema,
   kumikoDefaultTranslations,
   LocaleProvider,
   mergeTranslations,
@@ -15,6 +17,7 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { TENANT_MAIL_SENDING_SCREEN_ID } from "../../constants.js";
 import { documentDesignerClient } from "../client-plugin.js";
 import { createMailEditor } from "../mail-editor.js";
 import { PreviewRecordPickerProvider } from "../preview-record-picker.js";
@@ -172,6 +175,29 @@ function fakeDispatcher(
     pendingFiles: () => [],
   };
 }
+
+function withTenantTransportUsage(base: Dispatcher): Dispatcher {
+  return {
+    ...base,
+    query: (async (type: string, payload: unknown) =>
+      type === "template-resolver:query:usage"
+        ? {
+            isSuccess: true,
+            data: {
+              usedBy: [
+                { feature: "billing", notification: "invoice-issued", tenantTransport: true },
+              ],
+            },
+          }
+        : base.query(type as never, payload as never)) as unknown as Dispatcher["query"],
+  };
+}
+
+// Only the screen list matters to the sender hint's link check.
+const MAIL_SENDING_FEATURE = {
+  name: "mail-foundation",
+  screens: [{ id: TENANT_MAIL_SENDING_SCREEN_ID }],
+} as unknown as FeatureSchema;
 
 const nav: NavApi = {
   route: undefined,
@@ -512,6 +538,42 @@ describe("MailEditor", () => {
     await openPreview();
     expect(await screen.findByTestId("mail-test-no-attachments")).toBeTruthy();
     expect(document.getElementById("mail-test-attachments")).toBeNull();
+  });
+
+  test("the sender hint names the platform for a platform-sent mail and the tenant's email sending, with a link, for a tenant-routed one", async () => {
+    renderEditor(fakeDispatcher("draft", []));
+    expect(
+      await screen.findByText("The address comes from the platform's mail delivery."),
+    ).toBeTruthy();
+    cleanup();
+
+    const navigated: unknown[] = [];
+    const recordingNav: NavApi = { ...nav, navigate: (target) => navigated.push(target) };
+    renderEditor(
+      withTenantTransportUsage(fakeDispatcher("draft", [])),
+      (children) => (
+        <AppFeaturesProvider features={[MAIL_SENDING_FEATURE]}>{children}</AppFeaturesProvider>
+      ),
+      recordingNav,
+    );
+    expect(
+      await screen.findByText(
+        /The address comes from your organization's email sending settings\./,
+      ),
+    ).toBeTruthy();
+    const link = await screen.findByTestId("mail-sender-settings-link");
+    expect(link.textContent).toBe("Open email sending");
+    fireEvent.click(link);
+    expect(navigated).toEqual([{ screenId: TENANT_MAIL_SENDING_SCREEN_ID }]);
+    cleanup();
+
+    renderEditor(withTenantTransportUsage(fakeDispatcher("draft", [])));
+    expect(
+      await screen.findByText(
+        /The address comes from your organization's email sending settings\./,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("mail-sender-settings-link")).toBeNull();
   });
 
   test("the record picker link only shows with a provider", async () => {

@@ -10,6 +10,7 @@ import {
   defineWriteHandler,
   type NotifyFn,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
@@ -61,7 +62,11 @@ const probeFeature = defineFeature("confirmed-probe", (r) => {
   );
 });
 
-type AttemptRow = { readonly status: string; readonly confirmed: boolean | null };
+type AttemptRow = {
+  readonly id: string;
+  readonly status: string;
+  readonly confirmed: boolean | null;
+};
 type LogRow = { readonly type: string; readonly confirmed: boolean | null };
 
 let stub: ProviderStub;
@@ -140,13 +145,17 @@ afterAll(async () => {
 describe("confirmed on the attempt row", () => {
   test("job path: a 202 ends sent + confirmed=false, delivery:query:log exposes it", async () => {
     await ping("app:notify:job-202", "accepted");
-    expect((await attemptFor("app:notify:job-202"))?.status).toBe("queued");
-
     await stack.drainJobs();
 
     const row = await attemptFor("app:notify:job-202");
     expect(row?.status).toBe("sent");
     expect(row?.confirmed).toBe(false);
+    // The live worker lane may finish the job before a "queued" row could be
+    // observed, so the job path is proven by the attempt's event stream.
+    const events = await selectMany(stack.db, eventsTable, { aggregateId: row?.id ?? "" });
+    expect(
+      events.toSorted((a, b) => a.version - b.version).map((e) => e.payload["status"]),
+    ).toEqual(["queued", "sent"]);
     const log = await stack.http.queryOk<{ rows: readonly LogRow[] }>(
       DeliveryQueries.log,
       { limit: 50 },
