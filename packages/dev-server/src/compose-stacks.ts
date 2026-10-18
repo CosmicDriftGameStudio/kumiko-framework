@@ -205,7 +205,9 @@ export function composeFileStack(options: FileStackOptions = {}): FeatureDefinit
 }
 
 /** Retention + compliance (+ optional lifecycle/sessions/self-service). Needs an
- *  explicit KMS decision (`kmsMode`, or the low-level `kms` / `allowPlaintextPii`). */
+ *  explicit KMS decision (`kmsMode`, or the low-level `kms` / `allowPlaintextPii`).
+ *  `selfService` mounts user-profile, which requires user-data-rights-defaults and
+ *  auth-email-password: composeUserDataRightsStack mounts the defaults, the login comes from the `auth` option. */
 export function composeGdprStack(options: GdprStackOptions = {}): FeatureDefinition[] {
   const order = options.order ?? "retention-first";
   const retention = withBootRequires(createDataRetentionFeature(), "composeGdprStack", ["kmsMode"]);
@@ -311,7 +313,9 @@ export type SaasStackOptions<
 
 /** billing-foundation + tier-engine (+ caps, waitlist). `"stripe"` leaves
  *  subscription-stripe and its webhook route to runProdApp's `billing` option;
- *  `"mollie"` mounts subscription-mollie, whose webhook route the app adds. */
+ *  `"mollie"` mounts subscription-mollie, whose webhook route the app adds.
+ *  billing-foundation requires tenant-lifecycle and compliance-profiles, which
+ *  composeGdprStack({ tenantLifecycle: true }) mounts. */
 export function composeSaasStack<TCaps extends Readonly<Record<string, unknown>>>(
   options: SaasStackOptions<TCaps>,
 ): FeatureDefinition[] {

@@ -6,6 +6,11 @@ import {
   createChannelEmailFeature,
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
@@ -52,21 +57,6 @@ async function bootValidate(
     ...overrides,
   });
   await handle.stop();
-}
-
-// Later boot checks may still reject a lone stack (missing peers); only the
-// stack requirement message is under test here.
-async function stackRequirementError(
-  features: readonly FeatureDefinition[],
-  overrides: BootOptionOverrides = {},
-): Promise<string | undefined> {
-  try {
-    await bootValidate(features, overrides);
-    return undefined;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return message.includes("needs the boot option") ? message : undefined;
-  }
 }
 
 describe("stack boot requirements", () => {
@@ -126,36 +116,60 @@ describe("stack boot requirements", () => {
     ).rejects.toThrow("composeGdprStack needs the boot option `mail`");
   });
 
+  const reportedBootValidationOk = (): boolean =>
+    logSpy.mock.calls.some((call: unknown[]) => String(call[0]).includes("boot validation OK"));
+
+  // user and tenant carry PII, so the PII boot gate needs a KMS decision.
+  const PII_KMS: BootOptionOverrides = {
+    kms: new InMemoryKmsAdapter(),
+    blindIndexKey: Buffer.alloc(32, 7).toString("base64"),
+  };
+
+  // A lone stack still needs its peers to pass the boot validator.
+  const corePeers = (): readonly FeatureDefinition[] => [
+    createConfigFeature(),
+    createUserFeature(),
+    createTenantFeature(),
+  ];
+
   const stacksWithoutRequirements: ReadonlyArray<{
     readonly stack: string;
     readonly features: () => readonly FeatureDefinition[];
   }> = [
-    { stack: "composeRendererStack", features: () => composeRendererStack() },
-    { stack: "composePagesStack", features: () => composePagesStack() },
-    { stack: "composeOpsStack", features: () => composeOpsStack() },
-    { stack: "composeIdentityStack", features: () => composeIdentityStack() },
-    { stack: "composeAuthStack", features: () => composeAuthStack() },
+    { stack: "composeRendererStack", features: () => [...corePeers(), ...composeRendererStack()] },
+    {
+      stack: "composePagesStack",
+      features: () => [...corePeers(), createTemplateResolverFeature(), ...composePagesStack()],
+    },
+    { stack: "composeOpsStack", features: () => [...corePeers(), ...composeOpsStack()] },
+    { stack: "composeIdentityStack", features: () => [...corePeers(), ...composeIdentityStack()] },
+    { stack: "composeAuthStack", features: () => [...corePeers(), ...composeAuthStack()] },
   ];
 
   for (const { stack, features } of stacksWithoutRequirements) {
     test(`${stack} needs no boot option`, async () => {
-      expect(await stackRequirementError(features())).toBeUndefined();
+      await expect(bootValidate(features(), PII_KMS)).resolves.toBeUndefined();
+      expect(reportedBootValidationOk()).toBe(true);
     });
   }
 
   test("the low-level paths satisfy the requirements", async () => {
-    const error = await stackRequirementError(
-      [
-        ...composeMailStack({ transports: ["inmemory"] }),
-        createChannelEmailFeature({
-          transport: createInMemoryTransport(),
-          resolveEmail: async () => "unused@test.local",
-        }),
-        ...composeFileStack({ providers: ["inmemory"] }),
-        ...composeGdprStack(),
-      ],
-      { kms: new InMemoryKmsAdapter() },
-    );
-    expect(error).toBeUndefined();
+    await expect(
+      bootValidate(
+        [
+          ...corePeers(),
+          createDeliveryFeature(),
+          ...composeMailStack({ transports: ["inmemory"] }),
+          createChannelEmailFeature({
+            transport: createInMemoryTransport(),
+            resolveEmail: async () => "unused@test.local",
+          }),
+          ...composeFileStack({ providers: ["inmemory"] }),
+          ...composeGdprStack(),
+        ],
+        PII_KMS,
+      ),
+    ).resolves.toBeUndefined();
+    expect(reportedBootValidationOk()).toBe(true);
   });
 });
