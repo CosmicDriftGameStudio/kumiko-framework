@@ -53,6 +53,10 @@ echo
 echo "→ AST guards (bun packages/guards/src/run-guards.ts — CI entry runGuardsCli)"
 bun packages/guards/src/run-guards.ts || fail=1
 
+# CI's `kumiko check` runs this baseline check next to the AST guards; it is not part of run-guards.ts.
+echo "→ Runtime isolation (bun packages/guards/src/check-runtime-isolation.ts)"
+bun packages/guards/src/check-runtime-isolation.ts || fail=1
+
 echo
 echo "→ integration mock guard (bun integration.guard.ts)"
 bun integration.guard.ts || fail=1
