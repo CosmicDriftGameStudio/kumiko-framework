@@ -24,7 +24,12 @@ export type HostClass =
 export function classifyHost(host: string, options: HostRoutingOptions): HostClass {
   const hostname = normalizeHostname(host);
   if (hostname === null) return { kind: "unknown" };
-  const fixed = options.hosts?.[hostname];
+  // Own-property check: the Host header is attacker-controlled, and a plain
+  // "constructor" would otherwise resolve through Object.prototype.
+  const fixed =
+    options.hosts !== undefined && Object.hasOwn(options.hosts, hostname)
+      ? options.hosts[hostname]
+      : undefined;
   if (fixed !== undefined) return { kind: "fixed", surface: fixed };
   const baseDomain = options.baseDomain.toLowerCase();
   if (hostname === baseDomain || hostname === `www.${baseDomain}`) return { kind: "apex" };

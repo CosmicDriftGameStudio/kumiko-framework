@@ -76,6 +76,13 @@ describe("createHostDispatch — tenant per host", () => {
     expect(lookup.calls).toEqual([]);
   });
 
+  test("a Host header naming an Object.prototype member is an unknown host", async () => {
+    const lookup = keyLookup();
+    expect(await dispatch(request("constructor"), lookup)).toEqual({ kind: "not-found" });
+    expect(await dispatch(request("hasownproperty"), lookup)).toEqual({ kind: "not-found" });
+    expect(lookup.calls).toEqual([]);
+  });
+
   test("apex and www serve the apex file without a CSP override", async () => {
     const lookup = keyLookup();
     expect(await dispatch(request("example.test"), lookup)).toEqual({
