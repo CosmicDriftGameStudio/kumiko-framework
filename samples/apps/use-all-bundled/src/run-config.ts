@@ -45,10 +45,6 @@ import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-featu
 import { createDocumentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
 import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
-import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
-import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
@@ -61,9 +57,6 @@ import { createInboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundle
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { createLedgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
-import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import { createMailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { createMailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   createMetricsFeature,
@@ -73,7 +66,6 @@ import {
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createNotesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
@@ -94,6 +86,11 @@ import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import { createWorkflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
+import {
+  composeFileStack,
+  composeMailStack,
+  composeSecurityStack,
+} from "@cosmicdrift/kumiko-dev-server/compose-stacks";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
@@ -126,8 +123,7 @@ export const APP_FEATURES = [
   localeDe(),
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
-  // security baseline: sessions + crypto-shredding + rate-limiting + audit
-  ...securityBaselineFeatures(),
+  ...composeSecurityStack(),
   // auth-mfa: composeFeatures auto-threads mfaStatusCheckerFromFeature into
   // the auto-mounted auth-email-password login handler when this feature is
   // present in appFeatures (see dev-server/src/compose-features.ts) — no
@@ -182,22 +178,14 @@ export const APP_FEATURES = [
   createChannelTeamsFeature(),
   createChannelTelegramFeature(),
 
-  // mail (foundation before transport)
-  createMailFoundationFeature(),
-  createMailTransportInMemoryFeature(),
-  createMailTransportSmtpFeature(),
+  ...composeMailStack({ transports: ["inmemory", "smtp"] }),
 
   // inbound mail (foundation before providers)
   createInboundMailFoundationFeature(),
   createInboundProviderInMemoryFeature(),
   createInboundProviderImapFeature(),
 
-  // files (foundation before provider)
-  createFileFoundationFeature(),
-  createFileProviderInMemoryFeature(),
-  createFileProviderS3Feature(),
-  createFileProviderS3Feature({ fromEnv: true }),
-  createFilesFeature(),
+  ...composeFileStack({ providers: ["inmemory", "s3", "s3-env"] }),
   // resolveApexTenant is what registers the `public-variant` query and the
   // anonymous /media route — the option-less export leaves both out and hides
   // them from `kumiko agent lint` (#2643). No entityType in this sample

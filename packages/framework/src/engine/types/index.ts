@@ -96,6 +96,7 @@ export type {
 export type {
   BootCheckContext,
   BootCheckFn,
+  BootOptionName,
   EntityObjectDefinition,
   FeatureDefinition,
   FeatureMetricDef,
@@ -110,6 +111,7 @@ export type {
   SecretNamespaceHandle,
   SecretNamespaceOptions,
   SecretOptions,
+  StackBootRequirement,
   StoreTableDef,
   StoreTableEntry,
   StoreTableOptions,

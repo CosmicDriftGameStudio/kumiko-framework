@@ -2,13 +2,13 @@
 
 # security-baseline
 
-securityBaselineFeatures() preset: sessions, crypto-shredding, rate-limiting, audit — plus the NODE_ENV=production boot warning when one is missing.
+composeSecurityStack(): sessions, crypto-shredding, rate-limiting, audit — plus the NODE_ENV=production boot warning when one is missing.
 
 ## README
 
 # Security baseline
 
-Mount `securityBaselineFeatures()` instead of hand-picking the four features
+Mount `composeSecurityStack()` instead of hand-picking the four features
 every prod app needs for basic account/security hygiene: `sessions`
 (revocable JWTs), `crypto-shredding` (operator-triggered subject-key erase),
 `rate-limiting` (ops-side bucket-status query, dispatcher wiring is
@@ -17,16 +17,19 @@ used to be silent; now the boot validator warns at `NODE_ENV=production`.
 
 ## What it shows
 
-- **`securityBaselineFeatures()`** (`@cosmicdrift/kumiko-bundled-features/presets`) —
-  returns the four features in one call, fresh instances per call.
+- **`composeSecurityStack()`** (`@cosmicdrift/kumiko-dev-server/compose-stacks`) —
+  returns the four features in one call, fresh instances per call. It replaces
+  the deprecated `securityBaselineFeatures()` preset. `runProdApp` refuses to
+  boot it without a KMS decision (`kmsMode`) or with `rateLimit: false`; see
+  [`compose-stacks`](../compose-stacks/).
 - **`warnOnMissingSecurityBaseline`** — wired into `validateBoot` (fw#2857).
   At `NODE_ENV=production`, boot compares mounted feature names against
   `SECURITY_BASELINE_FEATURE_NAMES` and logs a `console.warn` naming whatever
   is missing. It never throws — the baseline is a strong recommendation, not
   a hard requirement — and it is silent outside production.
 - **`includeSessions: false`** — an optional opt-out for dropping `sessions`
-  from the preset explicitly. Not required for combining with
-  `dsgvoSelfServiceFeatures()` any more: both mount `createSessionsFeature()`
+  from the stack explicitly. Not required for combining with
+  `composeGdprStack({ selfService })`: both mount `createSessionsFeature()`
   with no-arg options, and the framework's `dedupeFeatures()` collapses the
   two identical instances at boot instead of throwing.
 
@@ -45,22 +48,22 @@ audit             → tenant-scoped audit trail
 
 ## When to reach for it
 
-Any app that also mounts `dsgvoSelfServiceFeatures()` — that preset already
+Any app that also mounts `composeGdprStack({ selfService })`, which already
 mounts `sessions` as part of its own require-chain. Combine both directly;
 `dedupeFeatures()` collapses the two identical `sessions` instances at boot:
 
 ```ts illustration
-import { dsgvoSelfServiceFeatures, securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
+import { composeGdprStack, composeSecurityStack } from "@cosmicdrift/kumiko-dev-server/compose-stacks";
 
 export const APP_FEATURES = [
   // ...config, user, tenant, auth-foundation...
-  ...dsgvoSelfServiceFeatures(),
-  ...securityBaselineFeatures(),
+  ...composeGdprStack({ selfService: {} }),
+  ...composeSecurityStack(),
 ];
 ```
 
-For an app that does not mount `dsgvoSelfServiceFeatures()`, use
-`securityBaselineFeatures()` with its default options, as this recipe does.
+For an app without the self-service stack, use `composeSecurityStack()` with
+its default options, as this recipe does.
 
 Dedupe keeps the first mounted instance. Late-bound state such as
 `bindAutoRevokeOnPasswordChange` must be bound on the instance returned by
@@ -69,14 +72,14 @@ the dropped instance's hooks never run and password changes silently stop
 revoking sessions.
 
 A `createSessionsFeature({ ... })` mounted with different options than the
-preset's own no-arg instance still produces a clear boot error — dedupe only
+stack's own no-arg instance still produces a clear boot error — dedupe only
 collapses provably interchangeable instances, never silently picks one:
 
 ```ts illustration
 export const APP_FEATURES = [
   // ...
   createSessionsFeature({ expiresInMs: 1000 }),
-  ...securityBaselineFeatures(),
+  ...composeSecurityStack(),
   // throws: Duplicate feature: "sessions" mounted twice with different
   // options — mount it once or pass identical options
 ];
@@ -166,15 +169,15 @@ describe("security-baseline sample", () => {
 
 ```ts
 // Security-Baseline Sample
-// Shows: mounting securityBaselineFeatures() (sessions, crypto-shredding,
+// Shows: mounting composeSecurityStack() (sessions, crypto-shredding,
 // rate-limiting, audit) and how it silences the NODE_ENV=production boot
 // warning that fires when one of those four is missing.
 
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
-import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
+import { composeSecurityStack } from "@cosmicdrift/kumiko-dev-server/compose-stacks";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export const APP_FEATURES: FeatureDefinition[] = [
@@ -182,6 +185,6 @@ export const APP_FEATURES: FeatureDefinition[] = [
   createUserFeature(),
   createTenantFeature(),
   createAuthFoundationFeature(),
-  ...securityBaselineFeatures(),
+  ...composeSecurityStack(),
 ];
 ```
