@@ -122,7 +122,7 @@ export async function resolveBootOptionWiring(
       mounted,
       "billing.stripe",
       [BILLING_FOUNDATION_FEATURE, TIER_ENGINE_FEATURE],
-      "composeSaasStack mounts the billing set.",
+      "Mount createBillingFoundationFeature() and createTierEngineFeature().",
     );
     rejectDoubleMount(mounted, "billing.stripe", SUBSCRIPTION_STRIPE_FEATURE);
     const billing = resolveBillingOption(options.billing, envSource);

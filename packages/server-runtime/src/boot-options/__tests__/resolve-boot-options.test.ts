@@ -148,7 +148,7 @@ describe("billing option", () => {
 });
 
 describe("resolveBootOptionWiring feature checks", () => {
-  test("billing without tier-engine points at composeSaasStack", async () => {
+  test("billing without tier-engine names the missing billing features", async () => {
     await expect(
       resolveBootOptionWiring(
         {
@@ -157,7 +157,7 @@ describe("resolveBootOptionWiring feature checks", () => {
         },
         {},
       ),
-    ).rejects.toThrow(/tier-engine.*composeSaasStack/);
+    ).rejects.toThrow(/tier-engine.*createTierEngineFeature/);
   });
 
   test("mail without delivery is refused", async () => {

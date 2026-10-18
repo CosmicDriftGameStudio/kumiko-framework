@@ -27,8 +27,8 @@ the boot with a clear message when the env is incomplete.
   replaces hand-written tenant and admin seeds; needs the auth features (not
   mounted here).
 - **`billing`**: `{ stripe: { priceToTier }, defaultTier }` mounts the Stripe
-  bridge and the tier-sync webhook route; needs the billing set from
-  `composeSaasStack`.
+  bridge and the tier-sync webhook route; needs `billing-foundation` and
+  `tier-engine`.
 
 ## Flow
 

@@ -87,10 +87,10 @@ describe("runProdApp boot options", () => {
     ).rejects.toThrow(/SMTP_HOST/);
   });
 
-  test("billing without tier-engine aborts with a composeSaasStack hint", async () => {
+  test("billing without tier-engine aborts and names the missing features", async () => {
     await expect(
       bootValidate({ billing: { stripe: { priceToTier: {} }, defaultTier: "free" } }),
-    ).rejects.toThrow(/composeSaasStack/);
+    ).rejects.toThrow(/createTierEngineFeature/);
   });
 
   test('kmsMode "required" without the KMS env aborts', async () => {
