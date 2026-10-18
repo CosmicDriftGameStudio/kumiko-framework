@@ -178,9 +178,10 @@ export function createSubscriptionTierSync<TTier extends string>(
     }
   }
 
-  function createWebhookRoute(): ExtraRouteDefinition {
+  // `path` must keep the `:providerName` param the webhook route resolves the provider from.
+  function createWebhookRoute(options: { readonly path?: string } = {}): ExtraRouteDefinition {
     return createSubscriptionWebhookRoute({
-      path: SUBSCRIPTION_WEBHOOK_PATH,
+      path: options.path ?? SUBSCRIPTION_WEBHOOK_PATH,
       afterDispatch: async (dispatched: WriteResult, tenantId, routeDeps): Promise<WriteResult> => {
         const syncError = await syncTierFromSubscription(tenantId, routeDeps);
         if (syncError) {

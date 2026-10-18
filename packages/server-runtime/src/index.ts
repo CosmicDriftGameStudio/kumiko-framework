@@ -3,6 +3,20 @@
 // Tooling (ts-morph) als Dependency — Prod-Apps ziehen so kein
 // Dev-Tooling mehr in ihre node_modules.
 
+export type { BillingBootOption } from "./boot-options/billing-option.js";
+export type {
+  DemoAccountRole,
+  DemoModeNotice,
+  DemoModeOption,
+} from "./boot-options/demo-mode.js";
+export type {
+  FileStorageBootOption,
+  FileStorageProviderName,
+} from "./boot-options/file-storage-option.js";
+export type { KmsMode } from "./boot-options/kms-mode.js";
+export type { MailBootOption } from "./boot-options/mail-option.js";
+export type { SignalsOption } from "./boot-options/process-signals.js";
+export type { ProdSeedsConfig, ProdSeedTenant } from "./boot-options/seed-shortcuts.js";
 export {
   type BundledAssetDeclaration,
   type BundledAssetOptions,

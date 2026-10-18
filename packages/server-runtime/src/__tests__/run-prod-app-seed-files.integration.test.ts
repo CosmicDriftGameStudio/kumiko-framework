@@ -33,7 +33,7 @@ import {
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
 import * as z from "zod";
-import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+import { type ProdAppHandle, type ProdSeedFn, runProdApp } from "../run-prod-app.js";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 
@@ -102,7 +102,7 @@ afterAll(async () => {
   }
 });
 
-type SeedFn = NonNullable<Parameters<typeof runProdApp>[0]["seeds"]>[number];
+type SeedFn = ProdSeedFn;
 
 async function bootWithSeed(
   seed: SeedFn,

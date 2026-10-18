@@ -329,6 +329,7 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   auth: T,
   hmacSecret: string,
   envSource: Record<string, string | undefined>,
+  mailWiring: { readonly mailConfigured?: boolean } = {},
 ): T & {
   readonly passwordReset?: PasswordResetOptions;
   readonly emailVerification?: EmailVerificationOptions;
@@ -343,7 +344,9 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   // blieben sonst 500). Der eigentliche Mail-Versand läuft über delivery
   // (channel-email), nicht über diesen Transport — er ist nur der Detektor
   // "ist Mail konfiguriert?".
+  // An app transport from runProdApp's `mail` option replaces the probe.
   if (
+    mailWiring.mailConfigured !== true &&
     !createSmtpTransportFromEnv(envSource, { fallbackFrom: auth.mail.from ?? "noreply@localhost" })
   ) {
     return withResolvedSecrets;

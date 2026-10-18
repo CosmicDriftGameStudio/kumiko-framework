@@ -52,6 +52,7 @@
 | `ownership` | Entity- and Field-level Row-Ownership: from() helper, Straddle-safe multi-role checks, Field-level Read/Write filtering. | `examples/ownership.md` |
 | `pdf-audit-export` | Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and uploads the bytes before the transaction (uploadFileBytesBeforeTransaction) and stores them as a FileRef (createFileRefFromUploadedBytes). | `examples/pdf-audit-export.md` |
 | `pipeline-basics` | M.1 Tier-1 step-vocabulary showcase: every step in one inventory-management feature (aggregate.{create,update,appendEvent}, read.{findOne,findMany}, branch, forEach, compute, return, unsafeProjection{Upsert,Delete}). | `examples/pipeline-basics.md` |
+| `prod-boot-options` | runProdApp boot options: mail, kmsMode, fileStorage, demoMode and signal handling declared as options instead of hand-wired in bin/main.ts. | `examples/prod-boot-options.md` |
 | `public-share-token` | Generic share-token entity: mint hash-stored token, anonymous read-by-token with IP rate-limit. | `examples/public-share-token.md` |
 | `rate-limiting` | End-to-end rate limiting: L1 global-IP + L2 auth-endpoints + L3 handler opt-in. | `examples/rate-limiting.md` |
 | `realtime-sse` | Server-sent events demo. Goodbye F5. | `examples/realtime-sse.md` |

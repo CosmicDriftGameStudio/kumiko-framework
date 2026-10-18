@@ -180,6 +180,15 @@ import { jobRunLoggerCallbacks } from "./boot/job-run-logger.js";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.js";
 import { waitForDatabase, waitUntilDatabaseReachable } from "./boot/wait-for-database.js";
+import type { BillingBootOption } from "./boot-options/billing-option.js";
+import type { DemoModeOption } from "./boot-options/demo-mode.js";
+import type { FileStorageBootOption } from "./boot-options/file-storage-option.js";
+import type { KmsMode } from "./boot-options/kms-mode.js";
+import type { MailBootOption } from "./boot-options/mail-option.js";
+import { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.js";
+import { installShutdownSignals, type SignalsOption } from "./boot-options/process-signals.js";
+import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.js";
+import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.js";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.js";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
@@ -573,8 +582,13 @@ export type RunProdAppOptions = {
   readonly maxRequestBodySize?: number;
   /** Auth-mode: standard features + routes wired, admin seeded. */
   readonly auth?: RunProdAppAuthOptions;
-  /** Custom seed functions, run after the admin seed (when auth-mode). */
-  readonly seeds?: readonly ProdSeedFn[];
+  /** Custom seed functions, run after the admin seed (when auth-mode). The
+   *  object form adds the declarative demo-tenant / demo-admin / sysadmin
+   *  seeds from the env and takes the functions under `run`; see
+   *  `ProdSeedsConfig`.
+   *  @example
+   *  seeds: { demoTenant: { key: "demo", name: "Demo" }, sysadminFromEnv: true, run: [seedDemoData] } */
+  readonly seeds?: readonly ProdSeedFn[] | ProdSeedsConfig;
   /** Pfad zum seeds-Directory für ES-Operations / Seed-Migrations
    *  (file-basiert wie drizzle-migrate). Wenn gesetzt + KUMIKO_SKIP_ES_OPS
    *  != "1": runProdApp scannt das Verzeichnis nach `<id>.ts` Files,
@@ -667,6 +681,39 @@ export type RunProdAppOptions = {
    *  ist eine Begründung für den Audit-Trail (z.B. "kms rollout pending,
    *  infra#188"). Ohne Flag und ohne `kms` bricht der Boot ab. */
   readonly allowPlaintextPii?: string;
+  /** Short form over `kms` / `blindIndexKey` / `allowPlaintextPii` that wires
+   *  the subject-key KMS from the env; not combinable with them. Unset keeps
+   *  today's behavior: no KMS unless `kms` is passed, and the PII boot gate
+   *  aborts when PII fields exist without one. See `KmsMode`.
+   *  @example
+   *  kmsMode: "required" */
+  readonly kmsMode?: KmsMode;
+  /** App-wide mail transport: mounts `channel-email` and wires the `auth.mail`
+   *  flows without an `SMTP_HOST` probe. See `MailBootOption`.
+   *  @example
+   *  mail: { transport: "smtp-env", from: "Acme <noreply@acme.example>" } */
+  readonly mail?: MailBootOption;
+  /** File provider for `file-foundation` plus the `FILE_STORAGE_PROVIDER`
+   *  default. See `FileStorageBootOption`.
+   *  @example
+   *  fileStorage: { provider: "auto" } */
+  readonly fileStorage?: FileStorageBootOption;
+  /** Stripe billing: `subscription-stripe` plus the tier-syncing webhook
+   *  route. Needs `billing-foundation` and `tier-engine`. See `BillingBootOption`.
+   *  @example
+   *  billing: { stripe: { priceToTier: { [env.STRIPE_PRICE_PRO]: "pro" } }, defaultTier: "free" } */
+  readonly billing?: BillingBootOption;
+  /** Live-demo mode: read-only gate in the fetch chain plus the anonymous
+   *  `GET /demo-mode` route. See `DemoModeOption`.
+   *  @example
+   *  demoMode: { readOnly: env.DEMO_READ_ONLY === "true", notice: { text: { en: "Read-only demo" } } } */
+  readonly demoMode?: DemoModeOption;
+  /** SIGTERM/SIGINT handling of `listen()`: drains via `stop()` (default
+   *  timeout 25 s), exits 0, or 1 when the drain fails or times out. `false`
+   *  leaves the signals to the app.
+   *  @example
+   *  signals: { drainTimeoutMs: 10_000 } */
+  readonly signals?: SignalsOption;
   /** Deploy topology. Default `true` (single container): this process runs
    *  HTTP, both job lanes (api + worker) and the event dispatcher (MSP apply)
    *  inline via `createAllInOneEntrypoint`. Worker-lane crons (e.g. the data
@@ -881,7 +928,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    needed in 9.1's audit (37 references, 25 distinct vars).
   const rawEnvSource = options.envSource ?? process.env;
   const runMode = parseRunMode(rawEnvSource[DRY_RUN_ENV_VAR]);
-  const composedEnvSchema = requireEnvSchema(options.envSchema);
+  const composedEnvSchema = withBootOptionEnvBlocks(requireEnvSchema(options.envSchema), options);
   const effectiveEnvSchema = options.masterKey
     ? withOptionalEnvKeys(composedEnvSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
     : composedEnvSchema.schema;
@@ -960,19 +1007,32 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   // Slots the schema marks `kms` are decrypted once here so every consumer
   // below (boot probe, master-key keyring, config) sees the same resolved env.
-  const envSource: Record<string, string | undefined> = await resolvePlatformKeks(rawEnvSource, {
-    slots: kmsSlotsOf(composedEnvSchema.schema),
-    logPrefix: "[runProdApp]",
-  });
+  const decryptedEnvSource: Record<string, string | undefined> = await resolvePlatformKeks(
+    rawEnvSource,
+    {
+      slots: kmsSlotsOf(composedEnvSchema.schema),
+      logPrefix: "[runProdApp]",
+    },
+  );
   // The first parse relaxes ciphertext-only slots, so their decrypted
   // plaintext never met the slot's own validators (.regex/.min/.refine).
   if (
     kmsSlotsOf(composedEnvSchema.schema).some(
-      (slot) => rawEnvSource[slot] === undefined && envSource[slot] !== undefined,
+      (slot) => rawEnvSource[slot] === undefined && decryptedEnvSource[slot] !== undefined,
     )
   ) {
-    validateEnv(envSource);
+    validateEnv(decryptedEnvSource);
   }
+
+  // Declarative boot options (mail, kmsMode, fileStorage, billing, demoMode,
+  // seed shortcuts) fail here, before any connection. Their defaults sit under
+  // the env so an explicitly set variable wins.
+  const bootOptionWiring = await resolveBootOptionWiring(options, decryptedEnvSource);
+  const envSource: Record<string, string | undefined> =
+    Object.keys(bootOptionWiring.envDefaults).length > 0
+      ? { ...bootOptionWiring.envDefaults, ...decryptedEnvSource }
+      : decryptedEnvSource;
+  const bootKms = bootOptionWiring.kms;
 
   // 1. Polyfill before anything else — feature code references Temporal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
@@ -1026,7 +1086,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // die Feature-Side (buildComposeAuthOptions) als auch das Routes-Fragment
   // unten speisen. Ab hier IMMER effectiveAuth statt options.auth lesen.
   const effectiveAuth = options.auth
-    ? resolveAuthMail(options.auth, jwtSecret, envSource)
+    ? resolveAuthMail(options.auth, jwtSecret, envSource, {
+        mailConfigured: bootOptionWiring.mailConfigured,
+      })
     : undefined;
   const authPublicOrigin = effectiveAuth
     ? resolveAuthPublicOrigin(effectiveAuth, envSource, (message) => {
@@ -1049,7 +1111,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    sehen exakt dieselbe Liste. Built BEFORE any connection so boot-mode
   //    can validate wiring and exit without opening a Postgres/Redis socket.
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
-  const features = composeFeatures(options.features, {
+  const features = composeFeatures([...options.features, ...bootOptionWiring.features], {
     includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
@@ -1063,9 +1125,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
   assertPiiBootInvariants(features, {
-    kms: options.kms,
-    blindIndexKey: options.blindIndexKey,
-    allowPlaintextPii: options.allowPlaintextPii,
+    kms: bootKms.kms,
+    blindIndexKey: bootKms.blindIndexKey,
+    allowPlaintextPii: bootKms.allowPlaintextPii,
     mode: "prod",
   });
   const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
@@ -1084,6 +1146,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     console.log(
       `[runProdApp] boot validation OK (${features.length} features, ${registry.features.size} registry entries)`,
     );
+    await bootKms.close();
     if (options.envSource === undefined) {
       process.exit(0);
     }
@@ -1097,8 +1160,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // KMS health gate: an app configured for crypto-shredding must not boot
   // against an unreachable key store — a silent start would answer every
   // PII read with 503. Runs BEFORE connections so an abort leaks nothing.
-  if (options.kms) {
-    const kms = options.kms;
+  if (bootKms.kms) {
+    const kms = bootKms.kms;
     const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
       processName: "runProdApp",
     });
@@ -1209,12 +1272,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // No adapter only gets this far when assertPiiBootInvariants above let it
   // through: no PII carriers, or an explicit allowPlaintextPii opt-out. The
   // engine then stays off and those fields are stored in plaintext.
-  configurePiiSubjectKms(options.kms);
+  configurePiiSubjectKms(bootKms.kms);
   // Blind-Index-Key (#818) — Boot-Gate: mit aktivem KMS würden lookupable-
   // Felder als Ciphertext gespeichert, ohne Key gäbe es keinen bidx-Arm und
   // jeder Equality-Lookup (Login by email!) liefe ins Leere. Fail-fast statt
   // silent-broken-auth.
-  configureBlindIndexKey(options.blindIndexKey);
+  configureBlindIndexKey(bootKms.blindIndexKey);
   const bootLogger = loggerFromExtraContext(resolvedExtraContext);
   const autoExtraContext = buildBootExtraContext({
     db,
@@ -1225,7 +1288,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     sseBroker,
     redis,
     crypto: bootCrypto,
-    ...(options.kms && { kms: options.kms }),
+    ...(bootKms.kms && { kms: bootKms.kms }),
     ...(bootLogger && { log: bootLogger }),
     ...(unsubscribeLinks && { unsubscribeLinks }),
   });
@@ -1326,8 +1389,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(resolvedRateLimit && { rateLimit: resolvedRateLimit }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
     ...(options.errorDocs && { errorDocs: options.errorDocs }),
-    ...((options.extraRoutes || options.unsubscribe) && {
-      extraRoutes: [...(options.extraRoutes ?? []), ...unsubscribeRoutes],
+    ...((options.extraRoutes || options.unsubscribe || bootOptionWiring.extraRoutes.length > 0) && {
+      extraRoutes: [
+        ...(options.extraRoutes ?? []),
+        ...unsubscribeRoutes,
+        ...bootOptionWiring.extraRoutes,
+      ],
     }),
     ...(effectiveAuth && {
       auth: {
@@ -1513,12 +1580,16 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   if (effectiveAuth?.admin) {
     await seedAdminGuarded(db, effectiveAuth.admin);
   }
+  for (const seed of bootOptionWiring.shortcutSeeds) {
+    await seed(db);
+  }
   await applyBootSeeds({
     registry,
     db,
     ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
   });
-  const hasSeeds = (options.seeds?.length ?? 0) > 0 || options.seedsDir !== undefined;
+  const customSeeds = bootOptionWiring.customSeeds;
+  const hasSeeds = customSeeds.length > 0 || options.seedsDir !== undefined;
   const seedContext = hasSeeds
     ? withFileProviderResolver(
         registry,
@@ -1536,7 +1607,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     : undefined;
   if (seedDispatcher && seedContext) {
     const createFileRef = makeSeedCreateFileRef({ db, registry, context: seedContext });
-    for (const seed of options.seeds ?? []) {
+    for (const seed of customSeeds) {
       await seed({ db, registry, dispatcher: seedDispatcher, createFileRef });
     }
   }
@@ -1574,24 +1645,26 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     Bun.serve.
   const cspScriptHashes = await resolveCspScriptHashes(options.staticDir, options.securityHeaders);
   const fetchHandler = withSecurityHeaders(
-    options.staticDir
-      ? buildStaticFallback(
-          entrypoint.app.fetch.bind(entrypoint.app),
-          options.staticDir,
-          options.hostDispatch,
-          options.resolvePageHead
-            ? { resolvePageHead: options.resolvePageHead, dispatcher: entrypoint.dispatcher }
-            : undefined,
-          entrypoint.dispatcher,
-          trustedProxyHops ?? 0,
-        )
-      : // No staticDir (split-deploy / API-only container) → app.fetch's
-        // response goes straight to the client, bypassing buildStaticFallback
-        // (and with it tryHonoFirst) entirely. Must strip the router-miss
-        // marker here too, same reason as the /api/* passthrough in
-        // run-prod-app-static-files.ts (see try-hono-first.ts).
-        async (req: Request, socketAddress?: string) =>
-          stripNoRouteMatchHeader(await entrypoint.app.fetch(req, socketAddress)),
+    bootOptionWiring.wrapFetch(
+      options.staticDir
+        ? buildStaticFallback(
+            entrypoint.app.fetch.bind(entrypoint.app),
+            options.staticDir,
+            options.hostDispatch,
+            options.resolvePageHead
+              ? { resolvePageHead: options.resolvePageHead, dispatcher: entrypoint.dispatcher }
+              : undefined,
+            entrypoint.dispatcher,
+            trustedProxyHops ?? 0,
+          )
+        : // No staticDir (split-deploy / API-only container) → app.fetch's
+          // response goes straight to the client, bypassing buildStaticFallback
+          // (and with it tryHonoFirst) entirely. Must strip the router-miss
+          // marker here too, same reason as the /api/* passthrough in
+          // run-prod-app-static-files.ts (see try-hono-first.ts).
+          async (req: Request, socketAddress?: string) =>
+            stripNoRouteMatchHeader(await entrypoint.app.fetch(req, socketAddress)),
+    ),
     options.securityHeaders,
     cspScriptHashes,
   );
@@ -1608,6 +1681,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const webSocketUpgradeFetch = async (req: Request, env: KumikoServeEnv): Promise<Response> =>
     securedUpgradeFetch(req, env);
 
+  let uninstallShutdownSignals: (() => void) | undefined;
   const handle: ProdAppHandle = {
     entrypoint,
     fetch: fetchHandler,
@@ -1639,26 +1713,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       // SIGTERM/SIGINT — graceful shutdown. Only registered when we
       // actually own a Bun-server, otherwise the test process picks up
       // signals it shouldn't respond to.
-      let shuttingDown = false;
-      const shutdown = async (signal: string) => {
-        // skip: shutdown already in progress, avoid double-drain
-        if (shuttingDown) return;
-        shuttingDown = true;
-        // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-        console.log(`[runProdApp] ${signal} received — draining…`);
-        try {
-          await handle.stop();
-          // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-          console.log("[runProdApp] graceful shutdown complete.");
-        } catch (e) {
-          // biome-ignore lint/suspicious/noConsole: shutdown-time error, only path is stderr
-          console.error("[runProdApp] error during shutdown:", e);
-        } finally {
-          process.exit(0);
-        }
-      };
-      process.on("SIGTERM", () => void shutdown("SIGTERM"));
-      process.on("SIGINT", () => void shutdown("SIGINT"));
+      if (options.signals !== false) {
+        uninstallShutdownSignals?.();
+        uninstallShutdownSignals = installShutdownSignals({
+          stop: () => handle.stop(),
+          ...(options.signals?.drainTimeoutMs !== undefined && {
+            drainTimeoutMs: options.signals.drainTimeoutMs,
+          }),
+        });
+      }
 
       // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
       console.log(`[runProdApp] ready on http://0.0.0.0:${listenPort}`);
@@ -1670,6 +1733,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       await closeDb();
       await closeOutsideTransactionDb();
       redis.disconnect();
+      await bootKms.close();
+      uninstallShutdownSignals?.();
+      uninstallShutdownSignals = undefined;
     },
   };
 
