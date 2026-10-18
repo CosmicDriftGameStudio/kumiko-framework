@@ -1410,6 +1410,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "waitlist:entity:waitlistEntry:field:portfolio": "Portfolio",
   "waitlist:entity:waitlistEntry:field:status": "Status",
   "waitlist:entity:waitlistEntry:field:status:option:invited": "Invited",
+  "waitlist:entity:waitlistEntry:field:status:option:provisioned": "Provisioned",
   "waitlist:entity:waitlistEntry:field:status:option:pending": "Pending",
   "waitlist:entity:waitlistEntry:field:status:option:rejected": "Rejected",
   "waitlist:entity:waitlistEntry:field:submittedAt": "Created",

@@ -72,6 +72,7 @@ export async function createWaitlistTestStack(
       createSessionsFeature(),
       createAuthEmailPasswordFeature({
         invite: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/invite/accept" },
+        signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/activate" },
       }),
       createUserDataRightsFeature(),
       createWaitlistFeature(waitlistOptions),
@@ -84,6 +85,10 @@ export async function createWaitlistTestStack(
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
+      signup: {
+        requestHandler: AuthHandlers.signupRequest,
+        confirmHandler: AuthHandlers.signupConfirm,
+      },
       invite: {
         acceptHandler: AuthHandlers.inviteAccept,
         acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
@@ -164,4 +169,19 @@ export async function userRowOf(stack: TestStack, email: string) {
   const [row] = await selectMany(stack.db, userTable, { email });
   if (!row) throw new Error(`no user ${email}`);
   return { id: String(row["id"]), globalRoles: parseRoles(row["roles"]) };
+}
+
+export async function signUpOpenly(stack: TestStack, email: string): Promise<void> {
+  const request = await stack.http.raw(
+    "POST",
+    "/api/auth/signup-request",
+    { email },
+    { "x-forwarded-for": email },
+  );
+  expect(request.status).toBe(200);
+  const confirm = await stack.http.raw("POST", "/api/auth/signup-confirm", {
+    token: tokenFromLastMailTo(email),
+    password: INVITE_PASSWORD,
+  });
+  expect(confirm.status).toBe(200);
 }

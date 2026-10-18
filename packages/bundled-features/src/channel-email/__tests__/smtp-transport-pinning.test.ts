@@ -4,11 +4,13 @@
 //
 // Restore hygiene: Bun runs a test-run's files in one process, so a
 // top-level mock.module leaks into every file that runs after this one —
-// the real module is captured before mocking and restored in afterAll.
+// the real exports are snapshotted before mocking and restored in afterAll.
+// A snapshot, not the namespace: mock.module rewrites the namespace object in
+// place, so restoring from it would reinstall the mock.
 
 import { afterAll, describe, expect, mock, test } from "bun:test";
 
-const realNodemailer = await import("nodemailer");
+const realNodemailer = { ...(await import("nodemailer")) };
 let capturedOptions: Record<string, unknown> | undefined;
 mock.module("nodemailer", () => ({
   createTransport: (options: Record<string, unknown>) => {

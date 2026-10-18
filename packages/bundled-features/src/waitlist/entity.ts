@@ -11,6 +11,7 @@ import { WAITLIST_STATUS, type WaitlistStatus } from "./constants.js";
 const WAITLIST_STATUS_OPTIONS = [
   WAITLIST_STATUS.Pending,
   WAITLIST_STATUS.Invited,
+  WAITLIST_STATUS.Provisioned,
   WAITLIST_STATUS.Rejected,
 ] as const;
 
@@ -19,7 +20,7 @@ const OPEN_WAITLIST_STATUSES: readonly WaitlistStatus[] = [
   WAITLIST_STATUS.Invited,
 ];
 
-// Entries still awaiting a decision; rejected is terminal.
+// Entries still awaiting a decision; provisioned and rejected are terminal.
 export function isOpenWaitlistStatus(status: unknown): boolean {
   return OPEN_WAITLIST_STATUSES.some((open) => open === status);
 }
@@ -33,7 +34,7 @@ export function isOpenWaitlistStatus(status: unknown): boolean {
 export const waitlistEntryEntity = createEntity({
   table: "read_waitlist_entries",
   description:
-    "A prospect's signup on the platform waitlist, tracked through pending, invited and rejected status as admins process it; name, email and message are the entry's own personal data.",
+    "A prospect's signup on the platform waitlist, tracked through pending, invited, provisioned and rejected status as admins process it; name, email and message are the entry's own personal data.",
   systemStream: true,
   tenancy: "global",
   fields: {
@@ -68,6 +69,7 @@ export const waitlistEntryEntity = createEntity({
     }),
     invitedAt: createTimestampField(),
     invitedBy: createTextField({ personal: false, reason: "is_admin_audit_id" }),
+    provisionedAt: createTimestampField(),
     // Not named tenantId: that is the framework's physical tenant column.
     linkedTenantId: createTextField({ personal: false, reason: "is_tenant_reference" }),
   },

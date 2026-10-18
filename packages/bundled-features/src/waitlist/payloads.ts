@@ -53,3 +53,5 @@ export const WaitlistSubmitSchema = z
 export type WaitlistSubmitInput = z.infer<typeof WaitlistSubmitSchema>;
 
 export const WaitlistIdSchema = z.object({ id: z.uuid() }).strict();
+
+export const WaitlistAuditEventSchema = z.object({ count: z.number().int().nonnegative() });

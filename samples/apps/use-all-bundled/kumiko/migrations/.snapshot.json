@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-17T23:42:00.304Z",
+  "generatedAt": "2026-10-18T09:31:03.995Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3387,6 +3387,11 @@
         {
           "name": "invited_by",
           "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "provisioned_at",
+          "pgType": "timestamptz",
           "notNull": false
         },
         {

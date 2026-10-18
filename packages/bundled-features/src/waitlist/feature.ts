@@ -4,14 +4,20 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { WAITLIST_FEATURE } from "./constants.js";
+import {
+  WAITLIST_EXPORTED_EVENT_SHORT,
+  WAITLIST_FEATURE,
+  WAITLIST_PURGED_EVENT_SHORT,
+} from "./constants.js";
 import { waitlistEntryEntity } from "./entity.js";
+import { exportHandler, purgeHandler } from "./handlers/export-purge.write.js";
 import { createInviteHandler } from "./handlers/invite.write.js";
 import { listQuery } from "./handlers/list.query.js";
 import { rejectHandler } from "./handlers/reject.write.js";
 import { createSubmitHandler } from "./handlers/submit.write.js";
 import { WAITLIST_I18N } from "./i18n.js";
 import { adminAccess } from "./lib.js";
+import { linkWaitlistOnSignup, WAITLIST_MEMBERSHIP_CREATED_EVENT } from "./link-on-signup.js";
 import {
   WAITLIST_ADMIN_NOTICE_RECORD,
   WAITLIST_ADMIN_NOTICE_VARIABLES,
@@ -20,6 +26,7 @@ import {
   waitlistConfirmationTemplate,
 } from "./mail.js";
 import type { WaitlistOptions } from "./options.js";
+import { WaitlistAuditEventSchema } from "./payloads.js";
 import { waitlistListScreen } from "./screens.js";
 import { waitlistEntryDeleteHook, waitlistEntryExportHook } from "./user-data-hooks.js";
 
@@ -48,6 +55,20 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
     r.writeHandler(createInviteHandler(opts.invite));
     r.writeHandler(rejectHandler);
     r.queryHandler(listQuery);
+
+    if (opts.exportPurge !== false) {
+      r.defineEvent(WAITLIST_EXPORTED_EVENT_SHORT, WaitlistAuditEventSchema, { piiFields: "none" });
+      r.defineEvent(WAITLIST_PURGED_EVENT_SHORT, WaitlistAuditEventSchema, { piiFields: "none" });
+      r.writeHandler(exportHandler);
+      r.writeHandler(purgeHandler);
+    }
+
+    if (opts.linkOnSignup === true) {
+      r.multiStreamProjection({
+        name: "link-on-signup",
+        apply: { [WAITLIST_MEMBERSHIP_CREATED_EVENT]: linkWaitlistOnSignup },
+      });
+    }
 
     r.screen(waitlistListScreen);
     r.nav({

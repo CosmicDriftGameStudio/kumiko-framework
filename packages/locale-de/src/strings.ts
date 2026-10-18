@@ -1449,6 +1449,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "waitlist:entity:waitlistEntry:field:portfolio": "Portfolio",
   "waitlist:entity:waitlistEntry:field:status": "Status",
   "waitlist:entity:waitlistEntry:field:status:option:invited": "Eingeladen",
+  "waitlist:entity:waitlistEntry:field:status:option:provisioned": "Eingerichtet",
   "waitlist:entity:waitlistEntry:field:status:option:pending": "Ausstehend",
   "waitlist:entity:waitlistEntry:field:status:option:rejected": "Abgelehnt",
   "waitlist:entity:waitlistEntry:field:submittedAt": "Erstellt",
