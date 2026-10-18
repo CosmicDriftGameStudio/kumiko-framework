@@ -821,8 +821,7 @@ export type RunProdAppOptions = {
    *  kein `/metrics`-Endpoint). Setze `createPrometheusMeter()`-basierten
    *  Provider + `metrics` um `/metrics` real zu exposen (publicstatus#91). */
   readonly observability?: ObservabilityProvider;
-  /** Konfiguriert die Auto-Instrumentation des resolvierten Observability-
-   *  Providers (siehe `BaseEntrypointOptions.observabilityOptions`). */
+  /** @deprecated No effect: the HTTP route label carries no query string anymore. */
   readonly observabilityOptions?: ObservabilityOptions;
   /** Aktiviert den `/metrics`-Endpoint (Open-Metrics-Format). Ohne einen
    *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`
@@ -1388,7 +1387,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     },
     eventDedup,
     ...(options.observability && { observability: options.observability }),
-    ...(options.observabilityOptions && { observabilityOptions: options.observabilityOptions }),
     ...(options.metrics && { metrics: options.metrics }),
     ...(resolvedRateLimit && { rateLimit: resolvedRateLimit }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),

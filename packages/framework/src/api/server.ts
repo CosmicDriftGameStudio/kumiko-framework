@@ -41,9 +41,6 @@ import type { Lifecycle } from "../lifecycle/index.ts";
 import { createFallbackLogger } from "../logging/index.ts";
 import {
   createNoopProvider,
-  DEFAULT_SENSITIVE_CONFIG,
-  mergeSensitiveConfig,
-  type ObservabilityOptions,
   type ObservabilityProvider,
   registerStandardMetrics,
   wrapRedisClient,
@@ -222,7 +219,6 @@ export type ServerOptions = {
   // no spans or metrics emitted). Typically set to a ConsoleProvider in dev,
   // OTLPProvider in prod.
   observability?: ObservabilityProvider;
-  observabilityOptions?: ObservabilityOptions;
   // L1/L2 rate-limit middleware. Both layers share the auto-wired
   // resolver (or `context.rateLimit` if you provided one). Layers are
   // independent — wire only what you need:
@@ -827,10 +823,6 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const isExtraRoutePublicPath = (c: import("hono").Context): boolean =>
     extraRoutePublicMatchers.some((m) => m.method === c.req.method && m.pattern.test(c.req.path));
 
-  const sensitiveConfig = mergeSensitiveConfig(
-    options.observabilityOptions?.sensitiveFilter ?? DEFAULT_SENSITIVE_CONFIG,
-  );
-
   registerHealthRoutes(app, {
     lifecycle: options.lifecycle,
     readiness: {
@@ -896,7 +888,6 @@ export function buildServer(options: ServerOptions): KumikoServer {
     observabilityMiddleware({
       tracer: observability.tracer,
       meter: observability.meter,
-      sensitiveConfig,
     }),
   );
 

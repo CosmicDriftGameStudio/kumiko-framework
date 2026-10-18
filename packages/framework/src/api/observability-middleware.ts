@@ -3,14 +3,13 @@ import {
   emitHttpRequest,
   type Meter,
   observabilityContext,
-  redactQueryString,
-  type SensitiveFilterConfig,
   type Tracer,
 } from "../observability/index.ts";
 import { getUser } from "./auth-middleware.ts";
 import { requestContext } from "./request-context.ts";
+import { resolveRouteLabel } from "./route-label.ts";
 
-// Wraps each incoming /api/* request in an `http.request` span. Must be
+// Wraps each incoming /api/* request in a `METHOD route-pattern` span. Must be
 // installed AFTER requestIdMiddleware so the active request-id is available
 // as a span attribute. Installed BEFORE auth so auth verification shows up
 // as a child span later when auth-middleware itself is instrumented (v2).
@@ -18,25 +17,24 @@ import { requestContext } from "./request-context.ts";
 export type ObservabilityMiddlewareOptions = {
   readonly tracer: Tracer;
   readonly meter: Meter;
-  readonly sensitiveConfig: SensitiveFilterConfig;
 };
 
 export function observabilityMiddleware(opts: ObservabilityMiddlewareOptions) {
-  const { tracer, meter, sensitiveConfig } = opts;
+  const { tracer, meter } = opts;
 
   return async (c: Context, next: Next) => {
     const method = c.req.method;
-    const path = c.req.path;
-    const target = redactQueryString(c.req.url.replace(/^https?:\/\/[^/]+/, ""), sensitiveConfig);
+    // The match list is fixed before the first middleware runs, so the label is known up front
+    // and also covers requests that a middleware answers or a handler throws on.
+    const route = resolveRouteLabel(c);
 
     // Start the root span for this request. kind=server marks it as an
     // incoming server-side span in OTel terms.
-    const span = tracer.startSpan("http.request", {
+    const span = tracer.startSpan(`${method} ${route}`, {
       kind: "server",
       attributes: {
         "http.method": method,
-        "http.route": path,
-        "http.target": target,
+        "http.route": route,
       },
     });
 
@@ -82,7 +80,7 @@ export function observabilityMiddleware(opts: ObservabilityMiddlewareOptions) {
       // c.res may be undefined on very early throws (before any route handler);
       // fall back to 500 for the metric so the counter is always incremented.
       const status = c.res?.status ?? 500;
-      emitHttpRequest(meter, { route: path, method, status }, durationSec);
+      emitHttpRequest(meter, { route, method, status }, durationSec);
       span.end();
     }
   };

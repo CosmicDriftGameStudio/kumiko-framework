@@ -293,7 +293,6 @@ export async function bootWorkerProcess(
     },
     eventDedup,
     ...(options.observability && { observability: options.observability }),
-    ...(options.observabilityOptions && { observabilityOptions: options.observabilityOptions }),
     redisUrl,
     ...jobLogger,
     ...(options.jobs?.queueNamePrefix !== undefined && {

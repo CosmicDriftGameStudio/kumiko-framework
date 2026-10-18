@@ -128,10 +128,10 @@ describe("Observability (integration)", () => {
     await stack.cleanup();
   });
 
-  it("emits a root http.request span with request-id attribute", async () => {
+  it("emits a root HTTP span named after the route pattern with request-id attribute", async () => {
     await stack.http.command("product:write:track", { kind: "a" }, adminUser);
 
-    const httpSpans = provider.spansByName("http.request");
+    const httpSpans = provider.spansByName("POST /api/command");
     expect(httpSpans.length).toBeGreaterThanOrEqual(1);
     const httpSpan = httpSpans[0]!;
     expect(httpSpan.parentSpanId).toBeUndefined();
@@ -139,10 +139,10 @@ describe("Observability (integration)", () => {
     expect(typeof httpSpan.attributes["kumiko.request_id"]).toBe("string");
   });
 
-  it("nests dispatcher.handler under http.request using the same traceId", async () => {
+  it("nests dispatcher.handler under the HTTP span using the same traceId", async () => {
     await stack.http.command("product:write:track", { kind: "a" }, adminUser);
 
-    const httpSpan = provider.spansByName("http.request")[0]!;
+    const httpSpan = provider.spansByName("POST /api/command")[0]!;
     const dispatcherSpans = provider.spansByName("kumiko.dispatcher.handler");
     expect(dispatcherSpans.length).toBeGreaterThanOrEqual(1);
     const dispatcherSpan = dispatcherSpans[0]!;
@@ -212,7 +212,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
   it("emits db.query spans under the dispatcher span with operation + table attrs", async () => {
     await stack.http.writeOk("todo:write:create", { title: "buy milk" }, adminUser);
 
-    const httpSpan = provider.spansByName("http.request")[0]!;
+    const httpSpan = provider.spansByName("POST /api/write")[0]!;
     const dispatcherSpan = provider.spansByName("kumiko.dispatcher.handler")[0]!;
     const dbSpans = provider.spansByName("db.query");
 
@@ -256,7 +256,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
     await stack.http.writeOk("todo:write:create", { title: "test hook span" }, adminUser);
     expect(postSaveInvocations).toBeGreaterThanOrEqual(1);
 
-    const httpSpan = provider.spansByName("http.request")[0]!;
+    const httpSpan = provider.spansByName("POST /api/write")[0]!;
     const hookSpans = provider.spansByName("kumiko.pipeline.hook");
     expect(hookSpans.length).toBeGreaterThanOrEqual(1);
 
@@ -334,8 +334,8 @@ describe("Observability (integration) — Redis wrapper", () => {
       }
     }
 
-    // Same trace as the http.request span.
-    const httpSpan = provider.spansByName("http.request")[0]!;
+    // Same trace as the HTTP span.
+    const httpSpan = provider.spansByName("POST /api/write")[0]!;
     for (const s of redisSpans) {
       expect(s.traceId).toBe(httpSpan.traceId);
     }
@@ -401,7 +401,7 @@ describe("Observability (integration) — Pino trace bridge", () => {
     expect(typeof entry?.["traceId"]).toBe("string");
     expect(typeof entry?.["spanId"]).toBe("string");
 
-    const httpSpan = provider.spansByName("http.request")[0]!;
+    const httpSpan = provider.spansByName("POST /api/write")[0]!;
     expect(entry?.["traceId"]).toBe(httpSpan.traceId);
 
     // spanId should match one of the spans in the same trace (most specific
