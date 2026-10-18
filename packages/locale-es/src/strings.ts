@@ -513,6 +513,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.access.denied": "No tienes permiso para hacer esto.",
   "errors.cap.exceeded": "Límite alcanzado. Mejora tu plan o espera al siguiente período.",
   "errors.conflict": "Conflicto — no se pudo completar la operación.",
+  "errors.demoReadOnly": "Esta demo en vivo es de solo lectura.",
   "errors.download.urlMissing": "Descarga no disponible — inténtalo de nuevo.",
   "errors.feature.disabled": "Esta función no está disponible actualmente.",
   "errors.internal": "Algo salió mal. Inténtalo de nuevo más tarde.",

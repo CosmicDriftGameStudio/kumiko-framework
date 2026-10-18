@@ -183,10 +183,25 @@ function isDerivedAppFallback(root: RepoRoot): boolean {
   return root.manifestSource === "derived" && root.kind === "app";
 }
 
+/** The repo of the nearest `kumiko.json` at or above `start`, which is the app root in a git tree that holds several. */
+function nearestManifestRepo(start: string): RepoRoot | undefined {
+  for (let curr = start; ; curr = dirname(curr)) {
+    if (existsSync(join(curr, REPO_MANIFEST_FILE))) {
+      const repo = repoAt(curr);
+      if (repo) return repo;
+    }
+    if (curr === dirname(curr)) return undefined;
+  }
+}
+
 /**
  * The repository `cwd` belongs to.
  *
- * Git first: `rev-parse --show-toplevel` is the checkout root from any
+ * A `kumiko.json` file wins over everything: the nearest one above `cwd` is the
+ * repo root even when the git checkout root lies further up (an app inside a
+ * larger checkout).
+ *
+ * Otherwise git first: `rev-parse --show-toplevel` is the checkout root from any
  * subdirectory, package or worktree, independent of folder names. The
  * package.json walk remains for non-git trees; there a derived-manifest "app"
  * candidate (no kumiko.json, just a bare `src/` layout) is only a fallback, so
@@ -195,6 +210,8 @@ function isDerivedAppFallback(root: RepoRoot): boolean {
  */
 export function findLocalRepo(cwd: string = process.cwd()): RepoRoot | undefined {
   const start = resolve(cwd);
+  const fromManifest = nearestManifestRepo(start);
+  if (fromManifest) return fromManifest;
   const toplevel = gitToplevelOf(start);
   const fromGit = toplevel !== undefined ? repoAt(toplevel) : undefined;
   if (fromGit) return fromGit;

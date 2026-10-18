@@ -370,12 +370,17 @@ export function ScreenMissingState({
     );
   }, [screenQn]);
   return (
-    <Card options={{ padded: true }} testId={testId}>
-      <Text testId={`${testId}-title`}>{t("kumiko.screen-missing.title")}</Text>
-      <Text variant="muted">{t("kumiko.screen-missing.hint")}</Text>
-      {homeScreenId !== undefined && (
+    <Card
+      options={{ padded: true }}
+      slots={{
+        title: <Text testId={`${testId}-title`}>{t("kumiko.screen-missing.title")}</Text>,
+        subtitle: <Text variant="muted">{t("kumiko.screen-missing.hint")}</Text>,
+      }}
+      testId={testId}
+    >
+      {homeScreenId !== undefined ? (
         <ScreenMissingHomeButton homeScreenId={homeScreenId} testId={`${testId}-home`} />
-      )}
+      ) : null}
     </Card>
   );
 }

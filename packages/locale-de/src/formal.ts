@@ -146,6 +146,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "dispatcher.errors.network":
     "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "errors.access.denied": "Dazu haben Sie keine Berechtigung.",
+  "errors.demoReadOnly": "Diese Live-Demo ist schreibgeschützt.",
   "errors.download.urlMissing": "Download nicht verfügbar. Bitte versuchen Sie es erneut.",
   "errors.internal": "Etwas ist schiefgegangen. Bitte versuchen Sie es später erneut.",
   "errors.rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es in Kürze erneut.",

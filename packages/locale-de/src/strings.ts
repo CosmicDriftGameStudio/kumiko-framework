@@ -515,6 +515,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.cap.exceeded":
     "Limit erreicht. Bitte Tarif upgraden oder auf die nächste Periode warten.",
   "errors.conflict": "Der Vorgang konnte wegen eines Konflikts nicht abgeschlossen werden.",
+  "errors.demoReadOnly": "Diese Live-Demo ist schreibgeschützt.",
   "errors.download.urlMissing": "Download nicht verfügbar. Bitte versuche es erneut.",
   "errors.feature.disabled": "Diese Funktion ist derzeit nicht verfügbar.",
   "errors.internal": "Etwas ist schiefgegangen. Bitte versuche es später erneut.",

@@ -163,3 +163,41 @@ describe("resolveAnonymousAccessFromRegistry — opt-in only (#1452)", () => {
     expect(result?.resolverTrust).toBe("authoritative");
   });
 });
+
+describe("resolveAnonymousAccessFromRegistry — missing anonymousAccess warning", () => {
+  test("warns when a feature with anonymous routes is mounted and anonymousAccess is unset", async () => {
+    const registry = createRegistry([
+      createAuthFoundationFeature(),
+      defineFeature("host-routing", () => {}),
+    ]);
+    const warnings: string[] = [];
+    const result = await resolveAnonymousAccessFromRegistry(undefined, {
+      db: fakeDb,
+      registry,
+      warn: (message) => warnings.push(message),
+    });
+    expect(result).toBeUndefined();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("host-routing");
+    expect(warnings[0]).toContain("anonymousAccess: {}");
+  });
+
+  test("stays quiet without such a feature or with anonymousAccess set", async () => {
+    const warnings: string[] = [];
+    const warn = (message: string) => warnings.push(message);
+    await resolveAnonymousAccessFromRegistry(undefined, {
+      db: fakeDb,
+      registry: createRegistry([createAuthFoundationFeature()]),
+      warn,
+    });
+    await resolveAnonymousAccessFromRegistry(
+      {},
+      {
+        db: fakeDb,
+        registry: createRegistry([defineFeature("legal-pages", () => {})]),
+        warn,
+      },
+    );
+    expect(warnings).toEqual([]);
+  });
+});

@@ -283,7 +283,7 @@ function readEnv(
 // inspect the env-schema and exit before any feature wiring.
 type RunMode = DryRunEnvMode;
 
-function parseRunMode(raw: string | undefined): RunMode | null {
+export function parseRunMode(raw: string | undefined): RunMode | null {
   const mode = parseDryRunEnvMode(raw);
   if (mode !== undefined) return mode;
   if (raw) {
@@ -507,6 +507,8 @@ export type RunProdAppDeps = {
   readonly redis: Redis;
   readonly registry: import("@cosmicdrift/kumiko-framework/engine").Registry;
   readonly sseBroker: SseBroker;
+  /** The env the boot runs on: process env or `envSource`, with the boot-option defaults (e.g. `fileStorage`) underneath. */
+  readonly env: Readonly<Record<string, string | undefined>>;
 };
 
 export type AnonymousAccessOption =
@@ -1258,7 +1260,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // wins), which is exactly how fw#2630's cross-replica fanout fix shipped
   // without ever taking effect in production.
   const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
-  const deps: RunProdAppDeps = { db, redis, registry, sseBroker };
+  const deps: RunProdAppDeps = { db, redis, registry, sseBroker, env: envSource };
   const resolvedExtraContext =
     typeof options.extraContext === "function"
       ? options.extraContext(deps)
@@ -1305,6 +1307,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const resolvedAnonymousAccess = await resolveAnonymousAccessFromRegistry(baseAnonymousAccess, {
     db,
     registry,
+    warn: (message) => createFallbackLogger("runProdApp").warn(message),
   });
 
   // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),

@@ -2,18 +2,20 @@ import * as z from "zod";
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-// The bucket holds tenant files, so a remote endpoint must be https; plain
-// http stays allowed for a loopback MinIO in dev and CI.
-function isHttpsOrLoopbackHttp(value: string): boolean {
+// The bucket holds tenant files, so in production a remote endpoint must be
+// https. Outside production plain http stays allowed, also for compose-network
+// hostnames (minio, rustfs) that are not loopback.
+function isAcceptableEndpoint(value: string): boolean {
   if (!URL.canParse(value)) return false;
   const url = new URL(value);
-  return url.protocol === "https:" || LOOPBACK_HOSTNAMES.has(url.hostname);
+  if (url.protocol === "https:") return true;
+  return process.env["NODE_ENV"] !== "production" || LOOPBACK_HOSTNAMES.has(url.hostname);
 }
 
-/** S3-compatible endpoint URL: https, or http on a loopback host. */
+/** S3-compatible endpoint URL: https, or http on a loopback host; any http host outside `NODE_ENV=production`. */
 export const s3EndpointSchema = z
   .url({ protocol: /^https?$/ })
-  .refine(isHttpsOrLoopbackHttp, "must use https unless the host is loopback");
+  .refine(isAcceptableEndpoint, "must use https unless the host is loopback");
 
 /** Builds the env block `createS3ProviderFromEnv(prefix)` reads, e.g.
  *  `createS3EnvSchema({ prefix: "RELEASES_S3_" })` for a second bucket.

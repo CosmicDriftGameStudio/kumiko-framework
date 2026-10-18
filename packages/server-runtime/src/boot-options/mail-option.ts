@@ -24,7 +24,7 @@ export type MailBootOption = {
   readonly transport: "smtp-env" | "inmemory" | EmailTransport;
   /** Sender when `SMTP_FROM` is unset (`"smtp-env"` only). Default `auth.mail.from`, then `noreply@localhost`. */
   readonly from?: string;
-  /** Maps a user id to the stored email. Default: the `user` row of that tenant. */
+  /** Maps a user id to the stored email. Default: the `user` row with that id (any tenant). */
   readonly resolveEmail?: EmailChannelOptions["resolveEmail"];
   /** Per-tenant transport, see `createChannelEmailFeature`. */
   readonly tenantTransport?: TenantTransportResolver;
@@ -34,13 +34,12 @@ export const CHANNEL_EMAIL_FEATURE = "channel-email";
 
 // channel-email decrypts the returned value itself, so the raw stored column
 // (ciphertext under an active KMS) is the right thing to hand back.
-async function resolveStoredUserEmail(
+export async function resolveStoredUserEmail(
   userId: string,
   ctx: Parameters<EmailChannelOptions["resolveEmail"]>[1],
 ): Promise<string | null> {
   const rows = await selectMany<{ email: string }>(ctx.db, userTable, {
     id: userId,
-    tenantId: ctx.tenantId,
   });
   return rows[0]?.email ?? null;
 }

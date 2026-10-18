@@ -23,6 +23,8 @@ export const SCAFFOLD_INTEGRATION_PARALLEL = 4;
 const PLAYWRIGHT_VERSION = "^1.62.1";
 // bunfig.dom.toml preloads kumiko-testing's dom preload, which registers happy-dom.
 const HAPPY_DOM_VERSION = "^20.11.2";
+const TESTING_LIBRARY_REACT_VERSION = "^16.3.2";
+const TESTING_LIBRARY_DOM_VERSION = "^10.4.1";
 
 const TEST_RUNTIME_DIRECTIVE = "// @runtime test";
 
@@ -219,7 +221,7 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
       "test:unit": unitTestScript,
       "test:integration": integrationTestScript,
       "test:integration:ci": integrationTestScript,
-      "test:dom": `bun --config=${BUNFIG_FILES.dom} test --timeout=${TEST_TIMEOUT_MS.unit} --dots .test.tsx`,
+      "test:dom": `bun --config=${BUNFIG_FILES.dom} test --timeout=${TEST_TIMEOUT_MS.unit} --dots --pass-with-no-tests .test.tsx`,
       // bunfig.real.toml's pathIgnorePatterns can only blacklist (no "!" negation,
       // verified against bun 1.4), so it can't express "match only *.real.test.ts"
       // on its own — every *.test.ts file matches bun's default test glob too,
@@ -237,6 +239,8 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
       "@cosmicdrift/kumiko-testing": frameworkVersion,
       "@happy-dom/global-registrator": HAPPY_DOM_VERSION,
       "@playwright/test": PLAYWRIGHT_VERSION,
+      "@testing-library/dom": TESTING_LIBRARY_DOM_VERSION,
+      "@testing-library/react": TESTING_LIBRARY_REACT_VERSION,
     },
     rulesMarkdown: RULES_MARKDOWN,
   };

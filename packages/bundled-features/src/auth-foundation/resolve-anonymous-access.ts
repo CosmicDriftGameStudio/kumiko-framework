@@ -11,9 +11,15 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveTenantExistence, resolveTenantResolver } from "./feature.ts";
 import type { AuthProviderBuildDeps } from "./types.ts";
 
+// Features whose routes are anonymous and need an `anonymousAccess` entry to resolve a tenant.
+const ANONYMOUS_ROUTE_FEATURES = ["host-routing", "managed-pages", "legal-pages"] as const;
+
 export async function resolveAnonymousAccessFromRegistry(
   base: AnonymousAccessResolved | AnonymousAccessConfig | undefined,
-  deps: AuthProviderBuildDeps & { readonly registry: Registry },
+  deps: AuthProviderBuildDeps & {
+    readonly registry: Registry;
+    readonly warn?: (message: string) => void;
+  },
 ): Promise<AnonymousAccessResolved | undefined> {
   const [tenantResolver, tenantExists] = await Promise.all([
     resolveTenantResolver(deps),
@@ -25,7 +31,16 @@ export async function resolveAnonymousAccessFromRegistry(
   // anonymousAccess become defined for an app that never set it — that
   // would upgrade every roles:["anonymous"] handler to reachable without
   // a JWT the moment such a routing feature is mounted (#1452).
-  if (!base) return undefined;
+  if (!base) {
+    const needing = ANONYMOUS_ROUTE_FEATURES.filter((name) => deps.registry.getFeature(name));
+    if (needing.length > 0) {
+      deps.warn?.(
+        `[auth-foundation] ${needing.join(", ")} mount${needing.length === 1 ? "s" : ""} anonymous routes but anonymousAccess is not set, ` +
+          "so anonymous requests get no tenant. Add `anonymousAccess: {}` to opt in.",
+      );
+    }
+    return undefined;
+  }
 
   // Fail-closed (#1374 security): inline tenantResolver without trust is the
   // old ambiguous config — providers always carry trust; test stacks must too.

@@ -91,6 +91,17 @@ describe("reposWithEnvTs / scanDirectProcessEnv — roots-array behaviour", () =
 
     for (const c of cleanups) c();
   });
+
+  it("finds a process.env read in a bin subfolder such as bin/ops/", () => {
+    const dir = join(workspace(), "money-horse");
+    const root = fakeRoot(dir, "money-horse", false);
+    mkdirSync(join(dir, "bin", "ops"), { recursive: true });
+    writeFileSync(join(dir, "bin", "ops", "job.ts"), 'export const p = process.env["PORT"];\n');
+
+    expect(scanDirectProcessEnv([root]).findings.map((f) => f.file)).toEqual([
+      "money-horse/bin/ops/job.ts",
+    ]);
+  });
 });
 
 describe("check.run — RepoCheck seam", () => {

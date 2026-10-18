@@ -53,6 +53,17 @@ describe("renderTestSetup", () => {
     expect(setup.devDependencies["@playwright/test"]).toMatch(/^\^\d+\./);
   });
 
+  test("test:dom passes without DOM test files and its devDependencies are declared", () => {
+    expect(setup.scripts["test:dom"]).toContain("--pass-with-no-tests");
+    expect(Object.keys(setup.devDependencies)).toEqual(
+      expect.arrayContaining([
+        "@happy-dom/global-registrator",
+        "@testing-library/dom",
+        "@testing-library/react",
+      ]),
+    );
+  });
+
   test("the e2e config and server use the template entry points with the given port and app", () => {
     expect(setup.files["playwright.config.ts"]).toContain(
       `defineAppE2eConfig({ port: ${SCAFFOLD_E2E_PORT} })`,

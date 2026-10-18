@@ -10,8 +10,9 @@
 # changes BEFORE the app container starts — runProdApp's boot gate would
 # otherwise abort with SchemaDriftError.
 #
-# Network: the exact `<dirname>_stack` name of the compose project this
-# script runs in — never another project's network on a shared host.
+# Network: the exact `<project>_stack` name of the compose project this
+# script runs in (project name as reported by `docker compose config`) —
+# never another project's network on a shared host.
 
 set -euo pipefail
 
@@ -22,12 +23,16 @@ set -a
 . ./.env
 set +a
 
-# After the .env import, so a COMPOSE_PROJECT_NAME set there picks the network.
-# Compose lowercases the project name and drops characters outside [a-z0-9_-].
-COMPOSE_PROJECT="$(printf '%s' "${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+# After the .env import, so COMPOSE_PROJECT_NAME from there is honored. Ask
+# compose first: it also takes the name from a top-level `name:` key. The
+# fallback mirrors compose's normalization (lowercase, drop [^a-z0-9_-]).
+COMPOSE_PROJECT="$(docker compose config 2>/dev/null | sed -n 's/^name: //p' | head -n1 || true)"
+if [ -z "$COMPOSE_PROJECT" ]; then
+  COMPOSE_PROJECT="$(printf '%s' "${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+fi
 STACK_NETWORK="${COMPOSE_PROJECT}_stack"
 if ! docker network inspect "$STACK_NETWORK" >/dev/null 2>&1; then
-  echo "Stack network '$STACK_NETWORK' not found (derived from COMPOSE_PROJECT_NAME or the directory name '$(basename "$PWD")') — compose project not running?" >&2
+  echo "Stack network '$STACK_NETWORK' not found (project name from 'docker compose config', fallback COMPOSE_PROJECT_NAME or directory name '$(basename "$PWD")'; 'docker compose -p <name>' is not detected, set COMPOSE_PROJECT_NAME in .env then) — compose project not running?" >&2
   exit 1
 fi
 

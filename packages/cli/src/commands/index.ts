@@ -1,5 +1,6 @@
 import { agentCommand } from "./agent";
 import { checkCommand } from "./check";
+import { codemodCommand } from "./codemod";
 import { consumerCommand } from "./consumer";
 import { handbuchCommand } from "./handbuch";
 import { opsCommand } from "./ops";
@@ -10,6 +11,7 @@ import type { CliCommand } from "./types";
 
 export const APP_COMMANDS: ReadonlyArray<CliCommand> = [
   checkCommand,
+  codemodCommand,
   syncManagedCommand,
   portsCommand,
   agentCommand,
@@ -35,6 +37,7 @@ export type { CliCommand, CliCommandContext } from "./types";
 export {
   agentCommand,
   checkCommand,
+  codemodCommand,
   consumerCommand,
   handbuchCommand,
   opsCommand,

@@ -19,6 +19,7 @@ import type { TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { subscriptionAggregateId } from "./aggregate-id.ts";
 import { SubscriptionFoundationQueries, SubscriptionStatuses } from "./constants.ts";
+import type { PaymentEvent, SubscriptionEvent } from "./types.ts";
 import { createSubscriptionWebhookRoute } from "./webhook-handler.ts";
 
 // Outside /api — signature routes carry their own auth (verify()) and are
@@ -38,7 +39,29 @@ export type SubscriptionTierSyncDeps<TTier extends string> = {
   // idempotent caller (e.g. Stripe, whose retry re-runs the already-committed
   // primary write as a no-op) gets a second attempt at the sync step itself.
   readonly onSyncError?: "log" | "fail-webhook";
+  /** Runs after every webhook whose sync succeeded, also when the tier stayed the same
+   *  (`changed: false`). Not called when the tenant has no subscription yet, when a
+   *  manual grant was kept, or when the sync failed. A throw counts as a sync failure
+   *  and follows `onSyncError`. */
+  readonly afterSync?: (result: TierSyncResult<TTier>) => Promise<void>;
 };
+
+export type TierSyncResult<TTier extends string> = {
+  readonly tenantId: TenantId;
+  /** The tier the subscription yields. */
+  readonly tier: TTier;
+  /** True when this sync created or updated the tenant's tier assignment. */
+  readonly changed: boolean;
+  readonly event: SubscriptionEvent | PaymentEvent;
+};
+
+type SyncError = { code: string; message: string };
+type SyncOutcome<TTier extends string> =
+  | { readonly error: SyncError }
+  | {
+      readonly error: null;
+      readonly applied?: { readonly tier: TTier; readonly changed: boolean };
+    };
 
 // A manual grant that differs from what billing would assign is reported with this
 // code but never fails the webhook: a provider retry cannot resolve it.
@@ -92,10 +115,10 @@ function findTierAssignment(
 export function createSubscriptionTierSync<TTier extends string>(
   deps: SubscriptionTierSyncDeps<TTier>,
 ) {
-  async function syncTierFromSubscription(
+  async function runTierSync(
     tenantId: TenantId,
     routeDeps: Pick<SignatureExtraRouteDeps, "dispatchSystemQuery" | "dispatchSystemWrite">,
-  ): Promise<{ code: string; message: string } | null> {
+  ): Promise<SyncOutcome<TTier>> {
     try {
       const subscriptionId = subscriptionAggregateId(tenantId);
       const subscriptionRows = asRows(
@@ -106,7 +129,7 @@ export function createSubscriptionTierSync<TTier extends string>(
         }),
       );
       const sub = subscriptionRows.find((row) => row["id"] === subscriptionId);
-      if (!sub) return null;
+      if (!sub) return { error: null };
 
       const effective = effectiveTierFromSubscription(
         typeof sub["status"] === "string" ? sub["status"] : undefined,
@@ -135,17 +158,23 @@ export function createSubscriptionTierSync<TTier extends string>(
         });
         if (!created.isSuccess) {
           return {
-            code: "tier_sync_failed",
-            message: `tier-engine create with "${effective}" failed: ${created.error?.code ?? "unknown"}`,
+            error: {
+              code: "tier_sync_failed",
+              message: `tier-engine create with "${effective}" failed: ${created.error?.code ?? "unknown"}`,
+            },
           };
         }
-        return null;
+        return { error: null, applied: { tier: effective, changed: true } };
       }
-      if (assignment.tier === effective) return null;
+      if (assignment.tier === effective) {
+        return { error: null, applied: { tier: effective, changed: false } };
+      }
       if (assignment.source === TierAssignmentSources.manual) {
         return {
-          code: TIER_SYNC_MANUAL_GRANT_SKIPPED,
-          message: `manual tier grant "${String(assignment.tier)}" kept although the subscription yields "${effective}"`,
+          error: {
+            code: TIER_SYNC_MANUAL_GRANT_SKIPPED,
+            message: `manual tier grant "${String(assignment.tier)}" kept although the subscription yields "${effective}"`,
+          },
         };
       }
 
@@ -160,11 +189,13 @@ export function createSubscriptionTierSync<TTier extends string>(
       });
       if (!result.isSuccess) {
         return {
-          code: "tier_sync_failed",
-          message: `tier-engine update to "${effective}" failed: ${result.error?.code ?? "unknown"}`,
+          error: {
+            code: "tier_sync_failed",
+            message: `tier-engine update to "${effective}" failed: ${result.error?.code ?? "unknown"}`,
+          },
         };
       }
-      return null;
+      return { error: null, applied: { tier: effective, changed: true } };
     } catch (error) {
       // dispatchSystemQuery throws (AccessDenied/NotFound/Validation) rather
       // than returning an error envelope — e.g. a consumer that mounts
@@ -172,8 +203,37 @@ export function createSubscriptionTierSync<TTier extends string>(
       // a failed dispatchSystemWrite instead of letting it bubble into the
       // webhook response as an unhandled 500.
       return {
-        code: "tier_sync_failed",
-        message: error instanceof Error ? error.message : "tier sync threw a non-Error value",
+        error: {
+          code: "tier_sync_failed",
+          message: error instanceof Error ? error.message : "tier sync threw a non-Error value",
+        },
+      };
+    }
+  }
+
+  async function syncTierFromSubscription(
+    tenantId: TenantId,
+    routeDeps: Pick<SignatureExtraRouteDeps, "dispatchSystemQuery" | "dispatchSystemWrite">,
+  ): Promise<SyncError | null> {
+    return (await runTierSync(tenantId, routeDeps)).error;
+  }
+
+  async function syncAndNotify(
+    tenantId: TenantId,
+    event: SubscriptionEvent | PaymentEvent,
+    routeDeps: Pick<SignatureExtraRouteDeps, "dispatchSystemQuery" | "dispatchSystemWrite">,
+  ): Promise<SyncError | null> {
+    const outcome = await runTierSync(tenantId, routeDeps);
+    if (outcome.error !== null || outcome.applied === undefined || !deps.afterSync) {
+      return outcome.error;
+    }
+    try {
+      await deps.afterSync({ tenantId, event, ...outcome.applied });
+      return null;
+    } catch (error) {
+      return {
+        code: "tier_sync_after_hook_failed",
+        message: error instanceof Error ? error.message : "afterSync threw a non-Error value",
       };
     }
   }
@@ -182,8 +242,13 @@ export function createSubscriptionTierSync<TTier extends string>(
   function createWebhookRoute(options: { readonly path?: string } = {}): ExtraRouteDefinition {
     return createSubscriptionWebhookRoute({
       path: options.path ?? SUBSCRIPTION_WEBHOOK_PATH,
-      afterDispatch: async (dispatched: WriteResult, tenantId, routeDeps): Promise<WriteResult> => {
-        const syncError = await syncTierFromSubscription(tenantId, routeDeps);
+      afterDispatch: async (
+        dispatched: WriteResult,
+        tenantId,
+        routeDeps,
+        event,
+      ): Promise<WriteResult> => {
+        const syncError = await syncAndNotify(tenantId, event, routeDeps);
         if (syncError) {
           // biome-ignore lint/suspicious/noConsole: operator visibility for a post-commit sync failure
           console.warn(
@@ -209,5 +274,5 @@ export function createSubscriptionTierSync<TTier extends string>(
     });
   }
 
-  return { createWebhookRoute, syncTierFromSubscription };
+  return { createWebhookRoute, syncTierFromSubscription, syncAndNotify };
 }

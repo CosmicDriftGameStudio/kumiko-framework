@@ -52,6 +52,8 @@ export {
 export {
   type CreateKumikoServerOptions,
   createKumikoServer,
+  type DevHostDispatch,
+  type DevHostDispatchResult,
   type KumikoServerHandle,
   PROD_BUNDLES_ENV,
   resolveStylesheet,

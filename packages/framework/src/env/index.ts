@@ -104,6 +104,17 @@ export function classifyField(field: z.ZodType): EnvFieldClass {
   let current: z.ZodType = field;
   for (let i = 0; i < 8; i++) {
     if (current instanceof z.ZodDefault) return "withDefault";
+    // `.required()` on an object wraps optional fields in nonoptional(); the
+    // wrapper makes the field required, whatever the optional beneath it says.
+    if (current instanceof z.ZodNonOptional) {
+      const beneath = zodDef(current)?.innerType;
+      if (beneath instanceof z.ZodOptional) {
+        const unwrapped = zodDef(beneath)?.innerType;
+        if (unwrapped === undefined) return "required";
+        current = unwrapped;
+        continue;
+      }
+    }
     if (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
       return "optional";
     }
@@ -534,7 +545,11 @@ export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
     const isMissing = issue.code === "invalid_type" && !(name in cleaned);
     const kind: EnvErrorKind = isMissing ? "missing" : "invalid";
     const desc = field ? getFieldDescription(field) : undefined;
-    const message = desc ? `${issue.message} — ${desc}` : issue.message;
+    const issueText =
+      issue.code === "invalid_type" && issue.expected === "nonoptional"
+        ? "Invalid input: required"
+        : issue.message;
+    const message = desc ? `${issueText} — ${desc}` : issueText;
     const suggestion = field ? buildPulumiSuggestion(name, field, options.pulumiPrefix) : undefined;
     const source = options.sources?.[name];
     return {
