@@ -5,7 +5,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createEntity,
   createFileField,
@@ -13,16 +14,17 @@ import {
   createTextField,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
   deriveKey,
   type FileStorageProvider,
+  fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -41,6 +43,7 @@ import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const CREATE_DOSSIER = "ff-probe:write:dossier:create";
+const UPDATE_DOSSIER = "ff-probe:write:dossier:update";
 const DETAIL_DOSSIER = "ff-probe:query:dossier:detail";
 const CREATE_OWNED = "ff-probe:write:owned-doc:create";
 const REASON = "authority request (Art. 17 file purge)";
@@ -70,6 +73,7 @@ const probeFeature = defineFeature("ff-probe", (r) => {
   r.entity({ name: "dossier", ...dossierEntity });
   r.entity({ name: "owned-doc", ...ownedDocEntity });
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ROLES));
+  r.writeHandler(defineEntityUpdateHandler("dossier", dossierEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, ROLES));
   r.writeHandler(defineEntityCreateHandler("owned-doc", ownedDocEntity, ROLES));
 });
@@ -115,10 +119,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [eventsTable]);
-  await asRawClient(stack.db).unsafe(
-    "TRUNCATE read_ff_dossier, read_ff_owned_doc, file_refs RESTART IDENTITY CASCADE",
-  );
+  await resetTestTables(stack.db, [
+    eventsTable,
+    "read_ff_dossier",
+    "read_ff_owned_doc",
+    fileRefsTable,
+  ]);
   memory.clear();
   failDeletes = false;
   configurePiiSubjectKms(new InMemoryKmsAdapter());
@@ -150,16 +156,12 @@ async function upload(as: Uploader, entityType: string, fieldName: string): Prom
 }
 
 async function storageKeyOf(fileRefId: string): Promise<string> {
-  const rows = await asRawClient(stack.db).unsafe(
-    "SELECT storage_key FROM file_refs WHERE id = $1",
-    [fileRefId],
-  );
-  return String((rows as { storage_key: string }[])[0]?.storage_key);
+  const rows = await selectMany<{ storageKey: string }>(stack.db, fileRefsTable, { id: fileRefId });
+  return String(rows[0]?.storageKey);
 }
 
 async function fileRefExists(id: string): Promise<boolean> {
-  const rows = await asRawClient(stack.db).unsafe("SELECT id FROM file_refs WHERE id = $1", [id]);
-  return (rows as unknown[]).length > 0;
+  return (await selectMany(stack.db, fileRefsTable, { id })).length > 0;
 }
 
 type SeededDossier = {
@@ -247,6 +249,37 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
       dpo,
     );
     expect(detail.id).toBe(target.id);
+  });
+
+  test("after forget the record still saves, with or without the purged file field sent back", async () => {
+    const target = await seedDossier("target");
+    const spec = forgetRecord(target.id);
+    await stack.http.writeOk(spec.name, spec.payload, spec.as);
+    expect(await fileRefExists(target.passportId)).toBe(false);
+
+    const currentVersion = async (): Promise<number> =>
+      (await stack.http.queryOk<{ version: number }>(DETAIL_DOSSIER, { id: target.id }, dpo))
+        .version;
+    await stack.http.writeOk(
+      UPDATE_DOSSIER,
+      { id: target.id, version: await currentVersion(), changes: { label: "renamed" } },
+      dpo,
+    );
+    await stack.http.writeOk(
+      UPDATE_DOSSIER,
+      {
+        id: target.id,
+        version: await currentVersion(),
+        changes: { label: "renamed again", passport: target.passportId, scans: [target.scanId] },
+      },
+      dpo,
+    );
+    const detail = await stack.http.queryOk<{ label: string }>(
+      DETAIL_DOSSIER,
+      { id: target.id },
+      dpo,
+    );
+    expect(detail.label).toBe("renamed again");
   });
 
   test("a storage error fails closed (fileRef and entity row stay, cleanupError in the audit event, handler errors); a retry with working storage finishes the purge", async () => {
