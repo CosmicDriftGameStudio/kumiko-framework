@@ -5,11 +5,18 @@ import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
-import { PAT_FEATURE, PatHandlers, PatQueries } from "../constants.ts";
+import {
+  PAT_FEATURE,
+  PAT_MINT_SCREEN_ID,
+  PAT_SCREEN_ID,
+  PatHandlers,
+  PatQueries,
+} from "../constants.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 
 const TENANT_WITH_TIER = testTenantId(11);
 const TENANT_WITHOUT_TIER = testTenantId(12);
+const LOCKED_FALLBACK_SCREEN = "billing:screen:upgrade";
 const ALWAYS_ON_FEATURES = ["config", "user", "tenant", "auth-foundation"];
 
 let stack: TestStack;
@@ -22,7 +29,11 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createPersonalAccessTokensFeature({ scopes: {}, toggleable: { default: false } }),
+      createPersonalAccessTokensFeature({
+        scopes: {},
+        toggleable: { default: false },
+        lockedFallbackScreen: LOCKED_FALLBACK_SCREEN,
+      }),
       createAuthFoundationFeature(),
     ],
     effectiveFeatures: (tenantId) =>
@@ -64,5 +75,41 @@ describe("personal-access-tokens under a tier that excludes the feature", () => 
 
     const revoke = await stack.http.write(PatHandlers.revoke, { id: "x" }, adminWithoutTier);
     expect(revoke.status).not.toBe(200);
+  });
+});
+
+describe("GET /api/schema for a tenant whose tier excludes tokens", () => {
+  type SchemaBody = {
+    features: Array<{
+      featureName: string;
+      screens: Array<{ id: string; fallback?: string }>;
+      navs?: Array<{ id: string }>;
+    }>;
+  };
+
+  async function patFeatureSchema(user: typeof adminWithTier) {
+    const token = await stack.jwt.sign(user);
+    const res = await stack.app.request("/api/schema", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as SchemaBody;
+    return body.features.find((f) => f.featureName === PAT_FEATURE);
+  }
+
+  test("keeps the token screens with their fallback so the upgrade screen can render", async () => {
+    const pat = await patFeatureSchema(adminWithoutTier);
+    expect(pat?.screens.map((s) => s.id).sort()).toEqual(
+      [PAT_MINT_SCREEN_ID, PAT_SCREEN_ID].sort(),
+    );
+    for (const screen of pat?.screens ?? []) {
+      expect(screen.fallback).toBe(LOCKED_FALLBACK_SCREEN);
+    }
+    expect(pat?.navs).toBeUndefined();
+  });
+
+  test("the availability probe that gates those screens is rejected for that tenant", async () => {
+    const res = await stack.http.query(PatQueries.availability, {}, adminWithoutTier);
+    expect(res.status).not.toBe(200);
   });
 });

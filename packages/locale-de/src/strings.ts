@@ -989,7 +989,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "secrets.errors.writeDenied": "Dieses Geheimnis darf nicht geändert werden.",
   "secrets.errors.invalidValue": "Dieser Wert ist für dieses Geheimnis nicht gültig.",
   "screen:api-token-create.title": "Neuen Token erstellen",
-  "screen:api-tokens.title": "Personal Access Tokens",
+  "screen:api-tokens.title": "API-Tokens",
   "screen:audit-log-detail.title": "Ereignis",
   "screen:audit-log.title": "Ereignisprotokoll",
   "screen:auth-mfa-disable.title": "Zwei-Faktor-Authentifizierung deaktivieren",

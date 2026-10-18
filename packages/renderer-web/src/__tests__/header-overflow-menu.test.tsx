@@ -299,13 +299,19 @@ describe("primary toolbar action in the header", () => {
     expect(onTrigger).toHaveBeenCalledTimes(1);
   });
 
-  test("on desktop it stays a text button in the toolbar", () => {
+  test("on desktop it becomes a labelled button in the header, like a create button", () => {
     setViewportWidth(DESKTOP);
     renderList({ toolbarActions: [action()] });
-    expect(inHeader()).toBeNull();
-    expect(screen.getByTestId("render-list-toolbar-action-new").textContent).toContain(
-      "New credit",
-    );
+    expect(inHeader()?.textContent).toContain("New credit");
+    expect(screen.getAllByTestId("render-list-toolbar-action-new")).toHaveLength(1);
+    expect(inHeader()?.querySelector("svg")).toBeNull();
+  });
+
+  test("on desktop it shows only the icon the action declares", () => {
+    setViewportWidth(DESKTOP);
+    renderList({ toolbarActions: [action({ icon: "archive" })] });
+    expect(inHeader()?.querySelector(".lucide-archive")).not.toBeNull();
+    expect(inHeader()?.querySelector(".lucide-plus")).toBeNull();
   });
 
   test("with onCreate only the create button takes the header", () => {
