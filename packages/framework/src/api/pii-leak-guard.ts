@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { PII_CIPHERTEXT_PREFIX } from "../crypto/index.ts";
+import { resolveRouteLabel } from "./route-label.ts";
 
 const isProductionEnv = () => process.env["NODE_ENV"] === "production";
 // Version-agnostic: catches both the current PII_CIPHERTEXT_PREFIX and any
@@ -30,7 +31,7 @@ export function piiCiphertextResponseGuard(): MiddlewareHandler {
     if (!CIPHERTEXT_RE.test(text)) return;
 
     const detail =
-      `[api] JSON response for ${c.req.method} ${c.req.path} contains a PII ciphertext ` +
+      `[api] JSON response for ${c.req.method} ${resolveRouteLabel(c)} contains a PII ciphertext ` +
       `("${PII_CIPHERTEXT_PREFIX}…") — a raw DB read leaked to the API surface. ` +
       `Decrypt before returning (decryptStoredPii / executor read path).`;
     if (!isProductionEnv()) {

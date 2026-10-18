@@ -70,6 +70,7 @@ export type BaseEntrypointOptions = {
   readonly jwtSecret: string | JwtKeyring;
   readonly jwtIssuer?: string;
   readonly observability?: ObservabilityProvider;
+  /** @deprecated No effect: the HTTP route label carries no query string anymore, so there is nothing left to configure. */
   readonly observabilityOptions?: ObservabilityOptions;
   readonly dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   readonly systemHooks?: SystemHooks;
@@ -277,7 +278,6 @@ function buildApiServer(
     metrics: opts.metrics,
     extraRoutes: opts.extraRoutes,
     observability: opts.observability,
-    observabilityOptions: opts.observabilityOptions,
     dispatcherOptions,
     systemHooks: opts.systemHooks,
     eventDedup: opts.eventDedup,
@@ -302,7 +302,6 @@ function buildWorkerServer(
     lifecycle,
     processLane: "worker",
     observability: opts.observability,
-    observabilityOptions: opts.observabilityOptions,
     dispatcherOptions,
     systemHooks: opts.systemHooks,
     eventDedup: opts.eventDedup,

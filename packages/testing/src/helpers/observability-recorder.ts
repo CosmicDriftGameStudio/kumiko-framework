@@ -15,7 +15,7 @@ import {
 export type RecordingProvider = ObservabilityProvider & {
   readonly spans: readonly RecordedSpan[];
   readonly metricEvents: readonly MetricEvent[];
-  // Returns spans filtered by name — handy for `.find(s => s.name === "http.request")`.
+  // Returns spans filtered by name — handy for `.find(s => s.name === "POST /api/write")`.
   spansByName(name: string): readonly RecordedSpan[];
   // All spans sharing a trace id — use this to reconstruct a single request's tree.
   spansByTraceId(traceId: string): readonly RecordedSpan[];
