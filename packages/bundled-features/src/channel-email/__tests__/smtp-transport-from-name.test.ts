@@ -5,9 +5,10 @@
 
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 
-const realNodemailer = await import("nodemailer");
-// Captured before mocking: mock.module rewrites the namespace object in place, so a
-// lookup through it from inside the mock would call the mock itself.
+// A snapshot, not the namespace: mock.module rewrites the namespace object in
+// place, so both the lookup inside the mock and the afterAll restore would hit
+// the mock itself.
+const realNodemailer = { ...(await import("nodemailer")) };
 const createRealTransport = realNodemailer.createTransport;
 let rawMessage = "";
 mock.module("nodemailer", () => ({
