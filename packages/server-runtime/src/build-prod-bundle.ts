@@ -61,7 +61,7 @@ import {
   readBundledAssetDeclarations,
   resolveBundledAssetSource,
 } from "./bundled-assets.js";
-import { CSP_HASHES_FILE, collectBuildScriptHashes } from "./csp-hashes.js";
+import { CSP_HASHES_FILE, type CspHashesFile, inlineScriptHashes } from "./csp-hashes.js";
 import {
   RENDERER_WEB_FONT_FILE_PATTERN,
   RENDERER_WEB_FONTS_DIST_DIR,
@@ -1106,4 +1106,28 @@ export function formatBuildResult(result: BuildResult, durationMs: number): stri
   }
   lines.push("");
   return lines.join("\n");
+}
+
+function htmlFilesUnder(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      // Bundled assets are never served over HTTP.
+      if (entry.name === BUNDLED_ASSETS_DIST_DIR) continue;
+      files.push(...htmlFilesUnder(join(dir, entry.name)));
+    } else if (entry.name.endsWith(".html")) {
+      files.push(join(dir, entry.name));
+    }
+  }
+  return files;
+}
+
+/** Hashes every inline script in the HTML files of a finished build output, so the
+ *  CSP only ever allows code that shipped in the artefact. */
+export function collectBuildScriptHashes(distDir: string): CspHashesFile {
+  const hashes = new Set<string>();
+  for (const file of htmlFilesUnder(distDir)) {
+    for (const hash of inlineScriptHashes(readFileSync(file, "utf8"))) hashes.add(hash);
+  }
+  return { scriptSrc: [...hashes].sort() };
 }

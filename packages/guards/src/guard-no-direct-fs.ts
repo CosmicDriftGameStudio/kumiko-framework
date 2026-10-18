@@ -109,11 +109,9 @@ const ALLOWLIST: readonly AllowEntry[] = [
 
   // server-runtime: prod bundle build + static asset delivery from the
   // build output (no user-controlled path). bundled-assets.ts reads declared
-  // read-only assets, name-pattern + containment checked. csp-hashes.ts walks
-  // the build output for html and reads its fixed-name csp-hashes.json.
+  // read-only assets, name-pattern + containment checked.
   { repo: "kumiko-framework", pattern: /^packages\/server-runtime\/src\/build-prod-bundle\.ts$/ },
   { repo: "kumiko-framework", pattern: /^packages\/server-runtime\/src\/bundled-assets\.ts$/ },
-  { repo: "kumiko-framework", pattern: /^packages\/server-runtime\/src\/csp-hashes\.ts$/ },
   {
     repo: "kumiko-framework",
     pattern: /^packages\/server-runtime\/src\/run-prod-app-static-files\.ts$/,

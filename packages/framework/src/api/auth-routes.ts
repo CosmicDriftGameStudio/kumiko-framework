@@ -392,7 +392,7 @@ export type AuthRoutesConfig = {
   // Rate-limit for POST /auth/mfa/preauth-enable-start, keyed by client IP.
   // Defaults to in-memory 10/5min. Pass `null` to disable. This route does
   // NOT inherit the generic L2 authEndpointRateLimit on /api/auth/* by
-  // default (that's opt-in per-app via runProdApp's rateLimit.auth), and a
+  // default (runProdApp's rateLimit.auth is a separate per-app setting), and a
   // preauthSetupToken is valid for the full setup-token TTL and not
   // single-use until preauth-confirm burns it — an unrate-limited replay
   // means every hit re-derives a fresh TOTP secret + 8 argon2id recovery-

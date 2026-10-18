@@ -169,7 +169,6 @@ import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.js";
 import { waitForDatabase, waitUntilDatabaseReachable } from "./boot/wait-for-database.js";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.js";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
-import { resolveCspScriptHashes } from "./csp-hashes.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
 import { assertPiiBootInvariants } from "./pii-boot-gate.js";
 import { type RateLimitOption, resolveRateLimit } from "./rate-limit-defaults.js";
@@ -183,7 +182,7 @@ import {
   resolveAuthMail,
   wireProdPatAutoRevoke,
 } from "./run-prod-app-boot-context.js";
-import { buildStaticFallback } from "./run-prod-app-static-files.js";
+import { buildStaticFallback, resolveCspScriptHashes } from "./run-prod-app-static-files.js";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.js";
 import {
   makeSeedCreateFileRef,
@@ -1496,7 +1495,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk
   //     owns the rest. Tests use this directly; listen() wraps it in
   //     Bun.serve.
-  const cspScriptHashes = resolveCspScriptHashes(options.staticDir, options.securityHeaders);
+  const cspScriptHashes = await resolveCspScriptHashes(options.staticDir, options.securityHeaders);
   const fetchHandler = withSecurityHeaders(
     options.staticDir
       ? buildStaticFallback(

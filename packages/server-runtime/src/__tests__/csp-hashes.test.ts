@@ -1,16 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildProdBundle } from "../build-prod-bundle.js";
-import {
-  CSP_HASHES_FILE,
-  collectBuildScriptHashes,
-  inlineScriptHashes,
-  readCspHashes,
-  resolveCspScriptHashes,
-} from "../csp-hashes.js";
+import { buildProdBundle, collectBuildScriptHashes } from "../build-prod-bundle.js";
+import { CSP_HASHES_FILE, inlineScriptHashes, parseCspHashes } from "../csp-hashes.js";
+import { resolveCspScriptHashes } from "../run-prod-app-static-files.js";
 import { withSecurityHeaders } from "../security-headers.js";
 
 const sha256Of = (content: string): string =>
@@ -30,7 +25,25 @@ describe("inlineScriptHashes", () => {
   });
 });
 
-describe("readCspHashes", () => {
+describe("parseCspHashes", () => {
+  test("accepts a list of sha256 hashes", () => {
+    const hash = `sha256-${"A".repeat(43)}=`;
+    expect(parseCspHashes(JSON.stringify({ scriptSrc: [hash] }))).toEqual({
+      kind: "found",
+      scriptSrc: [hash],
+    });
+  });
+
+  test("rejects entries that are not sha256 hashes and broken json", () => {
+    expect(parseCspHashes(JSON.stringify({ scriptSrc: ["'unsafe-inline'"] })).kind).toBe("invalid");
+    expect(parseCspHashes(JSON.stringify({ scriptSrc: ["sha256-x' 'unsafe-inline"] })).kind).toBe(
+      "invalid",
+    );
+    expect(parseCspHashes("{not json").kind).toBe("invalid");
+  });
+});
+
+describe("resolveCspScriptHashes", () => {
   let dir = "";
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "kumiko-csp-hashes-"));
@@ -39,33 +52,38 @@ describe("readCspHashes", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  test("missing file", () => {
-    expect(readCspHashes(dir)).toEqual({ kind: "missing" });
-  });
-
-  test("rejects entries that are not sha256 hashes", async () => {
-    await writeFile(join(dir, CSP_HASHES_FILE), JSON.stringify({ scriptSrc: ["'unsafe-inline'"] }));
-    expect(readCspHashes(dir).kind).toBe("invalid");
-    await writeFile(join(dir, CSP_HASHES_FILE), "{not json");
-    expect(readCspHashes(dir).kind).toBe("invalid");
-  });
-
-  test("resolveCspScriptHashes warns once about a missing file and returns no hashes", () => {
+  async function warningsDuring(run: () => Promise<void>): Promise<string[]> {
     const warnings: string[] = [];
     const original = console.warn;
     console.warn = (...args: unknown[]) => {
       warnings.push(args.map(String).join(" "));
     };
     try {
-      expect(resolveCspScriptHashes(dir, undefined)).toEqual([]);
-      expect(resolveCspScriptHashes(dir, { csp: false })).toEqual([]);
-      expect(resolveCspScriptHashes(dir, { csp: "default-src 'self'" })).toEqual([]);
-      expect(resolveCspScriptHashes(undefined, undefined)).toEqual([]);
+      await run();
     } finally {
       console.warn = original;
     }
+    return warnings;
+  }
+
+  test("warns about a missing file and returns no hashes; opt-outs stay silent", async () => {
+    const warnings = await warningsDuring(async () => {
+      expect(await resolveCspScriptHashes(dir, undefined)).toEqual([]);
+      expect(await resolveCspScriptHashes(dir, { csp: false })).toEqual([]);
+      expect(await resolveCspScriptHashes(dir, { csp: "default-src 'self'" })).toEqual([]);
+      expect(await resolveCspScriptHashes(dir, false)).toEqual([]);
+      expect(await resolveCspScriptHashes(undefined, undefined)).toEqual([]);
+    });
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain(CSP_HASHES_FILE);
+  });
+
+  test("warns about an invalid file", async () => {
+    await writeFile(join(dir, CSP_HASHES_FILE), "{not json");
+    const warnings = await warningsDuring(async () => {
+      expect(await resolveCspScriptHashes(dir, undefined)).toEqual([]);
+    });
+    expect(warnings[0]).toContain("is invalid");
   });
 });
 
@@ -98,10 +116,12 @@ describe("build output to CSP header", () => {
 
     const dist = join(tmp, "dist");
     const expected = [sha256Of(themeScript), sha256Of(landingScript)].sort();
-    expect(readCspHashes(dist)).toEqual({ kind: "found", scriptSrc: expected });
+    expect(JSON.parse(await readFile(join(dist, CSP_HASHES_FILE), "utf8"))).toEqual({
+      scriptSrc: expected,
+    });
     expect(collectBuildScriptHashes(dist).scriptSrc).toEqual(expected);
 
-    const hashes = resolveCspScriptHashes(dist, undefined);
+    const hashes = await resolveCspScriptHashes(dist, undefined);
     const res = await withSecurityHeaders(
       () => new Response("ok"),
       undefined,

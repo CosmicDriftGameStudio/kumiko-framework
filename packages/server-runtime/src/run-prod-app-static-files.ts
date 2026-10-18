@@ -1,4 +1,4 @@
-import { resolve, sep } from "node:path";
+import { join, resolve, sep } from "node:path";
 import {
   type CachePolicy,
   type ClientIpResolver,
@@ -11,11 +11,13 @@ import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ASSETS_DIR } from "./build-prod-bundle.js";
 import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.js";
+import { CSP_HASHES_FILE, parseCspHashes } from "./csp-hashes.js";
 import {
   buildRequestBoundSystemQuery,
   type QueryDispatcher,
 } from "./request-bound-system-query.js";
 import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app.js";
+import type { SecurityHeadersOption } from "./security-headers.js";
 import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first.js";
 
 // Static-asset + SPA-fallback serving for runProdApp's HTTP handler. Split
@@ -62,6 +64,30 @@ export async function readStaticFile(
     if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR") return undefined;
     throw err;
   }
+}
+
+/** Hashes for the default CSP. Only an app that keeps the default CSP and serves a
+ *  staticDir needs them; a missing or broken file leaves inline scripts blocked, so boot says so. */
+export async function resolveCspScriptHashes(
+  staticDir: string | undefined,
+  securityHeaders: SecurityHeadersOption | undefined,
+): Promise<readonly string[]> {
+  if (staticDir === undefined || securityHeaders === false) return [];
+  const csp = securityHeaders?.csp;
+  if (csp === false || typeof csp === "string") return [];
+  const file = await readStaticFile(join(staticDir, CSP_HASHES_FILE));
+  const result = file ? parseCspHashes(new TextDecoder().decode(file.bytes)) : undefined;
+  if (result?.kind === "found") return result.scriptSrc;
+  const problem =
+    result === undefined
+      ? `${CSP_HASHES_FILE} not found in ${staticDir} (written by kumiko build)`
+      : `${CSP_HASHES_FILE} is invalid: ${result.kind === "invalid" ? result.problem : ""}`;
+  // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
+  console.warn(
+    `[runProdApp] ${problem}; the default CSP carries no inline-script hashes, so inline scripts in the served HTML are blocked. ` +
+      "Rebuild with kumiko build, or set securityHeaders.csp.",
+  );
+  return [];
 }
 
 // Bundled assets are server-side inputs (readBundledAsset), never public URLs.
