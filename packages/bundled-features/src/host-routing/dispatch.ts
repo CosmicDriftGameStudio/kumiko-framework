@@ -2,7 +2,7 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
 import * as z from "zod";
-import { HostRoutingQueries, isTenantKeyCandidate } from "./constants.js";
+import { HostRoutingQueries, isPathTenantKeyCandidate, isTenantKeyCandidate } from "./constants.js";
 import { classifyHost } from "./host.js";
 import type { HostRoutingOptions, HostRoutingSurface } from "./options.js";
 import { validateHostRoutingOptions } from "./validate-options.js";
@@ -91,7 +91,8 @@ async function tenantPage(
 ): Promise<HostRoutingDispatchResult> {
   // No key (bare tenant prefix): the shell handles login and tenant choice.
   if (key === null) return serve(options.tenant);
-  if (!isTenantKeyCandidate(key)) return notFound(options.unknownTenant);
+  const isCandidate = options.tenantBy === "path" ? isPathTenantKeyCandidate : isTenantKeyCandidate;
+  if (!isCandidate(key)) return notFound(options.unknownTenant);
   return (await isTenantKeyKnown(systemQuery, key))
     ? serve(options.tenant)
     : notFound(options.unknownTenant);

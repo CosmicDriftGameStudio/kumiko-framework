@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createAnonymousUser,
   defineFeature,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -103,6 +104,76 @@ beforeAll(async () => {
 });
 
 afterAll(async () => stack?.cleanup());
+
+async function setupApexStack(apexOptions: HostRoutingOptions): Promise<TestStack> {
+  const apexStack = await setupTestStack({
+    features: [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuthFoundationFeature(),
+      createHostRoutingFeature(apexOptions),
+      probeFeature,
+    ],
+    anonymousAccess: {},
+    enrichAnonymousAccess: (base, deps) => resolveAnonymousAccessFromRegistry(base, deps),
+  });
+  await unsafeCreateEntityTable(apexStack.db, userEntity);
+  await unsafeCreateEntityTable(apexStack.db, tenantEntity);
+  await unsafePushTables(apexStack.db, { configValuesTable, tenantMembershipsTable });
+  await seedTenant(apexStack.db, TENANTS[0]);
+  return apexStack;
+}
+
+function whoamiOn(target: TestStack, host: string, headers: Record<string, string> = {}) {
+  return target.http.raw(
+    "POST",
+    "/api/query",
+    { type: WHOAMI, payload: {} },
+    { Host: host, ...headers },
+  );
+}
+
+async function tenantIdOf(res: Response): Promise<string> {
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { data: { tenantId: string } };
+  return body.data.tenantId;
+}
+
+describe("host-routing apexAnonymousTenantId", () => {
+  test("host mode: the apex answers as the configured tenant and rejects a foreign X-Tenant", async () => {
+    const apexStack = await setupApexStack({ ...options, apexAnonymousTenantId: SYSTEM_TENANT_ID });
+    try {
+      expect(await tenantIdOf(await whoamiOn(apexStack, BASE_DOMAIN))).toBe(SYSTEM_TENANT_ID);
+      const spoofed = await whoamiOn(apexStack, BASE_DOMAIN, { "X-Tenant": TENANTS[0].id });
+      expect(spoofed.status).toBe(400);
+      expect(await errorCode(spoofed)).toBe("tenant_mismatch");
+      expect(await tenantIdOf(await whoamiOn(apexStack, `acme.${BASE_DOMAIN}`))).toBe(
+        TENANTS[0].id,
+      );
+    } finally {
+      await apexStack.cleanup();
+    }
+  });
+
+  test("path mode: the apex default fills in only when the client names no tenant", async () => {
+    const apexStack = await setupApexStack({
+      tenantBy: "path",
+      tenantPathPrefix: "/t",
+      baseDomain: BASE_DOMAIN,
+      apex: { file: "index.html" },
+      tenant: { file: "tenant.html" },
+      apexAnonymousTenantId: SYSTEM_TENANT_ID,
+    });
+    try {
+      expect(await tenantIdOf(await whoamiOn(apexStack, BASE_DOMAIN))).toBe(SYSTEM_TENANT_ID);
+      const named = await whoamiOn(apexStack, BASE_DOMAIN, { "X-Tenant": TENANTS[0].id });
+      expect(await tenantIdOf(named)).toBe(TENANTS[0].id);
+    } finally {
+      await apexStack.cleanup();
+    }
+  });
+});
 
 describe("host-routing over HTTP", () => {
   test("three tenant hosts resolve to three tenants", async () => {

@@ -238,3 +238,9 @@ export async function runBackfillPii(ctx: CliCommandContext): Promise<number> {
     await wiring.close();
   }
 }
+
+export const backfillPiiOp = {
+  id: "backfill-pii",
+  description: "Encrypt pre-KMS plaintext PII in the event store",
+  run: runBackfillPii,
+} as const;

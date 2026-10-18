@@ -138,6 +138,7 @@
     "./account-security": "./src/account-security/index.ts",
     "./host-routing": "./src/host-routing/index.ts",
     "./legal-pages": "./src/legal-pages/index.ts",
+    "./legal-pages/constants": "./src/legal-pages/constants.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
     "./page-render": "./src/page-render/index.ts",
@@ -657,6 +658,10 @@
       "./legal-pages": {
         "types": "./dist/legal-pages/index.d.ts",
         "default": "./dist/legal-pages/index.js"
+      },
+      "./legal-pages/constants": {
+        "types": "./dist/legal-pages/constants.d.ts",
+        "default": "./dist/legal-pages/constants.js"
       },
       "./legal-pages/web": {
         "types": "./dist/legal-pages/web/index.d.ts",

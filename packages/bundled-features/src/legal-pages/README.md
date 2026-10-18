@@ -149,7 +149,9 @@ rules above still apply.
 Apps that render legal pages elsewhere (e.g. an Astro site) link to the same
 paths with `legalPagePath(routes, slug, lang)`, for example
 `legalPagePath([...LEGAL_ROUTES, ...LEGAL_TERMS_ROUTES], "terms", "en")`. It is
-client-safe and returns `undefined` for an unknown combination.
+client-safe and returns `undefined` for an unknown combination. Import it with
+the route constants from `@cosmicdrift/kumiko-bundled-features/legal-pages/constants`,
+which keeps the server feature out of a client bundle.
 
 ---
 

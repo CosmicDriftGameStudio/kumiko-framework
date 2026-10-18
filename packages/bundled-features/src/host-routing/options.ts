@@ -1,3 +1,5 @@
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+
 // What a host (or a tenant) gets served on the HTML fallback.
 export type HostRoutingSurface = {
   // HTML file relative to the prod staticDir, e.g. "index.html" or "admin.html".
@@ -35,4 +37,7 @@ export type HostRoutingOptions = HostRoutingTenantMode & {
   // Further fixed hosts (full hostname, lowercase, without port), checked first.
   readonly hosts?: Readonly<Record<string, HostRoutingSurface>>;
   readonly locales?: HostRoutingLocales;
+  // Tenant for anonymous API calls on the apex (e.g. SYSTEM_TENANT_ID for
+  // public signup forms). Omit and the apex answers tenant_required.
+  readonly apexAnonymousTenantId?: TenantId;
 };

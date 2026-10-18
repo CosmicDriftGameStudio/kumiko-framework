@@ -7,7 +7,11 @@ prefix or locale-prefixed marketing pages. Two halves:
   registers an authoritative tenant resolver (`<key>.<baseDomain>` → tenant),
   so anonymous API calls get their tenant from the Host header only; a
   disagreeing `X-Tenant` header or cookie answers `400 tenant_mismatch`, and the
-  apex or an unknown host answers `400 tenant_required`. In both modes it
+  apex or an unknown host answers `400 tenant_required`. Set
+  `apexAnonymousTenantId` and the apex answers as that tenant instead (host
+  mode: authoritative; path mode: only when the client names no tenant). Path
+  keys may be any 1 to 50 unreserved URL characters, subdomain keys must be
+  one lowercase DNS label. In both modes it
   registers a tenant existence check: a client-named tenant must exist, be
   enabled and be active. It also owns the anonymous, rate-limited
   `host-routing:query:tenant-key-exists` query.
@@ -59,6 +63,7 @@ the app sets it.
 | `tenant` | `{ file, csp? }` for a known tenant and for the bare path prefix |
 | `unknownTenant` | `{ file, csp? }` served with 404; omit for a bare 404 |
 | `hosts` | Further fixed hostnames with their own surface, checked first |
+| `apexAnonymousTenantId` | Tenant for anonymous API calls on the apex (e.g. `SYSTEM_TENANT_ID` for public signup); omit and the apex has none |
 | `locales` | `{ default, prefixed }`: `/<default>/...` answers 301 to the unprefixed path, `/<prefixed>/...` serves `apex.localeFiles[locale]` |
 
 A `csp` replaces runProdApp's default CSP for that surface; without it the

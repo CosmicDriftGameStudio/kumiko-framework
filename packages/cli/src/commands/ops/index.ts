@@ -1,45 +1,32 @@
 import type { CliCommand, CliCommandContext } from "../types";
-import { BACKFILL_PII_HELP, runBackfillPii } from "./backfill-pii";
+import { backfillPiiOp } from "./backfill-pii";
 import { waitlistMigrateOp } from "./waitlist-migrate";
 
-type OpsSubcommand = {
+export type OpsSubcommand = {
   readonly id: string;
   readonly description: string;
-  readonly help: string;
   readonly run: (ctx: CliCommandContext) => Promise<number>;
 };
 
-const OPS_SUBCOMMANDS: readonly OpsSubcommand[] = [
-  {
-    id: "backfill-pii",
-    description: "Encrypt pre-KMS plaintext PII in the event store",
-    help: BACKFILL_PII_HELP,
-    run: runBackfillPii,
-  },
-  waitlistMigrateOp,
-];
+export const OPS_SUBCOMMANDS: ReadonlyArray<OpsSubcommand> = [backfillPiiOp, waitlistMigrateOp];
 
 function opsUsage(): string {
-  return [
-    "Usage: kumiko ops <subcommand> [flags]",
-    "",
-    ...OPS_SUBCOMMANDS.map((sub) => `  ${sub.id.padEnd(16)} ${sub.description}`),
-  ].join("\n");
+  return OPS_SUBCOMMANDS.map((op) => `  ${op.id.padEnd(20)} ${op.description}`).join("\n");
 }
 
 export const opsCommand: CliCommand = {
   id: "ops",
-  description: "One-off operations against the app database (backfill-pii, waitlist-migrate)",
-  // The top-level dispatcher answers any `--help` with this text, so it carries
-  // every subcommand's help.
-  help: [opsUsage(), ...OPS_SUBCOMMANDS.map((sub) => `\n${sub.id}:\n${sub.help}`)].join("\n"),
+  description: "One-off operations on an existing app (backfill-pii, waitlist-migrate)",
+  help: `Subcommands:\n${opsUsage()}`,
   run: async (ctx) => {
-    const [subId, ...rest] = ctx.argv;
-    const sub = OPS_SUBCOMMANDS.find((candidate) => candidate.id === subId);
-    if (sub === undefined) {
+    const sub = OPS_SUBCOMMANDS.find((op) => op.id === ctx.argv[0]);
+    if (!sub) {
+      ctx.out.err("");
+      ctx.out.err("  Usage: kumiko ops <subcommand>");
       ctx.out.err(opsUsage());
+      ctx.out.err("");
       return 1;
     }
-    return sub.run({ ...ctx, argv: rest });
+    return await sub.run({ ...ctx, argv: ctx.argv.slice(1) });
   },
 };

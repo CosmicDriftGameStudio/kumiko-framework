@@ -176,13 +176,11 @@ describe("createHostDispatch — tenant per path", () => {
 
   test("an unknown or malformed key answers a bare 404", async () => {
     const lookup = keyLookup();
-    expect(await dispatch(request("example.test", "/t/nope"), lookup)).toEqual({
-      kind: "not-found",
-    });
-    expect(await dispatch(request("example.test", "/t/Not_A_Key"), lookup)).toEqual({
-      kind: "not-found",
-    });
-    expect(lookup.calls).toEqual(["nope"]);
+    for (const path of ["/t/nope", "/t/Not_A_Key", "/t/a%20b", `/t/${"k".repeat(51)}`]) {
+      expect(await dispatch(request("example.test", path), lookup)).toEqual({ kind: "not-found" });
+    }
+    // Path keys follow the tenant feature's own rule, not the DNS-label rule.
+    expect(lookup.calls).toEqual(["nope", "Not_A_Key"]);
   });
 
   test("a path that only shares the prefix text is an apex page", async () => {

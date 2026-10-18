@@ -33,7 +33,10 @@ type TenantRow = {
 
 // Disabled tenants and tenants in any destroy phase are not routable, the same
 // rule public files and pages follow.
-async function servingTenantIdByKey(db: DbConnection | TenantDb, key: string): Promise<TenantId | null> {
+async function servingTenantIdByKey(
+  db: DbConnection | TenantDb,
+  key: string,
+): Promise<TenantId | null> {
   const row = await fetchOne<TenantRow>(db, tenantTable, { key });
   return row !== undefined && isTenantServingPublicContent(row) ? row.id : null;
 }
@@ -82,6 +85,37 @@ const tenantKeyExistsQuery = defineQueryHandler({
   },
 });
 
+function tenantResolverFor(options: HostRoutingOptions): TenantResolverProvider | undefined {
+  const apexTenantId = options.apexAnonymousTenantId ?? null;
+  if (options.tenantBy === "host") {
+    return {
+      trust: "authoritative",
+      build:
+        ({ db }) =>
+        async (c: unknown): Promise<TenantId | null> => {
+          if (!isHostHeaderReader(c)) return null;
+          const host = classifyHost(c.req.header("Host") ?? "", options);
+          if (host.kind === "subdomain") return servingTenantIdByKey(db, host.key);
+          // Fixed and unknown hosts have no anonymous tenant: an authoritative
+          // null answers tenant_required, whatever X-Tenant says.
+          return host.kind === "apex" ? apexTenantId : null;
+        },
+    };
+  }
+  if (apexTenantId === null) return undefined;
+  // Path mode: the client names its tenant; the apex default only fills in
+  // when it does not.
+  return {
+    trust: "fallback-only",
+    build: () => async (c: unknown) => {
+      if (!isHostHeaderReader(c)) return null;
+      return classifyHost(c.req.header("Host") ?? "", options).kind === "apex"
+        ? apexTenantId
+        : null;
+    },
+  };
+}
+
 // Server half of host routing: the tenant for anonymous API requests comes
 // from the Host header only (never from X-Tenant), and a client-named tenant
 // must exist, be enabled and be active. The page half is createHostDispatch.
@@ -95,20 +129,9 @@ export function createHostRoutingFeature(options: HostRoutingOptions): FeatureDe
     r.systemScope();
     r.queryHandler(tenantKeyExistsQuery);
 
-    if (options.tenantBy === "host") {
-      const resolver: TenantResolverProvider = {
-        trust: "authoritative",
-        build: ({ db }) => {
-          return async (c: unknown): Promise<TenantId | null> => {
-            if (!isHostHeaderReader(c)) return null;
-            const host = classifyHost(c.req.header("Host") ?? "", options);
-            // Apex, fixed and unknown hosts have no anonymous tenant: an
-            // authoritative null answers tenant_required, whatever X-Tenant says.
-            return host.kind === "subdomain" ? servingTenantIdByKey(db, host.key) : null;
-          };
-        },
-      };
-      // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar method, not a React hook; path mode must leave the resolver slot free.
+    const resolver = tenantResolverFor(options);
+    if (resolver !== undefined) {
+      // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar method, not a React hook; path mode without an apex tenant must leave the resolver slot free.
       r.useExtension(EXT_TENANT_RESOLVER, "host", resolver);
     }
 
