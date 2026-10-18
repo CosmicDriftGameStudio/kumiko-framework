@@ -7,7 +7,9 @@
  *       `test`/`it`/`describe` calls (`test(name, fn, 30_000)`,
  *       `test(name, fn, { timeout })`, also via `.skip/.only/.if()/.each()()`
  *       and renamed/namespace `bun:test` imports) — raising a timeout hides
- *       the cause of a slow or flaky test
+ *       the cause of a slow or flaky test. The same holds for a timeout
+ *       argument on hooks (`beforeAll/beforeEach/afterAll/afterEach(fn, 60_000)`
+ *       or `(fn, { timeout })`).
  *   (b) `<page>.waitForTimeout(...)` — a fixed sleep instead of a condition
  *   (c) sleep loops — a `while`/`do`/`for`/`for…of`/`for…in` whose body calls
  *       `sleep(...)`/`Bun.sleep(...)` or awaits a `new Promise` that only
@@ -20,7 +22,7 @@
  * without an issue number or a reason does not count and is called out in
  * the message.
  *
- * `samples/recipes/**` is not touched. No baseline, no ratchet: any finding
+ * No baseline, no ratchet: any finding
  * fails. #3118's transition period (a `.kumiko-test-timeouts-baseline.json`
  * grandfathering pre-existing sleep loops) is over — every consumer must fix
  * or mark the cause, not accumulate a pinned count.
@@ -52,13 +54,13 @@ const SCAN: ScanSpec = {
     "packages/*/e2e/**/*.{ts,tsx}",
     "packages/*/src/e2e/**/*.{ts,tsx}",
     "samples/e2e/**/*.{ts,tsx}",
+    "samples/recipes/*/e2e/**/*.{ts,tsx}",
     "samples/apps/*/e2e/**/*.{ts,tsx}",
   ],
 };
 
 const EXCEPTION_TAG = "@timeout-exception";
 const COMPLETE_EXCEPTION = /@timeout-exception:\s*#\d+\s+\S/;
-const RECIPES_DIR = "/samples/recipes/";
 
 const LOOP_LABELS: ReadonlyMap<SyntaxKind, string> = new Map([
   [SyntaxKind.WhileStatement, "while"],
@@ -76,6 +78,8 @@ const DESCRIBE_CONFIGURE_CALLEE = /(^|\.)describe\.configure$/;
 const TEST_FRAMEWORK_MODULES: ReadonlySet<string> = new Set(["bun:test", "@playwright/test"]);
 const TEST_DECLARATION_CALLEE =
   /^(test|it|describe)(\.(skip|only|todo|if|each|failing|concurrent|serial|skipIf|runIf|todoIf))*$/;
+
+const HOOK_DECLARATION_CALLEE = /^(beforeAll|beforeEach|afterAll|afterEach)$/;
 
 export interface Finding {
   file: string;
@@ -191,6 +195,11 @@ function declarationTimeoutReason(
   aliases: ReadonlyMap<string, string>,
 ): string | undefined {
   const base = canonicalCalleeText(declarationBaseCallee(call.getExpression()).getText(), aliases);
+  if (HOOK_DECLARATION_CALLEE.test(base)) {
+    const [, ...hookExtra] = call.getArguments();
+    if (!hookExtra.some(isTimeoutArgument)) return undefined;
+    return `${base}(…, timeout) raises the timeout instead of fixing the cause`;
+  }
   if (!TEST_DECLARATION_CALLEE.test(base)) return undefined;
   const [, , ...extra] = call.getArguments();
   if (!extra.some(isTimeoutArgument)) return undefined;
@@ -229,7 +238,6 @@ export function scanTimeouts(
   sf: SourceFile,
   roots: readonly RepoRoot[] = resolveRepoRoots(),
 ): Finding[] {
-  if (sf.getFilePath().includes(RECIPES_DIR)) return [];
   const file = relFile(sf, roots);
   const findings: Finding[] = [];
   const add = (node: Node, message: string): void => {

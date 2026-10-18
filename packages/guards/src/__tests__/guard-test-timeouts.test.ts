@@ -148,6 +148,22 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
     expect(result).toEqual([3, 4, 5, 6, 7]);
   });
 
+  test("flags a timeout argument on hooks, also renamed and via namespace import", () => {
+    const code =
+      'import * as bt from "bun:test";\nimport { beforeAll as ba } from "bun:test";\n' +
+      "beforeAll(() => {}, 60_000);\nafterEach(() => {}, { timeout: 5 });\n" +
+      "bt.beforeEach(() => {}, 5);\nba(() => {}, 5);\nafterAll(() => {}, 5);";
+    expect(scanTimeouts(sourceFile(code)).map((f) => f.line)).toEqual([3, 4, 5, 6, 7]);
+  });
+
+  test("allows hooks without a timeout argument", () => {
+    expect(
+      found(
+        "beforeAll(() => {});\nbeforeEach(() => {});\nafterAll(() => {});\nafterEach(() => {});",
+      ),
+    ).toEqual([]);
+  });
+
   test("allows tests without a timeout argument and non-test calls with three arguments", () => {
     expect(
       found(
@@ -211,13 +227,13 @@ describe("test-timeouts guard — no violation", () => {
     ).toEqual([]);
   });
 
-  test("samples/recipes is never scanned", () => {
+  test("samples/recipes is scanned like any other test file", () => {
     expect(
       messages(
         "test.setTimeout(1);",
         `${process.cwd()}/samples/recipes/apex-landing/e2e/x.spec.ts`,
       ),
-    ).toEqual([]);
+    ).toHaveLength(1);
   });
 });
 

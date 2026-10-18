@@ -168,7 +168,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, vendorEntity);
   await unsafeCreateEntityTable(stack.db, gizmoEntity, "gizmo");
   await unsafeCreateEntityTable(stack.db, scribeEntity, "scribe");
-}, 20000);
+});
 
 afterAll(async () => {
   await stack.cleanup();
