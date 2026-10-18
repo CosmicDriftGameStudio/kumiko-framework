@@ -50,8 +50,8 @@ import {
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
-import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
+import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto.ts";
 import type {
@@ -106,6 +106,7 @@ function buildDeliveryNotifyFactory(opts: {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly secrets?: SecretsContext;
+  readonly addressCipher?: EnvelopeCipher;
   readonly sseBroker?: SseBroker;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly log?: Logger;
@@ -115,6 +116,13 @@ function buildDeliveryNotifyFactory(opts: {
   readonly deliverQueuedInline: boolean | undefined;
   readonly unsubscribeLinks: UnsubscribeLinkConfig | undefined;
 }): NotifyFactory {
+  if (!opts.addressCipher && opts.deliverQueuedInline !== true) {
+    createFallbackLogger("delivery", opts.log).warn(
+      "No master key configured: queued delivery jobs carry recipient addresses in plaintext " +
+        "(Redis, job runs). Set KUMIKO_SECRETS_MASTER_KEY_V1 (and KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION) " +
+        "on the web and worker processes to seal them.",
+    );
+  }
   const configAccessorFactory =
     opts.configResolver && createConfigAccessorFactory(opts.registry, opts.configResolver);
   const deliveryService = createDeliveryService({
@@ -123,6 +131,7 @@ function buildDeliveryNotifyFactory(opts: {
     channels: collectChannels(opts.registry),
     ...(opts.redis && { idempotencyRedis: opts.redis }),
     ...(opts.secrets && { secrets: opts.secrets }),
+    ...(opts.addressCipher && { addressCipher: opts.addressCipher }),
     ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
     ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
     ...(opts.log && { log: opts.log }),
@@ -219,7 +228,7 @@ function resolveDeliveryConfigResolver(
     : undefined;
 }
 
-export function buildBootExtraContext(opts: {
+type BootExtraContextOptions = {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
   readonly envSource: Record<string, string | undefined>;
@@ -241,10 +250,41 @@ export function buildBootExtraContext(opts: {
   readonly log?: Logger;
   /** Signs `unsubscribe: true` notifications' mail links; see runProdApp `unsubscribe`. */
   readonly unsubscribeLinks?: UnsubscribeLinkConfig;
-}): Record<string, unknown> {
+};
+
+function bootDeliveryContext(
+  opts: BootExtraContextOptions,
+  parts: {
+    readonly crypto: BootCrypto;
+    readonly secrets: SecretsContext | undefined;
+    readonly escapeHatchAuditSink: EscapeHatchAuditSink | undefined;
+    readonly configResolver: ConfigResolver | undefined;
+  },
+): Record<string, unknown> {
+  if (!opts.features.some((f) => f.name === DELIVERY_FEATURE)) return {};
+  const hasTenantFeature = opts.features.some((f) => f.name === TENANT_FEATURE);
+  const { crypto, secrets, escapeHatchAuditSink } = parts;
+  return {
+    _notifyFactory: buildDeliveryNotifyFactory({
+      db: opts.db,
+      registry: opts.registry,
+      ...(secrets && { secrets }),
+      ...(crypto.configCipher && { addressCipher: crypto.configCipher }),
+      ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+      ...(opts.redis && { redis: opts.redis }),
+      ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
+      ...(opts.log && { log: opts.log }),
+      ...(hasTenantFeature && { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
+      configResolver: parts.configResolver,
+      deliverQueuedInline: opts.deliverQueuedInline,
+      unsubscribeLinks: opts.unsubscribeLinks,
+    }),
+  };
+}
+
+export function buildBootExtraContext(opts: BootExtraContextOptions): Record<string, unknown> {
   const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
-  const hasTenantFeature = opts.features.some((f) => f.name === TENANT_FEATURE);
   const escapeHatchAuditSink = resolveEscapeHatchAuditSink(opts.features, opts.db);
   const secrets = resolveBootSecrets(opts.db, opts.features, crypto, opts.registry);
   const bootConfigResolver = resolveDeliveryConfigResolver(opts, hasDeliveryFeature, crypto);
@@ -253,20 +293,11 @@ export function buildBootExtraContext(opts: {
     templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),
     ...(escapeHatchAuditSink && { _escapeHatchAuditSink: escapeHatchAuditSink }),
-    ...(hasDeliveryFeature && {
-      _notifyFactory: buildDeliveryNotifyFactory({
-        db: opts.db,
-        registry: opts.registry,
-        ...(secrets && { secrets }),
-        ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
-        ...(opts.redis && { redis: opts.redis }),
-        ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
-        ...(opts.log && { log: opts.log }),
-        ...(hasTenantFeature && { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
-        configResolver: bootConfigResolver,
-        deliverQueuedInline: opts.deliverQueuedInline,
-        unsubscribeLinks: opts.unsubscribeLinks,
-      }),
+    ...bootDeliveryContext(opts, {
+      crypto,
+      secrets,
+      escapeHatchAuditSink,
+      configResolver: bootConfigResolver,
     }),
     // Top-level provider so feature jobs (secrets rotate, config reencrypt)
     // reach it via ctx — previously only test-stack wired it.

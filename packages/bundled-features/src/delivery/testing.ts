@@ -9,7 +9,7 @@ import type {
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
-import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.ts";
 import { collectChannels, createDeliveryService } from "./delivery-service.ts";
@@ -25,6 +25,8 @@ export type CreateDeliveryTestContextOptions = {
   readonly log?: Logger;
   readonly jobRunner?: JobRunner;
   readonly secrets?: SecretsContext;
+  // Seals queued job payload addresses and, like the boot wiring, doubles as the jobs' ctx.configEncryption.
+  readonly addressCipher?: EnvelopeCipher;
   readonly idempotencyRedis?: Redis;
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
   readonly tenantConfigFor?: (tenantId: TenantId) => ConfigAccessor;
@@ -58,5 +60,6 @@ export function createDeliveryTestContext(
   return {
     deliveryService, // exposed so tests can inspect/call directly if needed
     _notifyFactory: createDeliveryNotifyFactory(deliveryService),
+    ...(options.addressCipher && { configEncryption: options.addressCipher }),
   };
 }
