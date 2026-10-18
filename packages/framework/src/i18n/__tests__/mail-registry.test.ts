@@ -21,7 +21,7 @@ describe("mail-registry", () => {
 
 test("hasMailTranslations is true only for registered locales", () => {
   expect(hasMailTranslations("en")).toBe(true);
-  expect(hasMailTranslations("fr")).toBe(false);
+  expect(hasMailTranslations("nl")).toBe(false);
   registerMailTranslations("de", { "test.hi": "Hallo {name}" });
   expect(hasMailTranslations("de")).toBe(true);
   expect(hasMailTranslations("de-AT")).toBe(true);
@@ -31,7 +31,7 @@ test("resolveMailLocale prefers exact, then root, then en", () => {
   registerMailTranslations("de", { "test.hi": "Hallo" });
   expect(resolveMailLocale("de")).toBe("de");
   expect(resolveMailLocale("de-AT")).toBe("de");
-  expect(resolveMailLocale("fr-CA")).toBe("en");
+  expect(resolveMailLocale("nl-BE")).toBe("en");
 });
 
 describe("mailT — plural forms", () => {

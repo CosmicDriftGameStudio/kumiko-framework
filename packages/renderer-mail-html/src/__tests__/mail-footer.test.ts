@@ -57,7 +57,7 @@ describe("mail footer", () => {
   });
 
   test("an unknown language falls back to the English unsubscribe label", () => {
-    expect(build({ footer: null, locale: "fr" })).toContain("Unsubscribe");
+    expect(build({ footer: null, locale: "nl" })).toContain("Unsubscribe");
   });
 
   test("imprint and privacy without a label use the framework text of the mail language", () => {
@@ -77,7 +77,7 @@ describe("mail footer", () => {
     expect(mailChromeText("de-DE", "mail.footer.sentBy", { sender: "Acme" })).toBe(
       "Gesendet von Acme",
     );
-    expect(mailChromeText("fr", "mail.footer.sentBy", { sender: "Acme" })).toBe("Sent by Acme");
+    expect(mailChromeText("nl", "mail.footer.sentBy", { sender: "Acme" })).toBe("Sent by Acme");
   });
 
   test("layoutLinksToPlaceholder only matches a link to that placeholder", () => {

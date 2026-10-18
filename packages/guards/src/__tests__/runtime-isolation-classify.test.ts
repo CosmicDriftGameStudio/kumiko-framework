@@ -148,9 +148,11 @@ describe("classifyByPath — client-safe carve-outs", () => {
     expect(classifyByPath("packages/framework/src/engine/index.ts")).toBeNull();
   });
 
-  test("locale-de/es strings.ts is client", () => {
+  test("locale-de/es/fr/it strings.ts is client", () => {
     expect(classifyByPath("packages/locale-de/src/strings.ts")).toBe("client");
     expect(classifyByPath("packages/locale-es/src/strings.ts")).toBe("client");
+    expect(classifyByPath("packages/locale-fr/src/strings.ts")).toBe("client");
+    expect(classifyByPath("packages/locale-it/src/strings.ts")).toBe("client");
   });
 
   test("dev-server env-schema.ts is client", () => {

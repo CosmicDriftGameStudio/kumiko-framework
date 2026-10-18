@@ -48,6 +48,8 @@ const PACKAGE_DIRS: Readonly<Record<string, string>> = {
   "@cosmicdrift/kumiko-http": "packages/http",
   "@cosmicdrift/kumiko-locale-de": "packages/locale-de",
   "@cosmicdrift/kumiko-locale-es": "packages/locale-es",
+  "@cosmicdrift/kumiko-locale-fr": "packages/locale-fr",
+  "@cosmicdrift/kumiko-locale-it": "packages/locale-it",
   "@cosmicdrift/kumiko-renderer": "packages/renderer",
   "@cosmicdrift/kumiko-renderer-mail-html": "packages/renderer-mail-html",
   "@cosmicdrift/kumiko-renderer-web": "packages/renderer-web",

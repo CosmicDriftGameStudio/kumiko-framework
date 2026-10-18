@@ -88,7 +88,7 @@ describe("default-mailers dispatch", () => {
 
     await makeDefaultExportReadyEmail(notifyFor, { locale: "de" })({
       ...exportArgs,
-      userLocale: "fr",
+      userLocale: "nl",
     });
     await makeDefaultExportReadyEmail(notifyFor, { locale: "de" })({
       ...exportArgs,

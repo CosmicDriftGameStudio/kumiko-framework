@@ -3,8 +3,12 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
+import { localeFrBundle } from "@cosmicdrift/kumiko-locale-fr";
+import { localeItBundle } from "@cosmicdrift/kumiko-locale-it";
 import { frameworkEnCatalog as germanEnCatalog } from "../../../../../packages/locale-de/src/__tests__/en-catalog";
 import { frameworkEnCatalog as spanishEnCatalog } from "../../../../../packages/locale-es/src/__tests__/en-catalog";
+import { frameworkEnCatalog as frenchEnCatalog } from "../../../../../packages/locale-fr/src/__tests__/en-catalog";
+import { frameworkEnCatalog as italianEnCatalog } from "../../../../../packages/locale-it/src/__tests__/en-catalog";
 import { type EnHarvest, harvestEnglish } from "./i18n-harvest";
 
 type Bundle = Readonly<Record<string, string>>;
@@ -12,11 +16,15 @@ type Bundle = Readonly<Record<string, string>>;
 const SUPPORTED_LOCALES: readonly { readonly locale: string; readonly bundle: Bundle }[] = [
   { locale: "de", bundle: localeDeBundle },
   { locale: "es", bundle: localeEsBundle },
+  { locale: "fr", bundle: localeFrBundle },
+  { locale: "it", bundle: localeItBundle },
 ];
 
 const CATALOGS: readonly { readonly locale: string; readonly catalog: Bundle }[] = [
   { locale: "de", catalog: germanEnCatalog },
   { locale: "es", catalog: spanishEnCatalog },
+  { locale: "fr", catalog: frenchEnCatalog },
+  { locale: "it", catalog: italianEnCatalog },
 ];
 
 // Client plugins that ship no English copy of their own (their screens use server or renderer keys).

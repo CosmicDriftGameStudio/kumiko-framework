@@ -46,7 +46,7 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 | `repo-manifest` | `kumiko.json` schema and loader |
 | `headless`, `renderer`, `renderer-web`, `dispatcher-live` | UI logic, platform-agnostic renderer, web bindings, HTTP dispatcher |
 | `renderer-mail-html`, `renderer-puppeteer-client`, `document-designer` | Mail and PDF rendering, template editor |
-| `locale-de`, `locale-es` | Opt-in UI and mail copy |
+| `locale-de`, `locale-es`, `locale-fr`, `locale-it` | Opt-in UI and mail copy |
 | `samples` | Packaged source of recipes and sample apps |
 | `apps/puppeteer-service` | PDF and image rendering service |
 | `samples/recipes/*`, `samples/apps/*` | One tested example per concept, full sample apps |
