@@ -38,6 +38,7 @@
 //       <asset>-<hash>.<ext>  ← imported file-loader assets
 //     kumiko-bundled-assets/  ← package.json "kumiko.assets", never served over HTTP
 //     manifest.json           ← logical → hashed-URL mapping
+//     csp-hashes.json         ← sha256 of every inline <script> in the HTML above
 //     <public/* 1:1>          ← favicon.ico, robots.txt, og-image.png, …
 //
 // Cache-Header (von runProdApp gesetzt, nicht hier):
@@ -60,6 +61,7 @@ import {
   readBundledAssetDeclarations,
   resolveBundledAssetSource,
 } from "./bundled-assets.js";
+import { CSP_HASHES_FILE, collectBuildScriptHashes } from "./csp-hashes.js";
 import {
   RENDERER_WEB_FONT_FILE_PATTERN,
   RENDERER_WEB_FONTS_DIST_DIR,
@@ -264,6 +266,14 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   if (buildInfo) {
     await writeFile(join(outDir, "build-info.json"), `${JSON.stringify(buildInfo)}\n`);
   }
+
+  // 8. CSP script hashes over the finished output (templates and copied
+  //    public/*.html alike), so the runtime default CSP allows exactly the
+  //    inline scripts that shipped.
+  await writeFile(
+    join(outDir, CSP_HASHES_FILE),
+    `${JSON.stringify(collectBuildScriptHashes(outDir), null, 2)}\n`,
+  );
 
   return { outDir, manifest, ...(buildInfo && { buildInfo }) };
 }

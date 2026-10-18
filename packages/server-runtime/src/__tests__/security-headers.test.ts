@@ -1,17 +1,61 @@
 import { describe, expect, it } from "bun:test";
-import { resolveSecurityHeaders, withSecurityHeaders } from "../security-headers.js";
+import {
+  buildDefaultCsp,
+  resolveSecurityHeaders,
+  withSecurityHeaders,
+} from "../security-headers.js";
 
 const okHandler = (_req: Request) => new Response("ok");
 const req = new Request("http://localhost/");
 
 describe("resolveSecurityHeaders", () => {
-  it("returns the four defaults without csp when unconfigured", () => {
+  it("returns the four defaults plus the default csp when unconfigured", () => {
     const headers = new Map(resolveSecurityHeaders(undefined));
     expect(headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains");
     expect(headers.get("x-frame-options")).toBe("DENY");
     expect(headers.get("x-content-type-options")).toBe("nosniff");
     expect(headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+    expect(headers.get("content-security-policy")).toBe(
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    );
+  });
+
+  it("adds the build's script hashes to script-src only", () => {
+    const hash = `sha256-${"A".repeat(43)}=`;
+    const csp = new Map(resolveSecurityHeaders(undefined, [hash])).get("content-security-policy");
+    expect(csp).toContain(`script-src 'self' '${hash}';`);
+    expect(csp?.split(hash)).toHaveLength(2);
+  });
+
+  it("omits the csp header for csp: false", () => {
+    const headers = new Map(resolveSecurityHeaders({ csp: false }));
     expect(headers.has("content-security-policy")).toBe(false);
+    expect(headers.has("x-frame-options")).toBe(true);
+  });
+
+  it("replaces the default for a csp string and ignores hashes", () => {
+    const headers = new Map(resolveSecurityHeaders({ csp: "default-src 'none'" }, ["sha256-x"]));
+    expect(headers.get("content-security-policy")).toBe("default-src 'none'");
+  });
+
+  it("extends existing directives and adds new ones for csp.extend", () => {
+    const csp = buildDefaultCsp([], {
+      "connect-src": ["https://api.stripe.com", "'self'"],
+      "frame-src": ["https://js.stripe.com"],
+      "frame-ancestors": ["https://partner.example"],
+    });
+    expect(csp).toContain("connect-src 'self' https://api.stripe.com;");
+    expect(csp).toContain("frame-src https://js.stripe.com");
+    expect(csp).toContain("frame-ancestors https://partner.example;");
+    expect(csp).not.toContain("'none'");
+  });
+
+  it("rejects csp.extend values that could open a new directive", () => {
+    expect(() => buildDefaultCsp([], { "connect-src": ["https://a.test; script-src *"] })).toThrow(
+      /single token/,
+    );
+    expect(() => buildDefaultCsp([], { "connect-src": ["a,b"] })).toThrow(/single token/);
+    expect(() => buildDefaultCsp([], { "script-src *; x": ["a"] })).toThrow(/invalid directive/);
   });
 
   it("returns nothing when disabled", () => {

@@ -913,6 +913,44 @@ describe("runProdApp", () => {
     expect(res.headers.get("content-security-policy")).toBe(csp);
   });
 
+  test("hostDispatch: per-host CSP wins over the default CSP, other hosts get the default with build hashes", async () => {
+    const hash = `sha256-${"B".repeat(43)}=`;
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>x</html>",
+      "csp-hashes.json": JSON.stringify({ scriptSrc: [hash] }),
+    });
+    const hostCsp = "default-src 'none'";
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      hostDispatch: ({ host }) => ({
+        kind: "html",
+        file: "index.html",
+        injectSchema: false,
+        ...(host === "special.example.test" && { csp: hostCsp }),
+      }),
+    });
+
+    const special = await handle.fetch(new Request("http://special.example.test/"));
+    expect(special.headers.get("content-security-policy")).toBe(hostCsp);
+    const other = await handle.fetch(new Request("http://other.example.test/"));
+    expect(other.headers.get("content-security-policy")).toContain(`script-src 'self' '${hash}'`);
+  });
+
+  test("default CSP is on without configuration and csp: false removes it", async () => {
+    const tmpStaticDir = await createTempStaticDir({ "index.html": "<html>x</html>" });
+    const withDefault = await boot(undefined, { staticDir: tmpStaticDir });
+    const res = await withDefault.fetch(new Request("http://x.example.test/"));
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'self'");
+
+    const withoutCsp = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      securityHeaders: { csp: false },
+    });
+    const bare = await withoutCsp.fetch(new Request("http://x.example.test/"));
+    expect(bare.headers.has("content-security-policy")).toBe(false);
+    expect(bare.headers.get("x-frame-options")).toBe("DENY");
+  });
+
   test("hostDispatch: assets bleiben host-unabhängig erreichbar", async () => {
     // /assets/* darf NICHT durch hostDispatch laufen — Bundles werden
     // vom client per absoluter URL nachgeladen, host-Sniffing wäre falsch.
@@ -1434,6 +1472,58 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
 
     expect((await fetchOnce()).status).toBe(200);
     expect((await fetchOnce()).status).toBe(429);
+  });
+});
+
+describe("rate-limit defaults", () => {
+  // Unique per call: the L1/L2 buckets are keyed on the client IP in Redis and
+  // must not collide with earlier runs inside the same 60 s window.
+  const requestsFrom = (handle: ProdAppHandle, path: string, ip: string) => async () =>
+    (
+      await handle.entrypoint.app.fetch(
+        new Request(`http://test${path}`, { headers: { "x-forwarded-for": ip } }),
+      )
+    ).status;
+
+  test("without rateLimit option the default L1 bucket of 600 per minute runs dry", async () => {
+    const handle = await boot(undefined, { trustedProxyHops: 1 });
+    const hit = requestsFrom(handle, "/api/no-such-route", `203.0.113.${crypto.randomUUID()}`);
+
+    // Token bucket: the burst may only exceed 600 by what refilled while it ran.
+    const startedAt = performance.now();
+    const statuses = await Promise.all(Array.from({ length: 700 }, () => hit()));
+    const elapsedSeconds = (performance.now() - startedAt) / 1000;
+
+    const allowed = statuses.filter((status) => status !== 429).length;
+    expect(allowed).toBeGreaterThanOrEqual(600);
+    expect(allowed).toBeLessThanOrEqual(600 + Math.ceil(elapsedSeconds * 10) + 1);
+    expect(statuses).toContain(429);
+  });
+
+  test("without rateLimit option the 31st auth request of a minute is answered 429", async () => {
+    const handle = await boot(undefined, { trustedProxyHops: 1 });
+    const hit = requestsFrom(handle, "/api/auth/no-such-route", `203.0.113.${crypto.randomUUID()}`);
+
+    for (let i = 0; i < 30; i++) expect(await hit()).not.toBe(429);
+    expect(await hit()).toBe(429);
+  });
+
+  test("rateLimit: false never answers 429", async () => {
+    const handle = await boot(undefined, { trustedProxyHops: 1, rateLimit: false });
+    const hit = requestsFrom(handle, "/api/auth/no-such-route", `203.0.113.${crypto.randomUUID()}`);
+
+    for (let i = 0; i < 650; i++) expect(await hit()).not.toBe(429);
+  });
+
+  test("a partial global override replaces only the global limit", async () => {
+    const handle = await boot(undefined, {
+      trustedProxyHops: 1,
+      rateLimit: { global: { limit: 5 } },
+    });
+    const hit = requestsFrom(handle, "/api/no-such-route", `203.0.113.${crypto.randomUUID()}`);
+
+    for (let i = 0; i < 5; i++) expect(await hit()).not.toBe(429);
+    expect(await hit()).toBe(429);
   });
 });
 
