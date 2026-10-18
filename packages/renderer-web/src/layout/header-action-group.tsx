@@ -1,6 +1,6 @@
 import { type ReactNode, useContext } from "react";
-import { cn } from "../lib/cn.js";
-import { HeaderOverflowMenuContext } from "./header-overflow-menu.js";
+import { cn } from "../lib/cn.ts";
+import { HeaderOverflowMenuContext } from "./header-overflow-menu.ts";
 
 export type HeaderActionGroupProps = {
   readonly children: ReactNode;

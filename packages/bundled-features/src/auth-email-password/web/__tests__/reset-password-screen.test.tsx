@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { ResetPasswordScreen } from "../reset-password-screen.js";
-import { installFetchMock } from "./fetch-mock.js";
-import { renderWithProviders } from "./test-utils.js";
+import { ResetPasswordScreen } from "../reset-password-screen.tsx";
+import { installFetchMock } from "./fetch-mock.ts";
+import { renderWithProviders } from "./test-utils.tsx";
 
 installFetchMock();
 

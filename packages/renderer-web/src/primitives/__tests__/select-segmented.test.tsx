@@ -6,8 +6,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
-import { render, screen } from "../../__tests__/test-utils.js";
-import { defaultPrimitives } from "../index.js";
+import { render, screen } from "../../__tests__/test-utils.tsx";
+import { defaultPrimitives } from "../index.tsx";
 
 const { Field, Input } = defaultPrimitives;
 

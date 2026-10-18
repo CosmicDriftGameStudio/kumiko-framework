@@ -49,19 +49,19 @@ import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framewo
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
-import { composeFeatures } from "../compose-features.js";
-import { assertPiiBootInvariants } from "../pii-boot-gate.js";
-import { requireEnv } from "../run-prod-app.js";
+import { composeFeatures } from "../compose-features.ts";
+import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
+import { requireEnv } from "../run-prod-app.ts";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
   loggerFromExtraContext,
-} from "../run-prod-app-boot-context.js";
-import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.js";
-import { resolveBootCrypto } from "./boot-crypto.js";
-import { jobRunLoggerCallbacks } from "./job-run-logger.js";
-import { waitForDatabase, waitUntilDatabaseReachable } from "./wait-for-database.js";
-import { assertWorkerMetricsOptions } from "./worker-metrics-server.js";
+} from "../run-prod-app-boot-context.ts";
+import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.ts";
+import { resolveBootCrypto } from "./boot-crypto.ts";
+import { jobRunLoggerCallbacks } from "./job-run-logger.ts";
+import { waitForDatabase, waitUntilDatabaseReachable } from "./wait-for-database.ts";
+import { assertWorkerMetricsOptions } from "./worker-metrics-server.ts";
 
 export type WorkerBootCoreOptions = Omit<RunWorkerAppOptions, "wireComponents">;
 

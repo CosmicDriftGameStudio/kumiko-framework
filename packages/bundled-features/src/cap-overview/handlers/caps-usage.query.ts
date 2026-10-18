@@ -11,9 +11,9 @@ import {
   InternalError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tierAssignmentEntity } from "../../tier-engine/index.js";
-import type { CapSpec, CapUsageWithMeta } from "../types.js";
-import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math.js";
+import { tierAssignmentEntity } from "../../tier-engine/index.ts";
+import type { CapSpec, CapUsageWithMeta } from "../types.ts";
+import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math.ts";
 
 type TierAssignmentRow = { readonly tenantId: string; readonly tier: string };
 

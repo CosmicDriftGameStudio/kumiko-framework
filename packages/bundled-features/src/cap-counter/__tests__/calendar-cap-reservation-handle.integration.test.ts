@@ -29,12 +29,12 @@ import * as z from "zod";
 import {
   calendarCapReservationHandle,
   reserveCalendarCapUsage,
-} from "../calendar-cap-usage-reservation.js";
-import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.js";
-import { CAP_RESERVATION_TTL_MINUTES, CapCounterQueries } from "../constants.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
-import { capReservationsTable } from "../tables.js";
+} from "../calendar-cap-usage-reservation.ts";
+import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.ts";
+import { CAP_RESERVATION_TTL_MINUTES, CapCounterQueries } from "../constants.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
+import { capReservationsTable } from "../tables.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
 

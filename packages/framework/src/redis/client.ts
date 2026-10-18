@@ -12,7 +12,7 @@
 // without a same-directory cycle back through the barrel.
 
 import { Redis, type RedisOptions } from "ioredis";
-import { readPositiveIntEnv } from "../utils/env-parse.js";
+import { readPositiveIntEnv } from "../utils/env-parse.ts";
 
 // Connection-tuning options. The fields mirror the most consequential
 // ioredis settings; anything else can be passed through via `extra` to

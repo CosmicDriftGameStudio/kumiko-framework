@@ -14,9 +14,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import type { MailPayload, RenderedTemplateRef } from "../renderer-foundation/index.js";
-import type { EmailAttachmentRef } from "./attachment-ref.js";
-import { DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
+import type { MailPayload, RenderedTemplateRef } from "../renderer-foundation/index.ts";
+import type { EmailAttachmentRef } from "./attachment-ref.ts";
+import { DELIVERY_CHANNEL_EXTENSION } from "./constants.ts";
 
 // --- Channel Interface ---
 

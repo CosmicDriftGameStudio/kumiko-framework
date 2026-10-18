@@ -3,22 +3,22 @@
 // KMS), and every known system type must have a declared stance.
 
 import { afterEach, describe, expect, test } from "bun:test";
-import * as stepDispatchConstants from "../../engine/steps/_step-dispatch-constants.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import { encryptEventPayloadPii } from "../event-pii.js";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
+import * as stepDispatchConstants from "../../engine/steps/_step-dispatch-constants.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import { encryptEventPayloadPii } from "../event-pii.ts";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   isPiiCiphertext,
   resetPiiSubjectKmsForTests,
-} from "../pii-field-encryption.js";
-import type { EventSubjectEnvelope } from "../subject-resolver.js";
+} from "../pii-field-encryption.ts";
+import type { EventSubjectEnvelope } from "../subject-resolver.ts";
 import {
   AGGREGATE_TRANSFERRED_EVENT_TYPE,
   APP_STARTED_EVENT_TYPE,
   SYSTEM_EVENT_PII_STANCES,
   SYSTEM_EVENT_PREFIX,
-} from "../system-event-pii.js";
+} from "../system-event-pii.ts";
 
 const ENVELOPE: EventSubjectEnvelope = {
   tenantId: "6b2f4a0e-1c9d-4f3a-9d2e-0000000000e1" as TenantId,

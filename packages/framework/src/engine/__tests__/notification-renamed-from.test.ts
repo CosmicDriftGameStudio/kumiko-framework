@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
 
 function mailer(feature: string, name: string, renamedFrom?: readonly string[]) {
   return defineFeature(feature, (r) => {

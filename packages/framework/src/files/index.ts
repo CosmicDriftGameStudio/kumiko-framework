@@ -4,51 +4,51 @@ export type {
   CreateFileRefInput,
   UploadedFileBytes,
   UploadFileBytesContext,
-} from "./create-file-ref-from-bytes.js";
+} from "./create-file-ref-from-bytes.ts";
 export {
   createFileRefFromBytes,
   createFileRefFromUploadedBytes,
   uploadFileBytesBeforeTransaction,
-} from "./create-file-ref-from-bytes.js";
-export { createFilesFeature, FILES_FEATURE } from "./feature.js";
-export type { FileContext, FileHandle } from "./file-handle.js";
+} from "./create-file-ref-from-bytes.ts";
+export { createFilesFeature, FILES_FEATURE } from "./feature.ts";
+export type { FileContext, FileHandle } from "./file-handle.ts";
 // `createFileHandle` is an implementation detail — construct handles via
 // `createFileContext(provider).ref(key)`, which is the AppContext surface.
-export { createFileContext, deriveKey, storageKeyStemPrefix } from "./file-handle.js";
-export { fileRefEntity } from "./file-ref-entity.js";
-export { fileRefsTable } from "./file-ref-table.js";
+export { createFileContext, deriveKey, storageKeyStemPrefix } from "./file-handle.ts";
+export { fileRefEntity } from "./file-ref-entity.ts";
+export { fileRefsTable } from "./file-ref-table.ts";
 export type {
   FileAccessDecision,
   FileAccessGuard,
   FileRef,
   FileRoutesOptions,
-} from "./file-routes.js";
+} from "./file-routes.ts";
 export {
   createFileRoutes,
   readFilesRouteOptions,
   resolveMaxUploadBodyBytes,
-} from "./file-routes.js";
-export type { InMemoryFileProvider } from "./in-memory-provider.js";
-export { createInMemoryFileProvider } from "./in-memory-provider.js";
-export { createLocalProvider } from "./local-provider.js";
+} from "./file-routes.ts";
+export type { InMemoryFileProvider } from "./in-memory-provider.ts";
+export { createInMemoryFileProvider } from "./in-memory-provider.ts";
+export { createLocalProvider } from "./local-provider.ts";
 export type {
   FileProviderContext,
   FileProviderPlugin,
   FileProviderResolver,
   FileProviderResolverDeps,
-} from "./provider-resolver.js";
+} from "./provider-resolver.ts";
 export {
   createFileProviderForTenant,
   isFileProviderPlugin,
   makeFileProviderResolver,
-} from "./provider-resolver.js";
-export { resolveContentType } from "./resolve-content-type.js";
+} from "./provider-resolver.ts";
+export { resolveContentType } from "./resolve-content-type.ts";
 export {
   fileRefStorageDelta,
   filesStorageTrackingFeature,
   tenantStorageUsageTable,
   transferTenantStorageUsage,
-} from "./storage-tracking.js";
+} from "./storage-tracking.ts";
 export type {
   FileContentValidationResult,
   FileMetadata,
@@ -57,7 +57,7 @@ export type {
   SignedUrlOptions,
   UploadMimeTypeResolution,
   WriteStreamOptions,
-} from "./types.js";
+} from "./types.ts";
 export {
   assertSafeStorageKey,
   buildStorageKey,
@@ -69,6 +69,6 @@ export {
   tenantStoragePrefixes,
   validateFile,
   validateFileContent,
-} from "./types.js";
-export type { ZipEntry } from "./zip-stream.js";
-export { createZipStream } from "./zip-stream.js";
+} from "./types.ts";
+export type { ZipEntry } from "./zip-stream.ts";
+export { createZipStream } from "./zip-stream.ts";

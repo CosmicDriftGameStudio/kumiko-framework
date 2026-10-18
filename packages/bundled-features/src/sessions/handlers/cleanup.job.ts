@@ -20,7 +20,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { deleteStaleSessionsBatch } from "../db/queries/cleanup.js";
+import { deleteStaleSessionsBatch } from "../db/queries/cleanup.ts";
 
 const DEFAULT_OLDER_THAN_DAYS = 30;
 const DEFAULT_BATCH_SIZE = 1000;

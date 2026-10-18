@@ -1,4 +1,4 @@
-import type { CapCounterContext } from "./book-cap-usage.js";
+import type { CapCounterContext } from "./book-cap-usage.ts";
 import {
   type CalendarCapReservation,
   consumeCalendarCapReservation,
@@ -6,13 +6,13 @@ import {
   releaseExpiredCapReservations,
   reserveCalendarCap,
   settleCalendarCapReservation,
-} from "./cap-reservation.js";
+} from "./cap-reservation.ts";
 import {
   assertBelowHardCap,
   enforceCapAndMaybeNotify,
   type SoftHitNotifier,
-} from "./enforce-cap.js";
-import type { CalendarCapDef } from "./with-cap-enforcement.js";
+} from "./enforce-cap.ts";
+import type { CalendarCapDef } from "./with-cap-enforcement.ts";
 
 export type CalendarCapUsageReservationSpec = Omit<CalendarCapDef, "amount" | "notify"> & {
   readonly amount: number;

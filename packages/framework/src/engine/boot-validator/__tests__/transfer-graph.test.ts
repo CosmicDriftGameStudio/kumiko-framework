@@ -5,10 +5,10 @@
 // hands the entity over keeps booting.
 
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../../define-feature.js";
-import { createEntity, createTextField } from "../../factories.js";
-import type { EntityDefinition, FeatureDefinition } from "../../types/index.js";
-import { MAX_TRANSFER_DEPTH, validateTransferGraph } from "../transfer-graph.js";
+import { defineFeature } from "../../define-feature.ts";
+import { createEntity, createTextField } from "../../factories.ts";
+import type { EntityDefinition, FeatureDefinition } from "../../types/index.ts";
+import { MAX_TRANSFER_DEPTH, validateTransferGraph } from "../transfer-graph.ts";
 
 const textField = () => createTextField({ personal: false, reason: "technical_reference" });
 

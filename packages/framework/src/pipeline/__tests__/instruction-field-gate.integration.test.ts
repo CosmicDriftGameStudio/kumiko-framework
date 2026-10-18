@@ -12,8 +12,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createLongTextField,
@@ -22,10 +22,10 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "../../engine/index.js";
-import type { Registry } from "../../engine/types/index.js";
-import { resolveAgentExposure } from "../../engine/types/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import type { Registry } from "../../engine/types/index.ts";
+import { resolveAgentExposure } from "../../engine/types/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const admin = TestUsers.admin;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { transformFeatureFactorySource } from "../scripts/codemod/feature-factory.js";
-import { transformS3ImportsSource } from "../scripts/codemod/s3-imports.js";
+import { transformFeatureFactorySource } from "../scripts/codemod/feature-factory.ts";
+import { transformS3ImportsSource } from "../scripts/codemod/s3-imports.ts";
 
 const APP_FILE = "/repo/samples/apps/demo/src/run-config.ts";
 const BUNDLED_FILE = "/repo/packages/bundled-features/src/file-foundation/__tests__/sample.test.ts";

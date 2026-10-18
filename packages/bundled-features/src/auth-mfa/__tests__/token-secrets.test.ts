@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveMfaTokenSecrets } from "../token-secrets.js";
+import { resolveMfaTokenSecrets } from "../token-secrets.ts";
 
 const JWT_SECRET = "app-jwt-secret-for-tests";
 

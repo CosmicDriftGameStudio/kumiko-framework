@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createSystemUser } from "../../engine/system-user.js";
-import { InternalError } from "../../errors/index.js";
-import { VersionConflictError as EventStoreVersionConflictError } from "../../event-store/errors.js";
+import { createSystemUser } from "../../engine/system-user.ts";
+import { InternalError } from "../../errors/index.ts";
+import { VersionConflictError as EventStoreVersionConflictError } from "../../event-store/errors.ts";
 import {
   describeShape,
   dispatcherSpanAttributes,
@@ -12,7 +12,7 @@ import {
   prefixValidationPath,
   resolveType,
   wrapToKumiko,
-} from "../dispatcher-utils.js";
+} from "../dispatcher-utils.ts";
 
 describe("isFailedWriteResult", () => {
   test("narrows failed write results", () => {

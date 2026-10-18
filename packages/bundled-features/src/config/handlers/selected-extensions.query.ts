@@ -4,9 +4,9 @@ import {
   isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireConfigResolver, requireSystemDb } from "../feature.js";
-import { redactInheritedCascade, shouldRedactInherited } from "../read-redaction.js";
-import { hasConfigAccess } from "../write-helpers.js";
+import { requireConfigResolver, requireSystemDb } from "../feature.ts";
+import { redactInheritedCascade, shouldRedactInherited } from "../read-redaction.ts";
+import { hasConfigAccess } from "../write-helpers.ts";
 
 // Flat `{ [extensionName]: selectedPluginId }` so a settings dashboard can show
 // panels per selected provider (visibleWhen field = extension name).

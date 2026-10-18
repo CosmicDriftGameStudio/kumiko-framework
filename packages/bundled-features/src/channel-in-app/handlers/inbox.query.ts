@@ -1,7 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { inAppMessagesTable } from "../tables.js";
+import { inAppMessagesTable } from "../tables.ts";
 
 export const inboxQuery = defineQueryHandler({
   name: "inbox",

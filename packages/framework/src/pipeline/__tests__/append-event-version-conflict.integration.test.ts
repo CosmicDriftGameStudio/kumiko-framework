@@ -4,9 +4,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.js";
-import { loadAggregate } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { defineFeature } from "../../engine/index.ts";
+import { loadAggregate } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const AGGREGATE_TYPE = "avcDoc";
 const WRITERS_PER_ROUND = 2;

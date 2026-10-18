@@ -1,7 +1,7 @@
 import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.js";
-import { platformActor, waitlistExecutor } from "./lib.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
+import { platformActor, waitlistExecutor } from "./lib.ts";
 
 const PAGE_SIZE = 200;
 const PURGE_REASON = "waitlist:purge";

@@ -13,16 +13,16 @@ import {
   joinBaseUrl,
   openCheckout,
   resolveCatalogProvider,
-} from "../checkout-core.js";
+} from "../checkout-core.ts";
 import {
   type ConsentPayload,
   consentCheckoutFields,
   consentPayloadSchema,
   prepareConsent,
   recordConsent,
-} from "../consumer-protection/consent-gate.js";
-import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.js";
-import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types.js";
+} from "../consumer-protection/consent-gate.ts";
+import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.ts";
+import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types.ts";
 
 export function createStartPlanCheckoutHandler(
   options: ResolvedBillingFoundationOptions,

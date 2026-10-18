@@ -3,13 +3,13 @@
 // each provider-feature's own __tests__.
 
 import { describe, expect, test } from "bun:test";
-import { createAuthFoundationFeature } from "../feature.js";
+import { createAuthFoundationFeature } from "../feature.ts";
 import {
   EXT_SESSION_STORE,
   EXT_TENANT_EXISTENCE,
   EXT_TENANT_RESOLVER,
   EXT_TOKEN_VERIFIER,
-} from "../types.js";
+} from "../types.ts";
 
 describe("authFoundationFeature — shape", () => {
   test("has the expected name", () => {

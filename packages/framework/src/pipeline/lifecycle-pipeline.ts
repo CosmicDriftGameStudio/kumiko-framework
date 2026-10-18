@@ -1,4 +1,4 @@
-import type { DbRow } from "../db/connection.js";
+import type { DbRow } from "../db/connection.ts";
 import type {
   AppContext,
   DeleteContext,
@@ -11,11 +11,11 @@ import type {
   PreSaveHookFn,
   Registry,
   SaveContext,
-} from "../engine/types/index.js";
-import { HookPhases } from "../engine/types/index.js";
-import { createFallbackLogger } from "../logging/utils.js";
-import { getFallbackTracer, type Tracer } from "../observability/index.js";
-import type { EventDedup } from "./event-dedup.js";
+} from "../engine/types/index.ts";
+import { HookPhases } from "../engine/types/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
+import { getFallbackTracer, type Tracer } from "../observability/index.ts";
+import type { EventDedup } from "./event-dedup.ts";
 
 function resolveTracer(context: AppContext): Tracer {
   return context.tracer ?? getFallbackTracer();

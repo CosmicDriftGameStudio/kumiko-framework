@@ -1,5 +1,5 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
 
 /** pg_advisory_xact_lock keyed on namespace+key hash — xact-scoped, auto-released at commit/rollback. */
 export async function acquireNamespacedAdvisoryLock(

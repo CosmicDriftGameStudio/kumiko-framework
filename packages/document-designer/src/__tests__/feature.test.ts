@@ -5,9 +5,9 @@ import {
   DocumentDesignerCells,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
   TEMPLATE_EDITOR_SCREENS,
-} from "../constants.js";
-import { createDocumentDesignerFeature } from "../feature.js";
-import { documentDesignerClient } from "../web/client-plugin.js";
+} from "../constants.ts";
+import { createDocumentDesignerFeature } from "../feature.ts";
+import { documentDesignerClient } from "../web/client-plugin.tsx";
 
 const features = [createTemplateResolverFeature(), createDocumentDesignerFeature()];
 

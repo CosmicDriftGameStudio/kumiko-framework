@@ -1,7 +1,7 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveTemplateVariables } from "../template-validation.js";
-import { upsertPayloadSchema } from "./shared.js";
-import { writeTemplateRow } from "./template-write.js";
+import { resolveTemplateVariables } from "../template-validation.ts";
+import { upsertPayloadSchema } from "./shared.ts";
+import { writeTemplateRow } from "./template-write.ts";
 
 // System-Template anlegen/updaten. Liegt unter SYSTEM_TENANT_ID,
 // scope='system'. Nur SystemAdmin (globale Rolle). TenantAdmin kann

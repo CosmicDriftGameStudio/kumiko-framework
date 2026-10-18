@@ -22,13 +22,13 @@ import {
   table as pgTable,
   text as pgText,
   uuid as pgUuid,
-} from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { insertOne, selectMany, updateMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { loadAggregate } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { insertOne, selectMany, updateMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { loadAggregate } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Entity ---
 

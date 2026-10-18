@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createRegistry } from "../../engine/index.js";
-import { assertSessionCallbacksPaired } from "../auth-routes.js";
-import { buildServer } from "../server.js";
+import { createRegistry } from "../../engine/index.ts";
+import { assertSessionCallbacksPaired } from "../auth-routes.ts";
+import { buildServer } from "../server.ts";
 
 const sessionCreator = async (): Promise<string> => "sid-1";
 const sessionRevoker = async (): Promise<void> => {};

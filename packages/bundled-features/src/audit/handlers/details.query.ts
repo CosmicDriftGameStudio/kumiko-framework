@@ -7,9 +7,9 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";
-import { redactPiiCiphertext } from "../../shared/index.js";
-import { AUDIT_SCOPE_VALUES } from "../constants.js";
-import { resolveAuditScopeFilter } from "./resolve-audit-tenant.js";
+import { redactPiiCiphertext } from "../../shared/index.ts";
+import { AUDIT_SCOPE_VALUES } from "../constants.ts";
+import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
 
 export const detailsQuery = defineQueryHandler({
   name: "details",

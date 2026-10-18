@@ -7,11 +7,11 @@
 // aggregate type sharing the same aggregate id stays behind.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { asRawClient } from "../../db/query.js";
-import type { TenantId } from "../../engine/types/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { generateId as uuid } from "../../utils/index.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { asRawClient } from "../../db/query.ts";
+import type { TenantId } from "../../engine/types/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { generateId as uuid } from "../../utils/index.ts";
 import {
   AGGREGATE_TRANSFER_STREAM_TYPE,
   AGGREGATE_TRANSFERRED_EVENT_TYPE,
@@ -22,7 +22,7 @@ import {
   loadLatestSnapshot,
   saveSnapshot,
   transferAggregateStreams,
-} from "../index.js";
+} from "../index.ts";
 
 let bun: BunTestDb;
 const sourceTenant = uuid() as TenantId;

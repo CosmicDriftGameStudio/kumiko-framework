@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { EntityTableMeta } from "../../entity-table-meta.js";
-import { aggregateWhere } from "../../query.js";
+import type { EntityTableMeta } from "../../entity-table-meta.ts";
+import { aggregateWhere } from "../../query.ts";
 
 const meta: EntityTableMeta = {
   source: "unmanaged",

@@ -6,23 +6,23 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
 import {
   configuredEventPiiCatalog,
   configureEventPiiCatalog,
   encryptEventPayloadPii,
   resetEventPiiCatalogForTests,
-} from "../event-pii.js";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
+} from "../event-pii.ts";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   decryptPiiFieldValues,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
   resetPiiSubjectKmsForTests,
-} from "../pii-field-encryption.js";
-import type { EventSubjectEnvelope } from "../subject-resolver.js";
+} from "../pii-field-encryption.ts";
+import type { EventSubjectEnvelope } from "../subject-resolver.ts";
 
 const attemptSchema = z.object({
   recipientId: z.string().nullable(),

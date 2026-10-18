@@ -6,11 +6,11 @@
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { lazy, type ReactNode, Suspense } from "react";
-import type { PlaceholderLineEditorProps } from "./placeholder-line-editor.js";
+import type { PlaceholderLineEditorProps } from "./placeholder-line-editor.tsx";
 
-export type { PlaceholderLineEditorProps } from "./placeholder-line-editor.js";
+export type { PlaceholderLineEditorProps } from "./placeholder-line-editor.tsx";
 
-const LazyPlaceholderLineEditor = lazy(() => import("./placeholder-line-editor.js"));
+const LazyPlaceholderLineEditor = lazy(() => import("./placeholder-line-editor.tsx"));
 
 function PlainLineFallback({
   id,

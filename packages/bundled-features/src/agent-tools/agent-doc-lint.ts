@@ -13,7 +13,7 @@ import {
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { systemOnlyPropertyNames } from "./agent-manifest.js";
+import { systemOnlyPropertyNames } from "./agent-manifest.ts";
 
 export const AgentDocGapKinds = {
   handlerSchemaNotExpressible: "handler-schema-not-expressible",

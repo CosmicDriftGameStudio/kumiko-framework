@@ -1,11 +1,11 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
-import { quoteTableIdent } from "./table-ops.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
+import { quoteTableIdent } from "./table-ops.ts";
 
 // Re-exported for back-compat — the generic DDL helpers moved to ./ddl so
 // the prod-boot path (db/table-push.ts, pipeline/event-consumer-state.ts)
 // doesn't import from a module named for test-only concerns.
-export { alterTableAddColumn, createIndexIfNotExists, executeDdlStatement } from "./ddl.js";
+export { alterTableAddColumn, createIndexIfNotExists, executeDdlStatement } from "./ddl.ts";
 
 export async function truncateTablesRestartIdentity(
   db: AnyDb,

@@ -5,8 +5,8 @@
 // barrel is where consumers of the published package have always found
 // hashPassword/verifyPassword; removing it is a breaking change that needs
 // its own changeset + deliberate deprecation window, not a silent drop.
-export { hashPassword, verifyPassword } from "../shared/password-hashing.js";
-export { type AuthPath, type AuthPaths, DEFAULT_AUTH_PATHS, makeAuthPaths } from "./auth-paths.js";
+export { hashPassword, verifyPassword } from "../shared/password-hashing.ts";
+export { type AuthPath, type AuthPaths, DEFAULT_AUTH_PATHS, makeAuthPaths } from "./auth-paths.ts";
 export type {
   BootstrapConfigValue,
   BootstrapDeps,
@@ -18,10 +18,10 @@ export type {
   BootstrapSystemAdmin,
   BootstrapTenant,
   BootstrapTenantOutcome,
-} from "./bootstrap.js";
-export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.js";
-export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers, AuthQueries } from "./constants.js";
-export type { AuthMailLocale } from "./email-templates.js";
+} from "./bootstrap.ts";
+export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.ts";
+export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers, AuthQueries } from "./constants.ts";
+export type { AuthMailLocale } from "./email-templates.ts";
 export type {
   AccountLockoutOptions,
   AccountUnlockOptions,
@@ -30,28 +30,28 @@ export type {
   InviteOptions,
   PasswordResetOptions,
   SignupOptions,
-} from "./feature.js";
-export { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "./feature.js";
-export { AuthMailNotificationTypes } from "./mail-notifications.js";
+} from "./feature.ts";
+export { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "./feature.ts";
+export { AuthMailNotificationTypes } from "./mail-notifications.ts";
 export {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,
-} from "./self-registration-toggle.js";
+} from "./self-registration-toggle.ts";
 // Generic HMAC-signed single-purpose token helpers. Re-exported damit
 // app-spezifische out-of-band-Flows (subscriber-confirm, magic-links,
 // invite-tokens) denselben battle-tested signer/verifier nutzen können
 // statt eigene HMAC-Logik zu duplizieren. Purpose-string diskriminiert
 // Cross-Replay zwischen Flows.
-export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "./signed-token.js";
+export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "./signed-token.ts";
 export {
   type IssuedSignupActivation,
   type IssueSignupActivationArgs,
   issueSignupActivation,
   SIGNUP_ACTIVATION_NOTIFICATION_TYPE,
-} from "./signup-activation.js";
+} from "./signup-activation.ts";
 export {
   invalidateExistingSignupToken,
   normalizeEmail,
   SIGNUP_TOKEN_KEY_PREFIXES,
   storeSignupToken,
-} from "./signup-token-store.js";
+} from "./signup-token-store.ts";

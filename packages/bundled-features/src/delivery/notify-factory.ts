@@ -1,5 +1,5 @@
 import type { NotifyFactory, NotifyFn, NotifyOptions } from "@cosmicdrift/kumiko-framework/engine";
-import type { DeliveryService } from "./types.js";
+import type { DeliveryService } from "./types.ts";
 
 // The same binding runProdApp wires into the app context: the calling context's
 // job dispatcher is handed to notify() per call, so queued channels go through

@@ -30,7 +30,7 @@ import {
   EXPORT_JOB_STATUS,
   exportJobEntity,
   exportJobsTable,
-} from "../schema/export-job.js";
+} from "../schema/export-job.ts";
 
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",

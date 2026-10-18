@@ -10,7 +10,7 @@ import {
   KumikoScreen,
   kumikoDefaultTranslations,
 } from "@cosmicdrift/kumiko-renderer";
-import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.js";
+import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
 
 // Split out of kumiko-screen.test.tsx (#2495): the create->update submit
 // test below fires fireEvent.change immediately followed by fireEvent.click

@@ -11,7 +11,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
+import { asRawClient } from "../../db/query.ts";
 import {
   createBooleanField,
   createEntity,
@@ -23,9 +23,9 @@ import {
   defineFeature,
   from,
   type SessionUser,
-} from "../../engine/index.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
-import { createFilesFeature, createInMemoryFileProvider } from "../index.js";
+} from "../../engine/index.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
+import { createFilesFeature, createInMemoryFileProvider } from "../index.ts";
 
 const PNG_BYTES = new Uint8Array([
   0x89,

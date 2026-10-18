@@ -1,5 +1,5 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-import type { Temporal } from "./temporal.js";
+import type { Temporal } from "./temporal.ts";
 
 export type RateLimitDecision = {
   readonly allowed: boolean;

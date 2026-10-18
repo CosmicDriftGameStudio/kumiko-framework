@@ -5,14 +5,14 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { RelatedListSection } from "../components/related-list-section.js";
-import { RenderEditActionButton } from "../components/render-edit-action-button.js";
-import { useOptionalDispatcher } from "../context/dispatcher-context.js";
-import { useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
-import { useNav } from "./nav.js";
-import { useReturnHost } from "./return-to.js";
-import { buildRecordActions } from "./row-actions.js";
+import { RelatedListSection } from "../components/related-list-section.tsx";
+import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
+import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
+import { useTranslation } from "../i18n.tsx";
+import { usePrimitives } from "../primitives.tsx";
+import { useNav } from "./nav.tsx";
+import { useReturnHost } from "./return-to.tsx";
+import { buildRecordActions } from "./row-actions.ts";
 
 // Content of an entityList row's expansion area: the row's record is the
 // parent of a relatedList. `expansionNonce` in the key remounts the sub-list

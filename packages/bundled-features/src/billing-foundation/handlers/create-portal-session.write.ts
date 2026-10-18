@@ -20,12 +20,12 @@ import {
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { subscriptionAggregateId } from "../aggregate-id.js";
-import { portalReturnUrl, resolveProviderPlugin } from "../checkout-core.js";
-import { SUBSCRIPTION_PII_FIELDS } from "../entities.js";
-import { purchaseRolesOf } from "../plan-catalog.js";
-import { subscriptionsProjectionTable as subTable } from "../projection.js";
-import type { BillingFoundationOptions } from "../types.js";
+import { subscriptionAggregateId } from "../aggregate-id.ts";
+import { portalReturnUrl, resolveProviderPlugin } from "../checkout-core.ts";
+import { SUBSCRIPTION_PII_FIELDS } from "../entities.ts";
+import { purchaseRolesOf } from "../plan-catalog.ts";
+import { subscriptionsProjectionTable as subTable } from "../projection.ts";
+import type { BillingFoundationOptions } from "../types.ts";
 
 const createPortalSessionSchema = z.object({}).strict();
 

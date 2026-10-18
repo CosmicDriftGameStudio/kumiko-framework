@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readZipEntryNames } from "../zip-entry-names.js";
+import { readZipEntryNames } from "../zip-entry-names.ts";
 
 function centralHeader(name: string): Uint8Array {
   const nameBytes = new TextEncoder().encode(name);

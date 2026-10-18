@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
-import { HostRoutingQueries } from "../constants.js";
-import { createHostDispatch } from "../dispatch.js";
-import { normalizeHostname } from "../host.js";
-import type { HostRoutingOptions } from "../options.js";
+import { HostRoutingQueries } from "../constants.ts";
+import { createHostDispatch } from "../dispatch.ts";
+import { normalizeHostname } from "../host.ts";
+import type { HostRoutingOptions } from "../options.ts";
 
 const KNOWN_KEYS = new Set(["acme", "globex", "initech"]);
 

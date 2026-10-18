@@ -27,25 +27,25 @@ import {
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
-import { fileContextFromResolver } from "../file-foundation/index.js";
-import { redactErrorText } from "../shared/index.js";
-import { hashUnsubscribeAddress } from "./address-opt-out.js";
-import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
-import { buildChannelContext } from "./channel-context.js";
+import { fileContextFromResolver } from "../file-foundation/index.ts";
+import { redactErrorText } from "../shared/index.ts";
+import { hashUnsubscribeAddress } from "./address-opt-out.ts";
+import { appendAttemptEvent, logAttempt } from "./attempt-log.ts";
+import { buildChannelContext } from "./channel-context.ts";
 import {
   DELIVERY_CHANNEL_EXTENSION,
   DeliveryJobs,
   deliveryIdempotencyRedisKey,
   deliveryPriorityRank,
   EMAIL_CHANNEL_NAME,
-} from "./constants.js";
+} from "./constants.ts";
 import {
   type AddressOptOutKey,
   addressOptOutKey,
   selectOptedOutAddresses,
-} from "./db/queries/address-opt-outs.js";
-import { selectNotificationPreferences } from "./db/queries/preferences.js";
-import { notificationTypeNames } from "./notification-type-aliases.js";
+} from "./db/queries/address-opt-outs.ts";
+import { selectNotificationPreferences } from "./db/queries/preferences.ts";
+import { notificationTypeNames } from "./notification-type-aliases.ts";
 import {
   type ChannelContext,
   type ChannelMessage,
@@ -55,13 +55,13 @@ import {
   type DeliveryService,
   isDeliveryChannelPlugin,
   type RenderedMessage,
-} from "./types.js";
+} from "./types.ts";
 import {
   buildUnsubscribeUrl,
   type UnsubscribeLinkConfig,
   type UnsubscribeLinkRecipient,
   unsubscribeLinkOrigin,
-} from "./unsubscribe-link.js";
+} from "./unsubscribe-link.ts";
 
 export function redactedMessageOf(err: unknown): string {
   return redactErrorText(err instanceof Error ? err.message : String(err));

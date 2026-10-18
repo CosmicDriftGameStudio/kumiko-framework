@@ -10,16 +10,16 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { asRawClient } from "../../db/query.js";
+import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
   createImageField,
   defineFeature,
   EXT_DERIVATIVE_RENDERER,
-} from "../../engine/index.js";
-import { createFilesFeature } from "../../files/feature.js";
-import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { createFilesFeature } from "../../files/feature.ts";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const VARIANT_BYTES = new Uint8Array([9, 9, 9]);
 

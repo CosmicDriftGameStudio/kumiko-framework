@@ -9,8 +9,8 @@
 // broken": a bare column reference inside a subquery that shadows an outer
 // column, and a literal self-comparison.
 
-import { toSnakeCase } from "../db/table-builder.js";
-import { tableColumnsOf } from "../db/table-introspection.js";
+import { toSnakeCase } from "../db/table-builder.ts";
+import { tableColumnsOf } from "../db/table-introspection.ts";
 
 const IDENT_SRC = `"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*`;
 const QUALIFIED_SRC = `(?:${IDENT_SRC})(?:\\.(?:${IDENT_SRC}))?`;

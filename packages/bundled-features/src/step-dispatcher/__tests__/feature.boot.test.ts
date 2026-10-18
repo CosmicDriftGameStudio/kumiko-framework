@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { createSecretsFeature } from "../../secrets/index.js";
-import { DELIVER_MAX_PER_TENANT, DELIVER_RETRIES, StepDispatcherJobNames } from "../constants.js";
-import { createStepDispatcherFeature } from "../feature.js";
-import { WEBHOOK_AUTH_SECRET_KEY_PREFIX } from "../webhook-runner.js";
+import { createSecretsFeature } from "../../secrets/index.ts";
+import { DELIVER_MAX_PER_TENANT, DELIVER_RETRIES, StepDispatcherJobNames } from "../constants.ts";
+import { createStepDispatcherFeature } from "../feature.ts";
+import { WEBHOOK_AUTH_SECRET_KEY_PREFIX } from "../webhook-runner.ts";
 
 describe("step-dispatcher (fw#2068)", () => {
   test("does not declare systemScope — no handler reads ctx.db/ctx.systemDb", () => {

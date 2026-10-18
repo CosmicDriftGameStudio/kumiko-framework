@@ -21,30 +21,30 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { hashPassword } from "../../shared/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { hashPassword } from "../../shared/index.ts";
 import {
   createTenantFeature,
   TenantHandlers,
   type TenantLifecycleStatus,
   tenantMembershipsTable,
-} from "../../tenant/index.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.js";
+} from "../../tenant/index.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.ts";
 import {
   createUserFeature,
   USER_STATUS,
   UserHandlers,
   userEntity,
   userTable,
-} from "../../user/index.js";
-import { AuthErrors, AuthHandlers } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
+} from "../../user/index.ts";
+import { AuthErrors, AuthHandlers } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
 
 let stack: TestStack;
 

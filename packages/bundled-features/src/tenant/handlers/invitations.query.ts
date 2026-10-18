@@ -2,9 +2,9 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
-import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.js";
-import { isSystemAdmin } from "./is-system-admin.js";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
+import { isSystemAdmin } from "./is-system-admin.ts";
 
 // Bounded, not Promise.all/sequential: each decrypt hits the KMS adapter's
 // own small dedicated pool (PgKmsAdapter default max: 4). Promise.all fires

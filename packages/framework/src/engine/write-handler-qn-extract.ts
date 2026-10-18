@@ -1,4 +1,4 @@
-import { toKebab } from "./qualified-name.js";
+import { toKebab } from "./qualified-name.ts";
 
 /**
  * Regex for a valid write-handler QN shape.

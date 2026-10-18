@@ -11,23 +11,23 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, insertOne, selectMany } from "../../db/query.js";
+import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
 import {
   createBooleanField,
   createEntity,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import { createRegistry } from "../../engine/registry.js";
-import { archiveStream, createArchivedStreamsTable } from "../../event-store/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { createProjectionStateTable } from "../../pipeline/projection-state.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
-import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
+} from "../../engine/index.ts";
+import { createRegistry } from "../../engine/registry.ts";
+import { archiveStream, createArchivedStreamsTable } from "../../event-store/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { createProjectionStateTable } from "../../pipeline/projection-state.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const userEntity = createEntity({
   table: "read_unreachable_users",

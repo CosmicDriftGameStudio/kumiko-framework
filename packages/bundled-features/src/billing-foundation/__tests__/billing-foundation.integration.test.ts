@@ -34,22 +34,22 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
 import {
   BillingEventKinds,
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-} from "../constants.js";
-import { createBillingFoundationFeature } from "../feature.js";
-import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.js";
-import type { PaymentEvent, SubscriptionProviderPlugin } from "../types.js";
-import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
+} from "../constants.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.ts";
+import type { PaymentEvent, SubscriptionProviderPlugin } from "../types.ts";
+import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 // =============================================================================
 // Mock-plugin für create-checkout-session + create-portal-session-Tests.

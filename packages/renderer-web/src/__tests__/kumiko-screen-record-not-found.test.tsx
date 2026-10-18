@@ -7,7 +7,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
-import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.js";
+import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
 
 const taskList: EntityListScreenDefinition = {
   id: "task-list",

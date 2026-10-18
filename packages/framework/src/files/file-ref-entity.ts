@@ -1,4 +1,4 @@
-import { createBigIntField, createEntity, createTextField } from "../engine/index.js";
+import { createBigIntField, createEntity, createTextField } from "../engine/index.ts";
 
 // fileRef — das File-Metadata-Entity. Ganz normales ES-Entity: Upload/Delete
 // laufen über den Standard-Executor (file-routes.ts), die Tabelle `file_refs`
@@ -18,7 +18,7 @@ import { createBigIntField, createEntity, createTextField } from "../engine/inde
 //     reference: "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf"). The other
 //     fields (storageKey, mimeType, entityType, entityId, fieldName) are
 //     technical references or system metadata, not subject content.
-export { FILE_REF_ENTITY_NAME } from "./types.js";
+export { FILE_REF_ENTITY_NAME } from "./types.ts";
 
 export const fileRefEntity = createEntity({
   table: "file_refs",

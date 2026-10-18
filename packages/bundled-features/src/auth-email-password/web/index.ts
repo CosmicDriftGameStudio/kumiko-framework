@@ -5,7 +5,7 @@
 // `@cosmicdrift/kumiko-bundled-features/auth-email-password` und hat keine
 // React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer-web.
 
-export { defaultTranslations, mergeTranslations } from "../i18n.js";
+export { defaultTranslations, mergeTranslations } from "../i18n.ts";
 export type {
   AuthTokenFailure,
   CurrentUserProfile,
@@ -16,7 +16,7 @@ export type {
   SignupConfirmSuccess,
   TenantSummary,
   VerifyEmailFailure,
-} from "./auth-client.js";
+} from "./auth-client.ts";
 export {
   AuthRequestError,
   confirmAccountUnlock,
@@ -28,62 +28,62 @@ export {
   resetPassword,
   toLoginResponse,
   verifyEmail,
-} from "./auth-client.js";
-export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives.js";
-export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives.js";
+} from "./auth-client.ts";
+export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives.tsx";
+export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives.tsx";
 export type {
   AuthGateOptions,
   LoginRouteOptions,
   MfaSetupComponentProps,
   MfaVerifyComponentProps,
   SessionAuthGateOptions,
-} from "./auth-gate.js";
-export { createLoginRoute, makeAuthGate, makeSessionAuthGate } from "./auth-gate.js";
+} from "./auth-gate.tsx";
+export { createLoginRoute, makeAuthGate, makeSessionAuthGate } from "./auth-gate.tsx";
 export {
   buildLoginRedirectUrl,
   isSafeNextPath,
   NEXT_QUERY_PARAM,
   readNextFromSearch,
-} from "./auth-redirect.js";
+} from "./auth-redirect.ts";
 export type {
   EmailPasswordClientFeature,
   EmailPasswordClientOptions,
-} from "./client-plugin.js";
-export { emailPasswordClient } from "./client-plugin.js";
-export type { ConfirmAccountUnlockScreenProps } from "./confirm-account-unlock-screen.js";
-export { ConfirmAccountUnlockScreen } from "./confirm-account-unlock-screen.js";
-export type { DefaultTopbarActionsProps } from "./default-topbar-actions.js";
-export { DefaultTopbarActions } from "./default-topbar-actions.js";
-export type { ForgotPasswordScreenProps } from "./forgot-password-screen.js";
-export { ForgotPasswordScreen } from "./forgot-password-screen.js";
-export type { InviteAcceptScreenProps } from "./invite-accept-screen.js";
-export { InviteAcceptScreen } from "./invite-accept-screen.js";
-export type { AuthLegalLink, LoginScreenProps } from "./login-screen.js";
-export { LoginScreen } from "./login-screen.js";
-export type { RequestAccountUnlockScreenProps } from "./request-account-unlock-screen.js";
-export { RequestAccountUnlockScreen } from "./request-account-unlock-screen.js";
-export type { ResetPasswordScreenProps } from "./reset-password-screen.js";
-export { ResetPasswordScreen } from "./reset-password-screen.js";
+} from "./client-plugin.ts";
+export { emailPasswordClient } from "./client-plugin.ts";
+export type { ConfirmAccountUnlockScreenProps } from "./confirm-account-unlock-screen.tsx";
+export { ConfirmAccountUnlockScreen } from "./confirm-account-unlock-screen.tsx";
+export type { DefaultTopbarActionsProps } from "./default-topbar-actions.tsx";
+export { DefaultTopbarActions } from "./default-topbar-actions.tsx";
+export type { ForgotPasswordScreenProps } from "./forgot-password-screen.tsx";
+export { ForgotPasswordScreen } from "./forgot-password-screen.tsx";
+export type { InviteAcceptScreenProps } from "./invite-accept-screen.tsx";
+export { InviteAcceptScreen } from "./invite-accept-screen.tsx";
+export type { AuthLegalLink, LoginScreenProps } from "./login-screen.tsx";
+export { LoginScreen } from "./login-screen.tsx";
+export type { RequestAccountUnlockScreenProps } from "./request-account-unlock-screen.tsx";
+export { RequestAccountUnlockScreen } from "./request-account-unlock-screen.tsx";
+export type { ResetPasswordScreenProps } from "./reset-password-screen.tsx";
+export { ResetPasswordScreen } from "./reset-password-screen.tsx";
 export type {
   SessionApi,
   SessionBootstrapFailure,
   SessionState,
   SessionStatus,
-} from "./session.js";
-export { hasLikelyAuthSession, SessionContext, SessionProvider, useSession } from "./session.js";
-export type { SessionBootstrapErrorScreenProps } from "./session-bootstrap-error.js";
-export { retryDelayMs, SessionBootstrapErrorScreen } from "./session-bootstrap-error.js";
-export type { SignupCompleteScreenProps } from "./signup-complete-screen.js";
-export { SignupCompleteScreen } from "./signup-complete-screen.js";
-export type { SignupScreenProps } from "./signup-screen.js";
-export { SignupScreen } from "./signup-screen.js";
-export type { TenantMenuItemsProps } from "./tenant-menu-items.js";
-export { TenantMenuItems } from "./tenant-menu-items.js";
-export type { TenantSwitcherProps } from "./tenant-switcher.js";
-export { TenantSwitcher } from "./tenant-switcher.js";
-export type { ShellUser } from "./use-shell-user.js";
-export { useShellUser } from "./use-shell-user.js";
-export type { UserMenuProps } from "./user-menu.js";
-export { UserMenu } from "./user-menu.js";
-export type { VerifyEmailScreenProps } from "./verify-email-screen.js";
-export { VerifyEmailScreen } from "./verify-email-screen.js";
+} from "./session.tsx";
+export { hasLikelyAuthSession, SessionContext, SessionProvider, useSession } from "./session.tsx";
+export type { SessionBootstrapErrorScreenProps } from "./session-bootstrap-error.tsx";
+export { retryDelayMs, SessionBootstrapErrorScreen } from "./session-bootstrap-error.tsx";
+export type { SignupCompleteScreenProps } from "./signup-complete-screen.tsx";
+export { SignupCompleteScreen } from "./signup-complete-screen.tsx";
+export type { SignupScreenProps } from "./signup-screen.tsx";
+export { SignupScreen } from "./signup-screen.tsx";
+export type { TenantMenuItemsProps } from "./tenant-menu-items.tsx";
+export { TenantMenuItems } from "./tenant-menu-items.tsx";
+export type { TenantSwitcherProps } from "./tenant-switcher.tsx";
+export { TenantSwitcher } from "./tenant-switcher.tsx";
+export type { ShellUser } from "./use-shell-user.ts";
+export { useShellUser } from "./use-shell-user.ts";
+export type { UserMenuProps } from "./user-menu.tsx";
+export { UserMenu } from "./user-menu.tsx";
+export type { VerifyEmailScreenProps } from "./verify-email-screen.tsx";
+export { VerifyEmailScreen } from "./verify-email-screen.tsx";

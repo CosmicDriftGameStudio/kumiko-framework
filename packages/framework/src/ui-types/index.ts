@@ -21,11 +21,11 @@
 // helper with no cross-module side-effects.
 
 export { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
-export type { DerivedCellRoundingTarget } from "../engine/embedded-derived.js";
-export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived.js";
-export type { ParsedRefTarget } from "../engine/parse-ref-target.js";
-export { parseRefTarget } from "../engine/parse-ref-target.js";
-export type { FieldsOrGroupsSection, UnavailableSelectOption } from "../engine/screen-helpers.js";
+export type { DerivedCellRoundingTarget } from "../engine/embedded-derived.ts";
+export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived.ts";
+export type { ParsedRefTarget } from "../engine/parse-ref-target.ts";
+export { parseRefTarget } from "../engine/parse-ref-target.ts";
+export type { FieldsOrGroupsSection, UnavailableSelectOption } from "../engine/screen-helpers.ts";
 export {
   availableSelectOptions,
   evalFieldCondition,
@@ -41,7 +41,7 @@ export {
   normalizeListColumn,
   resolveNavParentScreen,
   sectionFieldSpecs,
-} from "../engine/screen-helpers.js";
+} from "../engine/screen-helpers.ts";
 // Entity + field types. EntityDefinition is the canonical shape that
 // view-model builders iterate; FieldDefinition is the per-field union
 // (text, number, boolean, ...) they branch on. AccessRule is used by
@@ -62,7 +62,7 @@ export type {
   SelectFieldDef,
   SelectOptionTone,
   TextFieldDef,
-} from "../engine/types/fields.js";
+} from "../engine/types/fields.ts";
 export type {
   AccessRule,
   OpenToAllAccessRule,
@@ -70,9 +70,9 @@ export type {
   OpenToAllPersonalData,
   RoleAccessPersonalData,
   RoleAccessRule,
-} from "../engine/types/handlers.js";
-export { isOpenToAllGranted, isUiAccessGranted } from "../engine/types/handlers.js";
-export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav.js";
+} from "../engine/types/handlers.ts";
+export { isOpenToAllGranted, isUiAccessGranted } from "../engine/types/handlers.ts";
+export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav.ts";
 export type {
   ActionFormFooterAction,
   ActionFormRedirect,
@@ -163,46 +163,46 @@ export type {
   SecretsEditScreenDefinition,
   SecretsEditSection,
   ToolbarAction,
-} from "../engine/types/screen.js";
+} from "../engine/types/screen.ts";
 export {
   metricField,
   relatedListGroupHeaderLabel,
   relatedListGroupKey,
-} from "../engine/types/screen.js";
-export type { TargetRef } from "../engine/types/target-ref.js";
-export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node.js";
-export type { WorkspaceDefinition } from "../engine/types/workspace.js";
+} from "../engine/types/screen.ts";
+export type { TargetRef } from "../engine/types/target-ref.ts";
+export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node.ts";
+export type { WorkspaceDefinition } from "../engine/types/workspace.ts";
 export {
   ACTION_FORM_ENTITY,
   handlerFieldLabelKey,
   handlerTitleKey,
   PROJECTION_DETAIL_ENTITY,
   WRITE_FORM_SECTION_ENTITY,
-} from "../i18n/required-surface-keys.js";
+} from "../i18n/required-surface-keys.ts";
 export type {
   AppSchema,
   FeatureSchema,
   QualifiedContentCollection,
   WorkspaceSchema,
-} from "./app-schema.js";
-export type { CardColumnRoles, CardRoleColumn } from "./card-column-roles.js";
-export { CARD_META_MAX, cardColumnRoles, cardFileDisplayKind } from "./card-column-roles.js";
-export { type Formality, formalLocaleTag } from "./formality.js";
+} from "./app-schema.ts";
+export type { CardColumnRoles, CardRoleColumn } from "./card-column-roles.ts";
+export { CARD_META_MAX, cardColumnRoles, cardFileDisplayKind } from "./card-column-roles.ts";
+export { type Formality, formalLocaleTag } from "./formality.ts";
 export type {
   ListRowMetaColumnType,
   ListRowMetaReference,
   ReferenceLookupSource,
   SystemReferenceLabel,
-} from "./list-row-meta.js";
+} from "./list-row-meta.ts";
 export {
   LIST_ROW_META_COLUMNS,
   LIST_ROW_META_REFERENCES,
   REFERENCE_LOOKUP_SOURCES,
   SYSTEM_REFERENCE_LABELS,
-} from "./list-row-meta.js";
+} from "./list-row-meta.ts";
 export {
   type PluralForms,
   resolveTranslationValue,
   type TranslationValue,
   translationValueOtherText,
-} from "./plural.js";
+} from "./plural.ts";

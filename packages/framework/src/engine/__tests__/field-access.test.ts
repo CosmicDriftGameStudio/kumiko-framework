@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { checkWriteFieldRoles, filterReadFields } from "../field-access.js";
-import type { EntityDefinition } from "../types/index.js";
+import { checkWriteFieldRoles, filterReadFields } from "../field-access.ts";
+import type { EntityDefinition } from "../types/index.ts";
 
 const entity: EntityDefinition = {
   fields: {

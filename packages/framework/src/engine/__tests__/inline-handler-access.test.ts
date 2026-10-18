@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../define-feature.js";
+import { defineFeature } from "../define-feature.ts";
 
 const noopHandler = async () => ({ isSuccess: true as const, data: null });
 

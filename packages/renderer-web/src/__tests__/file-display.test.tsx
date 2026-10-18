@@ -9,9 +9,9 @@ import {
   FileThumbnail,
   fileOriginalUrl,
   fileVariantUrl,
-} from "../primitives/file-thumbnail.js";
-import { FileUploadInput } from "../primitives/file-upload.js";
-import { render } from "./test-utils.js";
+} from "../primitives/file-thumbnail.tsx";
+import { FileUploadInput } from "../primitives/file-upload.tsx";
+import { render } from "./test-utils.tsx";
 
 const FILE_ID = "11111111-2222-4333-8444-555555555555";
 const realFetch = globalThis.fetch;

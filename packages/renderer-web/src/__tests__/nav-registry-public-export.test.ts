@@ -5,7 +5,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 // Public entry on purpose: this test guards the exported API surface consumers import from.
-import { buildNavRegistrySliceForApp } from "../index.js";
+import { buildNavRegistrySliceForApp } from "../index.ts";
 
 const adopter = defineFeature("adopter", (r) => {
   r.entity({ name: "thing", fields: { label: { type: "text" } } });

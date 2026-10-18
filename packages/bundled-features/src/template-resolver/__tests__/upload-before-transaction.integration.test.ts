@@ -34,9 +34,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity, templateResourcesTable } from "../table.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";

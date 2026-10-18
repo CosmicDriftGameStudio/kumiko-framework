@@ -1,9 +1,9 @@
-import { defineFeature, type FeatureDefinition } from "../engine/index.js";
-import { bindReferencedFilesWrite } from "./bind-referenced-files.write.js";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.js";
-import type { FileAccessGuard } from "./file-routes.js";
+import { defineFeature, type FeatureDefinition } from "../engine/index.ts";
+import { bindReferencedFilesWrite } from "./bind-referenced-files.write.ts";
+import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
+import type { FileAccessGuard } from "./file-routes.ts";
 
-export { fileRefEntity } from "./file-ref-entity.js";
+export { fileRefEntity } from "./file-ref-entity.ts";
 
 // Upload-route policy. buildServer reads these off the `files` feature's
 // exports (no parallel ServerOptions surface) and applies them to the

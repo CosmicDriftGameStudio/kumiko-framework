@@ -5,8 +5,8 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { FeatureSchema } from "../feature-schema.js";
-import { formatPath, hasDetailScreen, parsePath, resolveTarget } from "../nav.js";
+import type { FeatureSchema } from "../feature-schema.ts";
+import { formatPath, hasDetailScreen, parsePath, resolveTarget } from "../nav.tsx";
 
 describe("parsePath — ohne Workspaces", () => {
   test("/<screenId>", () => {

@@ -1,19 +1,19 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { FALLBACK_LOCALE } from "../constants.js";
-import { type LayoutRegions, readLayoutRegions } from "../layout-regions.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { FALLBACK_LOCALE } from "../constants.ts";
+import { type LayoutRegions, readLayoutRegions } from "../layout-regions.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
   type ActiveInfo,
   draftViewerTenantId,
   isHiddenSystemDraft,
   toWorkingRow,
   type WorkingRow,
-} from "../template-draft.js";
-import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.js";
-import { localeSchema, templateSlugSchema } from "./shared.js";
-import { parseStoredJson } from "./template-gates.js";
+} from "../template-draft.ts";
+import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.ts";
+import { localeSchema, templateSlugSchema } from "./shared.ts";
+import { parseStoredJson } from "./template-gates.ts";
 
 export type LayoutSourceRow = {
   readonly id: string;

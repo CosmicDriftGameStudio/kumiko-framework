@@ -1,14 +1,14 @@
-export { assertExistsIn } from "./assert-exists-in.js";
+export { assertExistsIn } from "./assert-exists-in.ts";
 export {
   nullBlindIndexesForSubject,
   recordEventsOwnedExclusivelyByTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,
   subjectRowExistsInTenant,
-} from "./blind-index-cleanup.js";
-export { collectTableMetas } from "./collect-table-metas.js";
-export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.js";
-export { seedConfigValues } from "./config-seed.js";
+} from "./blind-index-cleanup.ts";
+export { collectTableMetas } from "./collect-table-metas.ts";
+export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.ts";
+export { seedConfigValues } from "./config-seed.ts";
 export type {
   CreateDbConnectionOptions,
   DbConnection,
@@ -17,16 +17,16 @@ export type {
   DbRow,
   DbRunner,
   DbTx,
-} from "./connection.js";
+} from "./connection.ts";
 export {
   createDbConnection,
   DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
   dbConnectionOptionsFromEnv,
   outsideTransactionPoolOptionsFromEnv,
-} from "./connection.js";
-export type { CursorQueryOptions, CursorResult, DecodedKeysetCursor } from "./cursor.js";
-export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.js";
-export type { SchemaTable, SelectQuery, TableColumns } from "./dialect.js";
+} from "./connection.ts";
+export type { CursorQueryOptions, CursorResult, DecodedKeysetCursor } from "./cursor.ts";
+export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.ts";
+export type { SchemaTable, SelectQuery, TableColumns } from "./dialect.ts";
 export {
   bigint,
   bigserial,
@@ -47,21 +47,21 @@ export {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./dialect.js";
-export type { EagerLoadEntityResolver, EagerLoadViewer, EagerloadedRow } from "./eagerload.js";
+} from "./dialect.ts";
+export type { EagerLoadEntityResolver, EagerLoadViewer, EagerloadedRow } from "./eagerload.ts";
 export {
   collectReferenceFields,
   enrichRowWithReferences,
   enrichWithReferences,
-} from "./eagerload.js";
+} from "./eagerload.ts";
 export {
   collectEncryptedFieldNames,
   configuredEntityFieldEncryption,
   configureEntityFieldEncryption,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
-} from "./entity-field-encryption.js";
-export { entityTableFromRegistry } from "./entity-table-from-registry.js";
+} from "./entity-field-encryption.ts";
+export { entityTableFromRegistry } from "./entity-table-from-registry.ts";
 export type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
@@ -70,29 +70,29 @@ export type {
   IndexMeta,
   PgType,
   UnmanagedTableInput,
-} from "./entity-table-meta.js";
+} from "./entity-table-meta.ts";
 export {
   buildEntityTableMeta,
   defineUnmanagedTable,
   deriveEntityTableMeta,
-} from "./entity-table-meta.js";
+} from "./entity-table-meta.ts";
 export type {
   EntityLifecycleVerb,
   EventStoreExecutor,
   EventStoreExecutorOptions,
   LockGuardOption,
   WritePurpose,
-} from "./event-store-executor.js";
+} from "./event-store-executor.ts";
 export {
   createEventStoreExecutor,
   entityEventName,
   WritePurposes,
-} from "./event-store-executor.js";
+} from "./event-store-executor.ts";
 export {
   enumerateFeatureTableSources,
   type FeatureTableSource,
-} from "./feature-table-sources.js";
-export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.js";
+} from "./feature-table-sources.ts";
+export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.ts";
 export {
   assertUniqueTableNames,
   assertValidMigrationName,
@@ -106,7 +106,7 @@ export {
   type Snapshot,
   snapshotFromMetas,
   writeSnapshotJson,
-} from "./migrate-generator.js";
+} from "./migrate-generator.ts";
 export {
   type AppliedMigration,
   type ApplyResult,
@@ -120,18 +120,18 @@ export {
   runMigrations,
   runMigrationsFromDir,
   splitSqlStatements,
-} from "./migrate-runner.js";
-export { flattenMoney, type MoneyRead, moneyPayloadToMinorUnits, rehydrateMoney } from "./money.js";
+} from "./migrate-runner.ts";
+export { flattenMoney, type MoneyRead, moneyPayloadToMinorUnits, rehydrateMoney } from "./money.ts";
 export {
   constraintOf,
   extractPgError,
   isTableAlreadyExists,
   isUniqueViolation,
   type PgErrorInfo,
-} from "./pg-error.js";
-export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.js";
-export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.js";
-export { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
+} from "./pg-error.ts";
+export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
+export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
+export { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.ts";
 export type {
   DeleteManyBatchedOptions,
   DeleteManyBatchedResult,
@@ -147,7 +147,7 @@ export type {
   WhereObject,
   WhereOperator,
   WhereValue,
-} from "./query.js";
+} from "./query.ts";
 export {
   aggregateWhere,
   asEntityTableMeta,
@@ -174,28 +174,28 @@ export {
   updateMany,
   upsertByPk,
   upsertOnConflict,
-} from "./query.js";
+} from "./query.ts";
 export {
   readRebuildMarker,
   rebuildTablesFromDiff,
   writeRebuildMarker,
-} from "./rebuild-marker.js";
-export { seedReferenceData } from "./reference-data.js";
-export { renderTableDdl, renderTablesDdl } from "./render-ddl.js";
+} from "./rebuild-marker.ts";
+export { seedReferenceData } from "./reference-data.ts";
+export { renderTableDdl, renderTablesDdl } from "./render-ddl.ts";
 export {
   diffReplayAgainstSnapshot,
   type ReplayedSchema,
   type ReplayedTable,
   type ReplayMismatch,
   replayMigrationsDir,
-} from "./replay-migration-sql.js";
+} from "./replay-migration-sql.ts";
 export {
   findCommentedDropTables,
   isRetiredFrameworkTable,
   type RetiredFrameworkTable,
   retiredFrameworkTables,
-} from "./retired-framework-tables.js";
-export { tableExists } from "./schema-inspection.js";
+} from "./retired-framework-tables.ts";
+export { tableExists } from "./schema-inspection.ts";
 export {
   buildBaseColumns,
   buildEntityTable,
@@ -204,14 +204,14 @@ export {
   physicalColumnName,
   toSnakeCase,
   toTableName,
-} from "./table-builder.js";
+} from "./table-builder.ts";
 export type {
   CreateTenantDbOptions,
   TenantDb,
   TenantDbGrants,
   TenantDbMode,
   UncheckedSystemDb,
-} from "./tenant-db.js";
+} from "./tenant-db.ts";
 export {
   castTenantRows,
   createSystemDbView,
@@ -219,4 +219,4 @@ export {
   runInOwnTransaction,
   SYSTEM_SCOPE_CHECK_BRAND,
   scopeTenantDbToTenant,
-} from "./tenant-db.js";
+} from "./tenant-db.ts";

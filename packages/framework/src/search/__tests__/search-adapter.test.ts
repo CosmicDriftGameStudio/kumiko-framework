@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { createInMemorySearchAdapter } from "../in-memory-adapter.js";
-import type { SearchAdapter } from "../types.js";
+import { createInMemorySearchAdapter } from "../in-memory-adapter.ts";
+import type { SearchAdapter } from "../types.ts";
 
 const TENANT = "00000000-0000-4000-8000-000000000001";
 let adapter: SearchAdapter;

@@ -1,4 +1,4 @@
-import type { HostRoutingOptions } from "./options.js";
+import type { HostRoutingOptions } from "./options.ts";
 
 const DOMAIN_PATTERN = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
 const PATH_PREFIX_PATTERN = /^\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;

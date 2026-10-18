@@ -8,12 +8,12 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { LoadingState, ModeSwitch } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
-import type { EditorOrigin } from "./editor-header.js";
-import { EditorBody, EditorInfoBar } from "./editor-shell.js";
-import { formatKilobytes } from "./mail-draft.js";
-import { PreviewSide, type TestMailControls } from "./mail-preview-side.js";
-import type { MailPreview, MailValidation, PreviewAttachment } from "./mail-types.js";
-import type { OwnAddress } from "./use-own-address.js";
+import type { EditorOrigin } from "./editor-header.tsx";
+import { EditorBody, EditorInfoBar } from "./editor-shell.tsx";
+import { formatKilobytes } from "./mail-draft.ts";
+import { PreviewSide, type TestMailControls } from "./mail-preview-side.tsx";
+import type { MailPreview, MailValidation, PreviewAttachment } from "./mail-types.ts";
+import type { OwnAddress } from "./use-own-address.ts";
 
 type PreviewFormat = "html" | "text";
 type PreviewWidth = "desktop" | "mobile";

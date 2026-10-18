@@ -10,14 +10,14 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { BUNDLED_ASSETS_DIST_DIR } from "../bundled-assets.js";
-import type { PageHeadResolver } from "../run-prod-app.js";
+import { BUNDLED_ASSETS_DIST_DIR } from "../bundled-assets.ts";
+import type { PageHeadResolver } from "../run-prod-app.ts";
 import {
   buildStaticFallback,
   mimeTypeFor,
   readStaticFile,
   serveDiskFile,
-} from "../run-prod-app-static-files.js";
+} from "../run-prod-app-static-files.ts";
 
 // Stand-in for a real Hono app's fetch when the test wants "no route
 // matched" — must carry NO_ROUTE_MATCH_HEADER_NAME, same as buildServer's

@@ -6,13 +6,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
-import { executeRawQuery } from "../../db/queries/raw-sql.js";
-import { createSystemUser, defineFeature } from "../../engine/index.js";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
-import type { Logger } from "../../logging/types.js";
-import { ESCAPE_HATCH_USED_SIGNAL } from "../../observability/escape-hatch-report.js";
-import { createTestUser } from "../../seeding/seed-users.js";
+import { defineUnmanagedTable } from "../../db/entity-table-meta.ts";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
+import { createSystemUser, defineFeature } from "../../engine/index.ts";
+import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
+import type { Logger } from "../../logging/types.ts";
+import { ESCAPE_HATCH_USED_SIGNAL } from "../../observability/escape-hatch-report.ts";
+import { createTestUser } from "../../seeding/seed-users.ts";
 
 const globalStoreTable = defineUnmanagedTable({
   tableName: "store_fw2861_escape_hatch_audit_items",

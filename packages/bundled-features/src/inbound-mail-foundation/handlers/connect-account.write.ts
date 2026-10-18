@@ -20,14 +20,14 @@ import {
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { InboundMailAccountStatuses, InboundMailAuthMethods } from "../constants.js";
-import { MAIL_ACCOUNT_PII_FIELDS, mailAccountEntity } from "../entities.js";
+import { InboundMailAccountStatuses, InboundMailAuthMethods } from "../constants.ts";
+import { MAIL_ACCOUNT_PII_FIELDS, mailAccountEntity } from "../entities.ts";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_CONNECTED_EVENT_QN,
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
-} from "../events.js";
+} from "../events.ts";
 
 export const connectAccountSchema = z.object({
   /** Provider-Key wie an der Extension registriert ("imap",

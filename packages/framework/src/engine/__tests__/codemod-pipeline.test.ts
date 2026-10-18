@@ -36,7 +36,7 @@ import {
   generatePerformBlock,
   runCodemod,
   scanForCandidates,
-} from "../codemod/index.js";
+} from "../codemod/index.ts";
 
 const tmpDir = join(__dirname, "__codemod_fixtures__");
 

@@ -7,10 +7,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createTemplateResolverFeature } from "../feature.js";
-import type { LayoutSourceResponse, OverviewResponse } from "../index.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import type { LayoutSourceResponse, OverviewResponse } from "../index.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
 
 const MAIL_SLUG = "billing-ov:notify:invoice-issued";
 const REMINDER_SLUG = "billing-ov:notify:payment-reminder";

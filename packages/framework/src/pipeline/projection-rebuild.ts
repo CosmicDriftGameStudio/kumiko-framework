@@ -1,12 +1,12 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-import type { DbConnection, DbTx } from "../db/connection.js";
+import type { DbConnection, DbTx } from "../db/connection.ts";
 import {
   countSubscribedEvents,
   finalizeProjectionRebuild,
   markProjectionRebuildFailed,
   markProjectionRebuilding,
   selectEventsForProjectionRebuildBatch,
-} from "../db/queries/projection-rebuild.js";
+} from "../db/queries/projection-rebuild.ts";
 import {
   assertLiveColumnsMatchMeta,
   assertLiveTableHasNoRowLevelSecurity,
@@ -19,24 +19,24 @@ import {
   fenceLiveTable,
   rebuildMetaOrThrow,
   swapShadowIntoLive,
-} from "../db/queries/shadow-swap.js";
-import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query.js";
-import type { Registry, TenantId } from "../engine/types/index.js";
-import type { EventMetadata } from "../event-store/event-store.js";
+} from "../db/queries/shadow-swap.ts";
+import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query.ts";
+import type { Registry, TenantId } from "../engine/types/index.ts";
+import type { EventMetadata } from "../event-store/event-store.ts";
 import {
   eventsTable,
   getEventsHighWaterMark,
   type StoredEvent,
   upcastStoredEvent,
-} from "../event-store/index.js";
+} from "../event-store/index.ts";
 import {
   createRebuildDeadLetterTable,
   recordRebuildDeadLetters,
   type SkippedApply,
-} from "../event-store/rebuild-dead-letter.js";
-import { emitProjectionRebuild } from "../observability/standard-metrics.js";
-import type { Meter } from "../observability/types/metric.js";
-import { projectionStateTable } from "./projection-state.js";
+} from "../event-store/rebuild-dead-letter.ts";
+import { emitProjectionRebuild } from "../observability/standard-metrics.ts";
+import type { Meter } from "../observability/types/metric.ts";
+import { projectionStateTable } from "./projection-state.ts";
 
 // Events replayed per catch-up batch. Each batch is a fresh READ COMMITTED
 // SELECT, so a batch shorter than this means the currently-committed tail is

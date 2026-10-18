@@ -34,7 +34,7 @@ import {
   type KumikoServerHandle,
   PROD_BUNDLES_ENV,
   STYLESHEET_WATCH_ENV,
-} from "../create-kumiko-server.js";
+} from "../create-kumiko-server.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 

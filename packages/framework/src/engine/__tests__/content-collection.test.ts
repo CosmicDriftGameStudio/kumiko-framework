@@ -4,10 +4,10 @@
 
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
-import { validateBoot as validateBootRaw } from "../boot-validator.js";
-import { buildAppSchema } from "../build-app-schema.js";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.ts";
+import { buildAppSchema } from "../build-app-schema.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

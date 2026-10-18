@@ -21,24 +21,24 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { AuthHandlers } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { AuthHandlers } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
 import {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,
-} from "../self-registration-toggle.js";
-import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
+} from "../self-registration-toggle.ts";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 const emailTransport = createInMemoryTransport();

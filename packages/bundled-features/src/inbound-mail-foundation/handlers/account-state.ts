@@ -10,7 +10,7 @@
 // fehlendem KMS decrypt erzwingen bzw. Double-Encryption produzieren).
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import type { MailAccountEventPayload } from "../events.js";
+import type { MailAccountEventPayload } from "../events.ts";
 
 export async function loadCurrentMailAccountPayload(
   ctx: Pick<HandlerContext, "loadAggregate">,

@@ -7,9 +7,9 @@
 // the migration diff for an existing table stays empty when flipping it.
 
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.js";
-import { diffSnapshots, snapshotFromMetas } from "../migrate-generator.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.ts";
+import { diffSnapshots, snapshotFromMetas } from "../migrate-generator.ts";
 
 const entity = createEntity({
   table: "source-probe",
@@ -52,7 +52,7 @@ describe("deriveEntityTableMeta — options.source (#1210)", () => {
   });
 
   test("deprecated buildEntityTableMeta alias still works", async () => {
-    const { buildEntityTableMeta } = await import("../entity-table-meta.js");
+    const { buildEntityTableMeta } = await import("../entity-table-meta.ts");
     expect(buildEntityTableMeta("source-probe", entity).source).toBe("managed");
   });
 });

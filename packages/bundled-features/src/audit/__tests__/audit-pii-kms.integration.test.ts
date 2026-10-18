@@ -17,12 +17,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { REDACTED_PII_PLACEHOLDER } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { AuditQueries } from "../constants.js";
-import { createAuditFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { REDACTED_PII_PLACEHOLDER } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { AuditQueries } from "../constants.ts";
+import { createAuditFeature } from "../feature.ts";
 
 const memberEntity = createEntity({
   table: "audit_kms_members",

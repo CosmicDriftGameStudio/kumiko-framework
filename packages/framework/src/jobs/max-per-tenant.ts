@@ -1,4 +1,4 @@
-import type { JobDefinition } from "../engine/types/index.js";
+import type { JobDefinition } from "../engine/types/index.ts";
 
 export const DEFAULT_MAX_PER_TENANT_DEFER_MS = 1_000;
 

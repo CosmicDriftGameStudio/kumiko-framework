@@ -25,11 +25,11 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { createSystemUser } from "../../engine/system-user.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
-import { createFilesFeature } from "../feature.js";
-import { createLocalProvider } from "../local-provider.js";
+} from "../../engine/index.ts";
+import { createSystemUser } from "../../engine/system-user.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { createFilesFeature } from "../feature.ts";
+import { createLocalProvider } from "../local-provider.ts";
 
 const noteEntity = createEntity({
   table: "tenant_check_notes",

@@ -3,7 +3,7 @@
 
 import { isClosedConnectionError } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import postgres from "postgres";
-import { requireEnv } from "../stack/db.js";
+import { requireEnv } from "../stack/db.ts";
 
 export function testDatabaseUrl(): string {
   return requireEnv("TEST_DATABASE_URL");

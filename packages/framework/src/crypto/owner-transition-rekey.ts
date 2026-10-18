@@ -1,7 +1,7 @@
-import type { EntityDefinition } from "../engine/types/fields.js";
-import { PII_ERASED_SENTINEL } from "./kms-adapter.js";
-import { isPiiCiphertext } from "./pii-ciphertext-format.js";
-import { nonEmptyString } from "./subject-resolver.js";
+import type { EntityDefinition } from "../engine/types/fields.ts";
+import { PII_ERASED_SENTINEL } from "./kms-adapter.ts";
+import { isPiiCiphertext } from "./pii-ciphertext-format.ts";
+import { nonEmptyString } from "./subject-resolver.ts";
 
 // userOwned and not recordOwned: the value follows the row's current owner.
 export function isPlainUserOwnedField(field: EntityDefinition["fields"][string]): boolean {

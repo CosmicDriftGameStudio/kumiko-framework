@@ -1,8 +1,8 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { USER_STATUS, userTable } from "../../user/index.js";
-import { signDeletionToken } from "../deletion-token.js";
-import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
+import { USER_STATUS, userTable } from "../../user/index.ts";
+import { signDeletionToken } from "../deletion-token.ts";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 // TTL des Verify-Links. 60 min — lang genug für einen Mail-Roundtrip,
 // kurz genug dass ein abgefangener Link nicht ewig gültig ist.

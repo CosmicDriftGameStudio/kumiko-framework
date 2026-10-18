@@ -7,8 +7,8 @@ import {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
   TENANT_CAP_LIST_SCREEN_ID,
-} from "./constants.js";
-import type { CapSpec } from "./types.js";
+} from "./constants.ts";
+import type { CapSpec } from "./types.ts";
 
 // `tiers` has no room for a separate per-tier display label (it's just
 // `readonly string[]`) — tier-engine itself has no enumerated tier list to

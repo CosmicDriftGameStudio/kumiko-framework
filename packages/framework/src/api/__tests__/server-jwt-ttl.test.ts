@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createRegistry } from "../../engine/index.js";
-import { buildServer } from "../server.js";
+import { createRegistry } from "../../engine/index.ts";
+import { buildServer } from "../server.ts";
 
 const JWT_SECRET = "x".repeat(40);
 const registry = createRegistry([]);

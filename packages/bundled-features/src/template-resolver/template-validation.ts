@@ -6,13 +6,13 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Element as ScanElement } from "happy-dom";
 import * as z from "zod";
-import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.js";
+import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.ts";
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
-} from "./document-schema.js";
-import type { TemplateMeta } from "./template-meta.js";
+} from "./document-schema.ts";
+import type { TemplateMeta } from "./template-meta.ts";
 
 export const SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set([
   "tenantName",

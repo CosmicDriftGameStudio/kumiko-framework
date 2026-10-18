@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { transformObjectFormSource } from "../scripts/codemod/object-form.js";
+import { transformObjectFormSource } from "../scripts/codemod/object-form.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "object-form");
 const CODEMOD_SCRIPT = join(import.meta.dir, "..", "scripts", "codemod", "object-form.ts");

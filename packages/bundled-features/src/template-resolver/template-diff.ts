@@ -1,4 +1,4 @@
-import { withParsedDocument } from "./document-sanitizer.js";
+import { withParsedDocument } from "./document-sanitizer.ts";
 
 export type TemplateDiffChange = "same" | "added" | "removed";
 

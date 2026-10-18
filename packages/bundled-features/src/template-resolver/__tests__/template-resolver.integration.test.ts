@@ -10,7 +10,7 @@ import {
   createTemplateResolverApi,
   TemplateNotFoundError,
   type TemplateResolverApi,
-} from "../api.js";
+} from "../api.ts";
 import {
   type ContentFormat,
   FALLBACK_LOCALE,
@@ -18,9 +18,9 @@ import {
   type TemplateKind,
   type TemplateScope,
   type TemplateStatus,
-} from "../constants.js";
-import { createTemplateResolverFeature } from "../feature.js";
-import { templateResourceEntity, templateResourcesTable } from "../table.js";
+} from "../constants.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 
 let stack: TestStack;
 let db: DbConnection;

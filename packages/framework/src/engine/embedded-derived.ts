@@ -1,5 +1,5 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types/index.js";
+import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types/index.ts";
 
 /** Computes a derived cell from its source values. Missing/non-numeric
  *  sources: "multiply" with any missing source → undefined; "sum"/"subtract"

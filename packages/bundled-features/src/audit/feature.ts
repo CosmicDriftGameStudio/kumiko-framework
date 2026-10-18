@@ -11,12 +11,12 @@ import {
   AUDIT_LOG_SCREEN_ID,
   AuditQueries,
   DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
-} from "./constants.js";
-import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink.js";
-import { detailsQuery } from "./handlers/details.query.js";
-import { listQuery } from "./handlers/list.query.js";
-import { AUDIT_I18N } from "./i18n.js";
-import { runEscapeHatchRetention } from "./run-escape-hatch-retention.js";
+} from "./constants.ts";
+import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink.ts";
+import { detailsQuery } from "./handlers/details.query.ts";
+import { listQuery } from "./handlers/list.query.ts";
+import { AUDIT_I18N } from "./i18n.ts";
+import { runEscapeHatchRetention } from "./run-escape-hatch-retention.ts";
 
 // Audit feature — exposes a filtered read over the framework's event log.
 //

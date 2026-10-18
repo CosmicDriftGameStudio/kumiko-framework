@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Avatar } from "../layout/avatar.js";
-import { render, screen } from "./test-utils.js";
+import { Avatar } from "../layout/avatar.tsx";
+import { render, screen } from "./test-utils.tsx";
 
 describe("Avatar", () => {
   test("Initials aus 'Daniel Hennig' → 'DH'", () => {

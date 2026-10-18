@@ -16,12 +16,12 @@
 // must commit in the same TX as the aggregate-mutation that triggered
 // it (stronger consistency than an async projection). Reviewer judges.
 
-import type { EntityTableMeta } from "../../db/entity-table-meta.js";
-import { deleteMany, type WhereObject } from "../../db/query.js";
-import { tenantDbWriteRunner } from "../../db/tenant-db-runner.js";
-import { defineStep } from "../define-step.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { resolveRequired } from "./_resolver-utils.js";
+import type { EntityTableMeta } from "../../db/entity-table-meta.ts";
+import { deleteMany, type WhereObject } from "../../db/query.ts";
+import { tenantDbWriteRunner } from "../../db/tenant-db-runner.ts";
+import { defineStep } from "../define-step.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { resolveRequired } from "./_resolver-utils.ts";
 
 // `where` is REQUIRED — table-wide DELETE without a clause is a TRUNCATE
 // in disguise, exactly the footgun the `unsafe`-prefix is meant to

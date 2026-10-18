@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CSRF_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
-import { CSRF_HEADER_NAME, readCsrfToken } from "../csrf.js";
+import { CSRF_HEADER_NAME, readCsrfToken } from "../csrf.ts";
 
 const PREFIXED_CSRF = sessionCookieName(CSRF_COOKIE_BASE, { secure: true });
 const PLAIN_CSRF = sessionCookieName(CSRF_COOKIE_BASE, { secure: false });

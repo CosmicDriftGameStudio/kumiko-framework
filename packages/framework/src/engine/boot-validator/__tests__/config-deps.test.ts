@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createSystemConfig, createTenantConfig, createUserConfig } from "../../config-helpers.js";
-import type { FeatureDefinition } from "../../types/index.js";
+import { createSystemConfig, createTenantConfig, createUserConfig } from "../../config-helpers.ts";
+import type { FeatureDefinition } from "../../types/index.ts";
 import {
   validateConfigKeyAllowPerRequest,
   validateConfigKeyComputed,
   validateConfigKeyPiiEncrypted,
-} from "../config-deps.js";
+} from "../config-deps.ts";
 
 function fakeFeature(configKeys: FeatureDefinition["configKeys"]): FeatureDefinition {
   return { name: "test-feature", configKeys } as unknown as FeatureDefinition;

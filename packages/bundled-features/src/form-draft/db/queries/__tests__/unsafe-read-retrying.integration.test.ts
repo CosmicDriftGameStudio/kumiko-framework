@@ -5,9 +5,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { selectStaleDraftsBatch } from "../cleanup.js";
-import { countDraftsByOwner } from "../draft-count.js";
-import { filterOwnedFileRefs } from "../owned-file-refs.js";
+import { selectStaleDraftsBatch } from "../cleanup.ts";
+import { countDraftsByOwner } from "../draft-count.ts";
+import { filterOwnedFileRefs } from "../owned-file-refs.ts";
 
 let closedConnectionError: unknown;
 

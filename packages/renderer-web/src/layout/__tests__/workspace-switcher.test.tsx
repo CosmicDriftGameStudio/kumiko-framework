@@ -13,8 +13,8 @@ import {
   type WorkspaceSchema,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.js";
-import { WorkspaceSwitcher } from "../workspace-switcher.js";
+import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.tsx";
+import { WorkspaceSwitcher } from "../workspace-switcher.tsx";
 
 function ws(id: string, label = id): WorkspaceSchema {
   return { definition: { id, label }, navMembers: [] };

@@ -11,7 +11,7 @@ import {
   PageHeaderSlotAvailableProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
-import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.js";
+import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.ts";
 
 type SlotElement = HTMLElement | null;
 

@@ -4,8 +4,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runTailwindOnce } from "../build-prod-bundle.js";
-import { resolveTailwindCli } from "../resolve-tailwind-cli.js";
+import { runTailwindOnce } from "../build-prod-bundle.ts";
+import { resolveTailwindCli } from "../resolve-tailwind-cli.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(here, "../../../..");

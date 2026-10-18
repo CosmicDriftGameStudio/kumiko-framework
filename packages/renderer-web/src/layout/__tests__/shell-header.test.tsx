@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { NavProvider, PageHeaderCompactProvider } from "@cosmicdrift/kumiko-renderer";
-import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.js";
-import { DefaultPageHeader } from "../../primitives/page-header.js";
-import { PageHeaderSlotProvider } from "../page-header-slot.js";
-import { ShellHeader } from "../shell-header.js";
+import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.tsx";
+import { DefaultPageHeader } from "../../primitives/page-header.tsx";
+import { PageHeaderSlotProvider } from "../page-header-slot.tsx";
+import { ShellHeader } from "../shell-header.tsx";
 
 const emptySchema: AppSchema = { features: [] };
 

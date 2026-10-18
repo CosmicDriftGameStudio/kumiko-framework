@@ -1,5 +1,5 @@
 import { sql, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { workflowRunPendingTable } from "../../tables.js";
+import { workflowRunPendingTable } from "../../tables.ts";
 
 export type DueRow = { readonly runId: string; readonly stepIndex: number };
 

@@ -9,7 +9,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { Node, Project, type SourceFile, SyntaxKind, VariableDeclarationKind } from "ts-morph";
-import { collectSourceFiles } from "./collect-source-files.js";
+import { collectSourceFiles } from "./collect-source-files.ts";
 
 const DEFAULT_GLOBAL_TABLES: ReadonlySet<string> = new Set([
   "userTable",

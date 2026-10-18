@@ -1,13 +1,13 @@
-import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.js";
-import { extractPgError } from "../db/pg-error.js";
+import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.ts";
+import { extractPgError } from "../db/pg-error.ts";
 import {
   recordConsumerPassFailure,
   selectSnapshotXmax,
   selectSnapshotXmin,
-} from "../db/queries/event-consumer.js";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
-import type { AppContext } from "../engine/types/index.js";
-import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.js";
+} from "../db/queries/event-consumer.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
+import type { AppContext } from "../engine/types/index.ts";
+import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.ts";
 import {
   emitEventConsumerPassOutcome,
   emitEventConsumerPassSkipped,
@@ -17,8 +17,8 @@ import {
   getFallbackTracer,
   type Meter,
   type Tracer,
-} from "../observability/index.js";
-import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.js";
+} from "../observability/index.ts";
+import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.ts";
 import {
   acquireConsumerState,
   consumerInstanceId,
@@ -31,13 +31,13 @@ import {
   persistConsumerOutcome,
   preRegisterConsumers,
   selectIdleConsumerKeys,
-} from "./event-dispatcher-delivery.js";
+} from "./event-dispatcher-delivery.ts";
 import {
   mergeContiguousGapRanges,
   partitionBurntGaps,
   splitRangeExcludingIds,
   toIdRanges,
-} from "./pending-gap-ranges.js";
+} from "./pending-gap-ranges.ts";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -183,7 +183,7 @@ export type EventDispatcher = {
 };
 
 export type EventDispatcherOptions = {
-  readonly db: import("../db/connection.js").DbConnection;
+  readonly db: import("../db/connection.ts").DbConnection;
   readonly consumers: readonly EventConsumer[];
   readonly context: AppContext;
   readonly batchSize?: number;
@@ -889,7 +889,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   };
 }
 
-export type { ConsumerProgress, ConsumerRecoveryState } from "./event-dispatcher-admin.js";
+export type { ConsumerProgress, ConsumerRecoveryState } from "./event-dispatcher-admin.ts";
 export {
   disableConsumer,
   enableConsumer,
@@ -898,4 +898,4 @@ export {
   listConsumersWithState,
   restartConsumer,
   skipPoisonEvent,
-} from "./event-dispatcher-admin.js";
+} from "./event-dispatcher-admin.ts";

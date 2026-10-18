@@ -5,7 +5,7 @@ import {
   type FileProviderPlugin,
   isFileProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { clearStorage, createFileProviderInMemoryFeature, listKeys } from "../feature.js";
+import { clearStorage, createFileProviderInMemoryFeature, listKeys } from "../feature.ts";
 
 describe("fileProviderInMemoryFeature — shape", () => {
   test("has the expected name", () => {

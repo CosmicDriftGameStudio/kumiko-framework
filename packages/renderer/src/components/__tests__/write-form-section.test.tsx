@@ -11,9 +11,9 @@ import {
 } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
   type ButtonProps,
@@ -21,8 +21,8 @@ import {
   type CorePrimitives,
   PrimitivesProvider,
   type SectionProps,
-} from "../../primitives.js";
-import { WriteFormSection } from "../write-form-section.js";
+} from "../../primitives.tsx";
+import { WriteFormSection } from "../write-form-section.tsx";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};

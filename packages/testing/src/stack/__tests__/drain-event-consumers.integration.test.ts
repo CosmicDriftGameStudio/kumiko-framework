@@ -8,9 +8,9 @@ import { insertOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { drainEventConsumers } from "../drain-event-consumers.js";
-import { resetEventStore } from "../table-helpers.js";
-import { setupTestStack, type TestStack } from "../test-stack.js";
+import { drainEventConsumers } from "../drain-event-consumers.ts";
+import { resetEventStore } from "../table-helpers.ts";
+import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const admin = TestUsers.admin;
 const TRACKER_QN = "drain-test:projection:tracker";

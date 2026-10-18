@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { requiredKeysFromScreen } from "../../i18n/required-surface-keys.js";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
+import { requiredKeysFromScreen } from "../../i18n/required-surface-keys.ts";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
 import type {
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardValueFormat,
-} from "../types/screen.js";
+} from "../types/screen.ts";
 
 const STAT_PANEL = {
   kind: "stat",

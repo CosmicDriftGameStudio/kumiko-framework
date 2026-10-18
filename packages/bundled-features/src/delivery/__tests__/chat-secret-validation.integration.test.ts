@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createChannelDiscordFeature, DISCORD_SECRET_KEYS } from "../../channel-discord/index.js";
-import { createChannelSlackFeature, SLACK_SECRET_KEYS } from "../../channel-slack/index.js";
-import { createChannelTeamsFeature, TEAMS_SECRET_KEYS } from "../../channel-teams/index.js";
+import { createChannelDiscordFeature, DISCORD_SECRET_KEYS } from "../../channel-discord/index.ts";
+import { createChannelSlackFeature, SLACK_SECRET_KEYS } from "../../channel-slack/index.ts";
+import { createChannelTeamsFeature, TEAMS_SECRET_KEYS } from "../../channel-teams/index.ts";
 import {
   createChannelTelegramFeature,
   TELEGRAM_SECRET_KEYS,
-} from "../../channel-telegram/index.js";
-import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.js";
+} from "../../channel-telegram/index.ts";
+import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 let harness: ChatHarness;
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
-import type { UseQueryResult } from "../../hooks/use-query.js";
-import { evalVisibleWhen, evalVisibleWhenAfterShown } from "../visible-when.js";
+import type { UseQueryResult } from "../../hooks/use-query.ts";
+import { evalVisibleWhen, evalVisibleWhenAfterShown } from "../visible-when.ts";
 
 const gate = { query: "demo:query:state", field: "state", eq: "filled" } as const;
 const refetch = async (): Promise<void> => {};

@@ -1,9 +1,9 @@
 import { publicOriginOf } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { hashUnsubscribeAddress } from "./address-opt-out.js";
-import { DELIVERY_UNSUBSCRIBE_PATH } from "./constants.js";
-import type { ChannelContext } from "./types.js";
-import { signAddressUnsubscribeToken, signUnsubscribeToken } from "./unsubscribe.js";
+import { hashUnsubscribeAddress } from "./address-opt-out.ts";
+import { DELIVERY_UNSUBSCRIBE_PATH } from "./constants.ts";
+import type { ChannelContext } from "./types.ts";
+import { signAddressUnsubscribeToken, signUnsubscribeToken } from "./unsubscribe.ts";
 
 /** Secret shared with `createUnsubscribeRoutes` plus the public origin the links point at. */
 export type UnsubscribeLinkConfig = {

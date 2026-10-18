@@ -4,9 +4,9 @@
 // the bottom for the env contract.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { isDryRunEnvActive } from "../env/dry-run.js";
-import { InternalError } from "../errors/index.js";
-import type { MasterKeyProvider } from "./types.js";
+import { isDryRunEnvActive } from "../env/dry-run.ts";
+import { InternalError } from "../errors/index.ts";
+import type { MasterKeyProvider } from "./types.ts";
 
 const ALGORITHM = "aes-256-gcm";
 const KEK_LENGTH = 32; // AES-256

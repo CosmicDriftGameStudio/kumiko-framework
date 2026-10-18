@@ -5,15 +5,15 @@
 // free function, so this is unit-level: no DB, no dispatcher lifecycle.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import type { AppContext } from "../../engine/types/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import type { EventConsumer } from "../event-dispatcher.js";
+import type { AppContext } from "../../engine/types/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import type { EventConsumer } from "../event-dispatcher.ts";
 import {
   type ConsumerStateRow,
   deliverEvents,
   type StoredEventRow,
-} from "../event-dispatcher-delivery.js";
-import { createSearchEventConsumer } from "../system-hooks.js";
+} from "../event-dispatcher-delivery.ts";
+import { createSearchEventConsumer } from "../system-hooks.ts";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

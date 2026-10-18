@@ -15,26 +15,26 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import { CONTENT_FORMATS, type ContentFormat } from "../constants.js";
-import { type LinkedResourceEntry, parseLinkedResourceEntries } from "../linked-resources.js";
-import { TemplateResolverErrors } from "../qualified-names.js";
+import { requireForTenant } from "../../shared/index.ts";
+import { CONTENT_FORMATS, type ContentFormat } from "../constants.ts";
+import { type LinkedResourceEntry, parseLinkedResourceEntries } from "../linked-resources.ts";
+import { TemplateResolverErrors } from "../qualified-names.ts";
 import {
   createLinkedResourceCopies,
   prepareLinkedResourceCopiesBeforeTransaction,
-} from "../store-template-resource.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { toWorkingRow, type WorkingRow } from "../template-draft.js";
-import { attachTemplateResources } from "../template-resources.js";
-import { resolveTemplateVariables } from "../template-validation.js";
-import { targetExistsIssue } from "./bundle-import.js";
-import { kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
-import { parseStoredJson, storedRecord } from "./template-gates.js";
+} from "../store-template-resource.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { toWorkingRow, type WorkingRow } from "../template-draft.ts";
+import { attachTemplateResources } from "../template-resources.ts";
+import { resolveTemplateVariables } from "../template-validation.ts";
+import { targetExistsIssue } from "./bundle-import.ts";
+import { kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
+import { parseStoredJson, storedRecord } from "./template-gates.ts";
 import {
   refuseSystemOnlyTenantOverride,
   refuseTenantScopeUnderSystemTenant,
   writeTemplateRow,
-} from "./template-write.js";
+} from "./template-write.ts";
 
 type CopyScope = "tenant" | "system";
 type WriteCtx = HandlerContext;

@@ -2,6 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": false,
+    "emitDeclarationOnly": false,
+    "rewriteRelativeImportExtensions": true,
     "incremental": false,
     "declaration": true,
     "declarationMap": false,

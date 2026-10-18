@@ -4,7 +4,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { serializeJobSubject } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { tenantJobFailuresTable } from "../tenant-job-failure-table.js";
+import { tenantJobFailuresTable } from "../tenant-job-failure-table.ts";
 
 type TenantJobFailureRow = {
   readonly tenantId: string;

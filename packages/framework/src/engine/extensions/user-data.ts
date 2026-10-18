@@ -10,8 +10,8 @@
 //
 // See docs/plans/datenschutz/user-data-rights.md.
 
-import type { TenantDb } from "../../db/tenant-db.js";
-import type { Registry, TenantId } from "../types/index.js";
+import type { TenantDb } from "../../db/tenant-db.ts";
+import type { Registry, TenantId } from "../types/index.ts";
 
 // SessionUser.id ist plattformweit `string` (kein Brand-Type). Wenn
 // jemals ein UserId-Brand eingefuehrt wird, ersetzt man hier den

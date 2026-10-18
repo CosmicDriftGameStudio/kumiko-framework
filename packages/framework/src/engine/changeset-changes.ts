@@ -1,5 +1,5 @@
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { CHANGELOG_TYPES, type ChangelogType, validateChangelog } from "./feature-changelog.js";
+import { CHANGELOG_TYPES, type ChangelogType, validateChangelog } from "./feature-changelog.ts";
 
 export type PendingChange = {
   readonly feature: string;

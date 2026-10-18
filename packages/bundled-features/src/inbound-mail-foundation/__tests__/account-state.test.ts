@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import type { MailAccountEventPayload } from "../events.js";
-import { loadCurrentMailAccountPayload } from "../handlers/account-state.js";
+import type { MailAccountEventPayload } from "../events.ts";
+import { loadCurrentMailAccountPayload } from "../handlers/account-state.ts";
 
 function ctxWithEvents(
   payloads: readonly MailAccountEventPayload[],

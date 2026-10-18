@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { defaultPrimitives } from "../primitives/index.js";
-import { render, screen } from "./test-utils.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { render, screen } from "./test-utils.tsx";
 
 const { Card } = defaultPrimitives;
 

@@ -15,9 +15,9 @@ import {
   BILLING_FOUNDATION_FEATURE,
   isSubscriptionBlockingCheckout,
   SUBSCRIPTION_PROVIDER_EXTENSION,
-} from "./constants.js";
-import { getSubscriptionForTenant } from "./get-subscription-for-tenant.js";
-import type { BillingPlanCatalog, SubscriptionProviderPlugin } from "./types.js";
+} from "./constants.ts";
+import { getSubscriptionForTenant } from "./get-subscription-for-tenant.ts";
+import type { BillingPlanCatalog, SubscriptionProviderPlugin } from "./types.ts";
 
 /** Narrows a `readonly string[]` to the non-empty tuple shape `z.enum`
  *  needs. Callers only reach this with a catalog's `plans` — the feature

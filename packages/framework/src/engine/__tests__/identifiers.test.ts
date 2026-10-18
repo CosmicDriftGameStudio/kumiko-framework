@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseTenantId } from "../types/identifiers.js";
+import { parseTenantId } from "../types/identifiers.ts";
 
 describe("parseTenantId", () => {
   test("accepts canonical lowercase UUIDs", () => {

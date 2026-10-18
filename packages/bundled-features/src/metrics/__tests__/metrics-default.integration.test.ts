@@ -7,15 +7,15 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createConfigFeature } from "../../config/index.js";
-import { createDeliveryFeature } from "../../delivery/feature.js";
-import { deliveryAttemptsTable } from "../../delivery/tables.js";
-import { createTenantFeature, tenantEntity } from "../../tenant/index.js";
-import { metricQueryName } from "../constants.js";
-import { deliveriesByChannelMetric, failedDeliveriesMetric } from "../default-metrics.js";
-import { createMetricsFeature, createSystemMetricsFeature } from "../feature.js";
-import type { MetricResult } from "../types.js";
-import { fixedClock, TENANT_A, TENANT_B } from "./metrics-fixtures.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createDeliveryFeature } from "../../delivery/feature.ts";
+import { deliveryAttemptsTable } from "../../delivery/tables.ts";
+import { createTenantFeature, tenantEntity } from "../../tenant/index.ts";
+import { metricQueryName } from "../constants.ts";
+import { deliveriesByChannelMetric, failedDeliveriesMetric } from "../default-metrics.ts";
+import { createMetricsFeature, createSystemMetricsFeature } from "../feature.ts";
+import type { MetricResult } from "../types.ts";
+import { fixedClock, TENANT_A, TENANT_B } from "./metrics-fixtures.ts";
 
 type Attempt = { tenantId: string; channel: string; status: string; createdAt: string };
 

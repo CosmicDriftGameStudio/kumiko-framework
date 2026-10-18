@@ -27,19 +27,19 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.js";
-import { apiTokenEntity } from "../../personal-access-tokens/schema/api-token.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { createUserFeature } from "../../user/feature.js";
-import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { principalStatusPlugin } from "../../user/principal-status.js";
-import { seedUser } from "../../user/seeding.js";
-import { createCryptoShreddingFeature } from "../feature.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.ts";
+import { apiTokenEntity } from "../../personal-access-tokens/schema/api-token.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { principalStatusPlugin } from "../../user/principal-status.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const TENANT: TenantId = testTenantId(1);

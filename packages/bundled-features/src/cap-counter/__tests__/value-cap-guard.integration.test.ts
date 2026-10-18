@@ -14,11 +14,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { CapCounterQueries } from "../constants.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
-import { createValueCapGuard } from "../value-cap-guard.js";
-import { withCapEnforcement } from "../with-cap-enforcement.js";
+import { CapCounterQueries } from "../constants.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
+import { createValueCapGuard } from "../value-cap-guard.ts";
+import { withCapEnforcement } from "../with-cap-enforcement.ts";
 
 type Caps = { readonly maxRetentionDays: number };
 

@@ -6,21 +6,21 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
+import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
   createJsonbField,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
+} from "../../engine/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   PII_CIPHERTEXT_PREFIX_JSON,
   PII_ERASED_SENTINEL,
-} from "../pii-field-encryption.js";
+} from "../pii-field-encryption.ts";
 
 const admin = TestUsers.admin;
 

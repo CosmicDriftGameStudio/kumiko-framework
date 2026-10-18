@@ -1,8 +1,8 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
   activeSinceOf,
   activeVersionOf,
@@ -10,10 +10,10 @@ import {
   isHiddenSystemDraft,
   parseTemplateDraft,
   servedVersionOf,
-} from "../template-draft.js";
-import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.js";
-import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.js";
-import { storedRecord } from "./template-gates.js";
+} from "../template-draft.ts";
+import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
+import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.ts";
+import { storedRecord } from "./template-gates.ts";
 
 const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as const;
 type OverviewKind = (typeof OVERVIEW_KINDS)[number];

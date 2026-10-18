@@ -1,13 +1,13 @@
-import type { DbTx } from "../db/connection.js";
-import { extractPgError } from "../db/pg-error.js";
-import { asRawClient, runInSavepoint, transaction } from "../db/query.js";
+import type { DbTx } from "../db/connection.ts";
+import { extractPgError } from "../db/pg-error.ts";
+import { asRawClient, runInSavepoint, transaction } from "../db/query.ts";
 import {
   AccessDeniedError,
   InternalError,
   MemberReadTimeoutError,
   memberResolutionReadOnlyDenied,
-} from "../errors/index.js";
-import { type DispatchContext, resolveDbSource } from "./dispatch-shared.js";
+} from "../errors/index.ts";
+import { type DispatchContext, resolveDbSource } from "./dispatch-shared.ts";
 
 const PG_READ_ONLY_SQLSTATE = "25006";
 const PG_QUERY_CANCELED_SQLSTATE = "57014";

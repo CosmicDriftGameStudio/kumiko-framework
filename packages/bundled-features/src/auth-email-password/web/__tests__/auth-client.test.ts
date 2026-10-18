@@ -16,7 +16,7 @@ import {
   resetPassword,
   switchTenant,
   verifyEmail,
-} from "../auth-client.js";
+} from "../auth-client.ts";
 
 const CSRF_TOKEN = "csrf-test-token";
 

@@ -9,15 +9,15 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { getFlag, getStringFlag, type ParsedArgs, parseArgs } from "./arg-parser.js";
+import { getFlag, getStringFlag, type ParsedArgs, parseArgs } from "./arg-parser.ts";
 import {
   type ChangelogEntry,
   compareVersions,
   filterEntriesAfter,
   parseFeatureChangelog,
   sortEntries,
-} from "./engine/index.js";
-import { ensureTemporalPolyfill } from "./time/index.js";
+} from "./engine/index.ts";
+import { ensureTemporalPolyfill } from "./time/index.ts";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const SEMVER_CORE_RE = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;

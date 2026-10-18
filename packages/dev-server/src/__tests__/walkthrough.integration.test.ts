@@ -19,8 +19,8 @@ import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secre
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createRegistry, defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { scaffoldApp } from "../scaffold-app.js";
-import { scaffoldAppFeature } from "../scaffold-app-feature.js";
+import { scaffoldApp } from "../scaffold-app.ts";
+import { scaffoldAppFeature } from "../scaffold-app-feature.ts";
 
 describe("walkthrough — DX-3.1 snapshot", () => {
   let tmp: string;

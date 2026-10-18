@@ -16,7 +16,7 @@
 // useSession().status direkt.
 
 import { useMemo } from "react";
-import { useSession } from "./session.js";
+import { useSession } from "./session.tsx";
 
 export type ShellUser = {
   readonly id: string;

@@ -9,25 +9,25 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.js";
-import { USER_STATUS, UserQueries } from "../../user/index.js";
-import { base32Decode } from "../base32.js";
-import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants.js";
-import { findUserMfaRow } from "../db/queries.js";
+import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
+import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import { base32Decode } from "../base32.ts";
+import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants.ts";
+import { findUserMfaRow } from "../db/queries.ts";
 import {
   invalidSetupToken,
   invalidTotpCode,
   mfaAlreadyEnabled,
   tooManyAttempts,
-} from "../errors.js";
-import { verifyMfaSetupToken } from "../mfa-setup-token.js";
+} from "../errors.ts";
+import { verifyMfaSetupToken } from "../mfa-setup-token.ts";
 import {
   clearMfaVerifyAttempts,
   getMfaVerifyLockoutState,
   recordFailedMfaVerifyAttempt,
-} from "../mfa-verify-attempts.js";
-import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
-import { verifyTotp } from "../totp.js";
+} from "../mfa-verify-attempts.ts";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
+import { verifyTotp } from "../totp.ts";
 
 export type EnableConfirmPreauthOptions = {
   // Must match the secret enable-start-preauth.write.ts signs setupTokens

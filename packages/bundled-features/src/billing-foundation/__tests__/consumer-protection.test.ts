@@ -3,9 +3,9 @@ import {
   CONSENT_TEXTS,
   consentTextVersion,
   resolveConsentLocale,
-} from "../consumer-protection/consent-text.js";
-import { createBillingFoundationFeature } from "../feature.js";
-import type { ConsumerProtectionOptions } from "../types.js";
+} from "../consumer-protection/consent-text.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import type { ConsumerProtectionOptions } from "../types.ts";
 
 function options(overrides: Partial<ConsumerProtectionOptions> = {}): ConsumerProtectionOptions {
   return {

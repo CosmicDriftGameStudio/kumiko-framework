@@ -1,4 +1,4 @@
-export type { EscapeHatchReportWindow } from "../observability/escape-hatch-report.js";
+export type { EscapeHatchReportWindow } from "../observability/escape-hatch-report.ts";
 export {
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
@@ -8,30 +8,30 @@ export {
   reportEscapeHatchUse,
   UNATTRIBUTED_ACTOR,
   withEscapeHatchAuditScope,
-} from "../observability/escape-hatch-report.js";
-export { normalizePayloadBucketValue } from "../rate-limit/bucket.js";
-export type { AppendDomainEventCoreDeps } from "./append-event-core.js";
-export { appendDomainEventCore } from "./append-event-core.js";
-export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver.js";
-export { resolveAuthClaims } from "./auth-claims-resolver.js";
-export { createCascadeDeleteHook } from "./cascade-handler.js";
-export type { Dispatcher } from "./dispatcher.js";
-export { createDispatcher, dispatcherToWriteRef } from "./dispatcher.js";
-export type { FailedWriteResult } from "./dispatcher-utils.js";
-export { isFailedWriteResult } from "./dispatcher-utils.js";
-export type { DistributedLock } from "./distributed-lock.js";
-export { createDistributedLock } from "./distributed-lock.js";
-export type { EntityCache, EntityCacheOptions } from "./entity-cache.js";
-export { createEntityCache } from "./entity-cache.js";
-export type { ConsumerStatus, PendingGapEntry } from "./event-consumer-state.js";
+} from "../observability/escape-hatch-report.ts";
+export { normalizePayloadBucketValue } from "../rate-limit/bucket.ts";
+export type { AppendDomainEventCoreDeps } from "./append-event-core.ts";
+export { appendDomainEventCore } from "./append-event-core.ts";
+export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver.ts";
+export { resolveAuthClaims } from "./auth-claims-resolver.ts";
+export { createCascadeDeleteHook } from "./cascade-handler.ts";
+export type { Dispatcher } from "./dispatcher.ts";
+export { createDispatcher, dispatcherToWriteRef } from "./dispatcher.ts";
+export type { FailedWriteResult } from "./dispatcher-utils.ts";
+export { isFailedWriteResult } from "./dispatcher-utils.ts";
+export type { DistributedLock } from "./distributed-lock.ts";
+export { createDistributedLock } from "./distributed-lock.ts";
+export type { EntityCache, EntityCacheOptions } from "./entity-cache.ts";
+export { createEntityCache } from "./entity-cache.ts";
+export type { ConsumerStatus, PendingGapEntry } from "./event-consumer-state.ts";
 export {
   ConsumerStatuses,
   createEventConsumerStateTable,
   eventConsumerStateTable,
   SHARED_INSTANCE_SENTINEL,
-} from "./event-consumer-state.js";
-export type { EventDedup } from "./event-dedup.js";
-export { createEventDedup } from "./event-dedup.js";
+} from "./event-consumer-state.ts";
+export type { EventDedup } from "./event-dedup.ts";
+export { createEventDedup } from "./event-dedup.ts";
 export type {
   ConsumerProgress,
   ConsumerRecoveryState,
@@ -41,7 +41,7 @@ export type {
   EventConsumerHandler,
   EventDispatcher,
   EventDispatcherOptions,
-} from "./event-dispatcher.js";
+} from "./event-dispatcher.ts";
 export {
   createEventDispatcher,
   disableConsumer,
@@ -51,42 +51,42 @@ export {
   listConsumersWithState,
   restartConsumer,
   skipPoisonEvent,
-} from "./event-dispatcher.js";
-export type { ConsumerCursor } from "./event-dispatcher-delivery.js";
-export { selectConsumerCursorForUpdate } from "./event-dispatcher-delivery.js";
-export type { PruneEventsOptions, PruneEventsResult } from "./event-retention.js";
-export { ConsumerLagError, pruneEvents } from "./event-retention.js";
-export type { IdempotencyGuard } from "./idempotency.js";
-export { createIdempotencyGuard } from "./idempotency.js";
+} from "./event-dispatcher.ts";
+export type { ConsumerCursor } from "./event-dispatcher-delivery.ts";
+export { selectConsumerCursorForUpdate } from "./event-dispatcher-delivery.ts";
+export type { PruneEventsOptions, PruneEventsResult } from "./event-retention.ts";
+export { ConsumerLagError, pruneEvents } from "./event-retention.ts";
+export type { IdempotencyGuard } from "./idempotency.ts";
+export { createIdempotencyGuard } from "./idempotency.ts";
 export {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
-} from "./irreversible-operation-gate.js";
-export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline.js";
-export { createLifecycleHooks } from "./lifecycle-pipeline.js";
-export type { MspRebuildDeps } from "./msp-rebuild.js";
-export { rebuildMultiStreamProjection } from "./msp-rebuild.js";
+} from "./irreversible-operation-gate.ts";
+export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline.ts";
+export { createLifecycleHooks } from "./lifecycle-pipeline.ts";
+export type { MspRebuildDeps } from "./msp-rebuild.ts";
+export { rebuildMultiStreamProjection } from "./msp-rebuild.ts";
 export type {
   MultiStreamApplyContext,
   MultiStreamApplyContextDeps,
-} from "./multi-stream-apply-context.js";
-export { createMultiStreamApplyContext } from "./multi-stream-apply-context.js";
-export { assertNotifyTargetsOwnTenant, createDeferringNotify } from "./notify-scope.js";
-export type { ProjectionProgress, RebuildResult } from "./projection-rebuild.js";
+} from "./multi-stream-apply-context.ts";
+export { createMultiStreamApplyContext } from "./multi-stream-apply-context.ts";
+export { assertNotifyTargetsOwnTenant, createDeferringNotify } from "./notify-scope.ts";
+export type { ProjectionProgress, RebuildResult } from "./projection-rebuild.ts";
 export {
   getAllProjectionProgress,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,
-} from "./projection-rebuild.js";
-export type { ProjectionStatus } from "./projection-state.js";
+} from "./projection-rebuild.ts";
+export type { ProjectionStatus } from "./projection-state.ts";
 export {
   createProjectionStateTable,
   ProjectionStatuses,
   projectionStateTable,
-} from "./projection-state.js";
-export { runProjectionsForEvent } from "./projections-runner.js";
+} from "./projection-state.ts";
+export { runProjectionsForEvent } from "./projections-runner.ts";
 export {
   ACCESS_INVALIDATION_CONSUMER_NAME,
   createAccessInvalidationEventConsumer,
@@ -94,4 +94,4 @@ export {
   createSseBroadcastEventConsumer,
   SEARCH_CONSUMER_NAME,
   SSE_BROADCAST_CONSUMER_NAME,
-} from "./system-hooks.js";
+} from "./system-hooks.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { type KekSourceEnv, resolvePlatformKeks } from "../kek-source.js";
-import { buildPgKmsOptions, resolveKmsWiringAsync } from "../kms-wiring.js";
+import { type KekSourceEnv, resolvePlatformKeks } from "../kek-source.ts";
+import { buildPgKmsOptions, resolveKmsWiringAsync } from "../kms-wiring.ts";
 
 const PLATFORM_SLOTS = ["PLATFORM_KEK", "PLATFORM_KEK_PREVIOUS", "KUMIKO_BLIND_INDEX_KEY"] as const;
 const TOKEN = "scw-secret-token";

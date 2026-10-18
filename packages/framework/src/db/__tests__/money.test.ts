@@ -5,14 +5,14 @@
 // boundary (×100 / ÷100). See money.ts's file header for why this exists.
 
 import { describe, expect, test } from "bun:test";
-import { createEntity, createMoneyField, createTextField } from "../../engine/index.js";
-import type { EntityDefinition } from "../../engine/types/index.js";
+import { createEntity, createMoneyField, createTextField } from "../../engine/index.ts";
+import type { EntityDefinition } from "../../engine/types/index.ts";
 import {
   flattenMoney,
   type MoneyRead,
   moneyPayloadToMinorUnits,
   rehydrateMoney,
-} from "../money.js";
+} from "../money.ts";
 
 const orderEntity: EntityDefinition = createEntity({
   defaultCurrency: "EUR",

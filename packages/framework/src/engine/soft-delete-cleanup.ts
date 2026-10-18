@@ -11,13 +11,13 @@
 // table growth; irreversible event-log purging is data-retention's job
 // (pruneEvents), a separate, consumer-lag-guarded path.
 
-import { asEntityTableMeta, deleteMany, type WhereObject } from "../db/query.js";
-import { hasFieldProperty } from "../db/table-introspection.js";
-import { purgeExpiredFileRefsWithBytes } from "../files/purge-expired-file-ref-bytes.js";
-import { FILE_REF_ENTITY_NAME } from "../files/types.js";
-import { SYSTEM_USER_ID } from "./system-user.js";
-import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.js";
-import type { EntityDefinition } from "./types/index.js";
+import { asEntityTableMeta, deleteMany, type WhereObject } from "../db/query.ts";
+import { hasFieldProperty } from "../db/table-introspection.ts";
+import { purgeExpiredFileRefsWithBytes } from "../files/purge-expired-file-ref-bytes.ts";
+import { FILE_REF_ENTITY_NAME } from "../files/types.ts";
+import { SYSTEM_USER_ID } from "./system-user.ts";
+import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.ts";
+import type { EntityDefinition } from "./types/index.ts";
 
 // qualifyEntityName convention (feature:type:kebab-name) with a reserved
 // "soft-delete" owner — no real feature owns these; the framework synthesizes

@@ -1,3 +1,3 @@
-export { createStore } from "./create-store.js";
-export { shallowEqual } from "./equality.js";
-export type { Store, WritableStore } from "./types.js";
+export { createStore } from "./create-store.ts";
+export { shallowEqual } from "./equality.ts";
+export type { Store, WritableStore } from "./types.ts";

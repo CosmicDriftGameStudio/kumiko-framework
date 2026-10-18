@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../define-feature.js";
-import type { DeclarativeEventMigration, EventUpcastCtx } from "../types/index.js";
+import { defineFeature } from "../define-feature.ts";
+import type { DeclarativeEventMigration, EventUpcastCtx } from "../types/index.ts";
 
 // Transforms under test are pure — ctx is never touched.
 const upcastCtx = {} as EventUpcastCtx;

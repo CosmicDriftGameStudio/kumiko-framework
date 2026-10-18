@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { buildAppSchema } from "../build-app-schema.js";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
+import { buildAppSchema } from "../build-app-schema.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
 
 describe("buildAppSchema — select conditionalOptions", () => {
   test("an entity select field keeps its conditional option rules in the client schema", () => {

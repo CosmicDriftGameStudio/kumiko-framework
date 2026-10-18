@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
-import { createDataRetentionFeature } from "../feature.js";
+import { createDataRetentionFeature } from "../feature.ts";
 
 const RETENTION_CLEANUP_JOB = "data-retention:job:retention-cleanup";
 

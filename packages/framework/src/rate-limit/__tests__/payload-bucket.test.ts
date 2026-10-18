@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { createAnonymousUser, SYSTEM_TENANT_ID } from "../../engine/index.js";
-import type { RateLimitPer } from "../../engine/types/index.js";
-import { createHandlerBoundDigest } from "../../pipeline/dispatch-shared.js";
+import { createAnonymousUser, SYSTEM_TENANT_ID } from "../../engine/index.ts";
+import type { RateLimitPer } from "../../engine/types/index.ts";
+import { createHandlerBoundDigest } from "../../pipeline/dispatch-shared.ts";
 import {
   buildBucketKey,
   buildPayloadBucketKey,
   createPayloadDigest,
   normalizePayloadBucketValue,
   toPublicBucketName,
-} from "../bucket.js";
+} from "../bucket.ts";
 
 describe("payload bucket key", () => {
   test("normalization trims and lowercases so spelling variants share a bucket", () => {

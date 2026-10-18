@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signToken } from "../../shared/index.js";
-import { redeemDeletionToken, signDeletionToken } from "../deletion-token.js";
+import { signToken } from "../../shared/index.ts";
+import { redeemDeletionToken, signDeletionToken } from "../deletion-token.ts";
 
 const SECRET = "deletion-token-compat-secret";
 const USER_ID = "user-7";

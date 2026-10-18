@@ -7,7 +7,7 @@
 // these helpers are deliberately for the no-DB tests where step-args
 // + assembly + boot-time guards are what's exercised.
 
-import type { HandlerContext } from "../types/handlers.js";
+import type { HandlerContext } from "../types/handlers.ts";
 
 /**
  * Returns an empty object cast as HandlerContext. Steps that only

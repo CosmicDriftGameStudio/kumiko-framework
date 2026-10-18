@@ -10,12 +10,12 @@ import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seed
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/index.js";
-import { AuditQueries } from "../constants.js";
-import { createEscapeHatchAuditSink, ESCAPE_HATCH_USED_EVENT } from "../escape-hatch-audit-sink.js";
-import { createAuditFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { AuditQueries } from "../constants.ts";
+import { createEscapeHatchAuditSink, ESCAPE_HATCH_USED_EVENT } from "../escape-hatch-audit-sink.ts";
+import { createAuditFeature } from "../feature.ts";
 
 const UNSAFE_RAW_REASON = "fw#2861 bundled-features integration test — declared unsafeRaw write";
 

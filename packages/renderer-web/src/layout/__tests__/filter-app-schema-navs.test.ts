@@ -3,8 +3,8 @@ import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   filterAppSchemaNavsByAllowlist,
   reparentAppSchemaNavs,
-} from "../filter-app-schema-navs.js";
-import { buildNavRegistrySliceForApp } from "../nav-tree.js";
+} from "../filter-app-schema-navs.ts";
+import { buildNavRegistrySliceForApp } from "../nav-tree.tsx";
 
 function feature(overrides: Partial<FeatureSchema> & { featureName: string }): FeatureSchema {
   return {

@@ -20,7 +20,7 @@ import {
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { recordManifestDenyQns } from "./manifest-deny-qns.js";
+import { recordManifestDenyQns } from "./manifest-deny-qns.ts";
 import type {
   AgentManifest,
   AgentManifestEntity,
@@ -32,7 +32,7 @@ import type {
   AgentManifestScreen,
   AgentManifestWorkspace,
   RegistryManifestView,
-} from "./types.js";
+} from "./types.ts";
 
 /** The manifest surfaces one string per locale — a plural entry reads as its
  *  CLDR `other` form since the manifest has no `count` to select a category. */

@@ -4,13 +4,13 @@ import type { ListColumnViewModel, ListRowViewModel } from "@cosmicdrift/kumiko-
 import { formatWhen, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { Drawer, EmptyState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useMemo, useState } from "react";
-import { DiffView } from "./origin-bar.js";
+import { DiffView } from "./origin-bar.tsx";
 import {
   DOCUMENT_PDF_KIND,
   type TemplateUsage,
   type TenantOverrideRow,
   type TenantOverrides,
-} from "./types.js";
+} from "./types.ts";
 
 export type OverridesDrawerProps = {
   readonly open: boolean;

@@ -6,10 +6,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { BUNFIG_FILES, type BunfigOptions, renderBunfig } from "@cosmicdrift/kumiko-testing/bunfig";
-import { isKebabSegment } from "../kebab.js";
-import { readReleaseTarget, render, renderDeployFiles } from "../scaffold-deploy.js";
-import { addManagedMarker, type MarkerCommentStyle } from "./marker.js";
-import { readStaticAppConfig, type StaticAppConfig } from "./static-app-config.js";
+import { isKebabSegment } from "../kebab.ts";
+import { readReleaseTarget, render, renderDeployFiles } from "../scaffold-deploy.ts";
+import { addManagedMarker, type MarkerCommentStyle } from "./marker.ts";
+import { readStaticAppConfig, type StaticAppConfig } from "./static-app-config.ts";
 
 export const BIOME_PRESET = "@cosmicdrift/kumiko-framework/biome";
 export const TSCONFIG_PRESET = "@cosmicdrift/kumiko-framework/tsconfig.app.json";

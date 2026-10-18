@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { defineMetric, type MetricDefinition } from "../types.js";
-import { validateMetrics } from "../validate.js";
-import { eventsTable, filesTable } from "./metrics-fixtures.js";
+import { defineMetric, type MetricDefinition } from "../types.ts";
+import { validateMetrics } from "../validate.ts";
+import { eventsTable, filesTable } from "./metrics-fixtures.ts";
 
 const base = {
   id: "files-filtered",

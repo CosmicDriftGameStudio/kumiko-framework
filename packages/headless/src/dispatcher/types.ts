@@ -33,7 +33,7 @@
 // so form-controllers can map `tasks.2.title` back to the right sub-line's
 // input without any translation.
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
-import type { Store } from "../store/index.js";
+import type { Store } from "../store/index.ts";
 
 export type { FieldIssue };
 

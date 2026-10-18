@@ -4,7 +4,7 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { RenderEdit } from "@cosmicdrift/kumiko-renderer";
-import { render, screen } from "./test-utils.js";
+import { render, screen } from "./test-utils.tsx";
 
 // fw#2245 Teil 2: `RenderEditProps.valueDisplay` — "text" renders a
 // field.readOnly field as formatted plain text instead of a disabled Input.

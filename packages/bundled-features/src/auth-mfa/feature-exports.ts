@@ -1,7 +1,7 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import type { MfaCodeVerifier } from "./mfa-code-verifier.js";
-import type { MfaStatusChecker } from "./mfa-status-checker.js";
-import type { MfaTokenSecretsEnv } from "./token-secrets.js";
+import type { MfaCodeVerifier } from "./mfa-code-verifier.ts";
+import type { MfaStatusChecker } from "./mfa-status-checker.ts";
+import type { MfaTokenSecretsEnv } from "./token-secrets.ts";
 
 // Typed readers for what a mounted auth-mfa feature exposes on its untyped
 // exports; the boot runners and other features wire through these.

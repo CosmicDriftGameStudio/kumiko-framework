@@ -1,4 +1,4 @@
-import type { SessionUser, TenantId } from "../engine/types/index.js";
+import type { SessionUser, TenantId } from "../engine/types/index.ts";
 
 // Zero-padded UUIDs used across the test suite. `testTenantId(1)` /
 // `testUserId(1)` read cleaner in assertions than the full UUID literals,

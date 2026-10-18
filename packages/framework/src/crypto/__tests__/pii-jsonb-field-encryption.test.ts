@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createJsonbField, createTextField } from "../../engine/factories.js";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
-import type { KmsContext } from "../kms-adapter.js";
+import { createEntity, createJsonbField, createTextField } from "../../engine/factories.ts";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
+import type { KmsContext } from "../kms-adapter.ts";
 import {
   decryptPiiFieldValues,
   encryptPiiFieldValues,
@@ -9,8 +9,8 @@ import {
   PII_CIPHERTEXT_PREFIX,
   PII_CIPHERTEXT_PREFIX_JSON,
   PII_ERASED_SENTINEL,
-} from "../pii-field-encryption.js";
-import { collectPiiSubjectFields } from "../subject-resolver.js";
+} from "../pii-field-encryption.ts";
+import { collectPiiSubjectFields } from "../subject-resolver.ts";
 
 const TENANT_ID = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 const KMS_CTX: KmsContext = { requestId: "test" };

@@ -4,7 +4,7 @@ import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-featur
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { composeFeatures } from "../compose-features.js";
+import { composeFeatures } from "../compose-features.ts";
 
 const lifecycleApp = () => [createComplianceProfilesFeature(), createTenantLifecycleFeature()];
 

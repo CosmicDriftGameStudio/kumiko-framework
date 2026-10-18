@@ -17,10 +17,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createJobsFeature } from "../feature.js";
-import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../handlers/retention-cleanup.job.js";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
-import { tenantJobRunsTable } from "../tenant-job-run-table.js";
+import { createJobsFeature } from "../feature.ts";
+import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../handlers/retention-cleanup.job.ts";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
+import { tenantJobRunsTable } from "../tenant-job-run-table.ts";
 
 const RETENTION_JOB = "jobs:job:retention-cleanup";
 

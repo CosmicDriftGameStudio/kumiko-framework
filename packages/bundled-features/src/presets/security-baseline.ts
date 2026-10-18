@@ -1,8 +1,8 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createAuditFeature } from "../audit/index.js";
-import { createCryptoShreddingFeature } from "../crypto-shredding/index.js";
-import { createRateLimitingFeature } from "../rate-limiting/index.js";
-import { createSessionsFeature } from "../sessions/index.js";
+import { createAuditFeature } from "../audit/index.ts";
+import { createCryptoShreddingFeature } from "../crypto-shredding/index.ts";
+import { createRateLimitingFeature } from "../rate-limiting/index.ts";
+import { createSessionsFeature } from "../sessions/index.ts";
 
 export type SecurityBaselineOptions = {
   readonly includeSessions?: boolean;

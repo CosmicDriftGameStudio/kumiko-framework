@@ -6,7 +6,7 @@
 // DB-Wrapper-Schritt.
 
 import { describe, expect, test } from "bun:test";
-import { createLocatedTimestampField, createTimestampField, createTzField } from "../factories.js";
+import { createLocatedTimestampField, createTimestampField, createTzField } from "../factories.ts";
 
 describe("createTimestampField", () => {
   test("default-Form ist nicht-required UTC-Instant ohne locatedBy", () => {

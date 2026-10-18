@@ -9,8 +9,8 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { NavTarget } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.js";
-import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.js";
+import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
+import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
   fields: { name: { type: "text", required: false, searchable: false, sortable: false } },

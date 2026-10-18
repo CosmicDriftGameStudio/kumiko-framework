@@ -1,9 +1,9 @@
 import type { ResolvedPiiFlags } from "@cosmicdrift/kumiko-types/fields";
 import { type EventPiiSubject, normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
-import type { EntityDefinition } from "../engine/types/fields.js";
-import type { TenantId } from "../engine/types/identifiers.js";
-import { isSelfPiiField } from "./is-self-pii-field.js";
-import { RECORD_ENTITY_PATTERN, type SubjectId } from "./kms-adapter.js";
+import type { EntityDefinition } from "../engine/types/fields.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
+import { isSelfPiiField } from "./is-self-pii-field.ts";
+import { RECORD_ENTITY_PATTERN, type SubjectId } from "./kms-adapter.ts";
 
 // Thrown when a field IS pii-annotated but the row can't name its subject —
 // that must surface as an error, not fall back to plaintext.

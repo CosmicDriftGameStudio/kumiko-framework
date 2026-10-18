@@ -1,4 +1,4 @@
-import type { InlineAttachmentRef } from "../renderer-foundation/index.js";
+import type { InlineAttachmentRef } from "../renderer-foundation/index.ts";
 
 export const PREVIEW_IMAGE_BUDGET_BYTES = 5 * 1024 * 1024;
 

@@ -1,17 +1,17 @@
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { RunIn } from "../../types/config.js";
-import type { MspErrorMode } from "../../types/projection.js";
-import type { ScreenDefinition } from "../../types/screen.js";
+import type { RunIn } from "../../types/config.ts";
+import type { MspErrorMode } from "../../types/projection.ts";
+import type { ScreenDefinition } from "../../types/screen.ts";
 import type {
   MultiStreamProjectionPattern,
   OpaquePropMap,
   ProjectionPattern,
   ScreenPattern,
-} from "../patterns.js";
-import { SCREEN_OPAQUE_MARKER } from "../patterns.js";
-import type { SourceLocation } from "../source-location.js";
-import { sourceLocationFromNode } from "../source-location.js";
+} from "../patterns.ts";
+import { SCREEN_OPAQUE_MARKER } from "../patterns.ts";
+import type { SourceLocation } from "../source-location.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   type ExtractOutput,
   fail,
@@ -22,7 +22,7 @@ import {
   readDataLiteralNode,
   readNameOrRefOrList,
   readPropertyKey,
-} from "./shared.js";
+} from "./shared.ts";
 
 export function readApplyBodies(
   defObj: ReturnType<Node["asKind"]>,

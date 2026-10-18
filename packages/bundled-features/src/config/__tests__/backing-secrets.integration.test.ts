@@ -15,12 +15,12 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createSecretsContext } from "../../secrets/secrets-context.js";
-import { tenantSecretsTable } from "../../secrets/table.js";
-import { ConfigHandlers, ConfigQueries } from "../constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
-import { createConfigResolver } from "../resolver.js";
-import { configValuesTable } from "../table.js";
+import { createSecretsContext } from "../../secrets/secrets-context.ts";
+import { tenantSecretsTable } from "../../secrets/table.ts";
+import { ConfigHandlers, ConfigQueries } from "../constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
+import { createConfigResolver } from "../resolver.ts";
+import { configValuesTable } from "../table.ts";
 
 // Proves the generic backing="secrets" dispatch end-to-end over real HTTP:
 // a system-scoped config key with backing:"secrets" stores/reads/clears through

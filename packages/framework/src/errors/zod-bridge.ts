@@ -1,6 +1,6 @@
 import type { ZodError, ZodIssue } from "zod";
-import { ValidationError } from "./classes.js";
-import type { FieldIssue } from "./field-issue.js";
+import { ValidationError } from "./classes.ts";
+import type { FieldIssue } from "./field-issue.ts";
 
 // Zod issues carry a .code and sometimes issue-specific params (min, max, etc).
 // We surface those under `params` so the client can render "must be at least N"

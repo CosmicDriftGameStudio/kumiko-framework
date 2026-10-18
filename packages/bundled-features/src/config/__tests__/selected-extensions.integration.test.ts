@@ -13,10 +13,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers, ConfigQueries } from "../constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
-import { createConfigResolver } from "../resolver.js";
-import { configValuesTable } from "../table.js";
+import { ConfigHandlers, ConfigQueries } from "../constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
+import { createConfigResolver } from "../resolver.ts";
+import { configValuesTable } from "../table.ts";
 
 const SELECTOR_KEY = "probe-transport:config:provider";
 const OPEN_SELECTOR_KEY = "probe-open-transport:config:provider";

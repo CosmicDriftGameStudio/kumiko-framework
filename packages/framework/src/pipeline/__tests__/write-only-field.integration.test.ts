@@ -7,10 +7,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const admin = TestUsers.admin;
 const PLAINTEXT = "sk-live-super-secret-0001";

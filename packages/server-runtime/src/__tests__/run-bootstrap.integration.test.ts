@@ -23,8 +23,8 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { buildComposeAuthOptions, composeFeatures } from "../compose-features.js";
-import { runBootstrap } from "../run-bootstrap.js";
+import { buildComposeAuthOptions, composeFeatures } from "../compose-features.ts";
+import { runBootstrap } from "../run-bootstrap.ts";
 
 const ADMIN_URL = process.env["TEST_DATABASE_URL"] ?? "";
 const DB_NAME = `kumiko_runbootstrap_${Date.now().toString(36)}`;

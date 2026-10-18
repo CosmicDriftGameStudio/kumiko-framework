@@ -1,5 +1,5 @@
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { CHECKOUT_CONSENT_RECORDED_EVENT_QN, SUBSCRIPTION_CREATED_EVENT_QN } from "../events.js";
+import { CHECKOUT_CONSENT_RECORDED_EVENT_QN, SUBSCRIPTION_CREATED_EVENT_QN } from "../events.ts";
 
 // § 355 BGB: the withdrawal period is 14 days from conclusion of the contract.
 export const WITHDRAWAL_PERIOD_DAYS = 14;

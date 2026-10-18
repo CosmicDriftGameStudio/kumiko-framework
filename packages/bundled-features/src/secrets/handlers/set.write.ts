@@ -1,9 +1,9 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { announceSecretChange } from "../announce-secret-change.js";
-import { DEFAULT_SECRETS_ACCESS, SecretsHandlers } from "../constants.js";
-import { JOIN_REQUEST_TRANSACTION_REASON, requireSecretsContext } from "../feature.js";
-import { checkSecretKeyWrite, checkSecretValue } from "../write-gate.js";
+import { announceSecretChange } from "../announce-secret-change.ts";
+import { DEFAULT_SECRETS_ACCESS, SecretsHandlers } from "../constants.ts";
+import { JOIN_REQUEST_TRANSACTION_REASON, requireSecretsContext } from "../feature.ts";
+import { checkSecretKeyWrite, checkSecretValue } from "../write-gate.ts";
 
 export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({

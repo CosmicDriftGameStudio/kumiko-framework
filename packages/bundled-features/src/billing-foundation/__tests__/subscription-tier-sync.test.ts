@@ -11,13 +11,13 @@ import {
   tierAssignmentAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import type { TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { subscriptionAggregateId } from "../aggregate-id.js";
-import { SubscriptionFoundationQueries, SubscriptionStatuses } from "../constants.js";
+import { subscriptionAggregateId } from "../aggregate-id.ts";
+import { SubscriptionFoundationQueries, SubscriptionStatuses } from "../constants.ts";
 import {
   createSubscriptionTierSync,
   effectiveTierFromSubscription,
   TIER_SYNC_MANUAL_GRANT_SKIPPED,
-} from "../subscription-tier-sync.js";
+} from "../subscription-tier-sync.ts";
 
 type TestTier = "free" | "starter" | "pro";
 const isTierName = (v: string): v is TestTier => v === "free" || v === "starter" || v === "pro";

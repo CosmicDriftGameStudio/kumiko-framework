@@ -10,7 +10,7 @@ import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.js";
+import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.ts";
 
 const userA = createTestUser({ id: 1, tenantId: testTenantId(1), roles: ["Admin"] });
 

@@ -1,4 +1,4 @@
-import type { IconKey } from "./nav-icon.js";
+import type { IconKey } from "./nav-icon.ts";
 
 // Part B (fw-ui-defaults): id-derived default icon for actions that never
 // declared one — a screen author still gets a recognizable glyph instead of

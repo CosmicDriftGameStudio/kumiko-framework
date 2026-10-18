@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { buildAppSchema } from "../build-app-schema.js";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
+import { buildAppSchema } from "../build-app-schema.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
 
 // The edit renderer loads the availability of a select's static options from the
 // field definition in the client schema, so optionsAvailabilityQuery must survive

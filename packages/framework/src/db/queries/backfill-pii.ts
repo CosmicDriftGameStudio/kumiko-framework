@@ -59,8 +59,8 @@
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { quoteIdent } from "../../crypto/ciphertext-pattern.js";
-import { configuredEventPiiCatalog } from "../../crypto/event-pii.js";
+import { quoteIdent } from "../../crypto/ciphertext-pattern.ts";
+import { configuredEventPiiCatalog } from "../../crypto/event-pii.ts";
 import {
   isLocalKeyKmsAdapter,
   KeyErasedError,
@@ -68,8 +68,8 @@ import {
   type KmsContext,
   type LocalKeyKmsAdapter,
   type SubjectId,
-} from "../../crypto/kms-adapter.js";
-import { isPlainUserOwnedField } from "../../crypto/owner-transition-rekey.js";
+} from "../../crypto/kms-adapter.ts";
+import { isPlainUserOwnedField } from "../../crypto/owner-transition-rekey.ts";
 import {
   configuredPiiSubjectKms,
   decryptPiiValueForSubject,
@@ -77,7 +77,7 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
   piiCiphertextSubject,
-} from "../../crypto/pii-field-encryption.js";
+} from "../../crypto/pii-field-encryption.ts";
 import {
   collectPiiEncryptedFields,
   nonEmptyString,
@@ -85,14 +85,14 @@ import {
   resolveEventSubject,
   resolveSubjectForField,
   SubjectResolutionError,
-} from "../../crypto/subject-resolver.js";
-import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.js";
-import type { DbRunner } from "../connection.js";
-import { resolveTableName } from "../entity-table-meta.js";
-import { asRawClient } from "../query.js";
-import { tableExists } from "../schema-inspection.js";
-import { toSnakeCase } from "../table-builder.js";
-import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
+} from "../../crypto/subject-resolver.ts";
+import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.ts";
+import type { DbRunner } from "../connection.ts";
+import { resolveTableName } from "../entity-table-meta.ts";
+import { asRawClient } from "../query.ts";
+import { tableExists } from "../schema-inspection.ts";
+import { toSnakeCase } from "../table-builder.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 const LIFECYCLE_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
 

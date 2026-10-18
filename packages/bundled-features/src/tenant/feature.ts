@@ -12,37 +12,37 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query.js";
-import { addMemberWrite } from "./handlers/add-member.write.js";
-import { cancelInvitationWrite } from "./handlers/cancel-invitation.write.js";
-import { createWrite } from "./handlers/create.write.js";
-import { invitationsQuery } from "./handlers/invitations.query.js";
-import { listQuery } from "./handlers/list.query.js";
-import { meQuery } from "./handlers/me.query.js";
-import { memberDirectoryQuery } from "./handlers/member-directory.query.js";
-import { memberRoleAvailabilityQuery } from "./handlers/member-role-availability.query.js";
-import { membersQuery } from "./handlers/members.query.js";
-import { membershipsQuery } from "./handlers/memberships.query.js";
-import { removeMemberWrite } from "./handlers/remove-member.write.js";
-import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query.js";
-import { teamListQuery } from "./handlers/team-list.query.js";
-import { tenantDirectoryQuery } from "./handlers/tenant-directory.query.js";
-import { disableWrite, enableWrite } from "./handlers/toggle-enabled.write.js";
-import { updateWrite } from "./handlers/update.write.js";
-import { updateMemberRolesWrite } from "./handlers/update-member-roles.write.js";
-import { TENANT_I18N } from "./i18n.js";
-import { tenantInvitationEntity } from "./invitation-table.js";
-import { tenantMembershipEntity } from "./membership-table.js";
-import { tenantEntity } from "./schema/tenant.js";
+import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query.ts";
+import { addMemberWrite } from "./handlers/add-member.write.ts";
+import { cancelInvitationWrite } from "./handlers/cancel-invitation.write.ts";
+import { createWrite } from "./handlers/create.write.ts";
+import { invitationsQuery } from "./handlers/invitations.query.ts";
+import { listQuery } from "./handlers/list.query.ts";
+import { meQuery } from "./handlers/me.query.ts";
+import { memberDirectoryQuery } from "./handlers/member-directory.query.ts";
+import { memberRoleAvailabilityQuery } from "./handlers/member-role-availability.query.ts";
+import { membersQuery } from "./handlers/members.query.ts";
+import { membershipsQuery } from "./handlers/memberships.query.ts";
+import { removeMemberWrite } from "./handlers/remove-member.write.ts";
+import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query.ts";
+import { teamListQuery } from "./handlers/team-list.query.ts";
+import { tenantDirectoryQuery } from "./handlers/tenant-directory.query.ts";
+import { disableWrite, enableWrite } from "./handlers/toggle-enabled.write.ts";
+import { updateWrite } from "./handlers/update.write.ts";
+import { updateMemberRolesWrite } from "./handlers/update-member-roles.write.ts";
+import { TENANT_I18N } from "./i18n.ts";
+import { tenantInvitationEntity } from "./invitation-table.ts";
+import { tenantMembershipEntity } from "./membership-table.ts";
+import { tenantEntity } from "./schema/tenant.ts";
 import {
   createInviteCreateScreen,
   createMemberRolesEditScreen,
   createMembersScreen,
   tenantEditScreen,
   tenantListScreen,
-} from "./screens.js";
+} from "./screens.ts";
 
-export { tenantEntity, tenantTable } from "./schema/tenant.js";
+export { tenantEntity, tenantTable } from "./schema/tenant.ts";
 
 export type TenantFeatureOptions = {
   /** Adds the /members "invite" drawer button + its `invite-create`

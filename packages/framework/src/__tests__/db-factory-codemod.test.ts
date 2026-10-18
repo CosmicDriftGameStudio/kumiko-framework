@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { transformDbFactorySource } from "../scripts/codemod/db-factory.js";
+import { transformDbFactorySource } from "../scripts/codemod/db-factory.ts";
 
 const CONSUMER_FILE = "/repo/packages/bundled-features/src/note/sample.ts";
 const FRAMEWORK_FILE = "/repo/packages/framework/src/pipeline/__tests__/sample.test.ts";

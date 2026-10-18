@@ -9,7 +9,7 @@ import {
   createTeamsChannel,
   TEAMS_DEFAULT_ALLOWED_HOSTS,
   type TeamsChannelOptions,
-} from "./teams-channel.js";
+} from "./teams-channel.ts";
 
 export function createChannelTeamsFeature(options: TeamsChannelOptions = {}): FeatureDefinition {
   return defineFeature("channel-teams", (r) => {

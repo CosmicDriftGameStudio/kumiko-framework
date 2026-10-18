@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { mergeBunfig } from "@cosmicdrift/kumiko-testing/bunfig";
-import { readManagedMarker } from "./marker.js";
+import { readManagedMarker } from "./marker.ts";
 import {
   listManagedFiles,
   type ManagedAppFacts,
@@ -9,7 +9,7 @@ import {
   renderBiomePresetJson,
   renderManagedBunfig,
   renderTsconfigPresetJson,
-} from "./registry.js";
+} from "./registry.ts";
 
 export type SyncManagedOptions = {
   /** Without it nothing is written; the result lists what would happen. */

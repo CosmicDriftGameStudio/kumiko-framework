@@ -12,18 +12,18 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type ButtonProps,
   type CorePrimitives,
   type DataTableProps,
   PrimitivesProvider,
-} from "../../primitives.js";
-import type { FeatureSchema } from "../feature-schema.js";
-import { KumikoScreen } from "../kumiko-screen.js";
-import { NavProvider } from "../nav.js";
+} from "../../primitives.tsx";
+import type { FeatureSchema } from "../feature-schema.ts";
+import { KumikoScreen } from "../kumiko-screen.tsx";
+import { NavProvider } from "../nav.tsx";
 
 const PARENT_QN = "campaigns:query:campaign:list";
 const CHILD_QN = "campaigns:query:campaign-post:list";

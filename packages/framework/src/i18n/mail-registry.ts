@@ -1,4 +1,4 @@
-import { resolveTranslationValue, type TranslationValue } from "../ui-types/plural.js";
+import { resolveTranslationValue, type TranslationValue } from "../ui-types/plural.ts";
 
 const tables = new Map<string, Readonly<Record<string, TranslationValue>>>();
 

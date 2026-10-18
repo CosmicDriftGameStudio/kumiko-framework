@@ -9,7 +9,7 @@ import type {
   SpanStatus,
   StartSpanOptions,
   Tracer,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 // Default provider. Hot-path identical to "observability disabled" — every
 // method is O(1), allocates a tiny object at most, and never calls any IO.

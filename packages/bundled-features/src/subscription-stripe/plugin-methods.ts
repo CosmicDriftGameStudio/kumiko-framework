@@ -27,8 +27,8 @@ import {
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import Stripe from "stripe";
-import type { StripeCtxRuntime } from "./runtime.js";
-import { isResourceMissingStripeError, mapStripeSubscriptionState } from "./verify-webhook.js";
+import type { StripeCtxRuntime } from "./runtime.ts";
+import { isResourceMissingStripeError, mapStripeSubscriptionState } from "./verify-webhook.ts";
 
 // =============================================================================
 // createCheckoutSession

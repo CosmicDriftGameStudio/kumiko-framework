@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
-import type { Logger } from "../../logging/types.js";
-import { testTenantId } from "../../seeding/seed-users.js";
+import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
+import type { Logger } from "../../logging/types.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
 import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
@@ -11,9 +11,9 @@ import {
   reportEscapeHatchUse,
   withEscapeHatchAuditScope,
   withEscapeHatchAuditScopeStream,
-} from "../escape-hatch-report.js";
-import { type MetricEvent, RecordingMeter } from "../recording-meter.js";
-import { registerStandardMetrics } from "../standard-metrics.js";
+} from "../escape-hatch-report.ts";
+import { type MetricEvent, RecordingMeter } from "../recording-meter.ts";
+import { registerStandardMetrics } from "../standard-metrics.ts";
 
 const tenantId = testTenantId(1);
 

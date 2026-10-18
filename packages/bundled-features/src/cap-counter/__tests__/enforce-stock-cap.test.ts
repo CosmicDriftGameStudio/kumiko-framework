@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { enforceStockCap } from "../enforce-cap.js";
+import { enforceStockCap } from "../enforce-cap.ts";
 
 describe("enforceStockCap", () => {
   test("hardSlot: Grenze ist exakt limit (kein Buffer)", () => {

@@ -3,7 +3,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { type TierAssignmentSource, TierAssignmentSources } from "./constants.js";
+import { type TierAssignmentSource, TierAssignmentSources } from "./constants.ts";
 
 // tier-assignment — pro Plattform-Tenant genau ein Aggregat. Aggregate-ID
 // wird deterministisch aus tenantId abgeleitet (uuidv5, siehe aggregate-id.ts).

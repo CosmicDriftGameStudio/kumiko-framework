@@ -23,22 +23,22 @@ import {
   createAuthMfaFeature,
   mfaRequiredConfigHandle,
   mfaStatusCheckerFromFeature,
-} from "../../auth-mfa/index.js";
-import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.js";
-import { currentTotpCode } from "../../auth-mfa/totp.js";
-import { ConfigHandlers, createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { AuthErrors, AuthHandlers } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
+} from "../../auth-mfa/index.ts";
+import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.ts";
+import { currentTotpCode } from "../../auth-mfa/totp.ts";
+import { ConfigHandlers, createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { AuthErrors, AuthHandlers } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
 
 let stack: TestStack;
 
@@ -127,7 +127,7 @@ describe("login: mfa-setup-required carries a verifiable preauthSetupToken", () 
     expect(typeof body.preauthSetupToken).toBe("string");
 
     const { verifyMfaPreauthSetupToken } = await import(
-      "../../auth-mfa/mfa-preauth-setup-token.js"
+      "../../auth-mfa/mfa-preauth-setup-token.ts"
     );
     const verified = verifyMfaPreauthSetupToken(body.preauthSetupToken, CHALLENGE_TOKEN_SECRET);
     expect(verified.ok).toBe(true);

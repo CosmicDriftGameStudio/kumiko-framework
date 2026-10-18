@@ -4,8 +4,8 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.js";
-import { downloadAttemptEntity, downloadAttemptsTable } from "../../user-data-rights/index.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.ts";
+import { downloadAttemptEntity, downloadAttemptsTable } from "../../user-data-rights/index.ts";
 
 // Event-sourced entity: forget goes through the executor so the erasure replays
 // on rebuild and removes the projection row including ip_bidx.

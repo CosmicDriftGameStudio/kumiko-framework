@@ -6,7 +6,7 @@ import {
   stepsPipeline,
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { registerEventTrigger } from "../event-trigger.js";
+import { registerEventTrigger } from "../event-trigger.ts";
 
 function eventWorkflow(
   name: string,

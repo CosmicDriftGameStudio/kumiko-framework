@@ -1,5 +1,5 @@
 import type { Redis } from "ioredis";
-import { RedisKeys } from "./redis-keys.js";
+import { RedisKeys } from "./redis-keys.ts";
 
 export type EventDedup = {
   /**

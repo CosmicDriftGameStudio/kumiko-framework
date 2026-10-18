@@ -6,16 +6,16 @@ export {
   configureBlindIndexKey,
   configuredBlindIndexKey,
   decodeBlindIndexKey,
-} from "./blind-index.js";
+} from "./blind-index.ts";
 export {
   configuredEventPiiCatalog,
   configureEventPiiCatalog,
   type EventPiiCatalog,
   encryptEventPayloadPii,
-} from "./event-pii.js";
-export { InMemoryKmsAdapter } from "./in-memory-kms-adapter.js";
-export { isSelfPiiField } from "./is-self-pii-field.js";
-export { type KekSourceEnv, type KekSourceOptions, resolvePlatformKeks } from "./kek-source.js";
+} from "./event-pii.ts";
+export { InMemoryKmsAdapter } from "./in-memory-kms-adapter.ts";
+export { isSelfPiiField } from "./is-self-pii-field.ts";
+export { type KekSourceEnv, type KekSourceOptions, resolvePlatformKeks } from "./kek-source.ts";
 export {
   isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
@@ -36,7 +36,7 @@ export {
   subjectKeyForRecord,
   subjectKeyForTenant,
   subjectKeyForUser,
-} from "./kms-adapter.js";
+} from "./kms-adapter.ts";
 export {
   type ActiveKmsWiring,
   buildPgKmsOptions,
@@ -50,7 +50,7 @@ export {
   requireKmsWiringAsync,
   resolveKmsWiring,
   resolveKmsWiringAsync,
-} from "./kms-wiring.js";
+} from "./kms-wiring.ts";
 export {
   createPgKmsAdapter,
   PgKmsAdapter,
@@ -58,7 +58,7 @@ export {
   type RewrapOptions,
   type RewrapResult,
   rewrapSubjectKeys,
-} from "./pg-kms-adapter.js";
+} from "./pg-kms-adapter.ts";
 export {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -72,11 +72,11 @@ export {
   PII_CIPHERTEXT_PREFIX,
   PII_CIPHERTEXT_PREFIX_JSON,
   PII_ERASED_SENTINEL,
-} from "./pii-field-encryption.js";
+} from "./pii-field-encryption.ts";
 export {
   createRequestKmsCache,
   type RequestKmsCache,
-} from "./request-kms-cache.js";
+} from "./request-kms-cache.ts";
 export {
   collectPiiEncryptedFields,
   collectPiiSubjectFields,
@@ -85,4 +85,4 @@ export {
   type ResolveSubjectOptions,
   resolveSubjectForField,
   SubjectResolutionError,
-} from "./subject-resolver.js";
+} from "./subject-resolver.ts";

@@ -10,11 +10,11 @@ import type {
 import type { ActionMenuItemSpec } from "@cosmicdrift/kumiko-renderer";
 import { RenderList, TokensProvider, usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { HeaderActionGroup } from "../layout/header-action-group.js";
-import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
-import { ShellHeader } from "../layout/shell-header.js";
-import { ThemeToggle } from "../layout/theme-toggle.js";
-import { fireEvent, renderWithSidebar, screen, within } from "./test-utils.js";
+import { HeaderActionGroup } from "../layout/header-action-group.tsx";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
+import { ShellHeader } from "../layout/shell-header.tsx";
+import { ThemeToggle } from "../layout/theme-toggle.tsx";
+import { fireEvent, renderWithSidebar, screen, within } from "./test-utils.tsx";
 
 const PHONE = 500;
 const DESKTOP = 1024;

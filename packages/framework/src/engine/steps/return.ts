@@ -5,10 +5,10 @@
 // return, run-pipeline throws — silent fallthrough would mask the most
 // common authoring mistake (forgotten r.step.return at the end).
 
-import { defineStep } from "../define-step.js";
-import type { WriteResult } from "../types/handlers.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { resolveRequired } from "./_resolver-utils.js";
+import { defineStep } from "../define-step.ts";
+import type { WriteResult } from "../types/handlers.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { resolveRequired } from "./_resolver-utils.ts";
 
 type ReturnStepArgs = {
   readonly resolver: StepResolver<WriteResult<unknown>>;

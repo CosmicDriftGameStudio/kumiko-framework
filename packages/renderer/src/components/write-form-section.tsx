@@ -6,13 +6,13 @@ import type {
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import * as z from "zod";
-import { isPresent, REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.js";
-import { dispatcherErrorText } from "../app/write-failed-error.js";
-import { useForm } from "../hooks/use-form.js";
-import { useTranslation } from "../i18n.js";
-import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.js";
-import { GridCellForField } from "./grid-cell-for-field.js";
-import { hasIssueWithoutVisibleField } from "./render-edit-logic.js";
+import { isPresent, REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.ts";
+import { dispatcherErrorText } from "../app/write-failed-error.ts";
+import { useForm } from "../hooks/use-form.ts";
+import { useTranslation } from "../i18n.tsx";
+import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";
+import { GridCellForField } from "./grid-cell-for-field.tsx";
+import { hasIssueWithoutVisibleField } from "./render-edit-logic.ts";
 
 function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z

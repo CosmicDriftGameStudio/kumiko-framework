@@ -1,5 +1,5 @@
-import type { FieldIssue } from "../dispatcher/index.js";
-import { createStore } from "../store/index.js";
+import type { FieldIssue } from "../dispatcher/index.ts";
+import { createStore } from "../store/index.ts";
 import type {
   FieldConditions,
   FieldConditionValue,
@@ -9,8 +9,8 @@ import type {
   FormSnapshot,
   FormValues,
   SubmitResult,
-} from "./types.js";
-import { groupIssuesByPath, relevantFieldIssues, zodErrorToFieldIssues } from "./zod-bridge.js";
+} from "./types.ts";
+import { groupIssuesByPath, relevantFieldIssues, zodErrorToFieldIssues } from "./zod-bridge.ts";
 
 // Paths without the prefix (hook-level errors, "(root)") pass through unchanged.
 function stripServerFieldPathPrefix(

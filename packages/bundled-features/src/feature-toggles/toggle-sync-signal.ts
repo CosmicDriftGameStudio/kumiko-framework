@@ -6,7 +6,7 @@ import {
   redisChannelPrefixFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { ToggleSyncSignal } from "./toggle-runtime.js";
+import type { ToggleSyncSignal } from "./toggle-runtime.ts";
 
 // Single fixed channel — unlike the SSE broker there's no per-tenant/
 // per-user variance to multiplex, every toggle flip is global.

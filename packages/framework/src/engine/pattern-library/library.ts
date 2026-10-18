@@ -13,7 +13,7 @@
 // render.ts AND the library here — paths are part of the public API
 // the Designer/LLM relies on.
 
-import type { FeaturePatternKind } from "../feature-ast/patterns.js";
+import type { FeaturePatternKind } from "../feature-ast/patterns.ts";
 import {
   aiClassifySchema,
   aiExtractSchema,
@@ -30,7 +30,7 @@ import {
   screenSchema,
   streamHandlerSchema,
   writeHandlerSchema,
-} from "./mixed-schemas.js";
+} from "./mixed-schemas.ts";
 import {
   envSchemaSchema,
   exposesApiSchema,
@@ -38,7 +38,7 @@ import {
   treeActionsSchema,
   unknownSchema,
   usesApiSchema,
-} from "./opaque-schemas.js";
+} from "./opaque-schemas.ts";
 import {
   claimKeySchema,
   configSchema,
@@ -59,8 +59,8 @@ import {
   uiHintsSchema,
   useExtensionSchema,
   workspaceSchema,
-} from "./static-schemas.js";
-import type { PatternCategory, PatternFormSchema } from "./types.js";
+} from "./static-schemas.ts";
+import type { PatternCategory, PatternFormSchema } from "./types.ts";
 
 export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSchema>> = {
   requires: requiresSchema,

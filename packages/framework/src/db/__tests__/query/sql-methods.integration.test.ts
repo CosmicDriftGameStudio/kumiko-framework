@@ -6,7 +6,7 @@
 // deleteMany({}) with an empty where object renders no WHERE clause and deletes ALL rows.
 // That footgun is intentional behavior and pinned by a test below.
 import { afterAll, describe, expect, test } from "bun:test";
-import { InternalError } from "../../../errors/index.js";
+import { InternalError } from "../../../errors/index.ts";
 import {
   deleteMany,
   fetchOne,
@@ -15,8 +15,8 @@ import {
   selectMany,
   transaction,
   updateMany,
-} from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+} from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

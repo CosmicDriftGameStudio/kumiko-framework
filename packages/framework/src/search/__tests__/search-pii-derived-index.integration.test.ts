@@ -13,23 +13,23 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   subjectIdToKey,
-} from "../../crypto/index.js";
+} from "../../crypto/index.ts";
 import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
-} from "../../db/index.js";
+} from "../../db/index.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import type { ReferenceFieldDef } from "../../engine/types/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
-import { purgeSearchDocumentsForSubject } from "../purge-subject.js";
+} from "../../engine/index.ts";
+import type { ReferenceFieldDef } from "../../engine/types/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
+import { purgeSearchDocumentsForSubject } from "../purge-subject.ts";
 
 const contactEntity = createEntity({
   table: "read_search_pii_contacts",

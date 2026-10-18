@@ -1,6 +1,6 @@
-import { toKebab } from "../engine/qualified-name.js";
-import { assertUnreachable } from "../utils/index.js";
-import type { MetricType } from "./types/index.js";
+import { toKebab } from "../engine/qualified-name.ts";
+import { assertUnreachable } from "../utils/index.ts";
+import type { MetricType } from "./types/index.ts";
 
 // Boot-time validation of metric names — catches typos and convention
 // violations before any metric is emitted. See observability-naming.md.

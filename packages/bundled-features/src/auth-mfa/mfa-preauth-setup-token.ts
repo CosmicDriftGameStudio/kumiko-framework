@@ -1,7 +1,7 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { createHmacTokenCodec, type HmacTokenVerifyResult } from "./hmac-token-codec.js";
+import { createHmacTokenCodec, type HmacTokenVerifyResult } from "./hmac-token-codec.ts";
 
 export type MfaPreauthSetupPayload = {
   readonly userId: string;

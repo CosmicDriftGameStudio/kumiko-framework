@@ -7,8 +7,8 @@ import {
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "./constants.js";
-import { userEntity, userTable } from "./schema/user.js";
+import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "./constants.ts";
+import { userEntity, userTable } from "./schema/user.ts";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

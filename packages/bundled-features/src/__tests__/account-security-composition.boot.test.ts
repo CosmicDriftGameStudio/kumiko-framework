@@ -6,25 +6,25 @@ import {
   ACCOUNT_SECURITY_SCREEN_ID,
   ACCOUNT_SECURITY_SCREEN_QN,
   createAccountSecurityFeature,
-} from "../account-security/index.js";
-import { createAuthFoundationFeature } from "../auth-foundation/index.js";
+} from "../account-security/index.ts";
+import { createAuthFoundationFeature } from "../auth-foundation/index.ts";
 import {
   AuthMfaHandlers,
   createAuthMfaFeature,
   MFA_DISABLE_SCREEN_ID,
   MFA_ENABLE_SCREEN_ID,
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
-} from "../auth-mfa/index.js";
-import { createConfigFeature } from "../config/feature.js";
-import { createPersonalAccessTokensFeature } from "../personal-access-tokens/index.js";
+} from "../auth-mfa/index.ts";
+import { createConfigFeature } from "../config/feature.ts";
+import { createPersonalAccessTokensFeature } from "../personal-access-tokens/index.ts";
 import {
   createSessionsFeature,
   SESSION_MINE_SCREEN_ID,
   SessionHandlers,
-} from "../sessions/index.js";
-import { createTenantFeature } from "../tenant/index.js";
-import { createUserFeature } from "../user/feature.js";
-import { testAuthMfaOptions } from "./auth-mfa-test-options.js";
+} from "../sessions/index.ts";
+import { createTenantFeature } from "../tenant/index.ts";
+import { createUserFeature } from "../user/feature.ts";
+import { testAuthMfaOptions } from "./auth-mfa-test-options.ts";
 
 function bootFeatures() {
   return [

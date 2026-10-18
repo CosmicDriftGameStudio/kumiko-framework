@@ -22,18 +22,18 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { integer, table as pgTable, uuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { selectMany } from "../../db/query.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature, type FeatureDefinition } from "../../engine/index.js";
-import type { StoredEvent } from "../../event-store/index.js";
+import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { selectMany } from "../../db/query.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature, type FeatureDefinition } from "../../engine/index.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
 import {
   eventConsumerStateTable,
   getAllConsumerProgress,
   getConsumerState,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Test fixtures ---
 

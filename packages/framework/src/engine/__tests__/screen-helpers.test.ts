@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { evalFieldCondition, resolveNavParentScreen } from "../screen-helpers.js";
-import type { FieldCondition, ScreenDefinition } from "../types/screen.js";
+import { evalFieldCondition, resolveNavParentScreen } from "../screen-helpers.ts";
+import type { FieldCondition, ScreenDefinition } from "../types/screen.ts";
 
 describe("evalFieldCondition()", () => {
   test("boolean forms pass through unchanged", () => {

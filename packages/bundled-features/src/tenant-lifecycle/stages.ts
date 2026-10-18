@@ -43,9 +43,9 @@ import {
   tenantMembershipEntity,
   tenantMembershipsTable,
   tenantTable,
-} from "../tenant/index.js";
-import type { TenantDestructionStageName } from "./constants.js";
-import { invalidateTenantLifecycleGate } from "./lifecycle-gate.js";
+} from "../tenant/index.ts";
+import type { TenantDestructionStageName } from "./constants.ts";
+import { invalidateTenantLifecycleGate } from "./lifecycle-gate.ts";
 
 export type DestructionStageCtx = {
   readonly db: DbRunner;

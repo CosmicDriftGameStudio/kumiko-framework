@@ -45,21 +45,21 @@
 //     Aggregate). Caller no-op.
 
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { requestContext } from "../api/request-context.js";
-import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index.js";
+import { requestContext } from "../api/request-context.ts";
+import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index.ts";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-} from "../crypto/pii-field-encryption.js";
-import { collectPiiFileReferenceFields } from "../crypto/subject-resolver.js";
-import { deleteMany, insertOne, updateMany } from "../db/query.js";
-import type { EntityDefinition } from "../engine/types/index.js";
-import { InternalError } from "../errors/index.js";
-import type { StoredEvent } from "../event-store/index.js";
-import type { DbRow, DbRunner } from "./connection.js";
-import type { TableColumns } from "./dialect.js";
+} from "../crypto/pii-field-encryption.ts";
+import { collectPiiFileReferenceFields } from "../crypto/subject-resolver.ts";
+import { deleteMany, insertOne, updateMany } from "../db/query.ts";
+import type { EntityDefinition } from "../engine/types/index.ts";
+import { InternalError } from "../errors/index.ts";
+import type { StoredEvent } from "../event-store/index.ts";
+import type { DbRow, DbRunner } from "./connection.ts";
+import type { TableColumns } from "./dialect.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle-Tabellen sind generisch typed; framework code erasiert die Spalten-Union absichtlich.
 type Table = TableColumns<any>;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { UnprocessableError } from "../../errors/index.js";
-import { defineTransitions, guardTransition } from "../state-machine.js";
+import { UnprocessableError } from "../../errors/index.ts";
+import { defineTransitions, guardTransition } from "../state-machine.ts";
 
 describe("defineTransitions — TransitionGraph API", () => {
   const transitions = defineTransitions({
@@ -112,7 +112,7 @@ describe("assertTransition / guardTransition", () => {
     // Beide Pfade müssen den gleichen Detail-Block bauen — Clients
     // parsen den 422-Body uniform und dürfen kein "validTargets vs.
     // allowed"-Branch fühlen.
-    const { failTransition } = await import("../../errors/index.js");
+    const { failTransition } = await import("../../errors/index.ts");
     type TransitionDetails = {
       from?: string;
       to?: string;

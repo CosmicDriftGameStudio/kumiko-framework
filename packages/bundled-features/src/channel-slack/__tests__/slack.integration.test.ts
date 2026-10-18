@@ -7,8 +7,8 @@ import {
   serializeAttemptRows,
   setupChatHarness,
   startProviderStub,
-} from "../../delivery/__tests__/chat-channel-harness.js";
-import { createChannelSlackFeature } from "../feature.js";
+} from "../../delivery/__tests__/chat-channel-harness.ts";
+import { createChannelSlackFeature } from "../feature.ts";
 
 // Secret key under the channel's secretNamespace; the secrets write gate accepts it
 // only because the feature declared the namespace.

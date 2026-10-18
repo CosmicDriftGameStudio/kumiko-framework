@@ -14,16 +14,16 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { configValuesTable } from "../../config/table.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { TenantHandlers, TenantQueries } from "../constants.js";
-import { collectAssignableAppRoles, createTenantFeature } from "../feature.js";
-import { tenantMembershipsTable } from "../membership-table.js";
-import { tenantEntity } from "../schema/tenant.js";
-import { seedTenant, seedTenantMembership } from "../seeding.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { TenantHandlers, TenantQueries } from "../constants.ts";
+import { collectAssignableAppRoles, createTenantFeature } from "../feature.ts";
+import { tenantMembershipsTable } from "../membership-table.ts";
+import { tenantEntity } from "../schema/tenant.ts";
+import { seedTenant, seedTenantMembership } from "../seeding.ts";
 
 // Declares one role with the default (Admin) and one raised to TenantAdmin.
 const appFeature = defineFeature("assignable-roles-app", (r) => {

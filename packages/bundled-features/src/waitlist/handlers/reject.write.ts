@@ -16,9 +16,9 @@ import {
   cancelPendingInvitation,
   INVITATION_STATUS,
   tenantInvitationsTable,
-} from "../../tenant/index.js";
-import { WAITLIST_STATUS, WaitlistErrors } from "../constants.js";
-import { isOpenWaitlistStatus } from "../entity.js";
+} from "../../tenant/index.ts";
+import { WAITLIST_STATUS, WaitlistErrors } from "../constants.ts";
+import { isOpenWaitlistStatus } from "../entity.ts";
 import {
   adminAccess,
   isTenantMember,
@@ -26,8 +26,8 @@ import {
   platformActor,
   waitlistDb,
   waitlistExecutor,
-} from "../lib.js";
-import { WaitlistIdSchema } from "../payloads.js";
+} from "../lib.ts";
+import { WaitlistIdSchema } from "../payloads.ts";
 
 export type WaitlistRejectData = { readonly kind: "rejected"; readonly id: string };
 

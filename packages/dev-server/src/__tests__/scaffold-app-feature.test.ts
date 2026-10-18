@@ -5,8 +5,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { scaffoldApp } from "../scaffold-app.js";
-import { scaffoldAppFeature } from "../scaffold-app-feature.js";
+import { scaffoldApp } from "../scaffold-app.ts";
+import { scaffoldAppFeature } from "../scaffold-app-feature.ts";
 
 describe("scaffoldAppFeature", () => {
   let tmp: string;

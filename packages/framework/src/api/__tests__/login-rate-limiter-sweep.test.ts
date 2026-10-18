@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createInMemoryLoginRateLimiter } from "../auth-routes.js";
+import { createInMemoryLoginRateLimiter } from "../auth-routes.ts";
 
 describe("createInMemoryLoginRateLimiter — sweep + cap", () => {
   test("sweepExpired removes expired entries before enforceCap can evict a fresh key", async () => {

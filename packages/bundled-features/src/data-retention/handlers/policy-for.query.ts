@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { resolveRetentionPolicyForTenant } from "../resolve-for-tenant.js";
-import type { EffectiveRetentionPolicy } from "../resolver.js";
+import { resolveRetentionPolicyForTenant } from "../resolve-for-tenant.ts";
+import type { EffectiveRetentionPolicy } from "../resolver.ts";
 
 // retention:query:policy-for — Cross-Feature-API fuer den Forget-Flow.
 //

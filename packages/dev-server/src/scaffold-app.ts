@@ -20,9 +20,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { isKebabSegment } from "./kebab.js";
-import { PREPARE_SCRIPT, resolveManagedAppFacts, syncManagedFiles } from "./managed-files/index.js";
-import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.js";
+import { isKebabSegment } from "./kebab.ts";
+import { PREPARE_SCRIPT, resolveManagedAppFacts, syncManagedFiles } from "./managed-files/index.ts";
+import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.ts";
 import {
   createDemoTasksFeature,
   renderDemoSeedFile,
@@ -30,7 +30,7 @@ import {
   renderDemoTasksI18n,
   renderDemoTasksIndex,
   renderDemoTasksWebIndex,
-} from "./scaffold-demo-tasks.js";
+} from "./scaffold-demo-tasks.ts";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
 // importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),

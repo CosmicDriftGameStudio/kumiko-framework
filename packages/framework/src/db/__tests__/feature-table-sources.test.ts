@@ -7,9 +7,9 @@
 // store_user_sessions, breaking every login in an ephemeral test stack.
 
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../../engine/define-feature.js";
-import { defineUnmanagedTable } from "../entity-table-meta.js";
-import { enumerateFeatureTableSources } from "../feature-table-sources.js";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { defineUnmanagedTable } from "../entity-table-meta.ts";
+import { enumerateFeatureTableSources } from "../feature-table-sources.ts";
 
 const probeMeta = defineUnmanagedTable({
   tableName: "ftst_probe",

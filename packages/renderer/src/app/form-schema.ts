@@ -12,7 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type EditFormMode, I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import * as z from "zod";
-import { layoutEditFields } from "./layout-fields.js";
+import { layoutEditFields } from "./layout-fields.ts";
 
 // `required` means "has a value", not "is truthy" — `false` and `0` count
 // as present, only the actually-empty representations don't.

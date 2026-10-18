@@ -10,7 +10,7 @@ import {
   createTimestampField,
   createTzField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { GLOBAL_ROLE_OPTIONS } from "../constants.js";
+import { GLOBAL_ROLE_OPTIONS } from "../constants.ts";
 
 /**
  * User-Lifecycle-Status (S2.U1). Single source of truth — Auth-Middleware

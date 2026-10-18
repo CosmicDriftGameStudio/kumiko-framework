@@ -10,13 +10,13 @@
 
 import type { Context } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
-import type { TenantId } from "../engine/types/index.js";
+import type { TenantId } from "../engine/types/index.ts";
 import {
   getSessionCookies,
   hostOnlyDeleteOptions,
   isHostPrefixedCookieName,
   TENANT_COOKIE_BASE,
-} from "./session-cookies.js";
+} from "./session-cookies.ts";
 
 // 30 days. The tenant assignment is stable for the lifetime of the
 // visitor's relationship with the deployment — re-running the resolver

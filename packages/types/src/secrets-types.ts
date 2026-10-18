@@ -3,8 +3,8 @@
 // is what makes key rotation cheap: on rotation we only re-wrap the small
 // encryptedDek, never touch the ciphertext.
 
-import type { DbRunner } from "./db-connection.js";
-import type { TenantId } from "./identifiers.js";
+import type { DbRunner } from "./db-connection.ts";
+import type { TenantId } from "./identifiers.ts";
 
 // Plaintext-secret wrapper (branded). Carries the actual string internally
 // but the nominal typing stops it from landing in an HTTP response by

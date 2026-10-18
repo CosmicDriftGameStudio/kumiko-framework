@@ -10,7 +10,7 @@
 
 import type { EventDef } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
-import { SYSTEM_EVENT_PII_STANCES } from "../../crypto/system-event-pii.js";
+import { SYSTEM_EVENT_PII_STANCES } from "../../crypto/system-event-pii.ts";
 import {
   WORKFLOW_RESUMED_TYPE,
   WORKFLOW_RETRY_SCHEDULED_TYPE,
@@ -19,7 +19,7 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
-} from "./_step-dispatch-constants.js";
+} from "./_step-dispatch-constants.ts";
 
 const triggerEventRefSchema = z.object({
   eventId: z.string(),

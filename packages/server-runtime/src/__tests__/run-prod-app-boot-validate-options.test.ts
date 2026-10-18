@@ -4,8 +4,8 @@
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { runProdApp } from "../run-prod-app.js";
-import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
+import { runProdApp } from "../run-prod-app.ts";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.ts";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 

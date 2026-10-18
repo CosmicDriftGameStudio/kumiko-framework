@@ -1,13 +1,13 @@
 import type { Context, Next } from "hono";
-import type { ErrorDocsConfig } from "../errors/docs-url.js";
-import { resolveHeaderLocale } from "../i18n/request-locale.js";
-import { LOCALE_HEADER_NAME } from "./api-constants.js";
+import type { ErrorDocsConfig } from "../errors/docs-url.ts";
+import { resolveHeaderLocale } from "../i18n/request-locale.ts";
+import { LOCALE_HEADER_NAME } from "./api-constants.ts";
 import {
   type ClientIpResolver,
   createClientIpResolver,
   extractSocketAddress,
-} from "./client-ip.js";
-import { type RequestContextData, requestContext } from "./request-context.js";
+} from "./client-ip.ts";
+import { type RequestContextData, requestContext } from "./request-context.ts";
 
 // Fallback for the few call-sites that build a RequestContextData without a
 // caller-configured resolver (e.g. an internal system-query mount reached

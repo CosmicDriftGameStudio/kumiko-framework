@@ -11,9 +11,9 @@ import {
   ValidationError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { requireForTenant } from "../../shared/index.js";
-import type { TemplateWriteScope } from "../layout-regions.js";
-import type { LinkedResourceEntry } from "../linked-resources.js";
+import { requireForTenant } from "../../shared/index.ts";
+import type { TemplateWriteScope } from "../layout-regions.ts";
+import type { LinkedResourceEntry } from "../linked-resources.ts";
 import {
   attachmentLimitFailure,
   attachmentNeedsMailTemplate,
@@ -24,19 +24,19 @@ import {
   type Release,
   readTemplateResourceMaxBytes,
   releaseAll,
-} from "../store-template-resource.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import type { TemplateBundle } from "../template-bundle.js";
-import { attachTemplateResources } from "../template-resources.js";
-import { resolveTemplateVariables } from "../template-validation.js";
-import { MAX_FILE_ATTACHMENTS_PER_TEMPLATE } from "./resource-shared.js";
-import { evaluateTemplateWrite } from "./template-gates.js";
+} from "../store-template-resource.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import type { TemplateBundle } from "../template-bundle.ts";
+import { attachTemplateResources } from "../template-resources.ts";
+import { resolveTemplateVariables } from "../template-validation.ts";
+import { MAX_FILE_ATTACHMENTS_PER_TEMPLATE } from "./resource-shared.ts";
+import { evaluateTemplateWrite } from "./template-gates.ts";
 import {
   refuseSystemOnlyTenantOverride,
   refuseTenantScopeUnderSystemTenant,
   type TemplateRowPayload,
   writeTemplateRow,
-} from "./template-write.js";
+} from "./template-write.ts";
 
 export function targetExistsIssue(locale: string): FieldIssue {
   return {

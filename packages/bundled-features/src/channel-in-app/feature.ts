@@ -1,11 +1,11 @@
 import { DELIVERY_CHANNEL_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { inboxQuery } from "./handlers/inbox.query.js";
-import { markAllReadWrite } from "./handlers/mark-all-read.write.js";
-import { markReadWrite } from "./handlers/mark-read.write.js";
-import { unreadCountQuery } from "./handlers/unread-count.query.js";
-import { inAppChannel } from "./in-app-channel.js";
-import { inAppMessagesTableMeta } from "./tables.js";
+import { inboxQuery } from "./handlers/inbox.query.ts";
+import { markAllReadWrite } from "./handlers/mark-all-read.write.ts";
+import { markReadWrite } from "./handlers/mark-read.write.ts";
+import { unreadCountQuery } from "./handlers/unread-count.query.ts";
+import { inAppChannel } from "./in-app-channel.ts";
+import { inAppMessagesTableMeta } from "./tables.ts";
 
 export function createChannelInAppFeature(): FeatureDefinition {
   return defineFeature("channel-in-app", (r) => {

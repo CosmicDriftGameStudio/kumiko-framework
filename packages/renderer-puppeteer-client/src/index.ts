@@ -1,14 +1,14 @@
-export { type ClientConfig, loadClientConfig } from "./config.js";
-export { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity, renderedPdfsTable } from "./entity.js";
-export { PuppeteerUnavailableError } from "./errors.js";
-export { createRendererPuppeteerClientFeature } from "./feature.js";
-export { countPdfPages } from "./pdf-page-count.js";
-export { RendererPuppeteerClientQueries } from "./qualified-names.js";
-export { puppeteerRender } from "./render.js";
+export { type ClientConfig, loadClientConfig } from "./config.ts";
+export { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity, renderedPdfsTable } from "./entity.ts";
+export { PuppeteerUnavailableError } from "./errors.ts";
+export { createRendererPuppeteerClientFeature } from "./feature.ts";
+export { countPdfPages } from "./pdf-page-count.ts";
+export { RendererPuppeteerClientQueries } from "./qualified-names.ts";
+export { puppeteerRender } from "./render.ts";
 export {
   type RenderedPdfUpload,
   type RenderPdfArgs,
   renderPdfBeforeTransaction,
   type StoredRenderedPdf,
   storeRenderedPdf,
-} from "./render-and-store.js";
+} from "./render-and-store.ts";

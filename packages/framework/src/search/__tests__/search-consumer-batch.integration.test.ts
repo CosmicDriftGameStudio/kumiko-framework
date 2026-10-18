@@ -7,12 +7,12 @@ import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Meilisearch } from "meilisearch";
 import * as z from "zod";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import type { ConsumerStateRow, StoredEventRow } from "../../pipeline/event-dispatcher-delivery.js";
-import { deliverEvents } from "../../pipeline/event-dispatcher-delivery.js";
-import { createSearchEventConsumer } from "../../pipeline/system-hooks.js";
-import { createMeilisearchAdapter, meilisearchTenantIndex } from "../meilisearch-adapter.js";
-import type { SearchAdapter } from "../types.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import type { ConsumerStateRow, StoredEventRow } from "../../pipeline/event-dispatcher-delivery.ts";
+import { deliverEvents } from "../../pipeline/event-dispatcher-delivery.ts";
+import { createSearchEventConsumer } from "../../pipeline/system-hooks.ts";
+import { createMeilisearchAdapter, meilisearchTenantIndex } from "../meilisearch-adapter.ts";
+import type { SearchAdapter } from "../types.ts";
 
 const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
 const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";

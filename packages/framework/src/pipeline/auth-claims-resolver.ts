@@ -1,5 +1,5 @@
-import type { AuthClaimsContext, AuthClaimsHookDef, SessionUser } from "../engine/types/index.js";
-import type { Logger } from "../logging/types.js";
+import type { AuthClaimsContext, AuthClaimsHookDef, SessionUser } from "../engine/types/index.ts";
+import type { Logger } from "../logging/types.ts";
 
 // Shape the dispatcher (or a test harness) has to hand in: a way to build the
 // per-hook context and the list of registered hooks. Staying off the

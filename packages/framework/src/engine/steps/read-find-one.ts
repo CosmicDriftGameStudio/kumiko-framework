@@ -19,11 +19,11 @@
 // fine for "find by uuid", a footgun for "find by tenantId". No
 // runtime check; reviewer responsibility.
 
-import { selectMany, type WhereObject } from "../../db/query.js";
-import { defineStep } from "../define-step.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { readSourceFor, warnOnNarrowedForeignTenantFilter } from "./_read-source.js";
-import { resolveRequired } from "./_resolver-utils.js";
+import { selectMany, type WhereObject } from "../../db/query.ts";
+import { defineStep } from "../define-step.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { readSourceFor, warnOnNarrowedForeignTenantFilter } from "./_read-source.ts";
+import { resolveRequired } from "./_resolver-utils.ts";
 
 type ReadFindOneArgs = {
   readonly name: string;

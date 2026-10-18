@@ -13,13 +13,13 @@ import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable, VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id.js";
+import { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id.ts";
 import {
   CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
   ROLLING_INCREMENTED_EVENT_QN,
   ROLLING_RELEASED_EVENT_QN,
-} from "./constants.js";
-import { capCounterEntity } from "./entity.js";
+} from "./constants.ts";
+import { capCounterEntity } from "./entity.ts";
 
 const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
 

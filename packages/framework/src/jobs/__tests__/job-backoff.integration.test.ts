@@ -12,8 +12,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const exponentialDefaultStarts: number[] = [];
 const exponentialCustomStarts: number[] = [];

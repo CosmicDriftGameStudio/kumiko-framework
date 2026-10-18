@@ -7,14 +7,14 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../../i18n.js";
-import type { MfaSetupComponentProps, MfaVerifyComponentProps } from "../auth-gate.js";
+import { defaultTranslations } from "../../i18n.ts";
+import type { MfaSetupComponentProps, MfaVerifyComponentProps } from "../auth-gate.tsx";
 import {
   makeSessionAuthGate,
   resolveLoginRedirect,
   type SessionAuthGateOptions,
-} from "../auth-gate.js";
-import { useSession } from "../session.js";
+} from "../auth-gate.tsx";
+import { useSession } from "../session.tsx";
 
 const originalFetch = globalThis.fetch;
 const originalReplace = window.location.replace;

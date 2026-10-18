@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
-import { DELIVERY_RESUBSCRIBE_PATH } from "../public-names.js";
-import { renderUnsubscribeResultPage } from "../unsubscribe.js";
+import { DELIVERY_RESUBSCRIBE_PATH } from "../public-names.ts";
+import { renderUnsubscribeResultPage } from "../unsubscribe.ts";
 
 beforeAll(() => {
   localeEs();

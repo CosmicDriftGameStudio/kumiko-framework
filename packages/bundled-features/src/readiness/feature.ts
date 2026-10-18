@@ -9,7 +9,7 @@
 // `ready` boolean — the settings-checklist call for admin UIs.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { statusQuery } from "./handlers/status.query.js";
+import { statusQuery } from "./handlers/status.query.ts";
 
 export function createReadinessFeature() {
   return defineFeature(

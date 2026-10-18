@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { i18nKey, isExplicitDotFormKey } from "../i18n-key.js";
+import { i18nKey, isExplicitDotFormKey } from "../i18n-key.ts";
 
 const REGISTRY_KEY = Symbol.for("kumiko.i18n.explicitDotFormKeys");
 const markedInThisFile = new Set<string>();

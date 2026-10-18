@@ -7,8 +7,8 @@ export {
   describeDurationSpec,
   durationSpecToMs,
   subtractRetentionSpec,
-} from "./duration-spec.js";
-export { complianceProfileOverrideSchema } from "./override-schema.js";
+} from "./duration-spec.ts";
+export { complianceProfileOverrideSchema } from "./override-schema.ts";
 export type {
   AuthorityNotificationDeadline,
   ComplianceProfile,
@@ -18,16 +18,16 @@ export type {
   EffectiveComplianceProfile,
   RetentionSpec,
   UserNotificationRequiredPolicy,
-} from "./profiles.js";
+} from "./profiles.ts";
 export {
   COMPLIANCE_PROFILES,
   OVERRIDABLE_PROFILE_KEYS,
   resolveComplianceProfile,
   SELECTABLE_PROFILE_KEYS,
-} from "./profiles.js";
-export type { BundleTier, SubProcessor } from "./sub-processors.js";
+} from "./profiles.ts";
+export type { BundleTier, SubProcessor } from "./sub-processors.ts";
 export {
   getActiveSubProcessors,
   getPlannedSubProcessors,
   KUMIKO_SUB_PROCESSORS,
-} from "./sub-processors.js";
+} from "./sub-processors.ts";

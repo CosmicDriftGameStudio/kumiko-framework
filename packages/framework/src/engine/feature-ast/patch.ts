@@ -45,15 +45,15 @@ import {
   readNameOrRef,
   readPropertyKey,
   resolveSameFileObjectLiteral,
-} from "./extractors/shared.js";
+} from "./extractors/shared.ts";
 import type {
   FeaturePattern,
   FeaturePatternKind,
   QueryHandlerPattern,
   StreamHandlerPattern,
   WriteHandlerPattern,
-} from "./patterns.js";
-import { indent, PATTERN_INDENT, renderPattern, renderValue } from "./render.js";
+} from "./patterns.ts";
+import { indent, PATTERN_INDENT, renderPattern, renderValue } from "./render.ts";
 
 // =============================================================================
 // PatternId — natural-key per pattern kind

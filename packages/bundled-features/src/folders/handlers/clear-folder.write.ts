@@ -1,9 +1,9 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { denyUnlessJoinRowParentVisible } from "../../shared/index.js";
-import { folderAssignmentAggregateId } from "../aggregate-id.js";
-import { DEFAULT_FOLDER_ACCESS } from "../constants.js";
-import { folderAssignmentExecutor } from "../executor.js";
-import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas.js";
+import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
+import { folderAssignmentAggregateId } from "../aggregate-id.ts";
+import { DEFAULT_FOLDER_ACCESS } from "../constants.ts";
+import { folderAssignmentExecutor } from "../executor.ts";
+import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas.ts";
 
 // clear-folder — removes a host entity from its folder (back to "unfiled").
 // Idempotent: clearing an entity that isn't in any folder is already the

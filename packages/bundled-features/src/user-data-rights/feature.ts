@@ -16,38 +16,38 @@ import {
   createNoopMetricsHandle,
 } from "@cosmicdrift/kumiko-framework/observability";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { createConfigAccessor } from "../config/index.js";
-import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.js";
+import { createConfigAccessor } from "../config/index.ts";
+import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.ts";
 import {
   EXPORT_SECTION_EXTENSION_NAME,
   PRIVACY_CENTER_SCREEN_ID,
   STATUS_OPTION_KEY_PREFIX,
   USER_ME_QUERY,
   UserDataRightsHandlers,
-} from "./constants.js";
-import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.js";
-import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write.js";
-import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query.js";
-import { downloadByJobQuery } from "./handlers/download-by-job.query.js";
-import { downloadByTokenQuery } from "./handlers/download-by-token.query.js";
-import { exportJobDetailQuery } from "./handlers/export-job-detail.query.js";
-import { exportJobListQuery } from "./handlers/export-job-list.query.js";
-import { exportStatusQuery } from "./handlers/export-status.query.js";
-import { liftRestrictionWrite } from "./handlers/lift-restriction.write.js";
-import { listDownloadAttemptsQuery } from "./handlers/list-download-attempts.query.js";
-import { myAuditLogQuery } from "./handlers/my-audit-log.query.js";
+} from "./constants.ts";
+import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.ts";
+import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write.ts";
+import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query.ts";
+import { downloadByJobQuery } from "./handlers/download-by-job.query.ts";
+import { downloadByTokenQuery } from "./handlers/download-by-token.query.ts";
+import { exportJobDetailQuery } from "./handlers/export-job-detail.query.ts";
+import { exportJobListQuery } from "./handlers/export-job-list.query.ts";
+import { exportStatusQuery } from "./handlers/export-status.query.ts";
+import { liftRestrictionWrite } from "./handlers/lift-restriction.write.ts";
+import { listDownloadAttemptsQuery } from "./handlers/list-download-attempts.query.ts";
+import { myAuditLogQuery } from "./handlers/my-audit-log.query.ts";
 import {
   createRequestDeletionHandler,
   type SendDeletionRequestedEmailFn,
-} from "./handlers/request-deletion.write.js";
+} from "./handlers/request-deletion.write.ts";
 import {
   createRequestDeletionByEmailHandler,
   type SendDeletionVerificationEmailFn,
-} from "./handlers/request-deletion-by-email.write.js";
-import { requestExportWrite } from "./handlers/request-export.write.js";
-import { restrictAccountWrite } from "./handlers/restrict-account.write.js";
-import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write.js";
-import { USER_DATA_RIGHTS_I18N } from "./i18n.js";
+} from "./handlers/request-deletion-by-email.write.ts";
+import { requestExportWrite } from "./handlers/request-export.write.ts";
+import { restrictAccountWrite } from "./handlers/restrict-account.write.ts";
+import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write.ts";
+import { USER_DATA_RIGHTS_I18N } from "./i18n.ts";
 import {
   type GdprMailDefaults,
   isGdprMailDeliveryAvailable,
@@ -56,31 +56,31 @@ import {
   makeDefaultDeletionExecutedEmail,
   makeDefaultExportFailedEmail,
   makeDefaultExportReadyEmail,
-} from "./lib/default-mailers.js";
-import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver.js";
-import { resolveAppTenantModel } from "./lib/resolve-tenant-model.js";
-import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver.js";
-import { registerGdprMails } from "./mail-notifications.js";
+} from "./lib/default-mailers.ts";
+import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver.ts";
+import { resolveAppTenantModel } from "./lib/resolve-tenant-model.ts";
+import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver.ts";
+import { registerGdprMails } from "./mail-notifications.ts";
 import {
   EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
   EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC,
   runExportJobs,
   type SendExportFailedEmailFn,
   type SendExportReadyEmailFn,
-} from "./run-export-jobs.js";
+} from "./run-export-jobs.ts";
 import {
   runForgetCleanup,
   type SendDeletionExecutedEmailFn,
   sanitizeReasonForLog,
-} from "./run-forget-cleanup.js";
-import { downloadAttemptEntity } from "./schema/download-attempt.js";
-import { exportDownloadTokenEntity } from "./schema/download-token.js";
-import { exportJobEntity } from "./schema/export-job.js";
+} from "./run-forget-cleanup.ts";
+import { downloadAttemptEntity } from "./schema/download-attempt.ts";
+import { exportDownloadTokenEntity } from "./schema/download-token.ts";
+import { exportJobEntity } from "./schema/export-job.ts";
 import {
   downloadAttemptListScreen,
   exportJobDetailScreen,
   exportJobListScreen,
-} from "./screens.js";
+} from "./screens.ts";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
 // Art. 18 (Restriction) + Art. 20 (Portabilität) als Core-Feature.

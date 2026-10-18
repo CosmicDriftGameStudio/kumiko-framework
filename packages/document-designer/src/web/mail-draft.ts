@@ -6,8 +6,8 @@ import type {
   MailVariable,
   PlaceholderType,
   TemplateRowView,
-} from "./mail-types.js";
-import { variableLabelText } from "./used-by-label.js";
+} from "./mail-types.ts";
+import { variableLabelText } from "./used-by-label.ts";
 
 export const EMPTY_DRAFT: MailDraft = {
   subject: "",

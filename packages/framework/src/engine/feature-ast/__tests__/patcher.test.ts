@@ -10,8 +10,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { Project, type SourceFile } from "ts-morph";
-import { parseSourceFile } from "../parse.js";
-import { createFeaturePatcher } from "../patcher.js";
+import { parseSourceFile } from "../parse.ts";
+import { createFeaturePatcher } from "../patcher.ts";
 
 const STARTER = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

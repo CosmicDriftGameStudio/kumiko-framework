@@ -1,4 +1,4 @@
-export type { LoggerOptions } from "./pino-logger.js";
-export { createLogger } from "./pino-logger.js";
-export type { Logger } from "./types.js";
-export { createFallbackLogger } from "./utils.js";
+export type { LoggerOptions } from "./pino-logger.ts";
+export { createLogger } from "./pino-logger.ts";
+export type { Logger } from "./types.ts";
+export { createFallbackLogger } from "./utils.ts";

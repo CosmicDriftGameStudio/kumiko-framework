@@ -29,34 +29,34 @@ import {
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
-} from "../../auth-email-password/__tests__/auth-mail-stack.js";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+} from "../../auth-email-password/__tests__/auth-mail-stack.ts";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
   configValuesTable,
   createConfigFeature,
   createConfigResolver,
-} from "../../config/index.js";
+} from "../../config/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createMailFoundationFeature } from "../../mail-foundation/index.js";
+} from "../../data-retention/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createMailFoundationFeature } from "../../mail-foundation/index.ts";
 import {
   clearInbox,
   createMailTransportInMemoryFeature,
   getInbox,
-} from "../../mail-transport-inmemory/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
+} from "../../mail-transport-inmemory/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
 import {
   emailsIn,
   expectEmailsShredded,
   setupSubjectKmsForTest,
-} from "./forget-shredding-test-helpers.js";
+} from "./forget-shredding-test-helpers.ts";
 
 const TENANT_A = "00000000-0000-4000-8000-0000000006a1";
 const TENANT_SYSTEM = SYSTEM_TENANT_ID;

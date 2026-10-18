@@ -2,16 +2,16 @@ import {
   CARD_META_MAX,
   cardColumnRoles,
   cardFileDisplayKind,
-} from "../../ui-types/card-column-roles.js";
-import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
-import { parseRefTarget } from "../parse-ref-target.js";
-import { normalizeListColumn } from "../screen-helpers.js";
+} from "../../ui-types/card-column-roles.ts";
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
+import { parseRefTarget } from "../parse-ref-target.ts";
+import { normalizeListColumn } from "../screen-helpers.ts";
 import type {
   EditRelatedListSection,
   EntityDefinition,
   FeatureDefinition,
   ListColumnSpec,
-} from "../types/index.js";
+} from "../types/index.ts";
 
 export type CardMetaOverflow = {
   readonly feature: string;

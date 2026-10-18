@@ -1,11 +1,11 @@
-import { createFallbackLogger } from "../../logging/utils.js";
-import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.js";
-import type { FeatureDefinition } from "../types/index.js";
+import { createFallbackLogger } from "../../logging/utils.ts";
+import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 import {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
   PII_USER_REFERENCE_NAME_HINTS,
-} from "./entity-handler.js";
+} from "./entity-handler.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 

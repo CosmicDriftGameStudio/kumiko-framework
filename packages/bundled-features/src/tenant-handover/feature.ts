@@ -1,11 +1,11 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { EXT_SIGNUP_HANDOVER } from "../shared/index.js";
-import { TENANT_HANDOVER_CLAIMED_EVENT_SHORT, tenantHandoverClaimedSchema } from "./events.js";
+import { EXT_SIGNUP_HANDOVER } from "../shared/index.ts";
+import { TENANT_HANDOVER_CLAIMED_EVENT_SHORT, tenantHandoverClaimedSchema } from "./events.ts";
 import {
   type ClaimTenantHandoverOptions,
   createClaimTenantHandoverHandler,
-} from "./handlers/claim.write.js";
-import { createSignupHandoverProvider } from "./signup-handover-provider.js";
+} from "./handlers/claim.write.ts";
+import { createSignupHandoverProvider } from "./signup-handover-provider.ts";
 
 export type TenantHandoverFeatureOptions = ClaimTenantHandoverOptions;
 

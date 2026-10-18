@@ -1,14 +1,14 @@
-import { assertNotificationVariables } from "../engine/template-variables.js";
-import type { TenantId } from "../engine/types/identifiers.js";
+import { assertNotificationVariables } from "../engine/template-variables.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
   NotifyDispatched,
   NotifyFn,
   NotifyOptions,
   NotifyResult,
   Registry,
-} from "../engine/types/index.js";
-import { AccessDeniedError, FrameworkReasons } from "../errors/index.js";
-import type { AfterCommitHook } from "./dispatcher-utils.js";
+} from "../engine/types/index.ts";
+import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
+import type { AfterCommitHook } from "./dispatcher-utils.ts";
 
 function isTenantBroadcast(to: NotifyOptions["to"]): to is { readonly tenant: TenantId } {
   return typeof to === "object" && to !== null && !Array.isArray(to) && "tenant" in to;

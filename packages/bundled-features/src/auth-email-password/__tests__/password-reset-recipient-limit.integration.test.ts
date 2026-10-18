@@ -13,28 +13,28 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createSessionsFeature, userSessionTable } from "../../sessions/index.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity } from "../../user/schema/user.js";
-import { AuthHandlers } from "../constants.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createSessionsFeature, userSessionTable } from "../../sessions/index.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { AuthHandlers } from "../constants.ts";
 import {
   AUTH_EMAIL_RATE_LIMIT_MAX_REQUESTS,
   AUTH_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
-} from "../email-rate-limits.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
-import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
+} from "../email-rate-limits.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const emailTransport = createInMemoryTransport();
 const MAILS_PER_ADDRESS = AUTH_EMAIL_RATE_LIMIT_MAX_REQUESTS;

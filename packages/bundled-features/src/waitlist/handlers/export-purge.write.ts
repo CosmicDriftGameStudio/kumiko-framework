@@ -7,9 +7,9 @@ import {
   WAITLIST_EXPORTED_EVENT_QN,
   WAITLIST_PURGED_EVENT_QN,
   WaitlistErrors,
-} from "../constants.js";
-import { listAllWaitlistRows, purgeWaitlistRows } from "../entries-admin.js";
-import { adminAccess, waitlistDb } from "../lib.js";
+} from "../constants.ts";
+import { listAllWaitlistRows, purgeWaitlistRows } from "../entries-admin.ts";
+import { adminAccess, waitlistDb } from "../lib.ts";
 
 export type WaitlistExportData = {
   readonly count: number;

@@ -3,13 +3,13 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { burnToken } from "../../shared/index.js";
-import { base32Decode } from "../base32.js";
-import { findUserMfaRow } from "../db/queries.js";
-import { invalidSetupToken, invalidTotpCode, mfaAlreadyEnabled } from "../errors.js";
-import { verifyMfaSetupToken } from "../mfa-setup-token.js";
-import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
-import { verifyTotp } from "../totp.js";
+import { burnToken } from "../../shared/index.ts";
+import { base32Decode } from "../base32.ts";
+import { findUserMfaRow } from "../db/queries.ts";
+import { invalidSetupToken, invalidTotpCode, mfaAlreadyEnabled } from "../errors.ts";
+import { verifyMfaSetupToken } from "../mfa-setup-token.ts";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
+import { verifyTotp } from "../totp.ts";
 
 export type EnableConfirmOptions = {
   readonly setupTokenSecret: string;

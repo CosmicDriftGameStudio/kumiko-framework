@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../../engine/define-feature.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { createRegistry } from "../../engine/registry.js";
-import { extractTableName, type SchemaTable } from "../dialect.js";
-import { entityTableFromRegistry } from "../entity-table-from-registry.js";
-import { buildEntityTable } from "../table-builder.js";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { createRegistry } from "../../engine/registry.ts";
+import { extractTableName, type SchemaTable } from "../dialect.ts";
+import { entityTableFromRegistry } from "../entity-table-from-registry.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 function unitEntity() {
   return createEntity({

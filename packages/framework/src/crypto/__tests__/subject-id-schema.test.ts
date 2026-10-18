@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type * as z from "zod";
-import { type SubjectId, subjectIdSchema } from "../kms-adapter.js";
+import { type SubjectId, subjectIdSchema } from "../kms-adapter.ts";
 
 // `satisfies` at the definition only proves schema output ⊆ SubjectId; this
 // proves the reverse, so a SubjectId variant the schema lacks fails to compile.

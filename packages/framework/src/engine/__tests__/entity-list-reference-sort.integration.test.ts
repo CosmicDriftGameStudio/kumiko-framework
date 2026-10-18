@@ -10,11 +10,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
-import { defineEntityListHandler } from "../entity-handlers.js";
-import { createEntity, createTextField } from "../factories.js";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
+import { defineEntityListHandler } from "../entity-handlers.ts";
+import { createEntity, createTextField } from "../factories.ts";
 
 const admin = TestUsers.admin;
 

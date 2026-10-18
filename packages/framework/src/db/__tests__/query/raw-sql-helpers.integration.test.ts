@@ -4,8 +4,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { TenantId } from "../../../engine/types/index.js";
-import type { ColumnMeta, EntityTableMeta } from "../../entity-table-meta.js";
+import type { TenantId } from "../../../engine/types/index.ts";
+import type { ColumnMeta, EntityTableMeta } from "../../entity-table-meta.ts";
 import {
   aggregateWhere,
   asRawClient,
@@ -13,9 +13,9 @@ import {
   insertOne,
   selectInnerJoin,
   selectMany,
-} from "../../query.js";
-import { createTenantDb } from "../../tenant-db.js";
-import { closeDb, getDb, makeTableMeta, renderCreateTable, uniqueTableName } from "./_helpers.js";
+} from "../../query.ts";
+import { createTenantDb } from "../../tenant-db.ts";
+import { closeDb, getDb, makeTableMeta, renderCreateTable, uniqueTableName } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

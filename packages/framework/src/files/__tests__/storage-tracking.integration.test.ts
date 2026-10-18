@@ -15,11 +15,11 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { createTenantDb } from "../../db/tenant-db.js";
-import type { SessionUser } from "../../engine/index.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
+import type { SessionUser } from "../../engine/index.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -28,7 +28,7 @@ import {
   filesStorageTrackingFeature,
   type InMemoryFileProvider,
   tenantStorageUsageTable,
-} from "../index.js";
+} from "../index.ts";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;

@@ -12,7 +12,7 @@
 
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { AuthMfaHandlers } from "../constants.js";
+import { AuthMfaHandlers } from "../constants.ts";
 
 export type MfaDisableDialogProps = {
   readonly open: boolean;

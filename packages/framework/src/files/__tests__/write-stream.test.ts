@@ -17,8 +17,8 @@ import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createInMemoryFileProvider } from "../in-memory-provider.js";
-import { createLocalProvider } from "../local-provider.js";
+import { createInMemoryFileProvider } from "../in-memory-provider.ts";
+import { createLocalProvider } from "../local-provider.ts";
 
 async function* fromChunks(chunks: Uint8Array[]): AsyncIterable<Uint8Array> {
   for (const c of chunks) {

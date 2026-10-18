@@ -2,10 +2,10 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
 import * as z from "zod";
-import { HostRoutingQueries, isPathTenantKeyCandidate, isTenantKeyCandidate } from "./constants.js";
-import { classifyHost } from "./host.js";
-import type { HostRoutingOptions, HostRoutingSurface } from "./options.js";
-import { validateHostRoutingOptions } from "./validate-options.js";
+import { HostRoutingQueries, isPathTenantKeyCandidate, isTenantKeyCandidate } from "./constants.ts";
+import { classifyHost } from "./host.ts";
+import type { HostRoutingOptions, HostRoutingSurface } from "./options.ts";
+import { validateHostRoutingOptions } from "./validate-options.ts";
 
 // Structurally identical to server-runtime's HostDispatchResult. Defined here
 // because server-runtime depends on bundled-features, not the other way round;

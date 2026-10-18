@@ -9,8 +9,8 @@ import type { ConfigResolver, Registry, TenantId } from "@cosmicdrift/kumiko-fra
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { createConfigAccessor } from "../../config/index.js";
-import { createFileProviderForTenant } from "../../file-foundation/index.js";
+import { createConfigAccessor } from "../../config/index.ts";
+import { createFileProviderForTenant } from "../../file-foundation/index.ts";
 
 export interface TenantStorageResolverCtx {
   readonly registry: Registry;

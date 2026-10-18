@@ -3,7 +3,7 @@ import {
   buildDefaultCsp,
   resolveSecurityHeaders,
   withSecurityHeaders,
-} from "../security-headers.js";
+} from "../security-headers.ts";
 
 const okHandler = (_req: Request) => new Response("ok");
 const req = new Request("http://localhost/");

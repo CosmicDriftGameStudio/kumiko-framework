@@ -1,7 +1,7 @@
 // @ts-nocheck — vendored shadcn, regenerate via scripts/sync-shadcn.ts
 import * as React from "react"
 
-import { cn } from "../lib/cn.js"
+import { cn } from "../lib/cn.ts"
 
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (

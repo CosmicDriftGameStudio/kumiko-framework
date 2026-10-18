@@ -7,9 +7,9 @@ import {
   UnprocessableError,
   ValidationError,
 } from "@cosmicdrift/kumiko-framework/errors";
-import type { ToolCallRequest, ToolDispatcher } from "../tool-dispatch.js";
-import { dispatchToolCall } from "../tool-dispatch.js";
-import type { ToolDispatchDescriptor } from "../types.js";
+import type { ToolCallRequest, ToolDispatcher } from "../tool-dispatch.ts";
+import { dispatchToolCall } from "../tool-dispatch.ts";
+import type { ToolDispatchDescriptor } from "../types.ts";
 
 const CALLER: SessionUser = { id: "user-1", tenantId: "tenant-1", roles: ["member"] };
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { defaultLocaleOf } from "../editor-locale.js";
+import { defaultLocaleOf } from "../editor-locale.ts";
 
 describe("defaultLocaleOf", () => {
   test("the UI language wins when the template has it, even if the app lists it second", () => {

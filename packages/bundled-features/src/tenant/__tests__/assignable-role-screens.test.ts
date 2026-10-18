@@ -4,10 +4,10 @@ import {
   EXT_ASSIGNABLE_ROLE,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createConfigFeature } from "../../config/feature.js";
-import { createUserFeature } from "../../user/feature.js";
-import { INVITE_CREATE_SCREEN_ID, MEMBER_ROLES_EDIT_SCREEN_ID } from "../constants.js";
-import { collectAssignableAppRoles, createTenantFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { INVITE_CREATE_SCREEN_ID, MEMBER_ROLES_EDIT_SCREEN_ID } from "../constants.ts";
+import { collectAssignableAppRoles, createTenantFeature } from "../feature.ts";
 
 describe("assignable app role declarations at boot (tenant r.bootCheck)", () => {
   function bootWith(declare: Parameters<typeof defineFeature>[1]) {

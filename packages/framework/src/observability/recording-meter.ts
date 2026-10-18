@@ -1,5 +1,5 @@
-import { assertUnreachable } from "../utils/index.js";
-import { validateLabelKey } from "./metric-validator.js";
+import { assertUnreachable } from "../utils/index.ts";
+import { validateLabelKey } from "./metric-validator.ts";
 import type {
   Counter,
   Gauge,
@@ -7,7 +7,7 @@ import type {
   Meter,
   MetricDefinition,
   MetricLabels,
-} from "./types/index.js";
+} from "./types/index.ts";
 
 // Event type emitted when any metric changes — feeds into provider emitters.
 export type MetricEvent =

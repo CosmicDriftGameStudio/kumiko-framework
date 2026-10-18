@@ -5,12 +5,12 @@
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { isTenantDb } from "../shared/index.js";
-import { parseRetentionOverrideOrNull } from "./_internal/parse-override.js";
-import type { RetentionPresetKey } from "./presets.js";
-import { resolveTenantRetentionPreset } from "./resolve-tenant-preset.js";
-import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolver.js";
-import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override.js";
+import { isTenantDb } from "../shared/index.ts";
+import { parseRetentionOverrideOrNull } from "./_internal/parse-override.ts";
+import type { RetentionPresetKey } from "./presets.ts";
+import { resolveTenantRetentionPreset } from "./resolve-tenant-preset.ts";
+import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolver.ts";
+import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override.ts";
 
 export interface ResolveForTenantArgs {
   // fw#2914 — a EXT_USER_DATA hook's ctx.db is a TenantDb (method-form);

@@ -4,7 +4,7 @@ import {
   buildStorageKey,
   tenantExportPrefix,
   tenantStoragePrefixes,
-} from "../types.js";
+} from "../types.ts";
 
 describe("buildStorageKey", () => {
   test("uses the lowercased extension for a normal filename", () => {

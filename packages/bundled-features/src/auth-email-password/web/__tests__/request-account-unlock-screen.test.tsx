@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { RequestAccountUnlockScreen } from "../request-account-unlock-screen.js";
-import { installFetchMock } from "./fetch-mock.js";
-import { renderWithProviders } from "./test-utils.js";
+import { RequestAccountUnlockScreen } from "../request-account-unlock-screen.tsx";
+import { installFetchMock } from "./fetch-mock.ts";
+import { renderWithProviders } from "./test-utils.tsx";
 
 installFetchMock();
 

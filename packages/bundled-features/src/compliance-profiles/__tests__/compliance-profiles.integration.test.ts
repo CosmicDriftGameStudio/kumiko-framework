@@ -13,7 +13,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature.js";
+import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature.ts";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 const FOR_TENANT = "compliance-profiles:query:for-tenant";

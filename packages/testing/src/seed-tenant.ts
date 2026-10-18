@@ -20,7 +20,7 @@ import {
   splitSeedRoles,
   withSession,
 } from "./seed-types";
-import type { TestStack } from "./stack/index.js";
+import type { TestStack } from "./stack/index.ts";
 
 export type {
   BoundApi,

@@ -16,8 +16,8 @@ import {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { WAITLIST_STATUS, type WaitlistStatus } from "./constants.js";
-import { importWaitlistEntry, type WaitlistImportEntry } from "./import.js";
+import { WAITLIST_STATUS, type WaitlistStatus } from "./constants.ts";
+import { importWaitlistEntry, type WaitlistImportEntry } from "./import.ts";
 
 export const LEGACY_WAITLIST_SOURCES = ["offlot", "publicstatus"] as const;
 export type LegacyWaitlistSource = (typeof LEGACY_WAITLIST_SOURCES)[number];

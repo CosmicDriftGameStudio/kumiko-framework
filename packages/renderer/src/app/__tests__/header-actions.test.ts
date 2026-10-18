@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { RenderEditAction } from "../../components/render-edit-types.js";
+import type { RenderEditAction } from "../../components/render-edit-types.ts";
 import {
   compactHeaderPrimary,
   orderPlainHeaderActions,
   primaryHeaderAction,
-} from "../header-actions.js";
+} from "../header-actions.ts";
 
 function action(id: string, extra: Partial<RenderEditAction> = {}): RenderEditAction {
   return { id, label: id, onPress: () => {}, ...extra };

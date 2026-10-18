@@ -1,7 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { templateBundleSchema } from "../template-bundle.js";
-import { importTemplateBundle, prepareTemplateBundleBeforeTransaction } from "./bundle-import.js";
+import { templateBundleSchema } from "../template-bundle.ts";
+import { importTemplateBundle, prepareTemplateBundleBeforeTransaction } from "./bundle-import.ts";
 
 export const importBundleWrite = defineWriteHandler({
   name: "import-bundle",

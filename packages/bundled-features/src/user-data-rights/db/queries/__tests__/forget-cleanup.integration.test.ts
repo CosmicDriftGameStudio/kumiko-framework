@@ -11,8 +11,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../../../user/index.js";
-import { selectUsersDueForForgetCleanup } from "../forget-cleanup.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../../../user/index.ts";
+import { selectUsersDueForForgetCleanup } from "../forget-cleanup.ts";
 
 let stack: TestStack;
 

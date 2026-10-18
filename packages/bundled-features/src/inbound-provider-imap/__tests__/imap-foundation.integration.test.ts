@@ -37,9 +37,9 @@ import { createTransport } from "nodemailer";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
   createInboundMailFoundationFeature,
   createInboundMailSupervisor,
@@ -50,15 +50,15 @@ import {
   mailAccountsProjectionTable,
   seenMessageEntity,
   syncCursorEntity,
-} from "../../inbound-mail-foundation/index.js";
+} from "../../inbound-mail-foundation/index.ts";
 import {
   createSecretsContext,
   createSecretsFeature,
   tenantSecretsTable,
-} from "../../secrets/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { createInboundProviderImapFeature } from "../feature.js";
+} from "../../secrets/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createInboundProviderImapFeature } from "../feature.ts";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);

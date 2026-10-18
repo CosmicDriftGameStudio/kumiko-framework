@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { PII_CIPHERTEXT_PREFIX } from "@cosmicdrift/kumiko-framework/crypto";
-import { maskRecipientAddress } from "../mask-recipient-address.js";
+import { maskRecipientAddress } from "../mask-recipient-address.ts";
 
 describe("maskRecipientAddress", () => {
   test("null stays null", () => {

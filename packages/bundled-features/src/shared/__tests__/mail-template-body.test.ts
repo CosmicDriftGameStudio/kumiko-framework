@@ -8,7 +8,7 @@ import {
   mailSubject,
 } from "@cosmicdrift/kumiko-bundled-features/shared/mail-template-body";
 import { templateVariable } from "@cosmicdrift/kumiko-framework/engine";
-import { compileDocumentBodyToHandlebars } from "../../template-resolver/compile-document-body.js";
+import { compileDocumentBodyToHandlebars } from "../../template-resolver/compile-document-body.ts";
 
 const variables = {
   name: templateVariable.text(),

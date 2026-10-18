@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveContentType } from "../resolve-content-type.js";
+import { resolveContentType } from "../resolve-content-type.ts";
 
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 const OCTET = "application/octet-stream";

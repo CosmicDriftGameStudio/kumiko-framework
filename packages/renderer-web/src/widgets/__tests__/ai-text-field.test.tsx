@@ -7,8 +7,8 @@ import {
   render,
   screen,
   waitFor,
-} from "../../__tests__/test-utils.js";
-import { AiTextArea, AiTextField, type AiTextFieldProps } from "../ai-text-field.js";
+} from "../../__tests__/test-utils.tsx";
+import { AiTextArea, AiTextField, type AiTextFieldProps } from "../ai-text-field.tsx";
 
 function renderWithDispatcher(
   ui: ReactElement,

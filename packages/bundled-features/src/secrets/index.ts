@@ -5,7 +5,7 @@ export {
   SECRETS_ERROR_KEYS,
   SecretsHandlers,
   SecretsQueries,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   createSecretsContext,
   createSecretsFeature,
@@ -20,13 +20,13 @@ export {
   secretsEnvSchema,
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
-} from "./feature.js";
-export { createDeleteHandler } from "./handlers/delete.write.js";
-export { createListHandler } from "./handlers/list.query.js";
+} from "./feature.ts";
+export { createDeleteHandler } from "./handlers/delete.write.ts";
+export { createListHandler } from "./handlers/list.query.ts";
 export {
   type RotateJobPayload,
   type RotateJobResult,
   rotateJob,
-} from "./handlers/rotate.job.js";
-export { createSetHandler } from "./handlers/set.write.js";
-export { isInvalidSecretValueError } from "./write-gate.js";
+} from "./handlers/rotate.job.ts";
+export { createSetHandler } from "./handlers/set.write.ts";
+export { isInvalidSecretValueError } from "./write-gate.ts";

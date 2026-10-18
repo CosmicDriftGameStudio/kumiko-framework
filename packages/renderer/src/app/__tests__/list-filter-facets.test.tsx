@@ -16,15 +16,15 @@ import {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.js";
-import type { FeatureSchema } from "../feature-schema.js";
-import { KumikoScreen } from "../kumiko-screen.js";
-import type { NavApi } from "../nav.js";
-import { NavProvider } from "../nav.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.ts";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import type { FeatureSchema } from "../feature-schema.ts";
+import { KumikoScreen } from "../kumiko-screen.tsx";
+import type { NavApi } from "../nav.tsx";
+import { NavProvider } from "../nav.tsx";
 
 let capturedProps: DataTableProps | undefined;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {

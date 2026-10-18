@@ -30,10 +30,10 @@ import {
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { workflowRunAggregateId } from "../aggregate-id.js";
-import { registerEventTrigger } from "../event-trigger.js";
-import { createWorkflowRunnerFeature } from "../feature.js";
-import type { WorkflowRunStartedPayload } from "../runner.js";
+import { workflowRunAggregateId } from "../aggregate-id.ts";
+import { registerEventTrigger } from "../event-trigger.ts";
+import { createWorkflowRunnerFeature } from "../feature.ts";
+import type { WorkflowRunStartedPayload } from "../runner.ts";
 
 let stack: TestStack;
 const admin = TestUsers.admin;

@@ -23,20 +23,20 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipEntity } from "../../tenant/index.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipEntity } from "../../tenant/index.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   driveDestructionToCompletion,
   seedDestroyingTenant,
-} from "../../tenant-lifecycle/testing.js";
-import { documentExtractEntity, documentExtractsTable } from "../entity.js";
-import { createDocumentIngestFoundationFeature } from "../feature.js";
-import { writeIngestPages } from "../pages.js";
+} from "../../tenant-lifecycle/testing.ts";
+import { documentExtractEntity, documentExtractsTable } from "../entity.ts";
+import { createDocumentIngestFoundationFeature } from "../feature.ts";
+import { writeIngestPages } from "../pages.ts";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 

@@ -1,7 +1,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/db";
 import { type PruneEventsOptions, pruneEvents } from "@cosmicdrift/kumiko-framework/pipeline";
-import { deliveryAttemptsTable } from "./tables.js";
+import { deliveryAttemptsTable } from "./tables.ts";
 
 export const DEFAULT_ATTEMPT_LOG_RETENTION_DAYS = 90;
 const ROW_DELETE_BATCH_SIZE = 1000;

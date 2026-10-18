@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cardColumnRoles, cardFileDisplayKind } from "../card-column-roles.js";
+import { cardColumnRoles, cardFileDisplayKind } from "../card-column-roles.ts";
 
 describe("cardColumnRoles", () => {
   test("the first column is the title when none is highlighted", () => {

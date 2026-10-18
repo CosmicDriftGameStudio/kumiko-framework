@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DELIVERY_UNSUBSCRIBE_PATH } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { resolveUnsubscribeWiring } from "../resolve-unsubscribe-wiring.js";
+import { resolveUnsubscribeWiring } from "../resolve-unsubscribe-wiring.ts";
 
 const SECRET = "unsubscribe-wiring-test-secret-32-chars-min!";
 

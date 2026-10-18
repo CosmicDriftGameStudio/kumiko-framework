@@ -14,32 +14,32 @@ import {
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
-} from "../../auth-email-password/__tests__/auth-mail-stack.js";
-import { AuthHandlers, AuthQueries } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+} from "../../auth-email-password/__tests__/auth-mail-stack.ts";
+import { AuthHandlers, AuthQueries } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { configValueEntity, createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { createUserDataRightsFeature } from "../../user-data-rights/feature.js";
-import { waitlistEntryEntity, waitlistEntryTable } from "../entity.js";
-import { createWaitlistFeature } from "../feature.js";
-import type { WaitlistOptions } from "../options.js";
+} from "../../compliance-profiles/index.ts";
+import { configValueEntity, createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
+import { waitlistEntryEntity, waitlistEntryTable } from "../entity.ts";
+import { createWaitlistFeature } from "../feature.ts";
+import type { WaitlistOptions } from "../options.ts";
 
 export const emailTransport = createInMemoryTransport();
 

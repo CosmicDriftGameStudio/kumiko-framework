@@ -9,10 +9,10 @@ import {
   resetEntityFieldEncryptionCacheForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { configureEntityFieldEncryption } from "../../db/entity-field-encryption.js";
-import { asRawClient } from "../../db/query.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { configureEntityFieldEncryption } from "../../db/entity-field-encryption.ts";
+import { asRawClient } from "../../db/query.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const admin = TestUsers.admin;
 

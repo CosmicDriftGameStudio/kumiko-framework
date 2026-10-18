@@ -8,25 +8,25 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
-import { subjectIdToKey } from "../../crypto/kms-adapter.js";
+import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.ts";
+import { subjectIdToKey } from "../../crypto/kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   decryptPiiValueForSubject,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
   piiCiphertextSubject,
-} from "../../crypto/pii-field-encryption.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
+} from "../../crypto/pii-field-encryption.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
 import {
   configureEntityFieldEncryption,
   resetEntityFieldEncryptionCacheForTests,
-} from "../entity-field-encryption.js";
-import { backfillEventPiiEncryption } from "../queries/backfill-pii.js";
-import { asRawClient } from "../query.js";
+} from "../entity-field-encryption.ts";
+import { backfillEventPiiEncryption } from "../queries/backfill-pii.ts";
+import { asRawClient } from "../query.ts";
 
 const admin = TestUsers.admin;
 

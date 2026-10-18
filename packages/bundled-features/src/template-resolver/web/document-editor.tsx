@@ -5,9 +5,9 @@
 
 import { TextareaContentEditor } from "@cosmicdrift/kumiko-renderer";
 import { createContext, lazy, type ReactNode, Suspense, useContext } from "react";
-import type { DocumentEditorProps, DocumentToolbarBlock } from "./document-toolbar-blocks.js";
+import type { DocumentEditorProps, DocumentToolbarBlock } from "./document-toolbar-blocks.ts";
 
-const LazyDocumentTiptapEditor = lazy(() => import("./document-tiptap-editor.js"));
+const LazyDocumentTiptapEditor = lazy(() => import("./document-tiptap-editor.tsx"));
 
 // The editor registry only hands ContentEditorProps to an editor, so the
 // collection's block set (mail vs. PDF) reaches it through this context. An

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { DropdownMenuItem } from "../primitives/dropdown-menu.js";
-import { useThemeToggleLabel } from "./theme-label.js";
+import { DropdownMenuItem } from "../primitives/dropdown-menu.tsx";
+import { useThemeToggleLabel } from "./theme-label.ts";
 
 export type ThemeMenuItemProps = {
   readonly lightIcon?: ReactNode;

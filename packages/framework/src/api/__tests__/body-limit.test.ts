@@ -5,9 +5,9 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "../api-constants.js";
-import { buildServer } from "../server.js";
+} from "../../engine/index.ts";
+import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "../api-constants.ts";
+import { buildServer } from "../server.ts";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 

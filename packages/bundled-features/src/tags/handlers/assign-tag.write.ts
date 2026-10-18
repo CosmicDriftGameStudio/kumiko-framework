@@ -1,11 +1,11 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { denyUnlessJoinRowParentVisible } from "../../shared/index.js";
-import { tagAssignmentAggregateId } from "../aggregate-id.js";
-import { DEFAULT_TAG_ACCESS } from "../constants.js";
-import { tagAssignmentExecutor, tagExecutor } from "../executor.js";
-import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas.js";
+import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
+import { tagAssignmentAggregateId } from "../aggregate-id.ts";
+import { DEFAULT_TAG_ACCESS } from "../constants.ts";
+import { tagAssignmentExecutor, tagExecutor } from "../executor.ts";
+import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas.ts";
 
 // assign-tag — links a tag to a host entity by (entityType, entityId). The
 // assignment id is deterministic, so the row is unique per (tag, entity).

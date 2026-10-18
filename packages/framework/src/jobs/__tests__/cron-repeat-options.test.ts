@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { getNextMillis } from "bullmq";
-import { cronRepeatOptions } from "../cron-repeat-options.js";
+import { cronRepeatOptions } from "../cron-repeat-options.ts";
 
 function nextRun(trigger: { cron: string; tz?: string }, after: string): string {
   const next = getNextMillis(Date.parse(after), cronRepeatOptions(trigger));

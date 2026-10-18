@@ -1,6 +1,6 @@
 import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import * as z from "zod";
-import { WAITLIST_FIELD_LIMITS } from "./constants.js";
+import { WAITLIST_FIELD_LIMITS } from "./constants.ts";
 
 // Submitted text lands in a mail subject; CR/LF there would allow header injection.
 const NO_CONTROL_CHARS = /^\P{Cc}*$/u;

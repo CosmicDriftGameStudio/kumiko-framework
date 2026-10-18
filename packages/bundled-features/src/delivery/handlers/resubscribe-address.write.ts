@@ -1,8 +1,8 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { removeAddressOptOut } from "../address-opt-out.js";
-import { currentNotificationType, notificationTypeNames } from "../notification-type-aliases.js";
+import { removeAddressOptOut } from "../address-opt-out.ts";
+import { currentNotificationType, notificationTypeNames } from "../notification-type-aliases.ts";
 
 export const resubscribeAddressWrite = defineWriteHandler({
   name: "resubscribeAddress",

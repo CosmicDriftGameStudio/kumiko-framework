@@ -5,17 +5,17 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
-import { AccessDeniedError, InternalError } from "../../errors/index.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
-import type { TableColumns } from "../dialect.js";
-import { buildEntityTable } from "../table-builder.js";
+import { createBooleanField, createEntity, createTextField } from "../../engine/index.ts";
+import { AccessDeniedError, InternalError } from "../../errors/index.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
+import type { TableColumns } from "../dialect.ts";
+import { buildEntityTable } from "../table-builder.ts";
 import {
   assertPersonalDataWrite,
   createTenantDb,
   type PersonalDataGate,
   runInOwnTransaction,
-} from "../tenant-db.js";
+} from "../tenant-db.ts";
 
 const entity = createEntity({
   table: "run_in_own_tx_items",

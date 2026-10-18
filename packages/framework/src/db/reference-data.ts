@@ -1,9 +1,9 @@
-import { fetchOne, insertOne, updateMany } from "../db/query.js";
-import type { ReferenceDataDef } from "../engine/types/index.js";
-import { SYSTEM_TENANT_ID } from "../engine/types/index.js";
-import type { DbConnection, DbRow } from "./connection.js";
-import type { TableColumns } from "./dialect.js";
-import { tableColumnsOf } from "./table-introspection.js";
+import { fetchOne, insertOne, updateMany } from "../db/query.ts";
+import type { ReferenceDataDef } from "../engine/types/index.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import type { DbConnection, DbRow } from "./connection.ts";
+import type { TableColumns } from "./dialect.ts";
+import { tableColumnsOf } from "./table-introspection.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { shouldWireProdSessions } from "../session-wiring.js";
+import { shouldWireProdSessions } from "../session-wiring.ts";
 
 describe("shouldWireProdSessions — secure-by-default (#1372)", () => {
   it("wires when auth + sessionStore provider mounted", () => {

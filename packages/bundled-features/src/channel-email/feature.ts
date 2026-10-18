@@ -4,8 +4,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { createEmailChannel, type EmailChannelOptions } from "./email-channel.js";
-import { smtpEnvSchema } from "./env.js";
+import { createEmailChannel, type EmailChannelOptions } from "./email-channel.ts";
+import { smtpEnvSchema } from "./env.ts";
 
 export function createChannelEmailFeature(options: EmailChannelOptions) {
   const channel = createEmailChannel(options);

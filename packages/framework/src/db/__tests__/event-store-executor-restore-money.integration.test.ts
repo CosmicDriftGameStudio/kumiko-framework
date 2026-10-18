@@ -10,10 +10,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEntity, createMoneyField, defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEntityTable } from "../table-builder.js";
+import { createEntity, createMoneyField, defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 const ledgerEntity = createEntity({
   table: "read_restore_money_entries",

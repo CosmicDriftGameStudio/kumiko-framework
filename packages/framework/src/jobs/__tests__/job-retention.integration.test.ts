@@ -10,10 +10,10 @@ import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { AppContext, TenantId } from "../../engine/types/index.js";
-import { bootJobIdForJobName, createJobRunner } from "../job-runner.js";
-import { purgeRawRedisKeys } from "./purge-raw-redis-keys.js";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { AppContext, TenantId } from "../../engine/types/index.ts";
+import { bootJobIdForJobName, createJobRunner } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 let testRedis: TestRedis;
 let redisUrl: string;

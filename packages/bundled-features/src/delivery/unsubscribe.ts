@@ -12,16 +12,16 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import * as jose from "jose";
 import * as z from "zod";
-import type { MailChrome } from "../renderer-foundation/index.js";
-import { hashUnsubscribeAddress } from "./address-opt-out.js";
+import type { MailChrome } from "../renderer-foundation/index.ts";
+import { hashUnsubscribeAddress } from "./address-opt-out.ts";
 import {
   DELIVERY_RESUBSCRIBE_PATH,
   DELIVERY_UNSUBSCRIBE_PATH,
   DeliveryErrors,
   DeliveryHandlers,
   DeliveryQueries,
-} from "./constants.js";
-import { renderUnsubscribePage, type UnsubscribePageState } from "./unsubscribe-page.js";
+} from "./constants.ts";
+import { renderUnsubscribePage, type UnsubscribePageState } from "./unsubscribe-page.ts";
 
 // The mail's locale, so the pages behind the link speak the mail's language. Optional: links
 // signed before the claim existed keep verifying and fall back to English.

@@ -5,10 +5,10 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { USER_STATUS, userTable } from "../../user/index.js";
-import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant.js";
-import { isAdminActor } from "../lib/is-admin-actor.js";
-import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
+import { USER_STATUS, userTable } from "../../user/index.ts";
+import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant.ts";
+import { isAdminActor } from "../lib/is-admin-actor.ts";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 // POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
 // Flippt status=Active → Restricted und revoked alle live sessions

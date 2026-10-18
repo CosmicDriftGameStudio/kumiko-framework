@@ -1,9 +1,9 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
-import { loadClientConfig } from "./config.js";
-import { PUPPETEER_UNAVAILABLE_MESSAGE } from "./errors.js";
-import { serviceEgress } from "./http-client.js";
+import { loadClientConfig } from "./config.ts";
+import { PUPPETEER_UNAVAILABLE_MESSAGE } from "./errors.ts";
+import { serviceEgress } from "./http-client.ts";
 
 const STATUS_TIMEOUT_MS = 3000;
 

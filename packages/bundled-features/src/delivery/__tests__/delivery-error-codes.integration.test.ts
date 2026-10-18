@@ -19,12 +19,12 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createConfigFeature } from "../../config/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { DELIVERY_CHANNEL_EXTENSION } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { deliveryAttemptsTable } from "../tables.js";
-import { createDeliveryTestContext } from "../testing.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { deliveryAttemptsTable } from "../tables.ts";
+import { createDeliveryTestContext } from "../testing.ts";
 
 const LEAKY_MESSAGE =
   "POST https://hooks.example.com/services/SECRET123 failed for ops@example.com";

@@ -6,11 +6,11 @@ import { describe, expect, test } from "bun:test";
 import { getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature, type TenantId } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { CSRF_HEADER_NAME } from "../auth-middleware.js";
-import type { AuthRoutesConfig } from "../auth-routes.js";
-import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE, HOST_COOKIE_PREFIX } from "../session-cookies.js";
+import { defineFeature, type TenantId } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { CSRF_HEADER_NAME } from "../auth-middleware.ts";
+import type { AuthRoutesConfig } from "../auth-routes.ts";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE, HOST_COOKIE_PREFIX } from "../session-cookies.ts";
 
 const PREFIXED_AUTH = `${HOST_COOKIE_PREFIX}${AUTH_COOKIE_BASE}`;
 const PREFIXED_CSRF = `${HOST_COOKIE_PREFIX}${CSRF_COOKIE_BASE}`;

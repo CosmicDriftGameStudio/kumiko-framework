@@ -9,16 +9,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { ASSETS_DIR } from "./build-prod-bundle.js";
-import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.js";
-import { CSP_HASHES_FILE, parseCspHashes } from "./csp-hashes.js";
+import { ASSETS_DIR } from "./build-prod-bundle.ts";
+import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.ts";
+import { CSP_HASHES_FILE, parseCspHashes } from "./csp-hashes.ts";
 import {
   buildRequestBoundSystemQuery,
   type QueryDispatcher,
-} from "./request-bound-system-query.js";
-import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app.js";
-import type { SecurityHeadersOption } from "./security-headers.js";
-import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first.js";
+} from "./request-bound-system-query.ts";
+import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app.ts";
+import type { SecurityHeadersOption } from "./security-headers.ts";
+import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first.ts";
 
 // Static-asset + SPA-fallback serving for runProdApp's HTTP handler. Split
 // out of run-prod-app.ts (#1005, Welle 2) — mechanical relocation, these

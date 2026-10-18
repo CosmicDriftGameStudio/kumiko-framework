@@ -4,8 +4,8 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import { createI18n } from "../index.js";
+} from "../../engine/index.ts";
+import { createI18n } from "../index.ts";
 
 describe("createI18n", () => {
   const adminFeature = defineFeature("adminUsers", (r) => {

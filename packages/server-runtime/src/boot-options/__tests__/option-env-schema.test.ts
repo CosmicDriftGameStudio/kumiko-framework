@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { classifyField, composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
-import { withBootOptionEnvBlocks } from "../option-env-schema.js";
+import { withBootOptionEnvBlocks } from "../option-env-schema.ts";
 
 const appSchema = () => composeEnvSchema({ features: [] });
 

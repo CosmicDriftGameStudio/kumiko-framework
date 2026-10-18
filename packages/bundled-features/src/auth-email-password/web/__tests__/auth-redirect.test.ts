@@ -6,7 +6,7 @@ import {
   followNextOrLandingAfterLogin,
   isSafeNextPath,
   readNextFromSearch,
-} from "../auth-redirect.js";
+} from "../auth-redirect.ts";
 
 describe("isSafeNextPath", () => {
   test.each(["/", "/a", "/a/dashboard?tab=2#section", "/a/path%2F..%2Fx"])(

@@ -16,20 +16,20 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createInMemoryTransport } from "../../channel-email/types.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { configValuesTable } from "../../config/table.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { hashUnsubscribeAddress, upsertAddressOptOut } from "../address-opt-out.js";
-import { DeliveryHandlers, DeliveryQueries } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { notificationAddressOptOutsTable, notificationPreferencesTable } from "../tables.js";
-import { createDeliveryTestContext } from "../testing.js";
-import { upsertPreference } from "../upsert-preference.js";
-import { createPlainFallbackEmailFeature } from "./plain-email-channel.js";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { hashUnsubscribeAddress, upsertAddressOptOut } from "../address-opt-out.ts";
+import { DeliveryHandlers, DeliveryQueries } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { notificationAddressOptOutsTable, notificationPreferencesTable } from "../tables.ts";
+import { createDeliveryTestContext } from "../testing.ts";
+import { upsertPreference } from "../upsert-preference.ts";
+import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 
 const CURRENT_TYPE = "app:notify:invoice-ready";
 const FORMER_TYPE = "app:notify:invoice-created";

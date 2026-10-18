@@ -7,12 +7,12 @@ import {
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
-import { createConfigFeature } from "../../config/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createUserFeature } from "../../user/feature.js";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.js";
-import { createAuditFeature } from "../feature.js";
-import { AUDIT_I18N } from "../i18n.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.ts";
+import { createAuditFeature } from "../feature.ts";
+import { AUDIT_I18N } from "../i18n.ts";
 
 describe("audit log screen + handler access alignment", () => {
   const features = [

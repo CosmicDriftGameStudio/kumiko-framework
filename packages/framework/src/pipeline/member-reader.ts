@@ -1,21 +1,21 @@
 // ctx.queryAsMember — reads a query handler as a stored tenant member. The
 // resolved SessionUser never leaves this module.
 
-import type { DbConnection, DbTx } from "../db/connection.js";
-import { buildSessionRoles } from "../engine/membership-roles.js";
-import type { TenantId } from "../engine/types/identifiers.js";
-import type { MemberReader, SessionUser } from "../engine/types/index.js";
-import { SYSTEM_TENANT_ID } from "../engine/types/index.js";
-import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors/index.js";
+import type { DbConnection, DbTx } from "../db/connection.ts";
+import { buildSessionRoles } from "../engine/membership-roles.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
+import type { MemberReader, SessionUser } from "../engine/types/index.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors/index.ts";
 import {
   type ActiveMembershipPolicy,
   resolveActiveMembershipFn,
   resolvePrincipalPlugin,
-} from "./active-membership.js";
-import { executeQuery } from "./dispatch-query.js";
-import { type DispatchContext, resolveAuthClaimsFn, resolveDbSource } from "./dispatch-shared.js";
-import { isSystemIdentity } from "./system-identity-switch.js";
-import { rootWriteOrigin } from "./write-origin.js";
+} from "./active-membership.ts";
+import { executeQuery } from "./dispatch-query.ts";
+import { type DispatchContext, resolveAuthClaimsFn, resolveDbSource } from "./dispatch-shared.ts";
+import { isSystemIdentity } from "./system-identity-switch.ts";
+import { rootWriteOrigin } from "./write-origin.ts";
 
 // Stricter than interactive sign-in: an unknown principal or a tenant
 // mid-teardown must not resolve — there is no user-facing flow to recover.

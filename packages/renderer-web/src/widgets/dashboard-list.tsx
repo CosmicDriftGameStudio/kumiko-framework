@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { StatusBadge, type StatusBadgeTone } from "./status-badge.js";
+import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
 
 export type DashboardListColumn = {
   readonly field: string;

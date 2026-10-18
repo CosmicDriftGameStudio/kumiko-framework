@@ -7,7 +7,7 @@ import {
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
-import { encryptForDirectWrite } from "../encrypt-for-direct-write.js";
+import { encryptForDirectWrite } from "../encrypt-for-direct-write.ts";
 
 // Row-subject (`personal: { of: "id" }`) keys are derived from the entity
 // name; a direct-write path that drops it would throw on every insert.

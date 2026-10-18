@@ -6,10 +6,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEntityTable } from "../table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 const noteEntity = createEntity({
   table: "read_vc_http_notes",

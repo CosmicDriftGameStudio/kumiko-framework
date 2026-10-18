@@ -3,12 +3,12 @@ import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Redis } from "ioredis";
 // kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
-import { invalidateExistingInviteToken } from "../auth-email-password/invite-token-store.js";
+import { invalidateExistingInviteToken } from "../auth-email-password/invite-token-store.ts";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "./invitation-table.js";
+} from "./invitation-table.ts";
 
 const invitationExecutor = createEventStoreExecutor(
   tenantInvitationsTable,

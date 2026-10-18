@@ -1,8 +1,8 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { tenantDbRunner, tenantDbWriteRunner } from "../db/tenant-db-runner.js";
-import type { Registry } from "../engine/types/index.js";
-import { runProjectionsForEvent } from "../pipeline/projections-runner.js";
-import { append, type EventToAppend, getStreamVersion, type StoredEvent } from "./event-store.js";
+import { tenantDbRunner, tenantDbWriteRunner } from "../db/tenant-db-runner.ts";
+import type { Registry } from "../engine/types/index.ts";
+import { runProjectionsForEvent } from "../pipeline/projections-runner.ts";
+import { append, type EventToAppend, getStreamVersion, type StoredEvent } from "./event-store.ts";
 
 export type AppendEventInTenantDbOptions = {
   // Runs the inline projections of the appended event on the same runner, so a projection row

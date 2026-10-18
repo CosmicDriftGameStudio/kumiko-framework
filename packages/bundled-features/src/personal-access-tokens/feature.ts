@@ -14,18 +14,18 @@ import {
   PAT_DEFAULT_RATE_LIMIT,
   PAT_FEATURE,
   type PatRateLimit,
-} from "./constants.js";
-import { availabilityQuery } from "./handlers/availability.query.js";
-import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.js";
-import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.js";
-import { listPatQuery } from "./handlers/list.query.js";
-import { revokePatWrite } from "./handlers/revoke.write.js";
-import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n.js";
-import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event.js";
-import { createPatResolver } from "./resolver.js";
-import { apiTokenEntity } from "./schema/api-token.js";
-import type { PatScopeConfig } from "./scopes.js";
-import { createPatMintScreen, patListScreen } from "./screens.js";
+} from "./constants.ts";
+import { availabilityQuery } from "./handlers/availability.query.ts";
+import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.ts";
+import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.ts";
+import { listPatQuery } from "./handlers/list.query.ts";
+import { revokePatWrite } from "./handlers/revoke.write.ts";
+import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n.ts";
+import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event.ts";
+import { createPatResolver } from "./resolver.ts";
+import { apiTokenEntity } from "./schema/api-token.ts";
+import type { PatScopeConfig } from "./scopes.ts";
+import { createPatMintScreen, patListScreen } from "./screens.ts";
 
 // Password-change is the only field-level trigger — see the postSave hook
 // below. MFA-enable/disable is wired separately (auth-mfa's

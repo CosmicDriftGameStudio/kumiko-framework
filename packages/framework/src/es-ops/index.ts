@@ -13,18 +13,18 @@
 export {
   type CreateSeedMigrationContextArgs,
   createSeedMigrationContext,
-} from "./context.js";
+} from "./context.ts";
 export {
   createEsOperationsTable,
   type EsOperationAppliedBy,
   type EsOperationType,
   esOperationsTable,
-} from "./operations-schema.js";
+} from "./operations-schema.ts";
 export {
   type RunPendingSeedMigrationsArgs,
   type RunPendingSeedMigrationsResult,
   runPendingSeedMigrations,
-} from "./runner.js";
+} from "./runner.ts";
 export type {
   SeedMembershipRow,
   SeedMigration,
@@ -33,4 +33,4 @@ export type {
   SeedTemplateResourceRow,
   SeedTenantRow,
   SeedUserRow,
-} from "./types.js";
+} from "./types.ts";

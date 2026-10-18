@@ -5,8 +5,8 @@ import {
   FeatureToggleHandlers,
   FeatureToggleQueries,
   TOGGLE_ADMIN_SCREEN_ID,
-} from "../constants.js";
-import { createFeatureTogglesFeature } from "../feature.js";
+} from "../constants.ts";
+import { createFeatureTogglesFeature } from "../feature.ts";
 
 describe("feature-toggles screen + handler access alignment", () => {
   const features = [createFeatureTogglesFeature()];

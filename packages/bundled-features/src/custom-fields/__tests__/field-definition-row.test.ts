@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { buildFieldDefinitionColumns } from "../lib/field-definition-row.js";
-import { defineFieldPayloadSchema } from "../schemas.js";
+import { buildFieldDefinitionColumns } from "../lib/field-definition-row.ts";
+import { defineFieldPayloadSchema } from "../schemas.ts";
 
 function parse(input: unknown) {
   const result = defineFieldPayloadSchema.safeParse(input);

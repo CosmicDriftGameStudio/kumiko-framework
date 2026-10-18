@@ -16,13 +16,13 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { asRawClient } from "../../db/query.js";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import { createArchivedStreamsTable } from "../../event-store/index.js";
-import { createEventConsumerStateTable } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { asRawClient } from "../../db/query.ts";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import { createArchivedStreamsTable } from "../../event-store/index.ts";
+import { createEventConsumerStateTable } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index.ts";
 
 const splitFeature = defineFeature("split", (r) => {
   const tick = r.defineEvent("tick", z.object({ note: z.string() }), {

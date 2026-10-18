@@ -100,9 +100,9 @@ import {
   createKumikoServer,
   type KumikoServerHandle,
   logInfo,
-} from "./create-kumiko-server.js";
-import { captureEphemeralDevPiiKms, resolveDevPiiKms } from "./resolve-dev-pii-kms.js";
-import { renderWelcomeBanner } from "./welcome-banner.js";
+} from "./create-kumiko-server.ts";
+import { captureEphemeralDevPiiKms, resolveDevPiiKms } from "./resolve-dev-pii-kms.ts";
+import { renderWelcomeBanner } from "./welcome-banner.ts";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
 // brauchen. PasswordResetSetup / EmailVerificationSetup leben in

@@ -25,7 +25,7 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { userEntity, userTable } from "../schema/user.js";
+import { userEntity, userTable } from "../schema/user.ts";
 
 let testDb: TestDb;
 const executor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });

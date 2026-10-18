@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.js";
+import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.ts";
 
 const COLUMNS = new Set(["entity_id", "team_id", "owner_id"]);
 

@@ -4,8 +4,8 @@
 // of the tzdata DST view (UTC+13 and +14 both push 10:00 to the prior day).
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { ensureTemporalPolyfill } from "../polyfill.js";
-import { createTzContext } from "../tz-context.js";
+import { ensureTemporalPolyfill } from "../polyfill.ts";
+import { createTzContext } from "../tz-context.ts";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

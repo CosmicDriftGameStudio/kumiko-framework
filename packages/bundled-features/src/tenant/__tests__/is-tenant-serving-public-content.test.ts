@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { isTenantServingPublicContent } from "../is-tenant-serving-public-content.js";
-import { TENANT_LIFECYCLE_STATUSES, type TenantLifecycleStatus } from "../schema/tenant.js";
+import { isTenantServingPublicContent } from "../is-tenant-serving-public-content.ts";
+import { TENANT_LIFECYCLE_STATUSES, type TenantLifecycleStatus } from "../schema/tenant.ts";
 
 describe("isTenantServingPublicContent", () => {
   test("true only for an enabled, active tenant", () => {

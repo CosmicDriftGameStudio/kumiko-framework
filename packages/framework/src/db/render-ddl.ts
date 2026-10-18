@@ -7,8 +7,8 @@
 // NO-MAGIC-ON-DATA: this renderer never runs at app runtime, only as a build
 // step. The runner reads the checked-in SQL, not renderer output.
 
-import { pgTypeToSqlType } from "./dialect.js";
-import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.js";
+import { pgTypeToSqlType } from "./dialect.ts";
+import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
 
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;

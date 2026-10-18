@@ -1,7 +1,7 @@
-import { maskWriteOnlyFields } from "../engine/field-access.js";
-import type { EntityDefinition, WriteResult } from "../engine/types/index.js";
-import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
-import { isLifecycleResult } from "./dispatcher-utils.js";
+import { maskWriteOnlyFields } from "../engine/field-access.ts";
+import type { EntityDefinition, WriteResult } from "../engine/types/index.ts";
+import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
+import { isLifecycleResult } from "./dispatcher-utils.ts";
 
 type EntityLookup = Pick<DispatchContext["registry"], "getHandlerEntity" | "getEntity">;
 

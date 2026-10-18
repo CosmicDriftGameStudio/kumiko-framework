@@ -1,6 +1,6 @@
 import { optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
-import { isEncryptedAtRest } from "../config-helpers.js";
-import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.js";
+import { isEncryptedAtRest } from "../config-helpers.ts";
+import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
 
 // --- Toggleable-dependency warnings ---
 //

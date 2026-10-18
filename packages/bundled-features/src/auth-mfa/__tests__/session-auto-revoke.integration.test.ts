@@ -9,20 +9,20 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.js";
-import { createSessionCallbacks } from "../../sessions/session-callbacks.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { base32Decode } from "../base32.js";
-import { AuthMfaHandlers } from "../constants.js";
-import { createAuthMfaFeature } from "../feature.js";
-import { bindMfaRevokeAllOtherSessionsFromFeature } from "../feature-exports.js";
-import { userMfaEntity } from "../schema/user-mfa.js";
-import { currentTotpCode } from "../totp.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.ts";
+import { createSessionCallbacks } from "../../sessions/session-callbacks.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { base32Decode } from "../base32.ts";
+import { AuthMfaHandlers } from "../constants.ts";
+import { createAuthMfaFeature } from "../feature.ts";
+import { bindMfaRevokeAllOtherSessionsFromFeature } from "../feature-exports.ts";
+import { userMfaEntity } from "../schema/user-mfa.ts";
+import { currentTotpCode } from "../totp.ts";
 
 // Enable/disable/regenerate are security-relevant state changes on the
 // account — every OTHER live session must be signed out (stolen-session

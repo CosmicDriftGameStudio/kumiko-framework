@@ -16,28 +16,28 @@ import {
   ACCOUNT_SECURITY_SCREEN_ID,
   accountSecurityMfaStatusVisibility,
   createAccountSecurityFeature,
-} from "../account-security/index.js";
-import { AuthHandlers } from "../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.js";
-import { createAuthFoundationFeature } from "../auth-foundation/index.js";
-import { base32Decode } from "../auth-mfa/base32.js";
-import { AuthMfaHandlers, createAuthMfaFeature } from "../auth-mfa/index.js";
-import { userMfaEntity } from "../auth-mfa/schema/user-mfa.js";
-import { currentTotpCode } from "../auth-mfa/totp.js";
-import { createConfigFeature } from "../config/index.js";
-import { createConfigResolver } from "../config/resolver.js";
-import { configValuesTable } from "../config/table.js";
-import { makeSessionHelpers } from "../sessions/__tests__/test-helpers.js";
-import { createSessionsFeature } from "../sessions/index.js";
-import { userSessionEntity } from "../sessions/schema/user-session.js";
-import { createSessionCallbacks, type SessionCallbacks } from "../sessions/session-callbacks.js";
-import { sessionCallbacksFromLateBound } from "../sessions/testing.js";
-import { createTenantFeature } from "../tenant/index.js";
-import { tenantMembershipsTable } from "../tenant/membership-table.js";
-import { tenantEntity } from "../tenant/schema/tenant.js";
-import { createUserFeature } from "../user/feature.js";
-import { userEntity } from "../user/schema/user.js";
-import { testAuthMfaOptions } from "./auth-mfa-test-options.js";
+} from "../account-security/index.ts";
+import { AuthHandlers } from "../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.ts";
+import { createAuthFoundationFeature } from "../auth-foundation/index.ts";
+import { base32Decode } from "../auth-mfa/base32.ts";
+import { AuthMfaHandlers, createAuthMfaFeature } from "../auth-mfa/index.ts";
+import { userMfaEntity } from "../auth-mfa/schema/user-mfa.ts";
+import { currentTotpCode } from "../auth-mfa/totp.ts";
+import { createConfigFeature } from "../config/index.ts";
+import { createConfigResolver } from "../config/resolver.ts";
+import { configValuesTable } from "../config/table.ts";
+import { makeSessionHelpers } from "../sessions/__tests__/test-helpers.ts";
+import { createSessionsFeature } from "../sessions/index.ts";
+import { userSessionEntity } from "../sessions/schema/user-session.ts";
+import { createSessionCallbacks, type SessionCallbacks } from "../sessions/session-callbacks.ts";
+import { sessionCallbacksFromLateBound } from "../sessions/testing.ts";
+import { createTenantFeature } from "../tenant/index.ts";
+import { tenantMembershipsTable } from "../tenant/membership-table.ts";
+import { tenantEntity } from "../tenant/schema/tenant.ts";
+import { createUserFeature } from "../user/feature.ts";
+import { userEntity } from "../user/schema/user.ts";
+import { testAuthMfaOptions } from "./auth-mfa-test-options.ts";
 
 type PanelQueryRow = { readonly id: string; readonly current: boolean };
 

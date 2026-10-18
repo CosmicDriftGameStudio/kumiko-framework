@@ -14,9 +14,9 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { requestSignup } from "./auth-client.js";
-import { retryAfterMinutes } from "./auth-form-logic.js";
-import { AuthCard } from "./auth-form-primitives.js";
+import { requestSignup } from "./auth-client.ts";
+import { retryAfterMinutes } from "./auth-form-logic.ts";
+import { AuthCard } from "./auth-form-primitives.tsx";
 
 export type SignupScreenProps = {
   readonly title?: string;

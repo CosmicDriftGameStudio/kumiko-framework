@@ -4,7 +4,7 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
+} from "../../engine/index.ts";
 
 describe("getIncomingRelations", () => {
   const feature = defineFeature("core", (r) => {

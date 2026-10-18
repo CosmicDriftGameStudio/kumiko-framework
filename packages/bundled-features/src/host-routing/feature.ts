@@ -14,16 +14,16 @@ import {
   EXT_TENANT_RESOLVER,
   type TenantExistenceProvider,
   type TenantResolverProvider,
-} from "../auth-foundation/index.js";
+} from "../auth-foundation/index.ts";
 import {
   isTenantServingPublicContent,
   type TenantLifecycleStatus,
   tenantTable,
-} from "../tenant/index.js";
-import { HOST_ROUTING_FEATURE, TENANT_KEY_MAX_LENGTH } from "./constants.js";
-import { classifyHost } from "./host.js";
-import type { HostRoutingOptions } from "./options.js";
-import { validateHostRoutingOptions } from "./validate-options.js";
+} from "../tenant/index.ts";
+import { HOST_ROUTING_FEATURE, TENANT_KEY_MAX_LENGTH } from "./constants.ts";
+import { classifyHost } from "./host.ts";
+import type { HostRoutingOptions } from "./options.ts";
+import { validateHostRoutingOptions } from "./validate-options.ts";
 
 type TenantRow = {
   readonly id: TenantId;

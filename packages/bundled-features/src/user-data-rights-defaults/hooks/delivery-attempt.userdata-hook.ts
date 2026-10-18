@@ -6,8 +6,8 @@ import {
 import {
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   deliveryAttemptsTable,
-} from "../../delivery/index.js";
-import { featureMounted } from "./feature-mounted.js";
+} from "../../delivery/index.ts";
+import { featureMounted } from "./feature-mounted.ts";
 
 // userData-Hooks for delivery's attempt log (deferred from #797, closed by
 // #799). deliveryAttempt is an events-only aggregate — the export reads the

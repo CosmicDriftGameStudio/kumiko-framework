@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { Hono } from "hono";
-import { authEndpointRateLimit, globalIpRateLimit } from "../middleware.js";
-import { createRateLimitResolver, type RateLimitResolver } from "../resolver.js";
+import { authEndpointRateLimit, globalIpRateLimit } from "../middleware.ts";
+import { createRateLimitResolver, type RateLimitResolver } from "../resolver.ts";
 
 let testRedis: TestRedis;
 let resolver: RateLimitResolver;

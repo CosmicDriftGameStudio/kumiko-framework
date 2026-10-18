@@ -1,6 +1,6 @@
 // @runtime client
-import type { LayoutMeta } from "./layout-meta.js";
-import type { ServedVersionView } from "./types.js";
+import type { LayoutMeta } from "./layout-meta.ts";
+import type { ServedVersionView } from "./types.ts";
 
 export type LayoutKind = "mail-layout" | "pdf-layout";
 

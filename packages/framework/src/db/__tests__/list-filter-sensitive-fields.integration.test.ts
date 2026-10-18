@@ -17,12 +17,12 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
-} from "../../crypto/index.js";
-import { defineFeature } from "../../engine/define-feature.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { eventsTable } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { buildEntityTable } from "../table-builder.js";
+} from "../../crypto/index.ts";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { eventsTable } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { buildEntityTable } from "../table-builder.ts";
 
 const vaultEntity = createEntity({
   table: "fs_vault_entries",

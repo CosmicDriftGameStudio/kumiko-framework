@@ -20,24 +20,24 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { TenantHandlers, TenantQueries } from "../../tenant/constants.js";
-import { collectAssignableAppRoles, createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { createUserFeature } from "../../user/feature.js";
-import { UserHandlers } from "../../user/index.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { createSessionsFeature } from "../feature.js";
-import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
-import { sessionCallbacksFromLateBound, withMintedSession } from "../testing.js";
-import { makeSessionHelpers } from "./test-helpers.js";
+import { AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { TenantHandlers, TenantQueries } from "../../tenant/constants.ts";
+import { collectAssignableAppRoles, createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { UserHandlers } from "../../user/index.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { createSessionsFeature } from "../feature.ts";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.ts";
+import { sessionCallbacksFromLateBound, withMintedSession } from "../testing.ts";
+import { makeSessionHelpers } from "./test-helpers.ts";
 
 // Proves the two tenant-membership handlers (update-member-roles,
 // remove-member) reach into the sessions feature's cross-tenant / tenant-

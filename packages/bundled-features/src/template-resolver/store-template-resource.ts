@@ -19,25 +19,25 @@ import {
   type UploadedFileBytes,
   uploadFileBytesBeforeTransaction,
 } from "@cosmicdrift/kumiko-framework/files";
-import { fileContextForTenant } from "../file-foundation/index.js";
-import { extensionForResourceContentType, requireForTenant } from "../shared/index.js";
-import { ACTIVE_TEMPLATE_STATUS, SYSTEM_TENANT_ID } from "./constants.js";
+import { fileContextForTenant } from "../file-foundation/index.ts";
+import { extensionForResourceContentType, requireForTenant } from "../shared/index.ts";
+import { ACTIVE_TEMPLATE_STATUS, SYSTEM_TENANT_ID } from "./constants.ts";
 import {
   DEFAULT_RESOURCE_MAX_BYTES,
   MAX_FILE_ATTACHMENTS_PER_TEMPLATE,
   RESOURCE_MAX_BYTES_CONFIG_KEY,
-} from "./handlers/resource-shared.js";
-import { executor } from "./handlers/shared.js";
+} from "./handlers/resource-shared.ts";
+import { executor } from "./handlers/shared.ts";
 import {
   attachmentEntriesOf,
   type LinkedResourceEntry,
   parseLinkedResourceEntries,
   templatePdfAttachmentLinkSchema,
-} from "./linked-resources.js";
-import { TemplateResolverErrors } from "./qualified-names.js";
-import { normalizeResourceImage } from "./resource-image.js";
-import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
-import { readTemplateResource } from "./template-resources.js";
+} from "./linked-resources.ts";
+import { TemplateResolverErrors } from "./qualified-names.ts";
+import { normalizeResourceImage } from "./resource-image.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
+import { readTemplateResource } from "./template-resources.ts";
 
 export async function readTemplateResourceMaxBytes(
   config: ConfigAccessor | undefined,

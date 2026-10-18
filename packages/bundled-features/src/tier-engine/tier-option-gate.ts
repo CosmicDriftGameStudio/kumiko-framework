@@ -14,7 +14,7 @@ import {
   type CapGuardContext,
   type CapLimitContext,
   readPayloadField,
-} from "../cap-counter/index.js";
+} from "../cap-counter/index.ts";
 
 export type TierOptionSpec<TCaps> = {
   readonly field: string;

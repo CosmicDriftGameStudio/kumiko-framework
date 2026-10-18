@@ -3,8 +3,8 @@ import { isKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { FILTER_OPS, isRecord } from "./filter-ops.js";
-import type { ToolDispatchDescriptor } from "./types.js";
+import { FILTER_OPS, isRecord } from "./filter-ops.ts";
+import type { ToolDispatchDescriptor } from "./types.ts";
 
 /** Narrow view of `Dispatcher` (packages/framework/src/pipeline/dispatcher.ts) — kept out of
  *  `ToolDispatchDescriptor`'s reach and small enough for tests to build a plain object instead

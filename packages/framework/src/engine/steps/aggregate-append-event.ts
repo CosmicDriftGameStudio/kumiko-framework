@@ -21,9 +21,9 @@
 // steps (the event-store assigns the position, but consumers don't
 // need it during the same handler call).
 
-import { defineStep } from "../define-step.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { resolveOptional, resolveRequired } from "./_resolver-utils.js";
+import { defineStep } from "../define-step.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { resolveOptional, resolveRequired } from "./_resolver-utils.ts";
 
 type AggregateAppendEventArgs = {
   readonly aggregateId: StepResolver<string>;

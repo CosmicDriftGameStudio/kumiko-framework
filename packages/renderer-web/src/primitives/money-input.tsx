@@ -15,8 +15,8 @@ import {
   formatMoney as formatMoneyForLocale,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { cn } from "../lib/cn.js";
-import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.js";
+import { cn } from "../lib/cn.ts";
+import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";
 
 // Re-exported for backward compat — callers used to import this from here
 // before it moved to headless (shared with RenderField, kumiko-framework#1923).

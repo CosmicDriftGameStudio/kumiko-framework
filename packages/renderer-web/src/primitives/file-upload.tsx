@@ -7,11 +7,11 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
-import { toAcceptAttr } from "../lib/accept-attr.js";
-import { resizeImageBeforeUpload } from "../lib/resize-image.js";
-import { FileUploadFailedError, uploadFileRef } from "../lib/upload-file-ref.js";
-import { Button as UiButton } from "../ui/button.js";
-import { FileNameLink, FileThumbnail } from "./file-thumbnail.js";
+import { toAcceptAttr } from "../lib/accept-attr.ts";
+import { resizeImageBeforeUpload } from "../lib/resize-image.ts";
+import { FileUploadFailedError, uploadFileRef } from "../lib/upload-file-ref.ts";
+import { Button as UiButton } from "../ui/button.tsx";
+import { FileNameLink, FileThumbnail } from "./file-thumbnail.tsx";
 
 export type FileUploadInputProps = {
   readonly kind: "file" | "image";

@@ -1,5 +1,5 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient, unsafeReadRetrying } from "../query.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient, unsafeReadRetrying } from "../query.ts";
 
 /** Escape hatch for caller-built SQL that may write (or lock). No closed-connection retry —
  *  retrying an ambiguous write risks double-apply (#1358). Prefer {@link executeRawQueryRead}

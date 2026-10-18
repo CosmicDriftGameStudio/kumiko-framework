@@ -17,8 +17,8 @@ import {
   MEMBERS_SCREEN_ID,
   TenantHandlers,
   TenantQueries,
-} from "./constants.js";
-import { memberRoleOptions } from "./member-role-options.js";
+} from "./constants.ts";
+import { memberRoleOptions } from "./member-role-options.ts";
 
 // Cross-tenant SystemAdmin platform view of the tenants themselves. The tenant
 // feature runs with `r.systemScope()`, so the entityList returns every tenant.

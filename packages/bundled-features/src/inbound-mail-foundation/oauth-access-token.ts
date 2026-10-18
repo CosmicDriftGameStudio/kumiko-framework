@@ -23,14 +23,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { InboundMailAuthMethods, inboundCredentialSecretKey } from "./constants.js";
+import { InboundMailAuthMethods, inboundCredentialSecretKey } from "./constants.ts";
 import {
   InboundAuthError,
   type InboundMailContext,
   type InboundMailProviderPlugin,
   type MailAccountRecord,
   type OAuthTokenSet,
-} from "./types.js";
+} from "./types.ts";
 
 // 'inoa' as ASCII — disjoint from the other fixed advisory-lock namespaces.
 const OAUTH_REFRESH_LOCK_NAMESPACE = 0x696e6f61;

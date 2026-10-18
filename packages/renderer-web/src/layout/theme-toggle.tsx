@@ -5,8 +5,8 @@
 // reinreichen.
 
 import { type ReactNode, useContext } from "react";
-import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.js";
-import { useThemeToggleLabel } from "./theme-label.js";
+import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.ts";
+import { useThemeToggleLabel } from "./theme-label.ts";
 
 export type ThemeToggleProps = {
   /** Icon for the step to light mode. Default: ☀ */

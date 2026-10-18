@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { emailPasswordClient } from "../client-plugin.js";
-import { hasLikelyAuthSession } from "../session.js";
+import { emailPasswordClient } from "../client-plugin.ts";
+import { hasLikelyAuthSession } from "../session.tsx";
 
 describe("hasLikelyAuthSession", () => {
   test("no kumiko_csrf cookie → false", () => {

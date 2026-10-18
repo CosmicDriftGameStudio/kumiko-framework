@@ -7,7 +7,7 @@
 // createKumikoApp or in isolated tests).
 
 import { createContext, type ReactNode, useContext } from "react";
-import type { FeatureSchema } from "./feature-schema.js";
+import type { FeatureSchema } from "./feature-schema.ts";
 
 const AppFeaturesContext = createContext<readonly FeatureSchema[]>([]);
 

@@ -6,15 +6,15 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import type { DbRunner } from "../../db/connection.js";
-import { table, text, uuid } from "../../db/dialect.js";
-import { insertOne, selectMany } from "../../db/query.js";
-import { createRegistry, defineFeature, type Registry } from "../../engine/index.js";
-import type { EscapeHatchUseEvent, JobContext } from "../../engine/types/index.js";
-import { AccessDeniedError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import { createJobRunner, type JobRunner } from "../job-runner.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import type { DbRunner } from "../../db/connection.ts";
+import { table, text, uuid } from "../../db/dialect.ts";
+import { insertOne, selectMany } from "../../db/query.ts";
+import { createRegistry, defineFeature, type Registry } from "../../engine/index.ts";
+import type { EscapeHatchUseEvent, JobContext } from "../../engine/types/index.ts";
+import { AccessDeniedError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 const itemsTable = table("fw2914_job_items", {
   id: uuid("id").primaryKey().defaultRandom(),

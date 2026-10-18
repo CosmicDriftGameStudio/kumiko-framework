@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import * as dbApi from "../index.js";
+import * as dbApi from "../index.ts";
 
 describe("db public entry point", () => {
   test("does not re-export the unsafe raw grant escape hatch", () => {

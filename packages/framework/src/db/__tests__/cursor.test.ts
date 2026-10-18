@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "../cursor.js";
+import { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "../cursor.ts";
 
 describe("encodeCursor / decodeCursor", () => {
   test("round-trips string ids", () => {

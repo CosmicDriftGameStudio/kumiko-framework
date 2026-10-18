@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine/define-feature.js";
+import { defineFeature } from "../../engine/define-feature.ts";
 import {
   camelCase,
   composeEnvSchema,
@@ -10,7 +10,7 @@ import {
   parseEnv,
   pulumiConfigKey,
   readKumikoMeta,
-} from "../index.js";
+} from "../index.ts";
 
 describe("composeEnvSchema", () => {
   it("merges per-feature schemas and tags sources", () => {

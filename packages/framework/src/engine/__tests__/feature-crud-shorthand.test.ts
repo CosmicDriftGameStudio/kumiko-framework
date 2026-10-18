@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
 
 const taskEntity = createEntity({
   table: "crud_shorthand_tasks",

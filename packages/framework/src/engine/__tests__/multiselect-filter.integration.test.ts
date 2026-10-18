@@ -11,11 +11,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { deriveEntityTableMeta } from "../../db/entity-table-meta.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createMultiSelectField, createTextField } from "../factories.js";
+import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createMultiSelectField, createTextField } from "../factories.ts";
 
 const equipmentEntity = createEntity({
   table: "ms_filter_equipment",

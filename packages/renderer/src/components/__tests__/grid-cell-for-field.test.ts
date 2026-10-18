@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
-import { fieldCellWidth } from "../grid-cell-for-field.js";
+import { fieldCellWidth } from "../grid-cell-for-field.tsx";
 
 function field(type: string): EditFieldViewModel {
   return {

@@ -9,7 +9,7 @@ import type {
   TenantResourceDestroyHook,
   TenantResourceExtensionHooks,
   TenantResourceHookCtx,
-} from "./tenant-resource.js";
+} from "./tenant-resource.ts";
 
 export type StorageProviderHookCtx = TenantResourceHookCtx;
 export type StorageProviderDestroyTenantHook = TenantResourceDestroyHook;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-types/fields";
-import { statusToneForOptionTone } from "../primitives.js";
+import { statusToneForOptionTone } from "../primitives.tsx";
 
 describe("statusToneForOptionTone", () => {
   test("maps declared tones", () => {

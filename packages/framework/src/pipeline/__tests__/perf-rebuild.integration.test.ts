@@ -10,21 +10,21 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
-import { asRawClient } from "../../db/query.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
+import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import type { ProjectionDefinition } from "../../engine/types/index.js";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { generateId as uuid } from "../../utils/index.js";
-import { REBUILD_BATCH_SIZE } from "../projection-rebuild.js";
+} from "../../engine/index.ts";
+import type { ProjectionDefinition } from "../../engine/types/index.ts";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { generateId as uuid } from "../../utils/index.ts";
+import { REBUILD_BATCH_SIZE } from "../projection-rebuild.ts";
 
 // Counter projection: every task.created bumps a counter, every
 // task.updated is a no-op. Enough to exercise the apply path —

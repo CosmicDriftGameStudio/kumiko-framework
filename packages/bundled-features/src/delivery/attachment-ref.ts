@@ -3,9 +3,9 @@ import type {
   FileAttachmentRef,
   InlineAttachmentRef,
   RenderedPdfAttachmentRef,
-} from "../renderer-foundation/index.js";
-import { attachmentFileNameSchema } from "../shared/index.js";
-import { isDocumentResourceKey, templateSlugSchema } from "../template-resolver/index.js";
+} from "../renderer-foundation/index.ts";
+import { attachmentFileNameSchema } from "../shared/index.ts";
+import { isDocumentResourceKey, templateSlugSchema } from "../template-resolver/index.ts";
 
 export type { FileAttachmentRef, InlineAttachmentRef, RenderedPdfAttachmentRef };
 export type EmailAttachmentRef = InlineAttachmentRef | FileAttachmentRef | RenderedPdfAttachmentRef;

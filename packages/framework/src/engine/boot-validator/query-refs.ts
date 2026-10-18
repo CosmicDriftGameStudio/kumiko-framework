@@ -5,8 +5,8 @@ import type {
   FieldDefinition,
   QueryHandlerDef,
   ScreenDefinition,
-} from "../types/index.js";
-import { buildQueryHandlerMap } from "./projection-list-screens.js";
+} from "../types/index.ts";
+import { buildQueryHandlerMap } from "./projection-list-screens.ts";
 
 const NOT_REGISTERED_SUFFIX =
   "is not a registered query-handler. Check the QN spelling (expected " +

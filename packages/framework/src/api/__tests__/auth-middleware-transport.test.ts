@@ -4,15 +4,15 @@
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   authMiddleware,
   getAuthTokenExpiry,
   getAuthTransport,
   getUser,
-} from "../auth-middleware.js";
-import { createJwtHelper } from "../jwt.js";
-import { AUTH_COOKIE_BASE } from "../session-cookies.js";
+} from "../auth-middleware.ts";
+import { createJwtHelper } from "../jwt.ts";
+import { AUTH_COOKIE_BASE } from "../session-cookies.ts";
 
 const JWT_SECRET = "auth-middleware-transport-test-secret-min-32-chars";
 

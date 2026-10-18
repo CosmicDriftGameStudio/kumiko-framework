@@ -8,7 +8,7 @@
 // Add an entry only when the release notes state the data is not preserved.
 // A rename is NOT a retirement: the data lives on under the new name.
 
-import type { Snapshot } from "./migrate-generator.js";
+import type { Snapshot } from "./migrate-generator.ts";
 
 export type RetiredFrameworkTable = {
   readonly tableName: string;

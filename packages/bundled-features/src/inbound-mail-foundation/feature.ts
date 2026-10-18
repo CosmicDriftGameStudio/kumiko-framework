@@ -47,14 +47,14 @@ import {
   createFileProviderForTenant,
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.js";
+import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.ts";
 import {
   inboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
   seenMessageTable,
   syncCursorTable,
-} from "./entities.js";
+} from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
@@ -72,13 +72,13 @@ import {
   MAIL_THREAD_UPDATED_EVENT_SHORT,
   mailAccountEventPayloadSchema,
   mailThreadEventPayloadSchema,
-} from "./events.js";
-import { connectAccountHandler } from "./handlers/connect-account.write.js";
-import { disconnectAccountHandler } from "./handlers/disconnect-account.write.js";
-import { ingestMessageHandler } from "./handlers/ingest-message.write.js";
-import { listAccountsQuery } from "./handlers/list-accounts.query.js";
-import { listMessagesQuery } from "./handlers/list-messages.query.js";
-import { updateAccountHandler } from "./handlers/update-account.write.js";
+} from "./events.ts";
+import { connectAccountHandler } from "./handlers/connect-account.write.ts";
+import { disconnectAccountHandler } from "./handlers/disconnect-account.write.ts";
+import { ingestMessageHandler } from "./handlers/ingest-message.write.ts";
+import { listAccountsQuery } from "./handlers/list-accounts.query.ts";
+import { listMessagesQuery } from "./handlers/list-messages.query.ts";
+import { updateAccountHandler } from "./handlers/update-account.write.ts";
 import {
   applyInboundMessageReceived,
   applyMailAccountConnected,
@@ -88,14 +88,14 @@ import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "./projection.js";
-import { runInboundMailRetention } from "./retention-sweep.js";
+} from "./projection.ts";
+import { runInboundMailRetention } from "./retention-sweep.ts";
 import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
   mailAccountTenantDestroyHook,
   mailThreadTenantDestroyHook,
-} from "./tenant-destroy-hook.js";
+} from "./tenant-destroy-hook.ts";
 
 export function createInboundMailFoundationFeature() {
   return defineFeature(

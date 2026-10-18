@@ -7,19 +7,19 @@ import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/eng
 import {
   validateTenantExistenceMultiplicity,
   validateTenantResolverMultiplicity,
-} from "../boot-checks.js";
+} from "../boot-checks.ts";
 import {
   createAuthFoundationFeature,
   resolveTenantExistence,
   resolveTenantResolver,
-} from "../feature.js";
-import { resolveAnonymousAccessFromRegistry } from "../resolve-anonymous-access.js";
+} from "../feature.ts";
+import { resolveAnonymousAccessFromRegistry } from "../resolve-anonymous-access.ts";
 import {
   EXT_TENANT_EXISTENCE,
   EXT_TENANT_RESOLVER,
   type TenantExistenceProvider,
   type TenantResolverProvider,
-} from "../types.js";
+} from "../types.ts";
 
 const fakeDb = {} as DbConnection;
 

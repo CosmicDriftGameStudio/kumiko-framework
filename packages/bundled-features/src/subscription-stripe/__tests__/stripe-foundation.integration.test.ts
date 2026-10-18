@@ -32,19 +32,19 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import Stripe from "stripe";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigAccessorFactory } from "../../config/feature.js";
-import { configValuesTable, createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigAccessorFactory } from "../../config/feature.ts";
+import { configValuesTable, createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
 import {
   createSecretsContext,
   createSecretsFeature,
   tenantSecretsTable,
-} from "../../secrets/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { createSubscriptionStripeFeature } from "../feature.js";
+} from "../../secrets/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createSubscriptionStripeFeature } from "../feature.ts";
 
 // Qualified-names der runtime-keys (drift-pin: müssen 1:1 dem entsprechen,
 // was r.config(...) im feature build qualifiziert — `subscription-stripe:

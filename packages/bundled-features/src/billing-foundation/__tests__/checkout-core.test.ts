@@ -9,9 +9,9 @@ import {
   isNonEmptyStringArray,
   isOwnProviderCustomer,
   joinBaseUrl,
-} from "../checkout-core.js";
-import type { SubscriptionView } from "../get-subscription-for-tenant.js";
-import type { SubscriptionProviderPlugin } from "../types.js";
+} from "../checkout-core.ts";
+import type { SubscriptionView } from "../get-subscription-for-tenant.ts";
+import type { SubscriptionProviderPlugin } from "../types.ts";
 
 function subscriptionView(overrides: Partial<SubscriptionView> = {}): SubscriptionView {
   return {

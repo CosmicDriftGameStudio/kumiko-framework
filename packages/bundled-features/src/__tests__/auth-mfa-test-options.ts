@@ -1,4 +1,4 @@
-import type { AuthMfaFeatureOptions } from "../auth-mfa/index.js";
+import type { AuthMfaFeatureOptions } from "../auth-mfa/index.ts";
 
 export const testAuthMfaOptions: AuthMfaFeatureOptions = {
   setupTokenSecret: "test-setup-token-secret-do-not-use-in-prod",

@@ -32,13 +32,13 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { capCounterAggregateId } from "../aggregate-id.js";
-import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.js";
-import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
-import type { SoftHitNotifier } from "../enforce-cap.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
-import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.js";
+import { capCounterAggregateId } from "../aggregate-id.ts";
+import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.ts";
+import { CapCounterHandlers, CapCounterQueries } from "../constants.ts";
+import type { SoftHitNotifier } from "../enforce-cap.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
+import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.ts";
 
 // =============================================================================
 // Test-Probe — newsletter-send-Handler with cap-enforcement

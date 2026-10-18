@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { isFailedWriteResult } from "@cosmicdrift/kumiko-framework/pipeline";
-import { UnprocessableError, writeFailure } from "../../errors/index.js";
+import { UnprocessableError, writeFailure } from "../../errors/index.ts";
 
 describe("isFailedWriteResult via pipeline entry", () => {
   test("false for a successful write result", () => {

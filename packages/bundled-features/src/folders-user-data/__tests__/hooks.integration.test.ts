@@ -19,9 +19,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { folderAssignmentEntity, folderEntity } from "../../folders/entity.js";
-import { createFoldersFeature, FoldersHandlers } from "../../folders/index.js";
-import { folderAssignmentExportHook } from "../hooks.js";
+import { folderAssignmentEntity, folderEntity } from "../../folders/entity.ts";
+import { createFoldersFeature, FoldersHandlers } from "../../folders/index.ts";
+import { folderAssignmentExportHook } from "../hooks.ts";
 
 const CREDIT_TABLE = "folders_export_test_credits";
 const creditEntity = createEntity({

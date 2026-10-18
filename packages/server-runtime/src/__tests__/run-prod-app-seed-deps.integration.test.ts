@@ -27,7 +27,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
-import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
+import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 

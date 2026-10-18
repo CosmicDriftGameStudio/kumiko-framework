@@ -11,20 +11,20 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { insertOne, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb } from "../../db/tenant-db.js";
+import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { insertOne, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
   HookPhases,
-} from "../../engine/index.js";
-import { createSystemUser } from "../../engine/system-user.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { createSystemUser } from "../../engine/system-user.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const orderEntity = createEntity({
   table: "read_exproj_orders",

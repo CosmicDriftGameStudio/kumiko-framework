@@ -5,24 +5,24 @@ import {
   defineFeature,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createAuditFeature } from "../../audit/feature.js";
-import { createBillingFoundationFeature } from "../../billing-foundation/index.js";
-import { createCapOverviewFeature } from "../../cap-overview/feature.js";
-import type { CapSpec } from "../../cap-overview/types.js";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { createJobsFeature } from "../../jobs/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { createTierEngineFeature } from "../../tier-engine/feature.js";
-import { createUserFeature } from "../../user/feature.js";
+import { createAuditFeature } from "../../audit/feature.ts";
+import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
+import { createCapOverviewFeature } from "../../cap-overview/feature.ts";
+import type { CapSpec } from "../../cap-overview/types.ts";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createJobsFeature } from "../../jobs/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createTierEngineFeature } from "../../tier-engine/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
-} from "../constants.js";
-import { createAdminShellFeature } from "../feature.js";
-import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.js";
+} from "../constants.ts";
+import { createAdminShellFeature } from "../feature.ts";
+import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.ts";
 
 const features = [
   createConfigFeature(),

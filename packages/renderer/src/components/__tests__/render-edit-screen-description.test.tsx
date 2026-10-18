@@ -20,10 +20,10 @@ import {
   createStaticLocaleResolver,
   LocaleProvider,
   type TranslationsByLocale,
-} from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.js";
-import { RenderEdit } from "../render-edit.js";
+} from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

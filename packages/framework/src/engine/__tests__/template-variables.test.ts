@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { templateVariable, templateVariablesToZod } from "../template-variables.js";
+import { templateVariable, templateVariablesToZod } from "../template-variables.ts";
 
 const schema = templateVariablesToZod({
   name: templateVariable.text({ required: true }),

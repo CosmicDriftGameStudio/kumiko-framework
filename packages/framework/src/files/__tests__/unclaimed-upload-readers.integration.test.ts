@@ -15,7 +15,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { selectMany } from "../../db/query.js";
+import { selectMany } from "../../db/query.ts";
 import {
   createEntity,
   createFileField,
@@ -23,13 +23,13 @@ import {
   defineEntityCreateHandler,
   defineEntityDetailHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { createSystemUser, SYSTEM_ROLE } from "../../engine/system-user.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
-import { createFileRefFromBytes } from "../create-file-ref-from-bytes.js";
-import { createFilesFeature, type FilesFeatureOptions } from "../feature.js";
-import { fileRefsTable } from "../file-ref-table.js";
-import { createLocalProvider } from "../local-provider.js";
+} from "../../engine/index.ts";
+import { createSystemUser, SYSTEM_ROLE } from "../../engine/system-user.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { createFileRefFromBytes } from "../create-file-ref-from-bytes.ts";
+import { createFilesFeature, type FilesFeatureOptions } from "../feature.ts";
+import { fileRefsTable } from "../file-ref-table.ts";
+import { createLocalProvider } from "../local-provider.ts";
 
 const noteEntity = createEntity({
   table: "unclaimed_notes",

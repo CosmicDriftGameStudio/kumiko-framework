@@ -5,7 +5,7 @@
 // re-narrow at read time instead of trusting the shape.
 
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { RegistrarExtensionRegistration } from "../types/config.js";
+import type { RegistrarExtensionRegistration } from "../types/config.ts";
 
 export function extensionUsageEscapeHatchReason(
   usage: Pick<RegistrarExtensionRegistration, "options">,

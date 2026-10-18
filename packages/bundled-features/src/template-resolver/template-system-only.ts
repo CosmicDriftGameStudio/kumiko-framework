@@ -1,5 +1,5 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { isSystemAdmin } from "./template-draft.js";
+import { isSystemAdmin } from "./template-draft.ts";
 
 const NOTIFICATION_TEMPLATE_KIND = "mail";
 

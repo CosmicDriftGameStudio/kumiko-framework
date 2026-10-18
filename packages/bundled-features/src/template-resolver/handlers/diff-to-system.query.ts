@@ -2,9 +2,9 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { isHiddenSystemDraft } from "../template-draft.js";
-import { buildOverrideDiff } from "./override-diff.js";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { isHiddenSystemDraft } from "../template-draft.ts";
+import { buildOverrideDiff } from "./override-diff.ts";
 
 export const diffToSystemQuery = defineQueryHandler({
   name: "diff-to-system",

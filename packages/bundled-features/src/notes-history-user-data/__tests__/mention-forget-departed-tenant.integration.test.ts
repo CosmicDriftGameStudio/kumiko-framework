@@ -31,32 +31,32 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { configValueEntity } from "../../config/table.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValueEntity } from "../../config/table.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createFilesFeature } from "../../files/index.js";
+} from "../../data-retention/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
 import {
   createNotesHistoryFeature,
   NotesHistoryHandlers,
   noteEntryEntity,
   noteEntryExecutor,
   noteMentionEntity,
-} from "../../notes-history/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { createNotesHistoryUserDataFeature } from "../index.js";
+} from "../../notes-history/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createNotesHistoryUserDataFeature } from "../index.ts";
 
 const CONTACT_TABLE = "notes_departed_tenant_test_contacts";
 const contactEntity = createEntity({

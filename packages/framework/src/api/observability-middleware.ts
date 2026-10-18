@@ -6,9 +6,9 @@ import {
   redactQueryString,
   type SensitiveFilterConfig,
   type Tracer,
-} from "../observability/index.js";
-import { getUser } from "./auth-middleware.js";
-import { requestContext } from "./request-context.js";
+} from "../observability/index.ts";
+import { getUser } from "./auth-middleware.ts";
+import { requestContext } from "./request-context.ts";
 
 // Wraps each incoming /api/* request in an `http.request` span. Must be
 // installed AFTER requestIdMiddleware so the active request-id is available

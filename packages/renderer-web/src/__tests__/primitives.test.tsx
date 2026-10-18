@@ -16,10 +16,10 @@ import {
   END_LABEL_MIN_ROWS,
   FormScreenShell,
   ScreenWidthProvider,
-} from "../primitives/index.js";
-import { DefaultJsonView } from "../primitives/json-view.js";
-import { PageSection, Stack } from "../primitives/layout.js";
-import { fireEvent, render, screen, waitFor, within } from "./test-utils.js";
+} from "../primitives/index.tsx";
+import { DefaultJsonView } from "../primitives/json-view.tsx";
+import { PageSection, Stack } from "../primitives/layout.tsx";
+import { fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card, Section } =
   defaultPrimitives;

@@ -22,17 +22,17 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity } from "../../tenant/membership-table.js";
-import { createUserFeature, userEntity } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
-import { createForgetSeeders, nowInstant, TENANT_SYSTEM } from "./forget-test-helpers.js";
+} from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
+import { createUserFeature, userEntity } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { createForgetSeeders, nowInstant, TENANT_SYSTEM } from "./forget-test-helpers.ts";
 
 const PROBE = "forget-registry-probe";
 let capturedRegistry: Registry | undefined;

@@ -13,8 +13,8 @@
 // Schreiben: snake_case-Keys werden von columnOf() korrekt gemappt.
 // Lesen: coerceRow() renamed snake_case-DB-columns zu camelCase JS-keys.
 import { afterAll, describe, expect, test } from "bun:test";
-import { fetchOne, insertOne } from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+import { fetchOne, insertOne } from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

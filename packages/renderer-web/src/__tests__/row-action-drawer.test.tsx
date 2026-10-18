@@ -18,7 +18,7 @@ import {
   NavProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.js";
+import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const taskEntity = {
   fields: { title: { type: "text", required: true } },

@@ -12,12 +12,12 @@ import {
   COMPLIANCE_PROFILE_SCREEN_ID,
   ComplianceProfileHandlers,
   ComplianceProfileQueries,
-} from "../constants.js";
-import { createComplianceProfilesFeature } from "../feature.js";
+} from "../constants.ts";
+import { createComplianceProfilesFeature } from "../feature.ts";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../schema/profile-selection.js";
+} from "../schema/profile-selection.ts";
 
 let stack: TestStack;
 

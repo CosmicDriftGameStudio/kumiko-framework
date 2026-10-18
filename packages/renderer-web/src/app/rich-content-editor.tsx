@@ -10,7 +10,7 @@
 import { type ContentEditorProps, TextareaContentEditor } from "@cosmicdrift/kumiko-renderer";
 import { lazy, type ReactNode, Suspense } from "react";
 
-const TiptapEditor = lazy(() => import("./tiptap-editor.js"));
+const TiptapEditor = lazy(() => import("./tiptap-editor.tsx"));
 
 export function RichContentEditor(props: ContentEditorProps): ReactNode {
   return (

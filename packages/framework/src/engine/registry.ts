@@ -1,6 +1,6 @@
-import { validateExtensionPreSaveWiring } from "./boot-validator/entity-handler.js";
-import { dedupeFeatures } from "./dedupe-features.js";
-import { buildRegistryFacade } from "./registry-facade.js";
+import { validateExtensionPreSaveWiring } from "./boot-validator/entity-handler.ts";
+import { dedupeFeatures } from "./dedupe-features.ts";
+import { buildRegistryFacade } from "./registry-facade.ts";
 import {
   populateClaimsAndAuth,
   populateConfigKeys,
@@ -15,8 +15,8 @@ import {
   populateScreensNavWorkspaces,
   populateSystemEvents,
   populateTranslations,
-} from "./registry-ingest.js";
-import { createInitialState } from "./registry-state.js";
+} from "./registry-ingest.ts";
+import { createInitialState } from "./registry-state.ts";
 import {
   applyExtensionUsages,
   autoWireSoftDeleteJobs,
@@ -46,8 +46,8 @@ import {
   validateProjectionApplyKeys,
   validateRelationTargetsExist,
   validateRequiredFeatures,
-} from "./registry-validate.js";
-import type { FeatureDefinition, Registry } from "./types/index.js";
+} from "./registry-validate.ts";
+import type { FeatureDefinition, Registry } from "./types/index.ts";
 
 // This is where the magic happens. By "magic" I mean: precomputed maps.
 // I build everything once at boot (hooks, relations, searchable fields, ...)

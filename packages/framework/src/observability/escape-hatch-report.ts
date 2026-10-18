@@ -6,11 +6,11 @@ import type {
   EscapeHatchTarget,
   EscapeHatchUseEvent,
   TenantId,
-} from "../engine/types/index.js";
-import type { Logger } from "../logging/types.js";
-import { createFallbackLogger } from "../logging/utils.js";
-import { emitEscapeHatchUse } from "./standard-metrics.js";
-import type { Meter } from "./types/index.js";
+} from "../engine/types/index.ts";
+import type { Logger } from "../logging/types.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
+import { emitEscapeHatchUse } from "./standard-metrics.ts";
+import type { Meter } from "./types/index.ts";
 
 export const ESCAPE_HATCH_USED_SIGNAL = "security:escape-hatch-used";
 

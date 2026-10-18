@@ -19,14 +19,14 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createSecretsFeature } from "../feature.js";
+import { createSecretsFeature } from "../feature.ts";
 import {
   createSecretsContext,
   secretReadSchema,
   TENANT_SECRET_READ_EVENT,
-} from "../secrets-context.js";
-import { tenantSecretsTable } from "../table.js";
-import { createDeclaredKeysFeature } from "./declared-keys-feature.js";
+} from "../secrets-context.ts";
+import { tenantSecretsTable } from "../table.ts";
+import { createDeclaredKeysFeature } from "./declared-keys-feature.ts";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",

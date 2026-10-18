@@ -19,7 +19,7 @@ import {
   resolveCodemodScript,
   runUpgradeCli,
   type UpgradeCliOut,
-} from "../upgrade-cli.js";
+} from "../upgrade-cli.ts";
 
 type MarkerFile = {
   readonly version: string;

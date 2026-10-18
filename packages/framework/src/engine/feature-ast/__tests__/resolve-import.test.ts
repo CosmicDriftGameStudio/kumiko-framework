@@ -5,9 +5,9 @@ import {
   findImportBindingForLocalName,
   resolveExportedVariable,
   resolveModuleFile,
-} from "../extractors/resolve-import.js";
-import { resolveSameFileObjectLiteral } from "../extractors/shared.js";
-import { parseFeatureFile, parseSourceFile } from "../parse.js";
+} from "../extractors/resolve-import.ts";
+import { resolveSameFileObjectLiteral } from "../extractors/shared.ts";
+import { parseFeatureFile, parseSourceFile } from "../parse.ts";
 
 function loadFixture(relPath: string): SourceFile {
   const project = new Project({

@@ -15,38 +15,38 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createAuditFeature } from "../../audit/feature.js";
-import { ConfigQueries } from "../../config/constants.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createFeatureTogglesFeature } from "../../feature-toggles/feature.js";
-import { JobQueries } from "../../jobs/constants.js";
-import { createJobsFeature } from "../../jobs/feature.js";
-import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table.js";
-import { hashPassword } from "../../shared/index.js";
-import { TenantQueries } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
-import { createTierEngineFeature } from "../../tier-engine/feature.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
+import { createAuditFeature } from "../../audit/feature.ts";
+import { ConfigQueries } from "../../config/constants.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createFeatureTogglesFeature } from "../../feature-toggles/feature.ts";
+import { JobQueries } from "../../jobs/constants.ts";
+import { createJobsFeature } from "../../jobs/feature.ts";
+import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { TenantQueries } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
+import { createTierEngineFeature } from "../../tier-engine/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
   TENANT_OVERVIEW_SCREEN_ID,
-} from "../constants.js";
-import { createAdminShellFeature } from "../feature.js";
+} from "../constants.ts";
+import { createAdminShellFeature } from "../feature.ts";
 import {
   isOverviewQueryAllowed,
   TENANT_OVERVIEW_FORBIDDEN_QUERIES,
-} from "../overview-allowlist.js";
-import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.js";
+} from "../overview-allowlist.ts";
+import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.ts";
 
 let stack: TestStack;
 let TENANT_ID: TenantId;

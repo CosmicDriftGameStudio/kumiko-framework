@@ -7,5 +7,5 @@ export type {
   JobRunner,
   JobRunnerOptions,
   JobSubjectValue,
-} from "./job-runner.js";
-export { createJobRunner, serializeJobSubject } from "./job-runner.js";
+} from "./job-runner.ts";
+export { createJobRunner, serializeJobSubject } from "./job-runner.ts";

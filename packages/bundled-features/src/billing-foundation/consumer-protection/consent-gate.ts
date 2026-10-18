@@ -10,17 +10,17 @@ import {
   requireTemplateResolver,
   TEXT_BLOCK_KIND,
   TemplateNotFoundError,
-} from "../../template-resolver/index.js";
-import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
+} from "../../template-resolver/index.ts";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,
   type CheckoutConsentRecordedPayload,
   checkoutConsentRecordedPayloadSchema,
   PAYMENT_AGGREGATE_TYPE,
   SUBSCRIPTION_AGGREGATE_TYPE,
-} from "../events.js";
-import type { ConsumerProtectionOptions, ProviderPrice } from "../types.js";
-import { consentTextVersion, resolveConsentLocale, submitMessageFor } from "./consent-text.js";
+} from "../events.ts";
+import type { ConsumerProtectionOptions, ProviderPrice } from "../types.ts";
+import { consentTextVersion, resolveConsentLocale, submitMessageFor } from "./consent-text.ts";
 
 export type CheckoutMode = "subscription" | "payment";
 

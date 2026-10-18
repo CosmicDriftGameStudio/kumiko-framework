@@ -31,13 +31,13 @@ import type {
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { readRollingCapUsage } from "../book-cap-usage.js";
-import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
-import type { SoftHitNotifier } from "../enforce-cap.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
-import { capReservationsTable } from "../tables.js";
-import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.js";
+import { readRollingCapUsage } from "../book-cap-usage.ts";
+import { CapCounterHandlers, CapCounterQueries } from "../constants.ts";
+import type { SoftHitNotifier } from "../enforce-cap.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
+import { capReservationsTable } from "../tables.ts";
+import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.ts";
 
 const PERIOD = "2026-07-01T00:00:00Z";
 

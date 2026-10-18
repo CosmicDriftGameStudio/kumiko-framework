@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { shallowEqual } from "../equality.js";
+import { shallowEqual } from "../equality.ts";
 
 describe("shallowEqual — primitive cases", () => {
   test("Object.is-equal primitives are equal", () => {

@@ -27,34 +27,34 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createPlainFallbackEmailFeature } from "../../delivery/__tests__/plain-email-channel.js";
-import { collectChannels, createDeliveryService } from "../../delivery/delivery-service.js";
-import { createDeliveryFeature } from "../../delivery/feature.js";
-import { deliveryAttemptsTable } from "../../delivery/tables.js";
-import { createDeliveryTestContext } from "../../delivery/testing.js";
-import type { DeliveryService } from "../../delivery/types.js";
-import { createMailFoundationFeature } from "../../mail-foundation/feature.js";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createPlainFallbackEmailFeature } from "../../delivery/__tests__/plain-email-channel.ts";
+import { collectChannels, createDeliveryService } from "../../delivery/delivery-service.ts";
+import { createDeliveryFeature } from "../../delivery/feature.ts";
+import { deliveryAttemptsTable } from "../../delivery/tables.ts";
+import { createDeliveryTestContext } from "../../delivery/testing.ts";
+import type { DeliveryService } from "../../delivery/types.ts";
+import { createMailFoundationFeature } from "../../mail-foundation/feature.ts";
 import {
   MAIL_TRANSPORT_EXTENSION,
   type MailTransportPlugin,
   tenantMailTransport,
-} from "../../mail-foundation/index.js";
+} from "../../mail-foundation/index.ts";
 import {
   clearInbox,
   createMailTransportInMemoryFeature,
   getInbox,
-} from "../../mail-transport-inmemory/index.js";
-import { createSecretsFeature } from "../../secrets/feature.js";
-import { createSecretsContext } from "../../secrets/secrets-context.js";
-import { tenantSecretsTable } from "../../secrets/table.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createInMemoryTransport } from "../types.js";
+} from "../../mail-transport-inmemory/index.ts";
+import { createSecretsFeature } from "../../secrets/feature.ts";
+import { createSecretsContext } from "../../secrets/secrets-context.ts";
+import { tenantSecretsTable } from "../../secrets/table.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createInMemoryTransport } from "../types.ts";
 
 const appTransport = createInMemoryTransport();
 

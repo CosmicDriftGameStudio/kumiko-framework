@@ -8,8 +8,8 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { readPayloadField } from "./payload-field.js";
-import type { CapGuardContext, CapLimitContext } from "./stock-cap-guard.js";
+import { readPayloadField } from "./payload-field.ts";
+import type { CapGuardContext, CapLimitContext } from "./stock-cap-guard.ts";
 
 export type ValueCapSpec<TCaps> = {
   readonly field: string;

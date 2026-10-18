@@ -115,6 +115,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'export const load = () => fetch("https://example.com");',
     expectedMessage: /raw fetch\(\) call/,
   },
+  "Import-Extensions Guard": {
+    path: `${PKG}/features/x/imports.ts`,
+    code: 'import { helper } from "./helper.js";\nexport const run = helper;',
+    expectedMessage: /relative import "\.\/helper\.js"/,
+  },
   "Unsafe-JSON-Parse Guard": {
     path: `${PKG}/x/parse.ts`,
     code: "export function p(s: string) { return JSON.parse(s); }",

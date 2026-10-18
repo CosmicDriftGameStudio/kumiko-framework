@@ -10,9 +10,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { defineUnmanagedTable } from "../db/entity-table-meta.js";
-import { asRawClient, insertOne, selectMany } from "../db/query.js";
-import { defineFeature } from "../engine/index.js";
+import { defineUnmanagedTable } from "../db/entity-table-meta.ts";
+import { asRawClient, insertOne, selectMany } from "../db/query.ts";
+import { defineFeature } from "../engine/index.ts";
 
 // External-system payload cache — the textbook r.storeTable() use case:
 // write-only by an integration handler, read-only by a query, never

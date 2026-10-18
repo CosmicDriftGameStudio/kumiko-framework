@@ -4,9 +4,9 @@
 // cross-tenant via db.global(table).
 
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../../define-feature.js";
-import { createEntity, createTextField } from "../../factories.js";
-import { validateGlobalTenancyEntities } from "../global-tenancy.js";
+import { defineFeature } from "../../define-feature.ts";
+import { createEntity, createTextField } from "../../factories.ts";
+import { validateGlobalTenancyEntities } from "../global-tenancy.ts";
 
 const textField = () =>
   createTextField({

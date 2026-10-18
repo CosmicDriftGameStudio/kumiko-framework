@@ -8,8 +8,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DateInput } from "../primitives/date-input.js";
-import { render } from "./test-utils.js";
+import { DateInput } from "../primitives/date-input.tsx";
+import { render } from "./test-utils.tsx";
 
 describe("DateInput", () => {
   test("Eingabefeld zeigt locale-numerisches Datum (de-DE)", () => {

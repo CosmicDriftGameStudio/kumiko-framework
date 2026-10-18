@@ -1,23 +1,23 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import { Hono, type MiddlewareHandler } from "hono";
-import { ROLES } from "../auth/roles.js";
-import type { DbConnection, PgListenClient } from "../db/connection.js";
-import { createProjectingTenantDb } from "../db/tenant-db.js";
-import { createDerivativesContext } from "../derivatives/derivatives-context.js";
-import { buildAppSchema } from "../engine/build-app-schema.js";
-import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.js";
-import { projectAppSchemaForRoles } from "../engine/project-app-schema-for-roles.js";
-import { runsInLane } from "../engine/run-in.js";
+import { ROLES } from "../auth/roles.ts";
+import type { DbConnection, PgListenClient } from "../db/connection.ts";
+import { createProjectingTenantDb } from "../db/tenant-db.ts";
+import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
+import { buildAppSchema } from "../engine/build-app-schema.ts";
+import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.ts";
+import { projectAppSchemaForRoles } from "../engine/project-app-schema-for-roles.ts";
+import { runsInLane } from "../engine/run-in.ts";
 import {
   resolveDisabledFeatureNames,
   stripDisabledFeaturesFromAppSchema,
-} from "../engine/strip-disabled-features-from-app-schema.js";
+} from "../engine/strip-disabled-features-from-app-schema.ts";
 import {
   createAnonymousUser,
   createSystemUser,
   isAnonymousSessionUser,
-} from "../engine/system-user.js";
+} from "../engine/system-user.ts";
 import {
   type AppContext,
   type HttpRouteMethod,
@@ -28,17 +28,17 @@ import {
   type TenantId,
   type WebSocketRouteDefinition,
   type WriteResult,
-} from "../engine/types/index.js";
-import type { ErrorDocsConfig } from "../errors/docs-url.js";
-import { assertSeedModeNotInProduction } from "../event-store/seed-clock.js";
-import { createFileContext } from "../files/file-handle.js";
-import type { FileRoutesOptions } from "../files/file-routes.js";
-import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.js";
-import { makeFileProviderResolver } from "../files/provider-resolver.js";
-import { createRecordReadCheck } from "../files/record-read-check.js";
-import { createRecordWriteCheck } from "../files/record-write-check.js";
-import type { Lifecycle } from "../lifecycle/index.js";
-import { createFallbackLogger } from "../logging/index.js";
+} from "../engine/types/index.ts";
+import type { ErrorDocsConfig } from "../errors/docs-url.ts";
+import { assertSeedModeNotInProduction } from "../event-store/seed-clock.ts";
+import { createFileContext } from "../files/file-handle.ts";
+import type { FileRoutesOptions } from "../files/file-routes.ts";
+import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.ts";
+import { makeFileProviderResolver } from "../files/provider-resolver.ts";
+import { createRecordReadCheck } from "../files/record-read-check.ts";
+import { createRecordWriteCheck } from "../files/record-write-check.ts";
+import type { Lifecycle } from "../lifecycle/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
 import {
   createNoopProvider,
   DEFAULT_SENSITIVE_CONFIG,
@@ -47,22 +47,22 @@ import {
   type ObservabilityProvider,
   registerStandardMetrics,
   wrapRedisClient,
-} from "../observability/index.js";
-import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership.js";
-import type { DispatcherOptions } from "../pipeline/dispatcher.js";
-import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher.js";
-import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state.js";
-import type { EventDedup } from "../pipeline/event-dedup.js";
-import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher.js";
-import { createEventDispatcher } from "../pipeline/event-dispatcher.js";
-import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline.js";
-import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.js";
+} from "../observability/index.ts";
+import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership.ts";
+import type { DispatcherOptions } from "../pipeline/dispatcher.ts";
+import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher.ts";
+import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state.ts";
+import type { EventDedup } from "../pipeline/event-dedup.ts";
+import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher.ts";
+import { createEventDispatcher } from "../pipeline/event-dispatcher.ts";
+import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
+import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.ts";
 import {
   createAccessInvalidationEventConsumer,
   createJobTriggerEventConsumer,
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
-} from "../pipeline/system-hooks.js";
+} from "../pipeline/system-hooks.ts";
 import {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,
@@ -71,19 +71,19 @@ import {
   type GlobalIpRateLimitOptions,
   globalIpRateLimit,
   httpRouteRateLimit,
-} from "../rate-limit/index.js";
-import { resolveCacheSyncBus } from "../redis/cache-sync-bus.js";
-import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config.js";
-import type { SearchAdapter } from "../search/types.js";
-import type { AppSchema } from "../ui-types/app-schema.js";
-import { assertUnreachable, generateId } from "../utils/index.js";
-import { collectAnonymousLiveEntities } from "./anonymous-live-entities.js";
+} from "../rate-limit/index.ts";
+import { resolveCacheSyncBus } from "../redis/cache-sync-bus.ts";
+import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config.ts";
+import type { SearchAdapter } from "../search/types.ts";
+import type { AppSchema } from "../ui-types/app-schema.ts";
+import { assertUnreachable, generateId } from "../utils/index.ts";
+import { collectAnonymousLiveEntities } from "./anonymous-live-entities.ts";
 import {
   NO_ROUTE_MATCH_HEADER_NAME,
   NON_PUBLIC_API_PATHS,
   PUBLIC_API_PATHS,
   Routes,
-} from "./api-constants.js";
+} from "./api-constants.ts";
 import {
   type AnonymousAccessResolved,
   type AuthSessionChecker,
@@ -91,20 +91,20 @@ import {
   getAuthTokenExpiry,
   getUser,
   type TenantLifecycleStatusResolver,
-} from "./auth-middleware.js";
+} from "./auth-middleware.ts";
 import {
   type AuthRoutesConfig,
   assertSessionCallbacksPaired,
   createAuthRoutes,
   type LoginRateLimiter,
-} from "./auth-routes.js";
+} from "./auth-routes.ts";
 import {
   assertValidTrustedProxyHops,
   type ClientIpResolver,
   clientIpSourceFromHonoContext,
   createClientIpResolver,
-} from "./client-ip.js";
-import { csrfMiddleware } from "./csrf-middleware.js";
+} from "./client-ip.ts";
+import { csrfMiddleware } from "./csrf-middleware.ts";
 import {
   type ExtraRouteDefinition,
   ExtraRouteEntries,
@@ -112,22 +112,22 @@ import {
   ExtraRouteRejection,
   type RoleDispatchArgs,
   type SystemDispatchArgs,
-} from "./extra-route.js";
-import { computeStrongEtag, etagMatches } from "./http-cache.js";
-import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt.js";
-import { observabilityMiddleware } from "./observability-middleware.js";
+} from "./extra-route.ts";
+import { computeStrongEtag, etagMatches } from "./http-cache.ts";
+import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt.ts";
+import { observabilityMiddleware } from "./observability-middleware.ts";
 import {
   assertOriginGuardConfig,
   isWebSocketOriginAllowed,
   normalizeOrigin,
   rejectOrigin,
   resolveOriginGuard,
-} from "./origin-middleware.js";
-import { patRouteGuard } from "./pat-route-guard.js";
-import { piiCiphertextResponseGuard } from "./pii-leak-guard.js";
-import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker.js";
-import { type RequestContextData, requestContext } from "./request-context.js";
-import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware.js";
+} from "./origin-middleware.ts";
+import { patRouteGuard } from "./pat-route-guard.ts";
+import { piiCiphertextResponseGuard } from "./pii-leak-guard.ts";
+import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker.ts";
+import { type RequestContextData, requestContext } from "./request-context.ts";
+import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware.ts";
 import {
   bodyLimitForRoutePath,
   DEFAULT_MAX_REQUEST_BYTES,
@@ -135,11 +135,11 @@ import {
   registerHealthRoutes,
   registerMetricsRoute,
   registerVersionRoute,
-} from "./route-registrars.js";
-import { createApiRoutes, handleUncaughtRouteError } from "./routes.js";
-import { resolveSessionCookies, sessionCookiesMiddleware } from "./session-cookies.js";
-import type { SseBroker } from "./sse-broker.js";
-import { createSseRoute } from "./sse-route.js";
+} from "./route-registrars.ts";
+import { createApiRoutes, handleUncaughtRouteError } from "./routes.ts";
+import { resolveSessionCookies, sessionCookiesMiddleware } from "./session-cookies.ts";
+import type { SseBroker } from "./sse-broker.ts";
+import { createSseRoute } from "./sse-route.ts";
 import {
   buildWebSocketSessionRevalidator,
   createWebSocketConnectionLimiter,
@@ -148,7 +148,7 @@ import {
   WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER,
   WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
   type WebSocketConnectionLimiter,
-} from "./websocket-route.js";
+} from "./websocket-route.ts";
 
 export type ServerOptions = {
   registry: Registry;
@@ -1644,7 +1644,7 @@ type ExtraRouteHonoHandlerDeps = {
   readonly app: Hono;
   readonly dispatcher: Dispatcher;
   readonly registry: Registry;
-  readonly secrets: import("../secrets/index.js").SecretsContext | undefined;
+  readonly secrets: import("../secrets/index.ts").SecretsContext | undefined;
   readonly dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>;
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
   readonly clientIpResolver: ClientIpResolver;

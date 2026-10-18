@@ -3,7 +3,7 @@ import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   assertAssignableMembershipRoles,
   findForbiddenMembershipRole,
-} from "./membership-roles.js";
+} from "./membership-roles.ts";
 
 describe("membership-roles", () => {
   const FORBIDDEN = ["system", "SystemAdmin", "all", "anonymous"];

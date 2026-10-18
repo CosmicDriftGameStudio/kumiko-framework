@@ -23,22 +23,22 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, insertOne, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
   SYSTEM_TENANT_ID,
-} from "../../engine/index.js";
-import { VersionConflictError } from "../../errors/index.js";
-import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { createSeedMigrationContext } from "../context.js";
-import { createEsOperationsTable, esOperationsTable } from "../operations-schema.js";
-import { runPendingSeedMigrations } from "../runner.js";
+} from "../../engine/index.ts";
+import { VersionConflictError } from "../../errors/index.ts";
+import { createDispatcher, type Dispatcher } from "../../pipeline/index.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { createSeedMigrationContext } from "../context.ts";
+import { createEsOperationsTable, esOperationsTable } from "../operations-schema.ts";
+import { runPendingSeedMigrations } from "../runner.ts";
 
 // Minimal real feature whose handlers the seeds target. probe:create emits a
 // real event through the real dispatcher; probe:fail returns a failed

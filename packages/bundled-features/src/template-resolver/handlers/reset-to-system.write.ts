@@ -2,9 +2,9 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import type { TemplateResourceRow } from "../table.js";
-import { templateResourcesTable } from "../table.js";
-import { executor } from "./shared.js";
+import type { TemplateResourceRow } from "../table.ts";
+import { templateResourcesTable } from "../table.ts";
+import { executor } from "./shared.ts";
 
 export const resetToSystemWrite = defineWriteHandler({
   name: "reset-to-system",

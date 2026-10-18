@@ -2,7 +2,7 @@
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { dispatcherErrorText, useMutation, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
-import type { SendTestResponse } from "./mail-types.js";
+import type { SendTestResponse } from "./mail-types.ts";
 
 const TOO_MANY_REQUESTS = 429;
 

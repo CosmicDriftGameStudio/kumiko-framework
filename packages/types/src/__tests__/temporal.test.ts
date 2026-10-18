@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "../temporal.js";
+import { Temporal } from "../temporal.ts";
 
 describe("kumiko-types/temporal", () => {
   test("resolves to the native global when present", () => {

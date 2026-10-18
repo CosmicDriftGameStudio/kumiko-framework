@@ -16,7 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.ts";
 
 const ERROR_CONTEXT = "user-data-rights-defaults:fileRef";
 

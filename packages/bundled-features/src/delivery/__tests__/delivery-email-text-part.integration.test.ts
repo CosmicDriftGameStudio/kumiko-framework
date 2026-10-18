@@ -6,12 +6,12 @@ import { defineFeature, templateVariable } from "@cosmicdrift/kumiko-framework/e
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
-} from "../../auth-email-password/__tests__/auth-mail-stack.js";
-import { createEmailChannel } from "../../channel-email/email-channel.js";
-import { createInMemoryTransport } from "../../channel-email/types.js";
-import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.js";
-import { deliveryRenderJob, deliverySendJob } from "../jobs.js";
-import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.js";
+} from "../../auth-email-password/__tests__/auth-mail-stack.ts";
+import { createEmailChannel } from "../../channel-email/email-channel.ts";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
+import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.ts";
+import { deliveryRenderJob, deliverySendJob } from "../jobs.ts";
+import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 const transport = createInMemoryTransport();
 const emailChannel = createEmailChannel({

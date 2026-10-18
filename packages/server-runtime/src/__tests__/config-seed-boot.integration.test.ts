@@ -34,7 +34,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { applyBootSeeds } from "../boot/apply-boot-seeds.js";
+import { applyBootSeeds } from "../boot/apply-boot-seeds.ts";
 
 const bootSeedsFeature = defineFeature("boot-seeds-test", (r) => {
   r.requires({ features: ["config"] });

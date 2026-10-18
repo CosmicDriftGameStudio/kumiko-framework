@@ -14,12 +14,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.js";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
-import { UserErrors, UserHandlers, UserQueries } from "../constants.js";
-import { createUserFeature } from "../feature.js";
-import { userEntity, userTable } from "../schema/user.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
+import { UserErrors, UserHandlers, UserQueries } from "../constants.ts";
+import { createUserFeature } from "../feature.ts";
+import { userEntity, userTable } from "../schema/user.ts";
 
 let stack: TestStack;
 

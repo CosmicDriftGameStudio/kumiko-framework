@@ -35,9 +35,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { render as _render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
-import { defaultPrimitives } from "../primitives/index.js";
-import { defaultTokens } from "../tokens.js";
-import { SidebarProvider } from "../ui/sidebar.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { defaultTokens } from "../tokens.ts";
+import { SidebarProvider } from "../ui/sidebar.tsx";
 
 // jsdom hat keinen ResizeObserver — cmdk (Combobox-Library) braucht
 // das im Setup. Stub reicht für unsere Tests; wir messen keine

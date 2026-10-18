@@ -35,12 +35,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
 import {
   createUserFeature,
   USER_ANONYMIZED_DISPLAY_NAME,
@@ -48,10 +48,10 @@ import {
   USER_STATUS,
   userEntity,
   userTable,
-} from "../../user/index.js";
-import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
-import { createUserDataRightsDefaultsFeature } from "../feature.js";
-import { fileRefDeleteHook, fileRefExportHook, userDeleteHook, userExportHook } from "../index.js";
+} from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../feature.ts";
+import { fileRefDeleteHook, fileRefExportHook, userDeleteHook, userExportHook } from "../index.ts";
 
 let stack: TestStack;
 

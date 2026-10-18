@@ -11,12 +11,12 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import type { TemplateResourceRow } from "../table.js";
-import { templateResourcesTable } from "../table.js";
-import { activationChanges, parseTemplateDraft, toWorkingRow } from "../template-draft.js";
-import { executor } from "./shared.js";
-import { publishGateIssues } from "./template-gates.js";
+import { requireForTenant } from "../../shared/index.ts";
+import type { TemplateResourceRow } from "../table.ts";
+import { templateResourcesTable } from "../table.ts";
+import { activationChanges, parseTemplateDraft, toWorkingRow } from "../template-draft.ts";
+import { executor } from "./shared.ts";
+import { publishGateIssues } from "./template-gates.ts";
 
 type TemplateStatus = "active" | "archived";
 export type StatusTarget = "own" | "system";

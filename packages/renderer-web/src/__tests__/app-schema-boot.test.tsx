@@ -8,8 +8,8 @@ import {
   SessionEndedSignalProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { render, screen, waitFor } from "@testing-library/react";
-import { AppSchemaFetchBoot, fetchAppSchema } from "../app/app-schema-boot.js";
-import { defaultPrimitives } from "../primitives/index.js";
+import { AppSchemaFetchBoot, fetchAppSchema } from "../app/app-schema-boot.tsx";
+import { defaultPrimitives } from "../primitives/index.tsx";
 
 const originalFetch = globalThis.fetch;
 

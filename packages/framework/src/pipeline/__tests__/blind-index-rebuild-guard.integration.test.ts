@@ -13,19 +13,19 @@ import {
   computeBlindIndex,
   configureBlindIndexKey,
   decodeBlindIndexKey,
-} from "../../crypto/index.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+} from "../../crypto/index.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const TEST_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);

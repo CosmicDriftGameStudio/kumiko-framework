@@ -3,7 +3,7 @@ import {
   createTelegramChannel,
   isTelegramBotToken,
   isTelegramChatId,
-} from "../telegram-channel.js";
+} from "../telegram-channel.ts";
 
 describe("isTelegramChatId", () => {
   test.each(["123", "-1001234567890", "@ops_channel"])("accepts %s", (address) => {

@@ -24,8 +24,8 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "../primitives/dropdown-menu.js";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar.js";
+} from "../primitives/dropdown-menu.tsx";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar.tsx";
 
 export type WorkspaceSwitcherProps = {
   readonly workspaces: readonly WorkspaceSchema[];

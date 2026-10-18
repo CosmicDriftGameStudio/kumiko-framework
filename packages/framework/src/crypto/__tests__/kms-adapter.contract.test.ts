@@ -1,4 +1,4 @@
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
-import { describeKmsAdapterContract } from "./kms-adapter-contract.js";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
+import { describeKmsAdapterContract } from "./kms-adapter-contract.ts";
 
 describeKmsAdapterContract("InMemoryKmsAdapter", () => new InMemoryKmsAdapter());

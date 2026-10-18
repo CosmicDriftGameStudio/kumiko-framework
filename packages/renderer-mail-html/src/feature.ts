@@ -1,6 +1,6 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-types/feature";
-import { type MailHtmlRenderOptions, mailHtmlRender, readMailChrome } from "./render.js";
+import { type MailHtmlRenderOptions, mailHtmlRender, readMailChrome } from "./render.ts";
 
 // renderer-mail-html: plugin for renderer-foundation, renders `kind="mail"`
 // requests to subject + email-safe HTML + plain text.

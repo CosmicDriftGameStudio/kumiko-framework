@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createRegistry, defineFeature } from "../index.js";
+import { createRegistry, defineFeature } from "../index.ts";
 
 describe("r.authClaims() — registrar collection", () => {
   test("feature without authClaims has an empty hooks list", () => {

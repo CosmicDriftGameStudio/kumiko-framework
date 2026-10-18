@@ -23,10 +23,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { useMemo } from "react";
-import { toKebab } from "../app/qn.js";
-import { useTranslation } from "../i18n.js";
-import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits.js";
-import { useQuery } from "./use-query.js";
+import { toKebab } from "../app/qn.ts";
+import { useTranslation } from "../i18n.tsx";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits.ts";
+import { useQuery } from "./use-query.ts";
 
 export type ReferenceLookupMap = ReadonlyMap<string, string>;
 

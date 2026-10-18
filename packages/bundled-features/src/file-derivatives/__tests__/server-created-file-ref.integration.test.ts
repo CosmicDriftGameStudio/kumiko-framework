@@ -14,10 +14,10 @@ import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seed
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
 import * as z from "zod";
-import { createConfigFeature } from "../../config/index.js";
-import { createDerivativesSharpFeature } from "../../derivatives-sharp/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFileDerivativesFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createDerivativesSharpFeature } from "../../derivatives-sharp/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFileDerivativesFeature } from "../feature.ts";
 
 const tenantId = testTenantId(1);
 const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });

@@ -10,12 +10,12 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { DELIVERY_I18N } from "../../i18n.js";
-import { DeliveryChannelCell } from "../delivery-channel-cell.js";
-import { DeliveryErrorCell } from "../delivery-error-cell.js";
-import { DeliveryStatusCell } from "../delivery-status-cell.js";
-import { DeliveryTimeCell } from "../delivery-time-cell.js";
-import { DeliveryTypeCell } from "../delivery-type-cell.js";
+import { DELIVERY_I18N } from "../../i18n.ts";
+import { DeliveryChannelCell } from "../delivery-channel-cell.tsx";
+import { DeliveryErrorCell } from "../delivery-error-cell.tsx";
+import { DeliveryStatusCell } from "../delivery-status-cell.tsx";
+import { DeliveryTimeCell } from "../delivery-time-cell.tsx";
+import { DeliveryTypeCell } from "../delivery-type-cell.tsx";
 
 const appBundle = translationsByLocaleFromKeys({
   "orders.notification.assigned": { en: "Order assigned" },

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createRateLimitingFeature } from "../feature.js";
-import { bucketAccessDenied } from "../handlers/bucket-access.js";
+import { createRateLimitingFeature } from "../feature.ts";
+import { bucketAccessDenied } from "../handlers/bucket-access.ts";
 
 const caller = { id: "u1", tenantId: "t1", roles: ["Admin"] } as const;
 

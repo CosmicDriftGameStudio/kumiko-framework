@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { createConsoleProvider } from "../../observability/index.js";
-import { mergeTraceFields } from "../pino-logger.js";
+import { createConsoleProvider } from "../../observability/index.ts";
+import { mergeTraceFields } from "../pino-logger.ts";
 
 // The Pino trace-bridge hook is verified by directly exercising the helper
 // that wrapPino uses. Going through pino's JSON output is flaky because

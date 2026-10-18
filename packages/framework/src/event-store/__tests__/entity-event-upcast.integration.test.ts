@@ -9,28 +9,28 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.js";
+import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   decryptPiiValueForSubject,
   PII_CIPHERTEXT_PREFIX,
-} from "../../crypto/pii-field-encryption.js";
-import type { DbTx } from "../../db/connection.js";
-import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { insertOne, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+} from "../../crypto/pii-field-encryption.ts";
+import type { DbTx } from "../../db/connection.ts";
+import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { insertOne, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
-import type { EntityEventMigration } from "../../engine/types/index.js";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { loadAggregate } from "../index.js";
+} from "../../engine/index.ts";
+import type { EntityEventMigration } from "../../engine/types/index.ts";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { loadAggregate } from "../index.ts";
 
 const textField = createTextField({ personal: false, reason: "test_fixture", required: false });
 

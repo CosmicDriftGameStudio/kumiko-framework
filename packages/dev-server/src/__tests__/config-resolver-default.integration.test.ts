@@ -18,7 +18,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { mergeConfigResolverDefault } from "../run-dev-app.js";
+import { mergeConfigResolverDefault } from "../run-dev-app.ts";
 
 // Pins runDevApp's ENV→config-app-override wiring: mergeConfigResolverDefault
 // builds the auth-mode configResolver-default with the ENV bridge (a key with

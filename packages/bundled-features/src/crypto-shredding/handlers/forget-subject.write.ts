@@ -44,15 +44,15 @@ import {
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { resolveRetentionPolicyForTenant } from "../../data-retention/index.js";
-import { eraseNoteBodiesReachingSubject } from "../../notes-history-user-data/index.js";
-import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.js";
-import { USER_STATUS, userTable } from "../../user/index.js";
+import { resolveRetentionPolicyForTenant } from "../../data-retention/index.ts";
+import { eraseNoteBodiesReachingSubject } from "../../notes-history-user-data/index.ts";
+import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.ts";
+import { USER_STATUS, userTable } from "../../user/index.ts";
 import {
   denyIfTargetOutsideAdminTenant,
   isSystemAdminActor,
   updateUserLifecycle,
-} from "../../user-data-rights/index.js";
+} from "../../user-data-rights/index.ts";
 import {
   CRYPTO_SHREDDING_AGGREGATE_TYPE,
   CRYPTO_SHREDDING_FEATURE_NAME,
@@ -62,7 +62,7 @@ import {
   TARGET_RECORD_NOT_ADMIN_TENANT,
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
   TARGET_TENANT_NOT_ADMIN_TENANT,
-} from "../constants.js";
+} from "../constants.ts";
 
 export { subjectIdSchema };
 

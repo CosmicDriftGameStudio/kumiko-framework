@@ -6,7 +6,7 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { WAITLIST_STATUS, type WaitlistStatus } from "./constants.js";
+import { WAITLIST_STATUS, type WaitlistStatus } from "./constants.ts";
 
 const WAITLIST_STATUS_OPTIONS = [
   WAITLIST_STATUS.Pending,

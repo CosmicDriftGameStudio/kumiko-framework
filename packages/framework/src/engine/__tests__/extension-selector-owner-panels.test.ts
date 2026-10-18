@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { SETTINGS_HUB_I18N } from "../../i18n/settings-hub-keys.js";
-import { validateBoot } from "../boot-validator.js";
-import { buildAppSchema } from "../build-app-schema.js";
-import { buildConfigFeatureSchema } from "../build-config-feature-schema.js";
-import { access, createTenantConfig } from "../config-helpers.js";
-import { defineFeature } from "../define-feature.js";
-import { projectAppSchemaForRoles } from "../project-app-schema-for-roles.js";
-import { createRegistry } from "../registry.js";
+import { SETTINGS_HUB_I18N } from "../../i18n/settings-hub-keys.ts";
+import { validateBoot } from "../boot-validator.ts";
+import { buildAppSchema } from "../build-app-schema.ts";
+import { buildConfigFeatureSchema } from "../build-config-feature-schema.ts";
+import { access, createTenantConfig } from "../config-helpers.ts";
+import { defineFeature } from "../define-feature.ts";
+import { projectAppSchemaForRoles } from "../project-app-schema-for-roles.ts";
+import { createRegistry } from "../registry.ts";
 import type {
   DashboardScreenDefinition,
   ExtensionSelectorPanel,
   FeatureDefinition,
-} from "../types/index.js";
+} from "../types/index.ts";
 
 const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 

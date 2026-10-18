@@ -18,18 +18,18 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelInAppFeature } from "../../channel-in-app/feature.js";
-import { inAppMessagesTable } from "../../channel-in-app/tables.js";
-import { createConfigFeature, createConfigResolver } from "../../config/index.js";
-import { configValuesTable } from "../../config/table.js";
-import { createTenantFeature, tenantEntity } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { DELIVERY_ATTEMPT_EVENT } from "../constants.js";
-import { collectChannels, createDeliveryService } from "../delivery-service.js";
-import { deliveryAttemptSchema } from "../events.js";
-import { createDeliveryFeature } from "../feature.js";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.js";
-import type { DeliveryService } from "../types.js";
+import { createChannelInAppFeature } from "../../channel-in-app/feature.ts";
+import { inAppMessagesTable } from "../../channel-in-app/tables.ts";
+import { createConfigFeature, createConfigResolver } from "../../config/index.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createTenantFeature, tenantEntity } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { DELIVERY_ATTEMPT_EVENT } from "../constants.ts";
+import { collectChannels, createDeliveryService } from "../delivery-service.ts";
+import { deliveryAttemptSchema } from "../events.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.ts";
+import type { DeliveryService } from "../types.ts";
 
 let stack: TestStack;
 let db: DbConnection;

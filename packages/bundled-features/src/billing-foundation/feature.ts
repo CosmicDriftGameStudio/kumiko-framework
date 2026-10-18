@@ -60,9 +60,9 @@ import {
   BILLING_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
-} from "./constants.js";
-import { registerConsumerProtection } from "./consumer-protection/register-consent.js";
-import { paymentEntity, subscriptionEntity } from "./entities.js";
+} from "./constants.ts";
+import { registerConsumerProtection } from "./consumer-protection/register-consent.ts";
+import { paymentEntity, subscriptionEntity } from "./entities.ts";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
@@ -80,17 +80,17 @@ import {
   SUBSCRIPTION_UPDATED_EVENT_QN,
   SUBSCRIPTION_UPDATED_EVENT_SHORT,
   subscriptionEventPayloadSchema,
-} from "./events.js";
-import { createBillingPlansQuery } from "./handlers/billing-plans.query.js";
-import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write.js";
-import { createPortalSessionHandler } from "./handlers/create-portal-session.write.js";
-import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query.js";
-import { createProcessEventHandler } from "./handlers/process-event.write.js";
-import { processPaymentEventHandler } from "./handlers/process-payment-event.write.js";
-import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write.js";
-import { createSwitchPlanHandler } from "./handlers/switch-plan.write.js";
-import { syncSubscriptionHandler } from "./handlers/sync-subscription.write.js";
-import { BILLING_FOUNDATION_I18N } from "./i18n.js";
+} from "./events.ts";
+import { createBillingPlansQuery } from "./handlers/billing-plans.query.ts";
+import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write.ts";
+import { createPortalSessionHandler } from "./handlers/create-portal-session.write.ts";
+import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query.ts";
+import { createProcessEventHandler } from "./handlers/process-event.write.ts";
+import { processPaymentEventHandler } from "./handlers/process-payment-event.write.ts";
+import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write.ts";
+import { createSwitchPlanHandler } from "./handlers/switch-plan.write.ts";
+import { syncSubscriptionHandler } from "./handlers/sync-subscription.write.ts";
+import { BILLING_FOUNDATION_I18N } from "./i18n.ts";
 import {
   applyInvoicePaid,
   applyInvoicePaymentFailed,
@@ -100,16 +100,16 @@ import {
   applySubscriptionUpdated,
   paymentsProjectionTable,
   subscriptionsProjectionTable,
-} from "./projection.js";
-import { createBillingPlansScreen } from "./screens.js";
+} from "./projection.ts";
+import { createBillingPlansScreen } from "./screens.ts";
 import {
   PAYMENT_TENANT_DESTROY_ARCHIVE_REASON,
   paymentTenantDestroyHook,
   SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON,
   subscriptionTenantDestroyHook,
-} from "./tenant-destroy-hook.js";
-import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types.js";
-import { validateOptions } from "./validate-options.js";
+} from "./tenant-destroy-hook.ts";
+import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types.ts";
+import { validateOptions } from "./validate-options.ts";
 
 export function createBillingFoundationFeature<TTier extends string = string>(
   options: BillingFoundationOptions<TTier> = {},

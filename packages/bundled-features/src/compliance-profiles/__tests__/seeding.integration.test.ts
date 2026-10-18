@@ -16,12 +16,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../feature.js";
+import { createComplianceProfilesFeature } from "../feature.ts";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../schema/profile-selection.js";
-import { seedComplianceProfile } from "../seeding.js";
+} from "../schema/profile-selection.ts";
+import { seedComplianceProfile } from "../seeding.ts";
 
 const FOR_TENANT = "compliance-profiles:query:for-tenant";
 

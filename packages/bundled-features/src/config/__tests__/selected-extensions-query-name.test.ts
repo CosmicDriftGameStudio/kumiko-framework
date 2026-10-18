@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createRegistry, SELECTED_EXTENSIONS_QUERY } from "@cosmicdrift/kumiko-framework/engine";
-import { ConfigQueries } from "../constants.js";
-import { createConfigFeature } from "../feature.js";
+import { ConfigQueries } from "../constants.ts";
+import { createConfigFeature } from "../feature.ts";
 
 // The framework's generated settings dashboard points visibleWhen at this QN but
 // cannot import bundled-features; if the handler is renamed the panels would

@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { EXT_SESSION_STORE } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { createSessionsFeature } from "../feature.js";
+import { createSessionsFeature } from "../feature.ts";
 
 describe("createSessionsFeature — sessionStore registration (#1371)", () => {
   test('registers via r.useExtension(EXT_SESSION_STORE, "default", ...)', () => {

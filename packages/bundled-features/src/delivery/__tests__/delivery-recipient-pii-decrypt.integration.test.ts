@@ -33,22 +33,22 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { seedUser } from "../../auth-email-password/seeding.js";
-import { createInMemoryTransport } from "../../channel-email/types.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { configValuesTable } from "../../config/table.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { TenantHandlers, TenantQueries } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { createDeliveryFeature } from "../feature.js";
-import { notificationPreferencesTable } from "../tables.js";
-import { createDeliveryTestContext } from "../testing.js";
-import { createPlainFallbackEmailFeature } from "./plain-email-channel.js";
+import { seedUser } from "../../auth-email-password/seeding.ts";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { TenantHandlers, TenantQueries } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { notificationPreferencesTable } from "../tables.ts";
+import { createDeliveryTestContext } from "../testing.ts";
+import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 
 const emailTransport = createInMemoryTransport();
 const BIDX_KEY = Buffer.alloc(32, 9).toString("base64");

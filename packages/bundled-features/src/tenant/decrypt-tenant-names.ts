@@ -1,4 +1,4 @@
-import { decryptStoredPii, mapWithConcurrency } from "../shared/index.js";
+import { decryptStoredPii, mapWithConcurrency } from "../shared/index.ts";
 
 // Bounded like tenant:query:members: each decrypt hits the KMS adapter's small pool.
 const KMS_POOL_CONCURRENCY = 4;

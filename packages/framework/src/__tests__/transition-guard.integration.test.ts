@@ -6,16 +6,16 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { buildEntityTable } from "../db/table-builder.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
 import {
   createBooleanField,
   createEntity,
   createSelectField,
   createTextField,
   defineFeature,
-} from "../engine/index.js";
-import { TestUsers } from "../seeding/seed-users.js";
+} from "../engine/index.ts";
+import { TestUsers } from "../seeding/seed-users.ts";
 
 // Two entities, both with a field named `status`, but different transitions.
 // Before the fix, the dispatcher cached the transition map by `fieldName`

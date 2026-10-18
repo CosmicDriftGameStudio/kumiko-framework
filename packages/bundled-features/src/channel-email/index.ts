@@ -2,20 +2,20 @@ export {
   createEmailChannel,
   type EmailChannelOptions,
   type TenantTransportResolver,
-} from "./email-channel.js";
-export { smtpEnvSchema } from "./env.js";
-export { createChannelEmailFeature } from "./feature.js";
-export { guardEmailMessage, withPiiCiphertextGuard } from "./pii-guard.js";
+} from "./email-channel.ts";
+export { smtpEnvSchema } from "./env.ts";
+export { createChannelEmailFeature } from "./feature.ts";
+export { guardEmailMessage, withPiiCiphertextGuard } from "./pii-guard.ts";
 export {
   createSmtpTransport,
   createSmtpTransportFromEnv,
   type SmtpEnv,
   type SmtpTransportOptions,
-} from "./smtp-transport.js";
+} from "./smtp-transport.ts";
 export {
   createInMemoryTransport,
   type EmailAttachment,
   type EmailAttachmentRef,
   type EmailMessage,
   type EmailTransport,
-} from "./types.js";
+} from "./types.ts";

@@ -3,7 +3,7 @@ import {
   findAgentDocGaps,
   findHandlerTranslationGaps,
   formatAgentDocGap,
-} from "./agent-doc-lint.js";
+} from "./agent-doc-lint.ts";
 
 export const AGENT_TOOLS_FEATURE_NAME = "agent-tools";
 

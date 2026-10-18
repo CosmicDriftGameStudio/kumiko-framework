@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { escapeHtml, escapeHtmlAttr, escapeXml } from "../escape.js";
+import { escapeHtml, escapeHtmlAttr, escapeXml } from "../escape.ts";
 
 describe("escapeHtml", () => {
   test('escapes & < > "', () => {

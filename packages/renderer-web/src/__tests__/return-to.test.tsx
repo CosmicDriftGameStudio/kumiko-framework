@@ -20,9 +20,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { WebDashboardBody } from "../app/dashboard-body.js";
-import { useBrowserNavApi } from "../app/nav.js";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.js";
+import { WebDashboardBody } from "../app/dashboard-body.tsx";
+import { useBrowserNavApi } from "../app/nav.tsx";
+import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const tokenEntity: EntityDefinition = {
   fields: { name: { type: "text", required: false, searchable: false, sortable: false } },

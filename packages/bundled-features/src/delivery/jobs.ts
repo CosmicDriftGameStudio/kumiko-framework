@@ -16,22 +16,22 @@ import type {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
-import { fileContextForTenant } from "../file-foundation/index.js";
+import { fileContextForTenant } from "../file-foundation/index.ts";
 import {
   emailAttachmentRefSchema,
   MAX_EMAIL_ATTACHMENTS,
   toAttachmentRef,
-} from "./attachment-ref.js";
-import { appendAttemptEvent } from "./attempt-log.js";
-import { buildChannelContext } from "./channel-context.js";
-import { DeliveryJobs, deliveryIdempotencyRedisKey, deliveryPriorityRank } from "./constants.js";
-import { collectChannels, redactedMessageOf } from "./delivery-service.js";
+} from "./attachment-ref.ts";
+import { appendAttemptEvent } from "./attempt-log.ts";
+import { buildChannelContext } from "./channel-context.ts";
+import { DeliveryJobs, deliveryIdempotencyRedisKey, deliveryPriorityRank } from "./constants.ts";
+import { collectChannels, redactedMessageOf } from "./delivery-service.ts";
 import type {
   ChannelMessage,
   DeliveryChannel,
   DeliveryLogEntry,
   RenderedMessage,
-} from "./types.js";
+} from "./types.ts";
 
 const channelMessageSchema = z.object({
   notificationType: z.string(),

@@ -9,11 +9,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
-import { from } from "../ownership.js";
+import { asRawClient } from "../../db/query.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import { from } from "../ownership.ts";
 
 const contactEntity = createEntity({
   table: "presave_wiring_contacts",
@@ -36,7 +36,7 @@ const contactEntity = createEntity({
 
 const seenIsNew: boolean[] = [];
 
-const deriveDisplayName: import("../types/index.js").PreSaveHookFn = async (changes, ctx) => {
+const deriveDisplayName: import("../types/index.ts").PreSaveHookFn = async (changes, ctx) => {
   seenIsNew.push(ctx.isNew);
   const first =
     (changes["firstName"] as string | undefined) ??
@@ -46,13 +46,13 @@ const deriveDisplayName: import("../types/index.js").PreSaveHookFn = async (chan
   return { ...changes, displayName: `${first ?? ""} ${last ?? ""}`.trim() };
 };
 
-const deriveAuthorId: import("../types/index.js").PreSaveHookFn = async (changes) => ({
+const deriveAuthorId: import("../types/index.ts").PreSaveHookFn = async (changes) => ({
   ...changes,
   authorId: TestUsers.user.id,
 });
 
 const THROWING_HOOK_MESSAGE = "business rule violated";
-const throwOnPreSave: import("../types/index.js").PreSaveHookFn = async () => {
+const throwOnPreSave: import("../types/index.ts").PreSaveHookFn = async () => {
   throw new Error(THROWING_HOOK_MESSAGE);
 };
 
@@ -70,7 +70,7 @@ const codeEntity = createEntity({
 
 const OVERLONG_CODE = "far-too-long";
 let hookWritesInvalidCode = false;
-const overwriteCodeWhenArmed: import("../types/index.js").PreSaveHookFn = async (changes) =>
+const overwriteCodeWhenArmed: import("../types/index.ts").PreSaveHookFn = async (changes) =>
   hookWritesInvalidCode ? { ...changes, code: OVERLONG_CODE } : changes;
 
 const codeFeature = defineFeature("presave-wiring-code", (r) => {

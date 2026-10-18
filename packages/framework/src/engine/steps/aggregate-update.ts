@@ -13,13 +13,13 @@
 // Failure-handling mirrors aggregate.create: WriteFailure → re-raised
 // as KumikoError → dispatcher catches and maps.
 
-import type { EventStoreExecutor } from "../../db/event-store-executor.js";
-import { reraiseAsKumikoError } from "../../errors/write-error-info.js";
-import { defineStep } from "../define-step.js";
-import type { SaveContext } from "../types/hooks.js";
-import type { EntityId } from "../types/identifiers.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { resolveOptional, resolveRequired } from "./_resolver-utils.js";
+import type { EventStoreExecutor } from "../../db/event-store-executor.ts";
+import { reraiseAsKumikoError } from "../../errors/write-error-info.ts";
+import { defineStep } from "../define-step.ts";
+import type { SaveContext } from "../types/hooks.ts";
+import type { EntityId } from "../types/identifiers.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { resolveOptional, resolveRequired } from "./_resolver-utils.ts";
 
 type AggregateUpdateArgs = {
   readonly name: string;

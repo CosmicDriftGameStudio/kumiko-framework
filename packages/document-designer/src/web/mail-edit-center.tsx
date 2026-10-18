@@ -7,9 +7,9 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import type { MailMetaField } from "./mail-footer.js";
-import type { MailDraft } from "./mail-types.js";
-import type { InsertTargets } from "./use-insert-targets.js";
+import type { MailMetaField } from "./mail-footer.ts";
+import type { MailDraft } from "./mail-types.ts";
+import type { InsertTargets } from "./use-insert-targets.ts";
 
 const renderMailPaper = (editable: ReactNode): ReactNode => (
   <div className="mx-auto w-full max-w-[600px] bg-card px-10 py-7 shadow-md">{editable}</div>

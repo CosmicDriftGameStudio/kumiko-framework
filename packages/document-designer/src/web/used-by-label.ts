@@ -1,6 +1,6 @@
 // @runtime client
-import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
-import type { OverviewRowView, OverviewUsageView } from "./overview-row.js";
+import { DEFAULT_LAYOUT_SLUG } from "../constants.ts";
+import type { OverviewRowView, OverviewUsageView } from "./overview-row.ts";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 

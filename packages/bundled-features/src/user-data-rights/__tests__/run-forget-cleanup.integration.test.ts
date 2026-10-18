@@ -44,14 +44,14 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
-} from "../../data-retention/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
+} from "../../data-retention/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import {
   createUserFeature,
   USER_ANONYMIZED_DISPLAY_NAME,
@@ -60,18 +60,18 @@ import {
   UserHandlers,
   userEntity,
   userTable,
-} from "../../user/index.js";
-import { seedUser as seedUserViaExecutor } from "../../user/seeding.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
-import { runForgetCleanup } from "../run-forget-cleanup.js";
+} from "../../user/index.ts";
+import { seedUser as seedUserViaExecutor } from "../../user/seeding.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
+import { runForgetCleanup } from "../run-forget-cleanup.ts";
 import {
   decryptEmail,
   emailsIn,
   expectEmailsShredded,
   setupSubjectKmsForTest,
-} from "./forget-shredding-test-helpers.js";
+} from "./forget-shredding-test-helpers.ts";
 
 let stack: TestStack;
 

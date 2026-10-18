@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { runnerCanBeginTransaction } from "../../query.js";
+import { runnerCanBeginTransaction } from "../../query.ts";
 
 const unsafe = async () => [];
 const begin = async () => undefined;

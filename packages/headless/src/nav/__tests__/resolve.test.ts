@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { resolveNavigation } from "../resolve.js";
-import type { NavRegistrySlice } from "../types.js";
+import { resolveNavigation } from "../resolve.ts";
+import type { NavRegistrySlice } from "../types.ts";
 
 // Builds the minimal NavRegistrySlice resolveNavigation consumes from a
 // flat NavDefinition list. Shape matches what the framework registry

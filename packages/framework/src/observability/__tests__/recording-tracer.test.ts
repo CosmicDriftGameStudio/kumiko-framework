@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { type RecordedSpan, RecordingTracer } from "../recording-tracer.js";
-import { DEFAULT_SENSITIVE_CONFIG } from "../sensitive-filter.js";
+import { type RecordedSpan, RecordingTracer } from "../recording-tracer.ts";
+import { DEFAULT_SENSITIVE_CONFIG } from "../sensitive-filter.ts";
 
 function makeTracer() {
   const recorded: RecordedSpan[] = [];

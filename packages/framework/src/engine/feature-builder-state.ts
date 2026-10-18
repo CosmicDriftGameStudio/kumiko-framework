@@ -1,7 +1,7 @@
 import type { WebSocketRouteDefinition } from "@cosmicdrift/kumiko-types/websocket-route";
 import type * as z from "zod";
-import { LifecycleHookTypes } from "./constants.js";
-import type { HttpRouteDefinition } from "./types/http-route.js";
+import { LifecycleHookTypes } from "./constants.ts";
+import type { HttpRouteDefinition } from "./types/http-route.ts";
 import type {
   AuthClaimsFn,
   BootCheckFn,
@@ -40,10 +40,10 @@ import type {
   UiHints,
   ValidationHookFn,
   WriteHandlerDef,
-} from "./types/index.js";
-import type { ContentCollectionDefinition, NavDefinition } from "./types/nav.js";
-import type { ScreenDefinition } from "./types/screen.js";
-import type { WorkspaceDefinition } from "./types/workspace.js";
+} from "./types/index.ts";
+import type { ContentCollectionDefinition, NavDefinition } from "./types/nav.ts";
+import type { ScreenDefinition } from "./types/screen.ts";
+import type { WorkspaceDefinition } from "./types/workspace.ts";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 

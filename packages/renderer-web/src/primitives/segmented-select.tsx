@@ -1,5 +1,5 @@
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn.ts";
 
 // WAI-ARIA radiogroup pattern (role="radiogroup" + role="radio" children):
 // arrow keys move focus AND selection in the same step, only the checked

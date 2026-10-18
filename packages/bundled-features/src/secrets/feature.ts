@@ -10,14 +10,14 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { SETTINGS_HUB_I18N } from "@cosmicdrift/kumiko-framework/i18n";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import * as z from "zod";
-import { DEFAULT_SECRETS_ACCESS } from "./constants.js";
-import { createDeleteHandler } from "./handlers/delete.write.js";
-import { createListHandler } from "./handlers/list.query.js";
-import { rotateJob } from "./handlers/rotate.job.js";
-import { createSetHandler } from "./handlers/set.write.js";
-import { SECRETS_I18N } from "./i18n.js";
-import { secretReadSchema } from "./secrets-context.js";
-import { tenantSecretEntity, tenantSecretsTable } from "./table.js";
+import { DEFAULT_SECRETS_ACCESS } from "./constants.ts";
+import { createDeleteHandler } from "./handlers/delete.write.ts";
+import { createListHandler } from "./handlers/list.query.ts";
+import { rotateJob } from "./handlers/rotate.job.ts";
+import { createSetHandler } from "./handlers/set.write.ts";
+import { SECRETS_I18N } from "./i18n.ts";
+import { secretReadSchema } from "./secrets-context.ts";
+import { tenantSecretEntity, tenantSecretsTable } from "./table.ts";
 
 const ROTATE_ESCAPE_HATCH_REASON = "re-encrypts every tenant's secrets with the new master key";
 
@@ -62,8 +62,8 @@ export {
   type SecretsContext,
   type SecretsContextOptions,
   TENANT_SECRET_READ_EVENT,
-} from "./secrets-context.js";
-export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./table.js";
+} from "./secrets-context.ts";
+export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./table.ts";
 
 // The settings form saves config values and secrets in one /api/batch; the secret
 // write has to join that transaction so a rejected command rolls it back too.

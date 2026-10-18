@@ -38,25 +38,25 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 // kumiko-lint-ignore cross-feature-import regression-proof for #1463: seedTenant
 // must fire tier-engine's entity postSave hook on self-signup, not just on the
 // TenantHandlers.create HTTP path.
-import { tierAssignmentEntity } from "../../tier-engine/entity.js";
-import { createTierEngineFeature } from "../../tier-engine/feature.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { AuthErrors, AuthHandlers } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
-import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
+import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
+import { createTierEngineFeature } from "../../tier-engine/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { AuthErrors, AuthHandlers } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 

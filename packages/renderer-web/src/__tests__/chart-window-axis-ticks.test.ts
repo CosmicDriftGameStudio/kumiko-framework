@@ -3,7 +3,7 @@ import {
   bucketIndexAtFraction,
   stackedAreaAxisTicks,
   stackedAreaDateFormatFor,
-} from "../widgets/chart-window.js";
+} from "../widgets/chart-window.ts";
 
 const utc = (year: number, monthIndex: number, day = 1): number => Date.UTC(year, monthIndex, day);
 const monthOf = (atMs: number): number => new Date(atMs).getUTCMonth();

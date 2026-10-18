@@ -1,10 +1,10 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-types/feature";
-import { buildDocumentPreview } from "./document-pdf.js";
-import { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity } from "./entity.js";
-import { previewPdfQuery } from "./preview-pdf.query.js";
-import { puppeteerRender } from "./render.js";
-import { puppeteerStatusQuery } from "./status.query.js";
+import { buildDocumentPreview } from "./document-pdf.ts";
+import { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity } from "./entity.ts";
+import { previewPdfQuery } from "./preview-pdf.query.ts";
+import { puppeteerRender } from "./render.ts";
+import { puppeteerStatusQuery } from "./status.query.ts";
 
 // renderer-puppeteer-client — plugin for renderer-foundation. Renders
 // kind=["document-pdf", "image-snapshot"] requests via an HTTP call to

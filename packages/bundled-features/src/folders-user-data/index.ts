@@ -10,7 +10,7 @@ import {
   folderAssignmentExportHook,
   folderDeleteHook,
   folderExportHook,
-} from "./hooks.js";
+} from "./hooks.ts";
 
 export function createFoldersUserDataFeature() {
   return defineFeature(

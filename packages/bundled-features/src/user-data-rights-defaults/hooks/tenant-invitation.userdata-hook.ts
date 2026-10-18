@@ -10,10 +10,10 @@ import {
   decryptStoredPii,
   mapWithConcurrency,
   throwIfErasureFailed,
-} from "../../shared/index.js";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/index.js";
-import { userTable } from "../../user/index.js";
-import { featureMounted } from "./feature-mounted.js";
+} from "../../shared/index.ts";
+import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/index.ts";
+import { userTable } from "../../user/index.ts";
+import { featureMounted } from "./feature-mounted.ts";
 
 // userData-Hooks for tenant-invitation rows. Event-sourced entity → all
 // forget writes go through the executor so a projection rebuild replays the

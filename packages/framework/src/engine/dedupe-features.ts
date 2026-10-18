@@ -1,4 +1,4 @@
-import type { FeatureDefinition } from "./types/index.js";
+import type { FeatureDefinition } from "./types/index.ts";
 
 function dedupeOptionsShallowEqual(
   a: Readonly<Record<string, unknown>>,

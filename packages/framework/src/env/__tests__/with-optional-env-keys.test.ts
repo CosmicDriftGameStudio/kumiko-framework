@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { kmsSlotsOf, parseEnv, withOptionalEnvKeys } from "../index.js";
+import { kmsSlotsOf, parseEnv, withOptionalEnvKeys } from "../index.ts";
 
 const schema = z.object({
   KEK: z.string().meta({ kumiko: { kms: true } }),

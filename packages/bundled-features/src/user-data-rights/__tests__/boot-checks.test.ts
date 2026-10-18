@@ -11,14 +11,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.js";
-import { createConfigFeature } from "../../config/feature.js";
-import { createDataRetentionFeature } from "../../data-retention/feature.js";
-import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.js";
-import { createSessionsFeature } from "../../sessions/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/feature.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.ts";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createDataRetentionFeature } from "../../data-retention/feature.ts";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
+import { createSessionsFeature } from "../../sessions/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/feature.ts";
 
 function projectionProbeTable(name: string): SchemaTable {
   return table(name, {
@@ -27,11 +27,11 @@ function projectionProbeTable(name: string): SchemaTable {
   }) as unknown as SchemaTable; // @cast-boundary test-fixture — minimal probe shape, real schema-table irrelevant here
 }
 
-import { createFormDraftFeature } from "../../form-draft/index.js";
-import { createFormDraftUserDataFeature } from "../../form-draft-user-data/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.js";
-import { createUserDataRightsFeature } from "../feature.js";
+import { createFormDraftFeature } from "../../form-draft/index.ts";
+import { createFormDraftUserDataFeature } from "../../form-draft-user-data/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
 
 // GDPR-storage guards V2 (export-without-erase) and V3 (pii-entity-without-
 // hook) moved off the framework-internal boot-validator onto user-data-

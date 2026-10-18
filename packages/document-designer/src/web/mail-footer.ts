@@ -1,7 +1,7 @@
 // @runtime client
-import type { ValidationIssue } from "./layout-types.js";
-import type { MailValidation } from "./mail-types.js";
-import { variableLabelText } from "./used-by-label.js";
+import type { ValidationIssue } from "./layout-types.ts";
+import type { MailValidation } from "./mail-types.ts";
+import { variableLabelText } from "./used-by-label.ts";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 

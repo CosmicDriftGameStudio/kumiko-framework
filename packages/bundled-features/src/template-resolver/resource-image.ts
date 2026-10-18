@@ -4,7 +4,7 @@ import {
   RESOURCE_IMAGE_FORMATS,
   type ResourceImageContentType,
   SHARP_INPUT_OPTIONS,
-} from "../shared/index.js";
+} from "../shared/index.ts";
 
 const MAX_RESOURCE_WIDTH = 1200;
 

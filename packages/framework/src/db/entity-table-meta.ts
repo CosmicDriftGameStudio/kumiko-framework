@@ -17,22 +17,22 @@
 //      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.js";
-import type { EntityDefinition, FieldDefinition } from "../engine/types/index.js";
-import { isSqlExpression } from "./dialect.js";
+import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.ts";
+import type { EntityDefinition, FieldDefinition } from "../engine/types/index.ts";
+import { isSqlExpression } from "./dialect.ts";
 import type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
   EntityTableMeta,
   IndexMeta,
   UnmanagedTableInput,
-} from "./entity-table-meta-types.js";
+} from "./entity-table-meta-types.ts";
 import {
   READ_MODEL_PREFIX,
   SOFT_DELETE_LIVE_ROW_PREDICATE,
   toSnakeCase,
   toTableName,
-} from "./table-builder.js";
+} from "./table-builder.ts";
 
 export type {
   BuildEntityTableMetaOptions,
@@ -42,7 +42,7 @@ export type {
   IndexMeta,
   PgType,
   UnmanagedTableInput,
-} from "./entity-table-meta-types.js";
+} from "./entity-table-meta-types.ts";
 
 // Standard base columns for event-sourced read-model tables. Mirrors
 // `buildBaseColumns()` from table-builder.ts (drizzle variant).

@@ -3,5 +3,5 @@ export {
   type ConfigClientFeature,
   type ConfigClientOptions,
   configClient,
-} from "./client-plugin.js";
-export { defaultTranslations } from "./i18n.js";
+} from "./client-plugin.ts";
+export { defaultTranslations } from "./i18n.ts";

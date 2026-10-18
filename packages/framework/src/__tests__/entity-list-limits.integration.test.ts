@@ -19,8 +19,8 @@ import {
   defineEntityListHandler,
   defineFeature,
   MAX_LIST_LIMIT,
-} from "../engine/index.js";
-import { TestUsers } from "../seeding/seed-users.js";
+} from "../engine/index.ts";
+import { TestUsers } from "../seeding/seed-users.ts";
 
 const widgetEntity = createEntity({
   table: "limit_widgets",

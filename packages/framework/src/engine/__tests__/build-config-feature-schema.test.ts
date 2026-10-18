@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { buildConfigFeatureSchema } from "../build-config-feature-schema.js";
+import { buildConfigFeatureSchema } from "../build-config-feature-schema.ts";
 import {
   access,
   createSystemConfig,
   createTenantConfig,
   createUserConfig,
-} from "../config-helpers.js";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
-import { isOpenToAllGranted } from "../types/handlers.js";
-import type { NavDefinition } from "../types/nav.js";
-import type { ConfigEditScreenDefinition, ScreenDefinition } from "../types/screen.js";
+} from "../config-helpers.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
+import { isOpenToAllGranted } from "../types/handlers.ts";
+import type { NavDefinition } from "../types/nav.ts";
+import type { ConfigEditScreenDefinition, ScreenDefinition } from "../types/screen.ts";
 
 // Two features declaring masked keys across all three scopes. Probes:
 //  - apiKey: a SYSTEM-home key with a human writer (SystemAdmin) — the real

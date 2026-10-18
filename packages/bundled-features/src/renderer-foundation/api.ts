@@ -5,8 +5,8 @@
 
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { DEFAULT_PLUGIN_BY_KIND, type RenderKind } from "./constants.js";
-import { RendererError, type RendererPlugin } from "./types.js";
+import { DEFAULT_PLUGIN_BY_KIND, type RenderKind } from "./constants.ts";
+import { RendererError, type RendererPlugin } from "./types.ts";
 
 export type RendererFoundationApi = {
   /**

@@ -17,10 +17,10 @@ import { createHash } from "node:crypto";
 import { SYSTEM_ROLE, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { findProviderPlugin } from "../checkout-core.js";
-import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../constants.js";
-import { getSubscriptionForTenant } from "../get-subscription-for-tenant.js";
-import { appendSubscriptionEvent } from "./process-event.write.js";
+import { findProviderPlugin } from "../checkout-core.ts";
+import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../constants.ts";
+import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
+import { appendSubscriptionEvent } from "./process-event.write.ts";
 
 export const syncSubscriptionSchema = z.object({}).strict();
 

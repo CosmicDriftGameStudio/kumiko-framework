@@ -1,16 +1,16 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 // --- Field Types ---
 
-import type { VariantSpec } from "./derivatives-types.js";
-import type { EventUpcastCtx } from "./handlers.js";
+import type { VariantSpec } from "./derivatives-types.ts";
+import type { EventUpcastCtx } from "./handlers.ts";
 
 // OwnershipMap is declared in ./ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
-import type { OwnershipMap } from "./ownership.js";
-import type { EntityTenancy } from "./tenancy-brand.js";
+import type { OwnershipMap } from "./ownership.ts";
+import type { EntityTenancy } from "./tenancy-brand.ts";
 
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];

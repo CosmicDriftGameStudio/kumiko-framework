@@ -1,6 +1,6 @@
 // @runtime client
 import type { StatusBadgeTone } from "@cosmicdrift/kumiko-renderer-web";
-import type { OverviewRowView } from "./overview-row.js";
+import type { OverviewRowView } from "./overview-row.ts";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 

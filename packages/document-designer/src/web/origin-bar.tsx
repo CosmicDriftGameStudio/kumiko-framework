@@ -12,15 +12,15 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { EmptyState, ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
-import { originOf } from "./editor-header.js";
-import { EditorInfoBar } from "./editor-shell.js";
+import { originOf } from "./editor-header.tsx";
+import { EditorInfoBar } from "./editor-shell.tsx";
 import type {
   LayoutKind,
   LayoutSourceView,
   TemplateDiff,
   TenantOverrideCounts,
-} from "./layout-types.js";
-import { draftBesideActiveSentence } from "./status-label.js";
+} from "./layout-types.ts";
+import { draftBesideActiveSentence } from "./status-label.ts";
 
 const DIFF_MARK: Readonly<Record<TemplateDiff["blocks"][number]["change"], string>> = {
   same: " ",

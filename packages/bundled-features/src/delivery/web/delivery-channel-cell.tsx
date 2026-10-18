@@ -4,7 +4,7 @@
 
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { translateOrRaw } from "../../shared/web/translate-or-raw.js";
+import { translateOrRaw } from "../../shared/web/translate-or-raw.ts";
 
 export function DeliveryChannelCell({ row }: ColumnRendererProps): ReactNode {
   const t = useTranslation();

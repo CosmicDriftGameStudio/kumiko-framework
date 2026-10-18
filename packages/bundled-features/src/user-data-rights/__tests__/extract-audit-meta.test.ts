@@ -2,7 +2,7 @@
 // X-Forwarded-For itself, so a caller can't plant a fake audit IP.
 import { describe, expect, test } from "bun:test";
 import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
-import { extractAuditMeta } from "../feature.js";
+import { extractAuditMeta } from "../feature.ts";
 
 describe("extractAuditMeta", () => {
   test("uses the resolved clientIp, ignoring a spoofed X-Forwarded-For header on the same request", () => {

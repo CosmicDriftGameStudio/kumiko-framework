@@ -2,8 +2,8 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { buildSessionRoles } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { tenantMembershipsTable } from "../tenant/index.js";
-import { isPrincipalRowBlocked, type UserStatus, userTable } from "../user/index.js";
+import { tenantMembershipsTable } from "../tenant/index.ts";
+import { isPrincipalRowBlocked, type UserStatus, userTable } from "../user/index.ts";
 
 // Live role resolution for a (userId, tenantId), mirroring login.write.ts:
 // global roles (users.roles) ∪ tenant-membership roles (forbidden roles

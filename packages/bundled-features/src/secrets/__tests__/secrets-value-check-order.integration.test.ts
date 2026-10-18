@@ -17,10 +17,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createSecretsFeature } from "../feature.js";
-import { createSecretsContext } from "../secrets-context.js";
-import { tenantSecretsTable } from "../table.js";
-import { isInvalidSecretValueError } from "../write-gate.js";
+import { createSecretsFeature } from "../feature.ts";
+import { createSecretsContext } from "../secrets-context.ts";
+import { tenantSecretsTable } from "../table.ts";
+import { isInvalidSecretValueError } from "../write-gate.ts";
 
 const INVALID_VALUE = "not-a-url";
 

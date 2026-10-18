@@ -5,9 +5,9 @@ import {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_OVERVIEW_FEATURE,
   CAP_USAGE_CELL_COMPONENT,
-} from "../constants.js";
-import { CapCardsPanel } from "./cap-cards-panel.js";
-import { CapUsageCell } from "./cap-usage-cell.js";
+} from "../constants.ts";
+import { CapCardsPanel } from "./cap-cards-panel.tsx";
+import { CapUsageCell } from "./cap-usage-cell.tsx";
 
 export type CapOverviewClientOptions = {
   readonly translations?: TranslationsByLocale;

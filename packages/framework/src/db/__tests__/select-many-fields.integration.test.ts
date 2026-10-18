@@ -8,14 +8,14 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { createProjectionStateTable } from "../../pipeline/projection-state.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { asRawClient } from "../query.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb, type TenantDb } from "../tenant-db.js";
+import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.ts";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { createProjectionStateTable } from "../../pipeline/projection-state.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { asRawClient } from "../query.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 const contactEntity = createEntity({
   table: "read_select_fields_contacts",

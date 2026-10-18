@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createPortal } from "react-dom";
-import { FloatingPanel } from "../widgets/floating-panel.js";
-import { act, fireEvent, render, screen } from "./test-utils.js";
+import { FloatingPanel } from "../widgets/floating-panel.tsx";
+import { act, fireEvent, render, screen } from "./test-utils.tsx";
 
 const STORAGE_KEY = "test:floating-panel";
 const WIDE = { width: 1280, height: 800 };

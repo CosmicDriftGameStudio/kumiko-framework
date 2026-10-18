@@ -8,12 +8,12 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { AccessDeniedError } from "../../errors/index.js";
-import { TestUsers, testTenantId } from "../../seeding/seed-users.js";
-import { createEventStoreExecutor } from "../event-store-executor.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { AccessDeniedError } from "../../errors/index.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
+import { createEventStoreExecutor } from "../event-store-executor.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 const globalEntity = createEntity({
   table: "gtenancy_global",

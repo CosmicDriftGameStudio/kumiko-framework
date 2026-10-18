@@ -1,7 +1,7 @@
-import type { DbRunner } from "../db/index.js";
-import type { LifecycleResult, Registry } from "../engine/types/index.js";
-import { InternalError } from "../errors/index.js";
-import type { StoredEvent } from "../event-store/index.js";
+import type { DbRunner } from "../db/index.ts";
+import type { LifecycleResult, Registry } from "../engine/types/index.ts";
+import { InternalError } from "../errors/index.ts";
+import type { StoredEvent } from "../event-store/index.ts";
 
 // Run custom projections for a save or delete result. Lives INSIDE the
 // transaction that appended the event — a throw from apply() rolls the event

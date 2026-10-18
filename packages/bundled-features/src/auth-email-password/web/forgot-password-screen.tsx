@@ -11,8 +11,8 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { requestPasswordReset } from "./auth-client.js";
-import { AuthCard } from "./auth-form-primitives.js";
+import { requestPasswordReset } from "./auth-client.ts";
+import { AuthCard } from "./auth-form-primitives.tsx";
 
 export type ForgotPasswordScreenProps = {
   readonly title?: string;

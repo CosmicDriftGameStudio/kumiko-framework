@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createTemplateResolverFeature } from "../feature.js";
+import { createTemplateResolverFeature } from "../feature.ts";
 
 const REFUSED_KINDS = ["mail", "mail-layout", "pdf-layout"] as const;
 

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { resizeImageBeforeUpload } from "../resize-image.js";
+import { resizeImageBeforeUpload } from "../resize-image.ts";
 
 describe("resizeImageBeforeUpload", () => {
   test("lässt Nicht-Bilder unverändert", async () => {

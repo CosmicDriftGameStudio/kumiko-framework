@@ -7,7 +7,7 @@ import {
   sessionCookieName,
   sessionCookieNameCandidates,
   TENANT_COOKIE_BASE,
-} from "../session-cookies.js";
+} from "../session-cookies.ts";
 
 describe("sessionCookieName", () => {
   test("secure without domain gets the __Host- prefix", () => {

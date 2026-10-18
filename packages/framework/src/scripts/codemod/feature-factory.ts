@@ -23,7 +23,7 @@ import {
   runCodemodCli,
   type SiteLists,
   sourceRelativeModule,
-} from "./codemod-support.js";
+} from "./codemod-support.ts";
 
 export interface FeatureFactoryEntry {
   readonly factory: string;

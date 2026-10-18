@@ -30,7 +30,7 @@ import {
   type OpenCheckoutInput,
   openCheckout,
   startProviderCheckout,
-} from "../checkout-core.js";
+} from "../checkout-core.ts";
 import {
   assertValidOrderItem,
   type ConsentPayload,
@@ -38,12 +38,12 @@ import {
   consentPayloadSchema,
   prepareConsent,
   recordConsent,
-} from "../consumer-protection/consent-gate.js";
+} from "../consumer-protection/consent-gate.ts";
 import type {
   ProviderPrice,
   ResolvedBillingFoundationOptions,
   SubscriptionProviderPlugin,
-} from "../types.js";
+} from "../types.ts";
 
 const createCheckoutSessionSchema = z.object({
   /** Welcher Provider — entityName eines registrierten subscription-

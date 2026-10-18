@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { useStreamHandler } from "../use-stream-handler.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { useStreamHandler } from "../use-stream-handler.ts";
 
 function makeDispatcher(streamImpl: unknown): Dispatcher {
   return {

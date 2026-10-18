@@ -29,33 +29,33 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { SessionHandlers } from "../../sessions/constants.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.js";
-import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { SessionHandlers } from "../../sessions/constants.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.ts";
+import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks.ts";
 import {
   SESSION_REVOKED_EVENT_QN,
   sessionRevokedSchema,
-} from "../../sessions/session-revoked-event.js";
-import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing.js";
-import { hashPassword } from "../../shared/index.js";
-import { createTenantFeature, tenantMembershipsTable } from "../../tenant/index.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/seeding.js";
-import { UserHandlers } from "../../user/constants.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
+} from "../../sessions/session-revoked-event.ts";
+import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createTenantFeature, tenantMembershipsTable } from "../../tenant/index.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { UserHandlers } from "../../user/constants.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
 
 const RESTRICT = "user-data-rights:write:restrict-account";
 const LIFT = "user-data-rights:write:lift-restriction";

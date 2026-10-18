@@ -3,8 +3,8 @@
 // begrenzt den Picker; diese Zod-Grenze ist die Write-seitige Sicherung.
 
 import { describe, expect, test } from "bun:test";
-import { createDateField, createEntity, createTimestampField } from "../factories.js";
-import { buildInsertSchema } from "../schema-builder.js";
+import { createDateField, createEntity, createTimestampField } from "../factories.ts";
+import { buildInsertSchema } from "../schema-builder.ts";
 
 describe("date/timestamp min/max bounds", () => {
   test("date max abgewiesen, im Rahmen akzeptiert", () => {

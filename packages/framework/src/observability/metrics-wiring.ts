@@ -1,7 +1,7 @@
 import * as z from "zod";
-import { createNoopProvider } from "./noop-provider.js";
-import { createPrometheusMeter, type PrometheusMeter } from "./prometheus-meter.js";
-import type { ObservabilityProvider } from "./types/index.js";
+import { createNoopProvider } from "./noop-provider.ts";
+import { createPrometheusMeter, type PrometheusMeter } from "./prometheus-meter.ts";
+import type { ObservabilityProvider } from "./types/index.ts";
 
 export const prometheusMetricsEnvSchema = z.object({
   // An empty value (blank .env line, empty k8s secret) means "unset", not "invalid".

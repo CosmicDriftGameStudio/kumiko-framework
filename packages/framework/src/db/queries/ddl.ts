@@ -1,6 +1,6 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
-import { quoteTableIdent } from "./table-ops.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
+import { quoteTableIdent } from "./table-ops.ts";
 
 // Generic DDL helpers used on the prod-boot path (db/table-push.ts's
 // unsafePushTables, event-consumer-state.ts's multi-instance backfill) —

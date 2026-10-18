@@ -2,9 +2,9 @@
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useMutation, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
-import { errorTextWithFieldIssues } from "./field-issue-text.js";
-import { buildMeta, parseJsonRecord } from "./mail-draft.js";
-import type { MailDraft, TemplateRowView, UpsertResponse } from "./mail-types.js";
+import { errorTextWithFieldIssues } from "./field-issue-text.ts";
+import { buildMeta, parseJsonRecord } from "./mail-draft.ts";
+import type { MailDraft, TemplateRowView, UpsertResponse } from "./mail-types.ts";
 
 // "saved-not-published": the system version was written but publishing it failed, so the
 // stored state changed and the editor must reload even though an error is shown.

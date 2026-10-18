@@ -13,29 +13,29 @@ import {
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { ErrorState, LoadingState, uploadFileRef } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { BRANDING_QUERY_QN } from "../constants.js";
+import { BRANDING_QUERY_QN } from "../constants.ts";
 import {
   EditorHeader,
   EditorLocaleSwitch,
   type EditorMode,
   EditorModeSwitch,
   originOf,
-} from "./editor-header.js";
-import { EditorBody, EditorFooter, EditorFrame, EditorInfoBar } from "./editor-shell.js";
-import { describeError, isAlreadyActive } from "./errors.js";
-import { fileUrl } from "./file-name.js";
-import type { BrandingView } from "./layout-types.js";
-import { systemLabelMap, variableLabelMap } from "./mail-draft.js";
-import { PlaceholderSection, SystemPlaceholderSection } from "./mail-left-rail.js";
-import { OverridesDrawer } from "./overrides-drawer.js";
-import { PageCanvas } from "./page-canvas.js";
-import { pdfFooterMessage } from "./pdf-footer.js";
-import { PdfResourceSection, visibleSystemPlaceholders } from "./pdf-left-rail.js";
-import { EMPTY_PDF_META, type PdfMetaDraft, parsePdfMeta, serializePdfMeta } from "./pdf-meta.js";
-import { PdfPreview } from "./pdf-preview.js";
-import { SettingsPanel } from "./settings-panel.js";
-import { draftBesideActiveSentence } from "./status-label.js";
-import { localesOf, parseJsonObject, pickRow, resolveLocale } from "./template-rows.js";
+} from "./editor-header.tsx";
+import { EditorBody, EditorFooter, EditorFrame, EditorInfoBar } from "./editor-shell.tsx";
+import { describeError, isAlreadyActive } from "./errors.ts";
+import { fileUrl } from "./file-name.ts";
+import type { BrandingView } from "./layout-types.ts";
+import { systemLabelMap, variableLabelMap } from "./mail-draft.ts";
+import { PlaceholderSection, SystemPlaceholderSection } from "./mail-left-rail.tsx";
+import { OverridesDrawer } from "./overrides-drawer.tsx";
+import { PageCanvas } from "./page-canvas.tsx";
+import { pdfFooterMessage } from "./pdf-footer.ts";
+import { PdfResourceSection, visibleSystemPlaceholders } from "./pdf-left-rail.tsx";
+import { EMPTY_PDF_META, type PdfMetaDraft, parsePdfMeta, serializePdfMeta } from "./pdf-meta.ts";
+import { PdfPreview } from "./pdf-preview.tsx";
+import { SettingsPanel } from "./settings-panel.tsx";
+import { draftBesideActiveSentence } from "./status-label.ts";
+import { localesOf, parseJsonObject, pickRow, resolveLocale } from "./template-rows.ts";
 import {
   DEFAULT_LAYOUT_SLUG,
   DOCUMENT_PDF_KIND,
@@ -50,10 +50,10 @@ import {
   type TenantOverrides,
   type ValidationResult,
   type VariableInfo,
-} from "./types.js";
-import { useInsertTargets } from "./use-insert-targets.js";
-import { useOverviewRows } from "./use-overview-rows.js";
-import { templateTitle } from "./used-by-label.js";
+} from "./types.ts";
+import { useInsertTargets } from "./use-insert-targets.ts";
+import { useOverviewRows } from "./use-overview-rows.ts";
+import { templateTitle } from "./used-by-label.ts";
 
 const SETTLE_MS = 500;
 const NO_VARIABLES: Readonly<Record<string, VariableInfo>> = {};

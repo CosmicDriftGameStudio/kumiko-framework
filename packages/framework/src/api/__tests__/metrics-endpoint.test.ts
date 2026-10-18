@@ -4,13 +4,13 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-} from "../../engine/index.js";
+} from "../../engine/index.ts";
 import {
   createNoopProvider,
   createPrometheusMeter,
   type ObservabilityProvider,
-} from "../../observability/index.js";
-import { buildServer } from "../server.js";
+} from "../../observability/index.ts";
+import { buildServer } from "../server.ts";
 
 const JWT = "metrics-endpoint-test-secret-minimum-32-chars!!";
 
@@ -124,7 +124,7 @@ describe("/metrics endpoint", () => {
   test("503 when meter lacks snapshot() (misconfig — non-Prometheus provider)", async () => {
     // Build a provider whose meter is a raw non-Prometheus implementation —
     // pretend it's a ConsoleProvider or an OTLP bridge without snapshot().
-    const { createNoopProvider } = await import("../../observability/index.js");
+    const { createNoopProvider } = await import("../../observability/index.ts");
     const provider = createNoopProvider();
     // NoopProvider is "empty by design", register a metric so definitions
     // isn't hollow, but snapshot() is still absent on the meter shape.

@@ -1,8 +1,8 @@
 import * as jose from "jose";
-import type { DbRow } from "../db/connection.js";
-import type { SessionUser, TenantId } from "../engine/types/index.js";
-import { parseTenantId } from "../engine/types/index.js";
-import { InternalError } from "../errors/index.js";
+import type { DbRow } from "../db/connection.ts";
+import type { SessionUser, TenantId } from "../engine/types/index.ts";
+import { parseTenantId } from "../engine/types/index.ts";
+import { InternalError } from "../errors/index.ts";
 
 export type JwtPayload = {
   // JWT `sub` is a string per RFC 7519. Matches SessionUser.id — a UUID-string

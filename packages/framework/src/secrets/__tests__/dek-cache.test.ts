@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createDekCache } from "../dek-cache.js";
-import type { MasterKeyProvider } from "../types.js";
+import { createDekCache } from "../dek-cache.ts";
+import type { MasterKeyProvider } from "../types.ts";
 
 // Minimal stub provider — counts unwrap calls so we can observe caching.
 function makeCountingProvider(): MasterKeyProvider & { unwrapCallCount: () => number } {

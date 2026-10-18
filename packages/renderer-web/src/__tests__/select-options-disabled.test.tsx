@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { act } from "react";
-import { defaultPrimitives } from "../primitives/index.js";
-import { render, screen } from "./test-utils.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { render, screen } from "./test-utils.tsx";
 
 const { Input } = defaultPrimitives;
 

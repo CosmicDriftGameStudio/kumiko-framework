@@ -3,21 +3,21 @@ import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handler
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
-import type { ContainsSecret } from "../secrets/types.js";
-import { runPipeline } from "./run-pipeline.js";
+import type { ContainsSecret } from "../secrets/types.ts";
+import { runPipeline } from "./run-pipeline.ts";
 import type {
   QueryHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
-} from "./types/define-handler.js";
-import type { HandlerContext, KumikoEventTypeMap, WriteEvent, WriteResult } from "./types/index.js";
+} from "./types/define-handler.ts";
+import type { HandlerContext, KumikoEventTypeMap, WriteEvent, WriteResult } from "./types/index.ts";
 
 export type {
   QueryHandlerDefinition,
   StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
-} from "./types/define-handler.js";
+} from "./types/define-handler.ts";
 
 function pickPreTransactionPhases<
   TName extends string,

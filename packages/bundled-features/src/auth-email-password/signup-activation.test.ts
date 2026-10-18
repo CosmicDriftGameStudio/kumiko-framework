@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createRecordingRedisFake } from "../shared/__tests__/recording-redis-fake.js";
-import { issueSignupActivation, SIGNUP_ACTIVATION_NOTIFICATION_TYPE } from "./signup-activation.js";
-import { SIGNUP_TOKEN_KEY_PREFIXES } from "./signup-token-store.js";
+import { createRecordingRedisFake } from "../shared/__tests__/recording-redis-fake.ts";
+import { issueSignupActivation, SIGNUP_ACTIVATION_NOTIFICATION_TYPE } from "./signup-activation.ts";
+import { SIGNUP_TOKEN_KEY_PREFIXES } from "./signup-token-store.ts";
 
 describe("issueSignupActivation", () => {
   test("stores the token under the signup prefixes and mails the activation link to the normalized email", async () => {

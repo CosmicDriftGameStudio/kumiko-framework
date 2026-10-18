@@ -16,25 +16,25 @@ import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framewo
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { encryptForDirectWrite } from "../shared/index.js";
-import { tenantMembershipsTable } from "../tenant/index.js";
+import { encryptForDirectWrite } from "../shared/index.ts";
+import { tenantMembershipsTable } from "../tenant/index.ts";
 import {
   isPrincipalBlocked,
   isPrincipalRowBlocked,
   type UserStatus,
   userTable,
-} from "../user/index.js";
+} from "../user/index.ts";
 import {
   DEFAULT_SESSION_EXPIRY_MS,
   LAST_SEEN_REFRESH_MS,
   USER_SESSION_ENTITY_NAME,
-} from "./constants.js";
-import { userSessionEntity, userSessionTable } from "./schema/user-session.js";
+} from "./constants.ts";
+import { userSessionEntity, userSessionTable } from "./schema/user-session.ts";
 import {
   SESSION_REVOKED_AGGREGATE_TYPE,
   SESSION_REVOKED_EVENT_QN,
   sessionRevokedSchema,
-} from "./session-revoked-event.js";
+} from "./session-revoked-event.ts";
 
 // Re-exported so existing `../sessions` importers keep working unchanged.
 export { isPrincipalBlocked };

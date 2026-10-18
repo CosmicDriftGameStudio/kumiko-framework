@@ -15,14 +15,14 @@ import type { Dispatcher, RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.js";
-import type { FeatureSchema } from "../feature-schema.js";
-import { KumikoScreen } from "../kumiko-screen.js";
-import type { NavApi } from "../nav.js";
-import { NavProvider } from "../nav.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import type { FeatureSchema } from "../feature-schema.ts";
+import { KumikoScreen } from "../kumiko-screen.tsx";
+import type { NavApi } from "../nav.tsx";
+import { NavProvider } from "../nav.tsx";
 
 function systemReferenceId(referenceKey: string): string {
   const label = SYSTEM_REFERENCE_LABELS[referenceKey];

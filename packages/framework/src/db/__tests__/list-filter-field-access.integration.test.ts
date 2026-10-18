@@ -13,11 +13,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
-import { defineFeature } from "../../engine/define-feature.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { from } from "../../engine/ownership.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { asRawClient } from "../../db/query.ts";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { from } from "../../engine/ownership.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const filterNoteEntity = createEntity({
   table: "fa_filter_notes",

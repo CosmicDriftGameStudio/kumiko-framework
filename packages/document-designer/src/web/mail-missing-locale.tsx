@@ -7,7 +7,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { languageName } from "./mail-origin-bar.js";
+import { languageName } from "./mail-origin-bar.tsx";
 
 export function languageAdjective(
   t: (key: string, params?: Readonly<Record<string, unknown>>) => string,

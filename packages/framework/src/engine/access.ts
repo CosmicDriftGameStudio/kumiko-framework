@@ -1,6 +1,6 @@
-import { ANONYMOUS_ROLE } from "./system-user.js";
-import type { AccessRule, SessionUser } from "./types/index.js";
-import { isOpenToAllGranted } from "./types/index.js";
+import { ANONYMOUS_ROLE } from "./system-user.ts";
+import type { AccessRule, SessionUser } from "./types/index.ts";
+import { isOpenToAllGranted } from "./types/index.ts";
 
 // Default-deny: a handler without an explicit AccessRule is unreachable. To
 // grant access a handler must either list allowed roles or opt into

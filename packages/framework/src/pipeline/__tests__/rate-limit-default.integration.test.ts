@@ -6,13 +6,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createSystemUser, defineFeature } from "../../engine/index.js";
+import { createSystemUser, defineFeature } from "../../engine/index.ts";
 import type {
   RateLimitConfig,
   RateLimitDecision,
   RateLimitResolver,
-} from "../../rate-limit/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+} from "../../rate-limit/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 function fakeResolver(): {
   readonly resolver: RateLimitResolver;

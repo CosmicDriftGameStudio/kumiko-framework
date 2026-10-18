@@ -16,9 +16,9 @@
 // a v2<->v3 prefix swap fails GCM instead of silently changing the type.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import type { EntityDefinition } from "../engine/types/fields.js";
-import type { TenantId } from "../engine/types/identifiers.js";
-import { assertIrreversibleOperationAllowed } from "../pipeline/irreversible-operation-gate.js";
+import type { EntityDefinition } from "../engine/types/fields.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
+import { assertIrreversibleOperationAllowed } from "../pipeline/irreversible-operation-gate.ts";
 import {
   isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
@@ -32,14 +32,14 @@ import {
   type SubjectId,
   subjectIdFromKey,
   subjectIdToKey,
-} from "./kms-adapter.js";
+} from "./kms-adapter.ts";
 import {
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
   PII_CIPHERTEXT_PREFIX_JSON,
   PII_CIPHERTEXT_PREFIX_V1,
-} from "./pii-ciphertext-format.js";
-import { resolveSubjectForField } from "./subject-resolver.js";
+} from "./pii-ciphertext-format.ts";
+import { resolveSubjectForField } from "./subject-resolver.ts";
 
 // Spec value (crypto-shredding.md) — renderers show it verbatim.
 export { isPiiCiphertext, PII_CIPHERTEXT_PREFIX, PII_CIPHERTEXT_PREFIX_JSON, PII_ERASED_SENTINEL };

@@ -18,21 +18,21 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient } from "../../db/query.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature } from "../../engine/index.ts";
 import {
   DEFAULT_SENSITIVE_CONFIG,
   type MetricEvent,
   type ObservabilityProvider,
   RecordingMeter,
   RecordingTracer,
-} from "../../observability/index.js";
-import { getConsumerState } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../observability/index.ts";
+import { getConsumerState } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
-import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
+import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

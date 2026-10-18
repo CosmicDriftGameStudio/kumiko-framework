@@ -22,12 +22,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { rollingCapAggregateId } from "../aggregate-id.js";
+import { rollingCapAggregateId } from "../aggregate-id.ts";
 import {
   CapCounterHandlers,
   CapCounterQueries,
   ROLLING_INCREMENTED_EVENT_QN,
-} from "../constants.js";
+} from "../constants.ts";
 import {
   CapExceededError,
   currentCalendarMonthStartIso,
@@ -36,9 +36,9 @@ import {
   enforceRollingCap,
   enforceRollingCapAndMaybeNotify,
   type SoftHitNotifier,
-} from "../enforce-cap.js";
-import { capCounterEntity } from "../entity.js";
-import { createCapCounterFeature } from "../feature.js";
+} from "../enforce-cap.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createCapCounterFeature } from "../feature.ts";
 
 // --- Test-Probe-Feature: drives enforceCap from inside a real handler ---
 

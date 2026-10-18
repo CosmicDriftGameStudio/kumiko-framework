@@ -31,9 +31,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createDataRetentionFeature } from "../../data-retention/feature.js";
-import { signTenantHandoverGrant } from "../grant.js";
-import { createTenantHandoverFeature } from "../index.js";
+import { createDataRetentionFeature } from "../../data-retention/feature.ts";
+import { signTenantHandoverGrant } from "../grant.ts";
+import { createTenantHandoverFeature } from "../index.ts";
 
 const CLAIM = "tenant-handover:write:claim";
 const RETENTION_CLEANUP_JOB = "data-retention:job:retention-cleanup";

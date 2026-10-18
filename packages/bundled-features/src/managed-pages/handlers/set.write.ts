@@ -1,8 +1,8 @@
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import { type PageRow, pageEntity, pagesTable } from "../table.js";
+import { requireForTenant } from "../../shared/index.ts";
+import { type PageRow, pageEntity, pagesTable } from "../table.ts";
 
 const slugSchema = z
   .string()

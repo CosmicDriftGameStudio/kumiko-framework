@@ -24,17 +24,17 @@ import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { hashPassword } from "../shared/index.js";
+import { hashPassword } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding.js";
+import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
-import { USER_STATUS, userTable } from "../user/schema/user.js";
+import { USER_STATUS, userTable } from "../user/schema/user.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import {
   reconcileSeededUserEmailVerified,
   rewriteSeededUserEmail,
   seedUser,
-} from "../user/seeding.js";
+} from "../user/seeding.ts";
 
 const log = createFallbackLogger("auth-email-password-seeding");
 
@@ -43,9 +43,9 @@ const log = createFallbackLogger("auth-email-password-seeding");
 // password + tenant + membership" — wer das nutzt soll nicht aus drei
 // verschiedenen sub-paths zusammensammeln müssen.
 // kumiko-lint-ignore cross-feature-import re-export of test-helpers
-export { seedTenant, seedTenantMembership } from "../tenant/seeding.js";
+export { seedTenant, seedTenantMembership } from "../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import re-export of test-helpers
-export { seedUser } from "../user/seeding.js";
+export { seedUser } from "../user/seeding.ts";
 
 export type SeedUserWithPasswordOptions = {
   readonly email: string;

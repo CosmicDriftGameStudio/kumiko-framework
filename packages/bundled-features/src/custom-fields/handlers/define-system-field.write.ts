@@ -1,9 +1,9 @@
 import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { requireForTenant } from "../../shared/index.js";
-import { fieldDefinitionAggregateId } from "../aggregate-id.js";
-import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.js";
-import { buildFieldDefinitionColumns } from "../lib/field-definition-row.js";
-import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.js";
+import { requireForTenant } from "../../shared/index.ts";
+import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
+import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.ts";
+import { buildFieldDefinitionColumns } from "../lib/field-definition-row.ts";
+import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.ts";
 
 // A system-wide field definition applies to every tenant. tenantId is forced to
 // SYSTEM_TENANT_ID (never taken from the caller) and addressed via streamTenantId,

@@ -11,7 +11,7 @@ import {
   createClientIpResolver,
   extractSocketAddress,
   parseTrustedProxyHopsEnv,
-} from "../client-ip.js";
+} from "../client-ip.ts";
 
 // Other test files in the same bun process emit async warnings while a console spy is active,
 // so assertions only count the X-Forwarded-For warning the resolver produces.

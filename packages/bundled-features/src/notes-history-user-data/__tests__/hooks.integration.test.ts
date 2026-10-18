@@ -13,9 +13,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { noteEntryEntity } from "../../notes-history/entity.js";
-import { createNotesHistoryFeature, NotesHistoryHandlers } from "../../notes-history/index.js";
-import { noteEntryDeleteHook, noteEntryExportHook } from "../hooks.js";
+import { noteEntryEntity } from "../../notes-history/entity.ts";
+import { createNotesHistoryFeature, NotesHistoryHandlers } from "../../notes-history/index.ts";
+import { noteEntryDeleteHook, noteEntryExportHook } from "../hooks.ts";
 
 let stack: TestStack;
 // Distinct ids (default createTestUser() shares TestUsers.admin.id) —

@@ -1,4 +1,4 @@
-import type { AccessRule } from "./handlers.js";
+import type { AccessRule } from "./handlers.ts";
 
 // Workspace declaration. A workspace is a persona-/role-scoped UI surface:
 // pure UI composition with no backend, DB or auth impact. The engine stores

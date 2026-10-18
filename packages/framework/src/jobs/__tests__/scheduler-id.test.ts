@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { bootJobIdForJobName, schedulerIdForJobName } from "../job-runner.js";
+import { bootJobIdForJobName, schedulerIdForJobName } from "../job-runner.ts";
 
 describe("schedulerIdForJobName", () => {
   test("strips dots and colons so BullMQ job ids stay under the 5-segment legacy heuristic", () => {

@@ -2,8 +2,8 @@ import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 
 // Matches job-run-logger.ts's KMS_POOL_CONCURRENCY / the tenant handlers'
 // KMS_POOL_CONCURRENCY — bounds concurrent decrypt calls against the KMS

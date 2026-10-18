@@ -14,16 +14,16 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TEXT_BLOCK_KIND } from "../constants.js";
-import { createTemplateResolverFeature } from "../feature.js";
-import { executor } from "../handlers/shared.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { seedTextBlock } from "../seeding.js";
+import { TEXT_BLOCK_KIND } from "../constants.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { executor } from "../handlers/shared.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { seedTextBlock } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
-} from "../table.js";
+} from "../table.ts";
 
 let stack: TestStack;
 let db: DbConnection;

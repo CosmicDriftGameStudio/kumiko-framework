@@ -1,6 +1,6 @@
 // @runtime client
-import type { ValidationIssue } from "./layout-types.js";
-import type { ServedVersionView } from "./types.js";
+import type { ValidationIssue } from "./layout-types.ts";
+import type { ServedVersionView } from "./types.ts";
 
 export type PlaceholderType = "text" | "money" | "date" | "percent" | "link" | "list";
 

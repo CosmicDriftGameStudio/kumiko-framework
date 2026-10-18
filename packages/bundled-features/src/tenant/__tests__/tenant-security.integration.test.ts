@@ -28,31 +28,31 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
-} from "../../auth-email-password/__tests__/auth-mail-stack.js";
-import { AuthHandlers } from "../../auth-email-password/constants.js";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
+} from "../../auth-email-password/__tests__/auth-mail-stack.ts";
+import { AuthHandlers } from "../../auth-email-password/constants.ts";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import {
   createSessionsFeature,
   userSessionEntity,
   userSessionTable,
-} from "../../sessions/index.js";
-import { hashPassword } from "../../shared/index.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
-import { seedUser } from "../../user/seeding.js";
-import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants.js";
-import { createTenantFeature } from "../feature.js";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table.js";
-import { tenantMembershipsTable } from "../membership-table.js";
-import { tenantEntity, tenantTable } from "../schema/tenant.js";
-import { seedTenant, seedTenantMembership } from "../seeding.js";
+} from "../../sessions/index.ts";
+import { hashPassword } from "../../shared/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
+import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants.ts";
+import { createTenantFeature } from "../feature.ts";
+import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table.ts";
+import { tenantMembershipsTable } from "../membership-table.ts";
+import { tenantEntity, tenantTable } from "../schema/tenant.ts";
+import { seedTenant, seedTenantMembership } from "../seeding.ts";
 
 const emailTransport = createInMemoryTransport();
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

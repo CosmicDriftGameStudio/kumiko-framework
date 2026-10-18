@@ -2,7 +2,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { FormDraftBlob } from "../../schemas.js";
+import type { FormDraftBlob } from "../../schemas.ts";
 
 export type StaleDraftRow = {
   readonly id: string;

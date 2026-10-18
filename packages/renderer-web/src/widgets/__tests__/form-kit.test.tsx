@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { act, fireEvent, render, renderHook, screen } from "../../__tests__/test-utils.js";
-import { DetailList } from "../detail-list.js";
+import { act, fireEvent, render, renderHook, screen } from "../../__tests__/test-utils.tsx";
+import { DetailList } from "../detail-list.tsx";
 import {
   BooleanField,
   DateField,
@@ -14,9 +14,9 @@ import {
   SelectField,
   TextareaField,
   TextField,
-} from "../form-fields.js";
-import { ComparisonTable, ResultPanel, ResultTable } from "../result-panel.js";
-import { useDraft } from "../use-draft.js";
+} from "../form-fields.tsx";
+import { ComparisonTable, ResultPanel, ResultTable } from "../result-panel.tsx";
+import { useDraft } from "../use-draft.ts";
 
 describe("useDraft", () => {
   test("field() liefert verdrahtete Props, onChange patcht den Draft", () => {

@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptTenantNames, tenantTable } from "../../tenant/index.js";
+import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 
 type TenantRow = { readonly id: string; readonly name: string };
 

@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { requiredKeysFromScreen } from "../../i18n/required-surface-keys.js";
-import { SETTINGS_HUB_I18N } from "../../i18n/settings-hub-keys.js";
-import { validateBoot } from "../boot-validator.js";
-import { buildConfigFeatureSchema, SETTINGS_HUB_FEATURE } from "../build-config-feature-schema.js";
-import { access, createSystemConfig, createTenantConfig } from "../config-helpers.js";
-import { defineFeature } from "../define-feature.js";
-import { selectablePluginIds } from "../extension-selector-plugins.js";
-import { createRegistry } from "../registry.js";
+import { requiredKeysFromScreen } from "../../i18n/required-surface-keys.ts";
+import { SETTINGS_HUB_I18N } from "../../i18n/settings-hub-keys.ts";
+import { validateBoot } from "../boot-validator.ts";
+import { buildConfigFeatureSchema, SETTINGS_HUB_FEATURE } from "../build-config-feature-schema.ts";
+import { access, createSystemConfig, createTenantConfig } from "../config-helpers.ts";
+import { defineFeature } from "../define-feature.ts";
+import { selectablePluginIds } from "../extension-selector-plugins.ts";
+import { createRegistry } from "../registry.ts";
 import type {
   ConfigEditScreenDefinition,
   FeatureDefinition,
   ScreenDefinition,
-} from "../types/index.js";
+} from "../types/index.ts";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin", "Admin");
 

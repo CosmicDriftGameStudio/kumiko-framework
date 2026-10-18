@@ -15,12 +15,12 @@ import {
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
 import * as z from "zod";
-import { createConfigFeature } from "../../config/index.js";
-import { createFileDerivativesFeature } from "../../file-derivatives/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createDerivativesSharpFeature } from "../feature.js";
-import { imageMetadata } from "../render.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createFileDerivativesFeature } from "../../file-derivatives/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createDerivativesSharpFeature } from "../feature.ts";
+import { imageMetadata } from "../render.ts";
 
 const variantTestFeature = defineFeature("derivativessharptest", (r) => {
   r.requires({ features: ["file-derivatives"] });

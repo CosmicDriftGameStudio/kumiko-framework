@@ -4,7 +4,7 @@ import {
   brandingHeaderHtml,
   brandingStyleBlock,
   EMPTY_BRANDING,
-} from "../branding.js";
+} from "../branding.ts";
 
 const tokens = (over: Partial<BrandingTokens>): BrandingTokens => ({ ...EMPTY_BRANDING, ...over });
 

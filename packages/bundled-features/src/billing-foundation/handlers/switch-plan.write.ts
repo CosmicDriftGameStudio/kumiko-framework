@@ -12,11 +12,11 @@ import {
   isNonEmptyStringArray,
   joinBaseUrl,
   resolveCatalogProvider,
-} from "../checkout-core.js";
-import { isSwitchableSubscriptionStatus } from "../constants.js";
-import { getSubscriptionForTenant } from "../get-subscription-for-tenant.js";
-import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.js";
-import type { BillingFoundationOptions, BillingPlanCatalog } from "../types.js";
+} from "../checkout-core.ts";
+import { isSwitchableSubscriptionStatus } from "../constants.ts";
+import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
+import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.ts";
+import type { BillingFoundationOptions, BillingPlanCatalog } from "../types.ts";
 
 export function createSwitchPlanHandler(
   options: BillingFoundationOptions,

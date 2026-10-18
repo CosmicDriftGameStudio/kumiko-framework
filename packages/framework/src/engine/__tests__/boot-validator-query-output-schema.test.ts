@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { validateBoot as validateBootRaw } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import { definePagedQueryHandler, defineQueryHandler } from "../define-handler.js";
-import { createEntity, createTextField } from "../factories.js";
-import type { RecordHeaderSubtitlePart } from "../types/index.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import { definePagedQueryHandler, defineQueryHandler } from "../define-handler.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import type { RecordHeaderSubtitlePart } from "../types/index.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

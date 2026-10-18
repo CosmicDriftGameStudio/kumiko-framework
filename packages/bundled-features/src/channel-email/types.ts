@@ -3,7 +3,7 @@ import type {
   FileAttachmentRef,
   InlineAttachmentRef,
   RenderedPdfAttachmentRef,
-} from "../delivery/index.js";
+} from "../delivery/index.ts";
 
 export type { EmailAttachmentRef };
 

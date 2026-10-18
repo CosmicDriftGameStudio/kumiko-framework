@@ -1,14 +1,14 @@
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { DELIVERY_FEATURE, DeliveryStatus, deliveryAttemptsTable } from "../delivery/index.js";
+import { DELIVERY_FEATURE, DeliveryStatus, deliveryAttemptsTable } from "../delivery/index.ts";
 import {
   JOBS_FEATURE,
   type JobRunStatus,
   jobRunsTable,
   tenantJobFailuresTable,
-} from "../jobs/index.js";
-import { SESSIONS_FEATURE, userSessionTable } from "../sessions/index.js";
-import { TENANT_FEATURE, tenantTable } from "../tenant/index.js";
-import { defineMetric } from "./types.js";
+} from "../jobs/index.ts";
+import { SESSIONS_FEATURE, userSessionTable } from "../sessions/index.ts";
+import { TENANT_FEATURE, tenantTable } from "../tenant/index.ts";
+import { defineMetric } from "./types.ts";
 
 const JOB_STATUSES: readonly JobRunStatus[] = ["queued", "running", "completed", "failed"];
 

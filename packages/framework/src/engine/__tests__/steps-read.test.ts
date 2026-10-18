@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { EscapeHatchReporter } from "@cosmicdrift/kumiko-types/handlers";
-import type { DbRunner } from "../../db/connection.js";
-import { table, text, uuid } from "../../db/dialect.js";
-import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db.js";
-import { AccessDeniedError, InternalError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import { getStep } from "../define-step.js";
-import { buildReadFindManyStep } from "../steps/read-find-many.js";
-import { buildReadFindOneStep } from "../steps/read-find-one.js";
-import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
-import type { PipelineCtx } from "../types/step.js";
+import type { DbRunner } from "../../db/connection.ts";
+import { table, text, uuid } from "../../db/dialect.ts";
+import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db.ts";
+import { AccessDeniedError, InternalError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import { getStep } from "../define-step.ts";
+import { buildReadFindManyStep } from "../steps/read-find-many.ts";
+import { buildReadFindOneStep } from "../steps/read-find-one.ts";
+import { SYSTEM_TENANT_ID } from "../types/identifiers.ts";
+import type { PipelineCtx } from "../types/step.ts";
 
 const testTable = table("test_read", {
   id: uuid("id").primaryKey().defaultRandom(),

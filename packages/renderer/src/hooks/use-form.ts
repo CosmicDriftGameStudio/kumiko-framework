@@ -6,7 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { createFormController } from "@cosmicdrift/kumiko-headless";
 import { useMemo, useSyncExternalStore } from "react";
-import { useOptionalDispatcher } from "../context/dispatcher-context.js";
+import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 
 // Thin React wrapper around createFormController. Returns both the
 // controller (imperative — setField, submit, reset) and the current

@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "../../__tests__/test-utils.js";
+import { render, screen } from "../../__tests__/test-utils.tsx";
 import {
   Sheet,
   SheetClose,
@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "../sheet.js";
+} from "../sheet.tsx";
 
 describe("Sheet", () => {
   test.each([

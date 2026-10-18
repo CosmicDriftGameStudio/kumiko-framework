@@ -7,9 +7,9 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { buildAgentManifest } from "../agent-manifest.js";
-import { buildToolCatalog, OPEN_FORM_TOOL_NAME, toolNameForQn } from "../tool-catalog.js";
-import type { AgentManifest, AgentToolMode, RegistrySearchView } from "../types.js";
+import { buildAgentManifest } from "../agent-manifest.ts";
+import { buildToolCatalog, OPEN_FORM_TOOL_NAME, toolNameForQn } from "../tool-catalog.ts";
+import type { AgentManifest, AgentToolMode, RegistrySearchView } from "../types.ts";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

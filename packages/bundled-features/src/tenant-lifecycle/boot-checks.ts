@@ -10,7 +10,7 @@ import {
   type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { entitiesOf } from "../shared/index.js";
+import { entitiesOf } from "../shared/index.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 

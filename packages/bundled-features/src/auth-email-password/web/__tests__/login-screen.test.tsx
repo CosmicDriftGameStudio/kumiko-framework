@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
-import { LoginScreen } from "../login-screen.js";
-import type { SessionApi } from "../session.js";
-import { makeSessionApi, renderWithProviders } from "./test-utils.js";
+import { LoginScreen } from "../login-screen.tsx";
+import type { SessionApi } from "../session.tsx";
+import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
 
 const requestEmailVerificationMock = mock<() => Promise<unknown>>(() => Promise.resolve());
-const actual_authClient = await import("../auth-client.js");
+const actual_authClient = await import("../auth-client.ts");
 mock.module("../auth-client", () => ({
   ...actual_authClient,
   requestEmailVerification: requestEmailVerificationMock,

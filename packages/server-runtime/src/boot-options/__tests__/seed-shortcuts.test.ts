@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveSeedShortcuts } from "../seed-shortcuts.js";
+import { resolveSeedShortcuts } from "../seed-shortcuts.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000310";
 const ENV = {

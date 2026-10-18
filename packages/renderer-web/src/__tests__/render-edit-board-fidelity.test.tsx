@@ -5,9 +5,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, InsideDrawerProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.js";
-import { defaultPrimitives } from "../primitives/index.js";
-import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.js";
+import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const allRequiredEntity = {
   fields: {

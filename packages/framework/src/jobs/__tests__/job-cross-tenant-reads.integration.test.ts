@@ -6,14 +6,14 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { table, text, uuid } from "../../db/dialect.js";
-import { insertOne } from "../../db/query.js";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
-import { createPrometheusMeter, registerStandardMetrics } from "../../observability/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import { createJobRunner, type JobRunner } from "../job-runner.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { table, text, uuid } from "../../db/dialect.ts";
+import { insertOne } from "../../db/query.ts";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
+import { createPrometheusMeter, registerStandardMetrics } from "../../observability/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 const itemsTable = table("fw_cross_tenant_reads_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -37,7 +37,7 @@ const auditEvents: EscapeHatchUseEvent[] = [];
 
 async function probe(
   job: string,
-  reads: import("../../engine/types/index.js").JobContext["crossTenantReads"],
+  reads: import("../../engine/types/index.ts").JobContext["crossTenantReads"],
 ): Promise<void> {
   if (!reads) {
     outcomes.push({ job, hasReads: false });

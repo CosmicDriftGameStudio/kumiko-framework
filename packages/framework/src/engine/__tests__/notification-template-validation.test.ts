@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
-import { templateVariable } from "../template-variables.js";
-import type { NotificationLocalizedTemplate, TemplateVariables } from "../types/index.js";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
+import { templateVariable } from "../template-variables.ts";
+import type { NotificationLocalizedTemplate, TemplateVariables } from "../types/index.ts";
 
 type NotificationDeclaration = {
   readonly trigger?: { readonly on: string };

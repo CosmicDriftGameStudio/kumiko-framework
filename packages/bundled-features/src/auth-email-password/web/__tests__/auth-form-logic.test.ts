@@ -4,7 +4,7 @@ import {
   resolveLoggedInHref,
   resolvePostAuthHref,
   retryAfterMinutes,
-} from "../auth-form-logic.js";
+} from "../auth-form-logic.ts";
 
 describe("passwordPairIssue", () => {
   test("too_short when under min length", () => {

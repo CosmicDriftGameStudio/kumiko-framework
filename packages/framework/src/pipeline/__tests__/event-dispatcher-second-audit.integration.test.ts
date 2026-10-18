@@ -22,19 +22,19 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.js";
-import { defineFeature } from "../../engine/index.js";
-import { eventsTable } from "../../event-store/index.js";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import {
   DEFAULT_SENSITIVE_CONFIG,
   type MetricEvent,
   type ObservabilityProvider,
   RecordingMeter,
   RecordingTracer,
-} from "../../observability/index.js";
-import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
+} from "../../observability/index.ts";
+import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
 
 // --- Fixture ---
 

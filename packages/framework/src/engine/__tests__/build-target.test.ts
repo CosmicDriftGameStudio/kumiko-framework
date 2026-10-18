@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildTarget, type TreeActionDef } from "../index.js";
+import { buildTarget, type TreeActionDef } from "../index.ts";
 
 // createTreeActionsStub — Test-Helper für Phase-0-Stub-Features. Das
 // `const`-Generic-Modifier forciert Literal-Inference, sodass die

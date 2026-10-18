@@ -6,7 +6,7 @@ import {
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { parseTenantId, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
-import type { ProdSeedFn } from "../run-prod-app.js";
+import type { ProdSeedFn } from "../run-prod-app.ts";
 
 export type ProdSeedTenant = {
   /** Default: `DEMO_TENANT_ID` from the env. */

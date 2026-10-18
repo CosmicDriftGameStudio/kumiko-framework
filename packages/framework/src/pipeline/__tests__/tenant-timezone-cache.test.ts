@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import { createTenantTimezoneCache } from "../tenant-timezone-cache.js";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import { createTenantTimezoneCache } from "../tenant-timezone-cache.ts";
 
 const tenantA = "tenant-a" as TenantId;
 const tenantB = "tenant-b" as TenantId;

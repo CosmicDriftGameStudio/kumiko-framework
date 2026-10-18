@@ -13,9 +13,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
-import { createConfigResolver } from "../resolver.js";
-import { configValuesTable } from "../table.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
+import { createConfigResolver } from "../resolver.ts";
+import { configValuesTable } from "../table.ts";
 
 const tenantFeature = defineFeature("tenant", (r) => {
   r.requires({ features: ["config"] });

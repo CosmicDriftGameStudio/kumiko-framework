@@ -14,10 +14,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers, ConfigQueries } from "../constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
-import { type ConfigResolver, createConfigResolver } from "../resolver.js";
-import { configValuesTable } from "../table.js";
+import { ConfigHandlers, ConfigQueries } from "../constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
+import { type ConfigResolver, createConfigResolver } from "../resolver.ts";
+import { configValuesTable } from "../table.ts";
 
 // Proves the inheritedToTenant:false redaction end-to-end over real HTTP: a
 // tenant-side admin who is allowed to READ the key (access.admin) must never

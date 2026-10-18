@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
-import type { EntityDefinition } from "../../engine/types/index.js";
-import { asRawClient } from "../query.js";
-import { unsafeCreateEntityTable, unsafeEnsureEntityTable } from "../table-push.js";
+import type { EntityDefinition } from "../../engine/types/index.ts";
+import { asRawClient } from "../query.ts";
+import { unsafeCreateEntityTable, unsafeEnsureEntityTable } from "../table-push.ts";
 
 // unsafeEnsureEntityTable ist die idempotente Variante von unsafeCreateEntityTable —
 // existiert wegen des dev-server-Boot-Pfads (persistente DB, Table von

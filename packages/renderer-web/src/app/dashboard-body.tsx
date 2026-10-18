@@ -85,17 +85,17 @@ import {
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
-import { cn } from "../lib/cn.js";
-import { EmbeddedFormProvider } from "../primitives/index.js";
-import { PageSection } from "../primitives/layout.js";
-import { resolveSafeLocale } from "../primitives/locale-number.js";
-import { formatMoney } from "../primitives/money-input.js";
-import { Skeleton } from "../ui/skeleton.js";
+import { cn } from "../lib/cn.ts";
+import { EmbeddedFormProvider } from "../primitives/index.tsx";
+import { PageSection } from "../primitives/layout.tsx";
+import { resolveSafeLocale } from "../primitives/locale-number.ts";
+import { formatMoney } from "../primitives/money-input.tsx";
+import { Skeleton } from "../ui/skeleton.tsx";
 import {
   initialWindowSelection,
   type StackedAreaDateFormat,
   type StackedAreaRanges,
-} from "../widgets/chart-window.js";
+} from "../widgets/chart-window.ts";
 import {
   type ChartLine,
   type ChartMarker,
@@ -107,15 +107,15 @@ import {
   StackedBarChart,
   TimeseriesChart,
   type TimeseriesPoint,
-} from "../widgets/charts.js";
-import { DashboardListTable } from "../widgets/dashboard-list.js";
-import { FeedList, type FeedRow } from "../widgets/feed-list.js";
-import { ModeSwitch } from "../widgets/mode-switch.js";
-import { ProgressList, type ProgressListRow } from "../widgets/progress-list.js";
-import { SectionCard } from "../widgets/section-card.js";
-import { StatCard, type StatDelta, StatStripCell, type StatTone } from "../widgets/stat.js";
-import { EmptyState, LoadingState } from "../widgets/states.js";
-import { StatusBadge } from "../widgets/status-badge.js";
+} from "../widgets/charts.tsx";
+import { DashboardListTable } from "../widgets/dashboard-list.tsx";
+import { FeedList, type FeedRow } from "../widgets/feed-list.tsx";
+import { ModeSwitch } from "../widgets/mode-switch.tsx";
+import { ProgressList, type ProgressListRow } from "../widgets/progress-list.tsx";
+import { SectionCard } from "../widgets/section-card.tsx";
+import { StatCard, type StatDelta, StatStripCell, type StatTone } from "../widgets/stat.tsx";
+import { EmptyState, LoadingState } from "../widgets/states.tsx";
+import { StatusBadge } from "../widgets/status-badge.tsx";
 
 const SKELETON_SEGMENT_WIDTHS = ["100%", "72%", "48%"] as const;
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";

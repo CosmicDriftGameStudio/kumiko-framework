@@ -7,5 +7,5 @@ export {
   UserProfileErrors,
   UserProfileHandlers,
   UserProfileQueries,
-} from "./constants.js";
-export { createUserProfileFeature, type UserProfileFeatureOptions } from "./feature.js";
+} from "./constants.ts";
+export { createUserProfileFeature, type UserProfileFeatureOptions } from "./feature.ts";

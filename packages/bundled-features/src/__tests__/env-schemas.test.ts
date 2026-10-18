@@ -4,17 +4,17 @@ import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko
 import {
   authEmailPasswordEnvSchema,
   createAuthEmailPasswordFeature,
-} from "../auth-email-password/index.js";
-import { createAuthMfaFeature } from "../auth-mfa/index.js";
-import { createSecretsFeature, secretsEnvSchema } from "../secrets/index.js";
+} from "../auth-email-password/index.ts";
+import { createAuthMfaFeature } from "../auth-mfa/index.ts";
+import { createSecretsFeature, secretsEnvSchema } from "../secrets/index.ts";
 import {
   createSubscriptionMollieFeature,
   subscriptionMollieEnvSchema,
-} from "../subscription-mollie/index.js";
+} from "../subscription-mollie/index.ts";
 import {
   createSubscriptionStripeFeature,
   subscriptionStripeEnvSchema,
-} from "../subscription-stripe/index.js";
+} from "../subscription-stripe/index.ts";
 
 const validKek = randomBytes(32).toString("base64");
 

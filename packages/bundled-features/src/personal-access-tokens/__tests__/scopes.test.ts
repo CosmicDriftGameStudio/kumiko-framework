@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { expandScopes, type PatScopeConfig, parseGrant } from "../scopes.js";
+import { expandScopes, type PatScopeConfig, parseGrant } from "../scopes.ts";
 
 const CONFIG: PatScopeConfig = {
   credit: { label: "Kredite", read: ["credit:query:*"], write: ["credit:write:*"] },

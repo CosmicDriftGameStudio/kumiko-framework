@@ -25,7 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer-web";
 import { Building2, ChevronDown } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
-import { useSession } from "./session.js";
+import { useSession } from "./session.tsx";
 
 export type TenantSwitcherProps = {
   /** Optional: liefert einen menschenlesbaren Namen pro Tenant-ID.

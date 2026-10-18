@@ -8,7 +8,7 @@ import { describe, expect, mock, test } from "bun:test";
 // The framework polyfill is loaded by setupTestStack, but pure unit
 // tests (no stack) need a manual polyfill — vitest.setup.ts does that.
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { ROLLING_INCREMENTED_EVENT_QN } from "../constants.js";
+import { ROLLING_INCREMENTED_EVENT_QN } from "../constants.ts";
 import {
   assertBelowHardCap,
   CAP_TOLERANCES,
@@ -19,7 +19,7 @@ import {
   enforceCapAndMaybeNotify,
   enforceRollingCap,
   enforceRollingCapAndMaybeNotify,
-} from "../enforce-cap.js";
+} from "../enforce-cap.ts";
 
 // Test-mock: ctx.db exposes TenantDb-style selectMany (production path)
 // plus legacy drizzle .select().from().where() chain stubs.
@@ -409,14 +409,14 @@ describe("currentCalendarMonthStartIso", () => {
 
 describe("aggregate-id namespaces — drift-pin", () => {
   test("calendar capCounterAggregateId stable für (tenant, capName, period)", async () => {
-    const { capCounterAggregateId } = await import("../aggregate-id.js");
+    const { capCounterAggregateId } = await import("../aggregate-id.ts");
     expect(capCounterAggregateId("tenant-1", "cap-x", "2026-05-01T00:00:00Z")).toBe(
       "2e74a706-7cc1-51ca-a1a7-89e5c5bccb7e",
     );
   });
 
   test("rolling rollingCapAggregateId stable für (tenant, capName)", async () => {
-    const { rollingCapAggregateId } = await import("../aggregate-id.js");
+    const { rollingCapAggregateId } = await import("../aggregate-id.ts");
     // Pinne den exakten UUID-output. Wenn jemand den Namespace-uuid in
     // aggregate-id.ts ändert, kollabiert die ganze rolling-counter-
     // history des Tenants — Test fängt's vor dem Deploy.
@@ -426,7 +426,7 @@ describe("aggregate-id namespaces — drift-pin", () => {
   });
 
   test("calendar und rolling produzieren UNTERSCHIEDLICHE UUIDs für gleiches Tupel", async () => {
-    const { capCounterAggregateId, rollingCapAggregateId } = await import("../aggregate-id.js");
+    const { capCounterAggregateId, rollingCapAggregateId } = await import("../aggregate-id.ts");
     // Selbst wenn jemand "1970-01-01..." als periodStart in den
     // calendar-Pfad reinpasst, soll die UUID NICHT mit dem rolling-
     // aggregate kollidieren — sonst würden sich die beiden Streams

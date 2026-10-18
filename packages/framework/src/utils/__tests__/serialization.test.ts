@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseRoles } from "../serialization.js";
+import { parseRoles } from "../serialization.ts";
 
 describe("parseRoles", () => {
   test("returns an array input unchanged", () => {

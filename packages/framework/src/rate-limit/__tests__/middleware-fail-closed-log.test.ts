@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { Hono } from "hono";
-import { globalIpRateLimit } from "../middleware.js";
-import type { RateLimitResolver } from "../resolver.js";
+import { globalIpRateLimit } from "../middleware.ts";
+import type { RateLimitResolver } from "../resolver.ts";
 
 const CLIENT_IP = "203.0.113.9";
 

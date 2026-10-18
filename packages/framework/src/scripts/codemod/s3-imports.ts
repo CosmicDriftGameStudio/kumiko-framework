@@ -21,7 +21,7 @@ import {
   runCodemodCli,
   type SiteLists,
   sourceRelativeModule,
-} from "./codemod-support.js";
+} from "./codemod-support.ts";
 
 const BUNDLED_PACKAGE = "@cosmicdrift/kumiko-bundled-features";
 const BUNDLED_SRC_MARKER = "/packages/bundled-features/src/";

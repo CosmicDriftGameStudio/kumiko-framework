@@ -5,12 +5,12 @@ export {
   imapCredentialDocumentSchema,
   type ParseCredentialResult,
   parseImapCredentialDocument,
-} from "./credential-document.js";
+} from "./credential-document.ts";
 export {
   createInboundProviderImapFeature,
   IMAP_PROVIDER_KEY,
   setImapMailHostLookup,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   assertUidValidity,
   buildProviderMessageId,
@@ -18,4 +18,4 @@ export {
   mapImapError,
   normalizeReferences,
   parseImapCursor,
-} from "./imap-client.js";
+} from "./imap-client.ts";

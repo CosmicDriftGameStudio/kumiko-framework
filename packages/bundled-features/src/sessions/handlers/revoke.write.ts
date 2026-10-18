@@ -4,12 +4,12 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { SessionErrors, USER_SESSION_ENTITY_NAME } from "../constants.js";
-import { userSessionTable } from "../schema/user-session.js";
+import { SessionErrors, USER_SESSION_ENTITY_NAME } from "../constants.ts";
+import { userSessionTable } from "../schema/user-session.ts";
 import {
   SESSION_REVOKED_AGGREGATE_TYPE,
   SESSION_REVOKED_EVENT_QN,
-} from "../session-revoked-event.js";
+} from "../session-revoked-event.ts";
 
 // Revoke a single session by id (= JWT jti). Three distinguishable outcomes:
 //

@@ -1,5 +1,5 @@
 import type { DashboardPanelVisibility } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { UseQueryResult } from "../hooks/use-query.js";
+import type { UseQueryResult } from "../hooks/use-query.ts";
 
 export type VisibleWhenVerdict = "loading" | "visible" | "hidden" | "error";
 

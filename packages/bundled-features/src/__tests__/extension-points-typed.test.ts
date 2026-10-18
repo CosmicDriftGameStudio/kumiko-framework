@@ -7,22 +7,22 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { KumikoExtensionOptionsMap } from "@cosmicdrift/kumiko-types/extension-options-map";
-import { createAuthFoundationFeature } from "../auth-foundation/feature.js";
-import { createBillingFoundationFeature } from "../billing-foundation/feature.js";
-import { createCustomFieldsFeature } from "../custom-fields/feature.js";
-import { createDeliveryFeature } from "../delivery/feature.js";
-import { createDocumentIngestFoundationFeature } from "../document-ingest-foundation/feature.js";
-import { createFileDerivativesFeature } from "../file-derivatives/feature.js";
-import { createFileFoundationFeature } from "../file-foundation/feature.js";
-import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.js";
-import { createMailFoundationFeature } from "../mail-foundation/feature.js";
-import { createRendererFoundationFeature } from "../renderer-foundation/feature.js";
-import { createTenantFeature } from "../tenant/feature.js";
-import { createTenantHandoverFeature } from "../tenant-handover/feature.js";
-import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature.js";
-import { createTierEngineFeature } from "../tier-engine/feature.js";
-import { createUserFeature } from "../user/feature.js";
-import { createUserDataRightsFeature } from "../user-data-rights/feature.js";
+import { createAuthFoundationFeature } from "../auth-foundation/feature.ts";
+import { createBillingFoundationFeature } from "../billing-foundation/feature.ts";
+import { createCustomFieldsFeature } from "../custom-fields/feature.ts";
+import { createDeliveryFeature } from "../delivery/feature.ts";
+import { createDocumentIngestFoundationFeature } from "../document-ingest-foundation/feature.ts";
+import { createFileDerivativesFeature } from "../file-derivatives/feature.ts";
+import { createFileFoundationFeature } from "../file-foundation/feature.ts";
+import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.ts";
+import { createMailFoundationFeature } from "../mail-foundation/feature.ts";
+import { createRendererFoundationFeature } from "../renderer-foundation/feature.ts";
+import { createTenantFeature } from "../tenant/feature.ts";
+import { createTenantHandoverFeature } from "../tenant-handover/feature.ts";
+import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature.ts";
+import { createTierEngineFeature } from "../tier-engine/feature.ts";
+import { createUserFeature } from "../user/feature.ts";
+import { createUserDataRightsFeature } from "../user-data-rights/feature.ts";
 
 const TYPED_EXTENSION_POINTS = [
   "userData",

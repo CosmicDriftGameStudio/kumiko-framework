@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { meilisearchDocId, meilisearchTenantIndex } from "../meilisearch-adapter.js";
+import { meilisearchDocId, meilisearchTenantIndex } from "../meilisearch-adapter.ts";
 
 describe("meilisearchTenantIndex", () => {
   test("prefixes tenant id with t after the index prefix", () => {

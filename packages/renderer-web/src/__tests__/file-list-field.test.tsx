@@ -3,7 +3,7 @@ import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { RenderField } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
-import { render, screen } from "./test-utils.js";
+import { render, screen } from "./test-utils.tsx";
 
 const ID_A = "11111111-1111-1111-1111-111111111111";
 const ID_B = "22222222-2222-2222-2222-222222222222";

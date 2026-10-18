@@ -9,8 +9,8 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { CustomFieldsFormSection } from "../custom-fields-form-section.js";
-import { defaultTranslations } from "../i18n.js";
+import { CustomFieldsFormSection } from "../custom-fields-form-section.tsx";
+import { defaultTranslations } from "../i18n.ts";
 
 type FieldRow = {
   id: string;

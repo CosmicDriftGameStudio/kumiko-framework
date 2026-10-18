@@ -4,10 +4,10 @@ import {
   type TemplateVariables,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { mailHeading, mailParagraph, mailRepeatedRows } from "../../shared/index.js";
-import { CONFIRMATION_LABELS } from "./confirmation-mail.js";
-import { CONSENT_LOCALES, CONSENT_TEXTS, type ConsentLocale } from "./consent-text.js";
-import { TERMINATION_TEXTS } from "./termination-texts.js";
+import { mailHeading, mailParagraph, mailRepeatedRows } from "../../shared/index.ts";
+import { CONFIRMATION_LABELS } from "./confirmation-mail.ts";
+import { CONSENT_LOCALES, CONSENT_TEXTS, type ConsentLocale } from "./consent-text.ts";
+import { TERMINATION_TEXTS } from "./termination-texts.ts";
 
 // Slot syntax for the translated texts: `{name}` becomes a template variable.
 const OPERATOR_EMAIL_SLOT = "{operatorEmail}";

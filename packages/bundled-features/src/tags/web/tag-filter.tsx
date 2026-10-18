@@ -20,9 +20,9 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { TagsQueries } from "../constants.js";
-import { TagChip } from "./tag-chip.js";
-import { TagPicker } from "./tag-picker.js";
+import { TagsQueries } from "../constants.ts";
+import { TagChip } from "./tag-chip.tsx";
+import { TagPicker } from "./tag-picker.tsx";
 
 // Tags chosen but zero matching entities → filter to a value that matches no row
 // (so the list shows empty), instead of clearing the filter (which shows all).

@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
-import { resolveOptional, resolveRequired } from "../steps/_resolver-utils.js";
-import type { PipelineCtx } from "../types/step.js";
+import { resolveOptional, resolveRequired } from "../steps/_resolver-utils.ts";
+import type { PipelineCtx } from "../types/step.ts";
 
 const dummyCtx = {} as unknown as PipelineCtx;
 

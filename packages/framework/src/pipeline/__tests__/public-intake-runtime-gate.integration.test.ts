@@ -9,22 +9,22 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { DbRunner } from "../../db/connection.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import type { SchemaTable } from "../../db/index.js";
-import { asRawClient, runInSavepoint, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import type { DbRunner } from "../../db/connection.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import type { SchemaTable } from "../../db/index.ts";
+import { asRawClient, runInSavepoint, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createSystemUser,
   createTextField,
   defineFeature,
   SYSTEM_TENANT_ID,
-} from "../../engine/index.js";
-import { SYSTEM_ROLE } from "../../engine/system-user.js";
-import type { TenantId } from "../../engine/types/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { SYSTEM_ROLE } from "../../engine/system-user.ts";
+import type { TenantId } from "../../engine/types/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const RATE_LIMIT = { per: "ip", limit: 1000, windowSeconds: 60 } as const;

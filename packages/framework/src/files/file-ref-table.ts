@@ -1,5 +1,5 @@
-import { buildEntityTable } from "../db/table-builder.js";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.js";
+import { buildEntityTable } from "../db/table-builder.ts";
+import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 
 // `file_refs` ist die read-table des `fileRef`-Entity. Aus der Entity-
 // Definition gebaut (kein hand-gepflegtes pgTable mehr), damit die implizite

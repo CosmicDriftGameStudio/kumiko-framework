@@ -1,4 +1,4 @@
-import { createRedisClient, type RedisClientOptions } from "./client.js";
+import { createRedisClient, type RedisClientOptions } from "./client.ts";
 
 // Generic Redis Pub/Sub transport for cross-replica fanout (fw#2625).
 // Shared by the SSE broker (api/redis-sse-broker.ts, several logical

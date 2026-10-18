@@ -10,76 +10,76 @@
 // @cosmicdrift/kumiko-renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
 export { type Formality, formalLocaleTag } from "@cosmicdrift/kumiko-framework/ui-types";
-export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim.js";
-export type { AppFeaturesProviderProps } from "./app/app-features-context.js";
-export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context.js";
+export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim.ts";
+export type { AppFeaturesProviderProps } from "./app/app-features-context.tsx";
+export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context.tsx";
 export type {
   ColumnRendererComponent,
   ColumnRendererProps,
   ColumnRenderersMap,
   ColumnRenderersProviderProps,
-} from "./app/column-renderers.js";
-export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers.js";
+} from "./app/column-renderers.tsx";
+export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers.tsx";
 export type {
   ContentEditorComponent,
   ContentEditorProps,
   ContentEditorsMap,
   ContentEditorsProviderProps,
-} from "./app/content-editors.js";
+} from "./app/content-editors.tsx";
 export {
   CONTENT_EDITOR_ELEMENT_ID,
   ContentEditorsProvider,
   TextareaContentEditor,
   useContentEditor,
-} from "./app/content-editors.js";
-export type { ContentPreviewProps } from "./app/content-preview.js";
-export { ContentPreview, substituteVariables } from "./app/content-preview.js";
-export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens.js";
-export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens.js";
-export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body.js";
-export { DashboardBodyProvider, useDashboardBody } from "./app/dashboard-body.js";
+} from "./app/content-editors.tsx";
+export type { ContentPreviewProps } from "./app/content-preview.tsx";
+export { ContentPreview, substituteVariables } from "./app/content-preview.tsx";
+export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens.tsx";
+export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens.tsx";
+export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body.tsx";
+export { DashboardBodyProvider, useDashboardBody } from "./app/dashboard-body.tsx";
 export type {
   ExtensionFormRegistry,
   ExtensionFormSubmitHandler,
   ExtensionSubmitContext,
   ExtensionSubmitResult,
-} from "./app/extension-form-submit.js";
+} from "./app/extension-form-submit.tsx";
 export {
   ExtensionFormRegistryProvider,
   useExtensionFormSubmit,
-} from "./app/extension-form-submit.js";
+} from "./app/extension-form-submit.tsx";
 export type {
   ExtensionSectionComponent,
   ExtensionSectionProps,
   ExtensionSectionsMap,
   ExtensionSectionsProviderProps,
-} from "./app/extension-sections.js";
+} from "./app/extension-sections.tsx";
 export {
   ExtensionSectionsProvider,
   extensionSectionName,
   useExtensionSectionComponent,
-} from "./app/extension-sections.js";
+} from "./app/extension-sections.tsx";
 export type {
   AppSchema,
   FeatureSchema,
   QualifiedContentCollection,
   WorkspaceSchema,
-} from "./app/feature-schema.js";
-export { isAppSchema, toAppSchema } from "./app/feature-schema.js";
-export type { KumikoScreenProps } from "./app/kumiko-screen.js";
+} from "./app/feature-schema.ts";
+export { isAppSchema, toAppSchema } from "./app/feature-schema.ts";
+export type { KumikoScreenProps } from "./app/kumiko-screen.tsx";
 export {
   KumikoScreen,
   qualifyNavId,
   qualifyScreenId,
   ScreenMissingState,
-} from "./app/kumiko-screen.js";
-export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.js";
+} from "./app/kumiko-screen.tsx";
+export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.ts";
 export {
   buildDateRangePayload,
   clampDateRange,
   readDateRange,
   resolveDateRangeFacets,
-} from "./app/list-facets.js";
+} from "./app/list-facets.ts";
 export type {
   NavApi,
   NavigateOptions,
@@ -88,7 +88,7 @@ export type {
   NavTarget,
   ObjectTarget,
   ScreenTarget,
-} from "./app/nav.js";
+} from "./app/nav.tsx";
 export {
   formatPath,
   hasDetailScreen,
@@ -97,9 +97,9 @@ export {
   resolveTarget,
   useNav,
   useNavigateWithInitialValues,
-} from "./app/nav.js";
-export { lastSegment } from "./app/qn.js";
-export type { ReturnHost, ReturnTo } from "./app/return-to.js";
+} from "./app/nav.tsx";
+export { lastSegment } from "./app/qn.ts";
+export type { ReturnHost, ReturnTo } from "./app/return-to.tsx";
 export {
   navigateToReturn,
   navigateToReturnOr,
@@ -110,51 +110,51 @@ export {
   splitReturnTo,
   useReturnHost,
   useReturnTarget,
-} from "./app/return-to.js";
-export type { EmbeddedScreenTarget } from "./app/use-embedded-screen.js";
-export { useEmbeddedScreen } from "./app/use-embedded-screen.js";
-export type { VariableChipsProps } from "./app/variable-chips.js";
-export { VariableChips } from "./app/variable-chips.js";
-export { evalVisibleWhen, type VisibleWhenVerdict } from "./app/visible-when.js";
-export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error.js";
+} from "./app/return-to.tsx";
+export type { EmbeddedScreenTarget } from "./app/use-embedded-screen.ts";
+export { useEmbeddedScreen } from "./app/use-embedded-screen.ts";
+export type { VariableChipsProps } from "./app/variable-chips.tsx";
+export { VariableChips } from "./app/variable-chips.tsx";
+export { evalVisibleWhen, type VisibleWhenVerdict } from "./app/visible-when.ts";
+export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error.ts";
 export type {
   ErrorBoundaryFallbackProps,
   ErrorBoundaryProps,
-} from "./components/error-boundary.js";
-export { ErrorBoundary } from "./components/error-boundary.js";
-export { RelatedListSection } from "./components/related-list-section.js";
+} from "./components/error-boundary.tsx";
+export { ErrorBoundary } from "./components/error-boundary.tsx";
+export { RelatedListSection } from "./components/related-list-section.tsx";
 export type {
   RenderEditAction,
   RenderEditChangeState,
   RenderEditControls,
   RenderEditProps,
-} from "./components/render-edit.js";
-export { RenderEdit } from "./components/render-edit.js";
-export { needsActionConfirm } from "./components/render-edit-action-button.js";
-export type { RenderFieldProps } from "./components/render-field.js";
-export { RenderField } from "./components/render-field.js";
-export type { RenderListProps } from "./components/render-list.js";
-export { RenderList } from "./components/render-list.js";
-export type { DispatcherProviderProps } from "./context/dispatcher-context.js";
+} from "./components/render-edit.tsx";
+export { RenderEdit } from "./components/render-edit.tsx";
+export { needsActionConfirm } from "./components/render-edit-action-button.tsx";
+export type { RenderFieldProps } from "./components/render-field.tsx";
+export { RenderField } from "./components/render-field.tsx";
+export type { RenderListProps } from "./components/render-list.tsx";
+export { RenderList } from "./components/render-list.tsx";
+export type { DispatcherProviderProps } from "./context/dispatcher-context.tsx";
 export {
   DispatcherProvider,
   useDispatcher,
   useDispatcherStatus,
   useOptionalDispatcher,
-} from "./context/dispatcher-context.js";
-export type { DraftStorage, DraftStorageProviderProps } from "./context/draft-storage-context.js";
-export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-context.js";
-export { EmbeddedScreenProvider, useIsEmbeddedScreen } from "./context/embedded-screen-context.js";
-export type { UserRolesProviderProps } from "./context/user-roles-context.js";
-export { UserRolesProvider, useUserRoles } from "./context/user-roles-context.js";
-export type { CurrentUser } from "./current-user.js";
-export { CurrentUserProvider, useOptionalCurrentUser } from "./current-user.js";
-export { formatWhen } from "./format-when.js";
+} from "./context/dispatcher-context.tsx";
+export type { DraftStorage, DraftStorageProviderProps } from "./context/draft-storage-context.tsx";
+export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-context.tsx";
+export { EmbeddedScreenProvider, useIsEmbeddedScreen } from "./context/embedded-screen-context.tsx";
+export type { UserRolesProviderProps } from "./context/user-roles-context.tsx";
+export { UserRolesProvider, useUserRoles } from "./context/user-roles-context.tsx";
+export type { CurrentUser } from "./current-user.tsx";
+export { CurrentUserProvider, useOptionalCurrentUser } from "./current-user.tsx";
+export { formatWhen } from "./format-when.ts";
 export {
   REFERENCE_COMBOBOX_LIMIT,
   REFERENCE_LIST_LOOKUP_LIMIT,
   REFERENCE_SEARCH_DEBOUNCE_MS,
-} from "./hooks/reference-limits.js";
+} from "./hooks/reference-limits.ts";
 export type {
   AiTextActionState,
   AiTextMode,
@@ -164,37 +164,37 @@ export type {
   AiTextUsage,
   UseAiTextActionResult,
   UseCompletionResult,
-} from "./hooks/use-ai-text.js";
-export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text.js";
-export type { UseDisclosureResult } from "./hooks/use-disclosure.js";
-export { useDisclosure } from "./hooks/use-disclosure.js";
-export type { UseFormOptions, UseFormResult } from "./hooks/use-form.js";
-export { useForm } from "./hooks/use-form.js";
+} from "./hooks/use-ai-text.ts";
+export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text.ts";
+export type { UseDisclosureResult } from "./hooks/use-disclosure.ts";
+export { useDisclosure } from "./hooks/use-disclosure.ts";
+export type { UseFormOptions, UseFormResult } from "./hooks/use-form.ts";
+export { useForm } from "./hooks/use-form.ts";
 export type {
   ListSort,
   ListSortDir,
   ListUrlState,
   ListUrlStateApi,
-} from "./hooks/use-list-url-state.js";
-export { listFilterUrlKey, useListUrlState } from "./hooks/use-list-url-state.js";
-export type { UseMutationResult } from "./hooks/use-mutation.js";
-export { useMutation } from "./hooks/use-mutation.js";
-export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query.js";
-export { entityFromQueryType, useQuery } from "./hooks/use-query.js";
-export { useReportStepComplete } from "./hooks/use-report-step-complete.js";
-export { useStore, useStoreSelector } from "./hooks/use-store.js";
+} from "./hooks/use-list-url-state.ts";
+export { listFilterUrlKey, useListUrlState } from "./hooks/use-list-url-state.ts";
+export type { UseMutationResult } from "./hooks/use-mutation.ts";
+export { useMutation } from "./hooks/use-mutation.ts";
+export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query.ts";
+export { entityFromQueryType, useQuery } from "./hooks/use-query.ts";
+export { useReportStepComplete } from "./hooks/use-report-step-complete.ts";
+export { useStore, useStoreSelector } from "./hooks/use-store.ts";
 export type {
   StreamStatus,
   UseStreamHandlerOptions,
   UseStreamHandlerResult,
-} from "./hooks/use-stream-handler.js";
-export { useStreamHandler } from "./hooks/use-stream-handler.js";
+} from "./hooks/use-stream-handler.ts";
+export { useStreamHandler } from "./hooks/use-stream-handler.ts";
 export type {
   LocaleProviderProps,
   TranslationBundle,
   TranslationsByKey,
   TranslationsByLocale,
-} from "./i18n.js";
+} from "./i18n.tsx";
 export {
   createStaticLocaleResolver,
   FormalityProvider,
@@ -207,15 +207,15 @@ export {
   useOptionalLocale,
   useOptionalTranslation,
   useTranslation,
-} from "./i18n.js";
-export { kumikoDefaultTranslations } from "./i18n-defaults.js";
-export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer.js";
+} from "./i18n.tsx";
+export { kumikoDefaultTranslations } from "./i18n-defaults.ts";
+export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer.ts";
 export {
   PageHeaderCompactProvider,
   PageHeaderSlotAvailableProvider,
   usePageHeaderCompact,
   usePageHeaderSlotAvailable,
-} from "./page-header-slot.js";
+} from "./page-header-slot.ts";
 export type {
   ActionMenuItemSpec,
   ActionOverflowMenuProps,
@@ -283,7 +283,7 @@ export type {
   TextProps,
   TrailingInputAction,
   WizardStepGroupProps,
-} from "./primitives.js";
+} from "./primitives.tsx";
 export {
   FOOTER_ACTION_ROLE_PROP,
   NARROW_LABEL_PROP,
@@ -294,11 +294,11 @@ export {
   statusToneForValue,
   useOptionalPrimitives,
   usePrimitives,
-} from "./primitives.js";
+} from "./primitives.tsx";
 export type {
   SessionEndedSignal,
   SessionEndedSignalProviderProps,
-} from "./session/session-ended.js";
+} from "./session/session-ended.tsx";
 export {
   createSessionEndedSignal,
   isSessionEndedError,
@@ -306,11 +306,15 @@ export {
   SessionEndedSignalProvider,
   useSessionEndedSignal,
   withSessionEndedDetection,
-} from "./session/session-ended.js";
-export { buildWhatsAppShareUrl } from "./share-links.js";
-export { sortByAccessor } from "./sort-by-accessor.js";
-export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events.js";
-export { LiveEventsProvider, useLiveEvents } from "./sse/live-events.js";
+} from "./session/session-ended.tsx";
+export { buildWhatsAppShareUrl } from "./share-links.ts";
+export { sortByAccessor } from "./sort-by-accessor.ts";
+export type {
+  LiveEvent,
+  LiveEventSubscriber,
+  LiveEventsProviderProps,
+} from "./sse/live-events.tsx";
+export { LiveEventsProvider, useLiveEvents } from "./sse/live-events.tsx";
 export type {
   AppTokens,
   ColorTokens,
@@ -324,5 +328,5 @@ export type {
   Tokens,
   TokensApi,
   TokensProviderProps,
-} from "./tokens.js";
-export { cssVarTokens, TokensProvider, useTokenController, useTokens } from "./tokens.js";
+} from "./tokens.tsx";
+export { cssVarTokens, TokensProvider, useTokenController, useTokens } from "./tokens.tsx";

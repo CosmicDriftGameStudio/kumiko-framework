@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { secretsEnvSchema } from "../secrets/index.js";
+import { secretsEnvSchema } from "../secrets/index.ts";
 
 const MIN_TOKEN_SECRET_LENGTH = 32;
 

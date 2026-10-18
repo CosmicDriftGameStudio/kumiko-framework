@@ -3,7 +3,7 @@ import { mkdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { expect, type Page, errors as playwrightErrors, type Request } from "@playwright/test";
 import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
-import { isRealProviderRun } from "../helpers/real-providers.js";
+import { isRealProviderRun } from "../helpers/real-providers.ts";
 import { DESKTOP_VIEWPORT } from "./constants";
 import { pinEnglishLocale } from "./pin-english-locale";
 import { requireScreenshotDir, SCREENSHOT_DIR_ENV } from "./screenshot-dir";

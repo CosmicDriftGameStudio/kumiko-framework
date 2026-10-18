@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.js";
-import { buildEntityTable } from "../table-builder.js";
+import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.ts";
+import { buildEntityTable } from "../table-builder.ts";
 import {
   asEntityTableMeta,
   columnHandleName,
@@ -11,7 +11,7 @@ import {
   schemaTableName,
   tableColumnsOf,
   tableNameOf,
-} from "../table-introspection.js";
+} from "../table-introspection.ts";
 
 const noteEntity = { fields: { title: { type: "text", required: true } } } as const;
 

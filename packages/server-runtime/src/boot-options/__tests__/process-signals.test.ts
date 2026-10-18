@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { installShutdownSignals, type SignalProcess } from "../process-signals.js";
+import { installShutdownSignals, type SignalProcess } from "../process-signals.ts";
 
 function fakeProcess(): SignalProcess & { emit(signal: string): void; count(): number } {
   const emitter = new EventEmitter();

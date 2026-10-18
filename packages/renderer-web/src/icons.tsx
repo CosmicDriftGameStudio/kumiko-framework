@@ -100,7 +100,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn } from "./lib/cn.js";
+import { cn } from "./lib/cn.ts";
 
 export type { NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
 

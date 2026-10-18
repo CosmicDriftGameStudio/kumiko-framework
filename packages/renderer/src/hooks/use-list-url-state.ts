@@ -16,8 +16,8 @@
 // Sort/Filter-Toggles nicht die Browser-History fluten.
 
 import { useCallback, useMemo } from "react";
-import { useNav } from "../app/nav.js";
-import type { DataTableSort, DataTableSortDir } from "../primitives.js";
+import { useNav } from "../app/nav.tsx";
+import type { DataTableSort, DataTableSortDir } from "../primitives.tsx";
 
 // A facet with a `defaultFilters` entry falls back to that default whenever
 // its URL key is absent. Clearing it therefore has to leave a marker, or the

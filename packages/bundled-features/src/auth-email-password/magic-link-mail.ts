@@ -10,8 +10,8 @@ import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import type { NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { mailT, resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
-import { type AuthMailLocale, tokenMailExpiry } from "./email-templates.js";
-import { authMailTemplateLocale } from "./mail-notifications.js";
+import { type AuthMailLocale, tokenMailExpiry } from "./email-templates.ts";
+import { authMailTemplateLocale } from "./mail-notifications.ts";
 
 // Per-flow constants: which notification type to dispatch. fallbackAppName
 // replaces the translated default when the flow has no app name of its own.

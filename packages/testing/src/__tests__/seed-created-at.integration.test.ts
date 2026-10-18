@@ -40,7 +40,7 @@ import {
 } from "../e2e/constants";
 import { seedTenantResponseSchema } from "../e2e/seed-contract";
 import { createE2eSeedRoutes, type E2eExtraSeeder } from "../e2e/seed-route";
-import { drainEventConsumers } from "../stack/index.js";
+import { drainEventConsumers } from "../stack/index.ts";
 
 const TOKEN = "seed-created-at-test-token";
 const DAY_MS = 24 * 60 * 60 * 1000;

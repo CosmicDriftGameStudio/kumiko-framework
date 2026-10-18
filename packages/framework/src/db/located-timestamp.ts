@@ -13,7 +13,7 @@
 // globalThis, so this crashed with "Temporal is not defined" outside boot
 // paths that install it (#1480).
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { EntityDefinition } from "../engine/types/index.js";
+import type { EntityDefinition } from "../engine/types/index.ts";
 
 // Sprint F: <name>Utc-Spalte ist jetzt instant() (siehe dialect.ts) —
 // Drizzle gibt direkt Temporal.Instant zurück. Vor Sprint F kam ein PG-

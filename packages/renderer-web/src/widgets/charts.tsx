@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn.ts";
 import {
   bucketIndexAtFraction,
   type ChartWindow,
@@ -24,9 +24,9 @@ import {
   snapMovedBrushWindow,
   stackedAreaAxisTicks,
   stackedAreaDateFormatFor,
-} from "./chart-window.js";
-import { ModeSwitch } from "./mode-switch.js";
-import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge.js";
+} from "./chart-window.ts";
+import { ModeSwitch } from "./mode-switch.tsx";
+import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge.tsx";
 
 // Inline-SVG-Charts — kein Chart-Dep. Farben ausschließlich über die
 // --color-status-* / --color-foreground Theme-Tokens; Achsen-Labels

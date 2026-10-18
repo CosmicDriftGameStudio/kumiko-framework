@@ -29,15 +29,15 @@ import type {
   WriteEvent,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { reserveEnforcedCalendarCap } from "./calendar-cap-usage-reservation.js";
-import { releaseExpiredCapReservations, reserveRollingCap } from "./cap-reservation.js";
+import { reserveEnforcedCalendarCap } from "./calendar-cap-usage-reservation.ts";
+import { releaseExpiredCapReservations, reserveRollingCap } from "./cap-reservation.ts";
 import {
   assertBelowHardCap,
   type CapToleranceProfileName,
   enforceRollingCapAndMaybeNotify,
   type SoftHitNotifier,
-} from "./enforce-cap.js";
-import { chainReservations } from "./reservation-chain.js";
+} from "./enforce-cap.ts";
+import { chainReservations } from "./reservation-chain.ts";
 
 // =============================================================================
 // Calendar-Period-Wrapper

@@ -7,7 +7,7 @@ import {
   computeWeakEtag,
   etagMatches,
   parseIfNoneMatch,
-} from "../http-cache.js";
+} from "../http-cache.ts";
 
 describe("computeWeakEtag", () => {
   test("formats mtime-size weak tag", () => {

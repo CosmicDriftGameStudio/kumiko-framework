@@ -5,9 +5,9 @@
 // fail-fast beim Boot.
 
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTimestampField, createTzField } from "../factories.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTimestampField, createTzField } from "../factories.ts";
 
 describe("validateBoot — locatedBy markers", () => {
   test("manuelle Konstruktion mit korrektem Pair passiert (positive case)", () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/factories.js";
+import { createEntity, createTextField } from "../../engine/factories.ts";
 import {
   blindIndexFieldName,
   collectLookupableFields,
@@ -9,14 +9,14 @@ import {
   configuredBlindIndexKey,
   decodeBlindIndexKey,
   resetBlindIndexKeyForTests,
-} from "../blind-index.js";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
+} from "../blind-index.ts";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   encryptPiiFieldValues,
   PII_ERASED_SENTINEL,
   resetPiiSubjectKmsForTests,
-} from "../pii-field-encryption.js";
+} from "../pii-field-encryption.ts";
 
 const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 const TEST_KEY_B64 = Buffer.alloc(32, 7).toString("base64");

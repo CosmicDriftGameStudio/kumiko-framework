@@ -12,9 +12,9 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/db";
-import { jobRunLogsTable, jobRunsTable } from "../../job-run-table.js";
-import { tenantJobFailuresTable } from "../../tenant-job-failure-table.js";
-import { tenantJobRunsTable } from "../../tenant-job-run-table.js";
+import { jobRunLogsTable, jobRunsTable } from "../../job-run-table.ts";
+import { tenantJobFailuresTable } from "../../tenant-job-failure-table.ts";
+import { tenantJobRunsTable } from "../../tenant-job-run-table.ts";
 
 const RETENTION_DELETE_BATCH_SIZE = 500;
 

@@ -5,34 +5,34 @@ import { deleteCookie, setCookie } from "hono/cookie";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Redis } from "ioredis";
 import * as z from "zod";
-import { buildSessionRoles } from "../engine/membership-roles.js";
-import { createAnonymousUser, createSystemUser } from "../engine/system-user.js";
+import { buildSessionRoles } from "../engine/membership-roles.ts";
+import { createAnonymousUser, createSystemUser } from "../engine/system-user.ts";
 import {
   type ActiveMembershipRejection,
   type ActiveMembershipResult,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
-} from "../engine/types/index.js";
-import { NotFoundError, toKumikoError, toWriteErrorInfo } from "../errors/index.js";
-import type { Dispatcher } from "../pipeline/dispatcher.js";
-import { assertUnreachable } from "../utils/index.js";
-import { parseRoles } from "../utils/serialization.js";
-import { Routes } from "./api-constants.js";
+} from "../engine/types/index.ts";
+import { NotFoundError, toKumikoError, toWriteErrorInfo } from "../errors/index.ts";
+import type { Dispatcher } from "../pipeline/dispatcher.ts";
+import { assertUnreachable } from "../utils/index.ts";
+import { parseRoles } from "../utils/serialization.ts";
+import { Routes } from "./api-constants.ts";
 import {
   type AuthSessionChecker,
   type AuthSessionStatus,
   getUser,
   type TokenVerifier,
-} from "./auth-middleware.js";
+} from "./auth-middleware.ts";
 import {
   type ClientIpResolver,
   clientIpSourceFromHonoContext,
   createClientIpResolver,
-} from "./client-ip.js";
-import type { JwtHelper } from "./jwt.js";
-import type { PostAuthLandingArgs, PostAuthLandingResolver } from "./post-auth-landing.js";
-import { resolvePostAuthLandingPath } from "./post-auth-landing.js";
+} from "./client-ip.ts";
+import type { JwtHelper } from "./jwt.ts";
+import type { PostAuthLandingArgs, PostAuthLandingResolver } from "./post-auth-landing.ts";
+import { resolvePostAuthLandingPath } from "./post-auth-landing.ts";
 import {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
@@ -41,8 +41,8 @@ import {
   getSessionCookies,
   type ResolvedSessionCookies,
   resolveSessionCookies,
-} from "./session-cookies.js";
-import { generateToken } from "./tokens.js";
+} from "./session-cookies.ts";
+import { generateToken } from "./tokens.ts";
 
 // 429 comes from the per-route rate limit; handler errors map to the rest.
 type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
@@ -444,7 +444,7 @@ export type AuthRoutesConfig = {
   // rate limiting.
   patRateLimiter?: LoginRateLimiter;
   // Tenant-lifecycle 410 gate — wired by tenant-lifecycle / run-prod-app.
-  resolveTenantLifecycleStatus?: import("./auth-middleware.js").TenantLifecycleStatusResolver;
+  resolveTenantLifecycleStatus?: import("./auth-middleware.ts").TenantLifecycleStatusResolver;
   // Password-reset flow. When wired, POST /auth/request-password-reset and
   // POST /auth/reset-password are mounted as public routes. The framework
   // dispatches to the feature-level handlers (authoring QNs typically come

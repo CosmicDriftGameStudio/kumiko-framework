@@ -11,9 +11,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { decryptStoredPii } from "../../shared/index.js";
-import { USER_STATUS, userTable } from "../../user/index.js";
-import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
+import { decryptStoredPii } from "../../shared/index.ts";
+import { USER_STATUS, userTable } from "../../user/index.ts";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

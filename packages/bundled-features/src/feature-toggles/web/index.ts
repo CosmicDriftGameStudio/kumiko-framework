@@ -2,4 +2,4 @@
 export {
   type FeatureTogglesClientOptions,
   featureTogglesClient,
-} from "./client-plugin.js";
+} from "./client-plugin.tsx";

@@ -7,12 +7,12 @@
 // pointed at them. The one reference it does not resolve is a nav `parent`
 // pointing at a missing nav; that is pruned here.
 
-import type { AppSchema, FeatureSchema } from "../ui-types/app-schema.js";
-import { isToggleableFeature } from "./effective-features.js";
-import { isValidQn, qualifyEntityName } from "./qualified-name.js";
-import type { EffectiveFeaturesResolver } from "./tier-resolver-extension.js";
-import type { Registry } from "./types/feature.js";
-import type { TenantId } from "./types/identifiers.js";
+import type { AppSchema, FeatureSchema } from "../ui-types/app-schema.ts";
+import { isToggleableFeature } from "./effective-features.ts";
+import { isValidQn, qualifyEntityName } from "./qualified-name.ts";
+import type { EffectiveFeaturesResolver } from "./tier-resolver-extension.ts";
+import type { Registry } from "./types/feature.ts";
+import type { TenantId } from "./types/identifiers.ts";
 
 // Sorted, so the result doubles as a stable cache key. The trial gate is
 // consulted like the dispatcher's feature gate does, but only for toggleable

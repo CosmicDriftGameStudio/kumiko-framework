@@ -11,10 +11,10 @@ import {
   defineQueryHandler,
   EXT_PRINCIPAL_STATUS,
   EXT_TENANT_LIFECYCLE_STATUS,
-} from "../../engine/index.js";
-import { createInMemorySearchAdapter } from "../../search/index.js";
-import { buildServer } from "../server.js";
-import { createSseBroker } from "../sse-broker.js";
+} from "../../engine/index.ts";
+import { createInMemorySearchAdapter } from "../../search/index.ts";
+import { buildServer } from "../server.ts";
+import { createSseBroker } from "../sse-broker.ts";
 
 const JWT_SECRET = "server-boot-guards-test-secret-min-32-chars";
 

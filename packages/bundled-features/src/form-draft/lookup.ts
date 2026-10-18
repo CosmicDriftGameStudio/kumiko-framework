@@ -2,8 +2,8 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { formDraftTable } from "./executor.js";
-import type { FormDraftBlob } from "./schemas.js";
+import { formDraftTable } from "./executor.ts";
+import type { FormDraftBlob } from "./schemas.ts";
 
 export type FormDraftRow = {
   readonly id: string;

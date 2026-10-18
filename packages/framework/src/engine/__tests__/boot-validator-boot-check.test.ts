@@ -7,9 +7,9 @@
 // would already be covered by r.requires and wouldn't justify this API.
 
 import { describe, expect, test } from "bun:test";
-import { validateFeatureBootChecks } from "../boot-validator/boot-check.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
+import { validateFeatureBootChecks } from "../boot-validator/boot-check.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
 
 function catchMessage(fn: () => void): string {
   try {

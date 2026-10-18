@@ -7,8 +7,8 @@ import type {
   PdfPageFormat,
   PdfTemplateMeta,
   TemplateScope,
-} from "../template-resolver/index.js";
-import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.js";
+} from "../template-resolver/index.ts";
+import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.ts";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
 // (renderer-foundation api) je nach kind oder explizit. Plugin selbst

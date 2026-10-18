@@ -7,7 +7,7 @@ import type { lookup } from "node:dns/promises";
 import { EventEmitter } from "node:events";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
   type InboundMailContext,
   isInboundAuthError,
@@ -15,7 +15,7 @@ import {
   isInboundTransientError,
   type MailAccountRecord,
   type RawInboundMessage,
-} from "../../inbound-mail-foundation/index.js";
+} from "../../inbound-mail-foundation/index.ts";
 
 type FakeMsg = {
   readonly uid: number;
@@ -123,7 +123,7 @@ class FakeImapFlow extends EventEmitter {
 const realImapflow = await import("imapflow");
 mock.module("imapflow", () => ({ ImapFlow: FakeImapFlow }));
 
-const { imapInboundMailPlugin, setImapMailHostLookup } = await import("../feature.js");
+const { imapInboundMailPlugin, setImapMailHostLookup } = await import("../feature.ts");
 
 /** Host-aware fake resolver — an unmapped hostname behaves like a real ENOTFOUND. */
 function fakeLookupFor(addressesByHost: Readonly<Record<string, string>>): typeof lookup {

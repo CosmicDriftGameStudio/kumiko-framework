@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { APEX_LIGHTBOX_SCRIPT, APEX_LIGHTBOX_SCRIPT_CSP_HASH } from "../index.js";
+import { APEX_LIGHTBOX_SCRIPT, APEX_LIGHTBOX_SCRIPT_CSP_HASH } from "../index.ts";
 
 function scriptBody(html: string): string {
   const match = html.match(/^<script>(?<body>[\s\S]*)<\/script>$/);

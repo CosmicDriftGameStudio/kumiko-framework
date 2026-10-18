@@ -25,12 +25,12 @@ import {
   upsertOnConflict,
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
-import { inboundMessageEntity, mailAccountEntity, mailThreadEntity } from "./entities.js";
+import { inboundMessageEntity, mailAccountEntity, mailThreadEntity } from "./entities.ts";
 import type {
   InboundMessageEventPayload,
   MailAccountEventPayload,
   MailThreadEventPayload,
-} from "./events.js";
+} from "./events.ts";
 
 // Drizzle-table-instances aus den entity-shapes — geteilt zwischen
 // projection-applies und list-queries (ein column-namespace).

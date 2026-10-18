@@ -17,8 +17,8 @@ import {
   usePrimitives,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useState } from "react";
-import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
-import { ShellHeader } from "../layout/shell-header.js";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
+import { ShellHeader } from "../layout/shell-header.tsx";
 import {
   act,
   createMockDispatcher,
@@ -27,7 +27,7 @@ import {
   screen,
   waitFor,
   within,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 const PHONE = 500;
 const DESKTOP = 1024;

@@ -1,10 +1,10 @@
-import type { TenantDb } from "../db/tenant-db.js";
-import { hasAccess } from "../engine/access.js";
-import { normalizeAccessEntry, userCanWriteFieldRow } from "../engine/ownership.js";
-import { toKebab } from "../engine/qualified-name.js";
-import { isRecordLocked } from "../engine/screen-helpers.js";
-import type { Registry, SessionUser, TenantId } from "../engine/types/index.js";
-import type { RecordReadCheck } from "./record-read-check.js";
+import type { TenantDb } from "../db/tenant-db.ts";
+import { hasAccess } from "../engine/access.ts";
+import { normalizeAccessEntry, userCanWriteFieldRow } from "../engine/ownership.ts";
+import { toKebab } from "../engine/qualified-name.ts";
+import { isRecordLocked } from "../engine/screen-helpers.ts";
+import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
+import type { RecordReadCheck } from "./record-read-check.ts";
 
 export const RecordWriteDecisions = {
   writable: "writable",

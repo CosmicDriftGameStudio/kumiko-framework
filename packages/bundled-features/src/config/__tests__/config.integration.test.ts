@@ -28,14 +28,14 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { ConfigHandlers, ConfigQueries } from "../constants.js";
+import { ConfigHandlers, ConfigQueries } from "../constants.ts";
 import {
   createConfigAccessor,
   createConfigAccessorFactory,
   createConfigFeature,
-} from "../feature.js";
-import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver.js";
-import { configValueEntity, configValuesTable } from "../table.js";
+} from "../feature.ts";
+import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver.ts";
+import { configValueEntity, configValuesTable } from "../table.ts";
 
 // --- Setup ---
 

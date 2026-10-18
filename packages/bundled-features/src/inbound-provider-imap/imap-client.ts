@@ -21,7 +21,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { ImapFlow } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
-import type { ImapCredentialDocument } from "./credential-document.js";
+import type { ImapCredentialDocument } from "./credential-document.ts";
 
 export const IMAP_MAILBOX = "INBOX";
 const SNIPPET_MAX = 300;

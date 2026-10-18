@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import { createDateField, createEntity, createSelectField, createTextField } from "../factories.js";
-import type { EntityDefinition } from "../types/index.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createDateField, createEntity, createSelectField, createTextField } from "../factories.ts";
+import type { EntityDefinition } from "../types/index.ts";
 
 function bootWith(lockedWhen: EntityDefinition["lockedWhen"], fields: EntityDefinition["fields"]) {
   validateBoot([

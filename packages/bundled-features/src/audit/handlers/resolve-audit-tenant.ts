@@ -2,7 +2,7 @@ import { mayOverrideTenant, type SessionUser } from "@cosmicdrift/kumiko-framewo
 import { AccessDeniedError, FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { APP_INSTANCE_STREAM_TYPE } from "@cosmicdrift/kumiko-framework/event-store";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
-import { type AuditScope, AuditScopes } from "../constants.js";
+import { type AuditScope, AuditScopes } from "../constants.ts";
 
 export type AuditScopeFilter = { readonly tenantId: string; readonly aggregateType?: string };
 

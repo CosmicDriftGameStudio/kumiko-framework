@@ -7,7 +7,7 @@
 // the drift-risk on the Q12 wording is real (advisor M.1.6 cleanup), not
 // because the line-count alone justifies it.
 
-import type { StepInstance } from "../types/step.js";
+import type { StepInstance } from "../types/step.ts";
 
 export function validateNoReturnSteps(steps: readonly StepInstance[], where: string): void {
   for (const step of steps) {

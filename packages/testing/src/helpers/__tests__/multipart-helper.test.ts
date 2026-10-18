@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildMultipartBody } from "../multipart-helper.js";
+import { buildMultipartBody } from "../multipart-helper.ts";
 
 describe("buildMultipartBody", () => {
   test("serializes text fields so a Response can parse them back", async () => {

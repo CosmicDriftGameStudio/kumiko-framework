@@ -12,13 +12,13 @@ import {
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { requestContext } from "../../api/request-context.js";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { AppContext } from "../../engine/types/index.js";
-import { createPrometheusMeter } from "../../observability/index.js";
-import { createDistributedLock } from "../../pipeline/distributed-lock.js";
-import { RedisKeys } from "../../pipeline/redis-keys.js";
-import { createJobRunner, type JobOutcomeMeta } from "../job-runner.js";
+import { requestContext } from "../../api/request-context.ts";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { AppContext } from "../../engine/types/index.ts";
+import { createPrometheusMeter } from "../../observability/index.ts";
+import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
+import { RedisKeys } from "../../pipeline/redis-keys.ts";
+import { createJobRunner, type JobOutcomeMeta } from "../job-runner.ts";
 
 let testRedis: TestRedis;
 let testDb: TestDb;

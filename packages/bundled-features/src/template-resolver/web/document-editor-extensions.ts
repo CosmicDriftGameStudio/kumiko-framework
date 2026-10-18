@@ -10,9 +10,9 @@ import {
   DocumentSteps,
   DocumentVariable,
   documentExtensions,
-} from "../document-schema.js";
-import { readDocumentStepsAttribute } from "../document-steps.js";
-import type { DocumentResourcePreview } from "./document-toolbar-blocks.js";
+} from "../document-schema.ts";
+import { readDocumentStepsAttribute } from "../document-steps.ts";
+import type { DocumentResourcePreview } from "./document-toolbar-blocks.ts";
 
 const DOCUMENT_RESOURCE_SIZE_TOKEN = "{size}";
 export const DOCUMENT_BLOCK_ATTRIBUTE = "data-document-block";

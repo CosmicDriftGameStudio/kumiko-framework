@@ -3,9 +3,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { SEED_MODE_ENV, SeedModeDisabledError } from "@cosmicdrift/kumiko-framework/event-store";
-import { runProdApp } from "../run-prod-app.js";
-import { runWorkerApp } from "../run-worker-app.js";
-import { makeProbeFeature } from "./boot-probe-fixture.js";
+import { runProdApp } from "../run-prod-app.ts";
+import { runWorkerApp } from "../run-worker-app.ts";
+import { makeProbeFeature } from "./boot-probe-fixture.ts";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 

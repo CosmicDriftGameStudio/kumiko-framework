@@ -6,9 +6,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { executeRawQuery } from "../../db/queries/raw-sql.js";
-import { defineFeature } from "../../engine/index.js";
-import { createTestUser } from "../../seeding/seed-users.js";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { createTestUser } from "../../seeding/seed-users.ts";
 
 const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
   r.writeHandler({

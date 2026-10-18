@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { redactBotTokens, redactEmailAddresses, redactErrorText, redactUrls } from "./redact.js";
+import { redactBotTokens, redactEmailAddresses, redactErrorText, redactUrls } from "./redact.ts";
 
 describe("redactUrls", () => {
   test("hides a Telegram bot token in the path", () => {

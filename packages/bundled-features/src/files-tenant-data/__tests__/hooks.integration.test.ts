@@ -49,23 +49,23 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createFilesFeature } from "../../files/index.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipEntity } from "../../tenant/index.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipEntity } from "../../tenant/index.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
-import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "../hooks.js";
-import { createFilesTenantDataFeature } from "../index.js";
+} from "../../tenant-lifecycle/constants.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.ts";
+import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "../hooks.ts";
+import { createFilesTenantDataFeature } from "../index.ts";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 const SWEEP_JOB = "files-tenant-data:job:sweep-orphaned-derivatives";

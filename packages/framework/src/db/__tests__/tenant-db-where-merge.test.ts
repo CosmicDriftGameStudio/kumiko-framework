@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { DbRunner } from "../connection.js";
-import type { TableColumns } from "../dialect.js";
-import { deriveEntityTableMeta } from "../entity-table-meta.js";
-import { buildEntityTable } from "../table-builder.js";
-import { createTenantDb } from "../tenant-db.js";
+import { createEntity, createTextField } from "../../engine/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { DbRunner } from "../connection.ts";
+import type { TableColumns } from "../dialect.ts";
+import { deriveEntityTableMeta } from "../entity-table-meta.ts";
+import { buildEntityTable } from "../table-builder.ts";
+import { createTenantDb } from "../tenant-db.ts";
 
 // Tenant-isolation: a caller-supplied `where.tenantId` must NEVER override the
 // enforced tenant scope. These tests drive the real query-builder against a

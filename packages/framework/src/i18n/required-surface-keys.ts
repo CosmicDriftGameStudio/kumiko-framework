@@ -1,11 +1,11 @@
-import { isExplicitDotFormKey } from "../engine/i18n-key.js";
-import type { FieldsOrGroupsSection } from "../engine/screen-helpers.js";
+import { isExplicitDotFormKey } from "../engine/i18n-key.ts";
+import type { FieldsOrGroupsSection } from "../engine/screen-helpers.ts";
 import {
   isExtensionEditSection,
   isWriteFormEditSection,
   normalizeListColumn,
   sectionFieldSpecs,
-} from "../engine/screen-helpers.js";
+} from "../engine/screen-helpers.ts";
 import type {
   DashboardChartPanel,
   DashboardFilterDefinition,
@@ -20,7 +20,7 @@ import type {
   SecretMintScreenDefinition,
   ToolbarAction,
   WorkspaceDefinition,
-} from "../engine/types/index.js";
+} from "../engine/types/index.ts";
 
 /** Pseudo-entity for actionForm field labels (renderer action-form-shim). */
 export const ACTION_FORM_ENTITY = "__action-form__";

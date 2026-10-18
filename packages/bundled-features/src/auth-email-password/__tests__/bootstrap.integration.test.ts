@@ -30,31 +30,31 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createTenantFeature, TenantQueries } from "../../tenant/index.js";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { seedTenant } from "../../tenant/seeding.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity, userTable } from "../../user/schema/user.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createTenantFeature, TenantQueries } from "../../tenant/index.ts";
+import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { seedTenant } from "../../tenant/seeding.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity, userTable } from "../../user/schema/user.ts";
 import {
   type BootstrapPlan,
   BootstrapPlanError,
   type BootstrapReport,
   BootstrapWriteError,
   bootstrapTenants,
-} from "../bootstrap.js";
-import { AuthHandlers, AuthQueries } from "../constants.js";
-import { createAuthEmailPasswordFeature } from "../feature.js";
-import { invalidateExistingInviteToken } from "../invite-token-store.js";
-import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
+} from "../bootstrap.ts";
+import { AuthHandlers, AuthQueries } from "../constants.ts";
+import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { invalidateExistingInviteToken } from "../invite-token-store.ts";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const ROOT_EMAIL = "root@example.com";

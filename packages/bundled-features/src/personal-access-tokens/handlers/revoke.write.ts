@@ -4,9 +4,9 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { API_TOKEN_ENTITY_NAME, PatErrors } from "../constants.js";
-import { PAT_REVOKED_AGGREGATE_TYPE, PAT_REVOKED_EVENT_QN } from "../pat-revoked-event.js";
-import { apiTokenTable } from "../schema/api-token.js";
+import { API_TOKEN_ENTITY_NAME, PatErrors } from "../constants.ts";
+import { PAT_REVOKED_AGGREGATE_TYPE, PAT_REVOKED_EVENT_QN } from "../pat-revoked-event.ts";
+import { apiTokenTable } from "../schema/api-token.ts";
 
 // Revoke one of the caller's own tokens. Ownership is enforced in the WHERE
 // (userId = caller), so a caller can't revoke another user's token and a miss

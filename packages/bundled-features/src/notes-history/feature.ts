@@ -20,12 +20,12 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.js";
-import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants.js";
-import { createNoteEntryEntity, noteMentionEntity } from "./entity.js";
-import { createNoteEntryExecutor } from "./executor.js";
-import { createAddNoteHandler } from "./handlers/add-note.write.js";
-import { NOTES_HISTORY_FEATURE_I18N } from "./i18n.js";
+import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
+import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants.ts";
+import { createNoteEntryEntity, noteMentionEntity } from "./entity.ts";
+import { createNoteEntryExecutor } from "./executor.ts";
+import { createAddNoteHandler } from "./handlers/add-note.write.ts";
+import { NOTES_HISTORY_FEATURE_I18N } from "./i18n.ts";
 
 function registerNotesHistory(
   r: FeatureRegistrar<typeof NOTES_HISTORY_FEATURE_NAME>,

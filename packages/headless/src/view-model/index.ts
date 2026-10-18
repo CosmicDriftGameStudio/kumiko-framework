@@ -1,17 +1,17 @@
-export type { ComputeEditViewModelInput, EditFormMode } from "./edit.js";
-export { computeEditViewModel, computeRelatedListSectionViewModel } from "./edit.js";
+export type { ComputeEditViewModelInput, EditFormMode } from "./edit.ts";
+export { computeEditViewModel, computeRelatedListSectionViewModel } from "./edit.ts";
 export type {
   DerivedCellRoundingTarget,
   EmbeddedDerivedOp,
   EmbeddedListIssueGroups,
-} from "./embedded-list.js";
+} from "./embedded-list.ts";
 export {
   computeDerivedCellValue,
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
-} from "./embedded-list.js";
-export type { ComputeListViewModelInput } from "./list.js";
+} from "./embedded-list.ts";
+export type { ComputeListViewModelInput } from "./list.ts";
 export {
   buildOptionLabels,
   computeListViewModel,
@@ -20,7 +20,7 @@ export {
   fieldLabelKey,
   fieldOptionLabelKey,
   fieldOptionLabelKeyPrefix,
-} from "./list.js";
+} from "./list.ts";
 export type {
   EditExtensionSectionViewModel,
   EditFieldSpec,
@@ -42,4 +42,4 @@ export type {
   RuntimeRenderer,
   ScreenSlots,
   Translate,
-} from "./types.js";
+} from "./types.ts";

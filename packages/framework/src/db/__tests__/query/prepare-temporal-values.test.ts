@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { EntityTableMeta } from "../../entity-table-meta.js";
-import { instantToTimestamptzParam, selectMany } from "../../query.js";
+import type { EntityTableMeta } from "../../entity-table-meta.ts";
+import { instantToTimestamptzParam, selectMany } from "../../query.ts";
 
 const meta: EntityTableMeta = {
   source: "unmanaged",

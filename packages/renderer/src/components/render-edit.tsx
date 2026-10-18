@@ -28,33 +28,33 @@ import {
   zodErrorToFieldIssues,
 } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { RenderEditActionButton } from "./render-edit-action-button.js";
-import type { RenderEditProps } from "./render-edit-types.js";
-import { AllFieldsRequiredProvider } from "./render-field.js";
-import { useActionMenuItems } from "./use-action-menu-items.js";
+import { RenderEditActionButton } from "./render-edit-action-button.tsx";
+import type { RenderEditProps } from "./render-edit-types.ts";
+import { AllFieldsRequiredProvider } from "./render-field.tsx";
+import { useActionMenuItems } from "./use-action-menu-items.tsx";
 
 export type {
   RenderEditAction,
   RenderEditChangeState,
   RenderEditControls,
   RenderEditProps,
-} from "./render-edit-types.js";
+} from "./render-edit-types.ts";
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as z from "zod";
 import {
   ExtensionFormRegistryProvider,
   useExtensionFormHost,
-} from "../app/extension-form-submit.js";
-import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.js";
-import { layoutEditFields } from "../app/layout-fields.js";
-import { useOptionalDispatcher } from "../context/dispatcher-context.js";
-import { useDraftStorage } from "../context/draft-storage-context.js";
-import { formatWhen } from "../format-when.js";
-import { useForm } from "../hooks/use-form.js";
-import { useTranslation } from "../i18n.js";
-import { useInsideDrawer } from "../inside-drawer.js";
-import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.js";
+} from "../app/extension-form-submit.tsx";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
+import { layoutEditFields } from "../app/layout-fields.ts";
+import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
+import { useDraftStorage } from "../context/draft-storage-context.tsx";
+import { formatWhen } from "../format-when.ts";
+import { useForm } from "../hooks/use-form.ts";
+import { useTranslation } from "../i18n.tsx";
+import { useInsideDrawer } from "../inside-drawer.ts";
+import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import {
   type ActionMenuItemSpec,
   FOOTER_ACTION_ROLE_PROP,
@@ -64,9 +64,9 @@ import {
   type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
   usePrimitives,
-} from "../primitives.js";
-import { GridCellForField } from "./grid-cell-for-field.js";
-import { RelatedListSection } from "./related-list-section.js";
+} from "../primitives.tsx";
+import { GridCellForField } from "./grid-cell-for-field.tsx";
+import { RelatedListSection } from "./related-list-section.tsx";
 import {
   filterEditSections,
   findFirstErroringSectionIndex,
@@ -75,8 +75,8 @@ import {
   isDispatcherRejection,
   resolveExtensionEntityId,
   shouldNotifyCaller,
-} from "./render-edit-logic.js";
-import { WriteFormSection } from "./write-form-section.js";
+} from "./render-edit-logic.ts";
+import { WriteFormSection } from "./write-form-section.tsx";
 
 // Qualified names of the bundled `form-draft` feature. Hardcoded because the
 // renderer must not depend on @cosmicdrift/kumiko-bundled-features; a screen

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { insertMany, selectMany } from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+import { insertMany, selectMany } from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

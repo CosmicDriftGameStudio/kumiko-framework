@@ -1,4 +1,4 @@
-import type { Logger } from "./types.js";
+import type { Logger } from "./types.ts";
 
 type FallbackLogger = {
   error(msg: string, data?: Record<string, unknown>): void;

@@ -5,11 +5,11 @@ import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { RenderEdit } from "../../components/render-edit.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { type CorePrimitives, type FieldProps, PrimitivesProvider } from "../../primitives.js";
-import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "../action-form-shim.js";
+import { RenderEdit } from "../../components/render-edit.tsx";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { type CorePrimitives, type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "../action-form-shim.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

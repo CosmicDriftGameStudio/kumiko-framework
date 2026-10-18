@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { sanitizeDocumentHtml } from "../../template-resolver/document-sanitizer.js";
+import { sanitizeDocumentHtml } from "../../template-resolver/document-sanitizer.ts";
 import {
   type ContractConfirmationArgs,
   contractConfirmationVariables,
-} from "../consumer-protection/confirmation-mail.js";
-import { CONSENT_TEXTS } from "../consumer-protection/consent-text.js";
-import { contractConfirmationTemplate } from "../consumer-protection/mail-notifications.js";
-import type { CheckoutConsentRecordedPayload } from "../events.js";
+} from "../consumer-protection/confirmation-mail.ts";
+import { CONSENT_TEXTS } from "../consumer-protection/consent-text.ts";
+import { contractConfirmationTemplate } from "../consumer-protection/mail-notifications.ts";
+import type { CheckoutConsentRecordedPayload } from "../events.ts";
 
 const vatNote = { de: "Preise inkl. USt.", en: "Prices include VAT." };
 

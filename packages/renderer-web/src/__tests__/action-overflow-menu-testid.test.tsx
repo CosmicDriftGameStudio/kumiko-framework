@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
-import { defaultPrimitives } from "../primitives/index.js";
-import { render, screen } from "./test-utils.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { render, screen } from "./test-utils.tsx";
 
 const { ActionOverflowMenu } = defaultPrimitives;
 

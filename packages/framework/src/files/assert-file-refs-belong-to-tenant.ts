@@ -1,8 +1,8 @@
-import { isFileField, type Registry, type SaveContext } from "../engine/types/index.js";
-import { ValidationError } from "../errors/index.js";
-import { fileRefIdsOf } from "./bind-pending-file-refs.js";
-import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
-import type { FileRefRows } from "./load-save-file-refs.js";
+import { isFileField, type Registry, type SaveContext } from "../engine/types/index.ts";
+import { ValidationError } from "../errors/index.ts";
+import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
+import type { FileRefRows } from "./load-save-file-refs.ts";
 
 // A file field only stores an id, and the file routes authorize by tenant at
 // read time: without this check a writer could name another tenant's fileRef

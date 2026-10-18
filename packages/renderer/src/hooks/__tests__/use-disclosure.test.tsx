@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
-import { useDisclosure } from "../use-disclosure.js";
+import { useDisclosure } from "../use-disclosure.ts";
 
 describe("useDisclosure", () => {
   test("open/close/toggle steuern den Zustand", () => {

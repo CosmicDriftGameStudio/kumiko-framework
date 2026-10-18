@@ -8,17 +8,17 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
   defineFeature,
-} from "../index.js";
-import { SOFT_DELETE_CLEANUP_JOB, SOFT_DELETE_CLEANUP_SYSTEM_JOB } from "../soft-delete-cleanup.js";
+} from "../index.ts";
+import { SOFT_DELETE_CLEANUP_JOB, SOFT_DELETE_CLEANUP_SYSTEM_JOB } from "../soft-delete-cleanup.ts";
 
 const itemEntity = createEntity({
   table: "fw2914_sdc_items",

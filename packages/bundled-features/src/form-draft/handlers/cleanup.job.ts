@@ -27,10 +27,10 @@ import {
   isDraftStillStale,
   type StaleDraftRow,
   selectStaleDraftsBatch,
-} from "../db/queries/cleanup.js";
-import { filterOwnedFileRefs } from "../db/queries/owned-file-refs.js";
-import { formDraftExecutor } from "../executor.js";
-import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs.js";
+} from "../db/queries/cleanup.ts";
+import { filterOwnedFileRefs } from "../db/queries/owned-file-refs.ts";
+import { formDraftExecutor } from "../executor.ts";
+import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs.ts";
 
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",

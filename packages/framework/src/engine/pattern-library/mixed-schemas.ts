@@ -6,8 +6,8 @@ import {
   agentHintsField,
   HOOK_TYPE_OPTIONS,
   HTTP_METHOD_OPTIONS,
-} from "./shared-fields.js";
-import type { FormFieldSpec, PatternFormSchema } from "./types.js";
+} from "./shared-fields.ts";
+import type { FormFieldSpec, PatternFormSchema } from "./types.ts";
 
 // --- Mixed patterns (header form + opaque body source) --------------------
 

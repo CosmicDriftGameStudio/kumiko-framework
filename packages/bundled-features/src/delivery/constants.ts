@@ -1,6 +1,6 @@
 import type { NotifyPriority } from "@cosmicdrift/kumiko-framework/engine";
 import { QnTypes, qn } from "@cosmicdrift/kumiko-framework/engine";
-import { DELIVERY_FEATURE, DeliveryJobNames } from "./public-names.js";
+import { DELIVERY_FEATURE, DeliveryJobNames } from "./public-names.ts";
 
 // Extension-point name for delivery-channel plugins (channel-email,
 // channel-in-app, channel-push, ...).
@@ -26,7 +26,7 @@ export {
   DeliveryQueries,
   DeliveryStatus,
   type DeliveryStatusValue,
-} from "./public-names.js";
+} from "./public-names.ts";
 
 // Single source for claim (delivery-service) and terminal-failure release (jobs).
 export function deliveryIdempotencyRedisKey(tenantId: string, key: string): string {

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../define-feature.js";
-import { createEventDef } from "../event-def.js";
-import type { EventDef } from "../types/index.js";
+import { defineFeature } from "../define-feature.ts";
+import { createEventDef } from "../event-def.ts";
+import type { EventDef } from "../types/index.ts";
 
 const invoiceSentSchema = z.object({
   invoiceId: z.string(),

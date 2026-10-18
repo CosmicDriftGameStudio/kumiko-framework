@@ -7,7 +7,7 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { CapUsageCell } from "../cap-usage-cell.js";
+import { CapUsageCell } from "../cap-usage-cell.tsx";
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (

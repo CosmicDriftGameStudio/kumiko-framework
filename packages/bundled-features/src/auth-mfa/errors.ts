@@ -3,9 +3,9 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { AuthMfaErrorCodes } from "./constants.js";
+import { AuthMfaErrorCodes } from "./constants.ts";
 
-export { AuthMfaErrorCodes as AuthMfaErrors } from "./constants.js";
+export { AuthMfaErrorCodes as AuthMfaErrors } from "./constants.ts";
 
 export function mfaAlreadyEnabled(): WriteFailure {
   return writeFailure(

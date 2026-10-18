@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../define-feature.js";
+import { defineFeature } from "../define-feature.ts";
 
 describe("r.httpRoute — anonymous is required", () => {
   test("missing anonymous → throws (JS caller without HttpRouteDefinition's type)", () => {

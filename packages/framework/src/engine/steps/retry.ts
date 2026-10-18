@@ -7,17 +7,17 @@
 // after the backoff duration and re-enters the step at the same index.
 // After all attempts exhausted, the original error propagates.
 
-import { createFallbackLogger } from "../../logging/index.js";
-import { defineStep } from "../define-step.js";
-import { runStepList } from "../run-pipeline.js";
-import type { PipelineCtx, StepInstance } from "../types/step.js";
+import { createFallbackLogger } from "../../logging/index.ts";
+import { defineStep } from "../define-step.ts";
+import { runStepList } from "../run-pipeline.ts";
+import type { PipelineCtx, StepInstance } from "../types/step.ts";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RETRY_SCHEDULED_TYPE,
-} from "./_step-dispatch-constants.js";
-import { describeWorkflowStepError } from "./describe-workflow-step-error.js";
-import { unwrapWorkflowStepError } from "./workflow-step-error.js";
+} from "./_step-dispatch-constants.ts";
+import { describeWorkflowStepError } from "./describe-workflow-step-error.ts";
+import { unwrapWorkflowStepError } from "./workflow-step-error.ts";
 
 const log = createFallbackLogger("workflow-retry");
 

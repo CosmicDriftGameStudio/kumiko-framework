@@ -24,9 +24,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { TierMap } from "../compose-app.js";
-import { tierAssignmentEntity } from "../entity.js";
-import { createTierEngineFeature } from "../feature.js";
+import type { TierMap } from "../compose-app.ts";
+import { tierAssignmentEntity } from "../entity.ts";
+import { createTierEngineFeature } from "../feature.ts";
 
 const TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },

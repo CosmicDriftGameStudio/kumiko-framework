@@ -1,7 +1,7 @@
-import { ROLES } from "../auth/roles.js";
-import { EXT_ASSIGNABLE_ROLE } from "./extension-names.js";
-import { isForbiddenMembershipRole } from "./membership-roles.js";
-import type { Registry } from "./types/feature.js";
+import { ROLES } from "../auth/roles.ts";
+import { EXT_ASSIGNABLE_ROLE } from "./extension-names.ts";
+import { isForbiddenMembershipRole } from "./membership-roles.ts";
+import type { Registry } from "./types/feature.ts";
 
 const PLATFORM_ROLE_NAMES: ReadonlySet<string> = new Set<string>(Object.values(ROLES));
 

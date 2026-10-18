@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   reportStanceForSource,
   type StanceClass,
-} from "../scripts/codemod/pii-personal-migration.js";
+} from "../scripts/codemod/pii-personal-migration.ts";
 
 function wrapField(fieldSrc: string): string {
   return `

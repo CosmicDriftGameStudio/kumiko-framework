@@ -1,6 +1,6 @@
 import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { RENDERER_EXTENSION } from "./constants.js";
-import { isRendererRegistrationPlugin, type RendererPlugin } from "./types.js";
+import { RENDERER_EXTENSION } from "./constants.ts";
+import { isRendererRegistrationPlugin, type RendererPlugin } from "./types.ts";
 
 // renderer-foundation — plugin foundation for renderers (HTML mail, PDF,
 // image). Plan doc:

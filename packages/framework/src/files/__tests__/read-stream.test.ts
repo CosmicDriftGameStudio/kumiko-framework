@@ -17,8 +17,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createInMemoryFileProvider } from "../in-memory-provider.js";
-import { createLocalProvider } from "../local-provider.js";
+import { createInMemoryFileProvider } from "../in-memory-provider.ts";
+import { createLocalProvider } from "../local-provider.ts";
 
 async function collect(stream: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];

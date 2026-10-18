@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cn } from "../cn.js";
+import { cn } from "../cn.ts";
 
 describe("cn", () => {
   test("merges conditional classes and resolves tailwind conflicts", () => {

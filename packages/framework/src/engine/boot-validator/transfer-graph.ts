@@ -1,10 +1,10 @@
-import { parseRefTargetEntityName } from "../parse-ref-target.js";
+import { parseRefTargetEntityName } from "../parse-ref-target.ts";
 import {
   findOverDeepTransferChain,
   MAX_TRANSFER_DEPTH,
   resolveTransferAdjacency,
-} from "../transfer-adjacency.js";
-import type { EntityDefinition, FeatureDefinition } from "../types/index.js";
+} from "../transfer-adjacency.ts";
+import type { EntityDefinition, FeatureDefinition } from "../types/index.ts";
 
 // --- Transfer-graph boot validation (fw#3088) ---
 //

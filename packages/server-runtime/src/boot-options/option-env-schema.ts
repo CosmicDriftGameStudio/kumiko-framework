@@ -5,8 +5,8 @@ import { demoAdminEnvSchema } from "@cosmicdrift/kumiko-bundled-features/foundat
 import { subscriptionStripeEnvSchema } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { type ComposedEnvSchema, readKumikoMeta } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
-import { type BootOptionFields, isSeedFnList } from "./resolve-boot-options.js";
-import type { ProdSeedsConfig } from "./seed-shortcuts.js";
+import { type BootOptionFields, isSeedFnList } from "./resolve-boot-options.ts";
+import type { ProdSeedsConfig } from "./seed-shortcuts.ts";
 
 type OptionEnvBlock = {
   readonly source: string;

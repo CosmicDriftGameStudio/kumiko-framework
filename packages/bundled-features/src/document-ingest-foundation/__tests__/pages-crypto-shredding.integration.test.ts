@@ -26,9 +26,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { documentExtractEntity, documentExtractsTable } from "../entity.js";
-import { readIngestPages, writeIngestPages } from "../pages.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { documentExtractEntity, documentExtractsTable } from "../entity.ts";
+import { readIngestPages, writeIngestPages } from "../pages.ts";
 
 let stack: TestStack;
 let kms: InMemoryKmsAdapter;

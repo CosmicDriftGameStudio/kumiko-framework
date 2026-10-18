@@ -5,12 +5,12 @@
 // parsing, DB-connection handling, exit codes, output formatting.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { type ConsumerCliOut, runConsumerCli } from "../consumer-cli.js";
-import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.js";
-import { insertConsumerIfAbsent, markConsumerRebuildFailed } from "../db/queries/event-consumer.js";
-import { asRawClient } from "../db/query.js";
-import { createEventConsumerStateTable } from "../pipeline/index.js";
-import { ensureTemporalPolyfill } from "../time/polyfill.js";
+import { type ConsumerCliOut, runConsumerCli } from "../consumer-cli.ts";
+import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.ts";
+import { insertConsumerIfAbsent, markConsumerRebuildFailed } from "../db/queries/event-consumer.ts";
+import { asRawClient } from "../db/query.ts";
+import { createEventConsumerStateTable } from "../pipeline/index.ts";
+import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 
 const SHARED = "__shared__";
 

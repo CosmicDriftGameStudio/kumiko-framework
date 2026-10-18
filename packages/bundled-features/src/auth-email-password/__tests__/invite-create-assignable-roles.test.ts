@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createInviteCreateHandler } from "../handlers/invite-create.write.js";
+import { createInviteCreateHandler } from "../handlers/invite-create.write.ts";
 
 const APP_URL = "https://app.example/accept-invite";
 

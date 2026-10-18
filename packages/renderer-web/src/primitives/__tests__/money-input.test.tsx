@@ -8,7 +8,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { currencyDecimals, formatMoney, MoneyInput, parseLocaleNumber } from "../money-input.js";
+import { currencyDecimals, formatMoney, MoneyInput, parseLocaleNumber } from "../money-input.tsx";
 
 describe("formatMoney", () => {
   test("formats a normal amount with the currency symbol", () => {

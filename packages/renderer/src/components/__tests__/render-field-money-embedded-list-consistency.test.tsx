@@ -30,14 +30,14 @@ import type {
 import { computeEditViewModel, type EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import {
   type CorePrimitives,
   type EmbeddedListInputProps,
   type InputProps,
   PrimitivesProvider,
-} from "../../primitives.js";
-import { RenderField } from "../render-field.js";
+} from "../../primitives.tsx";
+import { RenderField } from "../render-field.tsx";
 
 let capturedInput: InputProps | undefined;
 let capturedList: EmbeddedListInputProps | undefined;

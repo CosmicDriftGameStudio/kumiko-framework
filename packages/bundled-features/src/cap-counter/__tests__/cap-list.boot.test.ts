@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
-import { CAP_COUNTER_LIST_SCREEN_ID } from "../constants.js";
-import { createCapCounterFeature } from "../feature.js";
+import { CAP_COUNTER_LIST_SCREEN_ID } from "../constants.ts";
+import { createCapCounterFeature } from "../feature.ts";
 
 describe("cap-counter list screen + handler access alignment", () => {
   const features = [createCapCounterFeature()];

@@ -18,9 +18,9 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "./db/queries/retention.js";
-import { selectFieldDefinitionsForEntity } from "./db/queries/user-data-rights.js";
-import { isFieldDefinitionRow, parseSerializedField } from "./lib/parse-serialized-field.js";
+import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "./db/queries/retention.ts";
+import { selectFieldDefinitionsForEntity } from "./db/queries/user-data-rights.ts";
+import { isFieldDefinitionRow, parseSerializedField } from "./lib/parse-serialized-field.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

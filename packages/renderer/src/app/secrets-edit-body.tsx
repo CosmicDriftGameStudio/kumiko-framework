@@ -1,14 +1,14 @@
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { useDispatcher } from "../context/dispatcher-context.js";
-import { useUserRoles } from "../context/user-roles-context.js";
-import { useQuery } from "../hooks/use-query.js";
-import { useTranslation } from "../i18n.js";
-import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.js";
-import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.js";
-import { screenAccessAllows } from "./screen-access.js";
-import { dispatcherErrorText } from "./write-failed-error.js";
+import { useDispatcher } from "../context/dispatcher-context.tsx";
+import { useUserRoles } from "../context/user-roles-context.tsx";
+import { useQuery } from "../hooks/use-query.ts";
+import { useTranslation } from "../i18n.tsx";
+import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";
+import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.tsx";
+import { screenAccessAllows } from "./screen-access.ts";
+import { dispatcherErrorText } from "./write-failed-error.ts";
 
 type SecretListRow = {
   readonly key: string;

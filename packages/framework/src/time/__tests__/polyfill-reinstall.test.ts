@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
-import { ensureTemporalPolyfill, getTemporal } from "../polyfill.js";
+import { ensureTemporalPolyfill, getTemporal } from "../polyfill.ts";
 
 describe("ensureTemporalPolyfill — re-install after teardown", () => {
   test("re-assigns globalThis.Temporal after delete", async () => {

@@ -14,9 +14,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { documentDesignerClient } from "../client-plugin.js";
-import { LayoutEditor } from "../layout-editor.js";
-import type { LayoutSourceView } from "../layout-types.js";
+import { documentDesignerClient } from "../client-plugin.tsx";
+import { LayoutEditor } from "../layout-editor.tsx";
+import type { LayoutSourceView } from "../layout-types.ts";
 
 const MJML = "<mjml><mj-body><mj-raw>{{{content}}}</mj-raw></mj-body></mjml>";
 

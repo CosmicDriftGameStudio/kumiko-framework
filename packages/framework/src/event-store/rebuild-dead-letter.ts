@@ -13,11 +13,11 @@
 // `kumiko_rebuild_dead_letters`, and the replay continues. Replay-after-fix
 // is a separate ops step — same stance as the upcaster dead-letter.
 
-import type { DbConnection, DbRunner } from "../db/connection.js";
-import { bigint, index, jsonb, table as pgTable, text, timestamp, uuid } from "../db/dialect.js";
-import { tableExists } from "../db/schema-inspection.js";
-import { unsafePushTables } from "../db/table-push.js";
-import type { StoredEvent } from "./event-store.js";
+import type { DbConnection, DbRunner } from "../db/connection.ts";
+import { bigint, index, jsonb, table as pgTable, text, timestamp, uuid } from "../db/dialect.ts";
+import { tableExists } from "../db/schema-inspection.ts";
+import { unsafePushTables } from "../db/table-push.ts";
+import type { StoredEvent } from "./event-store.ts";
 
 export const rebuildDeadLetterTable = pgTable(
   "kumiko_rebuild_dead_letters",
@@ -65,7 +65,7 @@ export async function recordRebuildDeadLetters(
   projectionName: string,
   skipped: readonly SkippedApply[],
 ): Promise<void> {
-  const { insertMany } = await import("../db/query.js");
+  const { insertMany } = await import("../db/query.ts");
   await insertMany(
     db,
     rebuildDeadLetterTable,
@@ -100,7 +100,7 @@ export async function listRebuildDeadLetters(
   db: DbConnection,
   options: { projectionName?: string; limit?: number } = {},
 ): Promise<readonly RebuildDeadLetterRow[]> {
-  const { selectMany } = await import("../db/query.js");
+  const { selectMany } = await import("../db/query.ts");
   const limit = options.limit ?? 100;
   const where =
     options.projectionName !== undefined ? { projectionName: options.projectionName } : undefined;

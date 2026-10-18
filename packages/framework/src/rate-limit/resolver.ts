@@ -5,9 +5,9 @@ import type {
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Redis } from "ioredis";
-import { RateLimitError } from "../errors/index.js";
-import { RedisKeys } from "../pipeline/redis-keys.js";
-import { toPublicBucketName } from "./bucket.js";
+import { RateLimitError } from "../errors/index.ts";
+import { RedisKeys } from "../pipeline/redis-keys.ts";
+import { toPublicBucketName } from "./bucket.ts";
 
 // Token-Bucket rate limiter, atomic via Redis Lua. One round-trip per
 // check — the script computes the bucket state inline and either deducts

@@ -1,5 +1,5 @@
-import { HEX_COLOR_PATTERN } from "./constants.js";
-import { type MailLayoutMeta, readMailLayoutMeta } from "./template-meta.js";
+import { HEX_COLOR_PATTERN } from "./constants.ts";
+import { type MailLayoutMeta, readMailLayoutMeta } from "./template-meta.ts";
 
 // Every value is a member of a closed set, so it can be written into MJML and inline styles as is.
 export type MailLayoutAppearance = {

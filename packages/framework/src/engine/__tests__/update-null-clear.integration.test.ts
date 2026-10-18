@@ -6,9 +6,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { defineFeature } from "../define-feature.js";
+import { asRawClient } from "../../db/query.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { defineFeature } from "../define-feature.ts";
 import {
   createBooleanField,
   createDateField,
@@ -16,8 +16,8 @@ import {
   createNumberField,
   createTextField,
   createTimestampField,
-} from "../factories.js";
-import type { PreSaveHookFn } from "../types/index.js";
+} from "../factories.ts";
+import type { PreSaveHookFn } from "../types/index.ts";
 
 const noteEntity = createEntity({
   table: "update_null_clear_notes",

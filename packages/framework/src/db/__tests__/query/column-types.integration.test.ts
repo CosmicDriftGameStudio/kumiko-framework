@@ -3,8 +3,8 @@
 // string instead of an object, Temporal drift on timestamptz.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { fetchOne, insertOne } from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+import { fetchOne, insertOne } from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

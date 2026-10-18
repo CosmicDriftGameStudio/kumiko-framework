@@ -1,23 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/factories.js";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
   type KmsContext,
   subjectIdFromKey,
   subjectIdToKey,
   subjectKeyForRecord,
-} from "../kms-adapter.js";
+} from "../kms-adapter.ts";
 import {
   decryptPiiFieldValues,
   encryptPiiFieldValues,
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
-} from "../pii-field-encryption.js";
+} from "../pii-field-encryption.ts";
 import {
   collectPiiSubjectFields,
   resolveSubjectForField,
   SubjectResolutionError,
-} from "../subject-resolver.js";
+} from "../subject-resolver.ts";
 
 const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 const KMS_CTX: KmsContext = { requestId: "test" };

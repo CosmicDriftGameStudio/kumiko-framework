@@ -1,4 +1,4 @@
-import type { PatternFormSchema } from "./types.js";
+import type { PatternFormSchema } from "./types.ts";
 
 // --- Opaque patterns (entire pattern is read-only code) -------------------
 

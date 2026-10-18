@@ -15,15 +15,15 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/feature.js";
+import { createConfigFeature } from "../../config/feature.ts";
 import {
   JOB_RUN_DETAIL_SCREEN_ID,
   JOB_RUNS_SCREEN_ID,
   JobHandlers,
   JobQueries,
-} from "../constants.js";
-import { createJobsFeature } from "../feature.js";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
+} from "../constants.ts";
+import { createJobsFeature } from "../feature.ts";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;
 

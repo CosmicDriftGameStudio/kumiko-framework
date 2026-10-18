@@ -2,14 +2,14 @@ export {
   createStepDispatcherFeature,
   STEP_DISPATCH_AGGREGATE_TYPE,
   stepDispatcherEnvSchema,
-} from "./feature.js";
+} from "./feature.ts";
 export {
   type MailDispatchResult,
   type MailSpec,
   mailSpecSchema,
   performMailDispatch,
   setMailRunner,
-} from "./mail-runner.js";
+} from "./mail-runner.ts";
 export {
   performWebhookDispatch,
   readAllowedPrivateWebhookHostsFromEnv,
@@ -22,4 +22,4 @@ export {
   type WebhookSpec,
   webhookAuthSecretKey,
   webhookSpecSchema,
-} from "./webhook-runner.js";
+} from "./webhook-runner.ts";

@@ -1,17 +1,17 @@
-import { fetchOne } from "../db/query.js";
-import type { TenantDb } from "../db/tenant-db.js";
+import { fetchOne } from "../db/query.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
 import type {
   BeforeTransactionResult,
   Registry,
   SessionUser,
   WriteResult,
-} from "../engine/types/index.js";
+} from "../engine/types/index.ts";
 import {
   FrameworkReasons,
   InternalError,
   UnprocessableError,
   writeFailure,
-} from "../errors/index.js";
+} from "../errors/index.ts";
 import {
   type CreatedFileRef,
   createFileRefRow,
@@ -19,11 +19,11 @@ import {
   storeFileAsFileRef,
   type UploadedFileBytes,
   writeAcceptedFileBytes,
-} from "./create-file-ref.js";
-import type { FileContext } from "./file-handle.js";
-import { fileRefsTable } from "./file-ref-table.js";
-import { readFilesRouteOptions } from "./file-routes.js";
-import { assertSafeStorageKey } from "./types.js";
+} from "./create-file-ref.ts";
+import type { FileContext } from "./file-handle.ts";
+import { fileRefsTable } from "./file-ref-table.ts";
+import { readFilesRouteOptions } from "./file-routes.ts";
+import { assertSafeStorageKey } from "./types.ts";
 
 export type { CreatedFileRef, UploadedFileBytes };
 

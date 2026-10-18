@@ -13,7 +13,7 @@
 // the grant must stay exactly where the anonymous flow minted it.
 
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signRowBoundGrant } from "../shared/index.js";
+import { signRowBoundGrant } from "../shared/index.ts";
 
 const HANDOVER_PURPOSE_PREFIX = "tenant-handover";
 

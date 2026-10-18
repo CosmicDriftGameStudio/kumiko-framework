@@ -32,30 +32,30 @@ import {
 import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
-} from "../../auth-email-password/__tests__/auth-mail-stack.js";
-import { createChannelEmailFeature } from "../../channel-email/feature.js";
-import { createInMemoryTransport } from "../../channel-email/types.js";
+} from "../../auth-email-password/__tests__/auth-mail-stack.ts";
+import { createChannelEmailFeature } from "../../channel-email/feature.ts";
+import { createInMemoryTransport } from "../../channel-email/types.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
+} from "../../compliance-profiles/index.ts";
 import {
   configValuesTable,
   createConfigFeature,
   createConfigResolver,
-} from "../../config/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { exportDownloadTokenEntity } from "../schema/download-token.js";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.js";
+} from "../../config/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { exportDownloadTokenEntity } from "../schema/download-token.ts";
+import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000009a1";
 const USER_ID = "00000000-0000-4000-8000-0000000009b1";

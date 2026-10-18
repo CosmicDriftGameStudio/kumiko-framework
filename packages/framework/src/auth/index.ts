@@ -3,5 +3,5 @@
 // tenant, user) und Datenschutz-Sprints (S1+ user-data-rights, S5 tenant-
 // lifecycle, S6 legal-hold) genutzt.
 
-export type { Role } from "./roles.js";
-export { ROLES } from "./roles.js";
+export type { Role } from "./roles.ts";
+export { ROLES } from "./roles.ts";

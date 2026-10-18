@@ -14,8 +14,8 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { cancelPendingInvitation } from "../cancel-pending-invitation.js";
-import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.js";
+import { cancelPendingInvitation } from "../cancel-pending-invitation.ts";
+import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 
 const CancelInvitationSchema = z.object({
   invitationId: z.string(),

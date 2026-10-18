@@ -4,7 +4,7 @@ import {
   type PostAuthLandingArgs,
   type PostAuthLandingResolver,
   resolvePostAuthLandingPath,
-} from "../post-auth-landing.js";
+} from "../post-auth-landing.ts";
 
 describe("isSafeLandingPath", () => {
   const rejected: unknown[] = [

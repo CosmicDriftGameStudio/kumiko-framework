@@ -7,16 +7,16 @@
 import { describe, expect, test } from "bun:test";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
-import { InternalError, UnprocessableError } from "../../errors/index.js";
-import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { PUBLIC_API_PATHS } from "../api-constants.js";
-import { authMiddleware } from "../auth-middleware.js";
+import { InternalError, UnprocessableError } from "../../errors/index.ts";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { PUBLIC_API_PATHS } from "../api-constants.ts";
+import { authMiddleware } from "../auth-middleware.ts";
 import {
   type AuthRoutesConfig,
   createAuthRoutes,
   createInMemoryLoginRateLimiter,
-} from "../auth-routes.js";
-import { createJwtHelper } from "../jwt.js";
+} from "../auth-routes.ts";
+import { createJwtHelper } from "../jwt.ts";
 
 const JWT_SECRET = "test-jwt-secret-at-least-32-bytes-long!!";
 const PREAUTH_ENABLE_START_QN = "auth-mfa:write:enable-start-preauth";

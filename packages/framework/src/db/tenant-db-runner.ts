@@ -1,6 +1,6 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { InternalError } from "../errors/index.js";
-import type { DbRunner } from "./connection.js";
+import { InternalError } from "../errors/index.ts";
+import type { DbRunner } from "./connection.ts";
 
 const tenantDbRunners = new WeakMap<TenantDb, DbRunner>();
 

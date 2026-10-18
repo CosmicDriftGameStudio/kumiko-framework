@@ -14,11 +14,11 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { deleteManyBatched, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
-import { mapWithConcurrency } from "../../../shared/index.js";
-import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../../handlers/retention-cleanup.job.js";
-import { encryptFailureError } from "../../job-run-logger.js";
-import { jobRunsTable } from "../../job-run-table.js";
-import { tenantJobRunsTable } from "../../tenant-job-run-table.js";
+import { mapWithConcurrency } from "../../../shared/index.ts";
+import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../../handlers/retention-cleanup.job.ts";
+import { encryptFailureError } from "../../job-run-logger.ts";
+import { jobRunsTable } from "../../job-run-table.ts";
+import { tenantJobRunsTable } from "../../tenant-job-run-table.ts";
 
 const KMS_POOL_CONCURRENCY = 4;
 const STALE_DELETE_BATCH_SIZE = 500;

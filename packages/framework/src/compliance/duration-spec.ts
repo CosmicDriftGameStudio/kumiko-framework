@@ -11,8 +11,8 @@
 // bewusst nicht abgedeckt — das engt den Type ein und macht die SQL-
 // Renderung total.
 
-import { getTemporal } from "../time/index.js";
-import type { DurationSpec, RetentionSpec } from "./profiles.js";
+import { getTemporal } from "../time/index.ts";
+import type { DurationSpec, RetentionSpec } from "./profiles.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

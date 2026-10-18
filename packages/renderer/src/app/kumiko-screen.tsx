@@ -57,32 +57,32 @@ import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useS
 import {
   QueryOptionLabel,
   resolveOptionsQueryPayload,
-} from "../components/query-options-select.js";
-import { extractCreatedId, extractIdField } from "../components/reference-create-dialog.js";
+} from "../components/query-options-select.tsx";
+import { extractCreatedId, extractIdField } from "../components/reference-create-dialog.tsx";
 import {
   RenderEdit,
   type RenderEditAction,
   type RenderEditControls,
   resolveRecordTitle,
-} from "../components/render-edit.js";
-import { RenderEditActionButton } from "../components/render-edit-action-button.js";
-import { RenderList } from "../components/render-list.js";
-import { useActionMenuItems } from "../components/use-action-menu-items.js";
-import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.js";
-import { useIsEmbeddedScreen } from "../context/embedded-screen-context.js";
-import { useUserRoles } from "../context/user-roles-context.js";
-import { useOptionalCurrentUser } from "../current-user.js";
-import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.js";
-import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state.js";
-import { type UseQueryResult, useQuery } from "../hooks/use-query.js";
-import { referenceLookupSource } from "../hooks/use-reference-lookup.js";
-import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n.js";
-import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.js";
+} from "../components/render-edit.tsx";
+import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
+import { RenderList } from "../components/render-list.tsx";
+import { useActionMenuItems } from "../components/use-action-menu-items.tsx";
+import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.tsx";
+import { useIsEmbeddedScreen } from "../context/embedded-screen-context.tsx";
+import { useUserRoles } from "../context/user-roles-context.tsx";
+import { useOptionalCurrentUser } from "../current-user.tsx";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
+import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state.ts";
+import { type UseQueryResult, useQuery } from "../hooks/use-query.ts";
+import { referenceLookupSource } from "../hooks/use-reference-lookup.ts";
+import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n.tsx";
+import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.ts";
 import {
   PageHeaderSlotAvailableProvider,
   usePageHeaderCompact,
   usePageHeaderSlotAvailable,
-} from "../page-header-slot.js";
+} from "../page-header-slot.ts";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -91,33 +91,33 @@ import {
   statusToneForOptionTone,
   statusToneForValue,
   usePrimitives,
-} from "../primitives.js";
-import { screenFillsHeight } from "../screen-fills-height.js";
+} from "../primitives.tsx";
+import { screenFillsHeight } from "../screen-fills-height.ts";
 import {
   actionFormSubmittableFields,
   synthesizeActionFormEntity,
   synthesizeActionFormScreen,
-} from "./action-form-shim.js";
-import { useAppFeatures } from "./app-features-context.js";
+} from "./action-form-shim.ts";
+import { useAppFeatures } from "./app-features-context.tsx";
 import {
   buildConfigEditSchema,
   synthesizeConfigEditEntity,
   synthesizeConfigEditScreen,
-} from "./config-edit-shim.js";
-import { useCustomScreenComponent } from "./custom-screens.js";
-import { useDashboardBody } from "./dashboard-body.js";
-import { applyEditPrefill } from "./edit-prefill.js";
-import { EntityListExpandedRow } from "./entity-list-expanded-row.js";
-import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.js";
-import type { FeatureSchema } from "./feature-schema.js";
-import { buildFormSchema } from "./form-schema.js";
+} from "./config-edit-shim.ts";
+import { useCustomScreenComponent } from "./custom-screens.tsx";
+import { useDashboardBody } from "./dashboard-body.tsx";
+import { applyEditPrefill } from "./edit-prefill.ts";
+import { EntityListExpandedRow } from "./entity-list-expanded-row.tsx";
+import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.tsx";
+import type { FeatureSchema } from "./feature-schema.ts";
+import { buildFormSchema } from "./form-schema.ts";
 import {
   compactHeaderPrimary,
   orderPlainHeaderActions,
   primaryHeaderAction,
-} from "./header-actions.js";
-import { hiddenRequiredFieldsFilled, layoutEditFields, layoutFieldNames } from "./layout-fields.js";
-import { isListNarrowed, useListEmptyContent } from "./list-empty-content.js";
+} from "./header-actions.ts";
+import { hiddenRequiredFieldsFilled, layoutEditFields, layoutFieldNames } from "./layout-fields.ts";
+import { isListNarrowed, useListEmptyContent } from "./list-empty-content.ts";
 import {
   buildDateRangePayload,
   buildEntityFilterFacets,
@@ -131,17 +131,17 @@ import {
   readDateRange,
   resolveDateRangeFacets,
   resolveProjectionFacetSpecs,
-} from "./list-facets.js";
-import { type NavApi, type ScreenTarget, useInitialValuesHandoff, useNav } from "./nav.js";
+} from "./list-facets.ts";
+import { type NavApi, type ScreenTarget, useInitialValuesHandoff, useNav } from "./nav.tsx";
 import {
   synthesizeProjectionDetailEntity,
   synthesizeProjectionDetailScreen,
-} from "./projection-detail-shim.js";
-import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim.js";
-import { lastSegment, toKebab } from "./qn.js";
-import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id.js";
-import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.js";
-import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge.js";
+} from "./projection-detail-shim.ts";
+import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim.ts";
+import { lastSegment, toKebab } from "./qn.ts";
+import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id.ts";
+import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.tsx";
+import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge.tsx";
 import {
   navigateToReturn,
   navigateToReturnOr,
@@ -150,7 +150,7 @@ import {
   ReturnHostProvider,
   useReturnHost,
   useReturnTarget,
-} from "./return-to.js";
+} from "./return-to.tsx";
 import {
   buildDefaultEditRowAction,
   buildDrawerRowAction,
@@ -162,13 +162,13 @@ import {
   navigateActionSearchParams,
   refetchAfterWrite,
   runProjectionRowNavigate,
-} from "./row-actions.js";
-import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access.js";
-import { SecretMintBody } from "./secret-mint-body.js";
-import { SecretsEditBody } from "./secrets-edit-body.js";
-import { useEmbeddedScreen } from "./use-embedded-screen.js";
-import { evalVisibleWhenAfterShown } from "./visible-when.js";
-import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.js";
+} from "./row-actions.ts";
+import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access.ts";
+import { SecretMintBody } from "./secret-mint-body.tsx";
+import { SecretsEditBody } from "./secrets-edit-body.tsx";
+import { useEmbeddedScreen } from "./use-embedded-screen.ts";
+import { evalVisibleWhenAfterShown } from "./visible-when.ts";
+import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.ts";
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
 // routes it to the right renderer based on `screen.type`. Command

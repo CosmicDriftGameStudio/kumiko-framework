@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mergeExtraContext } from "../setup-test-stack-from-features.js";
+import { mergeExtraContext } from "../setup-test-stack-from-features.ts";
 
 // #882/4: the integration test only asserted getFeature("config") — which
 // includeBundled already provides — never that presets:["config"] actually

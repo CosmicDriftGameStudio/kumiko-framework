@@ -1,6 +1,6 @@
-import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
-import type { SessionUser } from "../engine/types/index.js";
-import type { LockGuardOption } from "./event-store-executor.js";
+import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+import type { LockGuardOption } from "./event-store-executor.ts";
 
 // Art. 17 erasure runs as the framework operator, not as a row owner; a
 // per-role ownership map can never cover it, and a silent deny means the

@@ -20,12 +20,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { entityEventName } from "../../db/index.js";
-import { defineFeature, type JobContext } from "../../engine/index.js";
-import { loadAggregate } from "../../event-store/index.js";
-import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { generateId } from "../../utils/index.js";
+import { entityEventName } from "../../db/index.ts";
+import { defineFeature, type JobContext } from "../../engine/index.ts";
+import { loadAggregate } from "../../event-store/index.ts";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
 
 const ITEM_REQUESTED_EVENT_QN = "job-trigger-fixture:event:item-requested";
 const FILE_REF_CREATED = entityEventName("fileRef", "created");

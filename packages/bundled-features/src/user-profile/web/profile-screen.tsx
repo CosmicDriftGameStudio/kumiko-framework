@@ -15,9 +15,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
-import { AuthHandlers } from "../../auth-email-password/constants.js";
-import { requestEmailVerification } from "../../auth-email-password/web/index.js";
-import { UserProfileHandlers } from "../constants.js";
+import { AuthHandlers } from "../../auth-email-password/constants.ts";
+import { requestEmailVerification } from "../../auth-email-password/web/index.ts";
+import { UserProfileHandlers } from "../constants.ts";
 
 type SectionStatus =
   | { kind: "idle" }

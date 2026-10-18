@@ -7,11 +7,11 @@ import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { type CorePrimitives, PrimitivesProvider } from "../../primitives.js";
-import { SecretsEditBody } from "../secrets-edit-body.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { SecretsEditBody } from "../secrets-edit-body.tsx";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 

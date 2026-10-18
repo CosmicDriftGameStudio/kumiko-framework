@@ -1,22 +1,22 @@
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { runInOwnTransaction, type TenantDb } from "../db/tenant-db.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { runInOwnTransaction, type TenantDb } from "../db/tenant-db.ts";
 import {
   type AnyFileFieldDef,
   isFileField,
   type Registry,
   type SessionUser,
-} from "../engine/types/index.js";
-import type { WriteFailure } from "../errors/index.js";
-import { generateId } from "../utils/index.js";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.js";
-import { fileRefsTable } from "./file-ref-table.js";
-import { resolveContentType } from "./resolve-content-type.js";
+} from "../engine/types/index.ts";
+import type { WriteFailure } from "../errors/index.ts";
+import { generateId } from "../utils/index.ts";
+import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
+import { fileRefsTable } from "./file-ref-table.ts";
+import { resolveContentType } from "./resolve-content-type.ts";
 import {
   buildStorageKey,
   resolveUploadMimeType,
   validateFile,
   validateFileContent,
-} from "./types.js";
+} from "./types.ts";
 
 export const DEFAULT_MAX_UPLOAD_SIZE = "10mb";
 

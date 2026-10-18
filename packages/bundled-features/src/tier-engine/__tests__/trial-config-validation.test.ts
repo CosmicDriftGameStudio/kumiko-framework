@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { TierMap } from "../compose-app.js";
-import { createTierEngineFeature } from "../feature.js";
+import type { TierMap } from "../compose-app.ts";
+import { createTierEngineFeature } from "../feature.ts";
 
 type Caps = { readonly apps: number };
 

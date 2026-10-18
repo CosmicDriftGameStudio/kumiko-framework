@@ -12,8 +12,8 @@
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { cn } from "../lib/cn.js";
-import { DateField } from "./date-field.js";
+import { cn } from "../lib/cn.ts";
+import { DateField } from "./date-field.tsx";
 
 const LOCAL_MINUTES = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const HAS_OFFSET = /(?:Z|[+-]\d{2}:\d{2})$/;

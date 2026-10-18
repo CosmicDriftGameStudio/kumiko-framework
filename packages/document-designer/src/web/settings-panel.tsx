@@ -6,15 +6,15 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import type { EditorVocabulary } from "./mail-edit-center.js";
-import { languageName } from "./mail-origin-bar.js";
-import { layoutOptionLabel } from "./mail-right-rail.js";
-import { VersionsSection } from "./mail-versions.js";
-import type { OverviewRowView } from "./overview-row.js";
-import { MARGIN_SIDES, type MarginSide, type PdfMetaDraft } from "./pdf-meta.js";
-import { RailField, RailHint, RailSection } from "./rail.js";
-import { DEFAULT_LAYOUT_SLUG, type TemplateStatus } from "./types.js";
-import type { InsertTargets } from "./use-insert-targets.js";
+import type { EditorVocabulary } from "./mail-edit-center.tsx";
+import { languageName } from "./mail-origin-bar.tsx";
+import { layoutOptionLabel } from "./mail-right-rail.tsx";
+import { VersionsSection } from "./mail-versions.tsx";
+import type { OverviewRowView } from "./overview-row.ts";
+import { MARGIN_SIDES, type MarginSide, type PdfMetaDraft } from "./pdf-meta.ts";
+import { RailField, RailHint, RailSection } from "./rail.tsx";
+import { DEFAULT_LAYOUT_SLUG, type TemplateStatus } from "./types.ts";
+import type { InsertTargets } from "./use-insert-targets.ts";
 
 export type VersionInfo = {
   readonly id: string;

@@ -29,19 +29,19 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
 import {
   emitWatchError,
   failNextFetchWith,
   isWatching,
   resetInboundInMemory,
   seedInboundMessage,
-} from "../../inbound-provider-inmemory/feature.js";
-import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../inbound-provider-inmemory/feature.ts";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   createInboundMailFoundationFeature,
   createInboundMailSupervisor,
@@ -56,7 +56,7 @@ import {
   seenMessageEntity,
   syncCursorEntity,
   syncCursorTable,
-} from "../index.js";
+} from "../index.ts";
 
 let stack: TestStack;
 let db: DbConnection;

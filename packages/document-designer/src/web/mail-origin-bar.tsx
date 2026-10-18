@@ -8,11 +8,11 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { originOf } from "./editor-header.js";
-import { EditorInfoBar } from "./editor-shell.js";
-import type { TemplateRowView } from "./mail-types.js";
-import { DiffDrawer } from "./origin-bar.js";
-import { draftBesideActiveSentence } from "./status-label.js";
+import { originOf } from "./editor-header.tsx";
+import { EditorInfoBar } from "./editor-shell.tsx";
+import type { TemplateRowView } from "./mail-types.ts";
+import { DiffDrawer } from "./origin-bar.tsx";
+import { draftBesideActiveSentence } from "./status-label.ts";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 

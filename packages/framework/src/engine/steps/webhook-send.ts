@@ -8,13 +8,13 @@
 // same Idempotency-Key.
 
 import { randomUUID } from "node:crypto";
-import { defineStep } from "../define-step.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { resolveOptional, resolveRequired } from "./_resolver-utils.js";
+import { defineStep } from "../define-step.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { resolveOptional, resolveRequired } from "./_resolver-utils.ts";
 import {
   STEP_DISPATCH_AGGREGATE_TYPE,
   STEP_DISPATCH_REQUESTED_TYPE,
-} from "./_step-dispatch-constants.js";
+} from "./_step-dispatch-constants.ts";
 
 type WebhookHttpMethod = "POST" | "PUT" | "PATCH";
 

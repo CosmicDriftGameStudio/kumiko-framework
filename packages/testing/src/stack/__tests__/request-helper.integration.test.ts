@@ -12,7 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
-import { setupTestStack, type TestStack } from "../test-stack.js";
+import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 let stack!: TestStack;
 

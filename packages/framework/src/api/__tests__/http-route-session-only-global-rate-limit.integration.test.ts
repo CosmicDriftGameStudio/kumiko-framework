@@ -3,7 +3,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { defineFeature } from "../../engine/index.js";
+import { defineFeature } from "../../engine/index.ts";
 
 const privateRouteFeature = defineFeature("session-only-rl", (r) => {
   r.httpRoute({

@@ -1,6 +1,6 @@
-import { ANONYMOUS_ROLE } from "./system-user.js";
-import type { EntityDefinition, ResolvedPiiFlags } from "./types/fields.js";
-import type { AccessRule, OwnershipMap, OwnershipRule } from "./types/index.js";
+import { ANONYMOUS_ROLE } from "./system-user.ts";
+import type { EntityDefinition, ResolvedPiiFlags } from "./types/fields.ts";
+import type { AccessRule, OwnershipMap, OwnershipRule } from "./types/index.ts";
 
 // Personal-data annotation check mirrors pii-retention.ts's hasAnonymizableSubjectField,
 // minus tenantOwned: a tenant-scoped field isn't an individual's personal data in the

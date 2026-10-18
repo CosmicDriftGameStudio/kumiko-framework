@@ -30,8 +30,8 @@ import {
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
-import { createFileProviderS3EnvFeature } from "./env-feature.js";
-import { createS3Provider } from "./lib/s3-provider.js";
+import { createFileProviderS3EnvFeature } from "./env-feature.ts";
+import { createS3Provider } from "./lib/s3-provider.ts";
 
 const FEATURE_NAME = "file-provider-s3";
 

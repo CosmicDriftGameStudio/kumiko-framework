@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { handlerFieldLabelKey, handlerTitleKey } from "../../i18n/required-surface-keys.js";
+import { handlerFieldLabelKey, handlerTitleKey } from "../../i18n/required-surface-keys.ts";
 import {
   handlerFieldReference,
   handlerFieldReferences,
   readHandlerFieldReference,
   readHandlerFieldReferences,
-} from "../handler-field-references.js";
+} from "../handler-field-references.ts";
 
 describe("handler i18n key helpers", () => {
   test("title and field label keys extend the handler QN", () => {

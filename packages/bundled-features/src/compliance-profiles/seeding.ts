@@ -30,7 +30,7 @@ import {
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "./schema/profile-selection.js";
+} from "./schema/profile-selection.ts";
 
 const executor = createEventStoreExecutor(
   tenantComplianceProfileTable,

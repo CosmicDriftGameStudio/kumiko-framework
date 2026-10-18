@@ -21,36 +21,36 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
 import {
   resetInboundInMemory,
   seedInboundMessage,
-} from "../../inbound-provider-inmemory/feature.js";
-import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
-import { TenantHandlers } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipEntity } from "../../tenant/index.js";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../inbound-provider-inmemory/feature.ts";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.ts";
+import { TenantHandlers } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipEntity } from "../../tenant/index.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   driveDestructionToCompletion,
   seedDestroyingTenant,
-} from "../../tenant-lifecycle/testing.js";
-import { InboundMailFoundationHandlers } from "../constants.js";
+} from "../../tenant-lifecycle/testing.ts";
+import { InboundMailFoundationHandlers } from "../constants.ts";
 import {
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
   syncCursorTable,
-} from "../entities.js";
-import { createInboundMailFoundationFeature } from "../feature.js";
-import { createInboundMailSupervisor, type RawInboundMessage } from "../index.js";
+} from "../entities.ts";
+import { createInboundMailFoundationFeature } from "../feature.ts";
+import { createInboundMailSupervisor, type RawInboundMessage } from "../index.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "../projection.js";
+} from "../projection.ts";
 
 let stack: TestStack;
 let db: DbConnection;

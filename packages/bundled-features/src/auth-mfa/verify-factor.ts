@@ -1,9 +1,9 @@
 import type { Redis } from "ioredis";
-import { burnToken } from "../shared/index.js";
-import { base32Decode } from "./base32.js";
-import type { UserMfaRow } from "./db/queries.js";
-import { findMatchingRecoveryCodeIndex } from "./recovery-codes.js";
-import { STEP_SECONDS, verifyTotp } from "./totp.js";
+import { burnToken } from "../shared/index.ts";
+import { base32Decode } from "./base32.ts";
+import type { UserMfaRow } from "./db/queries.ts";
+import { findMatchingRecoveryCodeIndex } from "./recovery-codes.ts";
+import { STEP_SECONDS, verifyTotp } from "./totp.ts";
 
 export type MfaFactorVerifyResult =
   | { readonly ok: true; readonly method: "totp" }

@@ -8,8 +8,8 @@
 
 import { ThemeToggle } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { TenantSwitcher } from "./tenant-switcher.js";
-import { UserMenu } from "./user-menu.js";
+import { TenantSwitcher } from "./tenant-switcher.tsx";
+import { UserMenu } from "./user-menu.tsx";
 
 export type DefaultTopbarActionsProps = {
   /** Mapped Tenant-ID auf einen sprechenden Namen (z.B. branded label

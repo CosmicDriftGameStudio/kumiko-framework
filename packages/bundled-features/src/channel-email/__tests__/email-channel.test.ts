@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import type { ChannelContext, ChannelMessage, RenderedMessage } from "../../delivery/index.js";
-import { createEmailChannel, fileAttachmentsFrom } from "../email-channel.js";
-import { createInMemoryTransport } from "../types.js";
+import type { ChannelContext, ChannelMessage, RenderedMessage } from "../../delivery/index.ts";
+import { createEmailChannel, fileAttachmentsFrom } from "../email-channel.ts";
+import { createInMemoryTransport } from "../types.ts";
 
 const resolveEmail = async () => "user@example.com";
 // send() with a `rendered` message only reads ctx.registry (to look up a

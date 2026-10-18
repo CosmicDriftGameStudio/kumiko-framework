@@ -1,4 +1,4 @@
-import type { TenantId } from "../engine/types/identifiers.js";
+import type { TenantId } from "../engine/types/identifiers.ts";
 
 export const CACHE_SYNC_TOPICS = {
   tenantConfig: "tenant-config",

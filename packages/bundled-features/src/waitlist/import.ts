@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { WaitlistStatus } from "./constants.js";
-import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.js";
+import type { WaitlistStatus } from "./constants.ts";
+import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.ts";
 
 export type WaitlistImportEntry = {
   /** Stable identity of the source row (e.g. `offlot:<uuid>`); the new entry id derives from it. */

@@ -38,17 +38,17 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "../lib/cn.js";
-import { Button as UiButton } from "../ui/button.js";
-import { Checkbox } from "../ui/checkbox.js";
-import { Input as UiInput } from "../ui/input.js";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.js";
-import { ComboboxInput } from "./combobox.js";
-import { DateInput } from "./date-input.js";
-import { formatMoney, MoneyInput } from "./money-input.js";
-import { SegmentedControl } from "./segmented-select.js";
-import { TimestampInput } from "./timestamp-input.js";
-import { useIsNarrowViewport } from "./use-narrow-viewport.js";
+import { cn } from "../lib/cn.ts";
+import { Button as UiButton } from "../ui/button.tsx";
+import { Checkbox } from "../ui/checkbox.tsx";
+import { Input as UiInput } from "../ui/input.tsx";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.tsx";
+import { ComboboxInput } from "./combobox.tsx";
+import { DateInput } from "./date-input.tsx";
+import { formatMoney, MoneyInput } from "./money-input.tsx";
+import { SegmentedControl } from "./segmented-select.tsx";
+import { TimestampInput } from "./timestamp-input.tsx";
+import { useIsNarrowViewport } from "./use-narrow-viewport.ts";
 
 // `input[type=hidden]` excluded — ComboboxInput renders one as a plain
 // name-carrier before its focusable trigger button.

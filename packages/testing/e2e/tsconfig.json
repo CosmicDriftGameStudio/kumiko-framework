@@ -2,6 +2,8 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "composite": true,
+    "emitDeclarationOnly": true,
+    "rewriteRelativeImportExtensions": false,
     "rootDir": "../../..",
     "outDir": "../dist/e2e-check",
     "lib": ["ESNext", "DOM"]

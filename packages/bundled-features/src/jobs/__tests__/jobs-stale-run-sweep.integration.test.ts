@@ -14,11 +14,11 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.js";
-import { createJobsFeature } from "../feature.js";
-import { DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS } from "../handlers/stale-run-sweep.job.js";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
-import { tenantJobRunsTable } from "../tenant-job-run-table.js";
+import { STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.ts";
+import { createJobsFeature } from "../feature.ts";
+import { DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS } from "../handlers/stale-run-sweep.job.ts";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
+import { tenantJobRunsTable } from "../tenant-job-run-table.ts";
 
 const SWEEP_JOB = "jobs:job:stale-run-sweep";
 

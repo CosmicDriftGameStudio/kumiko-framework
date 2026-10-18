@@ -13,29 +13,29 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { TenantQueries } from "../../tenant/index.js";
-import { UserQueries } from "../../user/index.js";
+import { TenantQueries } from "../../tenant/index.ts";
+import { UserQueries } from "../../user/index.ts";
 import {
   CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE,
   SubscriptionCancelTimings,
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
-} from "../constants.js";
+} from "../constants.ts";
 import {
   CONTRACT_TERMINATION_DECLARATION_TYPES,
   CONTRACT_TERMINATION_KINDS,
   type ContractTerminationDeclarationType,
   type ContractTerminationKind,
   type ProviderCancelOutcome,
-} from "../events.js";
-import { purchaseRolesOf } from "../plan-catalog.js";
-import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
-import { resolveConsentLocale } from "./consent-text.js";
-import { type TerminationDeclaration, terminationReceiptVariables } from "./termination-mail.js";
-import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.js";
-import { mayMailReceipt } from "./termination-receipt-limit.js";
-import type { RecordContractTerminationResult } from "./termination-record.js";
-import type { OperatorNoticeReason } from "./termination-texts.js";
+} from "../events.ts";
+import { purchaseRolesOf } from "../plan-catalog.ts";
+import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { resolveConsentLocale } from "./consent-text.ts";
+import { type TerminationDeclaration, terminationReceiptVariables } from "./termination-mail.ts";
+import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.ts";
+import { mayMailReceipt } from "./termination-receipt-limit.ts";
+import type { RecordContractTerminationResult } from "./termination-record.ts";
+import type { OperatorNoticeReason } from "./termination-texts.ts";
 
 const EXTRAORDINARY_REASON_MESSAGE = "reason is required for an extraordinary termination";
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { EditFieldSpec } from "@cosmicdrift/kumiko-framework/ui-types";
-import { applyEditPrefill, todayInTimeZone } from "../edit-prefill.js";
+import { applyEditPrefill, todayInTimeZone } from "../edit-prefill.ts";
 
 type Spec = Exclude<EditFieldSpec, string>;
 

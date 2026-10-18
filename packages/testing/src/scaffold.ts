@@ -1,6 +1,6 @@
 // @runtime tooling
 import { BUNFIG_FILES, renderBunfigFiles, TEST_TIMEOUT_MS } from "./bunfig";
-import { REAL_PROVIDERS_ENV } from "./helpers/real-providers.js";
+import { REAL_PROVIDERS_ENV } from "./helpers/real-providers";
 
 export type ScaffoldTestSetup = {
   readonly files: Readonly<Record<string, string>>;

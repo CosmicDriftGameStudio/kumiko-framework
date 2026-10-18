@@ -6,7 +6,7 @@ import {
   type InternalEgressPolicy,
   type ResolvedHost,
   resolvePublicHost,
-} from "./policy.js";
+} from "./policy.ts";
 
 const MAX_INTERNAL_REDIRECTS = 5;
 

@@ -1,5 +1,5 @@
-export { base32Decode } from "./base32.js";
-export { type MfaRequiredPolicy, mfaRequiredConfigHandle } from "./config.js";
+export { base32Decode } from "./base32.ts";
+export { type MfaRequiredPolicy, mfaRequiredConfigHandle } from "./config.ts";
 export {
   AUTH_MFA_FEATURE,
   AuthMfaHandlers,
@@ -7,29 +7,29 @@ export {
   MFA_DISABLE_SCREEN_ID,
   MFA_ENABLE_SCREEN_ID,
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
-} from "./constants.js";
-export { authMfaEnvSchema, mfaTokenSecretsEnvSchema } from "./env.js";
-export type { AuthMfaFeatureOptions } from "./feature.js";
-export { createAuthMfaFeature } from "./feature.js";
+} from "./constants.ts";
+export { authMfaEnvSchema, mfaTokenSecretsEnvSchema } from "./env.ts";
+export type { AuthMfaFeatureOptions } from "./feature.ts";
+export { createAuthMfaFeature } from "./feature.ts";
 export type {
   BindMfaRevokeAllOtherSessions,
   BindMfaTokenSecrets,
   BindRevokeAllPatTokens,
-} from "./feature-exports.js";
+} from "./feature-exports.ts";
 export {
   bindMfaRevokeAllOtherSessionsFromFeature,
   bindMfaTokenSecretsFromFeature,
   bindRevokeAllPatTokensFromFeature,
   mfaStatusCheckerFromFeature,
   mfaVerifierFromFeature,
-} from "./feature-exports.js";
-export type { MfaCodeVerifier, MfaCodeVerifyResult } from "./mfa-code-verifier.js";
-export type { MfaStatusChecker, MfaStatusCheckResult } from "./mfa-status-checker.js";
-export { userMfaEntity, userMfaTable } from "./schema/user-mfa.js";
+} from "./feature-exports.ts";
+export type { MfaCodeVerifier, MfaCodeVerifyResult } from "./mfa-code-verifier.ts";
+export type { MfaStatusChecker, MfaStatusCheckResult } from "./mfa-status-checker.ts";
+export { userMfaEntity, userMfaTable } from "./schema/user-mfa.ts";
 export {
   type MfaTokenSecretOverrides,
   type MfaTokenSecretsEnv,
   type ResolvedMfaTokenSecrets,
   resolveMfaTokenSecrets,
   resolveMfaTokenSecretsFromEnv,
-} from "./token-secrets.js";
+} from "./token-secrets.ts";

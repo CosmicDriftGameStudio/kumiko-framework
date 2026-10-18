@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { createConfigFeature } from "../../config/feature.js";
-import { createSecretsFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createSecretsFeature } from "../feature.ts";
 
 // `secrets` is a foundation feature auto-mounted even when `config` is not
 // (dev-server scaffold-app.ts FOUNDATION_FEATURES). A declared r.secret()

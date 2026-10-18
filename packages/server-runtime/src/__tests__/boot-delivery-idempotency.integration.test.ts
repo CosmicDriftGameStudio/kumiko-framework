@@ -23,7 +23,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { buildBootExtraContext } from "../run-prod-app.js";
+import { buildBootExtraContext } from "../run-prod-app.ts";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 

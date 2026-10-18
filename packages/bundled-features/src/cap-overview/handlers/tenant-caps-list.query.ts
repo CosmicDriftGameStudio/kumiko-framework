@@ -13,13 +13,13 @@ import {
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { subscriptionsProjectionTable } from "../../billing-foundation/index.js";
-import type { CapLimitContext } from "../../cap-counter/index.js";
-import { decryptTenantNames, tenantTable } from "../../tenant/index.js";
-import { tierAssignmentEntity } from "../../tier-engine/index.js";
-import { capFieldName } from "../constants.js";
-import type { CapSpec, CapUsage } from "../types.js";
-import { computeFraction } from "../usage-math.js";
+import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
+import type { CapLimitContext } from "../../cap-counter/index.ts";
+import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
+import { tierAssignmentEntity } from "../../tier-engine/index.ts";
+import { capFieldName } from "../constants.ts";
+import type { CapSpec, CapUsage } from "../types.ts";
+import { computeFraction } from "../usage-math.ts";
 
 type TenantRow = { readonly id: string; readonly name: string };
 type TierAssignmentRow = {

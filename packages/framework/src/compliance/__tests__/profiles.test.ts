@@ -7,13 +7,13 @@
 //   4. Override darf einzelne Felder gezielt setzen ohne Required-Drops
 
 import { describe, expect, test } from "bun:test";
-import { complianceProfileOverrideSchema } from "../override-schema.js";
+import { complianceProfileOverrideSchema } from "../override-schema.ts";
 import {
   COMPLIANCE_PROFILES,
   OVERRIDABLE_PROFILE_KEYS,
   resolveComplianceProfile,
   SELECTABLE_PROFILE_KEYS,
-} from "../profiles.js";
+} from "../profiles.ts";
 
 // Identifikations-Keys die ein Override NICHT modifizieren darf — sie
 // definieren die Profile-Identität. Werden vom Drift-Test ausgeschlossen.

@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { mailT } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
-import type { MailChrome, MailChromeLink } from "../renderer-foundation/index.js";
-import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "./public-names.js";
-import "./unsubscribe-page-strings.js";
+import type { MailChrome, MailChromeLink } from "../renderer-foundation/index.ts";
+import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "./public-names.ts";
+import "./unsubscribe-page-strings.ts";
 
 export type UnsubscribePageState =
   | { readonly kind: "confirm"; readonly token: string }

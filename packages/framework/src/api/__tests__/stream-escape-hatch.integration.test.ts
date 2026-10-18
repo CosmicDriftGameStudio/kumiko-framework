@@ -5,11 +5,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { generateToken } from "../../api/tokens.js";
-import { executeRawQuery } from "../../db/queries/raw-sql.js";
-import { createSystemUser, defineFeature } from "../../engine/index.js";
-import type { EscapeHatchUseEvent, SessionUser } from "../../engine/types/index.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
+import { generateToken } from "../../api/tokens.ts";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
+import { createSystemUser, defineFeature } from "../../engine/index.ts";
+import type { EscapeHatchUseEvent, SessionUser } from "../../engine/types/index.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 
 const user = TestUsers.user;
 const otherUserNoRole: SessionUser = createTestUser({

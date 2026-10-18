@@ -3,8 +3,8 @@
 // turn one fileRef event into a signed (bytes, files) delta.
 
 import { describe, expect, test } from "bun:test";
-import { entityEventName } from "../../db/index.js";
-import { fileRefStorageDelta } from "../storage-tracking.js";
+import { entityEventName } from "../../db/index.ts";
+import { fileRefStorageDelta } from "../storage-tracking.ts";
 
 const CREATED = entityEventName("fileRef", "created");
 const DELETED = entityEventName("fileRef", "deleted");

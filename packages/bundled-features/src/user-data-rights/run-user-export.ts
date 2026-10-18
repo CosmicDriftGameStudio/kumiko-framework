@@ -49,8 +49,8 @@ import {
   UNATTRIBUTED_ACTOR,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { tenantMembershipsTable } from "../tenant/index.js";
-import { buildFileRefZipPath } from "./zip-path.js";
+import { tenantMembershipsTable } from "../tenant/index.ts";
+import { buildFileRefZipPath } from "./zip-path.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

@@ -22,8 +22,8 @@ import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import QRCode from "qrcode/lib/browser.js";
 import { type FormEvent, type ReactNode, useState } from "react";
 // kumiko-lint-ignore cross-feature-import client-only component, the feature's server barrel has no web/ re-export
-import { AuthCard } from "../../auth-email-password/web/index.js";
-import { confirmMfaSetupPreauth, startMfaSetupPreauth } from "./mfa-client.js";
+import { AuthCard } from "../../auth-email-password/web/index.ts";
+import { confirmMfaSetupPreauth, startMfaSetupPreauth } from "./mfa-client.ts";
 
 type SetupState = {
   readonly setupToken: string;

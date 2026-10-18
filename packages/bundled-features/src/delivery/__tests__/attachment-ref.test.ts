@@ -3,7 +3,7 @@ import {
   emailAttachmentRefSchema,
   MAX_RENDERED_PDF_VARIABLES_BYTES,
   toAttachmentRef,
-} from "../attachment-ref.js";
+} from "../attachment-ref.ts";
 
 const BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
 

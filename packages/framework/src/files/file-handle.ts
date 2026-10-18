@@ -12,8 +12,8 @@
 // the erasure sweep recognizes it. Stable, reversible, no extra lookup tables.
 
 import type { FileContext, FileHandle } from "@cosmicdrift/kumiko-types/file-handle-types";
-import { isDerivativeSuffix } from "../derivatives/variant-key.js";
-import { assertSafeStorageKey, type FileStorageProvider } from "./types.js";
+import { isDerivativeSuffix } from "../derivatives/variant-key.ts";
+import { assertSafeStorageKey, type FileStorageProvider } from "./types.ts";
 
 export type { FileContext, FileHandle };
 

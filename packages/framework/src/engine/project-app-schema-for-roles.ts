@@ -73,12 +73,12 @@ import type {
   FeatureSchema,
   QualifiedContentCollection,
   WorkspaceSchema,
-} from "../ui-types/app-schema.js";
-import { resolveScreenTargetQn } from "./boot-validator/screens.js";
-import { isValidQn, qualifyEntityName } from "./qualified-name.js";
-import type { AccessRule } from "./types/handlers.js";
-import { isUiAccessGranted } from "./types/handlers.js";
-import type { NavDefinition } from "./types/nav.js";
+} from "../ui-types/app-schema.ts";
+import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
+import { isValidQn, qualifyEntityName } from "./qualified-name.ts";
+import type { AccessRule } from "./types/handlers.ts";
+import { isUiAccessGranted } from "./types/handlers.ts";
+import type { NavDefinition } from "./types/nav.ts";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -99,9 +99,9 @@ import type {
   ScreenDefinition,
   SecretMintScreenDefinition,
   ToolbarAction,
-} from "./types/screen.js";
-import type { TreeAction } from "./types/tree-node.js";
-import type { WorkspaceDefinition } from "./types/workspace.js";
+} from "./types/screen.ts";
+import type { TreeAction } from "./types/tree-node.ts";
+import type { WorkspaceDefinition } from "./types/workspace.ts";
 
 type ScreenLocation = { readonly featureName: string; readonly screen: ScreenDefinition };
 

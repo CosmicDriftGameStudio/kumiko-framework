@@ -19,7 +19,7 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import { collectSourceFiles } from "./collect-source-files.js";
+import { collectSourceFiles } from "./collect-source-files.ts";
 import {
   classifyPackageSpecifier,
   classifyRelativeSpecifier,
@@ -29,7 +29,7 @@ import {
   moduleSpecifierFor,
   type OldModule,
   targetForName,
-} from "./testing-move-targets.js";
+} from "./testing-move-targets.ts";
 
 export interface TestingMoveSite {
   readonly file: string;

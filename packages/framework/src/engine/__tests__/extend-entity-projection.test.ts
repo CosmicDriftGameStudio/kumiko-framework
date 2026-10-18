@@ -4,9 +4,9 @@
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
-import { createRegistry } from "../registry.js";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import { createRegistry } from "../registry.ts";
 
 function exampleEntity(name = "unit") {
   return createEntity({

@@ -3,7 +3,7 @@ import {
   buildDemoModePayload,
   DEMO_READ_ONLY_ERROR_CODE,
   withDemoReadOnlyFetch,
-} from "../demo-mode.js";
+} from "../demo-mode.ts";
 
 const ENV = {
   DEMO_ADMIN_EMAIL: "host@demo.example",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { errorCodeOf, isOneOf, isPlainObject, propertyOf } from "../type-guards.js";
+import { errorCodeOf, isOneOf, isPlainObject, propertyOf } from "../type-guards.ts";
 
 describe("isPlainObject", () => {
   test("accepts plain objects", () => {

@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { zodDef, zodMeta, zodShape, zodShapeField } from "../env/_zod-introspect.js";
+import { zodDef, zodMeta, zodShape, zodShapeField } from "../env/_zod-introspect.ts";
 
 export const HANDLER_FIELD_REFERENCES_META_KEY = "references";
 

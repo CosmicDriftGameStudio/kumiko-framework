@@ -11,11 +11,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { asRawClient } from "../db/query.js";
-import { buildEntityTable } from "../db/table-builder.js";
-import { createEntity, createTextField, defineFeature, type TenantId } from "../engine/index.js";
-import { TestUsers } from "../seeding/seed-users.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { asRawClient } from "../db/query.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature, type TenantId } from "../engine/index.ts";
+import { TestUsers } from "../seeding/seed-users.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 

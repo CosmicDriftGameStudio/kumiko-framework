@@ -26,9 +26,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { fieldDefinitionEntity } from "../entity.js";
-import { createCustomFieldsFeature } from "../feature.js";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
+import { fieldDefinitionEntity } from "../entity.ts";
+import { createCustomFieldsFeature } from "../feature.ts";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 const propertyEntity = createEntity({
   table: "read_t15b_properties",

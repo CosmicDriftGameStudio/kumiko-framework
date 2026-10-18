@@ -1,7 +1,7 @@
 import type { ConfigScope, ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn.ts";
 
 const SOURCE_LABEL_KEY: Record<ConfigValueSource, string> = {
   "user-row": "kumiko.config.source.user",

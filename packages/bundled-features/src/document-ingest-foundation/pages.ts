@@ -5,7 +5,7 @@
 // entity shape (kumiko-framework#1549/1).
 
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { IngestPage } from "./entity.js";
+import type { IngestPage } from "./entity.ts";
 
 export function writeIngestPages(pages: readonly IngestPage[]): string {
   return JSON.stringify(pages);

@@ -9,10 +9,10 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
-import { sanitizeDocumentHtml } from "../../document-sanitizer.js";
-import DocumentTiptapEditor from "../document-tiptap-editor.js";
-import { type DocumentToolbarBlock, PDF_DOCUMENT_BLOCKS } from "../document-toolbar-blocks.js";
-import { defaultTranslations } from "../i18n.js";
+import { sanitizeDocumentHtml } from "../../document-sanitizer.ts";
+import DocumentTiptapEditor from "../document-tiptap-editor.tsx";
+import { type DocumentToolbarBlock, PDF_DOCUMENT_BLOCKS } from "../document-toolbar-blocks.ts";
+import { defaultTranslations } from "../i18n.ts";
 
 const VARIABLES = ["recipient.name", "invoice.url", "lines", "bad name"];
 const localeResolver = createStaticLocaleResolver({ locale: "en" });

@@ -7,8 +7,8 @@ import type {
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { useId, useState } from "react";
-import { Icon } from "../icons.js";
-import { cn } from "../lib/cn.js";
+import { Icon } from "../icons.tsx";
+import { cn } from "../lib/cn.ts";
 
 const SOURCE_I18N_KEY: Record<ConfigValueSource, string> = {
   "user-row": "kumiko.config.source.user",

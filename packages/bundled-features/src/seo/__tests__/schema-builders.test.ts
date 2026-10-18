@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { faqPageSchema, organizationSchema, webPageSchema } from "../schema-builders.js";
+import { faqPageSchema, organizationSchema, webPageSchema } from "../schema-builders.ts";
 
 describe("organizationSchema", () => {
   test("minimal input", () => {

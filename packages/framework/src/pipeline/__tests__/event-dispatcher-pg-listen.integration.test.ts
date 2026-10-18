@@ -18,10 +18,10 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature } from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Fixture ---
 

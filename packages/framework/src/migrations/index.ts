@@ -6,7 +6,7 @@ export {
   formatKumikoDriftReport,
   type KumikoDriftReport,
   SchemaDriftError,
-} from "./kumiko-drift.js";
+} from "./kumiko-drift.ts";
 // Persistente Pending-Rebuild-Queue (survives Rebuild-Failures + Crashes).
 export {
   createPendingRebuildsTable,
@@ -22,7 +22,7 @@ export {
   rebuildProjectionOrMultiStream,
   reportPendingRebuildRun,
   runPendingRebuilds,
-} from "./pending-rebuilds.js";
+} from "./pending-rebuilds.ts";
 // Boot-time backfill: re-encrypts plaintext events after a PII annotation was added.
 export {
   createPiiBackfillStateTable,
@@ -32,6 +32,6 @@ export {
   piiAnnotationFingerprint,
   piiBackfillStateTable,
   runPiiEventBackfill,
-} from "./pii-event-backfill.js";
+} from "./pii-event-backfill.ts";
 // tableName → projection-name, für den app-seitigen Projection-Rebuild.
-export { buildProjectionTableIndex } from "./projection-table-index.js";
+export { buildProjectionTableIndex } from "./projection-table-index.ts";

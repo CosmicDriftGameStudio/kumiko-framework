@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { ensureMembershipPayloadTenantIndex } from "../../db/queries/event-store.js";
-import { asRawClient } from "../../db/query.js";
-import { createEventsTable } from "../events-schema.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { ensureMembershipPayloadTenantIndex } from "../../db/queries/event-store.ts";
+import { asRawClient } from "../../db/query.ts";
+import { createEventsTable } from "../events-schema.ts";
 
 let testDb: BunTestDb;
 

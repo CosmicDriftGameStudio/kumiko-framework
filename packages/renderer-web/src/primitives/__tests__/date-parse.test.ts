@@ -15,7 +15,7 @@ import {
   parseIso,
   parseTypedDate,
   toIso,
-} from "../date-parse.js";
+} from "../date-parse.ts";
 
 // Derived from kumikoDefaultTranslations instead of hardcoded so a drift in
 // the i18n defaults (e.g. renaming "T" → "D") fails this test too.

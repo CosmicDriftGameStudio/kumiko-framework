@@ -4,21 +4,21 @@ import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framewor
 import { deleteRows, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { WAITLIST_STATUS, WaitlistHandlers } from "../constants.js";
-import { waitlistEntryTable } from "../entity.js";
-import { importWaitlistEntry } from "../import.js";
+import { WAITLIST_STATUS, WaitlistHandlers } from "../constants.ts";
+import { waitlistEntryTable } from "../entity.ts";
+import { importWaitlistEntry } from "../import.ts";
 import {
   migrateLegacyWaitlist,
   offlotLegacyTable,
   publicstatusLegacyTable,
-} from "../legacy-migrate.js";
+} from "../legacy-migrate.ts";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,
   resetWaitlistTestState,
   SYSTEM_ADMIN,
   signUpOpenly,
-} from "./waitlist-test-stack.js";
+} from "./waitlist-test-stack.ts";
 
 const TENANT_ADMIN: SessionUser = {
   id: crypto.randomUUID(),

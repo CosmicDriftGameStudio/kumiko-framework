@@ -11,17 +11,17 @@
 // bidx recomputed automatically there; this sweep covers the rows left
 // behind (foreign entities with userOwned fields).
 
-import { collectLookupableFields } from "../crypto/blind-index.js";
-import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.js";
-import { isSelfPiiField } from "../crypto/is-self-pii-field.js";
-import type { EntityDefinition } from "../engine/types/fields.js";
-import type { FeatureDefinition } from "../engine/types/index.js";
-import { toSnakeCase } from "../utils/case.js";
-import type { DbRunner } from "./connection.js";
-import { resolveTableName } from "./entity-table-meta.js";
-import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.js";
-import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
-import { columnNamesOf, tableExists } from "./schema-inspection.js";
+import { collectLookupableFields } from "../crypto/blind-index.ts";
+import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
+import { isSelfPiiField } from "../crypto/is-self-pii-field.ts";
+import type { EntityDefinition } from "../engine/types/fields.ts";
+import type { FeatureDefinition } from "../engine/types/index.ts";
+import { toSnakeCase } from "../utils/case.ts";
+import type { DbRunner } from "./connection.ts";
+import { resolveTableName } from "./entity-table-meta.ts";
+import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
+import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.ts";
+import { columnNamesOf, tableExists } from "./schema-inspection.ts";
 
 export async function nullBlindIndexesForSubject(
   db: DbRunner,

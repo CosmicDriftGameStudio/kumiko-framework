@@ -1,4 +1,4 @@
-import type { AppendEventArgs, EventDef, HandlerContext } from "./types/handlers.js";
+import type { AppendEventArgs, EventDef, HandlerContext } from "./types/handlers.ts";
 
 // The ctx-surface emitEvent needs. Accepting the narrow shape lets tests or
 // MultiStreamApplyContext-style callers pass their own appendEvent without

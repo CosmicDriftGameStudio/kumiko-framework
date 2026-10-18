@@ -1,5 +1,5 @@
-import type { FileStorageProvider } from "./file-storage-provider-types.js";
-import type { TenantId } from "./identifiers.js";
+import type { FileStorageProvider } from "./file-storage-provider-types.ts";
+import type { TenantId } from "./identifiers.ts";
 
 // A bound, per-tenant provider resolver. One instance serves all tenants
 // (tenantId is the call argument) — the single spine shared by upload routes,

@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { isKebabSegment } from "./kebab.js";
+import { isKebabSegment } from "./kebab.ts";
 
 export type RenderDeployFilesOptions = {
   /** App name, kebab-case (e.g. "publicstatus", "kumiko-studio"). */

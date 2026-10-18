@@ -32,12 +32,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { createConfigFeature } from "../../config/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createTenantFeature, TenantHandlers } from "../../tenant/index.js";
-import { createFileDerivativesFeature } from "../feature.js";
-import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query.js";
-import { PUBLIC_VARIANT_BY_FILE_REF_QN } from "../handlers/public-variant-by-file-ref.query.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createTenantFeature, TenantHandlers } from "../../tenant/index.ts";
+import { createFileDerivativesFeature } from "../feature.ts";
+import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query.ts";
+import { PUBLIC_VARIANT_BY_FILE_REF_QN } from "../handlers/public-variant-by-file-ref.query.ts";
 
 const VARIANT_BYTES = new Uint8Array([4, 2, 4, 2]);
 const fakeRender: DerivativeRendererPlugin["render"] = async () => VARIANT_BYTES;

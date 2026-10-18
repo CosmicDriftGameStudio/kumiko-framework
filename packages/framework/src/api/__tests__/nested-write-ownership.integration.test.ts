@@ -14,18 +14,18 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { executeRawQuery } from "../../db/queries/raw-sql.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createTextField,
   defineFeature,
   from,
   SYSTEM_TENANT_ID,
-} from "../../engine/index.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 // project2/task2: same-tenant ownership scenario (b/c). ownerId is an
 // ownership-bound field — checkWriteFieldOwnership evaluates it.

@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
-import { RateLimitError } from "../../errors/index.js";
+import { RateLimitError } from "../../errors/index.ts";
 import {
   createRateLimitResolver,
   type RateLimitDecision,
   type RateLimitResolver,
-} from "../resolver.js";
+} from "../resolver.ts";
 
 let testRedis: TestRedis;
 let resolver: RateLimitResolver;

@@ -1,15 +1,15 @@
-import type { TenantDb } from "../db/tenant-db.js";
+import type { TenantDb } from "../db/tenant-db.ts";
 import {
   isFileField,
   isUuid,
   type Registry,
   type SaveContext,
   type SessionUser,
-} from "../engine/types/index.js";
-import { reraiseAsKumikoError } from "../errors/index.js";
-import { getFileRefExecutor } from "./create-file-ref.js";
-import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
-import type { FileRefRows } from "./load-save-file-refs.js";
+} from "../engine/types/index.ts";
+import { reraiseAsKumikoError } from "../errors/index.ts";
+import { getFileRefExecutor } from "./create-file-ref.ts";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
+import type { FileRefRows } from "./load-save-file-refs.ts";
 
 export function fileRefIdsOf(value: unknown): readonly string[] {
   if (typeof value === "string") return isUuid(value) ? [value] : [];

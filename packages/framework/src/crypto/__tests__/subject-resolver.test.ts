@@ -6,15 +6,15 @@ import {
   createImageField,
   createImagesField,
   createTextField,
-} from "../../engine/factories.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
+} from "../../engine/factories.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
 import {
   collectPiiEncryptedFields,
   collectPiiSubjectFields,
   resolveEventSubject,
   resolveSubjectForField,
   SubjectResolutionError,
-} from "../subject-resolver.js";
+} from "../subject-resolver.ts";
 
 const userLikeEntity = createEntity({
   fields: {

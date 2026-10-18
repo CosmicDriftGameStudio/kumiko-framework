@@ -8,12 +8,12 @@ import {
   DELIVERY_STATUS_CELL_COMPONENT,
   DELIVERY_TIME_CELL_COMPONENT,
   DELIVERY_TYPE_CELL_COMPONENT,
-} from "../public-names.js";
-import { DeliveryChannelCell } from "./delivery-channel-cell.js";
-import { DeliveryErrorCell } from "./delivery-error-cell.js";
-import { DeliveryStatusCell } from "./delivery-status-cell.js";
-import { DeliveryTimeCell } from "./delivery-time-cell.js";
-import { DeliveryTypeCell } from "./delivery-type-cell.js";
+} from "../public-names.ts";
+import { DeliveryChannelCell } from "./delivery-channel-cell.tsx";
+import { DeliveryErrorCell } from "./delivery-error-cell.tsx";
+import { DeliveryStatusCell } from "./delivery-status-cell.tsx";
+import { DeliveryTimeCell } from "./delivery-time-cell.tsx";
+import { DeliveryTypeCell } from "./delivery-type-cell.tsx";
 
 export type DeliveryClientOptions = {
   readonly translations?: TranslationsByLocale;

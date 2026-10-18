@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DefaultTabs as Tabs } from "../primitives/tabs.js";
-import { render, screen } from "./test-utils.js";
+import { DefaultTabs as Tabs } from "../primitives/tabs.tsx";
+import { render, screen } from "./test-utils.tsx";
 
 describe("DefaultTabs ARIA", () => {
   test("triggers carry no aria-controls since the strip renders no tabpanel", () => {

@@ -6,8 +6,8 @@ import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Loader2 } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
-import { cn } from "../lib/cn.js";
-import { ModalShell } from "./modal-shell.js";
+import { cn } from "../lib/cn.ts";
+import { ModalShell } from "./modal-shell.tsx";
 
 export function DefaultDialog({
   open,

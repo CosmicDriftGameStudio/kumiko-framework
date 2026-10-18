@@ -13,17 +13,17 @@ import {
   configurePiiSubjectKms,
   encryptPiiValueForSubject,
   InMemoryKmsAdapter,
-} from "../../crypto/index.js";
-import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.js";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.js";
-import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import { ensureTemporalPolyfill } from "../../time/polyfill.js";
-import { createSeedMigrationContext } from "../context.js";
-import { createEsOperationsTable, esOperationsTable } from "../operations-schema.js";
-import { runPendingSeedMigrations } from "../runner.js";
+} from "../../crypto/index.ts";
+import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.ts";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.ts";
+import { createDispatcher, type Dispatcher } from "../../pipeline/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { createSeedMigrationContext } from "../context.ts";
+import { createEsOperationsTable, esOperationsTable } from "../operations-schema.ts";
+import { runPendingSeedMigrations } from "../runner.ts";
 
 let testDb: BunTestDb;
 // Real (feature-less) dispatcher — these tests exercise the read-helper layer

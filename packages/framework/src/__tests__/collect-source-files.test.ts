@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { collectSourceFiles } from "../scripts/codemod/collect-source-files.js";
+import { collectSourceFiles } from "../scripts/codemod/collect-source-files.ts";
 
 const isTsFile = (name: string): boolean => /\.tsx?$/.test(name);
 

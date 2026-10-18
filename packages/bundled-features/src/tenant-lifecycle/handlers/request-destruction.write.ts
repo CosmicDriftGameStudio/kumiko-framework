@@ -4,11 +4,11 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { resolveProfileForTenant } from "../../compliance-profiles/index.js";
-import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant/index.js";
-import { DESTRUCTION_REQUESTED_EVENT_QN } from "../constants.js";
-import { revokeTenantSessions } from "../lib/revoke-tenant-sessions.js";
-import { invalidateTenantLifecycleGate } from "../lifecycle-gate.js";
+import { resolveProfileForTenant } from "../../compliance-profiles/index.ts";
+import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant/index.ts";
+import { DESTRUCTION_REQUESTED_EVENT_QN } from "../constants.ts";
+import { revokeTenantSessions } from "../lib/revoke-tenant-sessions.ts";
+import { invalidateTenantLifecycleGate } from "../lifecycle-gate.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 

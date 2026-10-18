@@ -1,4 +1,4 @@
-import type { FeatureDefinition, Registry } from "./types/index.js";
+import type { FeatureDefinition, Registry } from "./types/index.ts";
 
 // Callback that returns the current global-toggle override for a feature.
 // `true`  = explicit global row says enabled.

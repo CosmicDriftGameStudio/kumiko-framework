@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { assertUnreachable } from "../assert.js";
+import { assertUnreachable } from "../assert.ts";
 
 describe("assertUnreachable", () => {
   test("throws with the kind label and the offending value in the message", () => {

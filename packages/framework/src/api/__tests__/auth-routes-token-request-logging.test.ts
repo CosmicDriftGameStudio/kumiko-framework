@@ -3,9 +3,9 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { Hono } from "hono";
-import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { createAuthRoutes } from "../auth-routes.js";
-import { createJwtHelper } from "../jwt.js";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { createAuthRoutes } from "../auth-routes.ts";
+import { createJwtHelper } from "../jwt.ts";
 
 const JWT_SECRET = "token-request-logging-test-secret-0123456789";
 const REQUEST_HANDLER = "auth:write:request-password-reset";

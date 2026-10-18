@@ -24,7 +24,7 @@
 
 import { ESCAPE_HATCH_GRANTS } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
-import { type LifecycleHookType, LifecycleHookTypes } from "../constants.js";
+import { type LifecycleHookType, LifecycleHookTypes } from "../constants.ts";
 import type {
   ConfigKeyDefinition,
   ConfigKeyType,
@@ -32,30 +32,30 @@ import type {
   ReferenceDataDef,
   RunIn,
   TranslationKeys,
-} from "../types/config.js";
-import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.js";
-import type { EntityDefinition } from "../types/fields.js";
-import type { AgentRisk, ClaimKeyType, RateLimitPer } from "../types/handlers.js";
-import type { HookPhase } from "../types/hooks.js";
-import type { HttpRouteMethod } from "../types/http-route.js";
-import type { NavDefinition } from "../types/nav.js";
-import type { RelationDefinition } from "../types/relations.js";
-import type { ScreenDefinition } from "../types/screen.js";
-import type { TreeActionDef } from "../types/tree-node.js";
-import type { WorkspaceDefinition } from "../types/workspace.js";
-import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "./entity-field-types.js";
-import { AGENT_RISK_VALUES } from "./extractors/handlers.js";
-import { isPlainObject, isRawRefSentinel } from "./extractors/shared.js";
+} from "../types/config.ts";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.ts";
+import type { EntityDefinition } from "../types/fields.ts";
+import type { AgentRisk, ClaimKeyType, RateLimitPer } from "../types/handlers.ts";
+import type { HookPhase } from "../types/hooks.ts";
+import type { HttpRouteMethod } from "../types/http-route.ts";
+import type { NavDefinition } from "../types/nav.ts";
+import type { RelationDefinition } from "../types/relations.ts";
+import type { ScreenDefinition } from "../types/screen.ts";
+import type { TreeActionDef } from "../types/tree-node.ts";
+import type { WorkspaceDefinition } from "../types/workspace.ts";
+import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "./entity-field-types.ts";
+import { AGENT_RISK_VALUES } from "./extractors/handlers.ts";
+import { isPlainObject, isRawRefSentinel } from "./extractors/shared.ts";
 import type {
   PatternChange,
   PatternId,
   QueryHandlerHeaderKey,
   StreamHandlerHeaderKey,
   WriteHandlerHeaderKey,
-} from "./patch.js";
-import { SYNTHETIC_LOC } from "./patcher.js";
-import type { FeaturePatternKind } from "./patterns.js";
-import type { SourceLocation, SourcePosition } from "./source-location.js";
+} from "./patch.ts";
+import { SYNTHETIC_LOC } from "./patcher.ts";
+import type { FeaturePatternKind } from "./patterns.ts";
+import type { SourceLocation, SourcePosition } from "./source-location.ts";
 
 // Derives an exhaustive literal-value array from a `Record<T, true>` flag
 // map: an added/removed union member fails to compile here instead of

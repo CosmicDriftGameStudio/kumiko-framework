@@ -11,8 +11,8 @@
 // cross-tenant, bulk operation, not a row-scoped one — there is no
 // escapeHatch/unsafeRaw gate here because nothing ever wraps `db`.
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
-import type { DbRunner } from "../../db/connection.js";
-import type { TenantId } from "../types/index.js";
+import type { DbRunner } from "../../db/connection.ts";
+import type { TenantId } from "../types/index.ts";
 
 // done:false asks the runner to call the hook again next tick; processed feeds the
 // destroy progress event. A tick with processed 0 counts as a failed attempt, so a

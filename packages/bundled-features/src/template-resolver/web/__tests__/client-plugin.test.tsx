@@ -16,8 +16,8 @@ import {
 import { defaultPrimitives, PlainContentEditor } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { textBlocksClient } from "../client-plugin.js";
-import { defaultTranslations } from "../i18n.js";
+import { textBlocksClient } from "../client-plugin.tsx";
+import { defaultTranslations } from "../i18n.ts";
 
 mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
   useShellUser: mock(),

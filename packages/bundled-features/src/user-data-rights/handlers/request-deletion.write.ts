@@ -1,13 +1,13 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { USER_STATUS } from "../../user/index.js";
+import { USER_STATUS } from "../../user/index.ts";
 import {
   type GdprMailDefaults,
   isGdprMailDeliveryAvailable,
   makeDefaultDeletionRequestedEmail,
-} from "../lib/default-mailers.js";
-import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.js";
+} from "../lib/default-mailers.ts";
+import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.ts";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
 // password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim

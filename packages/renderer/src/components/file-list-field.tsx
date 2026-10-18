@@ -1,7 +1,7 @@
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
-import { useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
+import { useTranslation } from "../i18n.tsx";
+import { usePrimitives } from "../primitives.tsx";
 
 export type FileListFieldProps = {
   readonly field: EditFieldViewModel;

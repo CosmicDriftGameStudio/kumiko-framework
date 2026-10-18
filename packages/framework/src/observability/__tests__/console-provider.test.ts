@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createConsoleProvider } from "../console-provider.js";
+import { createConsoleProvider } from "../console-provider.ts";
 
 function makeProvider() {
   const lines: string[] = [];

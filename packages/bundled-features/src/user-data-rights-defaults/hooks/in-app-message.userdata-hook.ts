@@ -1,6 +1,6 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { inAppMessagesTable } from "../../channel-in-app/index.js";
-import { featureMounted } from "./feature-mounted.js";
+import { inAppMessagesTable } from "../../channel-in-app/index.ts";
+import { featureMounted } from "./feature-mounted.ts";
 
 // userData-Hooks for channel-in-app's in_app_messages. Plain SQL table (no
 // r.entity, no event stream — see channel-in-app/tables.ts), written by

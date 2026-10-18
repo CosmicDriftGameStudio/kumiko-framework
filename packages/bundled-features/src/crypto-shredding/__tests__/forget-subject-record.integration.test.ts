@@ -41,22 +41,22 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
+import { createConfigFeature } from "../../config/index.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
   tenantRetentionOverrideTable,
-} from "../../data-retention/index.js";
-import { createTenantFeature } from "../../tenant/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+} from "../../data-retention/index.ts";
+import { createTenantFeature } from "../../tenant/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import {
   RECORD_ENTITY_NOT_REGISTERED,
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
   TARGET_RECORD_NOT_ADMIN_TENANT,
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
-} from "../constants.js";
-import { createCryptoShreddingFeature } from "../feature.js";
+} from "../constants.ts";
+import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const RECORD_PROBE_ENTITY_NAME = "recordProbe";

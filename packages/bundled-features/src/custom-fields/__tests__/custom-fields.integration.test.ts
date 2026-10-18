@@ -33,10 +33,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { fieldDefinitionAggregateId } from "../aggregate-id.js";
-import { fieldDefinitionEntity } from "../entity.js";
-import { createCustomFieldsFeature } from "../feature.js";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
+import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
+import { fieldDefinitionEntity } from "../entity.ts";
+import { createCustomFieldsFeature } from "../feature.ts";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 // --- Probe-Feature: a tenant-owned "property" entity with customFields ---
 

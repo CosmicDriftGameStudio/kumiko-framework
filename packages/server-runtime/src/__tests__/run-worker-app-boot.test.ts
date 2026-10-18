@@ -11,8 +11,8 @@ import {
   createPrometheusMeter,
 } from "@cosmicdrift/kumiko-framework/observability";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { runWorkerApp } from "../run-worker-app.js";
-import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
+import { runWorkerApp } from "../run-worker-app.ts";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.ts";
 
 const probeFeature = makeProbeFeature({
   name: "worker-boot-probe",

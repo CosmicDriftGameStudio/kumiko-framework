@@ -13,8 +13,8 @@
 // data-retention hardDelete cleanup — moved here so neither copies the logic.
 
 import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
-import { assertSafeStorageKey } from "../files/types.js";
-import { derivativeListPrefix, isDerivativeKeyOf } from "./variant-key.js";
+import { assertSafeStorageKey } from "../files/types.ts";
+import { derivativeListPrefix, isDerivativeKeyOf } from "./variant-key.ts";
 
 export type StoredFileStore = {
   list(prefix: string): Promise<readonly string[]>;

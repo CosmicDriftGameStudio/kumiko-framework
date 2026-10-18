@@ -7,7 +7,7 @@ import type {
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
-import type { MetricRange, MetricScope } from "./constants.js";
+import type { MetricRange, MetricScope } from "./constants.ts";
 
 /** Maps a payload value (e.g. a folder id) to the values `column` may have (e.g. the folder and its subfolders' loan ids). Runs with the tenant handler context, so reads stay tenant-scoped; the result only narrows. An empty result yields no rows. */
 export type MetricFilterResolver = {

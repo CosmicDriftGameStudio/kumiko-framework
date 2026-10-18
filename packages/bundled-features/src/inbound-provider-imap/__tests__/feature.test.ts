@@ -5,22 +5,22 @@
 
 import { describe, expect, test } from "bun:test";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
   isInboundAuthError,
   isInboundCursorInvalidError,
   isInboundTransientError,
-} from "../../inbound-mail-foundation/index.js";
-import { createMailTransportSmtpFeature } from "../../mail-transport-smtp/index.js";
-import { parseImapCredentialDocument } from "../credential-document.js";
-import { createInboundProviderImapFeature } from "../feature.js";
+} from "../../inbound-mail-foundation/index.ts";
+import { createMailTransportSmtpFeature } from "../../mail-transport-smtp/index.ts";
+import { parseImapCredentialDocument } from "../credential-document.ts";
+import { createInboundProviderImapFeature } from "../feature.ts";
 import {
   assertUidValidity,
   buildProviderMessageId,
   mapImapError,
   normalizeReferences,
   parseImapCursor,
-} from "../imap-client.js";
+} from "../imap-client.ts";
 
 describe("inboundProviderImapFeature — shape", () => {
   test("has the expected name + requirements", () => {

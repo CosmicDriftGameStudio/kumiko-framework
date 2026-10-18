@@ -12,7 +12,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { redeemRowBoundGrant, signRowBoundGrant } from "../row-bound-grant.js";
+import { redeemRowBoundGrant, signRowBoundGrant } from "../row-bound-grant.ts";
 
 const TABLE = "row_bound_grant_demo";
 const SECRET = "row-bound-grant-integration-secret";

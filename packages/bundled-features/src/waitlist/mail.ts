@@ -4,7 +4,7 @@ import {
   type TemplateVariables,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { mailHeading, mailParagraph, mailRepeatedRows } from "../shared/index.js";
+import { mailHeading, mailParagraph, mailRepeatedRows } from "../shared/index.ts";
 
 export type WaitlistMailLocale = "en" | "de" | "es";
 

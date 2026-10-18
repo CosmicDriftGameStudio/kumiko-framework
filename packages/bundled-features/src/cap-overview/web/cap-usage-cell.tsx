@@ -3,8 +3,8 @@
 import type { ColumnRendererProps } from "@cosmicdrift/kumiko-renderer";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";
-import type { CapUsage } from "../types.js";
-import { CapUsageBar } from "./cap-usage-bar.js";
+import type { CapUsage } from "../types.ts";
+import { CapUsageBar } from "./cap-usage-bar.tsx";
 
 function isCapUsage(value: unknown): value is CapUsage {
   if (!isPlainObject(value)) return false;

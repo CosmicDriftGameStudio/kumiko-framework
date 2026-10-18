@@ -18,9 +18,9 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireConfigEncryption, requireSystemDb } from "../feature.js";
-import { MASKED } from "../read-redaction.js";
-import { configValueEntity, configValuesTable } from "../table.js";
+import { requireConfigEncryption, requireSystemDb } from "../feature.ts";
+import { MASKED } from "../read-redaction.ts";
+import { configValueEntity, configValuesTable } from "../table.ts";
 import {
   findConfigRow,
   prepareConfigWrite,
@@ -30,7 +30,7 @@ import {
   validatePattern,
   validateScope,
   validateType,
-} from "../write-helpers.js";
+} from "../write-helpers.ts";
 
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
 

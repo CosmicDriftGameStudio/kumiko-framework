@@ -4,7 +4,7 @@ import {
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import * as z from "zod";
-import type { TenantId } from "../engine/types/identifiers.js";
+import type { TenantId } from "../engine/types/identifiers.ts";
 
 export * from "@cosmicdrift/kumiko-types/kms-adapter-types";
 

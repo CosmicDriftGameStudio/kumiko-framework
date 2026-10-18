@@ -20,17 +20,17 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverApi } from "../api.js";
-import { createTemplateResolverFeature } from "../feature.js";
-import type { LayoutSourceResponse, OverviewResponse } from "../index.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { seedSystemTemplate, seedTextBlock } from "../seeding.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverApi } from "../api.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import type { LayoutSourceResponse, OverviewResponse } from "../index.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { seedSystemTemplate, seedTextBlock } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
-} from "../table.js";
+} from "../table.ts";
 
 const PLAIN_NAMES = [
   "lifecycle",

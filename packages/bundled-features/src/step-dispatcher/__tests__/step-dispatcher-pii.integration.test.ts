@@ -27,9 +27,9 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createSecretsFeature } from "../../secrets/index.js";
-import { DELIVER_RETRIES, STEP_DISPATCHER_FEATURE } from "../constants.js";
-import { deliverDispatchRequest } from "../deliver-dispatch-request.js";
+import { createSecretsFeature } from "../../secrets/index.ts";
+import { DELIVER_RETRIES, STEP_DISPATCHER_FEATURE } from "../constants.ts";
+import { deliverDispatchRequest } from "../deliver-dispatch-request.ts";
 import {
   createStepDispatcherFeature,
   type MailDispatchResult,
@@ -37,7 +37,7 @@ import {
   setMailRunner,
   setWebhookFetch,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
-} from "../index.js";
+} from "../index.ts";
 
 const DISPATCH_REQUESTED = "kumiko:system:step.dispatch-requested";
 const DISPATCHED = "kumiko:system:step.dispatched";

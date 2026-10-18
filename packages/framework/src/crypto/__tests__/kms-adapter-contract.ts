@@ -7,7 +7,7 @@ import {
   type KmsAdapter,
   type KmsContext,
   type SubjectId,
-} from "../kms-adapter.js";
+} from "../kms-adapter.ts";
 
 const ctx: KmsContext = { requestId: "contract-test" };
 

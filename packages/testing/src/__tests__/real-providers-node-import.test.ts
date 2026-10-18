@@ -10,7 +10,7 @@ import {
   isRealProviderRun,
   REAL_PROVIDERS_ENV,
   requireRealProviders,
-} from "../helpers/real-providers.js";
+} from "../helpers/real-providers.ts";
 
 const realProvidersNodeProbeResultSchema = z.object({
   env: z.string(),

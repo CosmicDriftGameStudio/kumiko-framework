@@ -5,7 +5,7 @@
 // events and `refreshNonce` bumps after writes); a server-side facet-count
 // handler replaces this if it hurts.
 import { type ReactNode, useEffect, useRef } from "react";
-import { useQuery } from "../hooks/use-query.js";
+import { useQuery } from "../hooks/use-query.ts";
 
 type CountedRows = { readonly total?: number };
 

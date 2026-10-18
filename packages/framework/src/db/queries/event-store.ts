@@ -4,15 +4,15 @@ import {
   isLockNotAvailable,
   isTableAlreadyExists,
   isUniqueViolation,
-} from "../pg-error.js";
-import type { AnyDb } from "../query.js";
+} from "../pg-error.ts";
+import type { AnyDb } from "../query.ts";
 import {
   asRawClient,
   runInNewTransaction,
   runnerCanBeginTransaction,
   unsafeReadRetrying,
-} from "../query.js";
-import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
+} from "../query.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 // Gap-finality (event-dispatcher pending_gaps) needs every holder of an
 // event id to already have a *real* xact id by the time it inserts — Postgres

@@ -1,15 +1,15 @@
 import type { Context, MiddlewareHandler } from "hono";
-import { isAuthRateLimitExempt } from "../api/api-constants.js";
+import { isAuthRateLimitExempt } from "../api/api-constants.ts";
 import {
   type ClientIpResolver,
   clientIpSourceFromHonoContext,
   createClientIpResolver,
-} from "../api/client-ip.js";
-import { requestContext } from "../api/request-context.js";
-import type { HttpRouteRateLimit } from "../engine/types/http-route.js";
-import { RateLimitError, serializeError } from "../errors/index.js";
-import { toPublicBucketName } from "./bucket.js";
-import type { RateLimitDecision, RateLimitResolver } from "./resolver.js";
+} from "../api/client-ip.ts";
+import { requestContext } from "../api/request-context.ts";
+import type { HttpRouteRateLimit } from "../engine/types/http-route.ts";
+import { RateLimitError, serializeError } from "../errors/index.ts";
+import { toPublicBucketName } from "./bucket.ts";
+import type { RateLimitDecision, RateLimitResolver } from "./resolver.ts";
 
 // Hono middleware factories for L1 (Global-IP) and L2 (Auth-Endpoints).
 //

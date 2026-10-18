@@ -19,10 +19,10 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.js";
-import { resolveUserDisplayNames, USER_FEATURE } from "../../user/index.js";
-import type { DeliveryStatusValue } from "../constants.js";
-import { deliveryAttemptsTable } from "../tables.js";
+import { decryptStoredPii } from "../../shared/index.ts";
+import { resolveUserDisplayNames, USER_FEATURE } from "../../user/index.ts";
+import type { DeliveryStatusValue } from "../constants.ts";
+import { deliveryAttemptsTable } from "../tables.ts";
 
 type DeliveryLogRow = {
   id: string;

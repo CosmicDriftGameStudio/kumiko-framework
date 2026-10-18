@@ -7,23 +7,23 @@
 // config-seed.ts:40). Events haben createdBy = SYSTEM_TENANT_ID-User
 // → audit-fähig.
 
-import { configuredPiiSubjectKms, decryptPiiFieldValues } from "../crypto/index.js";
-import type { DbRunner } from "../db/index.js";
+import { configuredPiiSubjectKms, decryptPiiFieldValues } from "../crypto/index.ts";
+import type { DbRunner } from "../db/index.ts";
 import {
   selectAllTenants,
   selectMembershipsOfUser,
   selectTemplateResources,
   selectUserByEmail,
-} from "../db/queries/seed-context.js";
-import { createSystemUser, SYSTEM_TENANT_ID } from "../engine/index.js";
-import type { Dispatcher } from "../pipeline/dispatcher.js";
-import { parseStringArrayJson } from "../utils/parse-string-array-json.js";
+} from "../db/queries/seed-context.ts";
+import { createSystemUser, SYSTEM_TENANT_ID } from "../engine/index.ts";
+import type { Dispatcher } from "../pipeline/dispatcher.ts";
+import { parseStringArrayJson } from "../utils/parse-string-array-json.ts";
 import type {
   SeedMembershipRow,
   SeedMigrationContext,
   SeedTemplateResourceRow,
   SeedTenantRow,
-} from "./types.js";
+} from "./types.ts";
 
 export type CreateSeedMigrationContextArgs = {
   readonly dispatcher: Dispatcher;
@@ -136,4 +136,4 @@ export function createSeedMigrationContext(
 }
 
 // Re-export für Caller-Convenience.
-export type { SeedMigrationContext } from "./types.js";
+export type { SeedMigrationContext } from "./types.ts";

@@ -2,16 +2,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.js";
+import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_PROVIDER_EXTENSION,
   inboundCredentialSecretKey,
-} from "../constants.js";
-import { createInboundMailFoundationFeature } from "../feature.js";
-import { isVisibleToCaller } from "../handlers/scope-visibility.js";
-import { signOAuthState, verifyOAuthState } from "../oauth-state.js";
-import { isInboundMailProviderPlugin } from "../types.js";
+} from "../constants.ts";
+import { createInboundMailFoundationFeature } from "../feature.ts";
+import { isVisibleToCaller } from "../handlers/scope-visibility.ts";
+import { signOAuthState, verifyOAuthState } from "../oauth-state.ts";
+import { isInboundMailProviderPlugin } from "../types.ts";
 
 describe("inboundMailFoundationFeature — shape", () => {
   test("has the expected name", () => {

@@ -22,15 +22,15 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createDeclaredKeysFeature } from "../../secrets/__tests__/declared-keys-feature.js";
-import { createSecretsFeature } from "../../secrets/feature.js";
-import { createSecretsContext } from "../../secrets/secrets-context.js";
-import { tenantSecretsTable } from "../../secrets/table.js";
-import { createFileFoundationFeature } from "../feature.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createDeclaredKeysFeature } from "../../secrets/__tests__/declared-keys-feature.ts";
+import { createSecretsFeature } from "../../secrets/feature.ts";
+import { createSecretsContext } from "../../secrets/secrets-context.ts";
+import { tenantSecretsTable } from "../../secrets/table.ts";
+import { createFileFoundationFeature } from "../feature.ts";
 
 const admin = createTestUser({ id: 31, roles: ["TenantAdmin"] });
 

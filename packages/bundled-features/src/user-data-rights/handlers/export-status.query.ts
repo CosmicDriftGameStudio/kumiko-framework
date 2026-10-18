@@ -15,7 +15,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { exportJobsTable } from "../schema/export-job.js";
+import { exportJobsTable } from "../schema/export-job.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

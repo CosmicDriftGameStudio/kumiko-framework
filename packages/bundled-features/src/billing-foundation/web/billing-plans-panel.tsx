@@ -21,10 +21,10 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
-} from "../constants.js";
-import type { BillingPlansResult, BillingPlanView } from "../types.js";
-import { CancelContractDialog } from "./cancel-contract-dialog.js";
-import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.js";
+} from "../constants.ts";
+import type { BillingPlansResult, BillingPlanView } from "../types.ts";
+import { CancelContractDialog } from "./cancel-contract-dialog.tsx";
+import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.tsx";
 
 type UseTranslation = ReturnType<typeof useTranslation>;
 

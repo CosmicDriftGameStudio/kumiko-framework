@@ -49,23 +49,23 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { configValueEntity, createConfigFeature } from "../../config/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createFilesFeature } from "../../files/index.js";
-import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { configValueEntity, createConfigFeature } from "../../config/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createFilesFeature } from "../../files/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import {
   createTenantFeature,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
-import { fileRefExportHook } from "../../user-data-rights-defaults/hooks/file-ref.userdata-hook.js";
-import { tenantInvitationExportHook } from "../../user-data-rights-defaults/hooks/tenant-invitation.userdata-hook.js";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runUserExport } from "../run-user-export.js";
+} from "../../tenant/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { fileRefExportHook } from "../../user-data-rights-defaults/hooks/file-ref.userdata-hook.ts";
+import { tenantInvitationExportHook } from "../../user-data-rights-defaults/hooks/tenant-invitation.userdata-hook.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runUserExport } from "../run-user-export.ts";
 
 let stack: TestStack;
 

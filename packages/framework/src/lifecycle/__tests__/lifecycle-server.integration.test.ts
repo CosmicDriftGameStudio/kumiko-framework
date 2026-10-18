@@ -4,8 +4,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { sharedWidgetEntity } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { defineFeature } from "../../engine/index.js";
-import { createLifecycle, type Lifecycle } from "../lifecycle.js";
+import { defineFeature } from "../../engine/index.ts";
+import { createLifecycle, type Lifecycle } from "../lifecycle.ts";
 
 const widgetFeature = defineFeature("lifecycle-probe", (r) => {
   r.entity({ name: "widget", ...sharedWidgetEntity });

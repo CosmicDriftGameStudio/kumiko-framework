@@ -4,7 +4,7 @@ import { type DbRunner, extractTableName } from "@cosmicdrift/kumiko-framework/d
 import type { UserDataExportSnippet, UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { selectCustomFieldsHostRows } from "./db/queries/user-data-rights.js";
+import { selectCustomFieldsHostRows } from "./db/queries/user-data-rights.ts";
 
 export interface WireCustomFieldsUserDataRightsOptions {
   readonly entityName: string;

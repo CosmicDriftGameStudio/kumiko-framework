@@ -1,6 +1,6 @@
-import { ROLES } from "../auth/roles.js";
-import { AccessDeniedError, FrameworkReasons } from "../errors/index.js";
-import type { SessionUser } from "./types/index.js";
+import { ROLES } from "../auth/roles.ts";
+import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
+import type { SessionUser } from "./types/index.ts";
 
 export function mayOverrideTenant(user: SessionUser): boolean {
   return user.roles.includes(ROLES.SystemAdmin);

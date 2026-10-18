@@ -7,7 +7,7 @@ export {
   type MetricRange,
   type MetricScope,
   metricQueryName,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   activeTenantsMetric,
   activeUsersMetric,
@@ -18,9 +18,9 @@ export {
   failedJobRunsMetric,
   jobRunsByStatusMetric,
   tenantJobFailuresMetric,
-} from "./default-metrics.js";
-export { createMetricsFeature, createSystemMetricsFeature } from "./feature.js";
-export { METRICS_I18N } from "./i18n.js";
+} from "./default-metrics.ts";
+export { createMetricsFeature, createSystemMetricsFeature } from "./feature.ts";
+export { METRICS_I18N } from "./i18n.ts";
 export {
   defineMetric,
   type MetricDefinition,
@@ -31,4 +31,4 @@ export {
   type MetricSegment,
   type MetricSeries,
   type MetricsFeatureOptions,
-} from "./types.js";
+} from "./types.ts";

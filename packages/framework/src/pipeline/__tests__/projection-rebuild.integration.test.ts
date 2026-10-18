@@ -18,30 +18,30 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import type { DbConnection, DbTx } from "../../db/connection.js";
-import { integer, table as pgTable, uuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap.js";
-import { asRawClient, insertOne, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import type { DbConnection, DbTx } from "../../db/connection.ts";
+import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap.ts";
+import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineApply,
   defineFeature,
-} from "../../engine/index.js";
-import type { ProjectionDefinition } from "../../engine/types/index.js";
-import { archiveStream } from "../../event-store/index.js";
+} from "../../engine/index.ts";
+import type { ProjectionDefinition } from "../../engine/types/index.ts";
+import { archiveStream } from "../../event-store/index.ts";
 import {
   createProjectionStateTable,
   getAllProjectionProgress,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Test fixtures ---
 
@@ -444,8 +444,8 @@ describe("rebuildProjection — metrics callback", () => {
 
 describe("rebuildProjection — meter emission", () => {
   test("emits success=true metric + events counter on happy path", async () => {
-    const { RecordingMeter } = await import("../../observability/recording-meter.js");
-    const { registerStandardMetrics } = await import("../../observability/standard-metrics.js");
+    const { RecordingMeter } = await import("../../observability/recording-meter.ts");
+    const { registerStandardMetrics } = await import("../../observability/standard-metrics.ts");
 
     const group = "00000000-0000-4000-8000-000000000060";
     await appendCreatedEvent(group, "a");
@@ -485,8 +485,8 @@ describe("rebuildProjection — meter emission", () => {
   });
 
   test("emits success=false metric when apply throws", async () => {
-    const { RecordingMeter } = await import("../../observability/recording-meter.js");
-    const { registerStandardMetrics } = await import("../../observability/standard-metrics.js");
+    const { RecordingMeter } = await import("../../observability/recording-meter.ts");
+    const { registerStandardMetrics } = await import("../../observability/standard-metrics.ts");
 
     const group = "00000000-0000-4000-8000-000000000061";
     await appendCreatedEvent(group, "a");

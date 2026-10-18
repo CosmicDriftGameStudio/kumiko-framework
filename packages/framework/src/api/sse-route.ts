@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { tenantChannel } from "../engine/constants.js";
-import { isAnonymousSessionUser } from "../engine/system-user.js";
-import type { SessionUser } from "../engine/types/index.js";
-import { Routes } from "./api-constants.js";
-import { getAuthTokenExpiry, getStaleCredentialCode, getUser } from "./auth-middleware.js";
-import { clearSessionCookies, getSessionCookies } from "./session-cookies.js";
-import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.js";
-import { scheduleTokenExpiry } from "./token-expiry-timer.js";
+import { tenantChannel } from "../engine/constants.ts";
+import { isAnonymousSessionUser } from "../engine/system-user.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+import { Routes } from "./api-constants.ts";
+import { getAuthTokenExpiry, getStaleCredentialCode, getUser } from "./auth-middleware.ts";
+import { clearSessionCookies, getSessionCookies } from "./session-cookies.ts";
+import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.ts";
+import { scheduleTokenExpiry } from "./token-expiry-timer.ts";
 
 /**
  * Heartbeat-Cadence für SSE-Streams.

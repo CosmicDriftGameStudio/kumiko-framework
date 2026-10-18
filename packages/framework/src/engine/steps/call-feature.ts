@@ -2,10 +2,10 @@
 // Tier-2: requires r.requires.step("callFeature"). Sync (no dispatcher).
 // opts.as other than the caller itself needs escapeHatch on the handler (system-identity-switch.ts).
 
-import { defineStep } from "../define-step.js";
-import type { SessionUser } from "../types/index.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { resolveRequired } from "./_resolver-utils.js";
+import { defineStep } from "../define-step.ts";
+import type { SessionUser } from "../types/index.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { resolveRequired } from "./_resolver-utils.ts";
 
 type CallFeatureArgs = {
   readonly name: string;

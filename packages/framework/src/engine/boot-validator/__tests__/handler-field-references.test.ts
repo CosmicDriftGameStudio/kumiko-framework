@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../define-feature.js";
-import { validateBoot } from "../index.js";
+import { defineFeature } from "../../define-feature.ts";
+import { validateBoot } from "../index.ts";
 
 const OPEN_ACCESS = { openToAll: { reason: "boot-validator test handler" } } as const;
 

@@ -7,7 +7,7 @@ import {
   type TokensApi,
 } from "@cosmicdrift/kumiko-renderer";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.js";
+import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.ts";
 
 // Web-spezifische TokensApi-Impl. Theme-Toggle via `.dark`-Class auf
 // <html>. Die echten Farben leben in styles.css; hier ist nur die

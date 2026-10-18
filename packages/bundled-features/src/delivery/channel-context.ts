@@ -5,16 +5,16 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { type FileRefContent, readFileRefContent } from "../file-foundation/index.js";
+import { type FileRefContent, readFileRefContent } from "../file-foundation/index.ts";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
   type MailPayload,
   RendererError,
-} from "../renderer-foundation/index.js";
-import { FALLBACK_LOCALE } from "../template-resolver/index.js";
-import type { EmailAttachmentRef, RenderedPdfAttachmentRef } from "./attachment-ref.js";
-import type { AttachmentOrigin, ChannelContext, RenderedMail } from "./types.js";
+} from "../renderer-foundation/index.ts";
+import { FALLBACK_LOCALE } from "../template-resolver/index.ts";
+import type { EmailAttachmentRef, RenderedPdfAttachmentRef } from "./attachment-ref.ts";
+import type { AttachmentOrigin, ChannelContext, RenderedMail } from "./types.ts";
 
 export function createTemplateMailRenderer(
   db: DbConnection | TenantDb,

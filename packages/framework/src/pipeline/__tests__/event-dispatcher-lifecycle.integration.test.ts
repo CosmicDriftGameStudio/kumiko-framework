@@ -24,18 +24,18 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
-import type { StoredEvent } from "../../event-store/index.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { defineFeature } from "../../engine/index.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
 import {
   DEFAULT_SENSITIVE_CONFIG,
   type MetricEvent,
   type ObservabilityProvider,
   RecordingMeter,
   RecordingTracer,
-} from "../../observability/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../observability/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Test fixtures ---
 

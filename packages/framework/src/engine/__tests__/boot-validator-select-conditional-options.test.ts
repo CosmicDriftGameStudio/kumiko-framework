@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
-import { validateBoot as validateBootRaw } from "../boot-validator.js";
-import { createTenantConfig } from "../config-helpers.js";
-import { defineFeature } from "../define-feature.js";
-import type { SelectFieldDef } from "../types/index.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.ts";
+import { createTenantConfig } from "../config-helpers.ts";
+import { defineFeature } from "../define-feature.ts";
+import type { SelectFieldDef } from "../types/index.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

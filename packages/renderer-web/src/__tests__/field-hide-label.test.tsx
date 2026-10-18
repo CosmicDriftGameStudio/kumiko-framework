@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement } from "react";
-import { defaultPrimitives } from "../primitives/index.js";
-import { AiTextField } from "../widgets/ai-text-field.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { AiTextField } from "../widgets/ai-text-field.tsx";
 import {
   BooleanField,
   DateField,
@@ -12,8 +12,8 @@ import {
   SelectField,
   TextareaField,
   TextField,
-} from "../widgets/form-fields.js";
-import { createMockDispatcher, render } from "./test-utils.js";
+} from "../widgets/form-fields.tsx";
+import { createMockDispatcher, render } from "./test-utils.tsx";
 
 const { Field } = defaultPrimitives;
 

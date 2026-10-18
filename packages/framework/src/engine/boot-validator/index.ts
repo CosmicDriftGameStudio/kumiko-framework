@@ -1,15 +1,15 @@
-import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption.js";
-import type { EnvelopeCipher } from "../../secrets/envelope-cipher.js";
-import { dedupeFeatures } from "../dedupe-features.js";
-import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.js";
-import { QnTypes, qualifyEntityName } from "../qualified-name.js";
-import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.js";
-import { validateAccessDeclarations } from "./access-declarations.js";
-import { warnOnUniqueAccessRoles } from "./access-roles.js";
-import { validateActionWiring, validateFieldWiring } from "./action-wiring.js";
-import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext.js";
-import { validateFeatureBootChecks } from "./boot-check.js";
-import { validateCardMetaOverflow } from "./card-meta-overflow.js";
+import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption.ts";
+import type { EnvelopeCipher } from "../../secrets/envelope-cipher.ts";
+import { dedupeFeatures } from "../dedupe-features.ts";
+import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.ts";
+import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
+import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
+import { validateAccessDeclarations } from "./access-declarations.ts";
+import { warnOnUniqueAccessRoles } from "./access-roles.ts";
+import { validateActionWiring, validateFieldWiring } from "./action-wiring.ts";
+import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext.ts";
+import { validateFeatureBootChecks } from "./boot-check.ts";
+import { validateCardMetaOverflow } from "./card-meta-overflow.ts";
 import {
   validateCircularDeps,
   validateConfigKeyAllowPerRequest,
@@ -21,8 +21,8 @@ import {
   validateConfigKeyRequired,
   validateConfigReads,
   warnOnToggleableDependencies,
-} from "./config-deps.js";
-import { collectDetailForScreens } from "./detail-screens.js";
+} from "./config-deps.ts";
+import { collectDetailForScreens } from "./detail-screens.ts";
 import {
   validateDerivedFieldCollisions,
   validateEmbeddedFields,
@@ -43,12 +43,12 @@ import {
   validateReferenceFields,
   validateSearchableFieldReadAccess,
   validateTransitions,
-} from "./entity-handler.js";
-import { validateEntityListScreens } from "./entity-list-screens.js";
-import { validateGdprStoragePersistence } from "./gdpr-storage.js";
-import { validateGlobalTenancyEntities } from "./global-tenancy.js";
-import { validateHandlerFieldReferences } from "./handler-field-references.js";
-import { validateI18nSurfaceKeys } from "./i18n-keys.js";
+} from "./entity-handler.ts";
+import { validateEntityListScreens } from "./entity-list-screens.ts";
+import { validateGdprStoragePersistence } from "./gdpr-storage.ts";
+import { validateGlobalTenancyEntities } from "./global-tenancy.ts";
+import { validateHandlerFieldReferences } from "./handler-field-references.ts";
+import { validateI18nSurfaceKeys } from "./i18n-keys.ts";
 import {
   collectKnownRoles,
   collectNavQns,
@@ -57,43 +57,43 @@ import {
   validateNavs,
   warnOnNavAccessInversion,
   warnOnUnreachableNavScreens,
-} from "./nav.js";
-import { collectClaimKeys, validateOwnershipRules } from "./ownership.js";
-import { validateParentRefs } from "./parent-ref.js";
-import { validatePiiAndRetention } from "./pii-retention.js";
+} from "./nav.ts";
+import { collectClaimKeys, validateOwnershipRules } from "./ownership.ts";
+import { validateParentRefs } from "./parent-ref.ts";
+import { validatePiiAndRetention } from "./pii-retention.ts";
 import {
   buildQueryHandlerMap,
   validateProjectionListScreens,
   validateRelatedListSectionQueries,
-} from "./projection-list-screens.js";
-import { validateQueryOutputColumns } from "./query-output-columns.js";
-import { validateQueryRefs } from "./query-refs.js";
-import { validateRecordOwnedSubjects } from "./record-owned.js";
+} from "./projection-list-screens.ts";
+import { validateQueryOutputColumns } from "./query-output-columns.ts";
+import { validateQueryRefs } from "./query-refs.ts";
+import { validateRecordOwnedSubjects } from "./record-owned.ts";
 import {
   collectScreenQns,
   collectScreensByShortId,
   validateScreenShortIdCollisions,
   validateScreens,
-} from "./screens.js";
-import { warnOnMissingSecurityBaseline } from "./security-baseline.js";
-import { validateExtensionSelectorPanels } from "./selector-owner-panels.js";
-import { validateTransferGraph } from "./transfer-graph.js";
-import { validateSubmitPrefilledHiddenFields } from "./url-prefill-fields.js";
+} from "./screens.ts";
+import { warnOnMissingSecurityBaseline } from "./security-baseline.ts";
+import { validateExtensionSelectorPanels } from "./selector-owner-panels.ts";
+import { validateTransferGraph } from "./transfer-graph.ts";
+import { validateSubmitPrefilledHiddenFields } from "./url-prefill-fields.ts";
 import {
   collectWorkspaceQns,
   resolveNavAllowlist,
   validateDefaultWorkspaceUniqueness,
   validateWorkspaces,
-} from "./workspaces.js";
+} from "./workspaces.ts";
 
 // Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
 // an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
 // dieselbe Extraktionslogik.
-export { type CardMetaOverflow, collectCardMetaOverflow } from "./card-meta-overflow.js";
-export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns.js";
-export { collectWriteHandlerQns } from "./nav.js";
-export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline.js";
-export { MAX_TRANSFER_DEPTH } from "./transfer-graph.js";
+export { type CardMetaOverflow, collectCardMetaOverflow } from "./card-meta-overflow.ts";
+export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns.ts";
+export { collectWriteHandlerQns } from "./nav.ts";
+export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline.ts";
+export { MAX_TRANSFER_DEPTH } from "./transfer-graph.ts";
 
 export type ValidateBootOptions = {
   /** Warn when an access role is used by exactly one handler/config-key/

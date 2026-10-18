@@ -16,21 +16,21 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { subscriptionAggregateId } from "../aggregate-id.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { subscriptionAggregateId } from "../aggregate-id.ts";
 import {
   SubscriptionEventTypes,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "../constants.js";
-import { createBillingFoundationFeature } from "../feature.js";
-import { subscriptionsProjectionTable } from "../projection.js";
-import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
-import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
+} from "../constants.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import { subscriptionsProjectionTable } from "../projection.ts";
+import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.ts";
+import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 const stripeLikePlugin: SubscriptionProviderPlugin = {
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,

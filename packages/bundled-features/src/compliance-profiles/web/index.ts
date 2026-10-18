@@ -2,5 +2,5 @@
 export {
   type ComplianceProfilesClientOptions,
   complianceProfilesClient,
-} from "./client-plugin.js";
-export { ComplianceProfileCatalog } from "./compliance-profile-catalog.js";
+} from "./client-plugin.tsx";
+export { ComplianceProfileCatalog } from "./compliance-profile-catalog.tsx";

@@ -5,7 +5,7 @@ export {
   buildPayloadBucketKey,
   createPayloadDigest,
   normalizePayloadBucketValue,
-} from "./bucket.js";
+} from "./bucket.ts";
 export {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,
@@ -13,11 +13,11 @@ export {
   globalIpRateLimit,
   type HttpRouteRateLimitOptions,
   httpRouteRateLimit,
-} from "./middleware.js";
+} from "./middleware.ts";
 export {
   createRateLimitResolver,
   type RateLimitConfig,
   type RateLimitDecision,
   type RateLimitResolver,
   type RateLimitResolverOptions,
-} from "./resolver.js";
+} from "./resolver.ts";

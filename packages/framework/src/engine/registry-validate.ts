@@ -1,16 +1,16 @@
-import { configureEventPiiCatalog } from "../crypto/event-pii.js";
-import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.js";
-import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.js";
-import { resolveMaxPerTenant } from "../jobs/max-per-tenant.js";
-import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js";
-import { resolveName } from "./handler-helpers.js";
-import { parseRefTargetEntityName } from "./parse-ref-target.js";
+import { configureEventPiiCatalog } from "../crypto/event-pii.ts";
+import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.ts";
+import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.ts";
+import { resolveMaxPerTenant } from "../jobs/max-per-tenant.ts";
+import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
+import { resolveName } from "./handler-helpers.ts";
+import { parseRefTargetEntityName } from "./parse-ref-target.ts";
 import type {
   RegistryState,
   SearchableReferenceField,
   SortableReferenceField,
-} from "./registry-state.js";
-import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state.js";
+} from "./registry-state.ts";
+import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state.ts";
 import {
   buildSoftDeleteCleanupJob,
   buildSoftDeleteCleanupSystemJob,
@@ -18,7 +18,7 @@ import {
   SOFT_DELETE_CLEANUP_SYSTEM_JOB,
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteGraceDaysConfig,
-} from "./soft-delete-cleanup.js";
+} from "./soft-delete-cleanup.ts";
 import type {
   EntityDefinition,
   EntityEventMigration,
@@ -31,8 +31,8 @@ import type {
   PreDeleteHookFn,
   PreSaveHookFn,
   ReferenceFieldDef,
-} from "./types/index.js";
-import { HookPhases, isRateLimitDisabled } from "./types/index.js";
+} from "./types/index.ts";
+import { HookPhases, isRateLimitDisabled } from "./types/index.ts";
 
 function allHandlerQns(state: RegistryState): ReadonlySet<string> {
   return new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);

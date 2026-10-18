@@ -18,7 +18,7 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { composeFeatures } from "../compose-features.js";
+import { composeFeatures } from "../compose-features.ts";
 
 const noopFeature = defineFeature("noop-app", () => {});
 

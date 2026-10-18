@@ -17,12 +17,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { DbConnection, DbTx } from "../../db/connection.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import { append, loadAggregate as loadAggregateRaw } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import type { DbConnection, DbTx } from "../../db/connection.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { append, loadAggregate as loadAggregateRaw } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Fixture entity ---
 

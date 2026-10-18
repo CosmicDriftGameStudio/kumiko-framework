@@ -9,8 +9,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { ModeSwitch } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
-import { SubscriptionFoundationHandlers } from "../constants.js";
-import type { ContractTerminationDeclarationType, ContractTerminationKind } from "../events.js";
+import { SubscriptionFoundationHandlers } from "../constants.ts";
+import type { ContractTerminationDeclarationType, ContractTerminationKind } from "../events.ts";
 
 type TerminateContractReceipt = {
   readonly requestId: string;

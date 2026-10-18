@@ -1,11 +1,11 @@
-import { AUTH_VERIFY_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
-import { AuthMailNotificationTypes } from "../mail-notifications.js";
-import { signVerificationToken } from "../verification-token.js";
+import { AUTH_VERIFY_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.ts";
+import { AuthMailNotificationTypes } from "../mail-notifications.ts";
+import { signVerificationToken } from "../verification-token.ts";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
-} from "./token-request-handler.js";
+} from "./token-request-handler.ts";
 
 export type RequestEmailVerificationOptions = TokenRequestOptions;
 

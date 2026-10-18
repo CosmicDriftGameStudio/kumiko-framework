@@ -22,8 +22,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { clamp } from "../lib/clamp.js";
-import { cn } from "../lib/cn.js";
+import { clamp } from "../lib/clamp.ts";
+import { cn } from "../lib/cn.ts";
 
 type SlotElement = HTMLElement | null;
 

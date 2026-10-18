@@ -13,9 +13,9 @@ import {
   FileRefTooLargeError,
   fileContextForTenant,
   readFileRefContent,
-} from "../../file-foundation/index.js";
-import { attachmentFileNameSchema } from "../../shared/index.js";
-import { TemplateResolverErrors } from "../qualified-names.js";
+} from "../../file-foundation/index.ts";
+import { attachmentFileNameSchema } from "../../shared/index.ts";
+import { TemplateResolverErrors } from "../qualified-names.ts";
 import {
   type PreparedTemplateFile,
   prepareTemplateAttachmentBeforeTransaction,
@@ -25,8 +25,8 @@ import {
   type StoredTemplateResource,
   storePreparedTemplateAttachment,
   storePreparedTemplateResource,
-} from "../store-template-resource.js";
-import { RESOURCE_PURPOSES, resourceKeySchema, resourceTargetTenantId } from "./resource-shared.js";
+} from "../store-template-resource.ts";
+import { RESOURCE_PURPOSES, resourceKeySchema, resourceTargetTenantId } from "./resource-shared.ts";
 
 type AttachmentTarget = {
   readonly templateId: string;

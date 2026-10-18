@@ -15,17 +15,17 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { BRANDING_QN, createManagedPagesFeature } from "../../managed-pages/index.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { createDeliveryTestContext } from "../testing.js";
-import { createUnsubscribeRoutes, signUnsubscribeToken } from "../unsubscribe.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { BRANDING_QN, createManagedPagesFeature } from "../../managed-pages/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { createDeliveryTestContext } from "../testing.ts";
+import { createUnsubscribeRoutes, signUnsubscribeToken } from "../unsubscribe.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-page-test-secret-at-least-32-chars";
 const NOTIFICATION_TYPE = "page-probe:notify:status";

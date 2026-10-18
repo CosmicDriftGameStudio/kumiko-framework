@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildFileUploadFormData } from "../file-upload-form-data.js";
+import { buildFileUploadFormData } from "../file-upload-form-data.ts";
 
 describe("buildFileUploadFormData", () => {
   const file = new File(["x"], "a.png", { type: "image/png" });

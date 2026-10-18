@@ -16,11 +16,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { createSessionsFeature } from "../feature.js";
-import { cleanupJob } from "../handlers/cleanup.job.js";
-import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { createSessionsFeature } from "../feature.ts";
+import { cleanupJob } from "../handlers/cleanup.job.ts";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
 
 type Log = NonNullable<AppContext["log"]>;
 function silentLogger(): Log {

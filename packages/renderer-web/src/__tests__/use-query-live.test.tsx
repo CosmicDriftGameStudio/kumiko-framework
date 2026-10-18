@@ -8,7 +8,7 @@ import {
   useQuery,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { act, createMockDispatcher, render, waitFor } from "./test-utils.js";
+import { act, createMockDispatcher, render, waitFor } from "./test-utils.tsx";
 
 // Test-Helper: fake LiveEventSubscriber. Sammelt alle Subscriber, das
 // Test kann `inject(type, data)` rufen um die matching listener zu

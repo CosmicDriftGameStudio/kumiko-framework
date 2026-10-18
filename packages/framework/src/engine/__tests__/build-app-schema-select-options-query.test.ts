@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { buildAppSchema } from "../build-app-schema.js";
-import { SETTINGS_HUB_FEATURE } from "../build-config-feature-schema.js";
-import { createTenantConfig } from "../config-helpers.js";
-import { defineFeature } from "../define-feature.js";
-import { projectAppSchemaForRoles } from "../project-app-schema-for-roles.js";
-import { createRegistry } from "../registry.js";
+import { buildAppSchema } from "../build-app-schema.ts";
+import { SETTINGS_HUB_FEATURE } from "../build-config-feature-schema.ts";
+import { createTenantConfig } from "../config-helpers.ts";
+import { defineFeature } from "../define-feature.ts";
+import { projectAppSchemaForRoles } from "../project-app-schema-for-roles.ts";
+import { createRegistry } from "../registry.ts";
 
 const catalog = defineFeature("catalog", (r) => {
   r.queryHandler({

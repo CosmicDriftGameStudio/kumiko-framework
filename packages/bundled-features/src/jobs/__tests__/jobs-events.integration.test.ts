@@ -20,9 +20,9 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createJobsFeature } from "../feature.js";
-import { createJobRunLogger } from "../job-run-logger.js";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
+import { createJobsFeature } from "../feature.ts";
+import { createJobRunLogger } from "../job-run-logger.ts";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 
 let testDb: TestDb;
 let testRedis: TestRedis;

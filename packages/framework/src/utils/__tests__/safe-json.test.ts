@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseJsonOrThrow, parseJsonSafe } from "../safe-json.js";
+import { parseJsonOrThrow, parseJsonSafe } from "../safe-json.ts";
 
 describe("parseJsonSafe", () => {
   test("parses valid JSON", () => {

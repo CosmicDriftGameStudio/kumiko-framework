@@ -1,6 +1,6 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
-import { parseQn, QnTypes, qualifyEntityName } from "../qualified-name.js";
-import { isEditLayoutScreen } from "../screen-helpers.js";
+import { parseQn, QnTypes, qualifyEntityName } from "../qualified-name.ts";
+import { isEditLayoutScreen } from "../screen-helpers.ts";
 import {
   type EditRelatedListSection,
   type EntityDefinition,
@@ -9,10 +9,10 @@ import {
   type QueryHandlerDef,
   relatedListGroupHeaderLabel,
   relatedListGroupKey,
-} from "../types/index.js";
-import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.js";
-import { findEntity } from "./parent-ref.js";
-import { getZodObjectShape } from "./zod-shape.js";
+} from "../types/index.ts";
+import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.ts";
+import { findEntity } from "./parent-ref.ts";
+import { getZodObjectShape } from "./zod-shape.ts";
 
 // Sibling to entity-list-screens.ts rather than an extension of it:
 // validateOneEntityListScreen is typed to EntityListScreenDefinition and

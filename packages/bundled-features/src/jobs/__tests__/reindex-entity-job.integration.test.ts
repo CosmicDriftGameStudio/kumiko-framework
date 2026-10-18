@@ -27,8 +27,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 
-import { createJobsFeature } from "../feature.js";
-import { reindexEntityJob } from "../handlers/reindex-entity.job.js";
+import { createJobsFeature } from "../feature.ts";
+import { reindexEntityJob } from "../handlers/reindex-entity.job.ts";
 
 // Resolved job name — operators trigger this via jobs:write:trigger with
 // { jobName: "jobs:job:reindex-entity", payload: { entity: "..." } }.

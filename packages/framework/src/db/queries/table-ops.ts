@@ -1,5 +1,5 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
 
 /** Double-quote + escape — Postgres identifier rules. */
 export function quoteTableIdent(name: string): string {

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { dedupeFeatures } from "@cosmicdrift/kumiko-framework/engine";
-import * as billing from "../billing-foundation/index.js";
-import * as fileDerivatives from "../file-derivatives/index.js";
-import * as foundation from "../file-foundation/index.js";
-import * as s3 from "../file-provider-s3/index.js";
-import * as tags from "../tags/index.js";
-import * as tenantSettings from "../tenant-settings/index.js";
-import * as tierEngine from "../tier-engine/index.js";
+import * as billing from "../billing-foundation/index.ts";
+import * as fileDerivatives from "../file-derivatives/index.ts";
+import * as foundation from "../file-foundation/index.ts";
+import * as s3 from "../file-provider-s3/index.ts";
+import * as tags from "../tags/index.ts";
+import * as tenantSettings from "../tenant-settings/index.ts";
+import * as tierEngine from "../tier-engine/index.ts";
 
 test("two no-option calls of a factory dedupe to one instance, fromEnv stays a separate feature variant", () => {
   const list = [

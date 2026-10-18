@@ -3,9 +3,9 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";
-import { defaultPrimitives } from "../primitives/index.js";
-import { StickyActionBar } from "../primitives/sticky-action-bar.js";
-import { render, screen } from "./test-utils.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import { StickyActionBar } from "../primitives/sticky-action-bar.tsx";
+import { render, screen } from "./test-utils.tsx";
 
 class FakeVisualViewport extends EventTarget {
   constructor(

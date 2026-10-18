@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
-import { withSeedErrorContext } from "../seed-dispatcher.js";
+import { withSeedErrorContext } from "../seed-dispatcher.ts";
 
 const user = createSystemUser("00000000-0000-4000-8000-000000000001" as TenantId);
 

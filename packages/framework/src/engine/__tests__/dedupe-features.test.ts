@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createApp, createRegistry, dedupeFeatures, defineFeature } from "../index.js";
+import { createApp, createRegistry, dedupeFeatures, defineFeature } from "../index.ts";
 
 describe("dedupeFeatures", () => {
   test("same reference mounted twice collapses to one entry, order preserved", () => {

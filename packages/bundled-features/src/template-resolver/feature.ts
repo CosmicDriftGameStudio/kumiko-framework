@@ -3,42 +3,42 @@ import {
   createSystemConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { isCollectionRefusedKind } from "./constants.js";
-import { bySlugQuery } from "./handlers/by-slug.query.js";
-import { byTenantQuery } from "./handlers/by-tenant.query.js";
-import { makeCollectionItemQuery } from "./handlers/collection-item.query.js";
-import { makeCollectionListQuery } from "./handlers/collection-list.query.js";
-import { makeCollectionSetWrite } from "./handlers/collection-set.write.js";
-import { copyLocaleWrite } from "./handlers/copy-locale.write.js";
-import { diffToSystemQuery } from "./handlers/diff-to-system.query.js";
-import { discardDraftSystemWrite, discardDraftWrite } from "./handlers/discard-draft.write.js";
-import { exportBundleQuery } from "./handlers/export-bundle.query.js";
-import { findByIdQuery } from "./handlers/find-by-id.query.js";
-import { importBundleWrite } from "./handlers/import-bundle.write.js";
-import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.js";
-import { layoutSourceQuery } from "./handlers/layout-source.query.js";
-import { listQuery } from "./handlers/list.query.js";
-import { overviewQuery } from "./handlers/overview.query.js";
-import { previewQuery } from "./handlers/preview.query.js";
-import { resetToSystemWrite } from "./handlers/reset-to-system.write.js";
-import { resourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.js";
-import { resourceRemoveWrite } from "./handlers/resource-remove.write.js";
-import { resourceUploadWrite } from "./handlers/resource-upload.write.js";
-import { sendTestWrite } from "./handlers/send-test.write.js";
-import { setWrite } from "./handlers/set.write.js";
-import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.js";
+import { isCollectionRefusedKind } from "./constants.ts";
+import { bySlugQuery } from "./handlers/by-slug.query.ts";
+import { byTenantQuery } from "./handlers/by-tenant.query.ts";
+import { makeCollectionItemQuery } from "./handlers/collection-item.query.ts";
+import { makeCollectionListQuery } from "./handlers/collection-list.query.ts";
+import { makeCollectionSetWrite } from "./handlers/collection-set.write.ts";
+import { copyLocaleWrite } from "./handlers/copy-locale.write.ts";
+import { diffToSystemQuery } from "./handlers/diff-to-system.query.ts";
+import { discardDraftSystemWrite, discardDraftWrite } from "./handlers/discard-draft.write.ts";
+import { exportBundleQuery } from "./handlers/export-bundle.query.ts";
+import { findByIdQuery } from "./handlers/find-by-id.query.ts";
+import { importBundleWrite } from "./handlers/import-bundle.write.ts";
+import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.ts";
+import { layoutSourceQuery } from "./handlers/layout-source.query.ts";
+import { listQuery } from "./handlers/list.query.ts";
+import { overviewQuery } from "./handlers/overview.query.ts";
+import { previewQuery } from "./handlers/preview.query.ts";
+import { resetToSystemWrite } from "./handlers/reset-to-system.write.ts";
+import { resourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.ts";
+import { resourceRemoveWrite } from "./handlers/resource-remove.write.ts";
+import { resourceUploadWrite } from "./handlers/resource-upload.write.ts";
+import { sendTestWrite } from "./handlers/send-test.write.ts";
+import { setWrite } from "./handlers/set.write.ts";
+import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.ts";
 import {
   archiveSystemWrite,
   archiveWrite,
   publishSystemWrite,
   publishWrite,
-} from "./handlers/toggle-status.write.js";
-import { upsertSystemWrite } from "./handlers/upsert-system.write.js";
-import { upsertTenantWrite } from "./handlers/upsert-tenant.write.js";
-import { usageQuery } from "./handlers/usage.query.js";
-import { validateQuery } from "./handlers/validate.query.js";
-import { templateResourceEntity } from "./table.js";
-import { userContentEntryEntity } from "./user-content-table.js";
+} from "./handlers/toggle-status.write.ts";
+import { upsertSystemWrite } from "./handlers/upsert-system.write.ts";
+import { upsertTenantWrite } from "./handlers/upsert-tenant.write.ts";
+import { usageQuery } from "./handlers/usage.query.ts";
+import { validateQuery } from "./handlers/validate.query.ts";
+import { templateResourceEntity } from "./table.ts";
+import { userContentEntryEntity } from "./user-content-table.ts";
 
 // template-resolver — structured template storage with tenant-override
 // hierarchy, locale fallback and resource linking via file-foundation.

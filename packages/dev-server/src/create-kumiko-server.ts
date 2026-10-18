@@ -71,7 +71,7 @@ import {
   type TestStackOptions,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { isPersistentDevDb } from "./is-persistent-dev-db.js";
+import { isPersistentDevDb } from "./is-persistent-dev-db.ts";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we

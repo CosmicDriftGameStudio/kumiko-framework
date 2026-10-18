@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { getUser } from "../api/auth-middleware.js";
-import { requestContext } from "../api/request-context.js";
+import { getUser } from "../api/auth-middleware.ts";
+import { requestContext } from "../api/request-context.ts";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
@@ -9,37 +9,37 @@ import {
   isPiiCiphertext,
   type KmsContext,
   PII_ERASED_SENTINEL,
-} from "../crypto/index.js";
-import type { DbConnection } from "../db/connection.js";
-import { selectMany } from "../db/query.js";
-import { createProjectingTenantDb, type TenantDb } from "../db/tenant-db.js";
+} from "../crypto/index.ts";
+import type { DbConnection } from "../db/connection.ts";
+import { selectMany } from "../db/query.ts";
+import { createProjectingTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import {
   createDerivativesContext,
   resolveFieldVariant,
   resolveRenderer,
-} from "../derivatives/index.js";
-import { SYSTEM_USER_ID } from "../engine/system-user.js";
+} from "../derivatives/index.ts";
+import { SYSTEM_USER_ID } from "../engine/system-user.ts";
 import {
   isFileField,
   isUuid,
   type Registry,
   type SessionUser,
   type TenantId,
-} from "../engine/types/index.js";
-import { buildContentDispositionHeader } from "./content-disposition.js";
+} from "../engine/types/index.ts";
+import { buildContentDispositionHeader } from "./content-disposition.ts";
 import {
   DEFAULT_MAX_UPLOAD_SIZE,
   getFileRefExecutor,
   storeFileAsFileRef,
-} from "./create-file-ref.js";
-import { createFileContext } from "./file-handle.js";
-import { fileRefEntity } from "./file-ref-entity.js";
-import { fileRefsTable } from "./file-ref-table.js";
-import type { FileProviderResolver } from "./provider-resolver.js";
-import type { RecordReadCheck } from "./record-read-check.js";
-import { type RecordWriteCheck, RecordWriteDecisions } from "./record-write-check.js";
-import { neutralFileNameForMimeType } from "./resolve-content-type.js";
-import { parseMaxSize, resolveServedContentType } from "./types.js";
+} from "./create-file-ref.ts";
+import { createFileContext } from "./file-handle.ts";
+import { fileRefEntity } from "./file-ref-entity.ts";
+import { fileRefsTable } from "./file-ref-table.ts";
+import type { FileProviderResolver } from "./provider-resolver.ts";
+import type { RecordReadCheck } from "./record-read-check.ts";
+import { type RecordWriteCheck, RecordWriteDecisions } from "./record-write-check.ts";
+import { neutralFileNameForMimeType } from "./resolve-content-type.ts";
+import { parseMaxSize, resolveServedContentType } from "./types.ts";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.

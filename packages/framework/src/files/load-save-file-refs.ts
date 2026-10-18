@@ -1,16 +1,16 @@
-import { selectMany } from "../db/query.js";
-import type { TenantDb } from "../db/tenant-db.js";
-import { tenantDbRunner } from "../db/tenant-db-runner.js";
+import { selectMany } from "../db/query.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
+import { tenantDbRunner } from "../db/tenant-db-runner.ts";
 import {
   isFileField,
   type Registry,
   type SaveContext,
   type SessionUser,
-} from "../engine/types/index.js";
-import { getStreamVersions } from "../event-store/event-store.js";
-import { fileRefIdsOf } from "./bind-pending-file-refs.js";
-import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
-import { fileRefsTable } from "./file-ref-table.js";
+} from "../engine/types/index.ts";
+import { getStreamVersions } from "../event-store/event-store.ts";
+import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
+import { fileRefsTable } from "./file-ref-table.ts";
 
 export type FileRefRows = ReadonlyMap<string, Readonly<Record<string, unknown>>>;
 

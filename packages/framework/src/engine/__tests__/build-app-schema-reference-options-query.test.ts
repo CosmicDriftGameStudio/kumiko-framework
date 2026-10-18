@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { buildAppSchema } from "../build-app-schema.js";
-import { defineFeature } from "../define-feature.js";
-import { createRegistry } from "../registry.js";
+import { buildAppSchema } from "../build-app-schema.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createRegistry } from "../registry.ts";
 
 // The edit renderer reads a reference field's picker source from the field
 // definition it gets in the client schema, so optionsQuery must survive the

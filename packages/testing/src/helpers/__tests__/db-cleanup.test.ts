@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { clearTables } from "../db-cleanup.js";
+import { clearTables } from "../db-cleanup.ts";
 
 describe("db-cleanup", () => {
   test("clearTables issues DELETE without WHERE per table via deleteMany", async () => {

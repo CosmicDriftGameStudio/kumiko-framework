@@ -6,7 +6,7 @@
 
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { translateOrRaw } from "../../shared/web/translate-or-raw.js";
+import { translateOrRaw } from "../../shared/web/translate-or-raw.ts";
 
 const NOTIFICATION_QN_PATTERN = /^([^:]+):notify:(.+)$/;
 

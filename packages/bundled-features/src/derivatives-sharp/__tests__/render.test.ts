@@ -8,7 +8,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/derivatives-types";
 import jsQR from "jsqr";
 import sharp from "sharp";
-import { imageMetadata, renderImage } from "../render.js";
+import { imageMetadata, renderImage } from "../render.ts";
 
 async function jpegFixture(
   width: number,

@@ -8,22 +8,22 @@ import {
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { runMetric } from "./compute.js";
+import { runMetric } from "./compute.ts";
 import {
   METRIC_RANGES,
   METRICS_FEATURE,
   METRICS_SYSTEM_FEATURE,
   type MetricScope,
-} from "./constants.js";
+} from "./constants.ts";
 import {
   metricFilterPayloadShape,
   metricFilterWhere,
   resolveMetricFilterWhere,
-} from "./filters.js";
-import { METRICS_I18N } from "./i18n.js";
-import type { MetricDefinition, MetricsFeatureOptions } from "./types.js";
-import { metricHasTenantColumn, validateMetrics } from "./validate.js";
-import { isValidTimeZone } from "./window.js";
+} from "./filters.ts";
+import { METRICS_I18N } from "./i18n.ts";
+import type { MetricDefinition, MetricsFeatureOptions } from "./types.ts";
+import { metricHasTenantColumn, validateMetrics } from "./validate.ts";
+import { isValidTimeZone } from "./window.ts";
 
 const DEFAULT_RANGE = "7d";
 const DEFAULT_TIME_ZONE = "UTC";

@@ -1,10 +1,10 @@
-import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.js";
-import { runInSavepointIfSupported } from "../db/query.js";
-import { type TenantDb, unsafeRawForDeclaredStep, withUnsafeRawGrant } from "../db/tenant-db.js";
-import { qnScope } from "../engine/qualified-name.js";
-import type { TenantId } from "../engine/types/index.js";
-import { AccessDeniedError, InternalError } from "../errors/index.js";
-import { append, type EventMetadata, getStreamVersion } from "./event-store.js";
+import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.ts";
+import { runInSavepointIfSupported } from "../db/query.ts";
+import { type TenantDb, unsafeRawForDeclaredStep, withUnsafeRawGrant } from "../db/tenant-db.ts";
+import { qnScope } from "../engine/qualified-name.ts";
+import type { TenantId } from "../engine/types/index.ts";
+import { AccessDeniedError, InternalError } from "../errors/index.ts";
+import { append, type EventMetadata, getStreamVersion } from "./event-store.ts";
 
 // Fixed by the framework, not the caller — the point of this entry point is
 // that no caller can invent its own escapeHatch reason for bypassing

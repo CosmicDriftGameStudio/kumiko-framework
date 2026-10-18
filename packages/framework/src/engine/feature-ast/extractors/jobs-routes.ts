@@ -1,9 +1,9 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { JobDefinition } from "../../types/config.js";
-import type { HttpRouteMethod } from "../../types/http-route.js";
-import type { HttpRoutePattern, JobPattern } from "../patterns.js";
-import { sourceLocationFromNode } from "../source-location.js";
+import type { JobDefinition } from "../../types/config.ts";
+import type { HttpRouteMethod } from "../../types/http-route.ts";
+import type { HttpRoutePattern, JobPattern } from "../patterns.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   type ExtractOutput,
   fail,
@@ -14,7 +14,7 @@ import {
   readDataLiteralNode,
   readNameLiteral,
   readPropertyKey,
-} from "./shared.js";
+} from "./shared.ts";
 
 export function isHttpRouteMethod(value: string): value is HttpRouteMethod {
   return (

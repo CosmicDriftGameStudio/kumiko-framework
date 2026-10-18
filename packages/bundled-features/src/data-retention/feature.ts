@@ -1,40 +1,40 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { policyForQuery } from "./handlers/policy-for.query.js";
-import { resolveTenantRetentionPreset } from "./resolve-tenant-preset.js";
-import { runRetentionCleanup } from "./run-retention-cleanup.js";
-import { tenantRetentionOverrideEntity } from "./schema/tenant-retention-override.js";
+import { policyForQuery } from "./handlers/policy-for.query.ts";
+import { resolveTenantRetentionPreset } from "./resolve-tenant-preset.ts";
+import { runRetentionCleanup } from "./run-retention-cleanup.ts";
+import { tenantRetentionOverrideEntity } from "./schema/tenant-retention-override.ts";
 
-export { retentionOverrideSchema } from "./override-schema.js";
+export { retentionOverrideSchema } from "./override-schema.ts";
 export {
   RETENTION_PRESETS,
   type RetentionPreset,
   type RetentionPresetKey,
   SELECTABLE_RETENTION_PRESETS,
-} from "./presets.js";
+} from "./presets.ts";
 export {
   type ResolveForTenantArgs,
   resolveRetentionPolicyForTenant,
-} from "./resolve-for-tenant.js";
+} from "./resolve-for-tenant.ts";
 export {
   type ResolveTenantPresetArgs,
   resolveTenantRetentionPreset,
-} from "./resolve-tenant-preset.js";
+} from "./resolve-tenant-preset.ts";
 export {
   type EffectiveRetentionPolicy,
   type ResolveRetentionPolicyArgs,
   type RetentionOverride,
   resolveRetentionPolicy,
-} from "./resolver.js";
+} from "./resolver.ts";
 export {
   type RetentionCleanupSkip,
   type RunRetentionCleanupArgs,
   type RunRetentionCleanupResult,
   runRetentionCleanup,
-} from "./run-retention-cleanup.js";
+} from "./run-retention-cleanup.ts";
 export {
   tenantRetentionOverrideEntity,
   tenantRetentionOverrideTable,
-} from "./schema/tenant-retention-override.js";
+} from "./schema/tenant-retention-override.ts";
 
 // data-retention — automatisierte Aufbewahrung + Löschung pro Entity.
 //

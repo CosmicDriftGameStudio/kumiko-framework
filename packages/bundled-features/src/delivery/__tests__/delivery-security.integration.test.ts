@@ -8,11 +8,11 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { DELIVERY_LOG_SCREEN_ID, DeliveryHandlers, DeliveryQueries } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { DELIVERY_LOG_SCREEN_ID, DeliveryHandlers, DeliveryQueries } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.ts";
 
 let stack: TestStack;
 

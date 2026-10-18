@@ -73,21 +73,21 @@ import {
 } from "@cosmicdrift/kumiko-framework/redis";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { tenantTable } from "../tenant/index.js";
-import { tierAssignmentAggregateId } from "./aggregate-id.js";
-import type { TierMap } from "./compose-app.js";
+import { tenantTable } from "../tenant/index.ts";
+import { tierAssignmentAggregateId } from "./aggregate-id.ts";
+import type { TierMap } from "./compose-app.ts";
 import {
   TIER_ADMIN_SCREEN_ID,
   TIER_ENGINE_FEATURE,
   TierAssignmentSources,
   TierEngineHandlers,
-} from "./constants.js";
-import { tierAssignmentEntity } from "./entity.js";
-import { getActiveTierQuery } from "./handlers/active-tier.query.js";
-import { getTenantTierQuery } from "./handlers/get-tenant-tier.query.js";
-import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write.js";
-import { TIER_ENGINE_I18N } from "./i18n.js";
-import { isTrialActive, type TrialPolicy } from "./trial.js";
+} from "./constants.ts";
+import { tierAssignmentEntity } from "./entity.ts";
+import { getActiveTierQuery } from "./handlers/active-tier.query.ts";
+import { getTenantTierQuery } from "./handlers/get-tenant-tier.query.ts";
+import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write.ts";
+import { TIER_ENGINE_I18N } from "./i18n.ts";
+import { isTrialActive, type TrialPolicy } from "./trial.ts";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
 // from the entity definition — same shape buildEntityTable would produce

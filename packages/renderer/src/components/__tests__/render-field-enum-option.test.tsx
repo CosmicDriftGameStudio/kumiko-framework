@@ -15,9 +15,9 @@ import {
   createStaticLocaleResolver,
   LocaleProvider,
   type TranslationsByLocale,
-} from "../../i18n.js";
-import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.js";
-import { RenderField } from "../render-field.js";
+} from "../../i18n.tsx";
+import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { RenderField } from "../render-field.tsx";
 
 let captured: TextProps | undefined;
 const captureText: ComponentType<TextProps> = (props) => {

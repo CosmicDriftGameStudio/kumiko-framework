@@ -17,10 +17,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
-import type { JwtHelper } from "../../api/jwt.js";
-import { buildServer } from "../../api/server.js";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto/index.js";
-import { selectMany } from "../../db/query.js";
+import type { JwtHelper } from "../../api/jwt.ts";
+import { buildServer } from "../../api/server.ts";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto/index.ts";
+import { selectMany } from "../../db/query.ts";
 import {
   createEntity,
   createFileField,
@@ -32,23 +32,23 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type SessionUser,
-} from "../../engine/index.js";
-import { loadAggregate } from "../../event-store/index.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { loadAggregate } from "../../event-store/index.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 
-import { createFilesFeature } from "../feature.js";
-import { fileRefsTable } from "../file-ref-table.js";
-import type { FileRoutesOptions } from "../file-routes.js";
-import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
-import { createLocalProvider } from "../local-provider.js";
-import type { FileStorageProvider, SignedUrlOptions } from "../types.js";
+import { createFilesFeature } from "../feature.ts";
+import { fileRefsTable } from "../file-ref-table.ts";
+import type { FileRoutesOptions } from "../file-routes.ts";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.ts";
+import { createLocalProvider } from "../local-provider.ts";
+import type { FileStorageProvider, SignedUrlOptions } from "../types.ts";
 import {
   parseMaxSize,
   resolveUploadMimeType,
   sniffMimeType,
   validateFile,
   validateFileContent,
-} from "../types.js";
+} from "../types.ts";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
 // the query — the row just isn't there. Pre-v1 files-feature tests used

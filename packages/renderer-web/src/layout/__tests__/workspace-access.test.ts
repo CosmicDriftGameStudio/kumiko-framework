@@ -10,7 +10,7 @@ import type {
   WorkspaceDefinition,
   WorkspaceSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { filterByAccess, firstNavScreenId, resolveDefaultId } from "../workspace-shell.js";
+import { filterByAccess, firstNavScreenId, resolveDefaultId } from "../workspace-shell.tsx";
 
 function ws(definition: WorkspaceDefinition): WorkspaceSchema {
   return { definition, navMembers: [] };

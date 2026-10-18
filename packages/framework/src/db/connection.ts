@@ -1,6 +1,6 @@
 import type { DbConnection, PgClient } from "@cosmicdrift/kumiko-types/db-connection";
 import postgres from "postgres";
-import { readPositiveIntEnv } from "../utils/env-parse.js";
+import { readPositiveIntEnv } from "../utils/env-parse.ts";
 
 export type * from "@cosmicdrift/kumiko-types/db-connection";
 

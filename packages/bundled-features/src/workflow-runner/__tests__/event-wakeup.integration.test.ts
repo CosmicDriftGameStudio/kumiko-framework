@@ -48,9 +48,9 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { workflowRunAggregateId } from "../aggregate-id.js";
-import { registerEventTrigger } from "../event-trigger.js";
-import { createWorkflowRunnerFeature } from "../feature.js";
+import { workflowRunAggregateId } from "../aggregate-id.ts";
+import { registerEventTrigger } from "../event-trigger.ts";
+import { createWorkflowRunnerFeature } from "../feature.ts";
 
 let stack: TestStack;
 const admin = TestUsers.admin;

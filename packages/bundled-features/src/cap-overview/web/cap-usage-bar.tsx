@@ -1,8 +1,8 @@
 // @runtime client
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import type { CapUsage } from "../types.js";
-import { computeTone } from "../usage-math.js";
+import type { CapUsage } from "../types.ts";
+import { computeTone } from "../usage-math.ts";
 
 export function CapUsageBar({
   usage,

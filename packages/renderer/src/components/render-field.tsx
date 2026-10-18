@@ -13,28 +13,28 @@ import {
 } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
-import { useAppFeatures } from "../app/app-features-context.js";
-import { useColumnRenderer } from "../app/column-renderers.js";
-import { extensionSectionName } from "../app/extension-sections.js";
-import { toKebab } from "../app/qn.js";
-import { screenAccessAllows } from "../app/screen-access.js";
-import { useUserRoles } from "../context/user-roles-context.js";
-import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.js";
-import { useQuery } from "../hooks/use-query.js";
-import { referenceOptionSource } from "../hooks/use-reference-lookup.js";
-import { useLocale, useTranslation } from "../i18n.js";
-import { type FieldProps, usePrimitives } from "../primitives.js";
+import { useAppFeatures } from "../app/app-features-context.tsx";
+import { useColumnRenderer } from "../app/column-renderers.tsx";
+import { extensionSectionName } from "../app/extension-sections.tsx";
+import { toKebab } from "../app/qn.ts";
+import { screenAccessAllows } from "../app/screen-access.ts";
+import { useUserRoles } from "../context/user-roles-context.tsx";
+import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
+import { useQuery } from "../hooks/use-query.ts";
+import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";
+import { useLocale, useTranslation } from "../i18n.tsx";
+import { type FieldProps, usePrimitives } from "../primitives.tsx";
 import {
   AvailabilityOptionsMultiSelect,
   AvailabilityOptionsSelect,
   type SelectOptionEntry,
   staticSelectOptions,
-} from "./availability-options-select.js";
-import { EmbeddedListField } from "./embedded-list-field.js";
-import { FileListField } from "./file-list-field.js";
-import { MultiSelectCheckboxes } from "./multi-select-checkboxes.js";
-import { QueryOptionsSelect } from "./query-options-select.js";
-import { ReferenceCreateDialog } from "./reference-create-dialog.js";
+} from "./availability-options-select.tsx";
+import { EmbeddedListField } from "./embedded-list-field.tsx";
+import { FileListField } from "./file-list-field.tsx";
+import { MultiSelectCheckboxes } from "./multi-select-checkboxes.tsx";
+import { QueryOptionsSelect } from "./query-options-select.tsx";
+import { ReferenceCreateDialog } from "./reference-create-dialog.tsx";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
 // Kein raw HTML mehr; alle Darstellungsentscheidungen (Label-Position,

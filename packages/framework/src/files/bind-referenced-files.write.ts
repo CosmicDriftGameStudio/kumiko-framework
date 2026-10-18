@@ -1,13 +1,13 @@
 import * as z from "zod";
-import type { TenantDb } from "../db/tenant-db.js";
-import { defineWriteHandler, SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/index.js";
-import { type EntityDefinition, isFileField, type Registry } from "../engine/types/index.js";
-import { ValidationError } from "../errors/index.js";
-import { fileRefIdsOf } from "./bind-pending-file-refs.js";
-import { getFileRefExecutor } from "./create-file-ref.js";
-import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
-import { loadFileRefRows } from "./load-save-file-refs.js";
-import { findImplicitEntityTable } from "./record-write-check.js";
+import type { TenantDb } from "../db/tenant-db.ts";
+import { defineWriteHandler, SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/index.ts";
+import { type EntityDefinition, isFileField, type Registry } from "../engine/types/index.ts";
+import { ValidationError } from "../errors/index.ts";
+import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
+import { getFileRefExecutor } from "./create-file-ref.ts";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
+import { loadFileRefRows } from "./load-save-file-refs.ts";
+import { findImplicitEntityTable } from "./record-write-check.ts";
 
 const MAX_PAGE_SIZE = 500;
 const DEFAULT_PAGE_SIZE = 200;

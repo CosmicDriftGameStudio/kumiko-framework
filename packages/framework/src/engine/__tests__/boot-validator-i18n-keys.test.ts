@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
 
 describe("validateBoot — i18n surface keys", () => {
   test("passes when screen-derived keys are in r.translations", () => {

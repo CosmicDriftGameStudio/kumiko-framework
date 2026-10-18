@@ -1,6 +1,6 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { bookCapUsage } from "../book-cap-usage.js";
+import { bookCapUsage } from "../book-cap-usage.ts";
 
 const incrementSchema = z.object({
   /** App-defined cap-name. e.g. "platform-mails", "ai-tokens-7day". */

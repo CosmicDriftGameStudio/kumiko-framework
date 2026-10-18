@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { describeWorkflowStepError } from "../steps/describe-workflow-step-error.js";
+import { describeWorkflowStepError } from "../steps/describe-workflow-step-error.ts";
 
 describe("describeWorkflowStepError", () => {
   test("uses the error class name and never the message", () => {

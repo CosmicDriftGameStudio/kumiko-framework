@@ -12,12 +12,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { integer, table as pgTable, text, uuid } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { writeRebuildMarker } from "../../db/rebuild-marker.js";
-import { buildEntityTable } from "../../db/table-builder.js";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { integer, table as pgTable, text, uuid } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { writeRebuildMarker } from "../../db/rebuild-marker.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
@@ -25,14 +25,14 @@ import {
   defineApply,
   defineFeature,
   type ProjectionDefinition,
-} from "../../engine/index.js";
-import type { JobRunner } from "../../jobs/job-runner.js";
+} from "../../engine/index.ts";
+import type { JobRunner } from "../../jobs/job-runner.ts";
 import {
   createEventConsumerStateTable,
   createProjectionStateTable,
   getConsumerState,
-} from "../../pipeline/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../pipeline/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   clearPendingRebuilds,
   enqueueProjectionRebuild,
@@ -42,7 +42,7 @@ import {
   queueRebuildsFromMarkers,
   rebuildProjectionOrMultiStream,
   runPendingRebuilds,
-} from "../pending-rebuilds.js";
+} from "../pending-rebuilds.ts";
 
 const itemEntity = createEntity({
   table: "read_pending_items",

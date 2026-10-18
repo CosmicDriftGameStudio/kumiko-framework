@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
-import { buildServer } from "../../api/server.js";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import type { AppContext, Registry } from "../../engine/types/index.js";
+import { buildServer } from "../../api/server.ts";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import type { AppContext, Registry } from "../../engine/types/index.ts";
 import {
   createNoopProvider,
   createPrometheusMeter,
   registerStandardMetrics,
-} from "../../observability/index.js";
-import { createJobRunner, type JobRunnerOptions } from "../job-runner.js";
+} from "../../observability/index.ts";
+import { createJobRunner, type JobRunnerOptions } from "../job-runner.ts";
 
 const JWT = "job-last-success-test-secret-minimum-32-chars!!";
 const SUCCEEDS = "liveness:job:succeeds";

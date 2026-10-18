@@ -1,4 +1,4 @@
-import { base32Encode } from "./base32.js";
+import { base32Encode } from "./base32.ts";
 
 // otpauth:// URI per Google Authenticator's key-uri-format (the de facto
 // standard every authenticator app implements). The client renders this as

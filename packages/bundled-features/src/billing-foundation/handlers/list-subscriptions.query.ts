@@ -8,8 +8,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { SUBSCRIPTION_PII_FIELDS } from "../entities.js";
-import { subscriptionsProjectionTable } from "../projection.js";
+import { SUBSCRIPTION_PII_FIELDS } from "../entities.ts";
+import { subscriptionsProjectionTable } from "../projection.ts";
 
 const listSchema = z.object({}).strict();
 

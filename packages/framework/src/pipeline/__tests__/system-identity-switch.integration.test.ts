@@ -8,9 +8,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { selectMany } from "../../db/index.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { selectMany } from "../../db/index.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createSystemUser,
@@ -19,9 +19,9 @@ import {
   defineWriteHandler,
   HookPhases,
   stepsPipeline,
-} from "../../engine/index.js";
-import type { HandlerContext, SessionUser } from "../../engine/types/index.js";
-import { createTestUser, TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import type { HandlerContext, SessionUser } from "../../engine/types/index.ts";
+import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 
 const user = TestUsers.user;
 const otherUserNoRole: SessionUser = createTestUser({

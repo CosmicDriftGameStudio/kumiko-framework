@@ -10,11 +10,11 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
+import { requireForTenant } from "../../shared/index.ts";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../schema/profile-selection.js";
+} from "../schema/profile-selection.ts";
 
 const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantComplianceProfileEntity, {
   entityName: "tenant-compliance-profile",

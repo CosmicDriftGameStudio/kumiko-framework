@@ -20,7 +20,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
-import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables.js";
+import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables.ts";
 
 const executor = createEventStoreExecutor(
   notificationPreferencesTable,

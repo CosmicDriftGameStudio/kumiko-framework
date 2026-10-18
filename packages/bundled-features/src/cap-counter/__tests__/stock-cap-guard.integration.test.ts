@@ -26,12 +26,12 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { ConfigHandlers } from "../../config/constants.js";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { capCounterEntity } from "../entity.js";
-import { createStockCapGuard } from "../stock-cap-guard.js";
+import { ConfigHandlers } from "../../config/constants.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { capCounterEntity } from "../entity.ts";
+import { createStockCapGuard } from "../stock-cap-guard.ts";
 
 const { executor, table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 

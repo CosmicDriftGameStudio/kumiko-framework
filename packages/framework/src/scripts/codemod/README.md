@@ -100,3 +100,21 @@ bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/tenant-db-opt
 
 Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the
 changed files with Biome. `--check` exits 1 while any rewritable or manual site is left.
+
+## import-extensions
+
+Relative imports name the TypeScript source file: `./foo.js` becomes `./foo.ts`, `./Comp.jsx`
+becomes `./Comp.tsx`. Covers `import`, `export ... from`, `import type`, `import()` and
+`mock.module`. A specifier is rewritten only when the target exists with the new extension next to
+the importer; otherwise it is reported as `manual` and left alone.
+
+The tsconfig that compiles the code needs `allowImportingTsExtensions` and
+`rewriteRelativeImportExtensions` (TypeScript 5.7 or newer) first.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/import-extensions.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes. `--check` exits 1 while any
+rewritable or manual site is left. The `import-extensions` guard (`kumiko check guards`) reports
+sites that are still on `.js`.

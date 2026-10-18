@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import type { NavApi } from "../nav.js";
-import { buildRecordActions } from "../row-actions.js";
+import type { NavApi } from "../nav.tsx";
+import { buildRecordActions } from "../row-actions.ts";
 
 const nav: NavApi = {
   route: undefined,

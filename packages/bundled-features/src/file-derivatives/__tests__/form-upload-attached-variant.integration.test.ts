@@ -46,9 +46,9 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import * as z from "zod";
-import { createConfigFeature } from "../../config/index.js";
-import { createFileFoundationFeature } from "../../file-foundation/index.js";
-import { createFileDerivativesFeature } from "../feature.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import { createFileDerivativesFeature } from "../feature.ts";
 
 const tenantId = testTenantId(1);
 const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });

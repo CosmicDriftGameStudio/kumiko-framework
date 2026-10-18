@@ -6,9 +6,9 @@ import {
   parseLinkedResources,
   uniqueResourceKey,
   variableLabelMap,
-} from "../mail-draft.js";
-import { footerMessage } from "../mail-footer.js";
-import type { MailValidation, TemplateRowView } from "../mail-types.js";
+} from "../mail-draft.ts";
+import { footerMessage } from "../mail-footer.ts";
+import type { MailValidation, TemplateRowView } from "../mail-types.ts";
 
 const t = (key: string, params?: Readonly<Record<string, unknown>>): string =>
   `${key}${params === undefined ? "" : JSON.stringify(params)}`;

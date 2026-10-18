@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../engine/escape-hatch-reason.js";
-import { migrateCrossTenantSource } from "../scripts/codemod/migrate-cross-tenant.js";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../engine/escape-hatch-reason.ts";
+import { migrateCrossTenantSource } from "../scripts/codemod/migrate-cross-tenant.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-cross-tenant");
 

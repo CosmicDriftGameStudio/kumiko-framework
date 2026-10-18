@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as z from "zod";
-import { createFormController } from "../form-controller.js";
-import { groupIssuesByPath, zodErrorToFieldIssues } from "../zod-bridge.js";
+import { createFormController } from "../form-controller.ts";
+import { groupIssuesByPath, zodErrorToFieldIssues } from "../zod-bridge.ts";
 
 describe("zodErrorToFieldIssues", () => {
   test("flattens zod issues to FieldIssue with dotted paths", () => {

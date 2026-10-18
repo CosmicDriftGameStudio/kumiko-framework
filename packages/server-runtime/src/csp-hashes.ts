@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { isPlainObject, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import { isScriptHash } from "./security-headers.js";
+import { isScriptHash } from "./security-headers.ts";
 
 export const CSP_HASHES_FILE = "csp-hashes.json";
 

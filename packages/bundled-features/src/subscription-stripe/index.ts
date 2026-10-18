@@ -10,10 +10,10 @@ export {
   STRIPE_PROVIDER_NAME,
   StripeEventTypes,
   SUBSCRIPTION_STRIPE_FEATURE,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   createSubscriptionStripeFeature,
   type SubscriptionStripeOptions,
   stripeEnvSchema,
   subscriptionStripeEnvSchema,
-} from "./feature.js";
+} from "./feature.ts";

@@ -18,8 +18,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createLegalPagesFeature, runLegalPagesBootCheck } from "../feature.js";
-import { renderMarkdownToHtml, wrapInLayout } from "../markdown.js";
+import { createLegalPagesFeature, runLegalPagesBootCheck } from "../feature.ts";
+import { renderMarkdownToHtml, wrapInLayout } from "../markdown.ts";
 
 let stack: TestStack;
 let db: DbConnection;

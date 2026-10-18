@@ -7,11 +7,11 @@ import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
-import { describeSubscriptionProviderContract } from "../../billing-foundation/__tests__/subscription-provider-contract.js";
-import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "../constants.js";
-import { createSubscriptionMollieFeature } from "../feature.js";
-import { createMollieCheckoutSession } from "../plugin-methods.js";
-import { type MollieClientShape, verifyAndParseMollieWebhook } from "../verify-webhook.js";
+import { describeSubscriptionProviderContract } from "../../billing-foundation/__tests__/subscription-provider-contract.ts";
+import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "../constants.ts";
+import { createSubscriptionMollieFeature } from "../feature.ts";
+import { createMollieCheckoutSession } from "../plugin-methods.ts";
+import { type MollieClientShape, verifyAndParseMollieWebhook } from "../verify-webhook.ts";
 
 const VALID_OPTIONS = {
   apiKey: "test_dummy_apikey",

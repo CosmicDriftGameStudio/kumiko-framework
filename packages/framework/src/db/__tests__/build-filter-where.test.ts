@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildFilterWhere } from "../event-store-executor-context.js";
+import { buildFilterWhere } from "../event-store-executor-context.ts";
 
 describe("buildFilterWhere", () => {
   test("eq: returns a direct field-equality WhereObject", () => {

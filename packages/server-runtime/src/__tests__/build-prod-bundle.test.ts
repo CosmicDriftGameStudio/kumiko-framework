@@ -21,8 +21,8 @@ import {
   isEntryOutputFor,
   readClientEntriesConfig,
   resolveClientEntries,
-} from "../build-prod-bundle.js";
-import { BUNDLED_ASSETS_DIST_DIR } from "../bundled-assets.js";
+} from "../build-prod-bundle.ts";
+import { BUNDLED_ASSETS_DIST_DIR } from "../bundled-assets.ts";
 
 // Synthetic single-entry: injectAssetTags only needs the shape, not a
 // resolveClientEntries round-trip.

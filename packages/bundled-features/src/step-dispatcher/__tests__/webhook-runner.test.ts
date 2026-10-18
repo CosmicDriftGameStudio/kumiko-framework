@@ -13,7 +13,7 @@ import {
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   WEBHOOK_IDEMPOTENCY_KEY_HEADER,
   type WebhookDispatchDeps,
-} from "../webhook-runner.js";
+} from "../webhook-runner.ts";
 
 function fakeLookupFor(addressesByHost: Readonly<Record<string, string>>): typeof lookup {
   return (async (hostname: string) => {

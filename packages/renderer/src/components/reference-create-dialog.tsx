@@ -9,11 +9,11 @@ import {
   buildInitialValues,
   tenantCurrencyMoneyFieldNames,
   useMoneyCurrencyOverrides,
-} from "../app/kumiko-screen.js";
-import { toKebab } from "../app/qn.js";
-import { useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
-import { RenderEdit } from "./render-edit.js";
+} from "../app/kumiko-screen.tsx";
+import { toKebab } from "../app/qn.ts";
+import { useTranslation } from "../i18n.tsx";
+import { usePrimitives } from "../primitives.tsx";
+import { RenderEdit } from "./render-edit.tsx";
 
 // Hosts a target entity's create-form inside a bare Modal so a reference
 // field can create a missing record without leaving the current form

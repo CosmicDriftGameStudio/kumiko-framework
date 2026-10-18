@@ -22,17 +22,17 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { userSessionTable } from "../../sessions/schema/user-session.js";
-import { TenantHandlers, TenantQueries } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantMembershipsTable } from "../../tenant/index.js";
-import { tenantTable } from "../../tenant/schema/tenant.js";
-import { seedTenantMembership } from "../../tenant/testing.js";
-import { createUserFeature } from "../../user/feature.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { userSessionTable } from "../../sessions/schema/user-session.ts";
+import { TenantHandlers, TenantQueries } from "../../tenant/constants.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/index.ts";
+import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/testing.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import {
   DESTRUCTION_STAGE_TICK_BUDGET_MS,
   TENANT_AGGREGATE_TYPE,
@@ -43,19 +43,19 @@ import {
   TENANT_DESTRUCTION_STAGE_STARTED_EVENT_QN,
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_QN,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../constants.js";
+} from "../constants.ts";
 import {
   createTenantLifecycleFeature,
   resolveTenantLifecycleGate,
   TenantLifecycleHandlers,
-} from "../index.js";
+} from "../index.ts";
 import {
   GATE_CACHE_MAX_ENTRIES,
   resetTenantLifecycleGateCacheForTests,
   TEARDOWN_GATE_SETTLE_MS,
   tenantLifecycleGateCacheSizeForTests,
-} from "../lifecycle-gate.js";
-import { runNextDestructionStage, runTenantDestructionSweep } from "../run-tenant-destroy.js";
+} from "../lifecycle-gate.ts";
+import { runNextDestructionStage, runTenantDestructionSweep } from "../run-tenant-destroy.ts";
 
 const REQUEST = TenantLifecycleHandlers.requestDestruction;
 const CANCEL = TenantLifecycleHandlers.cancelDestruction;

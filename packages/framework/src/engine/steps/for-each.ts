@@ -33,12 +33,12 @@
 // rejected at build time (would trigger the discriminated-union
 // TData-Inference trap).
 
-import { defineStep } from "../define-step.js";
-import { runStepList } from "../run-pipeline.js";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { validateNoReturnSteps } from "./_no-return-guard.js";
-import { resolveRequired } from "./_resolver-utils.js";
-import { SUSPEND_SENTINEL } from "./_step-dispatch-constants.js";
+import { defineStep } from "../define-step.ts";
+import { runStepList } from "../run-pipeline.ts";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { validateNoReturnSteps } from "./_no-return-guard.ts";
+import { resolveRequired } from "./_resolver-utils.ts";
+import { SUSPEND_SENTINEL } from "./_step-dispatch-constants.ts";
 
 type ForEachArgs<TItem = unknown> = {
   readonly over: StepResolver<readonly TItem[]>;

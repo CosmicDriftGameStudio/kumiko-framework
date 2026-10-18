@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { runChunkedMigration } from "../chunked-entity-migration.js";
+import { runChunkedMigration } from "../chunked-entity-migration.ts";
 
 describe("runChunkedMigration", () => {
   test("processes all batches and stops with 'done' when nextBatch returns empty", async () => {

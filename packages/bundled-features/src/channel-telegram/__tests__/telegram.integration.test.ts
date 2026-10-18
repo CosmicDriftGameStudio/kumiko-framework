@@ -6,8 +6,8 @@ import {
   serializeAttemptRows,
   setupChatHarness,
   startProviderStub,
-} from "../../delivery/__tests__/chat-channel-harness.js";
-import { createChannelTelegramFeature } from "../feature.js";
+} from "../../delivery/__tests__/chat-channel-harness.ts";
+import { createChannelTelegramFeature } from "../feature.ts";
 
 const BOT_TOKEN_KEY = "channel-telegram:secret:bot-token";
 const BOT_TOKEN = "123456:TESTtokenABCDEF_xyz-0123";

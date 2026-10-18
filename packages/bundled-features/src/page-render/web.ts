@@ -7,8 +7,8 @@ export {
   isSafeHexColor,
   isSafeHttpsUrl,
   layoutMaxWidth,
-} from "./branding.js";
-export { sanitizeTenantCss } from "./css-sanitize.js";
-export { TENANT_CONTENT_ATTR, tenantStyleBlock, wrapInLayout } from "./layout.js";
-export { renderSafeMarkdown } from "./markdown.js";
-export { securePageHeaders } from "./security-headers.js";
+} from "./branding.ts";
+export { sanitizeTenantCss } from "./css-sanitize.ts";
+export { TENANT_CONTENT_ATTR, tenantStyleBlock, wrapInLayout } from "./layout.ts";
+export { renderSafeMarkdown } from "./markdown.ts";
+export { securePageHeaders } from "./security-headers.ts";

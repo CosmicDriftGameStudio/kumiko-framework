@@ -13,15 +13,15 @@ import {
   table as pgTable,
   text as pgText,
   uuid as pgUuid,
-} from "../../db/dialect.js";
-import { insertOne, selectMany } from "../../db/query.js";
+} from "../../db/dialect.ts";
+import { insertOne, selectMany } from "../../db/query.ts";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const sysItemEntity = createEntity({
   table: "read_sysproj_items",

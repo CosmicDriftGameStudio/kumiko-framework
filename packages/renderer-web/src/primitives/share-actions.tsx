@@ -2,8 +2,8 @@ import type { CopyButtonProps, ShareButtonProps } from "@cosmicdrift/kumiko-rend
 import { buildWhatsAppShareUrl } from "@cosmicdrift/kumiko-renderer";
 import { Check, Copy, MessageCircle, Share2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { cn } from "../lib/cn.js";
-import { buttonVariants, Button as UiButton } from "../ui/button.js";
+import { cn } from "../lib/cn.ts";
+import { buttonVariants, Button as UiButton } from "../ui/button.tsx";
 
 const COPIED_FEEDBACK_MS = 2000;
 

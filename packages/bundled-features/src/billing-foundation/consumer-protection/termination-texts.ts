@@ -1,5 +1,5 @@
-import type { ContractTerminationDeclarationType, ContractTerminationKind } from "../events.js";
-import type { ConsentLocale } from "./consent-text.js";
+import type { ContractTerminationDeclarationType, ContractTerminationKind } from "../events.ts";
+import type { ConsentLocale } from "./consent-text.ts";
 
 // Legal wording shown to the consumer, deliberately inline de/en like the
 // consent texts (not the en-only i18n convention).

@@ -7,7 +7,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantEntity, tenantTable } from "../schema/tenant.js";
+import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 

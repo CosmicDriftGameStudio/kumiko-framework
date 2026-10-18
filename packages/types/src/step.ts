@@ -9,12 +9,12 @@
 // (see TS-typing notes in the design doc). M.1 uses unsafeAppendEvent
 // semantics under the hood for r.step.aggregate.appendEvent.
 
-import type { EventStoreExecutor } from "./event-store-executor-types.js";
-import type { KumikoEventTypeMap } from "./event-type-map.js";
-import type { HandlerContext, WriteEvent, WriteResult } from "./handlers.js";
-import type { SaveContext } from "./hooks.js";
-import type { EntityId } from "./identifiers.js";
-import type { WhereObject } from "./where-clause-types.js";
+import type { EventStoreExecutor } from "./event-store-executor-types.ts";
+import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type { HandlerContext, WriteEvent, WriteResult } from "./handlers.ts";
+import type { SaveContext } from "./hooks.ts";
+import type { EntityId } from "./identifiers.ts";
+import type { WhereObject } from "./where-clause-types.ts";
 
 /**
  * The kind discriminator for a step instance — matches the step's
@@ -365,7 +365,7 @@ export type StepNamespace = {
     opts: {
       readonly handler: string;
       readonly payload: StepResolver<unknown>;
-      readonly as?: import("./handlers.js").SessionUser;
+      readonly as?: import("./handlers.ts").SessionUser;
     },
   ) => StepInstance;
   // --- Tier-3 / Workflow-only steps ---

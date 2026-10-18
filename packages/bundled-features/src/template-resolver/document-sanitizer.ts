@@ -4,8 +4,8 @@ import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { type Element as ScanElement, Window } from "happy-dom";
-import type { ContentFormat } from "./constants.js";
-import { DOCUMENT_HTML_KINDS } from "./constants.js";
+import type { ContentFormat } from "./constants.ts";
+import { DOCUMENT_HTML_KINDS } from "./constants.ts";
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   documentExtensions,
@@ -13,8 +13,8 @@ import {
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "./document-schema.js";
-import { isDocumentStepKey } from "./document-steps.js";
+} from "./document-schema.ts";
+import { isDocumentStepKey } from "./document-steps.ts";
 
 export type DocumentViolationCode =
   | "script_element"

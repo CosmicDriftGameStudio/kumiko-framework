@@ -19,40 +19,43 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAppFeatures } from "../app/app-features-context.js";
+import { useAppFeatures } from "../app/app-features-context.tsx";
 import {
   buildFilterFacets,
   buildFilterPayload,
   mergeReferenceFacetOptions,
   resolveProjectionFacetSpecs,
-} from "../app/list-facets.js";
-import { useNav } from "../app/nav.js";
-import { ReferenceFacetBridges, type ReferenceFacetOption } from "../app/reference-facet-bridge.js";
-import { navigateWithReturnTo, useReturnHost } from "../app/return-to.js";
+} from "../app/list-facets.ts";
+import { useNav } from "../app/nav.tsx";
+import {
+  ReferenceFacetBridges,
+  type ReferenceFacetOption,
+} from "../app/reference-facet-bridge.tsx";
+import { navigateWithReturnTo, useReturnHost } from "../app/return-to.tsx";
 import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
   buildProjectionToolbarActions,
   buildRecordActions,
   runProjectionRowNavigate,
-} from "../app/row-actions.js";
-import { findEditScreenFor } from "../app/screen-access.js";
-import { dispatcherErrorText } from "../app/write-failed-error.js";
-import { useOptionalDispatcher } from "../context/dispatcher-context.js";
-import { useUserRoles } from "../context/user-roles-context.js";
-import type { ListSort } from "../hooks/use-list-url-state.js";
-import { useQuery } from "../hooks/use-query.js";
-import { useOptionalLocale, useTranslation } from "../i18n.js";
-import { PageHeaderSlotAvailableProvider } from "../page-header-slot.js";
+} from "../app/row-actions.ts";
+import { findEditScreenFor } from "../app/screen-access.ts";
+import { dispatcherErrorText } from "../app/write-failed-error.ts";
+import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
+import { useUserRoles } from "../context/user-roles-context.tsx";
+import type { ListSort } from "../hooks/use-list-url-state.ts";
+import { useQuery } from "../hooks/use-query.ts";
+import { useOptionalLocale, useTranslation } from "../i18n.tsx";
+import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import {
   type DataTableFacet,
   type DataTableProps,
   type DataTableRowGrouping,
   usePrimitives,
-} from "../primitives.js";
-import { sortByAccessor } from "../sort-by-accessor.js";
-import { RenderEditActionButton } from "./render-edit-action-button.js";
-import { RenderList } from "./render-list.js";
+} from "../primitives.tsx";
+import { sortByAccessor } from "../sort-by-accessor.ts";
+import { RenderEditActionButton } from "./render-edit-action-button.tsx";
+import { RenderList } from "./render-list.tsx";
 
 const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
 

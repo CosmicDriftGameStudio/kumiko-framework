@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../../define-feature.js";
+import { defineFeature } from "../../define-feature.ts";
 import {
   createEntity,
   createImageField,
   createSelectField,
   createTextField,
-} from "../../factories.js";
-import type { EditRelatedListSection, ListColumnSpec } from "../../types/index.js";
-import { collectCardMetaOverflow, validateCardMetaOverflow } from "../card-meta-overflow.js";
+} from "../../factories.ts";
+import type { EditRelatedListSection, ListColumnSpec } from "../../types/index.ts";
+import { collectCardMetaOverflow, validateCardMetaOverflow } from "../card-meta-overflow.ts";
 
 const text = () => createTextField({ personal: false, reason: "test_fixture" });
 const entity = createEntity({

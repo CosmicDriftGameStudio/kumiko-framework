@@ -12,9 +12,9 @@ import {
   FEATURE_TOGGLE_CROSS_TENANT_REASON,
   FEATURE_TOGGLE_SET_EVENT_NAME,
   FeatureToggleErrors,
-} from "../constants.js";
-import { globalFeatureStateTable } from "../global-feature-state-table.js";
-import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
+} from "../constants.ts";
+import { globalFeatureStateTable } from "../global-feature-state-table.ts";
+import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
 
 // Factory: binds a runtime accessor to the handler at registration time.
 // The runtime holds the in-memory snapshot that the dispatcher's gate

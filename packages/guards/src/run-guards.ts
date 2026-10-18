@@ -38,6 +38,7 @@ import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
 import { guard as i18nLocaleTerminology } from "./guard-i18n-locale-terminology";
+import { guard as importExtensions } from "./guard-import-extensions";
 import { guard as libTestCoverage } from "./guard-lib-test-coverage";
 import { guard as loadallEvents } from "./guard-loadall-events";
 import { guard as noDateApi } from "./guard-no-date-api";
@@ -73,6 +74,7 @@ export const GUARDS = [
   unsafeJsonParse,
   silentSkip,
   htmlEscape,
+  importExtensions,
   crossFeatureImports,
   noDateApi,
   noTemporalPolyfillImport,

@@ -15,43 +15,43 @@ import {
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml } from "@cosmicdrift/kumiko-headless";
-import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.js";
-import { fileContextForTenant } from "../file-foundation/index.js";
+import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.ts";
+import { fileContextForTenant } from "../file-foundation/index.ts";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
   type MailAttachmentRef,
   RendererError,
   type RendererPlugin,
-} from "../renderer-foundation/index.js";
-import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource } from "./api.js";
-import { collectDocumentResourceKeys } from "./compile-document-body.js";
+} from "../renderer-foundation/index.ts";
+import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource } from "./api.ts";
+import { collectDocumentResourceKeys } from "./compile-document-body.ts";
 import {
   DEFAULT_MAIL_LAYOUT_SLUG,
   DEFAULT_PDF_LAYOUT_SLUG,
   MAIL_PREVIEW_MAX_BYTES,
   SYSTEM_TENANT_ID,
   type TemplateScope,
-} from "./constants.js";
-import { parseStoredJson } from "./handlers/template-gates.js";
-import { validateTemplateDraft } from "./handlers/validate.query.js";
+} from "./constants.ts";
+import { parseStoredJson } from "./handlers/template-gates.ts";
+import { validateTemplateDraft } from "./handlers/validate.query.ts";
 import {
   type LayoutRegions,
   readLayoutRegions,
   sanitizeLayoutHtml,
   type TemplateWriteScope,
-} from "./layout-regions.js";
-import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.js";
-import { buildDisplayHtml } from "./preview-display-html.js";
-import { TemplateResolverErrors } from "./qualified-names.js";
-import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
+} from "./layout-regions.ts";
+import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.ts";
+import { buildDisplayHtml } from "./preview-display-html.ts";
+import { TemplateResolverErrors } from "./qualified-names.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import {
   isMailTemplateMeta,
   type MailTemplateMeta,
   type PdfTemplateMeta,
   parseTemplateMeta,
   readPdfTemplateMeta,
-} from "./template-meta.js";
+} from "./template-meta.ts";
 
 const SAMPLE_LINK = "https://example.com";
 const SAMPLE_DATE = "2026-01-15";

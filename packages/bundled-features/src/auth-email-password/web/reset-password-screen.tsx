@@ -12,9 +12,9 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { resetPassword } from "./auth-client.js";
-import { passwordPairIssue } from "./auth-form-logic.js";
-import { AuthCard, useUrlToken } from "./auth-form-primitives.js";
+import { resetPassword } from "./auth-client.ts";
+import { passwordPairIssue } from "./auth-form-logic.ts";
+import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
 
 export type ResetPasswordScreenProps = {
   readonly title?: string;

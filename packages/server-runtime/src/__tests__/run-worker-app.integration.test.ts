@@ -51,8 +51,8 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { Redis } from "ioredis";
 import postgres from "postgres";
 import * as z from "zod";
-import { makeDispatchSystemWrite } from "../extra-routes-deps.js";
-import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app.js";
+import { makeDispatchSystemWrite } from "../extra-routes-deps.ts";
+import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app.ts";
 
 const bootJobQueuePrefix = `test-worker-boot-${Date.now().toString(36)}`;
 

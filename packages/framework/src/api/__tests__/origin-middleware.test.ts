@@ -6,17 +6,17 @@
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { authMiddleware } from "../auth-middleware.js";
-import { createJwtHelper } from "../jwt.js";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { authMiddleware } from "../auth-middleware.ts";
+import { createJwtHelper } from "../jwt.ts";
 import {
   assertOriginGuardConfig,
   isOriginAllowed,
   isWebSocketOriginAllowed,
   normalizeOrigin,
   originMiddleware,
-} from "../origin-middleware.js";
-import { AUTH_COOKIE_BASE } from "../session-cookies.js";
+} from "../origin-middleware.ts";
+import { AUTH_COOKIE_BASE } from "../session-cookies.ts";
 
 function isErrorBody(v: unknown): v is { error: { code: string } } {
   if (typeof v !== "object" || v === null || !("error" in v)) return false;

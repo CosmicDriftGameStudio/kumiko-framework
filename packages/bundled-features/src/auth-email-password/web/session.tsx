@@ -35,7 +35,7 @@ import {
   logout as logoutApi,
   switchTenant as switchTenantApi,
   type TenantSummary,
-} from "./auth-client.js";
+} from "./auth-client.ts";
 
 export type SessionStatus = "loading" | "unauthenticated" | "authenticated" | "error";
 

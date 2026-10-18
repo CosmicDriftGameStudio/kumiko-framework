@@ -7,9 +7,9 @@ import { describe, expect, test } from "bun:test";
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.js";
-import { RenderField } from "../render-field.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { RenderField } from "../render-field.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

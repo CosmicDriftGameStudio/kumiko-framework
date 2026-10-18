@@ -1,12 +1,12 @@
 import type { CallExpression, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { EntityDefinition } from "../../types/fields.js";
-import type { NavDefinition } from "../../types/nav.js";
-import type { RelationDefinition } from "../../types/relations.js";
-import type { WorkspaceDefinition } from "../../types/workspace.js";
-import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types.js";
-import type { EntityPattern, NavPattern, RelationPattern, WorkspacePattern } from "../patterns.js";
-import { sourceLocationFromNode } from "../source-location.js";
+import type { EntityDefinition } from "../../types/fields.ts";
+import type { NavDefinition } from "../../types/nav.ts";
+import type { RelationDefinition } from "../../types/relations.ts";
+import type { WorkspaceDefinition } from "../../types/workspace.ts";
+import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types.ts";
+import type { EntityPattern, NavPattern, RelationPattern, WorkspacePattern } from "../patterns.ts";
+import { sourceLocationFromNode } from "../source-location.ts";
 import {
   type ExtractOutput,
   fail,
@@ -17,7 +17,7 @@ import {
   readDataLiteralNode,
   readNameLiteral,
   readNameOrRef,
-} from "./shared.js";
+} from "./shared.ts";
 
 // `{ name: "x", ...xEntity }` — the definition is a reference the parser cannot
 // inline, so it is kept as a raw-ref sentinel and re-rendered as the same spread.

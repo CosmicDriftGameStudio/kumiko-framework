@@ -1,6 +1,6 @@
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { buildFileUploadFormData, type FileUploadFormDataInput } from "./file-upload-form-data.js";
+import { buildFileUploadFormData, type FileUploadFormDataInput } from "./file-upload-form-data.ts";
 
 export type FileRefTarget = Pick<FileUploadFormDataInput, "entityType" | "entityId" | "fieldName">;
 

@@ -17,12 +17,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/index.js";
-import { FormDraftHandlers, FormDraftQueries } from "../constants.js";
-import { formDraftEntity } from "../entity.js";
-import { createFormDraftFeature } from "../feature.js";
-import type { GetDraftResult } from "../handlers/get.query.js";
-import type { ListDraftsResult } from "../handlers/list.query.js";
+import { createConfigFeature } from "../../config/index.ts";
+import { FormDraftHandlers, FormDraftQueries } from "../constants.ts";
+import { formDraftEntity } from "../entity.ts";
+import { createFormDraftFeature } from "../feature.ts";
+import type { GetDraftResult } from "../handlers/get.query.ts";
+import type { ListDraftsResult } from "../handlers/list.query.ts";
 
 let stack: TestStack;
 

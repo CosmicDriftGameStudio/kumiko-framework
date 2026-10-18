@@ -22,9 +22,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
-import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
 
 const tenantA = createTestUser({ id: 2, roles: ["TenantAdmin"], tenantId: testTenantId(10) });
 const tenantB = createTestUser({ id: 3, roles: ["TenantAdmin"], tenantId: testTenantId(20) });

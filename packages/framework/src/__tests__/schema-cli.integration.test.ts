@@ -10,11 +10,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.js";
-import { tableExists } from "../db/index.js";
-import { asRawClient } from "../db/query.js";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
-import { ensureTemporalPolyfill } from "../time/polyfill.js";
+import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.ts";
+import { tableExists } from "../db/index.ts";
+import { asRawClient } from "../db/query.ts";
+import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 
 function captureOut(): { out: SchemaCliOut; log: string[]; err: string[] } {
   const log: string[] = [];

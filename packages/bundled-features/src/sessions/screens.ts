@@ -11,7 +11,7 @@ import {
   SESSION_MINE_SCREEN_ID,
   SessionHandlers,
   SessionQueries,
-} from "./constants.js";
+} from "./constants.ts";
 
 export const createSessionListScreen = (
   adminRoles: readonly string[] = access.admin,

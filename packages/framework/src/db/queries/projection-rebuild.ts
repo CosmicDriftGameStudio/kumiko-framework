@@ -1,6 +1,6 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient, unsafeReadRetrying } from "../query.js";
-import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient, unsafeReadRetrying } from "../query.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 export async function markProjectionRebuilding(db: AnyDb, projectionName: string): Promise<void> {
   await asRawClient(db).unsafe(

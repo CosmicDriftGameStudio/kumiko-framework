@@ -4,4 +4,4 @@ export {
   clearInbox,
   createMailTransportInMemoryFeature,
   getInbox,
-} from "./feature.js";
+} from "./feature.ts";

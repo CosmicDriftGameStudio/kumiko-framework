@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { createRendererFoundationApi } from "../api.js";
-import { RENDERER_EXTENSION, type RenderKind } from "../constants.js";
-import { collectRendererPlugins, createRendererFoundationFeature } from "../feature.js";
-import type { RenderRequest, RenderResponse } from "../types.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
+import { createRendererFoundationApi } from "../api.ts";
+import { RENDERER_EXTENSION, type RenderKind } from "../constants.ts";
+import { collectRendererPlugins, createRendererFoundationFeature } from "../feature.ts";
+import type { RenderRequest, RenderResponse } from "../types.ts";
 
 const TEST_TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
 

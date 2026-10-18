@@ -14,8 +14,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { fieldDefinitionEntity } from "../entity.js";
-import { createCustomFieldsFeature } from "../feature.js";
+import { fieldDefinitionEntity } from "../entity.ts";
+import { createCustomFieldsFeature } from "../feature.ts";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 const customRoleUser = createTestUser({ roles: ["Admin"] });

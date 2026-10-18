@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
-import type { ScreenDefinition } from "../types/screen.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createTextField } from "../factories.ts";
+import type { ScreenDefinition } from "../types/screen.ts";
 
 function bootMessage(feature: Parameters<typeof validateBoot>[0][number]): string {
   try {

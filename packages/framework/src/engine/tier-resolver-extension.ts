@@ -22,10 +22,10 @@
 
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { DbConnection } from "../db/connection.js";
-import type { RegistrarExtensionRegistration } from "./types/config.js";
-import type { FeatureDefinition, Registry } from "./types/feature.js";
-import type { TenantId } from "./types/identifiers.js";
+import type { DbConnection } from "../db/connection.ts";
+import type { RegistrarExtensionRegistration } from "./types/config.ts";
+import type { FeatureDefinition, Registry } from "./types/feature.ts";
+import type { TenantId } from "./types/identifiers.ts";
 
 /**
  * Extension-name unter dem ein tier-resolver-plugin im registry registriert

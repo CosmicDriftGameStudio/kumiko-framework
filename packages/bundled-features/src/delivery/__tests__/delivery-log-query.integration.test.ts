@@ -10,11 +10,11 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createConfigFeature } from "../../config/feature.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { DeliveryQueries } from "../constants.js";
-import { createDeliveryFeature } from "../feature.js";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { DeliveryQueries } from "../constants.ts";
+import { createDeliveryFeature } from "../feature.ts";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.ts";
 
 type LogRow = {
   readonly id: string;

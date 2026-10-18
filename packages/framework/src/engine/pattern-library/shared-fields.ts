@@ -1,4 +1,4 @@
-import type { FormFieldSpec } from "./types.js";
+import type { FormFieldSpec } from "./types.ts";
 
 // =============================================================================
 // Reusable field building blocks

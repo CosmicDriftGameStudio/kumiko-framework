@@ -1,11 +1,11 @@
-import type { AggregateRow, AggregateSpec } from "./aggregate-types.js";
-import type { DbRunner } from "./db-connection.js";
-import type { EntityTableMeta } from "./entity-table-meta-types.js";
-import type { ExecutorOnly, NotExecutorOnly } from "./executor-brand.js";
-import type { TenantId } from "./identifiers.js";
-import type { SchemaTable } from "./schema-table-types.js";
-import type { TenancyBrand } from "./tenancy-brand.js";
-import type { SelectOptions, WhereObject } from "./where-clause-types.js";
+import type { AggregateRow, AggregateSpec } from "./aggregate-types.ts";
+import type { DbRunner } from "./db-connection.ts";
+import type { EntityTableMeta } from "./entity-table-meta-types.ts";
+import type { ExecutorOnly, NotExecutorOnly } from "./executor-brand.ts";
+import type { TenantId } from "./identifiers.ts";
+import type { SchemaTable } from "./schema-table-types.ts";
+import type { TenancyBrand } from "./tenancy-brand.ts";
+import type { SelectOptions, WhereObject } from "./where-clause-types.ts";
 
 // Method-form writes reject the executor-only brand exactly like the free-function
 // helpers (#742): a managed EntityTable is a rebuildable projection, so writing it

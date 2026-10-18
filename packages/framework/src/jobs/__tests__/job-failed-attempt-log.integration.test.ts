@@ -4,10 +4,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
-import { createRegistry, defineFeature } from "../../engine/index.js";
-import type { AppContext } from "../../engine/types/index.js";
-import type { Logger } from "../../logging/types.js";
-import { createJobRunner } from "../job-runner.js";
+import { createRegistry, defineFeature } from "../../engine/index.ts";
+import type { AppContext } from "../../engine/types/index.ts";
+import type { Logger } from "../../logging/types.ts";
+import { createJobRunner } from "../job-runner.ts";
 
 let testRedis: TestRedis;
 let redisUrl: string;

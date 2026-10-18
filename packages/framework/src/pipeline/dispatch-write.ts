@@ -1,19 +1,19 @@
-import type { DbRow, DbRunner, DbTx } from "../db/connection.js";
-import { selectRowForUpdateById } from "../db/queries/entity-read.js";
-import { asEntityTableMeta, selectMany } from "../db/query.js";
-import { buildEntityTable, toSnakeCase } from "../db/table-builder.js";
-import { createTenantDb, hasTenantColumn } from "../db/tenant-db.js";
-import { tenantDbRunner } from "../db/tenant-db-runner.js";
-import { ConfigScopes } from "../engine/constants.js";
-import { checkWriteFieldOwnership, maskWriteOnlyFields } from "../engine/field-access.js";
-import { defineTransitions, guardTransition } from "../engine/state-machine.js";
+import type { DbRow, DbRunner, DbTx } from "../db/connection.ts";
+import { selectRowForUpdateById } from "../db/queries/entity-read.ts";
+import { asEntityTableMeta, selectMany } from "../db/query.ts";
+import { buildEntityTable, toSnakeCase } from "../db/table-builder.ts";
+import { createTenantDb, hasTenantColumn } from "../db/tenant-db.ts";
+import { tenantDbRunner } from "../db/tenant-db-runner.ts";
+import { ConfigScopes } from "../engine/constants.ts";
+import { checkWriteFieldOwnership, maskWriteOnlyFields } from "../engine/field-access.ts";
+import { defineTransitions, guardTransition } from "../engine/state-machine.ts";
 import type {
   EntityDefinition,
   HandlerContext,
   SessionUser,
   WriteResult,
-} from "../engine/types/index.js";
-import { HookPhases } from "../engine/types/index.js";
+} from "../engine/types/index.ts";
+import { HookPhases } from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   FrameworkReasons,
@@ -22,14 +22,14 @@ import {
   NotFoundError,
   ValidationError,
   writeFailure,
-} from "../errors/index.js";
-import { assertFileRefsBelongToTenant } from "../files/assert-file-refs-belong-to-tenant.js";
-import { bindPendingFileRefs } from "../files/bind-pending-file-refs.js";
-import { disposeRemovedFileRefs } from "../files/dispose-removed-file-refs.js";
-import { loadSaveFileRefs } from "../files/load-save-file-refs.js";
-import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
-import { assertNoSecretLeak } from "../secrets/index.js";
-import type { DispatchContext, WriteOrigin } from "./dispatch-shared.js";
+} from "../errors/index.ts";
+import { assertFileRefsBelongToTenant } from "../files/assert-file-refs-belong-to-tenant.ts";
+import { bindPendingFileRefs } from "../files/bind-pending-file-refs.ts";
+import { disposeRemovedFileRefs } from "../files/dispose-removed-file-refs.ts";
+import { loadSaveFileRefs } from "../files/load-save-file-refs.ts";
+import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
+import { assertNoSecretLeak } from "../secrets/index.ts";
+import type { DispatchContext, WriteOrigin } from "./dispatch-shared.ts";
 import {
   buildHandlerContext,
   CONFIG_WRITE_RESET_TYPE,
@@ -39,7 +39,7 @@ import {
   resolveDbSource,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
-} from "./dispatch-shared.js";
+} from "./dispatch-shared.ts";
 import {
   type AfterCommitHook,
   describeShape,
@@ -48,14 +48,14 @@ import {
   isWriteResultShape,
   prefixValidationPath,
   wrapToKumiko,
-} from "./dispatcher-utils.js";
-import { runPreHandlerGates } from "./pre-handler-gates.js";
+} from "./dispatcher-utils.ts";
+import { runPreHandlerGates } from "./pre-handler-gates.ts";
 import {
   type ConsumedReservation,
   consumeReservation,
   hasPreTransactionPhase,
-} from "./pre-transaction-reservations.js";
-import { runProjections } from "./projections-runner.js";
+} from "./pre-transaction-reservations.ts";
+import { runProjections } from "./projections-runner.ts";
 
 function getTable(
   ctx: DispatchContext,

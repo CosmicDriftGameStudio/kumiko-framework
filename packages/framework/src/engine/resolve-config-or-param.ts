@@ -4,8 +4,8 @@ import type {
   ConfigKeyHandle,
   ConfigKeyType,
   ConfigValue,
-} from "./types/config.js";
-import type { Registry } from "./types/index.js";
+} from "./types/config.ts";
+import type { Registry } from "./types/index.ts";
 
 // Per-Request Config-Resolver für Routes.
 //

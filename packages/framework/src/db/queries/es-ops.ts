@@ -1,5 +1,5 @@
-import type { AnyDb } from "../query.js";
-import { asRawClient } from "../query.js";
+import type { AnyDb } from "../query.ts";
+import { asRawClient } from "../query.ts";
 
 /** Stabiler Lock-Key für pg_advisory_xact_lock — multi-replica seed boots. */
 export const ES_OPS_ADVISORY_LOCK_KEY = 0x65_73_6f_70; // 'esop'

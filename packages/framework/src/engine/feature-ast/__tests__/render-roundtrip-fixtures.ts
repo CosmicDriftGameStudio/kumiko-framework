@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 import { Project } from "ts-morph";
-import { parseSourceFile } from "../parse.js";
-import type { FeaturePattern } from "../patterns.js";
+import { parseSourceFile } from "../parse.ts";
+import type { FeaturePattern } from "../patterns.ts";
 
 export const STATIC_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

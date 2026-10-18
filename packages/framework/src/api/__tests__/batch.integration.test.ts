@@ -6,10 +6,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { TableColumns } from "../../db/dialect.js";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient, selectMany } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import type { TableColumns } from "../../db/dialect.ts";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
   createNumberField,
@@ -18,10 +18,10 @@ import {
   type EntityId,
   HookPhases,
   type SaveContext,
-} from "../../engine/index.js";
-import { UnprocessableError, writeFailure } from "../../errors/index.js";
-import { RedisKeys } from "../../pipeline/redis-keys.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { UnprocessableError, writeFailure } from "../../errors/index.ts";
+import { RedisKeys } from "../../pipeline/redis-keys.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({

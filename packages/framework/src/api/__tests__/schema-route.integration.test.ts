@@ -7,11 +7,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createEntity, defineFeature } from "../../engine/index.js";
-import type { TenantId } from "../../engine/types/identifiers.js";
-import { TestUsers } from "../../seeding/seed-users.js";
-import { Routes } from "../api-constants.js";
-import { AUTH_COOKIE_BASE } from "../session-cookies.js";
+import { createEntity, defineFeature } from "../../engine/index.ts";
+import type { TenantId } from "../../engine/types/identifiers.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
+import { Routes } from "../api-constants.ts";
+import { AUTH_COOKIE_BASE } from "../session-cookies.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const SCHEMA_PATH = `/api${Routes.schema}`;

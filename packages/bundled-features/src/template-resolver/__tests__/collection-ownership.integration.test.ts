@@ -21,14 +21,14 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createTemplateResolverFeature } from "../feature.js";
-import { collectionHandlerName, collectionQueryName } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { collectionHandlerName, collectionQueryName } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
 import {
   type UserContentEntryRow,
   userContentEntriesTable,
   userContentEntryEntity,
-} from "../user-content-table.js";
+} from "../user-content-table.ts";
 
 let stack: TestStack;
 let db: DbConnection;

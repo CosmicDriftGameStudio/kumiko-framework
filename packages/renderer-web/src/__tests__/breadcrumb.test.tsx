@@ -8,7 +8,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "../ui/breadcrumb.js";
+} from "../ui/breadcrumb.tsx";
 
 describe("Breadcrumb", () => {
   test("renders nav list with links, separators, page, ellipsis", () => {

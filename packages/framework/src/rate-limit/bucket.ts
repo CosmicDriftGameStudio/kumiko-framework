@@ -3,8 +3,8 @@ import type {
   PayloadBucketNormalization,
   RateLimitOption,
   SessionUser,
-} from "../engine/types/index.js";
-import { derivePurposeSecret } from "../secrets/derive-purpose-secret.js";
+} from "../engine/types/index.ts";
+import { derivePurposeSecret } from "../secrets/derive-purpose-secret.ts";
 
 // Build the Redis bucket key for a handler-level rate limit. Format:
 //   <scope-tag>:<identifying segments…>

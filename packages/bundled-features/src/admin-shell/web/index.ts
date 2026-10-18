@@ -1,2 +1,2 @@
 // @runtime client
-export { type AdminShellClientOptions, adminShellClient } from "./client-plugin.js";
+export { type AdminShellClientOptions, adminShellClient } from "./client-plugin.tsx";

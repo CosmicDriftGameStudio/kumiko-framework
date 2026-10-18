@@ -6,9 +6,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptTenantNames } from "../decrypt-tenant-names.js";
-import { tenantTable } from "../schema/tenant.js";
-import { isSystemAdmin } from "./is-system-admin.js";
+import { decryptTenantNames } from "../decrypt-tenant-names.ts";
+import { tenantTable } from "../schema/tenant.ts";
+import { isSystemAdmin } from "./is-system-admin.ts";
 
 // Label source behind every `tenant:tenant` reference column (fw#3142). The
 // entity-convention lookup, tenant:query:tenant:list, is a SystemAdmin-only

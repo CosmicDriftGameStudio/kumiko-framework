@@ -12,7 +12,7 @@
 // feature (e.g. platform-specific static-serving logic).
 
 import type { Context } from "hono";
-import type { RateLimitOption } from "./handlers.js";
+import type { RateLimitOption } from "./handlers.ts";
 
 /** Subset von HTTP-Methoden den wir aktiv unterstützen. Hono spricht
  *  alle, aber das hier sind die einzigen die ein Feature-Author
@@ -47,7 +47,7 @@ export type HttpRouteHandlerDeps = {
   readonly systemQuery: (
     type: string,
     payload: unknown,
-    tenantId: import("./identifiers.js").TenantId,
+    tenantId: import("./identifiers.ts").TenantId,
   ) => Promise<unknown>;
   /** Caller IP resolved via the server's configured, trustedProxyHops-aware
    *  resolver (same one requestIdMiddleware uses for `/api/*`) — a route

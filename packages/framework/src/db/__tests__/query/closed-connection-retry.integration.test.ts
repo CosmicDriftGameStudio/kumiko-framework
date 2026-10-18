@@ -4,13 +4,13 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { testDatabaseUrl, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import postgres from "postgres";
-import { constraintOf, extractPgError, isUniqueViolation } from "../../pg-error.js";
+import { constraintOf, extractPgError, isUniqueViolation } from "../../pg-error.ts";
 
 import {
   describeClosedConnectionFailure,
   isClosedConnectionError,
   unsafeReadRetrying,
-} from "../../query.js";
+} from "../../query.ts";
 
 const DATABASE_URL = testDatabaseUrl();
 

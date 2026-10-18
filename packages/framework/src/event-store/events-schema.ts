@@ -11,16 +11,16 @@ import {
   text,
   uniqueIndex,
   uuid,
-} from "../db/dialect.js";
-import { type DbConnection, tableExists } from "../db/index.js";
+} from "../db/dialect.ts";
+import { type DbConnection, tableExists } from "../db/index.ts";
 import {
   ensureIdempotencyKeyIndex,
   ensureMembershipPayloadTenantIndex,
-} from "../db/queries/event-store.js";
-import { unsafePushTables } from "../db/table-push.js";
-import { createArchivedStreamsTable } from "./archive.js";
-import { createSnapshotsTable } from "./snapshot.js";
-import type { EventMetadata } from "./types.js";
+} from "../db/queries/event-store.ts";
+import { unsafePushTables } from "../db/table-push.ts";
+import { createArchivedStreamsTable } from "./archive.ts";
+import { createSnapshotsTable } from "./snapshot.ts";
+import type { EventMetadata } from "./types.ts";
 
 // Event-store schema as a Drizzle table. The typed select/insert path handles
 // most operations; append() for subsequent versions uses raw SQL because

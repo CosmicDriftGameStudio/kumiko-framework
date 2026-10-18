@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../define-feature.js";
-import { validateHandlerAccess } from "../entity-handler.js";
+import { defineFeature } from "../../define-feature.ts";
+import { validateHandlerAccess } from "../entity-handler.ts";
 
 describe('validateHandlerAccess — roles: ["all"] is rejected', () => {
   test("a write handler with roles: ['all'] throws, naming the handler", () => {

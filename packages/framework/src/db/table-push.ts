@@ -1,12 +1,12 @@
-import type { EntityDefinition } from "../engine/types/index.js";
-import type { DbConnection } from "./connection.js";
-import { pgTypeToSqlType } from "./dialect.js";
-import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.js";
-import { alterTableAddColumn, createIndexIfNotExists, executeDdlStatement } from "./queries/ddl.js";
-import { renderTableDdl } from "./render-ddl.js";
-import { tableExists } from "./schema-inspection.js";
-import { buildEntityTable, toTableName } from "./table-builder.js";
-import { asEntityTableMeta } from "./table-introspection.js";
+import type { EntityDefinition } from "../engine/types/index.ts";
+import type { DbConnection } from "./connection.ts";
+import { pgTypeToSqlType } from "./dialect.ts";
+import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
+import { alterTableAddColumn, createIndexIfNotExists, executeDdlStatement } from "./queries/ddl.ts";
+import { renderTableDdl } from "./render-ddl.ts";
+import { tableExists } from "./schema-inspection.ts";
+import { buildEntityTable, toTableName } from "./table-builder.ts";
+import { asEntityTableMeta } from "./table-introspection.ts";
 
 /**
  * Bypass: creates an entity-table directly without going through the

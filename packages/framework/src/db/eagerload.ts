@@ -17,39 +17,39 @@
 //
 // Custom handlers must pass the viewer explicitly so the parentRef gate is
 // never skipped silently.
-import { requestContext } from "../api/request-context.js";
+import { requestContext } from "../api/request-context.ts";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
-} from "../crypto/index.js";
-import { selectMany } from "../db/query.js";
-import { filterReadFields } from "../engine/field-access.js";
+} from "../crypto/index.ts";
+import { selectMany } from "../db/query.ts";
+import { filterReadFields } from "../engine/field-access.ts";
 import {
   buildOwnershipClause,
   combineClauses,
   shiftParams,
   tableNameOf,
-} from "../engine/ownership.js";
-import { parseRefTargetEntityName } from "../engine/parse-ref-target.js";
-import { isUuid, SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
+} from "../engine/ownership.ts";
+import { parseRefTargetEntityName } from "../engine/parse-ref-target.ts";
+import { isUuid, SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type {
   EntityDefinition,
   FieldDefinition,
   ReferenceFieldDef,
   SessionUser,
-} from "../engine/types/index.js";
+} from "../engine/types/index.ts";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   resolveEntityFieldEncryption,
-} from "./entity-field-encryption.js";
-import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.js";
-import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.js";
-import { executeRawQueryRead } from "./queries/raw-sql.js";
-import { buildEntityTable, physicalColumnName } from "./table-builder.js";
-import type { TenantDb } from "./tenant-db.js";
-import { tenantDbRunner } from "./tenant-db-runner.js";
+} from "./entity-field-encryption.ts";
+import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.ts";
+import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
+import { executeRawQueryRead } from "./queries/raw-sql.ts";
+import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
+import type { TenantDb } from "./tenant-db.ts";
+import { tenantDbRunner } from "./tenant-db-runner.ts";
 
 // Minimaler Registry-Lookup-Contract: pro entity-name → EntityDefinition.
 // Wir importieren NICHT den ganzen Registry-Type weil das einen

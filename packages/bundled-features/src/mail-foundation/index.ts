@@ -17,4 +17,4 @@ export {
   type MailTransportPlugin,
   type TenantMailTransportScope,
   tenantMailTransport,
-} from "./feature.js";
+} from "./feature.ts";

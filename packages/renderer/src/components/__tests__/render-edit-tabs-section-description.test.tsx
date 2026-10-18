@@ -5,10 +5,10 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
-import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
-import { type CardProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.js";
-import { RenderEdit } from "../render-edit.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { type CardProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

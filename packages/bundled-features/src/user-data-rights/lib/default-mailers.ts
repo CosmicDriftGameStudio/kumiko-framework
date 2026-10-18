@@ -28,20 +28,20 @@ import {
   DELIVERY_CHANNEL_EXTENSION,
   type DeliveryChannel,
   EMAIL_CHANNEL_NAME,
-} from "../../delivery/index.js";
+} from "../../delivery/index.ts";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
-} from "../../renderer-foundation/index.js";
+} from "../../renderer-foundation/index.ts";
 import {
   formatGdprMailTimestamp,
   type GdprMailLocale,
   normalizeGdprMailLocale,
-} from "../email-templates.js";
-import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write.js";
-import { GdprMailNotificationTypes, gdprMailTemplateLocale } from "../mail-notifications.js";
-import type { SendExportFailedEmailFn, SendExportReadyEmailFn } from "../run-export-jobs.js";
-import type { SendDeletionExecutedEmailFn } from "../run-forget-cleanup.js";
+} from "../email-templates.ts";
+import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write.ts";
+import { GdprMailNotificationTypes, gdprMailTemplateLocale } from "../mail-notifications.ts";
+import type { SendExportFailedEmailFn, SendExportReadyEmailFn } from "../run-export-jobs.ts";
+import type { SendDeletionExecutedEmailFn } from "../run-forget-cleanup.ts";
 
 export type GdprMailDefaults = {
   readonly locale?: GdprMailLocale;

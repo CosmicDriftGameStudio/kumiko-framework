@@ -1,10 +1,10 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
-import { resolveProfileForTenant } from "../compliance-profiles/index.js";
-import { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.js";
-import { PAYMENT_AGGREGATE_TYPE, SUBSCRIPTION_AGGREGATE_TYPE } from "./events.js";
-import { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.js";
+import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
+import { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.ts";
+import { PAYMENT_AGGREGATE_TYPE, SUBSCRIPTION_AGGREGATE_TYPE } from "./events.ts";
+import { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.ts";
 
 // providerCustomerId/providerSubscriptionId are `personal: "tenant"` on the
 // entity (envelope-encrypted with the tenant subject key, see entities.ts) —

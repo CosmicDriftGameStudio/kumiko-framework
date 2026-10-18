@@ -1,7 +1,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { notificationAddressOptOutsTable } from "../../tables.js";
+import { notificationAddressOptOutsTable } from "../../tables.ts";
 
 export type AddressOptOutKey = string;
 

@@ -17,9 +17,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
-import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
-import { ShellHeader } from "../layout/shell-header.js";
-import { defaultPrimitives } from "../primitives/index.js";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
+import { ShellHeader } from "../layout/shell-header.tsx";
+import { defaultPrimitives } from "../primitives/index.tsx";
 import {
   createMockDispatcher,
   render,
@@ -27,7 +27,7 @@ import {
   renderWithSidebar,
   screen,
   waitFor,
-} from "./test-utils.js";
+} from "./test-utils.tsx";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "rent-detail",

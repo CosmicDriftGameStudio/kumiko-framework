@@ -3,7 +3,7 @@
 // everything that would make the browser fetch something external is removed.
 
 import type { Element as ScanElement } from "happy-dom";
-import { withParsedDocument } from "./document-sanitizer.js";
+import { withParsedDocument } from "./document-sanitizer.ts";
 
 const REPEAT_HEADER_ATTRIBUTE = "data-repeat-header";
 const FETCHING_ELEMENTS =

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isPlainObject } from "../is-plain-object.js";
+import { isPlainObject } from "../is-plain-object.ts";
 
 describe("isPlainObject", () => {
   test("accepts plain objects", () => {

@@ -1,7 +1,7 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS } from "../constants.js";
-import { tagExecutor } from "../executor.js";
-import { type CreateTagPayload, createTagPayloadSchema } from "../schemas.js";
+import { DEFAULT_TAG_ACCESS } from "../constants.ts";
+import { tagExecutor } from "../executor.ts";
+import { type CreateTagPayload, createTagPayloadSchema } from "../schemas.ts";
 
 // create-tag — adds a tag to the tenant's catalog. The framework mints a fresh
 // UUIDv7 id (no explicit id passed). Tag names are not unique by design: the

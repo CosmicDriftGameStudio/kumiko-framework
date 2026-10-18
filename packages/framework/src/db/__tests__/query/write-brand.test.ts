@@ -6,11 +6,11 @@
 // so a regression breaks the build, not just this test.
 
 import { expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../../engine/index.js";
-import { defineUnmanagedTable } from "../../entity-table-meta.js";
-import { type AnyDb, deleteMany, insertOne, selectMany, updateMany } from "../../query.js";
-import { buildEntityTable } from "../../table-builder.js";
-import type { TenantDb } from "../../tenant-db.js";
+import { createEntity, createTextField } from "../../../engine/index.ts";
+import { defineUnmanagedTable } from "../../entity-table-meta.ts";
+import { type AnyDb, deleteMany, insertOne, selectMany, updateMany } from "../../query.ts";
+import { buildEntityTable } from "../../table-builder.ts";
+import type { TenantDb } from "../../tenant-db.ts";
 
 const brandedEntity = buildEntityTable(
   "brandSample",

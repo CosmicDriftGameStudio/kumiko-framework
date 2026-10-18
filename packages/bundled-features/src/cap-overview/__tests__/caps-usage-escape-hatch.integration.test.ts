@@ -16,24 +16,24 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createBillingFoundationFeature } from "../../billing-foundation/index.js";
+import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { seedTenant } from "../../tenant/seeding.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenant } from "../../tenant/seeding.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   createTierEngineFeature,
   TierEngineHandlers,
   tierAssignmentEntity,
-} from "../../tier-engine/index.js";
-import { CapOverviewQueries, capFieldName } from "../constants.js";
-import { createCapOverviewFeature } from "../feature.js";
-import type { CapSpec } from "../types.js";
+} from "../../tier-engine/index.ts";
+import { CapOverviewQueries, capFieldName } from "../constants.ts";
+import { createCapOverviewFeature } from "../feature.ts";
+import type { CapSpec } from "../types.ts";
 
 const TENANT_A = testTenantId(9101);
 const TENANT_B = testTenantId(9102);

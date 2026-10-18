@@ -8,7 +8,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
 const AVAILABILITY_QUERY = "demo:query:role-availability";
 

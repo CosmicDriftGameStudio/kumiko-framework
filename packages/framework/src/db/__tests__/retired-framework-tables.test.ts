@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EntityTableMeta } from "../entity-table-meta.js";
-import { generateMigration, snapshotFromMetas } from "../migrate-generator.js";
-import { replayMigrationsDir } from "../replay-migration-sql.js";
-import { findCommentedDropTables, findRetiredTableDrops } from "../retired-framework-tables.js";
+import type { EntityTableMeta } from "../entity-table-meta.ts";
+import { generateMigration, snapshotFromMetas } from "../migrate-generator.ts";
+import { replayMigrationsDir } from "../replay-migration-sql.ts";
+import { findCommentedDropTables, findRetiredTableDrops } from "../retired-framework-tables.ts";
 
 const CREATE_RETIRED = `CREATE TABLE IF NOT EXISTS "read_job_runs" ("id" uuid PRIMARY KEY);`;
 const COMMENTED_RETIRED_DROP = `-- DESTRUCTIVE: DROP TABLE IF EXISTS "read_job_runs";  -- uncomment + ensure backup`;

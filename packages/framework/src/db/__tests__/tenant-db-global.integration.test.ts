@@ -10,12 +10,12 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AccessDeniedError } from "../../errors/index.js";
-import { testTenantId } from "../../seeding/seed-users.js";
-import type { TableColumns } from "../dialect.js";
-import { defineUnmanagedTable } from "../entity-table-meta.js";
-import { insertOne } from "../query.js";
-import { createTenantDb, withUnsafeRawGrant } from "../tenant-db.js";
+import { AccessDeniedError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
+import type { TableColumns } from "../dialect.ts";
+import { defineUnmanagedTable } from "../entity-table-meta.ts";
+import { insertOne } from "../query.ts";
+import { createTenantDb, withUnsafeRawGrant } from "../tenant-db.ts";
 
 const globalItemsTable = defineUnmanagedTable({
   tableName: "store_fw2858_global_items_it",

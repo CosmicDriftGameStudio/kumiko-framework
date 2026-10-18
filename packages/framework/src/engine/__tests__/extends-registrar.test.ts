@@ -1,20 +1,20 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { AccessDeniedError } from "../../errors/index.js";
+import { AccessDeniedError } from "../../errors/index.ts";
 import {
   createGatedIdentitySwitch,
   type QueryAsFn,
-} from "../../pipeline/system-identity-switch.js";
+} from "../../pipeline/system-identity-switch.ts";
 import {
   createEntity,
   createRegistry,
   createSystemUser,
   createTextField,
   defineFeature,
-} from "../index.js";
-import type { TenantId } from "../types/identifiers.js";
-import type { AppContext, SaveContext } from "../types/index.js";
+} from "../index.ts";
+import type { TenantId } from "../types/identifiers.ts";
+import type { AppContext, SaveContext } from "../types/index.ts";
 
 const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;
 const dummySaveContext: SaveContext = {

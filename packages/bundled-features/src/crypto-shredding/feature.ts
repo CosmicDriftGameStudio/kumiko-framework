@@ -1,12 +1,12 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { CRYPTO_SHREDDING_FEATURE_NAME } from "./constants.js";
-import { kmsEnvSchema } from "./env/index.js";
+import { CRYPTO_SHREDDING_FEATURE_NAME } from "./constants.ts";
+import { kmsEnvSchema } from "./env/index.ts";
 import {
   forgetSubjectWrite,
   subjectForgetDeniedSchema,
   subjectForgottenSchema,
-} from "./handlers/forget-subject.write.js";
+} from "./handlers/forget-subject.write.ts";
 
 export function createCryptoShreddingFeature() {
   const feature = defineFeature(

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { BROWSER_LOCALE_STORAGE_KEY, createBrowserLocaleResolver } from "../browser-locale.js";
+import { BROWSER_LOCALE_STORAGE_KEY, createBrowserLocaleResolver } from "../browser-locale.ts";
 
 const SUPPORTED = ["de", "en"] as const;
 

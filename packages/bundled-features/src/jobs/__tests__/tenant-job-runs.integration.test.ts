@@ -33,14 +33,14 @@ import {
 import { UnrecoverableError } from "bullmq";
 import type { Hono } from "hono";
 import * as z from "zod";
-import { JobQueries } from "../constants.js";
-import { deleteStaleJobRuns } from "../db/queries/retention.js";
-import { markStaleJobRunsFailed } from "../db/queries/stale-run-sweep.js";
-import { createJobsFeature } from "../feature.js";
-import { createJobRunLogger } from "../job-run-logger.js";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
-import { tenantJobFailuresTable } from "../tenant-job-failure-table.js";
-import { tenantJobRunsTable } from "../tenant-job-run-table.js";
+import { JobQueries } from "../constants.ts";
+import { deleteStaleJobRuns } from "../db/queries/retention.ts";
+import { markStaleJobRunsFailed } from "../db/queries/stale-run-sweep.ts";
+import { createJobsFeature } from "../feature.ts";
+import { createJobRunLogger } from "../job-run-logger.ts";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
+import { tenantJobFailuresTable } from "../tenant-job-failure-table.ts";
+import { tenantJobRunsTable } from "../tenant-job-run-table.ts";
 
 const JWT_SECRET = "tenant-job-runs-integration-secret-key-0123456789";
 const PROVIDER_MESSAGE = "openai 429: prompt 'Herr Schmidt, Kennzeichen B-XY-123' rejected";

@@ -1,8 +1,8 @@
 // Checks _helpers.ts against the real test DB; the other query tests build on it.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { deleteMany, fetchOne, insertOne, selectMany } from "../../query.js";
-import { closeDb, withTable } from "./_helpers.js";
+import { deleteMany, fetchOne, insertOne, selectMany } from "../../query.ts";
+import { closeDb, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
   await closeDb();

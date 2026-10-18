@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signMfaChallengeToken, verifyMfaChallengeToken } from "../mfa-challenge-token.js";
+import { signMfaChallengeToken, verifyMfaChallengeToken } from "../mfa-challenge-token.ts";
 import {
   signMfaPreauthSetupToken,
   verifyMfaPreauthSetupToken,
-} from "../mfa-preauth-setup-token.js";
+} from "../mfa-preauth-setup-token.ts";
 
 const SECRET = "test-mfa-preauth-setup-secret-at-least-32-bytes!!";
 const USER_ID = "11111111-1111-4111-8111-111111111111";

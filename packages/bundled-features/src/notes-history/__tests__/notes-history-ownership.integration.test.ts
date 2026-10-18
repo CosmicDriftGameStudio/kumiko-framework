@@ -33,9 +33,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.js";
-import { createNoteEntryEntity, noteEntryEntity, noteMentionEntity } from "../entity.js";
-import { createNotesHistoryFeature } from "../feature.js";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.ts";
+import { createNoteEntryEntity, noteEntryEntity, noteMentionEntity } from "../entity.ts";
+import { createNotesHistoryFeature } from "../feature.ts";
 
 // Minimal fixture standing in for a real host projection: which team a host
 // entity (identified by entityId) belongs to. A real feature would source

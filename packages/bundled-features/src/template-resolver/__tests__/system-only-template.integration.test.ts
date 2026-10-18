@@ -6,10 +6,10 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createTemplateResolverFeature } from "../feature.js";
-import type { OverviewResponse } from "../index.js";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import type { OverviewResponse } from "../index.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
 
 const SYSTEM_ONLY_SLUG = "account-so:notify:deletion-verification";
 const EDITABLE_SLUG = "account-so:notify:welcome";

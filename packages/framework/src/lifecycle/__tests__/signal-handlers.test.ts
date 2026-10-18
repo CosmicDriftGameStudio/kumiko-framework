@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createLifecycle } from "../lifecycle.js";
-import { attachSignalHandlers } from "../signal-handlers.js";
-import { createTestLifecycle } from "./create-test-lifecycle.js";
+import { createLifecycle } from "../lifecycle.ts";
+import { attachSignalHandlers } from "../signal-handlers.ts";
+import { createTestLifecycle } from "./create-test-lifecycle.ts";
 
 describe("attachSignalHandlers", () => {
   test("SIGTERM triggers drain and calls exit(0)", async () => {

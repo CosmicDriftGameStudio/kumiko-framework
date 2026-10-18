@@ -8,7 +8,7 @@ import {
   createNumberField,
   createTextField,
   createTimestampField,
-} from "../factories.js";
+} from "../factories.ts";
 
 describe("createTextField — personal/find resolution", () => {
   // kumiko-framework#2921 — a text field can no longer be constructed

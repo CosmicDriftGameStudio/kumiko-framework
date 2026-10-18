@@ -3,16 +3,16 @@
 // HTTP stub stands in for Slack.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createChannelSlackFeature } from "../../channel-slack/feature.js";
-import { DeliveryJobs } from "../constants.js";
-import { collectChannels, createDeliveryService } from "../delivery-service.js";
+import { createChannelSlackFeature } from "../../channel-slack/feature.ts";
+import { DeliveryJobs } from "../constants.ts";
+import { collectChannels, createDeliveryService } from "../delivery-service.ts";
 import {
   type ChatHarness,
   type ProviderStub,
   setupChatHarness,
   startProviderStub,
   tenantAdmin,
-} from "./chat-channel-harness.js";
+} from "./chat-channel-harness.ts";
 
 const SLACK_SECRET_KEY = "channel-slack:webhooks.ops";
 const WEBHOOK_PATH = "/hooks/ops";

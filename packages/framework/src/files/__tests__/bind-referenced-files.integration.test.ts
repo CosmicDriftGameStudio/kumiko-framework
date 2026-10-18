@@ -15,8 +15,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createEventStoreExecutor, createTenantDb } from "../../db/index.js";
-import { asRawClient, selectMany } from "../../db/query.js";
+import { createEventStoreExecutor, createTenantDb } from "../../db/index.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
 import {
   createEntity,
   createFileField,
@@ -24,14 +24,14 @@ import {
   defineEntityCreateHandler,
   defineEntityDetailHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { createSystemUser } from "../../engine/system-user.js";
-import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
-import { getFileRefExecutor } from "../create-file-ref.js";
-import { createFilesFeature } from "../feature.js";
-import { fileRefsTable } from "../file-ref-table.js";
-import { createLocalProvider } from "../local-provider.js";
-import { findImplicitEntityTable } from "../record-write-check.js";
+} from "../../engine/index.ts";
+import { createSystemUser } from "../../engine/system-user.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { getFileRefExecutor } from "../create-file-ref.ts";
+import { createFilesFeature } from "../feature.ts";
+import { fileRefsTable } from "../file-ref-table.ts";
+import { createLocalProvider } from "../local-provider.ts";
+import { findImplicitEntityTable } from "../record-write-check.ts";
 
 const dossierEntity = createEntity({
   table: "bind_ref_dossiers",

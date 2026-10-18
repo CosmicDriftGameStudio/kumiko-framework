@@ -6,14 +6,14 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import type { ContentFormat, UpsertKind } from "../constants.js";
-import type { TemplateWriteScope } from "../layout-regions.js";
-import { imageResourceKeysOf } from "../linked-resources.js";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { isSystemAdmin } from "../template-draft.js";
-import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-validation.js";
-import { contentFormatSchema, kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
-import { evaluateTemplateWrite } from "./template-gates.js";
+import type { ContentFormat, UpsertKind } from "../constants.ts";
+import type { TemplateWriteScope } from "../layout-regions.ts";
+import { imageResourceKeysOf } from "../linked-resources.ts";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { isSystemAdmin } from "../template-draft.ts";
+import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-validation.ts";
+import { contentFormatSchema, kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
+import { evaluateTemplateWrite } from "./template-gates.ts";
 
 async function knownResourceKeys(
   db: Parameters<typeof selectMany>[0],

@@ -7,8 +7,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createTestUser } from "../../seeding/seed-users.js";
-import { LOCALE_HEADER_NAME } from "../api-constants.js";
+import { createTestUser } from "../../seeding/seed-users.ts";
+import { LOCALE_HEADER_NAME } from "../api-constants.ts";
 
 const localeProbe = defineFeature("locale-probe", (r) => {
   r.writeHandler({

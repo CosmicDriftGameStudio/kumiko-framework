@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { renderTemplatePreview } from "../template-preview.js";
-import { localeSchema, templateSlugSchema } from "./shared.js";
+import { renderTemplatePreview } from "../template-preview.ts";
+import { localeSchema, templateSlugSchema } from "./shared.ts";
 
 export const previewQuery = defineQueryHandler({
   name: "preview",

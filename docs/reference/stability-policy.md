@@ -73,9 +73,7 @@ do not fail it, so review the list after every upgrade.
 
 ## Release window
 
-- The Version PR (the one `changesets/action` opens) is merged on Thursdays, and
-  only by the framework owner. Nothing else merges it.
-- A hotfix release outside that window needs a written reason in the PR.
+- The Version PR is merged by the framework owner session once the work package is green; there is no fixed release day.
 - A `breaking` entry needs a non-empty `migration` text, and `codemod` where one
   can be automated. Without a codemod it lands in the consumer's `pendingManual`
   list, see above. `scripts/guard-changes-json.ts` enforces `migration`;

@@ -5,8 +5,8 @@ import type {
   QueryHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { hasAccess, normalizeAccessEntry } from "@cosmicdrift/kumiko-framework/engine";
-import { FILTER_OPS, isRecord } from "./filter-ops.js";
-import { assertCatalogMirrorsManifestDenyQns } from "./manifest-deny-qns.js";
+import { FILTER_OPS, isRecord } from "./filter-ops.ts";
+import { assertCatalogMirrorsManifestDenyQns } from "./manifest-deny-qns.ts";
 import type {
   AgentManifest,
   AgentManifestEntity,
@@ -18,7 +18,7 @@ import type {
   ToolCatalogOptions,
   ToolDefinition,
   ToolDispatchDescriptor,
-} from "./types.js";
+} from "./types.ts";
 
 const MAX_TOOL_NAME_LENGTH = 64;
 

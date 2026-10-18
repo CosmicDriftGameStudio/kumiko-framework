@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatRelativeWhen } from "../relative-time.js";
+import { formatRelativeWhen } from "../relative-time.ts";
 
 const NOW = Date.parse("2026-10-16T12:00:00Z");
 

@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { describeFileProviderContract } from "@cosmicdrift/kumiko-testing/helpers";
-import { createS3ProviderFromEnv } from "../env-helper.js";
-import { createS3Provider } from "../s3-provider.js";
+import { createS3ProviderFromEnv } from "../env-helper.ts";
+import { createS3Provider } from "../s3-provider.ts";
 
 // These tests run against the Minio container from docker-compose
 // (kumiko dev starts it alongside postgres/redis/meili). If Minio isn't up

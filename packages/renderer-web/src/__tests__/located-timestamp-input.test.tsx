@@ -8,9 +8,9 @@ import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import * as z from "zod";
-import { defaultPrimitives } from "../primitives/index.js";
-import type { LocatedTimestampValue } from "../primitives/located-timestamp-input.js";
-import { render } from "./test-utils.js";
+import { defaultPrimitives } from "../primitives/index.tsx";
+import type { LocatedTimestampValue } from "../primitives/located-timestamp-input.tsx";
+import { render } from "./test-utils.tsx";
 
 const atSchema = z.iso.datetime({ local: true });
 

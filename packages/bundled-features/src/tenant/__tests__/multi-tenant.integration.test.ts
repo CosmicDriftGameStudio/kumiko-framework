@@ -25,15 +25,15 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
-import { createConfigFeature } from "../../config/feature.js";
-import { createConfigResolver } from "../../config/resolver.js";
-import { configValuesTable } from "../../config/table.js";
-import { createUserFeature } from "../../user/feature.js";
-import { userEntity } from "../../user/schema/user.js";
-import { TenantHandlers, TenantQueries } from "../constants.js";
-import { createTenantFeature } from "../feature.js";
-import { tenantMembershipsTable } from "../membership-table.js";
-import { tenantEntity } from "../schema/tenant.js";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createConfigResolver } from "../../config/resolver.ts";
+import { configValuesTable } from "../../config/table.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { TenantHandlers, TenantQueries } from "../constants.ts";
+import { createTenantFeature } from "../feature.ts";
+import { tenantMembershipsTable } from "../membership-table.ts";
+import { tenantEntity } from "../schema/tenant.ts";
 
 // --- Track job executions ---
 

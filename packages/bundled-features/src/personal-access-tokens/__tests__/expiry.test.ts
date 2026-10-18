@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isExpiredAt } from "../expiry.js";
+import { isExpiredAt } from "../expiry.ts";
 
 describe("isExpiredAt", () => {
   it("null never expires", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { AccessDeniedError, FrameworkReasons } from "../errors/index.js";
-import { mayOverrideTenant, tenantOverrideDenied } from "./cross-tenant.js";
-import type { SessionUser } from "./types/index.js";
+import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
+import { mayOverrideTenant, tenantOverrideDenied } from "./cross-tenant.ts";
+import type { SessionUser } from "./types/index.ts";
 
 function user(roles: string[]): SessionUser {
   return { id: "u", tenantId: "t1" as SessionUser["tenantId"], roles };

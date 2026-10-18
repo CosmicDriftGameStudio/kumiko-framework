@@ -1,9 +1,9 @@
 import { defineWriteHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { USER_STATUS, userTable } from "../../user/index.js";
-import { redeemDeletionToken } from "../deletion-token.js";
-import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.js";
+import { USER_STATUS, userTable } from "../../user/index.ts";
+import { redeemDeletionToken } from "../deletion-token.ts";
+import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.ts";
 
 export type ConfirmDeletionByTokenOptions = {
   readonly deletionTokenSecret?: string;

@@ -16,18 +16,18 @@
 //
 // **Boot-Dependencies:** tenant, tier-engine, billing-foundation.
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveCapUsageRoles } from "./access.js";
-import { CAP_OVERVIEW_FEATURE } from "./constants.js";
-import { createCapsUsageQuery } from "./handlers/caps-usage.query.js";
-import { createTenantCapsListQuery } from "./handlers/tenant-caps-list.query.js";
-import { tenantOptionsQuery } from "./handlers/tenant-options.query.js";
-import { CAP_OVERVIEW_I18N } from "./i18n.js";
+import { resolveCapUsageRoles } from "./access.ts";
+import { CAP_OVERVIEW_FEATURE } from "./constants.ts";
+import { createCapsUsageQuery } from "./handlers/caps-usage.query.ts";
+import { createTenantCapsListQuery } from "./handlers/tenant-caps-list.query.ts";
+import { tenantOptionsQuery } from "./handlers/tenant-options.query.ts";
+import { CAP_OVERVIEW_I18N } from "./i18n.ts";
 import {
   createMyCapsScreen,
   createTenantCapListScreen,
   platformTenantCapsScreen,
-} from "./screens.js";
-import type { CapSpec } from "./types.js";
+} from "./screens.ts";
+import type { CapSpec } from "./types.ts";
 
 export type CreateCapOverviewOptions = {
   readonly caps: readonly CapSpec[];

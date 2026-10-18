@@ -1,8 +1,8 @@
 import type { DispatcherError, Translate } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
-import { useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
-import { dispatcherErrorText } from "./write-failed-error.js";
+import { useTranslation } from "../i18n.tsx";
+import { usePrimitives } from "../primitives.tsx";
+import { dispatcherErrorText } from "./write-failed-error.ts";
 
 export function QueryLoadingBanner(): ReactNode {
   const { Banner } = usePrimitives();

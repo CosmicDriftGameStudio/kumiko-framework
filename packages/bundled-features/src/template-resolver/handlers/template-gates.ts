@@ -6,17 +6,17 @@ import {
   type ContentFormat,
   TEMPLATE_KINDS,
   type TemplateKind,
-} from "../constants.js";
-import { documentViolationsToFieldIssues } from "../document-sanitizer.js";
-import { sanitizeTemplateWriteBody, type TemplateWriteScope } from "../layout-regions.js";
-import { imageResourceKeysOf } from "../linked-resources.js";
-import type { TemplateResourceRow } from "../table.js";
-import { parseTemplateMeta, type TemplateMetaIssue } from "../template-meta.js";
+} from "../constants.ts";
+import { documentViolationsToFieldIssues } from "../document-sanitizer.ts";
+import { sanitizeTemplateWriteBody, type TemplateWriteScope } from "../layout-regions.ts";
+import { imageResourceKeysOf } from "../linked-resources.ts";
+import type { TemplateResourceRow } from "../table.ts";
+import { parseTemplateMeta, type TemplateMetaIssue } from "../template-meta.ts";
 import {
   resolveTemplateVariables,
   type TemplateValidation,
   validateTemplatePlaceholders,
-} from "../template-validation.js";
+} from "../template-validation.ts";
 
 const PLACEHOLDER_VALIDATED_KINDS: ReadonlySet<TemplateKind> = new Set([
   "mail",

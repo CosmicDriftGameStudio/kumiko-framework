@@ -7,4 +7,4 @@ export {
   type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
-} from "./boot-validator/index.js";
+} from "./boot-validator/index.ts";

@@ -7,8 +7,8 @@
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { StatusBadge, type StatusTone } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { translateOrRaw } from "../../shared/web/translate-or-raw.js";
-import { DeliveryStatus } from "../public-names.js";
+import { translateOrRaw } from "../../shared/web/translate-or-raw.ts";
+import { DeliveryStatus } from "../public-names.ts";
 
 const STATUS_TONE: Readonly<Record<string, StatusTone>> = {
   [DeliveryStatus.sent]: "ok",

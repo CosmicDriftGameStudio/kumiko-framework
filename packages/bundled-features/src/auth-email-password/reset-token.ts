@@ -4,7 +4,7 @@
 // this pattern with purpose="verify".
 
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signToken, TokenPurpose, verifyToken } from "./signed-token.js";
+import { signToken, TokenPurpose, verifyToken } from "./signed-token.ts";
 
 export type VerifyResult =
   | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }

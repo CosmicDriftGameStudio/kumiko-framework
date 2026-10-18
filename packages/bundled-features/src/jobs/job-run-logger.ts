@@ -29,12 +29,12 @@ import type {
 } from "@cosmicdrift/kumiko-framework/jobs";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { mapWithConcurrency } from "../shared/index.js";
-import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events.js";
-import { parseJobInstant } from "./job-instant.js";
-import { jobRunLogsTable, jobRunsTable } from "./job-run-table.js";
-import { tenantJobFailuresTable } from "./tenant-job-failure-table.js";
-import { tenantJobRunsTable } from "./tenant-job-run-table.js";
+import { mapWithConcurrency } from "../shared/index.ts";
+import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events.ts";
+import { parseJobInstant } from "./job-instant.ts";
+import { jobRunLogsTable, jobRunsTable } from "./job-run-table.ts";
+import { tenantJobFailuresTable } from "./tenant-job-failure-table.ts";
+import { tenantJobRunsTable } from "./tenant-job-run-table.ts";
 
 // Matches PgKmsAdapter's default pool size (see tenant/handlers/*.query.ts) —
 // bounds concurrent getOrCreateDek calls so a large log batch doesn't claim

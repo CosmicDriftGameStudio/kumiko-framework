@@ -31,13 +31,13 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
-import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
-import { createUserFeature } from "../../user/index.js";
-import { createUserDataRightsFeature } from "../feature.js";
-import { runUserExport } from "../run-user-export.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { createUserFeature } from "../../user/index.ts";
+import { createUserDataRightsFeature } from "../feature.ts";
+import { runUserExport } from "../run-user-export.ts";
 
 const TENANT = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "cccccccc-cccc-4ccc-8ccc-000000000001";

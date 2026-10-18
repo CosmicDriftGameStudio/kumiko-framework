@@ -6,8 +6,8 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import * as z from "zod";
-import { type MailSpec, mailSpecSchema } from "./mail-runner.js";
-import { type WebhookSpec, webhookSpecSchema } from "./webhook-runner.js";
+import { type MailSpec, mailSpecSchema } from "./mail-runner.ts";
+import { type WebhookSpec, webhookSpecSchema } from "./webhook-runner.ts";
 
 // PII fields of the flat payload are ciphertext under the per-dispatch
 // record key (system-event-pii.ts). `to`/`headersJson`/`bodyJson` are JSON

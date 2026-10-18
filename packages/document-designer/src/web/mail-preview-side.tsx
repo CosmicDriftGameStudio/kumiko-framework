@@ -1,12 +1,12 @@
 // @runtime client
 import { useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { displayValue } from "./mail-draft.js";
-import type { MailPreview, MailValidation, PreviewCheck } from "./mail-types.js";
-import { usePreviewRecordPicker } from "./preview-record-picker.js";
-import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
-import type { OwnAddress } from "./use-own-address.js";
-import { variableLabelText } from "./used-by-label.js";
+import { displayValue } from "./mail-draft.ts";
+import type { MailPreview, MailValidation, PreviewCheck } from "./mail-types.ts";
+import { usePreviewRecordPicker } from "./preview-record-picker.tsx";
+import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
+import type { OwnAddress } from "./use-own-address.ts";
+import { variableLabelText } from "./used-by-label.ts";
 
 const noop = (): void => undefined;
 

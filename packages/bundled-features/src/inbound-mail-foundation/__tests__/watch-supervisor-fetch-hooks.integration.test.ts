@@ -21,11 +21,11 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles/index.js";
-import { createConfigFeature } from "../../config/index.js";
-import { createTenantFeature } from "../../tenant/feature.js";
-import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   createInboundMailFoundationFeature,
   createInboundMailSupervisor,
@@ -36,7 +36,7 @@ import {
   type RawInboundMessage,
   seenMessageEntity,
   syncCursorEntity,
-} from "../index.js";
+} from "../index.ts";
 
 const PROBE_PROVIDER_KEY = "probe";
 

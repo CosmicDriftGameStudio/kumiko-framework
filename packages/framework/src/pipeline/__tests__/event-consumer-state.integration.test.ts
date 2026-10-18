@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
-import { createEventConsumerStateTable } from "../event-consumer-state.js";
+import { createEventConsumerStateTable } from "../event-consumer-state.ts";
 
 // #1362: two dispatcher instances booting concurrently against the same DB
 // both see kumiko_event_consumers already present but rearm_count missing,

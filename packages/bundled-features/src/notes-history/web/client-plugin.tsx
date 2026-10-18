@@ -1,9 +1,9 @@
 // @runtime client
 
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { NOTES_HISTORY_FEATURE_NAME, NOTES_SECTION_EXTENSION_NAME } from "../constants.js";
-import { defaultTranslations } from "./i18n.js";
-import { NotesSection } from "./notes-section.js";
+import { NOTES_HISTORY_FEATURE_NAME, NOTES_SECTION_EXTENSION_NAME } from "../constants.ts";
+import { defaultTranslations } from "./i18n.ts";
+import { NotesSection } from "./notes-section.tsx";
 
 export function notesHistoryClient(): ClientFeatureDefinition {
   return {

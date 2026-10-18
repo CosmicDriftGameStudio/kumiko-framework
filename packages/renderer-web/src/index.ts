@@ -99,75 +99,75 @@ export {
   BROWSER_LOCALE_STORAGE_KEY,
   type CreateBrowserLocaleResolverOptions,
   createBrowserLocaleResolver,
-} from "./app/browser-locale.js";
-export type { ClientFeatureDefinition } from "./app/client-plugin.js";
-export type { CreateKumikoAppOptions } from "./app/create-app.js";
-export { createKumikoApp } from "./app/create-app.js";
-export type { CreatePublicSurfaceOptions, PublicRoute } from "./app/create-public-surface.js";
-export { createPublicSurface } from "./app/create-public-surface.js";
-export type { CreateBrowserDraftStorageOptions } from "./app/draft-storage.js";
-export { createBrowserDraftStorage } from "./app/draft-storage.js";
-export type { KumikoLinkProps } from "./app/nav.js";
-export { KumikoLink, useBrowserNavApi } from "./app/nav.js";
-export { PlainContentEditor } from "./app/plain-content-editor.js";
-export { useResolvers } from "./app/resolvers-context.js";
-export { RichContentEditor } from "./app/rich-content-editor.js";
-export type { NavIconKey } from "./icons.js";
-export { Icon } from "./icons.js";
-export type { AppLayoutProps } from "./layout/app-layout.js";
-export { AppLayout } from "./layout/app-layout.js";
-export type { AvatarProps, AvatarSize } from "./layout/avatar.js";
-export { Avatar } from "./layout/avatar.js";
-export type { DefaultAppShellProps } from "./layout/default-app-shell.js";
-export { DefaultAppShell } from "./layout/default-app-shell.js";
-export type { EditorPanelProps, ResolverComponent } from "./layout/editor-panel.js";
-export { EditorPanel } from "./layout/editor-panel.js";
-export type { NavReparentOverride } from "./layout/filter-app-schema-navs.js";
+} from "./app/browser-locale.ts";
+export type { ClientFeatureDefinition } from "./app/client-plugin.tsx";
+export type { CreateKumikoAppOptions } from "./app/create-app.tsx";
+export { createKumikoApp } from "./app/create-app.tsx";
+export type { CreatePublicSurfaceOptions, PublicRoute } from "./app/create-public-surface.tsx";
+export { createPublicSurface } from "./app/create-public-surface.tsx";
+export type { CreateBrowserDraftStorageOptions } from "./app/draft-storage.ts";
+export { createBrowserDraftStorage } from "./app/draft-storage.ts";
+export type { KumikoLinkProps } from "./app/nav.tsx";
+export { KumikoLink, useBrowserNavApi } from "./app/nav.tsx";
+export { PlainContentEditor } from "./app/plain-content-editor.tsx";
+export { useResolvers } from "./app/resolvers-context.tsx";
+export { RichContentEditor } from "./app/rich-content-editor.tsx";
+export type { NavIconKey } from "./icons.tsx";
+export { Icon } from "./icons.tsx";
+export type { AppLayoutProps } from "./layout/app-layout.tsx";
+export { AppLayout } from "./layout/app-layout.tsx";
+export type { AvatarProps, AvatarSize } from "./layout/avatar.tsx";
+export { Avatar } from "./layout/avatar.tsx";
+export type { DefaultAppShellProps } from "./layout/default-app-shell.tsx";
+export { DefaultAppShell } from "./layout/default-app-shell.tsx";
+export type { EditorPanelProps, ResolverComponent } from "./layout/editor-panel.tsx";
+export { EditorPanel } from "./layout/editor-panel.tsx";
+export type { NavReparentOverride } from "./layout/filter-app-schema-navs.ts";
 export {
   filterAppSchemaNavsByAllowlist,
   reparentAppSchemaNavs,
-} from "./layout/filter-app-schema-navs.js";
-export type { HeaderActionGroupProps } from "./layout/header-action-group.js";
-export { HeaderActionGroup } from "./layout/header-action-group.js";
-export type { LanguageMenuItemsProps } from "./layout/language-menu-items.js";
-export { LanguageMenuItems } from "./layout/language-menu-items.js";
-export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher.js";
-export { LanguageSwitcher } from "./layout/language-switcher.js";
-export type { NavTreeProps } from "./layout/nav-tree.js";
-export { buildNavRegistrySlice, buildNavRegistrySliceForApp, NavTree } from "./layout/nav-tree.js";
-export type { ProfileMenuItem, ProfileMenuProps } from "./layout/profile-menu.js";
-export { ProfileMenu } from "./layout/profile-menu.js";
-export type { SidebarProps } from "./layout/sidebar.js";
-export { Sidebar } from "./layout/sidebar.js";
-export type { SidebarBrandProps } from "./layout/sidebar-brand.js";
-export { SidebarBrand } from "./layout/sidebar-brand.js";
-export { SidebarPanel } from "./layout/sidebar-panel.js";
-export type { SidebarUserProps } from "./layout/sidebar-user.js";
-export { SidebarUser } from "./layout/sidebar-user.js";
-export { parseTargetFromSearchParams } from "./layout/target-url.js";
-export type { ThemeMenuItemProps } from "./layout/theme-menu-item.js";
-export { ThemeMenuItem } from "./layout/theme-menu-item.js";
-export type { ThemeToggleProps } from "./layout/theme-toggle.js";
-export { ThemeToggle } from "./layout/theme-toggle.js";
-export type { TopbarProps } from "./layout/topbar.js";
-export { Topbar } from "./layout/topbar.js";
-export type { WorkspaceShellProps, WorkspaceShellUser } from "./layout/workspace-shell.js";
-export { filterByAccess, resolveDefaultId, WorkspaceShell } from "./layout/workspace-shell.js";
-export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher.js";
-export { WorkspaceSwitcher } from "./layout/workspace-switcher.js";
-export { cn } from "./lib/cn.js";
-export { postWithDownload } from "./lib/download.js";
+} from "./layout/filter-app-schema-navs.ts";
+export type { HeaderActionGroupProps } from "./layout/header-action-group.tsx";
+export { HeaderActionGroup } from "./layout/header-action-group.tsx";
+export type { LanguageMenuItemsProps } from "./layout/language-menu-items.tsx";
+export { LanguageMenuItems } from "./layout/language-menu-items.tsx";
+export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher.tsx";
+export { LanguageSwitcher } from "./layout/language-switcher.tsx";
+export type { NavTreeProps } from "./layout/nav-tree.tsx";
+export { buildNavRegistrySlice, buildNavRegistrySliceForApp, NavTree } from "./layout/nav-tree.tsx";
+export type { ProfileMenuItem, ProfileMenuProps } from "./layout/profile-menu.tsx";
+export { ProfileMenu } from "./layout/profile-menu.tsx";
+export type { SidebarProps } from "./layout/sidebar.tsx";
+export { Sidebar } from "./layout/sidebar.tsx";
+export type { SidebarBrandProps } from "./layout/sidebar-brand.tsx";
+export { SidebarBrand } from "./layout/sidebar-brand.tsx";
+export { SidebarPanel } from "./layout/sidebar-panel.tsx";
+export type { SidebarUserProps } from "./layout/sidebar-user.tsx";
+export { SidebarUser } from "./layout/sidebar-user.tsx";
+export { parseTargetFromSearchParams } from "./layout/target-url.ts";
+export type { ThemeMenuItemProps } from "./layout/theme-menu-item.tsx";
+export { ThemeMenuItem } from "./layout/theme-menu-item.tsx";
+export type { ThemeToggleProps } from "./layout/theme-toggle.tsx";
+export { ThemeToggle } from "./layout/theme-toggle.tsx";
+export type { TopbarProps } from "./layout/topbar.tsx";
+export { Topbar } from "./layout/topbar.tsx";
+export type { WorkspaceShellProps, WorkspaceShellUser } from "./layout/workspace-shell.tsx";
+export { filterByAccess, resolveDefaultId, WorkspaceShell } from "./layout/workspace-shell.tsx";
+export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher.tsx";
+export { WorkspaceSwitcher } from "./layout/workspace-switcher.tsx";
+export { cn } from "./lib/cn.ts";
+export { postWithDownload } from "./lib/download.ts";
 export {
   downloadFileRef,
   FileDownloadFailedError,
   fetchFileRefBlob,
   fileNameFromContentDisposition,
   saveBlobAsFile,
-} from "./lib/file-ref-download.js";
-export { buildFileUploadFormData } from "./lib/file-upload-form-data.js";
-export { type FileRefTarget, FileUploadFailedError, uploadFileRef } from "./lib/upload-file-ref.js";
-export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu.js";
-export { ActionMenu } from "./primitives/action-menu.js";
+} from "./lib/file-ref-download.ts";
+export { buildFileUploadFormData } from "./lib/file-upload-form-data.ts";
+export { type FileRefTarget, FileUploadFailedError, uploadFileRef } from "./lib/upload-file-ref.ts";
+export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu.tsx";
+export { ActionMenu } from "./primitives/action-menu.tsx";
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -177,31 +177,31 @@ export {
   DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./primitives/dropdown-menu.js";
+} from "./primitives/dropdown-menu.tsx";
 export {
   BareFormProvider,
   DefaultCard as Card,
   defaultPrimitives,
   FormScreenShell,
   ScreenWidthProvider,
-} from "./primitives/index.js";
-export { PageSection, Stack } from "./primitives/layout.js";
-export { formatMoney } from "./primitives/money-input.js";
-export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast.js";
-export { ToastProvider, useToast } from "./primitives/toast.js";
-export { useIsNarrowViewport } from "./primitives/use-narrow-viewport.js";
-export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events.js";
-export { createEventSourceLiveEvents } from "./sse/live-events.js";
+} from "./primitives/index.tsx";
+export { PageSection, Stack } from "./primitives/layout.tsx";
+export { formatMoney } from "./primitives/money-input.tsx";
+export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast.tsx";
+export { ToastProvider, useToast } from "./primitives/toast.tsx";
+export { useIsNarrowViewport } from "./primitives/use-narrow-viewport.ts";
+export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events.ts";
+export { createEventSourceLiveEvents } from "./sse/live-events.ts";
 export {
   applyTokensToCssVars,
   defaultTokens,
   lightTokens,
   useBrowserTokensApi,
-} from "./tokens.js";
-export { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable.js";
-export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar.js";
-export type { KumikoBuild } from "./version/update-checker.js";
-export { readLoadedBuild } from "./version/update-checker.js";
+} from "./tokens.ts";
+export { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable.tsx";
+export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar.tsx";
+export type { KumikoBuild } from "./version/update-checker.tsx";
+export { readLoadedBuild } from "./version/update-checker.tsx";
 export type {
   AiTextAreaProps,
   AiTextFieldProps,
@@ -246,7 +246,7 @@ export type {
   TimeseriesXAxis,
   TimeseriesYAxis,
   UploadZoneProps,
-} from "./widgets/index.js";
+} from "./widgets/index.ts";
 export {
   AiTextArea,
   AiTextField,
@@ -293,4 +293,4 @@ export {
   TimeseriesChart,
   UploadZone,
   useDraft,
-} from "./widgets/index.js";
+} from "./widgets/index.ts";

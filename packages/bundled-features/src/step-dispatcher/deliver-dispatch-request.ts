@@ -9,15 +9,15 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-framework/pipeline";
 import { SYSTEM_USER_ID, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
-import { redactEmailAddresses } from "../shared/index.js";
+import { redactEmailAddresses } from "../shared/index.ts";
 import {
   buildDispatchSpec,
   dispatchRequestedPayloadSchema,
   rawStepKindOf,
   readPayloadFields,
-} from "./dispatch-payload.js";
-import { type MailDispatchResult, performMailDispatch } from "./mail-runner.js";
-import { performWebhookDispatch } from "./webhook-runner.js";
+} from "./dispatch-payload.ts";
+import { type MailDispatchResult, performMailDispatch } from "./mail-runner.ts";
+import { performWebhookDispatch } from "./webhook-runner.ts";
 
 const log = createFallbackLogger("step-dispatcher");
 

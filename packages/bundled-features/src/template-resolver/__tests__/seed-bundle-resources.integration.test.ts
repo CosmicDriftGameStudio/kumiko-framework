@@ -15,15 +15,15 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createTemplateResolverFeature } from "../feature.js";
-import { parseLinkedResourceEntries } from "../linked-resources.js";
-import { seedSystemTemplateBundle } from "../seeding.js";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { parseLinkedResourceEntries } from "../linked-resources.ts";
+import { seedSystemTemplateBundle } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
-} from "../table.js";
-import type { TemplateBundle } from "../template-bundle.js";
+} from "../table.ts";
+import type { TemplateBundle } from "../template-bundle.ts";
 
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";

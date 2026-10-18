@@ -6,8 +6,8 @@ import {
   chatConnectionNameSchema,
   DEFAULT_CHAT_TIMEOUT_MS,
   postChatWebhook,
-} from "./chat-webhook-sender.js";
-import type { ChannelContext, ChannelMessage, ChannelResult, DeliveryChannel } from "./types.js";
+} from "./chat-webhook-sender.ts";
+import type { ChannelContext, ChannelMessage, ChannelResult, DeliveryChannel } from "./types.ts";
 
 export type ChatWebhookChannelOptions = {
   // Test/self-hosting override. Replaces the provider default allowlist; never

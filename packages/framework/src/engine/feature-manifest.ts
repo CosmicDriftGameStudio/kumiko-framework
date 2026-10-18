@@ -6,11 +6,11 @@
 // AST-Parser kann die imperativen Factory-Helper der bundled features nicht
 // lesen.
 
-import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.js";
-import { compareByCodepoint } from "../utils/index.js";
-import { isEncryptedAtRest } from "./config-helpers.js";
-import { qualifyEntityName } from "./qualified-name.js";
-import type { Registry, UiHints } from "./types/feature.js";
+import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.ts";
+import { compareByCodepoint } from "../utils/index.ts";
+import { isEncryptedAtRest } from "./config-helpers.ts";
+import { qualifyEntityName } from "./qualified-name.ts";
+import type { Registry, UiHints } from "./types/feature.ts";
 
 export type ManifestConfigKey = {
   readonly key: string;

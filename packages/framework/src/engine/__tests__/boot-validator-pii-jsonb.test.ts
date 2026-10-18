@@ -2,10 +2,10 @@
 // validator must refuse every use that reads inside the column.
 
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "../boot-validator.js";
-import { defineFeature } from "../define-feature.js";
-import { createEntity, createJsonbField, createTextField } from "../factories.js";
-import type { EntityIndexDef, FieldDefinition } from "../types/index.js";
+import { validateBoot } from "../boot-validator.ts";
+import { defineFeature } from "../define-feature.ts";
+import { createEntity, createJsonbField, createTextField } from "../factories.ts";
+import type { EntityIndexDef, FieldDefinition } from "../types/index.ts";
 
 function bootWith(
   fields: Record<string, FieldDefinition>,

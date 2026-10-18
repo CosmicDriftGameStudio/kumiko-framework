@@ -28,8 +28,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Icon, NAV_ICONS } from "../icons.js";
-import { cn } from "../lib/cn.js";
+import { Icon, NAV_ICONS } from "../icons.tsx";
+import { cn } from "../lib/cn.ts";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -37,16 +37,16 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "../ui/breadcrumb.js";
-import { SidebarTrigger } from "../ui/sidebar.js";
-import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.js";
-import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree.js";
-import { usePageHeaderSlot } from "./page-header-slot.js";
+} from "../ui/breadcrumb.tsx";
+import { SidebarTrigger } from "../ui/sidebar.tsx";
+import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.ts";
+import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree.tsx";
+import { usePageHeaderSlot } from "./page-header-slot.tsx";
 import {
   type BreadcrumbCrumb,
   resolveDetailBreadcrumb,
   screenTitleKey,
-} from "./shell-breadcrumb.js";
+} from "./shell-breadcrumb.ts";
 
 type ShellHeaderUser = {
   readonly id: string;

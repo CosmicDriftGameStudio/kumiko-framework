@@ -24,8 +24,8 @@ import {
   STANDARD_APP_SCRIPTS,
   scanWorkspaceApps,
   syncManagedFiles,
-} from "../managed-files/index.js";
-import { render } from "../scaffold-deploy.js";
+} from "../managed-files/index.ts";
+import { render } from "../scaffold-deploy.ts";
 
 const APP_CONFIG = `import { defineAppConfig } from "@cosmicdrift/kumiko-framework/config";
 export default defineAppConfig({

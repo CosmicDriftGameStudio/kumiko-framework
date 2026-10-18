@@ -14,21 +14,21 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
-import type { DbConnection, DbTx } from "../../db/connection.js";
-import { asRawClient, insertOne } from "../../db/query.js";
-import type { AppContext } from "../../engine/types/index.js";
-import { append, eventsTable } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+import type { DbConnection, DbTx } from "../../db/connection.ts";
+import { asRawClient, insertOne } from "../../db/query.ts";
+import type { AppContext } from "../../engine/types/index.ts";
+import { append, eventsTable } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   createEventConsumerStateTable,
   SHARED_INSTANCE_SENTINEL,
-} from "../event-consumer-state.js";
+} from "../event-consumer-state.ts";
 import {
   createEventDispatcher,
   type EventConsumer,
   getConsumerState,
-} from "../event-dispatcher.js";
-import { fetchPendingEvents } from "../event-dispatcher-delivery.js";
+} from "../event-dispatcher.ts";
+import { fetchPendingEvents } from "../event-dispatcher-delivery.ts";
 
 const admin = TestUsers.admin;
 let testDb: TestDb;

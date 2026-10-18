@@ -22,7 +22,7 @@
 // `invite:`-prefix.
 
 import type { Redis } from "ioredis";
-import { createSingleUseTokenStore } from "../shared/index.js";
+import { createSingleUseTokenStore } from "../shared/index.ts";
 
 const store = createSingleUseTokenStore({
   tokenPrefix: "invite:by-token:",

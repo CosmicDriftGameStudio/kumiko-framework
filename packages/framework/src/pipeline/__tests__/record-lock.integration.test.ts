@@ -10,9 +10,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query.js";
-import { buildEntityTable } from "../../db/table-builder.js";
+import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.ts";
+import { asRawClient } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createBooleanField,
   createEntity,
@@ -23,9 +23,9 @@ import {
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "../../engine/index.js";
-import { loadAggregate } from "../../event-store/index.js";
-import { TestUsers } from "../../seeding/seed-users.js";
+} from "../../engine/index.ts";
+import { loadAggregate } from "../../event-store/index.ts";
+import { TestUsers } from "../../seeding/seed-users.ts";
 
 const ticketEntity = createEntity({
   table: "read_lock_tickets",

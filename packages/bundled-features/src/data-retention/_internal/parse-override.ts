@@ -2,8 +2,8 @@
 // Helper. War vorher 1:1 in beiden Files dupliziert (Memory
 // `feedback_bulk_patterns` — Drift-Risiko bei Schema-Aenderungen).
 
-import { retentionOverrideSchema } from "../override-schema.js";
-import type { RetentionOverride } from "../resolver.js";
+import { retentionOverrideSchema } from "../override-schema.ts";
+import type { RetentionOverride } from "../resolver.ts";
 
 export function parseRetentionOverrideOrNull(
   raw: string | null,

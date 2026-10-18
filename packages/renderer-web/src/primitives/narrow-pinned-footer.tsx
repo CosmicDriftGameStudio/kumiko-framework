@@ -20,8 +20,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "../lib/cn.js";
-import { Button as UiButton } from "../ui/button.js";
+import { cn } from "../lib/cn.ts";
+import { Button as UiButton } from "../ui/button.tsx";
 
 type FooterNodeProps = ButtonProps & FooterActionMarker & StickyPrimaryActionMarker;
 

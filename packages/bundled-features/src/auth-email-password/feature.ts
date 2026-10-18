@@ -1,43 +1,43 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
-import { MIN_HMAC_SECRET_LENGTH } from "./constants.js";
-import type { AuthMailLocale } from "./email-templates.js";
-import { changePasswordWrite } from "./handlers/change-password.write.js";
-import { createConfirmAccountUnlockHandler } from "./handlers/confirm-account-unlock.write.js";
-import { createInviteAcceptHandler } from "./handlers/invite-accept.write.js";
-import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write.js";
+import { MIN_HMAC_SECRET_LENGTH } from "./constants.ts";
+import type { AuthMailLocale } from "./email-templates.ts";
+import { changePasswordWrite } from "./handlers/change-password.write.ts";
+import { createConfirmAccountUnlockHandler } from "./handlers/confirm-account-unlock.write.ts";
+import { createInviteAcceptHandler } from "./handlers/invite-accept.write.ts";
+import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write.ts";
 import {
   createInviteCreateHandler,
   createSystemInviteCreateHandler,
   type InviteCreateOptions,
-} from "./handlers/invite-create.write.js";
-import { inviteInfoQuery } from "./handlers/invite-info.query.js";
-import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write.js";
-import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write.js";
-import { logoutWrite } from "./handlers/logout.write.js";
+} from "./handlers/invite-create.write.ts";
+import { inviteInfoQuery } from "./handlers/invite-info.query.ts";
+import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write.ts";
+import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write.ts";
+import { logoutWrite } from "./handlers/logout.write.ts";
 import {
   createRequestAccountUnlockHandler,
   type RequestAccountUnlockOptions,
-} from "./handlers/request-account-unlock.write.js";
-import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write.js";
-import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write.js";
-import { createResetPasswordHandler } from "./handlers/reset-password.write.js";
-import { selfRegistrationStatusQuery } from "./handlers/self-registration-status.query.js";
-import { createSignupConfirmHandler } from "./handlers/signup-confirm.write.js";
+} from "./handlers/request-account-unlock.write.ts";
+import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write.ts";
+import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write.ts";
+import { createResetPasswordHandler } from "./handlers/reset-password.write.ts";
+import { selfRegistrationStatusQuery } from "./handlers/self-registration-status.query.ts";
+import { createSignupConfirmHandler } from "./handlers/signup-confirm.write.ts";
 import {
   createSignupRequestHandler,
   type SignupRequestOptions,
-} from "./handlers/signup-request.write.js";
-import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-gate.write.js";
-import { createVerifyEmailHandler } from "./handlers/verify-email.write.js";
-import { AUTH_EMAIL_PASSWORD_MAIL_I18N } from "./mail-i18n.js";
+} from "./handlers/signup-request.write.ts";
+import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-gate.write.ts";
+import { createVerifyEmailHandler } from "./handlers/verify-email.write.ts";
+import { AUTH_EMAIL_PASSWORD_MAIL_I18N } from "./mail-i18n.ts";
 import {
   AUTH_MAIL_VARIABLES,
   authMailLocalizedTemplate,
   INVITE_MAIL_VARIABLES,
   sendsMagicLinkMail,
-} from "./mail-notifications.js";
+} from "./mail-notifications.ts";
 
 /**
  * Env-vars contract for the `auth-email-password` feature.

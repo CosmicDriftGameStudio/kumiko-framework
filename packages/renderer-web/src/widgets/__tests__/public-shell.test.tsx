@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen, within } from "../../__tests__/test-utils.js";
-import { PublicShell } from "../public-shell.js";
+import { render, screen, within } from "../../__tests__/test-utils.tsx";
+import { PublicShell } from "../public-shell.tsx";
 
 const brand = <span>OFFLOT</span>;
 

@@ -1,10 +1,10 @@
-export { composeTierResolverWithGlobalToggles } from "./compose-tier-resolver.js";
+export { composeTierResolverWithGlobalToggles } from "./compose-tier-resolver.ts";
 export {
   FEATURE_TOGGLES_FEATURE,
   FeatureToggleHandlers,
   FeatureToggleQueries,
   TOGGLE_ADMIN_SCREEN_ID,
-} from "./constants.js";
+} from "./constants.ts";
 export {
   createFeatureToggleRuntime,
   createFeatureTogglesFeature,
@@ -17,4 +17,4 @@ export {
   globalFeatureStateTableMeta,
   type RedisToggleSyncSignal,
   type ToggleSyncSignal,
-} from "./feature.js";
+} from "./feature.ts";

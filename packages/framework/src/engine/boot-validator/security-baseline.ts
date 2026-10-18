@@ -1,4 +1,4 @@
-import type { FeatureDefinition } from "../types/index.js";
+import type { FeatureDefinition } from "../types/index.ts";
 
 export const SECURITY_BASELINE_FEATURE_NAMES = [
   "sessions",
