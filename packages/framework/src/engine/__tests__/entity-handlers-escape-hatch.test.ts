@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { defineFeature } from "../define-feature.js";
 import {
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
@@ -138,5 +139,29 @@ describe("entity convention handlers: escapeHatch option", () => {
         escapeHatch: { reason: unedited },
       }),
     ).toThrow(/replace the codemod placeholder/);
+  });
+});
+
+describe("entity convention query handlers: escapeHatch added by a spread", () => {
+  test("registering the spread with non-SystemAdmin access throws", () => {
+    const generated = defineEntityListHandler("thing", thingEntity, {
+      access: { openToAll: { reason: "list callable by any signed-in user" } },
+    });
+    expect(() =>
+      defineFeature("spread-hatch", (r) => {
+        r.entity({ name: "thing", ...thingEntity });
+        r.queryHandler({ ...generated, escapeHatch: { reason: "tier lookup on the list" } });
+      }),
+    ).toThrow(/escapeHatch reaches across every tenant, so its access must be SystemAdmin-only/);
+  });
+
+  test("registering the spread with SystemAdmin-only access is allowed", () => {
+    const generated = defineEntityListHandler("thing", thingEntity, sysadminAccess);
+    expect(() =>
+      defineFeature("spread-hatch-admin", (r) => {
+        r.entity({ name: "thing", ...thingEntity });
+        r.queryHandler({ ...generated, escapeHatch: { reason: "operator cross-tenant list" } });
+      }),
+    ).not.toThrow();
   });
 });

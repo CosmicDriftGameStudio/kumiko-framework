@@ -74,6 +74,12 @@ echo "→ public-exports-changelog guard (ratchet against the baseline at base=$
 bun packages/guards/src/cli.ts public-exports-changelog --base="$MERGE_BASE" || fail=1
 
 echo
+# Packs and imports every published dist package under Node and Bun; a missing
+# .js in a compiled subpath otherwise only shows up in CI.
+echo "→ dist packages (bun run check:dist — CI parity)"
+bun run check:dist || fail=1
+
+echo
 echo "→ bun test (unit suite)"
 cfg=(); [ -f bunfig.ci.toml ] && cfg=(--config=bunfig.ci.toml)
 
@@ -107,9 +113,9 @@ fi
 
 echo
 if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + unit tests + component tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + dist packages + unit tests + component tests."
 elif [ "$fail" = 0 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + unit tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + dist packages + unit tests."
 else
   echo "✗ Worktree check red — see above. Do not commit until green."
 fi

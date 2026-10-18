@@ -16,9 +16,7 @@ import type { StoredEvent } from "../event-store/index.js";
 //   through the dispatcher gets its projections, no opt-in needed.
 //
 // Contracts:
-//   - Projections receive the exact StoredEvent from the executor. If you
-//     hand-craft a SaveContext (tests, non-executor writes), just don't set
-//     `event` and the runner no-ops.
+//   - Projections receive the exact StoredEvent from the executor.
 //   - `runner` is the caller's already-resolved DbRunner — projections-runner
 //     has no TenantDb access of its own to derive one from.
 //   - Apply-function throws bubble up unchanged. The dispatcher wraps the
@@ -29,7 +27,8 @@ export async function runProjections(
   registry: Registry,
   runner: DbRunner | undefined,
 ): Promise<void> {
-  // skip: hand-crafted result with no event — nothing to project
+  // skip: isLifecycleResult only checks `kind`, so an untyped handler result
+  // shaped like a lifecycle result can still arrive without its event
   if (!result.event) return;
   if (!runner) {
     throw new InternalError({

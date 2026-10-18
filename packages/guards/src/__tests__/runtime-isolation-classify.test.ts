@@ -21,6 +21,7 @@ import {
   isClientEntryPath,
   isValueImport,
   parseDeclaredClientEntries,
+  resolveImportTargetPath,
   toEffectivePath,
 } from "../runtime-isolation-classify";
 
@@ -51,6 +52,18 @@ describe("classifyByPath — test-runtime patterns", () => {
 
   test("matches Playwright *.spec.ts", () => {
     expect(classifyByPath("packages/renderer-web/e2e/smoke.spec.ts")).toBe("test");
+  });
+});
+
+describe("classifyByPath — Playwright e2e directories", () => {
+  test("e2e/ at the repo root, in a package or in a sample is test", () => {
+    expect(classifyByPath("e2e/fixtures/login.ts")).toBe("test");
+    expect(classifyByPath("packages/renderer-web/e2e/helpers.ts")).toBe("test");
+    expect(classifyByPath("samples/apps/use-all-bundled/e2e/pages.ts")).toBe("test");
+  });
+
+  test("a nested e2e/ inside source stays unclassified", () => {
+    expect(classifyByPath("packages/framework/src/e2e/runner.ts")).toBeNull();
   });
 });
 
@@ -231,6 +244,30 @@ describe("isValueImport", () => {
     });
     const [decl] = project.getSourceFileOrThrow("/repo/src.ts").getImportDeclarations();
     expect(decl && isValueImport(decl)).toBe(false);
+  });
+});
+
+describe("resolveImportTargetPath", () => {
+  test("resolves imports and re-exports to their file path", () => {
+    const project = makeInMemoryProject({
+      "/repo/src/barrel.ts":
+        'import { a } from "./a";\nexport { b } from "./b";\nexport const x = a;',
+      "/repo/src/a.ts": "export const a = 1;",
+      "/repo/src/b.ts": "export const b = 1;",
+    });
+    const barrel = project.getSourceFileOrThrow("/repo/src/barrel.ts");
+    const [importDecl] = barrel.getImportDeclarations();
+    const [exportDecl] = barrel.getExportDeclarations();
+    if (!importDecl || !exportDecl) throw new Error("fixture declarations missing");
+    expect(resolveImportTargetPath(importDecl)).toBe("/repo/src/a.ts");
+    expect(resolveImportTargetPath(exportDecl)).toBe("/repo/src/b.ts");
+  });
+
+  test("an unresolvable specifier yields undefined", () => {
+    const project = makeInMemoryProject({ "/repo/src/x.ts": 'import { y } from "./missing";' });
+    const [decl] = project.getSourceFileOrThrow("/repo/src/x.ts").getImportDeclarations();
+    if (!decl) throw new Error("fixture declaration missing");
+    expect(resolveImportTargetPath(decl)).toBeUndefined();
   });
 });
 

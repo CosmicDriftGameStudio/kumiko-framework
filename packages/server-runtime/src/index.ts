@@ -35,3 +35,4 @@ export type {
 } from "./run-worker-app.js";
 export { runWorkerApp } from "./run-worker-app.js";
 export type { CspExtension, CspOption, SecurityHeadersOption } from "./security-headers.js";
+export { makeSeedCreateFileRef, type SeedCreateFileRef } from "./seed-dispatcher.js";

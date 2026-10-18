@@ -145,12 +145,19 @@ function resolveCrossTenantReason(
   }
   const placeholderProblem = codemodPlaceholderReasonProblem(options.escapeHatch.reason);
   if (placeholderProblem !== undefined) throw new Error(`"${name}": ${placeholderProblem}`);
-  if (!isSystemAdminOnly(options.access)) {
-    throw new Error(
-      `"${name}": a ${kind} handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(options.access)}.`,
-    );
-  }
+  assertEscapeHatchAccessIsSystemAdminOnly(name, kind, options.access);
   return options.escapeHatch.reason;
+}
+
+export function assertEscapeHatchAccessIsSystemAdminOnly(
+  name: string,
+  kind: "write" | "query",
+  access: AccessRule,
+): void {
+  if (isSystemAdminOnly(access)) return;
+  throw new Error(
+    `"${name}": a ${kind} handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(access)}.`,
+  );
 }
 
 // Upper bound on entity-list `limit`: unbounded/fractional values ran

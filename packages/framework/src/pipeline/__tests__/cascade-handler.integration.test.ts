@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import type { TableColumns } from "../../db/dialect.js";
@@ -205,6 +206,7 @@ describe("cascade delete: restrict", () => {
       cascadeHook.fn(
         {
           kind: "delete",
+          event: createTestStoredEvent(),
           id: dept.data.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "department",
@@ -224,6 +226,7 @@ describe("cascade delete: restrict", () => {
       cascadeHook.fn(
         {
           kind: "delete",
+          event: createTestStoredEvent(),
           id: dept.data.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "department",
@@ -253,6 +256,7 @@ describe("cascade delete: cascade", () => {
     await cascadeHook.fn(
       {
         kind: "delete",
+        event: createTestStoredEvent(),
         id: user.data.id,
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "user",
@@ -288,6 +292,7 @@ describe("cascade delete: manyToMany restrict", () => {
       cascadeHook.fn(
         {
           kind: "delete",
+          event: createTestStoredEvent(),
           id: user.data.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "user",
@@ -316,6 +321,7 @@ describe("cascade delete: manyToMany restrict", () => {
       cascadeHook.fn(
         {
           kind: "delete",
+          event: createTestStoredEvent(),
           id: user.data.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "user",
@@ -355,6 +361,7 @@ describe("cascade delete: manyToMany cascade", () => {
     await cascadeHook.fn(
       {
         kind: "delete",
+        event: createTestStoredEvent(),
         id: user.data.id,
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "user",
@@ -394,6 +401,7 @@ describe("cascade delete: hasMany setNull", () => {
     await cascadeHook.fn(
       {
         kind: "delete",
+        event: createTestStoredEvent(),
         id: team.data.id,
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "team",
@@ -423,6 +431,7 @@ describe("cascade delete: hasMany setNull", () => {
     await cascadeHook.fn(
       {
         kind: "delete",
+        event: createTestStoredEvent(),
         id: teamA.data.id,
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "team",

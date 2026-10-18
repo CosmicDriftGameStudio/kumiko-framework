@@ -24,11 +24,9 @@ export type SaveContext = {
   readonly previous: Readonly<Record<string, unknown>>;
   readonly isNew: boolean;
   readonly entityName?: string | undefined;
-  // The event that produced this save. Populated by the event-store-executor;
-  // the pipeline uses it to drive projections inside the same transaction.
-  // Optional because hand-crafted SaveContexts (tests, custom executors) may
-  // not have an event — projections just skip in that case.
-  readonly event?: StoredEvent | undefined;
+  // The event that produced this save; the pipeline drives projections from it
+  // inside the same transaction, and hooks read the caller from event.createdBy.
+  readonly event: StoredEvent;
 };
 
 export type DeleteContext = {
@@ -37,7 +35,7 @@ export type DeleteContext = {
   readonly data: Readonly<Record<string, unknown>>;
   readonly entityName?: string | undefined;
   // See SaveContext.event — same semantics.
-  readonly event?: StoredEvent | undefined;
+  readonly event: StoredEvent;
   // The executor skipped the record-lock guard for this delete (unsafeSkipLockGuard,
   // framework system write with a writePurpose, forget). Cascade handling of locked
   // children follows the same exemption.

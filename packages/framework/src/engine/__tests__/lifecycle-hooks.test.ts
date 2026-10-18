@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import { createEntity, createRegistry, defineFeature } from "../index.js";
 import type {
@@ -180,6 +181,7 @@ describe("postSave hook behavior", () => {
     await hook(
       {
         kind: "save",
+        event: createTestStoredEvent(),
         id: 42,
         data: { email: "new@test.de", status: "Started" },
         changes: { status: "Started" },
@@ -208,6 +210,7 @@ describe("postSave hook behavior", () => {
     await hook(
       {
         kind: "save",
+        event: createTestStoredEvent(),
         id: 1,
         data: {},
         changes: { status: "Started" },
@@ -223,6 +226,7 @@ describe("postSave hook behavior", () => {
     await hook(
       {
         kind: "save",
+        event: createTestStoredEvent(),
         id: 1,
         data: {},
         changes: { status: "Started" },
@@ -243,7 +247,12 @@ describe("preDelete hook behavior", () => {
     };
 
     await hook(
-      { kind: "delete", id: 1, data: { email: "delete-me@test.de", hasOrders: true } },
+      {
+        kind: "delete",
+        event: createTestStoredEvent(),
+        id: 1,
+        data: { email: "delete-me@test.de", hasOrders: true },
+      },
       {},
     );
     expect(receivedData?.["email"]).toBe("delete-me@test.de");
@@ -254,8 +263,11 @@ describe("preDelete hook behavior", () => {
       if (payload.data["hasOrders"]) throw new Error("has_dependencies");
     };
 
-    await expect(hook({ kind: "delete", id: 1, data: { hasOrders: true } }, {})).rejects.toThrow(
-      "has_dependencies",
-    );
+    await expect(
+      hook(
+        { kind: "delete", event: createTestStoredEvent(), id: 1, data: { hasOrders: true } },
+        {},
+      ),
+    ).rejects.toThrow("has_dependencies");
   });
 });

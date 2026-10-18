@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
 import {
   createGatedIdentitySwitch,
@@ -22,6 +23,7 @@ const systemUser = createSystemUser(TENANT);
 
 const dummySaveContext: SaveContext = {
   kind: "save",
+  event: createTestStoredEvent(),
   id: "thing-1" as SaveContext["id"],
   data: {},
   changes: {},
