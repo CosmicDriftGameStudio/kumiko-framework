@@ -236,7 +236,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { stripeEnvSchema } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
-import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server";
+import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
 
