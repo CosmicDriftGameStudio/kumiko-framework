@@ -32,6 +32,15 @@ const PAT_SCREEN_VISIBLE_WHEN = {
   eq: true,
 } as const;
 
+const PAT_CREATE_ACTION = {
+  kind: "navigate",
+  id: "create",
+  label: i18nKey("pat.create.title"),
+  screen: PAT_MINT_SCREEN_ID,
+  style: "primary",
+  icon: "plus",
+} as const;
+
 export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,
   type: "projectionList",
@@ -82,15 +91,12 @@ export const patListScreen: ProjectionListScreenDefinition = {
       visible: { field: "status", ne: "revoked" },
     },
   ],
-  toolbarActions: [
-    {
-      kind: "navigate",
-      id: "create",
-      label: i18nKey("pat.create.title"),
-      screen: PAT_MINT_SCREEN_ID,
-      style: "primary",
-    },
-  ],
+  toolbarActions: [PAT_CREATE_ACTION],
+  emptyState: {
+    title: i18nKey("kumiko.list.empty.title"),
+    description: i18nKey("kumiko.list.empty.hint"),
+    action: PAT_CREATE_ACTION,
+  },
   access: {
     openToAll: {
       reason:

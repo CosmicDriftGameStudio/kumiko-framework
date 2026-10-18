@@ -410,20 +410,21 @@ export function RenderList(props: RenderListProps): ReactNode {
       </Button>
     ) : undefined;
   // Without onCreate (e.g. a navigate action as the list's only CTA) the primary
-  // toolbar action takes the header slot on phones, so it is not a text button
-  // squeezed next to the search field. Desktop keeps it in the toolbar.
+  // toolbar action takes the page-header slot like a "+ Neu" button would: an icon
+  // on phones, labelled on desktop, so projection lists look like entity lists.
   const promotedToolbarAction =
-    onCreate === undefined &&
-    PageHeader !== undefined &&
-    pageHeaderSlotAvailable &&
-    pageHeaderCompact
+    onCreate === undefined && PageHeader !== undefined && pageHeaderSlotAvailable
       ? toolbarActions?.find(isHeaderPromotableToolbarAction)
       : undefined;
   const promotedActionButton =
     promotedToolbarAction !== undefined ? (
       <ToolbarActionView
-        action={{ ...promotedToolbarAction, icon: promotedToolbarAction.icon ?? "plus" }}
-        iconOnly
+        action={
+          pageHeaderCompact
+            ? { ...promotedToolbarAction, icon: promotedToolbarAction.icon ?? "plus" }
+            : promotedToolbarAction
+        }
+        iconOnly={pageHeaderCompact}
         Button={Button}
         Dialog={Dialog}
         Banner={Banner}

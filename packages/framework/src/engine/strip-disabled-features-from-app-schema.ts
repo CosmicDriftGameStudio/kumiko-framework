@@ -1,13 +1,19 @@
 // Tenant-level counterpart to projectAppSchemaForRoles: removes the UI surface
 // (screens, navs, content collections, workspaces) of features the tenant has
 // switched off via r.toggleable(). Entities and translations stay — enabled
-// features may still reference them. Run BEFORE the role projection: it keeps
+// features may still reference them. Screens that declare a `fallback` (plus
+// the same-feature screens those fallbacks name) are the exception: their
+// visibleWhen probe is rejected by the feature gate for this tenant, which is
+// what makes the renderer show the fallback (e.g. an upgrade notice). Dropping
+// them would also drop every nav of another feature pointing at them, so the
+// fallback could never be reached. Run BEFORE the role projection: it keeps
 // only targets that exist in the schema, so once the disabled screens/navs are
 // gone it also drops every action, redirect, nav and workspace member that
 // pointed at them. The one reference it does not resolve is a nav `parent`
 // pointing at a missing nav; that is pruned here.
 
 import type { AppSchema, FeatureSchema } from "../ui-types/app-schema.ts";
+import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
 import { isToggleableFeature } from "./effective-features.ts";
 import { isValidQn, qualifyEntityName } from "./qualified-name.ts";
 import type { EffectiveFeaturesResolver } from "./tier-resolver-extension.ts";
@@ -66,6 +72,26 @@ function collectOrphanedNavQns(
   return orphaned;
 }
 
+// Fail-closed for the kept screens: the server gate rejects their handlers and
+// queries for the tenant, only the schema entry stays so the fallback can render.
+function screensKeptForFallback(feature: FeatureSchema): FeatureSchema["screens"] {
+  const qnOf = (screenId: string) => qualifyEntityName(feature.featureName, "screen", screenId);
+  const byQn = new Map(feature.screens.map((screen) => [qnOf(screen.id), screen]));
+  const kept = new Set<string>();
+  const pending = feature.screens.filter((screen) => screen.fallback !== undefined);
+  for (const screen of pending) kept.add(qnOf(screen.id));
+  while (pending.length > 0) {
+    const fallback = pending.pop()?.fallback;
+    if (fallback === undefined) continue;
+    const targetQn = resolveScreenTargetQn(feature.featureName, fallback);
+    const target = byQn.get(targetQn);
+    if (target === undefined || kept.has(targetQn)) continue;
+    kept.add(targetQn);
+    pending.push(target);
+  }
+  return feature.screens.filter((screen) => kept.has(qnOf(screen.id)));
+}
+
 export function stripDisabledFeaturesFromAppSchema(
   schema: AppSchema,
   registry: Registry,
@@ -86,7 +112,7 @@ export function stripDisabledFeaturesFromAppSchema(
   const features = schema.features.map((feature) => {
     if (disabled.has(feature.featureName)) {
       const { navs: _navs, contentCollections: _collections, workspaces: _ws, ...rest } = feature;
-      return { ...rest, screens: [] };
+      return { ...rest, screens: screensKeptForFallback(feature) };
     }
     if (orphanedNavQns.size === 0 || feature.navs === undefined) return feature;
     const navs = feature.navs.filter(

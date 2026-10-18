@@ -68,3 +68,13 @@ describe("PAT list scopes column and sorting", () => {
     expect(unsortable.sort()).toEqual(["prefix", "scopes", "status"]);
   });
 });
+
+describe("PAT list create entry and empty state", () => {
+  test("the empty state offers the same create action as the header", () => {
+    const [toolbarCreate] = patListScreen.toolbarActions ?? [];
+    const emptyAction = patListScreen.emptyState?.action;
+    expect(toolbarCreate?.kind).toBe("navigate");
+    expect(emptyAction?.kind).toBe("navigate");
+    expect(emptyAction?.id).toBe(toolbarCreate?.id);
+  });
+});
