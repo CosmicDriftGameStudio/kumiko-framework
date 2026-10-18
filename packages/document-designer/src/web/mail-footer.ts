@@ -1,6 +1,7 @@
 // @runtime client
 import type { ValidationIssue } from "./layout-types.js";
 import type { MailValidation } from "./mail-types.js";
+import { variableLabelText } from "./used-by-label.js";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
@@ -9,9 +10,9 @@ function issueText(t: Translate, issue: ValidationIssue): string {
   return translated === issue.i18nKey ? issue.code : translated;
 }
 
-function missingLabels(validation: MailValidation): string {
+function missingLabels(t: Translate, validation: MailValidation): string {
   return validation.missingRequired
-    .map((name) => validation.variables[name]?.label ?? name)
+    .map((name) => variableLabelText(t, name, validation.variables[name]?.label))
     .join(", ");
 }
 
@@ -29,7 +30,7 @@ export function footerMessage(
         previewMode
           ? "documentDesigner.mail.footer.missingPreview"
           : "documentDesigner.mail.footer.missing",
-        { names: missingLabels(validation) },
+        { names: missingLabels(t, validation) },
       ),
     };
   }

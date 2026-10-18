@@ -206,7 +206,7 @@ function invoiceIssuedBody(args: {
     `<h2>Ihre Rechnung ${v("invoiceNumber")}</h2>`,
     `<p>Guten Tag ${v("recipientName")},</p>`,
     `<p>${args.intro} ${v("invoiceNumber")} über ${v("invoiceTotal")}.${due} Die Rechnung finden Sie als PDF im Anhang und jederzeit online.</p>`,
-    '<a data-button href="{{invoiceUrl}}">Rechnung online ansehen</a>',
+    `<a data-button href="{{invoiceUrl}}">Rechnung ${v("invoiceNumber")} online ansehen</a>`,
     LINES_TABLE,
     "<hr>",
     "<p>Bei Fragen zur Rechnung antworten Sie einfach auf diese E-Mail.</p>",

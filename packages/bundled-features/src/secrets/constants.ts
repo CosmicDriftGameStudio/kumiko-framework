@@ -19,4 +19,13 @@ export const SECRETS_ERROR_KEYS = {
   invalidValue: "secrets.errors.invalidValue",
 } as const;
 
+export const SecretsHandlers = {
+  set: "secrets:write:set",
+  delete: "secrets:write:delete",
+} as const;
+
+export const SecretsQueries = {
+  list: "secrets:query:list",
+} as const;
+
 export const INVALID_SECRET_VALUE_CODE = "invalid_secret_value" as const;

@@ -95,7 +95,7 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.error.resourceTooLarge":
       "Das Bild ist zu groß. Bitte eine kleinere Datei wählen.",
     "documentDesigner.error.resourceUnsupportedImage":
-      "Dieses Bildformat wird nicht unterstützt. Nutzen Sie PNG, JPEG, GIF oder WebP.",
+      "Dieses Bildformat wird nicht unterstützt. Nutze PNG, JPEG, GIF oder WebP.",
     "documentDesigner.locale": "Sprache",
     "documentDesigner.localeDialog.cancel": "Abbrechen",
     "documentDesigner.localeDialog.description":
@@ -137,7 +137,7 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.preview.stale": "Die Vorschau ist veraltet. Bitte das PDF neu erzeugen.",
     "documentDesigner.resources.empty": "Noch keine Bilder.",
     "documentDesigner.resources.saveFirst":
-      "Speichern Sie die Vorlage zuerst, danach können Bilder hochgeladen werden.",
+      "Speichere die Vorlage zuerst, danach können Bilder hochgeladen werden.",
     "documentDesigner.resources.title": "Ressourcen",
     "documentDesigner.resources.upload": "+ Hochladen",
     "documentDesigner.settings.fileName": "Dateiname",

@@ -2,45 +2,46 @@ import { defineFeature, templateVariable } from "@cosmicdrift/kumiko-framework/e
 import { toKeyFirst } from "../translations";
 import { billingTranslations } from "./i18n";
 
+// Variable labels are i18n keys, so the designer's rail and chips speak the editor's language.
 // Both mails are sent by the host app's billing run, not by an event trigger in
 // this sample; they exist so the template overview has real senders to show.
 const INVOICE_ISSUED_VARIABLES = {
   recipientName: templateVariable.text({
-    label: "Empfängername",
+    label: "billing:mail.variable.recipientName",
     required: true,
     example: "Familie Yilmaz",
   }),
   recipientEmail: templateVariable.text({
-    label: "Empfänger-Adresse",
+    label: "billing:mail.variable.recipientEmail",
     example: "yilmaz.familie@example.org",
   }),
   invoiceNumber: templateVariable.text({
-    label: "Rechnungsnummer",
+    label: "billing:mail.variable.invoiceNumber",
     required: true,
     example: "RE-2026-0142",
   }),
   invoiceTotal: templateVariable.money({
-    label: "Rechnungsbetrag",
+    label: "billing:mail.variable.invoiceTotal",
     required: true,
     example: { amount: 128450, currency: "EUR" },
   }),
   dueDate: templateVariable.date({
-    label: "Fälligkeitsdatum",
+    label: "billing:mail.variable.dueDate",
     required: true,
     example: "2026-10-30",
   }),
   invoiceUrl: templateVariable.link({
-    label: "Link zur Rechnung",
+    label: "billing:mail.variable.invoiceUrl",
     required: true,
     example: "https://nordlicht-immobilien.de/rechnungen/RE-2026-0142",
   }),
   lines: templateVariable.list(
     {
-      description: templateVariable.text({ label: "Bezeichnung" }),
-      amount: templateVariable.money({ label: "Betrag" }),
+      description: templateVariable.text({ label: "billing:mail.variable.lines.description" }),
+      amount: templateVariable.money({ label: "billing:mail.variable.lines.amount" }),
     },
     {
-      label: "Rechnungspositionen",
+      label: "billing:mail.variable.lines",
       required: true,
       example: [
         { description: "Kaltmiete Oktober 2026, Lindenstraße 14 WE 3", amount: 98000 },
@@ -50,7 +51,7 @@ const INVOICE_ISSUED_VARIABLES = {
     },
   ),
   paymentReference: templateVariable.text({
-    label: "Zahlungsreferenz",
+    label: "billing:mail.variable.paymentReference",
     example: "RE-2026-0142 / Yilmaz",
   }),
 } as const;

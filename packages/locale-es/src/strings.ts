@@ -1166,9 +1166,15 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail.unsubscribe.doneTitle": "Baja confirmada",
   "mail.unsubscribe.doneMessage": "Ya no recibirás estos correos.",
   "mail.unsubscribe.undoButton": "Deshacer",
+  "mail.unsubscribe.undoHint":
+    "¿Te diste de baja por error? Puedes deshacerlo durante la próxima hora.",
   "mail.unsubscribe.resubscribedTitle": "Suscripción restablecida",
   "mail.unsubscribe.resubscribedMessage": "Volverás a recibir estos correos.",
   "mail.unsubscribe.failed": "No ha funcionado. Inténtalo de nuevo más tarde.",
+  "mail.unsubscribe.failedTitle": "Algo ha salido mal",
+  "mail.unsubscribe.invalidTitle": "Enlace no válido",
+  "mail.unsubscribe.invalidMessage":
+    "Este enlace no es válido o ha caducado. Usa el enlace para darte de baja de un correo más reciente.",
   "templateResolver.errors.systemOnlyTemplate":
     "Solo la plataforma mantiene esta plantilla; no se puede sobrescribir por cliente.",
   "templateResolver.errors.template.targetExists":
@@ -1662,6 +1668,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.props.senderPlaceholder": "Nombre que ven los destinatarios",
   "documentDesigner.mail.props.senderHint":
     "La dirección procede del envío de correo de la plataforma.",
+  "documentDesigner.mail.props.senderHintTenant":
+    "La dirección procede del envío de correo de tu organización.",
+  "documentDesigner.mail.props.senderSettingsLink": "Abrir envío de correo",
   "documentDesigner.mail.props.replyTo": "Responder a",
   "documentDesigner.mail.props.category": "Categoría",
   "documentDesigner.mail.props.transactional": "Transaccional",

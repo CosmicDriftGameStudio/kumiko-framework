@@ -1,7 +1,7 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { announceSecretChange } from "../announce-secret-change.js";
-import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
+import { DEFAULT_SECRETS_ACCESS, SecretsHandlers } from "../constants.js";
 import { JOIN_REQUEST_TRANSACTION_REASON, requireSecretsContext } from "../feature.js";
 import { checkSecretKeyWrite, checkSecretValue } from "../write-gate.js";
 
@@ -25,7 +25,7 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
     access,
     escapeHatch: { grants: ["unsafeRaw"], reason: JOIN_REQUEST_TRANSACTION_REASON },
     handler: async (event, ctx) => {
-      const secrets = requireSecretsContext(ctx, "secrets:write:set").withRunner(
+      const secrets = requireSecretsContext(ctx, SecretsHandlers.set).withRunner(
         ctx.db.unsafeRaw(),
       );
       const { key, value, redactedPreview, hint } = event.payload;

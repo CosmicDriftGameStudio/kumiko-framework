@@ -18,7 +18,24 @@ const duFormRegex = /\b(du|dich|dir|dein\w*|Du|Dich|Dir|Dein\w*)\b/;
 const informalImperativeRegex =
   /(^|[.!?]\s+)(Gib|Wähle|Speichere|Klicke|Bestätige|Fordere|Scanne|Kopiere|Lege|Melde|Versuche|Prüfe|Öffne|Setze|Trage|Nutze|Verwende|Wende)(?![\p{L}])/u;
 
+// Designer strings are du in the default bundle; extend the allowlist only for
+// genuine 3rd-person "Sie" referring to a noun.
+const formalAddressRegex =
+  /\b(Ihr\w*|Ihnen|(Speichern|Nutzen|Laden|Wählen|Geben|Verwenden|Klicken|Prüfen|Legen|Fügen|Löschen|Bestätigen|Verwerfen|Bearbeiten|Öffnen|Setzen|Ziehen|Versuchen) Sie|Sie (sehen|können|müssen|haben|sind|werden|wollen|möchten|erhalten|benötigen))\b/;
+
+const DESIGNER_FORMAL_ALLOWLIST: ReadonlySet<string> = new Set<string>();
+
 describe("locale-de formal overrides", () => {
+  test("informal bundle has no formal address in documentDesigner keys", () => {
+    const offenders = Object.entries(localeDeBundle)
+      .filter(([key]) => key.startsWith("documentDesigner."))
+      .filter(
+        ([key, value]) => !DESIGNER_FORMAL_ALLOWLIST.has(key) && formalAddressRegex.test(value),
+      )
+      .map(([key]) => key);
+    expect(offenders).toEqual([]);
+  });
+
   test("every override key exists in localeDeBundle", () => {
     const orphaned = Object.keys(localeDeFormalOverrides).filter(
       (k) => localeDeBundle[k] === undefined,

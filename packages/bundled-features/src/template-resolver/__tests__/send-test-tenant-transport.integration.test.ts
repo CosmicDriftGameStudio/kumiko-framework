@@ -32,7 +32,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { createTemplateResolverFeature } from "../feature.js";
-import { TemplateResolverHandlers } from "../qualified-names.js";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
 import { seedNotificationTemplates } from "../seeding.js";
 import { templateResourceEntity } from "../table.js";
 
@@ -150,5 +150,24 @@ describe("template-resolver :: send-test through the notification's transport", 
       addressOf(adminWithProvider.id),
     ]);
     expect(getInbox(tenantWithProvider)).toHaveLength(0);
+  });
+});
+
+describe("template-resolver :: usage names the notification's transport", () => {
+  type Usage = { usedBy: Array<{ qualifiedName: string; tenantTransport: boolean }> };
+
+  test("the editor learns which mail sends from the tenant's own provider", async () => {
+    const usageOf = (slug: string) =>
+      stack.http.queryOk<Usage>(
+        TemplateResolverQueries.usage,
+        { slug, kind: "mail" },
+        adminWithProvider,
+      );
+    expect((await usageOf(TENANT_ROUTED_SLUG)).usedBy).toEqual([
+      expect.objectContaining({ qualifiedName: TENANT_ROUTED_SLUG, tenantTransport: true }),
+    ]);
+    expect((await usageOf(APP_ROUTED_SLUG)).usedBy).toEqual([
+      expect.objectContaining({ qualifiedName: APP_ROUTED_SLUG, tenantTransport: false }),
+    ]);
   });
 });

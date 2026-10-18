@@ -153,7 +153,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.editor.mjmlNotice.tenant": {
     en: "You see the system layout. Saving creates your own layout for this tenant.",
-    de: "Sie sehen das System-Layout. Speichern legt ein eigenes Layout für Ihren Mandanten an.",
+    de: "Du siehst das System-Layout. Speichern legt ein eigenes Layout für deinen Mandanten an.",
   },
 
   "documentDesigner.editor.origin.none": {
@@ -162,7 +162,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.editor.origin.system": {
     en: "You are looking at the system layout. Saving creates a customisation for your tenant.",
-    de: "Sie sehen das System-Layout. Speichern legt eine Anpassung für Ihren Mandanten an.",
+    de: "Du siehst das System-Layout. Speichern legt eine Anpassung für deinen Mandanten an.",
   },
   "documentDesigner.editor.origin.tenant.mails": {
     en: "Overrides system layout v{version}. Applies to {count} mail templates of this tenant.",
@@ -195,7 +195,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.editor.diff.identical": {
     en: "Your layout matches the system layout.",
-    de: "Ihr Layout entspricht dem System-Layout.",
+    de: "Dein Layout entspricht dem System-Layout.",
   },
   "documentDesigner.editor.reset.open": {
     en: "Reset",
@@ -207,7 +207,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.editor.reset.description": {
     en: "Your own layout is removed and the system layout applies again.",
-    de: "Ihr eigenes Layout wird entfernt, danach gilt wieder das System-Layout.",
+    de: "Dein eigenes Layout wird entfernt, danach gilt wieder das System-Layout.",
   },
   "documentDesigner.editor.reset.confirm": { en: "Reset", de: "Zurücksetzen" },
 
@@ -249,7 +249,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.editor.dirtySwitch.description": {
     en: "Switching the layout kind discards your unsaved changes.",
-    de: "Beim Wechsel der Layout-Art gehen Ihre ungespeicherten Änderungen verloren.",
+    de: "Beim Wechsel der Layout-Art gehen deine ungespeicherten Änderungen verloren.",
   },
   "documentDesigner.editor.dirtySwitch.confirm": {
     en: "Discard and switch",
@@ -298,7 +298,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.origin.tenantOnly": {
     en: "This template exists only for your tenant.",
-    de: "Diese Vorlage gibt es nur für Ihren Mandanten.",
+    de: "Diese Vorlage gibt es nur für deinen Mandanten.",
   },
   "documentDesigner.mail.origin.activeSince": {
     en: "Active since {when}.",
@@ -318,7 +318,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.origin.system": {
     en: "You are viewing the system template v{version}. Saving creates a customisation for your tenant.",
-    de: "Sie sehen die System-Vorlage v{version}. Speichern legt eine Anpassung für Ihren Mandanten an.",
+    de: "Du siehst die System-Vorlage v{version}. Speichern legt eine Anpassung für deinen Mandanten an.",
   },
   "documentDesigner.mail.origin.platform": {
     en: "System template v{version}. Saving changes it for every tenant without a customisation.",
@@ -354,7 +354,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.origin.copyNote": {
     en: "Copying a system version does not bring images or attachments along; upload them again afterwards.",
-    de: "Beim Kopieren einer System-Fassung kommen Bilder und Anhänge nicht mit; laden Sie sie danach neu hoch.",
+    de: "Beim Kopieren einer System-Fassung kommen Bilder und Anhänge nicht mit; lade sie danach neu hoch.",
   },
   "documentDesigner.mail.origin.createBlank": {
     en: "Start empty",
@@ -362,7 +362,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.origin.creating": {
     en: "New version for {language}. It is stored when you save.",
-    de: "Neue Fassung für {language}. Sie wird erst mit Speichern angelegt.",
+    de: "Neue Fassung für {language}. Die Fassung wird erst mit Speichern angelegt.",
   },
   "documentDesigner.mail.reset.title": {
     en: "Reset to the system template?",
@@ -370,7 +370,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.reset.description": {
     en: "Your customisation of this template is removed in all languages. The system template applies again.",
-    de: "Ihre Anpassung dieser Vorlage wird in allen Sprachen entfernt. Danach gilt wieder die System-Vorlage.",
+    de: "Deine Anpassung dieser Vorlage wird in allen Sprachen entfernt. Danach gilt wieder die System-Vorlage.",
   },
   "documentDesigner.mail.reset.confirm": {
     en: "Reset",
@@ -523,6 +523,14 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.mail.props.senderHint": {
     en: "The address comes from the platform's mail delivery.",
     de: "Die Adresse kommt vom Mail-Versand der Plattform.",
+  },
+  "documentDesigner.mail.props.senderHintTenant": {
+    en: "The address comes from your organization's email sending settings.",
+    de: "Die Adresse kommt aus dem E-Mail-Versand deines Mandanten.",
+  },
+  "documentDesigner.mail.props.senderSettingsLink": {
+    en: "Open email sending",
+    de: "E-Mail-Versand öffnen",
   },
   "documentDesigner.mail.props.replyTo": {
     en: "Reply to",
@@ -694,7 +702,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.discard.description": {
     en: "Your unsaved changes are lost.",
-    de: "Ihre ungespeicherten Änderungen gehen verloren.",
+    de: "Deine ungespeicherten Änderungen gehen verloren.",
   },
   "documentDesigner.mail.discard.confirm": {
     en: "Discard",
@@ -702,7 +710,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.origin.draftBesideActive": {
     en: "Version {active} is sent, your draft (version {draft}) is not published yet.",
-    de: "Verschickt wird Version {active}, Ihr Entwurf (Version {draft}) ist noch nicht veröffentlicht.",
+    de: "Verschickt wird Version {active}, dein Entwurf (Version {draft}) ist noch nicht veröffentlicht.",
   },
   "documentDesigner.mail.leave.title": {
     en: "Unsaved changes",
@@ -710,7 +718,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.leave.description": {
     en: "Save your changes as a draft, discard them or stay on this page.",
-    de: "Speichern Sie Ihre Änderungen als Entwurf, verwerfen Sie sie oder bleiben Sie auf dieser Seite.",
+    de: "Speichere deine Änderungen als Entwurf, verwirf sie oder bleib auf dieser Seite.",
   },
   "documentDesigner.mail.leave.save": {
     en: "Save as draft",
@@ -806,7 +814,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.testMail.ownAddress": {
     en: "Your address",
-    de: "Ihre Adresse",
+    de: "Deine Adresse",
   },
   "documentDesigner.mail.testMail.changeAddress": {
     en: "Change address",
@@ -830,11 +838,11 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.testMail.hint": {
     en: "Sent through the tenant's normal delivery path to your own address.",
-    de: "Versand über den normalen Zustellweg des Mandanten an Ihre eigene Adresse.",
+    de: "Versand über den normalen Zustellweg des Mandanten an deine eigene Adresse.",
   },
   "documentDesigner.mail.testMail.sent": {
     en: "Test mail sent to your address: {subject}",
-    de: "Test-Mail an Ihre Adresse gesendet: {subject}",
+    de: "Test-Mail an deine Adresse gesendet: {subject}",
   },
   "documentDesigner.mail.testMail.rateLimited": {
     en: "Too many test mails, please try again later.",

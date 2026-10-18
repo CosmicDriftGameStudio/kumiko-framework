@@ -115,7 +115,7 @@ describe("linked resources", () => {
 
   test("list item labels use the dotted form", () => {
     expect(
-      variableLabelMap({
+      variableLabelMap((key) => key, {
         lines: {
           type: "list",
           label: "Positionen",
@@ -123,6 +123,20 @@ describe("linked resources", () => {
         },
       }),
     ).toEqual({ lines: "Positionen", "lines.description": "Text" });
+  });
+
+  test("a label that is an i18n key shows its translation, plain text stays as written", () => {
+    const translations: Readonly<Record<string, string>> = {
+      "status:mail.variable.pageName": "Name der Statusseite",
+    };
+    const t = (key: string): string => translations[key] ?? key;
+    expect(
+      variableLabelMap(t, {
+        pageName: { type: "text", label: "status:mail.variable.pageName" },
+        metaLine: { type: "text", label: "Kopfzeile" },
+        stage: { type: "text" },
+      }),
+    ).toEqual({ pageName: "Name der Statusseite", metaLine: "Kopfzeile" });
   });
 });
 

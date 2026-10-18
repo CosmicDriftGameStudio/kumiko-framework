@@ -14,6 +14,7 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { localeEs } from "@cosmicdrift/kumiko-locale-es";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { TENANT_ADMIN_EMAIL } from "./app/auth-constants";
@@ -24,6 +25,8 @@ import { vehiclesFeature } from "./features/vehicles";
 
 export const APP_FEATURES = [
   localeDe(),
+  // Spanish mail copy: subscribers whose mails go out in Spanish land on Spanish unsubscribe pages.
+  localeEs(),
   taskFeature,
   rentalFeature,
   vehiclesFeature,

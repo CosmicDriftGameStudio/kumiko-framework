@@ -212,7 +212,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     names,
     labels: {
       ...systemLabelMap(t, validation?.systemPlaceholders ?? []),
-      ...variableLabelMap(validation?.variables ?? {}),
+      ...variableLabelMap(t, validation?.variables ?? {}),
     },
     system: validation?.systemPlaceholders ?? [],
   };
@@ -322,7 +322,12 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           }
           right={
             <>
-              <PropertiesSection draft={draft} layouts={layouts.rows} onChange={update} />
+              <PropertiesSection
+                slug={slug}
+                draft={draft}
+                layouts={layouts.rows}
+                onChange={update}
+              />
               <ChromeSection
                 draft={draft}
                 vocabulary={vocabulary}

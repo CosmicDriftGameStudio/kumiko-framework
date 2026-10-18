@@ -1020,16 +1020,17 @@ describe("flow 7: unsubscribe endpoint", () => {
     expect(body.error?.code).toBe("unsubscribe_token_invalid");
   });
 
-  test("invalid token returns 400 for both GET and POST", async () => {
+  test("invalid token answers a browser GET and form POST with the 400 link-invalid page", async () => {
     const getRes = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=invalid-jwt-token`);
     expect(getRes.status).toBe(400);
-    const getBody = (await getRes.json()) as { error?: { code?: string } };
-    expect(getBody.error?.code).toBe("unsubscribe_token_invalid");
+    expect(getRes.headers.get("content-type")).toContain("text/html");
+    expect(await getRes.text()).toContain("<title>Link no longer valid</title>");
 
     const postRes = await postUnsubscribe("invalid-jwt-token");
     expect(postRes.status).toBe(400);
-    const postBody = (await postRes.json()) as { error?: { code?: string } };
-    expect(postBody.error?.code).toBe("unsubscribe_token_invalid");
+    const postHtml = await postRes.text();
+    expect(postHtml).toContain("<title>Link no longer valid</title>");
+    expect(postHtml).not.toContain("<form");
   });
 
   test("missing token returns 400 for both GET and POST", async () => {
@@ -1082,10 +1083,10 @@ describe("flow 7: unsubscribe endpoint", () => {
 
     const res = await postUnsubscribe(tamperedIssuer);
     expect(res.status).toBe(400);
-    const body = (await res.json()) as { error?: { code?: string; message?: string } };
-    expect(body.error?.code).toBe("unsubscribe_token_invalid");
-    expect(JSON.stringify(body)).not.toContain("signature verification failed");
-    expect(JSON.stringify(body)).not.toContain("claim");
+    const html = await res.text();
+    expect(html).toContain("<title>Link no longer valid</title>");
+    expect(html).not.toContain("signature verification failed");
+    expect(html).not.toContain("claim");
 
     const rows = await selectMany(db, notificationPreferencesTable, {
       userId: user2.id,
@@ -1099,7 +1100,15 @@ describe("flow 7: unsubscribe endpoint", () => {
     const sessionToken = await stack.jwt.sign(user1);
     const res = await postUnsubscribe(sessionToken);
     expect(res.status).toBe(400);
-    const body = (await res.json()) as { error?: { code?: string } };
+    expect(await res.text()).toContain("<title>Link no longer valid</title>");
+
+    const jsonRes = await stack.app.request(DELIVERY_UNSUBSCRIBE_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: sessionToken }),
+    });
+    expect(jsonRes.status).toBe(400);
+    const body = (await jsonRes.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe("unsubscribe_token_invalid");
   });
 });

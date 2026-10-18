@@ -17,6 +17,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { SecretsHandlers, SecretsQueries } from "../constants.js";
 import { createSecretsFeature } from "../feature.js";
 import { createSecretsContext } from "../secrets-context.js";
 import { type StoredEnvelope, tenantSecretsTable } from "../table.js";
@@ -76,7 +77,7 @@ describe("secrets feature — CRUD round-trip", () => {
   test("set + list + delete over HTTP", async () => {
     // SET: encrypts and stores
     await stack.http.writeOk(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: PLAIN_KEY, value: "this-is-secret-value-xyz" },
       admin,
     );
@@ -84,7 +85,7 @@ describe("secrets feature — CRUD round-trip", () => {
     // LIST: preview only, never plaintext
     const list = await stack.http.queryOk<
       Array<{ key: string; redactedPreview: string | null; kekVersion: number }>
-    >("secrets:query:list", {}, admin);
+    >(SecretsQueries.list, {}, admin);
     const row = list.find((r) => r.key === PLAIN_KEY);
     expect(row).toBeDefined();
     expect(row?.redactedPreview).not.toBe("this-is-secret-value-xyz");
@@ -102,9 +103,9 @@ describe("secrets feature — CRUD round-trip", () => {
     expect(JSON.stringify(dbRow)).not.toContain("this-is-secret-value-xyz");
 
     // DELETE: removes row
-    await stack.http.writeOk("secrets:write:delete", { key: PLAIN_KEY }, admin);
+    await stack.http.writeOk(SecretsHandlers.delete, { key: PLAIN_KEY }, admin);
     const afterDelete = await stack.http.queryOk<Array<{ key: string }>>(
-      "secrets:query:list",
+      SecretsQueries.list,
       {},
       admin,
     );
@@ -113,7 +114,7 @@ describe("secrets feature — CRUD round-trip", () => {
 
   test("delete of a declared key that was never set returns tenant-secret not_found", async () => {
     const err = await stack.http.writeErr(
-      "secrets:write:delete",
+      SecretsHandlers.delete,
       { key: declared.keys.extra.name },
       admin,
     );
@@ -128,7 +129,7 @@ describe("secrets feature — CRUD round-trip", () => {
       roles: ["User"],
     });
     const err = await stack.http.writeErr(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: PLAIN_KEY, value: "x" },
       user,
     );
@@ -139,7 +140,7 @@ describe("secrets feature — CRUD round-trip", () => {
 describe("secrets feature — only declared keys are writable", () => {
   test("set with an undeclared key is rejected as unknown", async () => {
     const err = await stack.http.writeErr(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: "never.declared", value: "x" },
       admin,
     );
@@ -154,7 +155,7 @@ describe("secrets feature — only declared keys are writable", () => {
   });
 
   test("delete of an undeclared key that was never stored is a plain not_found", async () => {
-    const err = await stack.http.writeErr("secrets:write:delete", { key: "never.declared" }, admin);
+    const err = await stack.http.writeErr(SecretsHandlers.delete, { key: "never.declared" }, admin);
     expect(err.code).toBe("not_found");
     expect(err.details).toMatchObject({ entity: "tenant-secret" });
   });
@@ -163,7 +164,7 @@ describe("secrets feature — only declared keys are writable", () => {
     const legacyKey = "incident-hook";
     await secretsContext.set(admin.tenantId, legacyKey, "legacy-token");
 
-    await stack.http.writeOk("secrets:write:delete", { key: legacyKey }, admin);
+    await stack.http.writeOk(SecretsHandlers.delete, { key: legacyKey }, admin);
 
     const rows = await selectMany(stack.db, tenantSecretsTable, {
       tenantId: admin.tenantId,
@@ -173,21 +174,21 @@ describe("secrets feature — only declared keys are writable", () => {
   });
 
   test("a declared key without writeRoles stays writable for TenantAdmin", async () => {
-    await stack.http.writeOk("secrets:write:set", { key: PLAIN_KEY, value: "plain-value" }, admin);
-    await stack.http.writeOk("secrets:write:delete", { key: PLAIN_KEY }, admin);
+    await stack.http.writeOk(SecretsHandlers.set, { key: PLAIN_KEY, value: "plain-value" }, admin);
+    await stack.http.writeOk(SecretsHandlers.delete, { key: PLAIN_KEY }, admin);
   });
 });
 
 describe("secrets feature — declared namespaces", () => {
   test("a valid key under the namespace is accepted for TenantAdmin", async () => {
     const key = declared.keys.namespace.keyFor("deploy-hook");
-    await stack.http.writeOk("secrets:write:set", { key, value: "hook-token" }, admin);
-    await stack.http.writeOk("secrets:write:delete", { key }, admin);
+    await stack.http.writeOk(SecretsHandlers.set, { key, value: "hook-token" }, admin);
+    await stack.http.writeOk(SecretsHandlers.delete, { key }, admin);
   });
 
   test("the bare prefix is rejected as unknown", async () => {
     const err = await stack.http.writeErr(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: declared.keys.namespace.prefix, value: "x" },
       admin,
     );
@@ -197,7 +198,7 @@ describe("secrets feature — declared namespaces", () => {
 
   test("a key whose suffix fails the namespace rule is rejected as unknown", async () => {
     const err = await stack.http.writeErr(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: declared.keys.namespace.keyFor("Not Valid!"), value: "x" },
       admin,
     );
@@ -211,7 +212,7 @@ describe("secrets feature — namespace writeRoles", () => {
 
   test("TenantAdmin cannot set under a namespace restricted to SystemAdmin", async () => {
     const err = await stack.http.writeErr(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: operatorKey, value: "x" },
       admin,
     );
@@ -222,15 +223,15 @@ describe("secrets feature — namespace writeRoles", () => {
 
   test("TenantAdmin cannot delete under a namespace restricted to SystemAdmin, SystemAdmin can", async () => {
     await stack.http.writeOk(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: operatorKey, value: "operator-value" },
       systemAdmin,
     );
-    const err = await stack.http.writeErr("secrets:write:delete", { key: operatorKey }, admin);
+    const err = await stack.http.writeErr(SecretsHandlers.delete, { key: operatorKey }, admin);
     expect(err.code).toBe("access_denied");
     expect(err.i18nKey).toBe("secrets.errors.writeDenied");
 
-    await stack.http.writeOk("secrets:write:delete", { key: operatorKey }, systemAdmin);
+    await stack.http.writeOk(SecretsHandlers.delete, { key: operatorKey }, systemAdmin);
     const rows = await selectMany(stack.db, tenantSecretsTable, {
       tenantId: admin.tenantId,
       key: operatorKey,
@@ -242,7 +243,7 @@ describe("secrets feature — namespace writeRoles", () => {
 describe("secrets feature — per-key writeRoles", () => {
   test("TenantAdmin cannot set a key restricted to SystemAdmin", async () => {
     const err = await stack.http.writeErr(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: SYSTEM_ONLY_KEY, value: "x" },
       admin,
     );
@@ -253,11 +254,11 @@ describe("secrets feature — per-key writeRoles", () => {
 
   test("TenantAdmin cannot delete a key restricted to SystemAdmin", async () => {
     await stack.http.writeOk(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: SYSTEM_ONLY_KEY, value: "operator-value" },
       systemAdmin,
     );
-    const err = await stack.http.writeErr("secrets:write:delete", { key: SYSTEM_ONLY_KEY }, admin);
+    const err = await stack.http.writeErr(SecretsHandlers.delete, { key: SYSTEM_ONLY_KEY }, admin);
     expect(err.code).toBe("access_denied");
     expect(err.i18nKey).toBe("secrets.errors.writeDenied");
 
@@ -266,15 +267,15 @@ describe("secrets feature — per-key writeRoles", () => {
       key: SYSTEM_ONLY_KEY,
     });
     expect(rows).toHaveLength(1);
-    await stack.http.writeOk("secrets:write:delete", { key: SYSTEM_ONLY_KEY }, systemAdmin);
+    await stack.http.writeOk(SecretsHandlers.delete, { key: SYSTEM_ONLY_KEY }, systemAdmin);
   });
 
   test("SystemAdmin can set and delete a key restricted to SystemAdmin", async () => {
     await stack.http.writeOk(
-      "secrets:write:set",
+      SecretsHandlers.set,
       { key: SYSTEM_ONLY_KEY, value: "operator-value" },
       systemAdmin,
     );
-    await stack.http.writeOk("secrets:write:delete", { key: SYSTEM_ONLY_KEY }, systemAdmin);
+    await stack.http.writeOk(SecretsHandlers.delete, { key: SYSTEM_ONLY_KEY }, systemAdmin);
   });
 });

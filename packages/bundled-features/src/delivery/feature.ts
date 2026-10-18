@@ -29,6 +29,7 @@ import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write.js
 import { resubscribeUserWrite } from "./handlers/resubscribe-user.write.js";
 import { setPreferenceWrite } from "./handlers/set-preference.write.js";
 import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write.js";
+import { unsubscribePageChromeQuery } from "./handlers/unsubscribe-page-chrome.query.js";
 import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write.js";
 import { DELIVERY_I18N } from "./i18n.js";
 import { deliveryRenderJob, deliverySendJob } from "./jobs.js";
@@ -223,6 +224,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     const queries = {
       log: r.queryHandler({ ...logQuery, access: { roles: resolvedAccess } }),
       preferences: r.queryHandler(preferencesQuery),
+      unsubscribePageChrome: r.queryHandler(unsubscribePageChromeQuery),
     };
 
     r.screen({

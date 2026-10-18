@@ -1,6 +1,7 @@
 // @runtime client
 import type { FooterTone } from "./editor-shell.js";
 import type { ValidationResult } from "./types.js";
+import { variableLabelText } from "./used-by-label.js";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
@@ -25,7 +26,7 @@ export function pdfFooterMessage(
 ): { readonly tone: FooterTone; readonly text: string } {
   if (validation.missingRequired.length > 0) {
     const names = validation.missingRequired
-      .map((name) => validation.variables[name]?.label ?? name)
+      .map((name) => variableLabelText(t, name, validation.variables[name]?.label))
       .join(", ");
     return { tone: "bad", text: t("documentDesigner.validation.missingRequired", { name: names }) };
   }

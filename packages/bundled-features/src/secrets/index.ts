@@ -3,6 +3,8 @@ export {
   DEFAULT_SECRETS_ROLES,
   INVALID_SECRET_VALUE_CODE,
   SECRETS_ERROR_KEYS,
+  SecretsHandlers,
+  SecretsQueries,
 } from "./constants.js";
 export {
   createSecretsContext,

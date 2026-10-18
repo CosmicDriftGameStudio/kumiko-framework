@@ -832,6 +832,8 @@ export default function DocumentTiptapEditor({
         "[&_[data-align=left]]:text-left [&_[data-align=center]]:text-center [&_[data-align=right]]:text-right [&_[data-align=justify]]:text-justify",
         "[&_p[data-size=small]]:text-xs [&_p[data-size=small]]:text-muted-foreground",
         "[&_a[data-button]]:inline-block [&_a[data-button]]:rounded-full [&_a[data-button]]:bg-primary [&_a[data-button]]:px-4 [&_a[data-button]]:py-1.5 [&_a[data-button]]:text-primary-foreground [&_a[data-button]]:no-underline",
+        // A chip in the button would be primary on primary; it inverts to stay readable.
+        "[&_a[data-button]_[data-variable-chip]]:border-primary-foreground/40 [&_a[data-button]_[data-variable-chip]]:bg-primary-foreground/15 [&_a[data-button]_[data-variable-chip]]:text-primary-foreground",
         "[&_hr]:my-3 [&_hr]:border-input",
         "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
       )}

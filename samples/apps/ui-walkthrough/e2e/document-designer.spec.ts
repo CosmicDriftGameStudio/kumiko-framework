@@ -53,7 +53,7 @@ test("tenant admin sees the own mail template and edits the mail layout without 
   const draftVersion = draftLabel.replace("Entwurf v", "");
   const activeVersion = String(Number(draftVersion) - 1);
   await expect(page.getByTestId("document-designer-origin-bar")).toContainText(
-    `Verschickt wird Version ${activeVersion}, Ihr Entwurf (Version ${draftVersion}) ist noch nicht veröffentlicht.`,
+    `Verschickt wird Version ${activeVersion}, dein Entwurf (Version ${draftVersion}) ist noch nicht veröffentlicht.`,
   );
   const activeLabel = `Aktiv v${activeVersion}`;
 

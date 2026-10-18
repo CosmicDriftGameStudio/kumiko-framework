@@ -211,8 +211,8 @@ export function PdfTemplateEditor({
   );
   const systemLabels = useMemo(() => systemLabelMap(t, systemVariables), [t, systemVariables]);
   const variableLabels = useMemo(
-    () => ({ ...systemLabels, ...variableLabelMap(variables) }),
-    [systemLabels, variables],
+    () => ({ ...systemLabels, ...variableLabelMap(t, variables) }),
+    [systemLabels, variables, t],
   );
   const variableNames = useMemo(() => Object.keys(variables), [variables]);
   const linkedResources = detail?.linkedResources ?? null;

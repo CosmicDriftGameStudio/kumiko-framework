@@ -7,6 +7,7 @@ import type {
   PlaceholderType,
   TemplateRowView,
 } from "./mail-types.js";
+import { variableLabelText } from "./used-by-label.js";
 
 export const EMPTY_DRAFT: MailDraft = {
   subject: "",
@@ -171,13 +172,16 @@ export function formatKilobytes(bytes: number): string {
 
 // Labels for the chip editors; list item fields are addressed as "list.item".
 export function variableLabelMap(
+  t: Translate,
   variables: Readonly<Record<string, MailVariable>>,
 ): Record<string, string> {
   const labels: Record<string, string> = {};
   for (const [name, variable] of Object.entries(variables)) {
-    if (variable.label !== undefined) labels[name] = variable.label;
+    if (variable.label !== undefined) labels[name] = variableLabelText(t, name, variable.label);
     for (const [itemName, item] of Object.entries(variable.item ?? {})) {
-      if (item.label !== undefined) labels[`${name}.${itemName}`] = item.label;
+      if (item.label !== undefined) {
+        labels[`${name}.${itemName}`] = variableLabelText(t, itemName, item.label);
+      }
     }
   }
   return labels;
