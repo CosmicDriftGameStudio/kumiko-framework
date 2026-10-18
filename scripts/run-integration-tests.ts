@@ -14,6 +14,7 @@ import {
   type IntegrationRunMode,
   integrationRunModeFromArgv,
   isIntegrationPerfFile,
+  isSubprocessIntegrationFile,
   parseBunTestRunOutput,
 } from "../bin/_lib/integration-test";
 
@@ -31,11 +32,12 @@ async function discoverIntegrationTargets(
   mode: IntegrationRunMode = "bulk",
 ): Promise<IntegrationDiscovery> {
   const allFiles = await discoverAllIntegrationFiles();
-  const includedFiles =
-    mode === "perf"
-      ? allFiles.filter(isIntegrationPerfFile)
-      : allFiles.filter((file) => !isIntegrationPerfFile(file));
-  return { includedFiles };
+  if (mode === "perf") return { includedFiles: allFiles.filter(isIntegrationPerfFile) };
+  const bulkCandidates = allFiles.filter((file) => !isIntegrationPerfFile(file));
+  return {
+    includedFiles: bulkCandidates.filter((file) => !isSubprocessIntegrationFile(file)),
+    subprocessFiles: bulkCandidates.filter(isSubprocessIntegrationFile),
+  };
 }
 
 // Wall-clock perf gates stay isolated from --parallel contention (CI already
@@ -109,6 +111,46 @@ async function spawnAndCapture(args: readonly string[]): Promise<{ exitCode: num
   return { exitCode, output: stdout + stderr };
 }
 
+type IntegrationLane = {
+  readonly label: string;
+  readonly files: readonly string[];
+  readonly parallel: number | undefined;
+  readonly collectCoverage: boolean;
+  readonly mode: IntegrationRunMode;
+};
+
+async function runLane(lane: IntegrationLane): Promise<number> {
+  const { parallel, collectCoverage } = lane;
+  const testArgs = [
+    ...buildIntegrationTestArgs({ files: [], ...(parallel !== undefined && { parallel }) }),
+    "--dots",
+    ...(collectCoverage
+      ? ["--coverage", "--coverage-reporter=lcov", `--coverage-dir=${INTEGRATION_COVERAGE_OUT}`]
+      : []),
+    // bun treats only `./`- or `/`-prefixed positionals as files; bare paths
+    // become substring filters that also match unrelated test files.
+    ...lane.files.map((file) => `./${file}`),
+  ];
+
+  const parallelLabel = parallel !== undefined ? ` (--parallel=${parallel})` : "";
+  console.log(`\n=== ${lane.label}: ${lane.files.length} file(s)${parallelLabel} ===`);
+
+  const { exitCode, output } = await spawnAndCapture(testArgs);
+  const noMatchingFiles = output.includes("The following filters did not match any test files");
+  const totals = parseBunTestRunOutput(output);
+
+  const { exitCode: summaryCode } = printIntegrationSummary(
+    { includedFiles: [...lane.files] },
+    { totals, exitCode, noMatchingFiles },
+    lane.mode,
+  );
+  if (collectCoverage) {
+    console.log(`\nCoverage written → ${INTEGRATION_COVERAGE_OUT}/lcov.info`);
+  }
+
+  return exitCode !== 0 ? exitCode : summaryCode;
+}
+
 async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<number> {
   const discovery = await discoverIntegrationTargets(mode);
 
@@ -124,36 +166,25 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
   const collectCoverage = mode === "bulk" && process.env.KUMIKO_INTEGRATION_COVERAGE === "1";
   if (collectCoverage) mkdirSync(INTEGRATION_COVERAGE_OUT, { recursive: true });
 
-  const parallel = resolveParallel(mode);
-  const testArgs = [
-    ...buildIntegrationTestArgs({ files: [], ...(parallel !== undefined && { parallel }) }),
-    "--dots",
-    ...(collectCoverage
-      ? ["--coverage", "--coverage-reporter=lcov", `--coverage-dir=${INTEGRATION_COVERAGE_OUT}`]
-      : []),
-    // bun treats only `./`- or `/`-prefixed positionals as files; bare paths
-    // become substring filters that also match unrelated test files.
-    ...discovery.includedFiles.map((file) => `./${file}`),
-  ];
-
-  const sectionLabel = mode === "perf" ? "Integration perf" : "Integration";
-  const parallelLabel = parallel !== undefined ? ` (--parallel=${parallel})` : "";
-  console.log(`\n=== ${sectionLabel}: ${discovery.includedFiles.length} file(s)${parallelLabel} ===`);
-
-  const { exitCode, output } = await spawnAndCapture(testArgs);
-  const noMatchingFiles = output.includes("The following filters did not match any test files");
-  const totals = parseBunTestRunOutput(output);
-
-  const { exitCode: summaryCode } = printIntegrationSummary(
-    discovery,
-    { totals, exitCode, noMatchingFiles },
+  const bulkCode = await runLane({
+    label: mode === "perf" ? "Integration perf" : "Integration",
+    files: discovery.includedFiles,
+    parallel: resolveParallel(mode),
+    collectCoverage,
     mode,
-  );
-  if (collectCoverage) {
-    console.log(`\nCoverage written → ${INTEGRATION_COVERAGE_OUT}/lcov.info`);
-  }
+  });
+  const subprocessFiles = discovery.subprocessFiles ?? [];
+  if (subprocessFiles.length === 0) return bulkCode;
 
-  return exitCode !== 0 ? exitCode : summaryCode;
+  // The second lane writes no coverage: it would overwrite the bulk lane's lcov.
+  const subprocessCode = await runLane({
+    label: "Integration subprocess checks",
+    files: subprocessFiles,
+    parallel: undefined,
+    collectCoverage: false,
+    mode,
+  });
+  return bulkCode !== 0 ? bulkCode : subprocessCode;
 }
 
 const USAGE = `Usage: bun scripts/run-integration-tests.ts [--perf]
