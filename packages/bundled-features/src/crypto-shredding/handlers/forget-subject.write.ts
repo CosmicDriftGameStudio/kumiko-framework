@@ -27,6 +27,7 @@ import {
   type EntityDefinition,
   type FeatureDefinition,
   type HandlerContext,
+  parseTenantId,
   type SessionUser,
   type TenantId,
   type WriteEvent,
@@ -47,6 +48,7 @@ import * as z from "zod";
 import { resolveRetentionPolicyForTenant } from "../../data-retention/index.ts";
 import { eraseNoteBodiesReachingSubject } from "../../notes-history-user-data/index.ts";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.ts";
+import { purgeFilesReachingSubject } from "../../shared/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import {
   denyIfTargetOutsideAdminTenant,
@@ -63,7 +65,7 @@ import {
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants.ts";
-import { purgeFilesReachingSubject } from "../purge-files-reaching-subject.ts";
+import { resolveFileBytesDeleter } from "../resolve-file-bytes-deleter.ts";
 
 export { subjectIdSchema };
 
@@ -217,6 +219,17 @@ async function resolveRetentionDenial(
   return effective.policy?.strategy === "blockDelete" ? deny() : undefined;
 }
 
+// The tenant that owns a record subject's row; the file purge is scoped to it.
+async function owningTenantOfRecordSubject(
+  runner: DbRunner,
+  features: ReadonlyMap<string, FeatureDefinition>,
+  raw: SubjectIdInput,
+): Promise<TenantId | undefined> {
+  if (raw.kind !== "record") return undefined;
+  const owner = await recordRowOwningTenantId(runner, features, raw.entity, raw.id);
+  return parseTenantId(owner) ?? undefined;
+}
+
 // AccessDeniedError.code is the generic "access_denied" for every branch;
 // the specific branch lives in details.reason.
 function denialReasonOf(failure: WriteFailure): string {
@@ -309,7 +322,13 @@ async function sweepDerivedSubjectData(
   subjectKey: string,
   crossTenantRunner: DbRunner,
   audit: { readonly requestId: string; readonly erasedBy: string },
+  rawSubject: SubjectIdInput,
 ): Promise<string | undefined> {
+  const recordTenantId = await owningTenantOfRecordSubject(
+    crossTenantRunner,
+    ctx.registry.features,
+    rawSubject,
+  );
   const failureLabels: string[] = [];
   const runStep = async (step: (runner: DbRunner) => Promise<void>): Promise<void> => {
     try {
@@ -349,7 +368,15 @@ async function sweepDerivedSubjectData(
 
   // File columns hold only the fileRef id, so the key erase never reaches the bytes.
   await runStep((crossTenantSubjectRunner) =>
-    purgeFilesReachingSubject({ ctx, db: crossTenantSubjectRunner, subject, subjectKey }),
+    purgeFilesReachingSubject({
+      registry: ctx.registry,
+      db: crossTenantSubjectRunner,
+      subject,
+      subjectKey,
+      ...(recordTenantId !== undefined && { recordTenantId }),
+      resolveDeleteBytes: resolveFileBytesDeleter(ctx),
+      missingStorage: { mode: "fail" },
+    }),
   );
 
   return failureLabels[0];
@@ -557,6 +584,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       subjectKey,
       ctx.db.unsafeRaw(),
       { requestId, erasedBy: event.user.id },
+      raw,
     );
 
     await appendSubjectForgotten(

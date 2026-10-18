@@ -11,37 +11,29 @@ import {
   selectMany,
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
-import { deleteFileRefBytes } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
   type EntityDefinition,
-  type HandlerContext,
   parseTenantId,
+  type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createFileContext,
-  type FileContext,
-  fileRefEntity,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
+import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   collectSingleFileHolders,
   type FileRefPurgeOutcome,
   planFileFields,
   purgeRowFileRefs,
   type SingleFileHolder,
-} from "../shared/index.ts";
+} from "./purge-row-file-refs.ts";
 
-const ERROR_CONTEXT = "crypto-shredding:forget-subject";
-
-// sweepErrorLabel in the handler reads err.code, so the audit event names the failure class.
+// Callers' error labels read err.code, so audit events name the failure class.
 export class FileSweepError extends Error {
   constructor(
     readonly code: Exclude<FileRefPurgeOutcome, "purged">,
     readonly entityName: string,
   ) {
-    super(`[${ERROR_CONTEXT}] ${code} while purging files of entity ${entityName}`);
+    super(`[files-purge] ${code} while purging files of entity ${entityName}`);
     this.name = "FileSweepError";
   }
 }
@@ -53,11 +45,11 @@ type FileEntity = {
   readonly fileFields: readonly string[];
 };
 
-function collectFileEntities(ctx: HandlerContext): readonly FileEntity[] {
+function collectFileEntities(registry: Registry): readonly FileEntity[] {
   const found: FileEntity[] = [];
-  for (const proj of ctx.registry.getAllProjections().values()) {
+  for (const proj of registry.getAllProjections().values()) {
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
-    const entity = ctx.registry.getEntity(proj.source);
+    const entity = registry.getEntity(proj.source);
     if (!entity) continue;
     const { singleFields, multiFields } = planFileFields(entity.fields);
     const fileFields = [...singleFields, ...multiFields];
@@ -71,9 +63,15 @@ function collectFileEntities(ctx: HandlerContext): readonly FileEntity[] {
 // the same resolver that encrypted the field.
 function candidateWheres(
   subject: SubjectId,
+  recordTenantId: TenantId | undefined,
   { entityName, entity, fileFields }: FileEntity,
 ): readonly WhereObject[] {
-  if (subject.kind === "record") return entityName === subject.entity ? [{ id: subject.id }] : [];
+  if (subject.kind === "record") {
+    // Without the owning tenant the record cannot be told apart from a same-id row elsewhere.
+    return entityName === subject.entity && recordTenantId !== undefined
+      ? [{ id: subject.id, tenantId: recordTenantId }]
+      : [];
+  }
   if (subject.kind !== "user") return [];
   const wheres: WhereObject[] = [];
   for (const fieldName of fileFields) {
@@ -108,60 +106,58 @@ function fieldsResolvingToSubject(
   });
 }
 
-// The upload resolver, not ctx.files: ctx.files is bound to the acting user's tenant, while
-// a subject's rows can live in any tenant. Resolved eagerly so a missing provider surfaces as
-// missing_file_storage instead of a failed delete.
-async function resolveFilesForTenant(
-  ctx: HandlerContext,
-  tenantId: TenantId,
-): Promise<FileContext | undefined> {
-  const resolver = ctx._fileProviderResolver;
-  if (resolver === undefined) return tenantId === ctx.user.tenantId ? ctx.files : undefined;
-  try {
-    const provider = await resolver(tenantId);
-    return createFileContext(() => Promise.resolve(provider), tenantId);
-  } catch {
-    // skip: no provider resolvable for this tenant; surfaces as missing_file_storage when files exist
-    return undefined;
-  }
-}
+const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+  entityName: "fileRef",
+});
+
+export type DeleteFileBytes = (storageKey: string) => Promise<readonly string[]>;
+
+// What to do when a tenant has files to delete but no storage: fail closed (the files would
+// leak while the erasure reads as done) or skip with a warning, for callers whose erasure must
+// not be blocked forever by a misconfigured store.
+export type MissingStoragePolicy =
+  | { readonly mode: "fail" }
+  | { readonly mode: "skip"; readonly warn: (tenantId: TenantId) => void };
 
 async function deleteBytesFailingClosed(
-  files: FileContext,
+  deleteBytes: DeleteFileBytes,
   storageKey: string,
 ): Promise<readonly string[]> {
   try {
-    return await deleteFileRefBytes(files, { storageKey }, ERROR_CONTEXT);
+    return await deleteBytes(storageKey);
   } catch {
     // skip: an unsafe key or missing list permission fails this file closed, not the whole sweep
     return [storageKey];
   }
 }
 
-const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
-  entityName: "fileRef",
-});
-
-// forget-subject erases the key; the files behind a personal file field are not
-// ciphertext, so they need their own purge (bytes, derivatives, fileRef rows). The entity row
-// stays: forgetting is crypto-shredding, not deletion. Tenant subjects are covered by
-// files-tenant-data on tenant destroy.
+// Forgetting a subject erases keys; the files behind a personal file field are not ciphertext,
+// so they need their own purge (bytes, derivatives, fileRef rows). The entity row stays:
+// forgetting is crypto-shredding, not deletion. Tenant subjects are covered by
+// files-tenant-data on tenant destroy. The storage is resolved per owning tenant because a
+// subject's rows can live in any tenant.
 export async function purgeFilesReachingSubject(args: {
-  readonly ctx: HandlerContext;
+  readonly registry: Registry;
   readonly db: DbRunner;
   readonly subject: SubjectId;
   readonly subjectKey: string;
+  // Tenant owning the row of a record subject; a record subject without it purges nothing.
+  readonly recordTenantId?: TenantId;
+  readonly resolveDeleteBytes: (tenantId: TenantId) => Promise<DeleteFileBytes | undefined>;
+  readonly missingStorage: MissingStoragePolicy;
 }): Promise<void> {
-  const { ctx, db, subject, subjectKey } = args;
+  const { registry, db, subject, subjectKey, recordTenantId, resolveDeleteBytes, missingStorage } =
+    args;
+  // skip: tenant subjects are covered by files-tenant-data on tenant destroy
   if (subject.kind === "tenant") return;
 
-  const fileHolders: readonly SingleFileHolder[] = collectSingleFileHolders(ctx.registry);
-  const filesByTenant = new Map<TenantId, Promise<FileContext | undefined>>();
+  const fileHolders: readonly SingleFileHolder[] = collectSingleFileHolders(registry);
+  const storageByTenant = new Map<TenantId, Promise<DeleteFileBytes | undefined>>();
   let firstFailure: FileSweepError | undefined;
 
-  for (const fileEntity of collectFileEntities(ctx)) {
+  for (const fileEntity of collectFileEntities(registry)) {
     const seenRowIds = new Set<string>();
-    for (const where of candidateWheres(subject, fileEntity)) {
+    for (const where of candidateWheres(subject, recordTenantId, fileEntity)) {
       const rows = await selectMany<Record<string, unknown>>(db, fileEntity.table, where);
       for (const row of rows) {
         const rowId = String(row["id"]);
@@ -174,12 +170,12 @@ export async function purgeFilesReachingSubject(args: {
         // skip: none of the row's file fields belongs to this subject
         if (fieldNames.length === 0) continue;
 
-        let filesPromise = filesByTenant.get(tenantId);
-        if (filesPromise === undefined) {
-          filesPromise = resolveFilesForTenant(ctx, tenantId);
-          filesByTenant.set(tenantId, filesPromise);
+        let storagePromise = storageByTenant.get(tenantId);
+        if (storagePromise === undefined) {
+          storagePromise = resolveDeleteBytes(tenantId);
+          storageByTenant.set(tenantId, storagePromise);
         }
-        const files = await filesPromise;
+        const deleteBytes = await storagePromise;
         const systemUser = createSystemUser(tenantId);
         const tdb = createTenantDb({ db, tenantId, mode: "system" });
 
@@ -192,11 +188,15 @@ export async function purgeFilesReachingSubject(args: {
           fileHolders,
           row,
           fieldNames,
-          deleteBytes: files ? (key) => deleteBytesFailingClosed(files, key) : undefined,
+          deleteBytes: deleteBytes
+            ? (key) => deleteBytesFailingClosed(deleteBytes, key)
+            : undefined,
           fileRefForget: async (fileRefId) =>
             (await fileRefExecutor.forget({ id: fileRefId }, systemUser, tdb)).isSuccess,
         });
-        if (outcome !== "purged") {
+        if (outcome === "missing_file_storage" && missingStorage.mode === "skip") {
+          missingStorage.warn(tenantId);
+        } else if (outcome !== "purged") {
           firstFailure ??= new FileSweepError(outcome, fileEntity.entityName);
         }
       }
