@@ -3,6 +3,11 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.js";
 import { authMfaEnvSchema } from "./env.js";
+import type {
+  BindMfaRevokeAllOtherSessions,
+  BindMfaTokenSecrets,
+  BindRevokeAllPatTokens,
+} from "./feature-exports.js";
 import { createDisableHandler } from "./handlers/disable.write.js";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.js";
 import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write.js";
@@ -13,15 +18,11 @@ import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.
 import { mfaStatusQuery } from "./handlers/status.query.js";
 import { createMfaVerifyHandler } from "./handlers/verify.write.js";
 import { AUTH_MFA_FEATURE_I18N } from "./i18n.js";
-import { createMfaCodeVerifier, type MfaCodeVerifier } from "./mfa-code-verifier.js";
-import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker.js";
+import { createMfaCodeVerifier } from "./mfa-code-verifier.js";
+import { createMfaStatusChecker } from "./mfa-status-checker.js";
 import { userMfaEntity } from "./schema/user-mfa.js";
 import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens.js";
-import {
-  type MfaTokenSecretsEnv,
-  type ResolvedMfaTokenSecrets,
-  resolveMfaTokenSecretsFromEnv,
-} from "./token-secrets.js";
+import { type ResolvedMfaTokenSecrets, resolveMfaTokenSecretsFromEnv } from "./token-secrets.js";
 
 const REENCRYPT_ESCAPE_HATCH_REASON =
   "re-encrypts MFA secrets of every tenant's users with the new master key";
@@ -46,99 +47,6 @@ export type AuthMfaFeatureOptions = {
   // system writes is the only way to set it. Defaults to "optional".
   readonly requiredPolicy?: MfaRequiredPolicy;
 };
-
-export type BindMfaRevokeAllOtherSessions = (
-  revoker: (userId: string, currentSid: string | undefined) => Promise<number>,
-) => void;
-
-// Reads the late-bind setter off a mounted auth-mfa feature's exports —
-// mirrors sessions' own bindAutoRevokeFromFeature. run{Prod,Dev}App call
-// this once the sessions feature (if mounted) has produced a concrete
-// sessionRevokeAllOthers callback.
-export function bindMfaRevokeAllOtherSessionsFromFeature(
-  feature: FeatureDefinition,
-): BindMfaRevokeAllOtherSessions | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindRevokeAllOtherSessions" in exports) {
-    const { bindRevokeAllOtherSessions } = exports;
-    if (typeof bindRevokeAllOtherSessions === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindRevokeAllOtherSessions as BindMfaRevokeAllOtherSessions;
-    }
-  }
-  return undefined;
-}
-
-// Reads the eagerly-built `checkMfaStatus` off a mounted auth-mfa feature's
-// exports — no bind-setter needed (see the comment where it's built).
-export function mfaStatusCheckerFromFeature(
-  feature: FeatureDefinition,
-): MfaStatusChecker | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "checkMfaStatus" in exports) {
-    const { checkMfaStatus } = exports;
-    if (typeof checkMfaStatus === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return checkMfaStatus as MfaStatusChecker;
-    }
-  }
-  return undefined;
-}
-
-// Reads the eagerly-built `verifyMfaCode` off a mounted auth-mfa feature's
-// exports — personal-access-tokens wires this in as its optional
-// mfaVerifier (re-auth gate for minting a token). Same no-bind-setter
-// reasoning as checkMfaStatus above.
-export function mfaVerifierFromFeature(feature: FeatureDefinition): MfaCodeVerifier | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "verifyMfaCode" in exports) {
-    const { verifyMfaCode } = exports;
-    if (typeof verifyMfaCode === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return verifyMfaCode as MfaCodeVerifier;
-    }
-  }
-  return undefined;
-}
-
-export type BindMfaTokenSecrets = (masterSecret: string, env: MfaTokenSecretsEnv) => void;
-
-// Reads the token-secret binder off a mounted auth-mfa feature's exports.
-// run{Prod,Dev}App and setupTestStack call it with the JWT secret once the
-// env is validated, so a dry run never needs the master secret.
-export function bindMfaTokenSecretsFromFeature(
-  feature: FeatureDefinition,
-): BindMfaTokenSecrets | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindTokenSecrets" in exports) {
-    const { bindTokenSecrets } = exports;
-    if (typeof bindTokenSecrets === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindTokenSecrets as BindMfaTokenSecrets;
-    }
-  }
-  return undefined;
-}
-
-export type BindRevokeAllPatTokens = (revoker: (userId: string) => Promise<number>) => void;
-
-// Reads the late-bind setter off a mounted auth-mfa feature's exports —
-// run{Prod,Dev}App call this once the personal-access-tokens feature (if
-// mounted) has produced a concrete revoker, same wiring shape as
-// bindMfaRevokeAllOtherSessionsFromFeature.
-export function bindRevokeAllPatTokensFromFeature(
-  feature: FeatureDefinition,
-): BindRevokeAllPatTokens | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindRevokeAllPatTokens" in exports) {
-    const { bindRevokeAllPatTokens } = exports;
-    if (typeof bindRevokeAllPatTokens === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindRevokeAllPatTokens as BindRevokeAllPatTokens;
-    }
-  }
-  return undefined;
-}
 
 function hasBothExplicitSecrets(opts: AuthMfaFeatureOptions): boolean {
   return (

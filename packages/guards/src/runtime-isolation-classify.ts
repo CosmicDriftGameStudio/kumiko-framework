@@ -40,30 +40,24 @@ export const COMPAT: Record<Runtime, ReadonlySet<Runtime>> = {
   test: new Set(["runtime", "client", "prod", "dev", "tooling", "test"]),
 };
 
-/**
- * Classify a file by its path relative to the repo root. Returns null
- * if no path-pattern matched (caller falls back to workspace / default).
- *
- * Pure function — accepts a repo-relative path string, no I/O.
- */
-export function classifyByPath(repoRelativePath: string): Runtime | null {
-  const rel = repoRelativePath.replace(/\\/g, "/");
-  if (/\/(__tests__|testing)\//.test(rel)) return "test";
-  if (/\/testing\.tsx?$/.test(rel)) return "test";
-  if (/\.(test|integration|e2e|spec)\.[tj]sx?$/.test(rel)) return "test";
+// First match wins, so the test rules stay ahead of the tooling and client carve-outs.
+const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
+  [/\/(__tests__|testing)\//, "test"],
+  [/\/testing\.tsx?$/, "test"],
+  [/\.(test|integration|e2e|spec)\.[tj]sx?$/, "test"],
   // Playwright suites live in e2e/ at the repo root, next to a package or a
   // sample and import kumiko-testing/e2e; without this rule they read as
   // runtime code importing the test tier. Deliberately not any nested e2e/.
-  if (/^(?:e2e|packages\/[^/]+\/e2e|samples\/(?:.+\/)?e2e)\//.test(rel)) return "test";
-  if (/(?:^|\/)scripts\//.test(rel)) return "tooling";
-  if (/(?:^|\/)bin\//.test(rel)) return "tooling";
-  if (/\/drizzle\/[^/]+\.ts$/.test(rel)) return "tooling";
-  if (/\/drizzle\.config\.[tj]s$/.test(rel)) return "tooling";
+  [/^(?:e2e|packages\/[^/]+\/e2e|samples\/(?:.+\/)?e2e)\//, "test"],
+  [/(?:^|\/)scripts\//, "tooling"],
+  [/(?:^|\/)bin\//, "tooling"],
+  [/\/drizzle\/[^/]+\.ts$/, "tooling"],
+  [/\/drizzle\.config\.[tj]s$/, "tooling"],
 
   // Shared UI types are used by both client and runtime. In the kumiko isolation
   // model, "client" is the most permissive production category that "runtime"
   // can also import.
-  if (/(?:^|\/)ui-types\//.test(rel)) return "client";
+  [/(?:^|\/)ui-types\//, "client"],
 
   // Same reasoning, two more shapes: a `web.ts`/`web/` subpath is the
   // established convention (locale-de, locale-es, bundled-features) for the
@@ -78,8 +72,9 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
   // `utils`/`errors` are common enough directory names elsewhere that a
   // repo-wide match risks misclassifying an unrelated server-only folder in
   // some other package.
-  if (/(?:^|\/)web\//.test(rel) || /\/web\.tsx?$/.test(rel)) return "client";
-  if (/^packages\/framework\/src\/(?:time|utils|engine\/types|errors)\//.test(rel)) return "client";
+  [/(?:^|\/)web\//, "client"],
+  [/\/web\.tsx?$/, "client"],
+  [/^packages\/framework\/src\/(?:time|utils|engine\/types|errors)\//, "client"],
 
   // More single-file carve-outs, same "package marker is coarser than the
   // file" shape, verified case by case rather than by a directory
@@ -87,11 +82,23 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
   //  - locale-{de,es}/src/strings.ts: pure string-constant data (zero
   //    imports), re-exported by the already-client `web.ts` sibling in the
   //    same package but shadowed by the package's own `"runtime"` marker.
-  if (/^packages\/locale-(?:de|es)\/src\/strings\.ts$/.test(rel)) return "client";
+  [/^packages\/locale-(?:de|es)\/src\/strings\.ts$/, "client"],
   //  - dev-server/src/env-schema.ts: a zod-only schema, no dev-server-
   //    internal imports — safe to carve out on its own.
-  if (/^packages\/dev-server\/src\/env-schema\.ts$/.test(rel)) return "client";
+  [/^packages\/dev-server\/src\/env-schema\.ts$/, "client"],
+];
 
+/**
+ * Classify a file by its path relative to the repo root. Returns null
+ * if no path-pattern matched (caller falls back to workspace / default).
+ *
+ * Pure function — accepts a repo-relative path string, no I/O.
+ */
+export function classifyByPath(repoRelativePath: string): Runtime | null {
+  const rel = repoRelativePath.replace(/\\/g, "/");
+  for (const [pattern, runtime] of PATH_RULES) {
+    if (pattern.test(rel)) return runtime;
+  }
   return null;
 }
 

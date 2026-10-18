@@ -154,10 +154,11 @@ export function assertEscapeHatchAccessIsSystemAdminOnly(
   kind: "write" | "query",
   access: AccessRule,
 ): void {
-  if (isSystemAdminOnly(access)) return;
-  throw new Error(
-    `"${name}": a ${kind} handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(access)}.`,
-  );
+  if (!isSystemAdminOnly(access)) {
+    throw new Error(
+      `"${name}": a ${kind} handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(access)}.`,
+    );
+  }
 }
 
 // Upper bound on entity-list `limit`: unbounded/fractional values ran

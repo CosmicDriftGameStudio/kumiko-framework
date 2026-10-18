@@ -59,10 +59,11 @@ export function createDbConnection({
 // postgres-js under a config that still claims Bun.SQL.
 function assertNoRemovedDbProvider(env: Readonly<Record<string, string | undefined>>): void {
   const provider = env["DB_PROVIDER"];
-  if (provider === undefined || provider === "" || provider === "postgres") return;
-  throw new Error(
-    `DB_PROVIDER="${provider}" is no longer supported: postgres-js is the only driver. Remove DB_PROVIDER from the environment.`,
-  );
+  if (provider !== undefined && provider !== "" && provider !== "postgres") {
+    throw new Error(
+      `DB_PROVIDER="${provider}" is no longer supported: postgres-js is the only driver. Remove DB_PROVIDER from the environment.`,
+    );
+  }
 }
 
 export function dbConnectionOptionsFromEnv(

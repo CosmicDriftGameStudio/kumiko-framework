@@ -17,7 +17,8 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { AuthMfaHandlers } from "../../auth-mfa/constants.js";
-import { createAuthMfaFeature, mfaStatusCheckerFromFeature } from "../../auth-mfa/feature.js";
+import { createAuthMfaFeature } from "../../auth-mfa/feature.js";
+import { mfaStatusCheckerFromFeature } from "../../auth-mfa/feature-exports.js";
 import { base32Decode } from "../../auth-mfa/index.js";
 import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.js";
 import { currentTotpCode } from "../../auth-mfa/totp.js";

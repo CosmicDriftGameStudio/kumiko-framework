@@ -9,20 +9,20 @@ export {
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
 } from "./constants.js";
 export { authMfaEnvSchema, mfaTokenSecretsEnvSchema } from "./env.js";
+export type { AuthMfaFeatureOptions } from "./feature.js";
+export { createAuthMfaFeature } from "./feature.js";
 export type {
-  AuthMfaFeatureOptions,
   BindMfaRevokeAllOtherSessions,
   BindMfaTokenSecrets,
   BindRevokeAllPatTokens,
-} from "./feature.js";
+} from "./feature-exports.js";
 export {
   bindMfaRevokeAllOtherSessionsFromFeature,
   bindMfaTokenSecretsFromFeature,
   bindRevokeAllPatTokensFromFeature,
-  createAuthMfaFeature,
   mfaStatusCheckerFromFeature,
   mfaVerifierFromFeature,
-} from "./feature.js";
+} from "./feature-exports.js";
 export type { MfaCodeVerifier, MfaCodeVerifyResult } from "./mfa-code-verifier.js";
 export type { MfaStatusChecker, MfaStatusCheckResult } from "./mfa-status-checker.js";
 export { userMfaEntity, userMfaTable } from "./schema/user-mfa.js";

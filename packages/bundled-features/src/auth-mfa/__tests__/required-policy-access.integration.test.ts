@@ -30,7 +30,8 @@ import { UserHandlers } from "../../user/index.js";
 import { userEntity, userTable } from "../../user/schema/user.js";
 import { mfaRequiredConfigHandle } from "../config.js";
 import { AuthMfaHandlers } from "../constants.js";
-import { createAuthMfaFeature, mfaStatusCheckerFromFeature } from "../feature.js";
+import { createAuthMfaFeature } from "../feature.js";
+import { mfaStatusCheckerFromFeature } from "../feature-exports.js";
 import { userMfaEntity } from "../schema/user-mfa.js";
 
 let stack: TestStack;
