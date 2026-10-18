@@ -179,7 +179,7 @@ test("header label and tone name their placeholders by label, the German preview
   await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
   // The example of noticeLabel is an i18n key, so the German tab shows its German text.
   await expect(page.getByTestId("mail-sample-noticeLabel")).toContainText("Neue Rechnung");
-  const preview = page.frameLocator('[data-testid="mail-preview-iframe"]');
+  await expect(page.getByTestId("mail-sample-invoiceTotal")).toContainText(/1\.284,50\s€/);  const preview = page.frameLocator('[data-testid="mail-preview-iframe"]');
   await expect(preview.getByText("Neue Rechnung").first()).toBeVisible();
   await expect(preview.locator("body")).not.toContainText("New invoice");
 });

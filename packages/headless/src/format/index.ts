@@ -148,6 +148,12 @@ export const UNIT_FORMAT_KEYS: readonly string[] = [
   ...Object.keys(UNIT_SUFFIXES),
 ];
 
+export {
+  DOCUMENT_FALLBACK_CURRENCY,
+  formatDocumentDate,
+  formatDocumentMoney,
+  formatDocumentPercent,
+} from "./document-values.ts";
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.ts";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template.ts";
 export { currencyDecimals, formatMoney, resolveSafeMoneyLocale } from "./money.ts";
