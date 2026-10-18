@@ -249,6 +249,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  // Provider jobs run in the worker lane and outlive the test that enqueued them;
+  // settle them before the reset so a late completion cannot land in the next test.
+  await stack.drainJobs();
   provider.clear();
   providerAProcessed.length = 0;
   providerBProcessed.length = 0;
