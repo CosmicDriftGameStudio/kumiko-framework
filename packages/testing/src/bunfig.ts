@@ -1,3 +1,6 @@
+// @runtime tooling
+// Pure TOML rendering with no test-stack imports: dev-server's managed-files
+// sync renders and merges app bunfigs with it outside of any test run.
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { E2E_TIMEOUT_MS } from "./e2e-timeouts.js";
 
