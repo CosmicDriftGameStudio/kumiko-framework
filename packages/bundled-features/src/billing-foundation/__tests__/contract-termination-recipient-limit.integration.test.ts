@@ -11,7 +11,7 @@ import {
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectSuccess, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -214,10 +214,12 @@ async function seedMatchingContract(email: string): Promise<void> {
     { email, passwordHash: "not-a-real-hash", displayName: "Declarant" },
     TestUsers.systemAdmin,
   );
-  await stack.http.writeOk(
-    TenantHandlers.addMember,
-    { userId: created.id, tenantId: testTenantId(8301), roles: ["TenantAdmin"] },
-    createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+  expectSuccess(
+    await stack.dispatcher.write(
+      TenantHandlers.addMember,
+      { userId: created.id, tenantId: testTenantId(8301), roles: ["TenantAdmin"] },
+      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+    ),
   );
   const event: SubscriptionEvent = {
     providerEventId: "evt_recipient_limit",

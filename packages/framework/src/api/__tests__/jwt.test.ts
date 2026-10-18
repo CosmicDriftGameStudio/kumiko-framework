@@ -47,6 +47,15 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
     expect(payload.roles).toEqual(["TenantAdmin"]);
   });
 
+  it("drops system and all from a validly-signed token, keeps anonymous and SystemAdmin", async () => {
+    const token = await forge({
+      tenantId: TENANT,
+      roles: ["system", "all", "anonymous", "SystemAdmin", "Admin"],
+    });
+    const payload = await jwt.verify(token);
+    expect(payload.roles).toEqual(["anonymous", "SystemAdmin", "Admin"]);
+  });
+
   it("rejects a validly-signed token whose tenantId is malformed", async () => {
     const token = await forge({ tenantId: "not-a-uuid", roles: ["TenantAdmin"] });
     await expect(jwt.verify(token)).rejects.toThrow(/tenantId/);

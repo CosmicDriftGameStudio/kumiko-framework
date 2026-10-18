@@ -14,6 +14,7 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
+import { expectError, expectSuccess } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -633,15 +634,16 @@ describe("ledger integration — createSchedule with a caller-chosen id (idempot
       id: scheduleId,
     };
 
-    const created = await stack.http.writeOk<{ id: string }>(
+    const created = await stack.dispatcher.write(LedgerHandlers.createSchedule, payload, jobUser);
+    expectSuccess(created);
+    expect(created.data).toMatchObject({ id: scheduleId });
+
+    const redelivered = await stack.dispatcher.write(
       LedgerHandlers.createSchedule,
       payload,
       jobUser,
     );
-    expect(created.id).toBe(scheduleId);
-
-    const redelivered = await stack.http.writeErr(LedgerHandlers.createSchedule, payload, jobUser);
-    expect(redelivered.code).toBe("version_conflict");
+    expectError(redelivered, "version_conflict");
   });
 
   test("an ordinary tenant user's chosen id is ignored — create still succeeds with a fresh id", async () => {

@@ -23,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
+  expectSuccess,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -156,10 +157,12 @@ beforeEach(async () => {
       passwordHash: "x",
       emailVerified: true,
     });
-    await stack.http.writeOk(
-      TenantHandlers.addMember,
-      { userId: id, tenantId, roles: ["User"] },
-      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+    expectSuccess(
+      await stack.dispatcher.write(
+        TenantHandlers.addMember,
+        { userId: id, tenantId, roles: ["User"] },
+        createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+      ),
     );
     userIds.push(id);
   }

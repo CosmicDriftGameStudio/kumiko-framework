@@ -46,6 +46,16 @@ function stripNonMintableGlobalRoles(roles: readonly string[]): readonly string[
   return roles.filter((role) => !NON_MINTABLE_GLOBAL_ROLES.has(role));
 }
 
+// Applied on JWT verify: a token signed with the right key (leaked or foreign)
+// must not carry the in-process System identity or the "all" pseudo-role.
+// "anonymous" stays: it only narrows access (openToAll excludes it), and
+// stripping it would turn the token into an authenticated user with no roles.
+const RESERVED_TOKEN_ROLES: ReadonlySet<string> = new Set<string>([...access.all, SYSTEM_ROLE]);
+
+export function stripReservedTokenRoles(roles: readonly string[]): readonly string[] {
+  return roles.filter((role) => !RESERVED_TOKEN_ROLES.has(role));
+}
+
 // Single mint path for session roles: merges globalRoles with the stripped
 // membership portion and dedupes. Every place that builds a session's roles
 // from a membership should go through this instead of repeating

@@ -1,6 +1,6 @@
 // @runtime dev
 import type { JwtHelper, SessionCreator } from "@cosmicdrift/kumiko-framework/api";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { type SessionUser, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import type { Hono } from "hono";
 
 export type BatchCommand = { type: string; payload: unknown };
@@ -132,6 +132,11 @@ export function createRequestHelper(
   const sidByUserKey = new Map<string, Promise<string>>();
 
   async function authHeader(user: SessionUser): Promise<Record<string, string>> {
+    if (user.roles.includes(SYSTEM_ROLE)) {
+      throw new Error(
+        "system identity is in-process only: JWT verify strips the system role; use stack.dispatcher.write/query",
+      );
+    }
     let forJwt = user;
     if (options.sessionCreator && !user.sid) {
       const key = `${user.id}:${user.tenantId}`;

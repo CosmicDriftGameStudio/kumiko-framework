@@ -10,7 +10,7 @@ import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectError, expectSuccess, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -300,6 +300,14 @@ async function issuedEvents(aggregateId: string, tenantId: string) {
   return events.filter((e) => e.type === CONTRACT_CONFIRMATION_ISSUED_EVENT_QN);
 }
 
+function isIssued(data: unknown): boolean {
+  return typeof data === "object" && data !== null && "issued" in data && data.issued === true;
+}
+
+function isIssueReason(data: unknown, reason: string): boolean {
+  return typeof data === "object" && data !== null && "reason" in data && data.reason === reason;
+}
+
 describe("contract confirmation mail on a subscription", () => {
   test("active webhook after a recorded consent sends one German mail with plan, price, VAT note, consent texts and the full terms", async () => {
     const buyer = await createBuyer(8201);
@@ -428,23 +436,29 @@ describe("contract confirmation mail on a subscription", () => {
       sourceAggregateId: subscriptionAggregateId(buyer.tenantId),
     };
 
-    const responses = await Promise.all([
-      stack.http.write(SubscriptionFoundationHandlers.issueContractConfirmation, payload, system),
-      stack.http.write(SubscriptionFoundationHandlers.issueContractConfirmation, payload, system),
+    const results = await Promise.all([
+      stack.dispatcher.write(
+        SubscriptionFoundationHandlers.issueContractConfirmation,
+        payload,
+        system,
+      ),
+      stack.dispatcher.write(
+        SubscriptionFoundationHandlers.issueContractConfirmation,
+        payload,
+        system,
+      ),
     ]);
-    const bodies = (await Promise.all(responses.map((r) => r.json()))) as {
-      isSuccess: boolean;
-      data?: { issued: boolean; reason?: string };
-    }[];
     await stack.drainJobs();
 
-    const issuedRuns = bodies.filter((b) => b.isSuccess && b.data?.issued === true);
+    const issuedRuns = results.filter((r) => r.isSuccess && isIssued(r.data));
     expect(issuedRuns).toHaveLength(1);
-    const others = bodies.filter((b) => !(b.isSuccess && b.data?.issued === true));
+    const others = results.filter((r) => !(r.isSuccess && isIssued(r.data)));
     expect(others).toHaveLength(1);
-    expect(others[0]?.isSuccess === false || others[0]?.data?.reason === "already_issued").toBe(
-      true,
-    );
+    const other = others[0];
+    expect(
+      other?.isSuccess === false ||
+        (other?.isSuccess === true && isIssueReason(other.data, "already_issued")),
+    ).toBe(true);
     expect(emailTransport.sent).toHaveLength(1);
     expect(
       await issuedEvents(subscriptionAggregateId(buyer.tenantId), buyer.tenantId),
@@ -453,24 +467,26 @@ describe("contract confirmation mail on a subscription", () => {
 
   test("an unknown consentId is a no-op success without a mail", async () => {
     const buyer = await createBuyer(8206);
-    const result = await stack.http.writeOk<{ issued: boolean; reason?: string }>(
+    const result = await stack.dispatcher.write(
       SubscriptionFoundationHandlers.issueContractConfirmation,
       { consentId: "does-not-exist", sourceAggregateId: subscriptionAggregateId(buyer.tenantId) },
       createSystemUser(buyer.tenantId),
     );
-    expect(result).toEqual({ issued: false, reason: "consent_not_found" });
+    expectSuccess(result);
+    expect(result.data).toEqual({ issued: false, reason: "consent_not_found" });
     expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("rejects a source aggregate that is not the caller tenant's own stream", async () => {
     const buyer = await createBuyer(8207);
-    const error = await stack.http.writeErr(
+    const result = await stack.dispatcher.write(
       SubscriptionFoundationHandlers.issueContractConfirmation,
       { consentId: "x", sourceAggregateId: subscriptionAggregateId(testTenantId(8299)) },
       createSystemUser(buyer.tenantId),
     );
-    expect(error.httpStatus).toBe(422);
-    expect(JSON.stringify(error)).toContain("invalid_source_aggregate");
+    expectError(result);
+    expect(result.error.httpStatus).toBe(422);
+    expect(JSON.stringify(result.error)).toContain("invalid_source_aggregate");
   });
 });
 

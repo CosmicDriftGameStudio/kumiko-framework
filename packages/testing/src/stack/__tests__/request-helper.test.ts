@@ -43,6 +43,17 @@ function appRecording(
 }
 
 describe("createRequestHelper", () => {
+  test("refuses to send a system-role user over HTTP", async () => {
+    const { app, calls } = appRecording(() => Response.json({ isSuccess: true, data: {} }));
+    const { jwt } = jwtStub();
+    const http = createRequestHelper(app, jwt);
+
+    await expect(http.write("todo.create", {}, { ...user, roles: ["system"] })).rejects.toThrow(
+      /stack\.dispatcher\.write\/query/,
+    );
+    expect(calls).toHaveLength(0);
+  });
+
   test("writeOk posts JSON to /api/write and resolves the success data", async () => {
     const { app, calls } = appRecording(() =>
       Response.json({ isSuccess: true, data: { written: true } }),

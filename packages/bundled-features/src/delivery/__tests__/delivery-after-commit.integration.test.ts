@@ -14,7 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectSuccess, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -135,10 +135,12 @@ beforeAll(async () => {
     TestUsers.systemAdmin,
   );
   for (const user of tenantUsers) {
-    await stack.http.writeOk(
-      "tenant:write:add-member",
-      { userId: user.id, tenantId: TENANT_ID, roles: ["User"] },
-      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+    expectSuccess(
+      await stack.dispatcher.write(
+        "tenant:write:add-member",
+        { userId: user.id, tenantId: TENANT_ID, roles: ["User"] },
+        createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+      ),
     );
   }
 });

@@ -9,7 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectSuccess, resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -187,10 +187,12 @@ describe("notification rename keeps preferences and opt-outs", () => {
 
   test("resubscribeAddress lifts opt-outs under the former name", async () => {
     const addressHash = await storeFormerNameOptOut();
-    await stack.http.writeOk(
-      DeliveryHandlers.resubscribeAddress,
-      { addressHash, notificationType: CURRENT_TYPE, channel: "email" },
-      createSystemUser(user.tenantId, ["SystemAdmin"]),
+    expectSuccess(
+      await stack.dispatcher.write(
+        DeliveryHandlers.resubscribeAddress,
+        { addressHash, notificationType: CURRENT_TYPE, channel: "email" },
+        createSystemUser(user.tenantId, ["SystemAdmin"]),
+      ),
     );
     await stack.http.writeOk("app:write:notify-address", { email: ADDRESS }, user);
     expect(sentTo(ADDRESS)).toHaveLength(1);

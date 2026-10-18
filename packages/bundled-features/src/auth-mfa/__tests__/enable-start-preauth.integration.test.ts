@@ -11,7 +11,7 @@ import { randomBytes } from "node:crypto";
 import { asRawClient, configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, expectSuccess } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -113,10 +113,12 @@ async function loginBlockedByEnforcement(): Promise<{
     tenantId: TENANT_ID,
     roles: ["User"],
   });
-  await stack.http.writeOk(
-    ConfigHandlers.set,
-    { key: mfaRequiredConfigHandle.name, value: "all" },
-    createSystemUser(TENANT_ID),
+  expectSuccess(
+    await stack.dispatcher.write(
+      ConfigHandlers.set,
+      { key: mfaRequiredConfigHandle.name, value: "all" },
+      createSystemUser(TENANT_ID),
+    ),
   );
 
   const loginRes = await stack.http.raw("POST", "/api/auth/login", {

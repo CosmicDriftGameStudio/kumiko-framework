@@ -15,7 +15,7 @@ import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectSuccess, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -245,10 +245,12 @@ async function addMember(
   roles: string[],
   target: TestStack = stack,
 ): Promise<void> {
-  await target.http.writeOk(
-    TenantHandlers.addMember,
-    { userId, tenantId: testTenantId(tenantNumber), roles },
-    createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+  expectSuccess(
+    await target.dispatcher.write(
+      TenantHandlers.addMember,
+      { userId, tenantId: testTenantId(tenantNumber), roles },
+      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
+    ),
   );
 }
 
