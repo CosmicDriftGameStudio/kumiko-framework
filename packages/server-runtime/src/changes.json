@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Default mail resolveEmail finds users of any tenant",
+    "detail": "The default resolveEmail of the mail boot option loads the user by id only. Rows in read_users carry the system tenant, so the former tenantId filter returned null for every real tenant."
+  },
+  {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "extraContext factories see the boot env, billing hook and new exports",
+    "detail": "The merged env, including the defaults of declarative boot options such as FILE_STORAGE_PROVIDER from fileStorage, is passed to extraContext factories as env. resolveBillingOption, parseRunMode, HostDispatchFn, buildDemoModeRoute and withDemoReadOnlyFetch are exported from the package index. The billing boot option accepts afterSync."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "runProdApp requires envSchema",

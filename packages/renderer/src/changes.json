@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Missing-screen page spaces title and hint like other cards",
+    "detail": "The page-not-available card renders title and hint through the Card title and subtitle slots."
+  },
+  {
     "version": "0.368.0",
     "type": "fix",
     "title": "A screen that falls back via visibleWhen shows the fallback's title",

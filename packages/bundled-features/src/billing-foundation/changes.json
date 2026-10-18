@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Billing webhook sync exposes afterSync",
+    "detail": "The billing webhook sync calls afterSync({ tenantId, tier, changed, event }) after every webhook, with changed false when the tier stayed the same."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated billingFoundationFeature constant is removed",

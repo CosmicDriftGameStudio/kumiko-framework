@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Unsubscribe endpoint answers form posts with an HTML page",
+    "detail": "POST on the delivery unsubscribe route returns an HTML confirmation page for a form post and JSON for a bare POST. The behavior is unchanged; this only documents it.",
+    "migration": "Clients that post the unsubscribe form expect HTML, API clients that post without a form content type expect JSON. No code change is needed."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "Unsubscribe confirmation, result and link-invalid pages look like the tenant's mails",

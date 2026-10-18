@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "test-timeouts guard flags hook timeouts and scans recipes",
+    "detail": "The test-timeouts guard now also fails on a timeout argument to beforeAll, beforeEach, afterAll and afterEach, as a number or as a { timeout } object, including renamed and namespace imports from bun:test. The samples/recipes exemption is gone, recipe tests and their e2e dirs are scanned like every other test. The kumiko.json of the framework repo scans tests under scripts and bin as well. There is no baseline."
+  },
+  {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "import-extensions guard skips imports of build output",
+    "detail": "A relative specifier with a dist/ path segment, such as a published bin importing ../dist/cli.js, is no longer reported. The .js there is the only file that exists."
+  },
+  {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "Pre-push shim stops at the repo boundary, nearest kumiko.json wins, process.env guard covers bin",
+    "detail": "The pre-push shim searches upward only through ancestors up to the git root and fails with a message when nothing is found. findLocalRepo prefers the nearest kumiko.json over the git root. guard-no-direct-process-env scans bin/**/*.ts including bin/ops."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "import-extensions guard reports relative .js and .jsx specifiers",

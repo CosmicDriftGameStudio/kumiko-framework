@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.371.0",
+    "type": "improvement",
+    "title": "errors.demoReadOnly translated",
+    "detail": "The read-only demo error has German copy in the informal and formal catalogs."
+  },
+  {
     "version": "0.364.0",
     "type": "improvement",
     "title": "German text for discarding a template draft",
