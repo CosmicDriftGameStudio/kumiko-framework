@@ -541,7 +541,9 @@ export function createImagesField(
 // Issue um Constraint-Inferenz auf strukturellen Records. Stattdessen
 // validieren wir die Conformance via conditional return type: wenn F
 // nicht FieldsMap-compat ist, kollabiert der Return zu `never`.
-export function createEntity<F, const T extends EntityTenancy = "tenant">(def: {
+// `const F`: inline field literals (`{ type: "reference", ... }`) keep their
+// `type` literal without `as const`; otherwise it widens to string → `never`.
+export function createEntity<const F, const T extends EntityTenancy = "tenant">(def: {
   readonly table?: string;
   readonly fields: F;
   readonly description?: string;

@@ -23,6 +23,7 @@ import {
   createTextField,
   createTimestampField,
   createTzField,
+  type EntityDefinition,
 } from "../../engine/index.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
@@ -167,5 +168,35 @@ describe("EntityTable<E> — idType wirkt", () => {
   });
   test("serial-Entity exposed id existiert", () => {
     expectTypeOf(ts.id).not.toBeNever();
+  });
+});
+
+describe("createEntity — inline field literals without `as const`", () => {
+  const inlineEntity = createEntity({
+    table: "inline_ent",
+    fields: {
+      owner: { type: "reference", entity: "user", required: true },
+      status: { type: "select", options: ["open", "closed"], required: true },
+      title: { type: "text", required: true, personal: false, reason: "test_fixture" },
+    },
+  });
+  const t = buildEntityTable("inline_ent", inlineEntity);
+
+  test("the result is an EntityDefinition, not never", () => {
+    expectTypeOf(inlineEntity).not.toBeNever();
+    expectTypeOf(inlineEntity).toExtend<EntityDefinition>();
+    expectTypeOf(inlineEntity.fields.owner.type).toEqualTypeOf<"reference">();
+    expectTypeOf(inlineEntity.fields.status.options).toEqualTypeOf<readonly ["open", "closed"]>();
+  });
+
+  test("buildEntityTable still infers the columns", () => {
+    expectTypeOf(t.owner).not.toBeNever();
+    expectTypeOf(t.status).not.toBeNever();
+    expectTypeOf(t.title).not.toBeNever();
+  });
+
+  test("a non-field value in fields still collapses to never", () => {
+    const broken = createEntity({ table: "broken", fields: { x: { type: "nonsense" } } });
+    expectTypeOf(broken).toBeNever();
   });
 });
