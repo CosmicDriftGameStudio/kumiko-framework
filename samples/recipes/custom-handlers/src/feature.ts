@@ -12,9 +12,6 @@ import {
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
-// detail() returns an untyped row; parse the two fields the increment needs once.
-const counterVersionRowSchema = z.object({ count: z.number(), version: z.number() });
-
 export const counterEntity = createEntity({
   table: "read_sample_counters",
   fields: {
@@ -51,8 +48,9 @@ export const counterFeature = defineFeature("counters", (r) => {
         return failNotFound("counter", event.payload.id);
       }
 
-      const { count, version } = counterVersionRowSchema.parse(current);
-      const newCount = count + event.payload.amount;
+      // detail() returns the entity's own row type; count is nullable because the field is not required.
+      const { count, version } = current;
+      const newCount = (count ?? 0) + event.payload.amount;
       // Read-modify-write on counter: use the version we just read so two
       // concurrent increments don't clobber each other's changes.
       return counterExecutor.update(

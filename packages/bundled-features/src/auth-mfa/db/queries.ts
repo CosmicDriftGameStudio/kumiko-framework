@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 
 export type UserMfaRow = {
@@ -13,8 +14,8 @@ export type UserMfaRow = {
   readonly userId: string;
   readonly totpSecret: string;
   readonly recoveryCodes: { readonly hashes: readonly string[] };
-  readonly enabledAt: string;
-  readonly lastUsedAt: string | null;
+  readonly enabledAt: Temporal.Instant;
+  readonly lastUsedAt: Temporal.Instant | null;
 };
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
@@ -37,12 +38,9 @@ export async function findUserMfaRow(db: TenantDb, user: SessionUser): Promise<U
   if (!idLookup) return null;
   const detail = await executor.detail({ id: idLookup.id }, user, db);
   if (!detail) return null;
-  // @cast-boundary engine-payload — executor.detail returns a decrypted,
-  // untyped Record; the userMfa entity's own field shape narrows it.
-  const row = detail as Omit<UserMfaRow, "recoveryCodes"> & { recoveryCodes: string };
   const recoveryCodes = parseJsonOrThrow<{ hashes: readonly string[] }>(
-    row.recoveryCodes,
+    detail.recoveryCodes,
     "user-mfa.recoveryCodes",
   );
-  return { ...row, recoveryCodes };
+  return { ...detail, recoveryCodes };
 }

@@ -1,3 +1,4 @@
+import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
@@ -78,7 +79,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
       const row = await leaseExecutor.detail({ id: query.payload.id }, query.user, ctx.db);
       if (!row) return failNotFound("lease", query.payload.id);
       const lease = parseLeaseRow(row);
-      const countChildren = async (executor: typeof positionExecutor): Promise<number> => {
+      const countChildren = async (executor: EventStoreExecutor): Promise<number> => {
         const page = await executor.list(
           { filter: { field: "lease", op: "eq", value: lease.id }, limit: 1, totalCount: true },
           query.user,

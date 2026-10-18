@@ -92,7 +92,11 @@ export {
   enumerateFeatureTableSources,
   type FeatureTableSource,
 } from "./feature-table-sources.ts";
-export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.ts";
+export {
+  flattenLocatedTimestamp,
+  type LocatedTimestampRead,
+  rehydrateLocatedTimestamp,
+} from "./located-timestamp.ts";
 export {
   assertUniqueTableNames,
   assertValidMigrationName,
@@ -200,6 +204,7 @@ export {
   buildBaseColumns,
   buildEntityTable,
   declareGlobalTenancy,
+  type EntityRow,
   type EntityTable,
   physicalColumnName,
   toSnakeCase,

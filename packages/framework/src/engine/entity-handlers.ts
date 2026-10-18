@@ -8,7 +8,7 @@ import {
   enrichWithReferences,
 } from "../db/eagerload.ts";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
-import { buildEntityTable, type EntityTable } from "../db/table-builder.ts";
+import { buildEntityTable, type EntityRow, type EntityTable } from "../db/table-builder.ts";
 import {
   acknowledgeConventionCrossTenant,
   reportConventionCrossTenantUse,
@@ -719,11 +719,11 @@ export function defineEntityDetailHandler(
 // Keep using the explicit buildEntityTable / createEventStoreExecutor duo
 // when you need search-adapter / entity-cache options on the executor — this
 // helper covers the zero-config case.
-export function createEntityExecutor(
+export function createEntityExecutor<E extends EntityDefinition>(
   entityName: string,
-  entity: EntityDefinition,
-): { readonly table: EntityTable; readonly executor: EventStoreExecutor } {
-  const table = buildEntityTable(entityName, entity);
+  entity: E,
+): { readonly table: EntityTable; readonly executor: EventStoreExecutor<EntityRow<E>> } {
+  const table = buildEntityTable<EntityDefinition>(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
   return { table, executor };
 }

@@ -228,13 +228,13 @@ export function createLongTextField<R extends true | false = false>(
 
 export function createBooleanField<R extends true | false = false>(
   overrides?: Partial<Omit<BooleanFieldDef, "type" | "required">> & { required?: R },
-): BooleanFieldDef & { required: R } {
+): BooleanFieldDef & { required: R; default: boolean } {
   return {
     type: "boolean",
     required: false,
     default: false,
     ...overrides,
-  } as BooleanFieldDef & { required: R }; // @cast-boundary engine-payload
+  } as BooleanFieldDef & { required: R; default: boolean }; // @cast-boundary engine-payload
 }
 
 export function createSelectField<

@@ -102,7 +102,7 @@ export const demoFeature = defineFeature("styleguide", (r) => {
       if (!source) return failNotFound("item", event.payload.id);
       return itemExecutor.create(
         {
-          name: `${source["name"] as string} (Copy)`,
+          name: `${source["name"]} (Copy)`,
           description: source["description"],
           quantity: source["quantity"],
           rating: source["rating"],

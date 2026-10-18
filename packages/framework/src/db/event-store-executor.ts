@@ -7,6 +7,7 @@ import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
 import { buildExecutorContext, type Table } from "./event-store-executor-context.ts";
 import { createReadVerbs } from "./event-store-executor-read.ts";
 import { createWriteVerbs } from "./event-store-executor-write.ts";
+import type { EntityRow } from "./table-builder.ts";
 
 export type {
   EventStoreExecutor,
@@ -42,6 +43,13 @@ export type EventStoreExecutorOptions = {
   kms?: LocalKeyKmsAdapter;
 };
 
+// The overload carries the entity's row type; the implementation builds untyped rows. A typed
+// executor stays assignable to the untyped EventStoreExecutor, which the overload check relies on.
+export function createEventStoreExecutor<E extends EntityDefinition>(
+  table: Table,
+  entity: E,
+  options: EventStoreExecutorOptions,
+): EventStoreExecutor<EntityRow<E>>;
 export function createEventStoreExecutor(
   table: Table,
   entity: EntityDefinition,
