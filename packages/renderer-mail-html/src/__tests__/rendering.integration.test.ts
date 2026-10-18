@@ -765,3 +765,34 @@ describe("renderer-mail-html :: draft", () => {
     ).rejects.toMatchObject({ code: "invalid_payload" });
   });
 });
+
+describe("renderer-mail-html :: plain text part", () => {
+  async function renderDraftText(content: string): Promise<string> {
+    const result = await plugin.render(
+      {
+        kind: "mail",
+        payload: {
+          slug: SLUG,
+          locale: LOCALE,
+          variables: PLAIN_VARIABLES,
+          draft: { content, meta: { subject: "s" } },
+        },
+      },
+      { db: stack.db, registry: stack.registry, tenantId: tenantId(1) },
+    );
+    if (result.kind !== "mail") throw new Error(`unexpected render kind ${result.kind}`);
+    return result.text;
+  }
+
+  test("a link whose text differs from the href keeps the url in the text part", async () => {
+    const result = await renderMail(tenantId(1));
+    expect(result.text).toContain("Bestätigen");
+    expect(result.text).toContain(PLAIN_VARIABLES.url);
+  });
+
+  test("a link whose text equals the href shows the url only once", async () => {
+    const href = "https://example.com/same";
+    const text = await renderDraftText(`<p><a href="${href}">${href}</a></p>`);
+    expect(text.split(href).length - 1).toBe(1);
+  });
+});
