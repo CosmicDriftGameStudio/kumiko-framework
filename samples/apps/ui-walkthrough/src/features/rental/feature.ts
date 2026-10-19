@@ -270,6 +270,12 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
   r.screen(recordPositionsScreen);
+  r.screen({
+    id: "upload-standard-layout",
+    type: "custom",
+    renderer: { react: { __component: "upload-standard-layout" } },
+    description: "Receipt upload on the standard form screen layout.",
+  });
 
   r.nav({
     id: "contracts",
@@ -289,5 +295,12 @@ export const rentalFeature = defineFeature("rental", (r) => {
     parent: "rental:nav:contracts",
     screen: "rental:screen:rental-dashboard",
     order: 20,
+  });
+  r.nav({
+    id: "upload-standard-layout",
+    label: i18nKey("rental.nav.upload"),
+    parent: "rental:nav:contracts",
+    screen: "rental:screen:upload-standard-layout",
+    order: 30,
   });
 });

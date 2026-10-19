@@ -4948,7 +4948,7 @@ export function DefaultCard({
           {children}
         </div>
       )}
-      {s.footer !== undefined && (
+      {s.footer !== undefined && s.footer !== null && s.footer !== false && (
         <div
           className={cn(
             cardFooter,

@@ -4,6 +4,18 @@ export const rentalTranslations: TranslationsByLocale = {
   de: {
     "rental.nav.contracts": "Verträge",
     "rental.nav.leases": "Mietverträge",
+    "rental.nav.upload": "Belege hochladen",
+    "screen:upload-standard-layout.title": "Belege hochladen",
+    "rental.upload.description":
+      "Laden Sie Rechnungen und Nebenkostenbelege zum Mietvertrag hoch. Danach gehen sie zur Prüfung.",
+    "rental.upload.zoneTitle": "Belege auswählen",
+    "rental.upload.zoneDescription": "PDF oder Foto, mehrere Dateien auf einmal sind möglich.",
+    "rental.upload.dropTitle": "Rechnungen und Belege hier ablegen",
+    "rental.upload.dropHint": "PDF, JPG oder PNG",
+    "rental.upload.resultTitle": "Hochgeladene Belege",
+    "rental.upload.resultDescription": "Diese Dateien gehen mit der Prüfung an die Buchhaltung.",
+    "rental.upload.empty": "Noch keine Belege hochgeladen.",
+    "rental.upload.toReview": "Zur Prüfung",
 
     "screen:lease-list.title": "Mietverträge",
     "screen:lease-list-short.title": "Mietverträge (gekündigt)",
@@ -121,6 +133,18 @@ export const rentalTranslations: TranslationsByLocale = {
   en: {
     "rental.nav.contracts": "Contracts",
     "rental.nav.leases": "Leases",
+    "rental.nav.upload": "Upload receipts",
+    "screen:upload-standard-layout.title": "Upload receipts",
+    "rental.upload.description":
+      "Upload invoices and service charge receipts for the lease. They then go to review.",
+    "rental.upload.zoneTitle": "Choose receipts",
+    "rental.upload.zoneDescription": "PDF or photo, several files at once are fine.",
+    "rental.upload.dropTitle": "Drop invoices and receipts here",
+    "rental.upload.dropHint": "PDF, JPG or PNG",
+    "rental.upload.resultTitle": "Uploaded receipts",
+    "rental.upload.resultDescription": "These files go to accounting with the review.",
+    "rental.upload.empty": "No receipts uploaded yet.",
+    "rental.upload.toReview": "To review",
 
     "screen:lease-list.title": "Leases",
     "screen:lease-list-short.title": "Leases (terminated)",
