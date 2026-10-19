@@ -1126,10 +1126,19 @@ export type DashboardFeedPanel = DashboardPanelQueryOptions &
     readonly query: string;
   };
 
-// List of label/value/progress bar (e.g. repayment progress per loan).
-// Query result contract: `{ rows: { label: DashboardText; value: DashboardText;
-// fraction: number; sub?: DashboardText }[] }`. `fraction` is clamped to 0..1;
-// `sub` is a small line below the bar (e.g. "42 % repaid").
+export type DashboardProgressTone = "default" | "danger";
+
+// List of label/value/progress bar (e.g. repayment progress per loan or usage per cap).
+// Query result contract, one of two row shapes (`sub` and `tone` work in both):
+//   fraction mode  { label: DashboardText; value: DashboardText; fraction: number;
+//                    sub?: DashboardText; tone?: DashboardProgressTone }
+//   used/limit mode { label: DashboardText; used: number; limit: number | null;
+//                    sub?: DashboardText; tone?: DashboardProgressTone }
+// `fraction` is clamped to 0..1; `sub` is a small line below the bar (e.g. "42 % repaid").
+// In used/limit mode the renderer shows "<used> / <limit>" and fills the bar with
+// used / limit (limit 0 fills it completely). `limit: null` shows "<used> / unlimited"
+// and no bar. `tone` "danger" colors bar and value; used/limit rows default to "danger"
+// once `used >= limit`, fraction rows never get a tone automatically.
 export type DashboardProgressListPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState &
   DashboardPanelGate & {

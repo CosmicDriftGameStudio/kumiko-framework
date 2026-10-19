@@ -70,6 +70,12 @@ The value is in minor units (cents). `fractionDigits` defaults to the currency's
 
 A `timeseries` chart also takes `unit` (i18n key, e.g. for "ms"). The unit is shown once above the y axis ticks, and the ticks show only the number. The boot validator rejects `unit` on other chart kinds.
 
+## Usage against a limit: progress-list `used` and `limit`
+
+A `progress-list` row can return `used: number` and `limit: number | null` instead of `value` and `fraction`. The row then shows "used / limit" in the viewer's number format and fills the bar with `used / limit`; `limit: 0` fills it completely. `limit: null` shows "used / unlimited" (translated through `kumiko.dashboard.progress.unlimited`) and draws no bar, because an empty bar would read as 0 %.
+
+`tone: "danger"` colors bar and value. Used/limit rows get it automatically once `used >= limit`, an explicit `tone` wins either way. Fraction rows never get a tone automatically, since a full bar can be good news such as a repaid loan.
+
 ## Scrolling stacked-area charts: `scrollable`
 
 `scrollable: true` gives each bucket of a `stacked-area` chart a fixed width of 48 px, and the plot scrolls horizontally when the buckets do not fit. On first render the chart scrolls so that `todayMs` sits in the middle, or to the end when the result has no `todayMs`. The boot validator rejects `scrollable` on other chart kinds.

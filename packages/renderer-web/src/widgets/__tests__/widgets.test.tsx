@@ -1109,4 +1109,25 @@ describe("ProgressList", () => {
     const bar = screen.getByRole("progressbar");
     expect(bar.compareDocumentPosition(sub) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  test("fraction null renders no bar", () => {
+    render(
+      <ProgressList
+        rows={[{ id: "1", label: "Users", value: "12 / unlimited", fraction: null }]}
+      />,
+    );
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  test("tone danger colors bar and value", () => {
+    render(
+      <ProgressList
+        rows={[{ id: "1", label: "Users", value: "5 / 5", fraction: 1, tone: "danger" }]}
+      />,
+    );
+    expect(screen.getByText("5 / 5").className).toContain("text-status-critical");
+    expect(screen.getByRole("progressbar").firstElementChild?.className).toContain(
+      "bg-status-critical",
+    );
+  });
 });

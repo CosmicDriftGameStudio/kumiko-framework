@@ -716,6 +716,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.dashboard.panel.error.isolated": "Les autres panneaux ne sont pas affectés.",
   "kumiko.dashboard.panel.error.retry": "Réessayer",
   "kumiko.dashboard.panel.error.title": "Impossible de charger {label}",
+  "kumiko.dashboard.progress.unlimited": "illimité",
   "kumiko.dashboard.time-range": "Période",
   "kumiko.screen-error.detail": "Écran : {screen}. {message}",
   "kumiko.screen-error.screen": "Écran : {screen}",
