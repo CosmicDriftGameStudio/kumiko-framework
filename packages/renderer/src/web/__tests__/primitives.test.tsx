@@ -2305,6 +2305,22 @@ describe("Card", () => {
     expect(footer?.className.includes("border-t")).toBe(true);
   });
 
+  test("slots.footer false or null renders no footer bar", () => {
+    const { container, rerender } = render(
+      <Card testId="c" slots={{ footer: false }}>
+        <span>body</span>
+      </Card>,
+    );
+    expect(container.querySelector(".border-t")).toBeNull();
+    expect(screen.getByTestId("c").innerHTML).not.toContain("justify-end");
+    rerender(
+      <Card testId="c" slots={{ footer: null }}>
+        <span>body</span>
+      </Card>,
+    );
+    expect(screen.getByTestId("c").innerHTML).not.toContain("justify-end");
+  });
+
   test("footerBordered=false drops the border", () => {
     render(
       <Card

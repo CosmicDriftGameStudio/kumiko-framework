@@ -140,6 +140,8 @@ export type {
   ErrorBoundaryProps,
 } from "./components/error-boundary.tsx";
 export { ErrorBoundary } from "./components/error-boundary.tsx";
+export type { FormScreenLayoutProps } from "./components/form-screen-layout.tsx";
+export { FormScreenLayout } from "./components/form-screen-layout.tsx";
 export { RelatedListSection } from "./components/related-list-section.tsx";
 export type {
   RenderEditAction,
