@@ -33,6 +33,7 @@ function mailFoundation(panels: readonly ExtensionSelectorPanel[], withStatusQue
     r.translations({
       keys: {
         "screen:queue.title": { en: "Queue" },
+        "screen:queue-hint.title": { en: "Queue hint" },
         "mail.provider": { en: "Provider" },
         "mail-foundation.settings": { en: "Mail" },
       },
@@ -54,6 +55,13 @@ function mailFoundation(panels: readonly ExtensionSelectorPanel[], withStatusQue
     }
     r.screen({
       id: "queue",
+      type: "projectionList",
+      dormant: true,
+      query: "mail-foundation:query:queue:list",
+      columns: ["name"],
+    });
+    r.screen({
+      id: "queue-hint",
       type: "projectionList",
       dormant: true,
       query: "mail-foundation:query:queue:list",
@@ -114,6 +122,16 @@ describe("extensionSelector owner panels — generated dashboard", () => {
       kind: "screen",
       screen: "mail-foundation:screen:queue",
     });
+  });
+
+  test("a short fallback ref is qualified like the screen ref and passes boot validation", () => {
+    const owner = mailFoundation([{ ...QUEUE_PANEL, fallback: "queue-hint" }]);
+    const dashboard = ownerDashboard([owner, smtp]);
+    expect(dashboard.panels[1]).toMatchObject({
+      kind: "screen",
+      fallback: "mail-foundation:screen:queue-hint",
+    });
+    expect(() => validateBootWithHub(owner)).not.toThrow();
   });
 
   test("a selector with panels but no gated plugin still renders as a dashboard", () => {

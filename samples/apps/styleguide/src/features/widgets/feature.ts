@@ -191,6 +191,21 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         query: "widgets:query:metrics:goal-progress",
       },
       {
+        kind: "text",
+        id: "dashboard-help",
+        label: "widgets:dashboard:help-title",
+        blocks: [
+          { kind: "heading", text: "widgets:dashboard:help-heading" },
+          { kind: "paragraph", text: "widgets:dashboard:help-body" },
+          {
+            kind: "list",
+            items: ["widgets:dashboard:help-item-1", "widgets:dashboard:help-item-2"],
+          },
+          { kind: "code", code: "kumiko check --explain" },
+          { kind: "hint", text: "widgets:dashboard:help-hint" },
+        ],
+      },
+      {
         kind: "custom",
         id: "filter-echo",
         component: { react: { __component: "widgets-dashboard-filter-echo" } },
@@ -373,6 +388,8 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
           value: openAmount(3200, ctx.locale),
           fraction: 0.92,
         },
+        { label: { i18nKey: "widgets:dashboard:demo-cap-users" }, used: 10, limit: 10 },
+        { label: { i18nKey: "widgets:dashboard:demo-cap-projects" }, used: 4, limit: null },
       ],
     }),
     access: {

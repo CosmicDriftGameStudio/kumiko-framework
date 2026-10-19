@@ -84,7 +84,7 @@ The scroll area is a plain overflow container. For a range switch see `ranges` b
 
 ## Hiding panels: `visibleWhen`
 
-`stat`, `stat-group`, `chart`, `list`, `feed` and `progress-list` panels take the same `visibleWhen` as `screen` panels:
+`stat`, `stat-group`, `chart`, `list`, `feed`, `progress-list` and `text` panels take the same `visibleWhen` as `screen` panels:
 
 ```ts illustration
 visibleWhen: { query: "loans:query:portfolio:state", field: "state", eq: "filled" }
@@ -93,6 +93,29 @@ visibleWhen: { query: "loans:query:portfolio:state", field: "state", eq: "filled
 The gate query returns a flat record. The panel renders only when `field` equals `eq`; while the gate loads it renders nothing, and when the gate query fails the panel's cell shows the error with a retry button. The gate query receives the screen filter and the time range, like the panel's own query. A panel with `ignoreScreenFilter` drops the filter for its gate too; a `stat-group` always passes the filter. Panels whose gates resolve to the same query and payload share one live request. The panel's own query only runs once the gate is met.
 
 The boot validator checks that the gate query is registered and that `field` is in its `outputSchema`. It rejects `visibleWhen` on a `stat-group` child (gate the whole group instead) and an empty query or field.
+
+A `screen` panel takes a `fallback` screen (same-feature short id or `<feature>:screen:<id>`) that is embedded in its place when the gate is unmet or its query fails; while the gate loads nothing renders. `chromeless` and the panel `label` apply to the fallback too. The boot validator rejects `fallback` without `visibleWhen`, an unresolvable or non-embeddable target, and a target with its own `visibleWhen`. A role without access to the fallback screen gets the panel without it.
+
+## Static text: the `text` panel
+
+A `text` panel has no query. It renders `blocks`, an optional `label` as title and the usual `span` and `visibleWhen`:
+
+```ts illustration
+{
+  kind: "text",
+  id: "getting-started",
+  label: "app:help:title",
+  blocks: [
+    { kind: "heading", text: "app:help:heading" },
+    { kind: "paragraph", text: "app:help:body", emphasis: "strong" },
+    { kind: "list", items: ["app:help:step-1", "app:help:step-2"] },
+    { kind: "code", code: "curl https://api.example.test/health" },
+    { kind: "hint", text: "app:help:hint" },
+  ],
+}
+```
+
+`text` and every list item are i18n keys and count as required translation keys; `code` is shown verbatim in a horizontally scrollable block. `paragraph` is muted by default, `emphasis: "strong"` uses the foreground color. There is no markdown or HTML. The boot validator rejects empty `blocks` and a `list` without items.
 
 ## Stat groups: `subtitle`, `span` and strip icons
 

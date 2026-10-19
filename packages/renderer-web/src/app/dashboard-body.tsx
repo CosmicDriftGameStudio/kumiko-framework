@@ -31,6 +31,8 @@
 //   feed          → { rows: { primary: DashboardText, trailing?: DashboardText }[] }
 //   progress-list → { rows: { label: DashboardText, value: DashboardText, fraction }[] }
 //                   or, per row, used / limit instead of value / fraction
+//   text          → no query; static `blocks` (heading, paragraph, list, code, hint),
+//                   text/items are i18n keys, code is shown verbatim.
 //   custom        → no query; an app component registered via
 //                   extensionSectionComponents fetches its own data.
 //   screen        → no own query; embeds another declarative screen via
@@ -62,6 +64,8 @@ import type {
   DashboardScreenPanel,
   DashboardStatGroupPanel,
   DashboardStatPanel,
+  DashboardTextBlock,
+  DashboardTextPanel,
   DashboardTextParam,
   DashboardValueFormat,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -75,6 +79,7 @@ import {
   type DashboardBodyProps,
   dispatcherErrorText,
   EmbeddedScreenProvider,
+  type EmbeddedScreenTarget,
   evalVisibleWhen,
   extensionSectionName,
   KumikoScreen,
@@ -1094,6 +1099,101 @@ function ProgressListPanelBody({
   );
 }
 
+function TextBlockView({
+  block,
+  translate,
+}: {
+  readonly block: DashboardTextBlock;
+  readonly translate: Translate;
+}): ReactNode {
+  switch (block.kind) {
+    case "heading":
+      return (
+        <h3 data-block="heading" className="text-sm font-semibold text-foreground">
+          {translate(block.text)}
+        </h3>
+      );
+    case "paragraph":
+      return (
+        <p
+          data-block="paragraph"
+          className={
+            block.emphasis === "strong"
+              ? "text-sm font-medium text-foreground"
+              : "text-sm text-muted-foreground"
+          }
+        >
+          {translate(block.text)}
+        </p>
+      );
+    case "list":
+      return (
+        <ul data-block="list" className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          {block.items.map((item) => (
+            <li key={item}>{translate(item)}</li>
+          ))}
+        </ul>
+      );
+    case "code":
+      return (
+        <pre data-block="code" className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
+          <code>{block.code}</code>
+        </pre>
+      );
+    case "hint":
+      return (
+        <p data-block="hint" className="text-xs text-muted-foreground">
+          {translate(block.text)}
+        </p>
+      );
+  }
+}
+
+function textBlockKey(block: DashboardTextBlock): string {
+  switch (block.kind) {
+    case "list":
+      return `list:${block.items.join("|")}`;
+    case "code":
+      return `code:${block.code}`;
+    default:
+      return `${block.kind}:${block.text}`;
+  }
+}
+
+function TextPanelBody({
+  panel,
+  label,
+  translate,
+}: {
+  readonly panel: DashboardTextPanel;
+  readonly label: string | undefined;
+  readonly translate: Translate;
+}): ReactNode {
+  const blocks = (
+    <div className="flex flex-col gap-3">
+      {panel.blocks.map((block) => (
+        <TextBlockView key={textBlockKey(block)} block={block} translate={translate} />
+      ))}
+    </div>
+  );
+  const testId = `dashboard-panel-${panel.id}`;
+  if (label !== undefined) {
+    return (
+      <PanelShell testId={testId} title={label}>
+        {blocks}
+      </PanelShell>
+    );
+  }
+  return (
+    <section
+      data-testid={testId}
+      className="h-full rounded-lg border border-border bg-card p-4 text-card-foreground"
+    >
+      {blocks}
+    </section>
+  );
+}
+
 // Löst panel.component über dieselbe extensionSectionComponents-Registry auf
 // wie entityEdit-Extension-Sections und List-Header-Slots — bleibt an seiner
 // Array-Position statt in einen separaten Slot zu wandern (siehe Datei-Kopf-
@@ -1284,6 +1384,9 @@ function PanelBody({
       <FeedPanelBody panel={panel} label={text} screenParams={screenParams} translate={translate} />
     );
   }
+  if (panel.kind === "text") {
+    return <TextPanelBody panel={panel} label={label} translate={translate} />;
+  }
   return (
     <ProgressListPanelBody
       panel={panel}
@@ -1319,7 +1422,8 @@ function panelVisibilityGate(
 ): VisibilityGate | undefined {
   if (panel.kind === "custom" || panel.visibleWhen === undefined) return undefined;
   if (panel.kind === "screen") return visibilityGate(panel.visibleWhen.query, NO_GATE_PAYLOAD);
-  const dropsFilter = panel.kind !== "stat-group" && panel.ignoreScreenFilter === true;
+  const dropsFilter =
+    panel.kind !== "stat-group" && panel.kind !== "text" && panel.ignoreScreenFilter === true;
   return visibilityGate(panel.visibleWhen.query, {
     ...(dropsFilter ? {} : screenParams.filterParams),
     ...screenParams.rangeParams,
@@ -1434,38 +1538,15 @@ function GatedGridCell({
   return <div className={cn("min-w-0", className)}>{children}</div>;
 }
 
-function ScreenPanelTile({
+function EmbeddedScreenPanelTile({
   panel,
-  featureName,
+  target,
   translate,
 }: {
   readonly panel: DashboardScreenPanel;
-  readonly featureName: string;
+  readonly target: EmbeddedScreenTarget;
   readonly translate: Translate;
 }): ReactNode {
-  const visibleWhen = panel.visibleWhen;
-  const visibility = useContext(VisibilityQueryContext).get(
-    visibleWhen !== undefined ? visibilityGate(visibleWhen.query, NO_GATE_PAYLOAD).key : "",
-  );
-  const target = useEmbeddedScreen(featureName, panel.screen);
-  if (target === undefined) return null;
-  if (visibleWhen !== undefined) {
-    const verdict = evalVisibleWhen(visibleWhen, visibility);
-    // A failed gate query must not silently drop the panel: on the
-    // account-security page that would hide every MFA enable/disable path.
-    if (verdict === "error" && visibility?.error) {
-      return (
-        <div className={cn("min-w-0", WIDE_PANEL)} data-testid={`dashboard-panel-${panel.id}`}>
-          <PanelError
-            label={panel.label !== undefined ? translate(panel.label) : panel.id}
-            error={visibility.error}
-            onRetry={() => void visibility.refetch()}
-          />
-        </div>
-      );
-    }
-    if (verdict !== "visible") return null;
-  }
   const screenBody = <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
   const embedded =
     panel.chromeless === true ? (
@@ -1489,6 +1570,68 @@ function ScreenPanelTile({
       )}
     </div>
   );
+}
+
+// Own component so the target lookup (a hook) only runs for panels that actually fall back.
+function FallbackScreenPanelTile({
+  panel,
+  fallback,
+  featureName,
+  translate,
+}: {
+  readonly panel: DashboardScreenPanel;
+  readonly fallback: string;
+  readonly featureName: string;
+  readonly translate: Translate;
+}): ReactNode {
+  const target = useEmbeddedScreen(featureName, fallback);
+  if (target === undefined) return null;
+  return <EmbeddedScreenPanelTile panel={panel} target={target} translate={translate} />;
+}
+
+function ScreenPanelTile({
+  panel,
+  featureName,
+  translate,
+}: {
+  readonly panel: DashboardScreenPanel;
+  readonly featureName: string;
+  readonly translate: Translate;
+}): ReactNode {
+  const visibleWhen = panel.visibleWhen;
+  const visibility = useContext(VisibilityQueryContext).get(
+    visibleWhen !== undefined ? visibilityGate(visibleWhen.query, NO_GATE_PAYLOAD).key : "",
+  );
+  const target = useEmbeddedScreen(featureName, panel.screen);
+  const verdict = visibleWhen === undefined ? "visible" : evalVisibleWhen(visibleWhen, visibility);
+  // Nothing while the gate loads: a fallback that flashes before the real panel flickers.
+  if (verdict === "loading") return null;
+  if (verdict !== "visible" && panel.fallback !== undefined) {
+    return (
+      <FallbackScreenPanelTile
+        panel={panel}
+        fallback={panel.fallback}
+        featureName={featureName}
+        translate={translate}
+      />
+    );
+  }
+  if (target === undefined) return null;
+  // A failed gate query must not silently drop the panel: on the
+  // account-security page that would hide every MFA enable/disable path.
+  if (verdict === "error" && visibility?.error) {
+    return (
+      <div className={cn("min-w-0", WIDE_PANEL)} data-testid={`dashboard-panel-${panel.id}`}>
+        <PanelError
+          label={panel.label !== undefined ? translate(panel.label) : panel.id}
+          error={visibility.error}
+          onRetry={() => void visibility.refetch()}
+        />
+      </div>
+    );
+  }
+  if (verdict !== "visible") return null;
+  return <EmbeddedScreenPanelTile panel={panel} target={target} translate={translate} />;
 }
 
 // Starts at render time and restarts whenever the merged query params change;

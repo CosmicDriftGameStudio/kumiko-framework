@@ -610,10 +610,26 @@ function projectDashboardPanels(
   feature: FeatureSchema,
   keptScreenQns: ReadonlySet<string>,
 ): readonly DashboardPanelDefinition[] {
-  const kept = panels.filter(
-    (p) => p.kind !== "screen" || isScreenTargetKept(feature.featureName, p.screen, keptScreenQns),
-  );
-  return kept.length === panels.length ? panels : kept;
+  let changed = false;
+  const kept: DashboardPanelDefinition[] = [];
+  for (const panel of panels) {
+    if (panel.kind !== "screen") {
+      kept.push(panel);
+    } else if (!isScreenTargetKept(feature.featureName, panel.screen, keptScreenQns)) {
+      changed = true;
+    } else if (
+      panel.fallback !== undefined &&
+      !isScreenTargetKept(feature.featureName, panel.fallback, keptScreenQns)
+    ) {
+      // The role cannot reach the stand-in, so the tile just hides.
+      const { fallback: _unreachable, ...withoutFallback } = panel;
+      kept.push(withoutFallback);
+      changed = true;
+    } else {
+      kept.push(panel);
+    }
+  }
+  return changed ? kept : panels;
 }
 
 // --- per-screen-type projection ---

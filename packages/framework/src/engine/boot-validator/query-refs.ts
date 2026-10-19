@@ -83,7 +83,7 @@ function checkDashboardQueryRefs(
           `[Feature ${featureName}] Screen "${screenId}" (dashboard) ${panel.kind === "screen" ? "screen-panel" : "panel"} "${panel.id}" visibleWhen`,
       );
     }
-    if (panel.kind === "screen") continue;
+    if (panel.kind === "screen" || panel.kind === "text") continue;
     if (panel.kind === "stat-group") {
       for (const stat of panel.stats) {
         checkQueryRef(

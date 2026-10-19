@@ -107,6 +107,8 @@ export type {
   DashboardStatGroupPanel,
   DashboardStatPanel,
   DashboardText,
+  DashboardTextBlock,
+  DashboardTextPanel,
   DashboardTextParam,
   DashboardTimeRangeDefinition,
   DashboardValueFormat,

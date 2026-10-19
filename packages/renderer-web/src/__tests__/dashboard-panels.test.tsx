@@ -1738,3 +1738,86 @@ describe("dashboard stacked-area panel header and axes", () => {
     ).toBe("false");
   });
 });
+
+describe("dashboard text panel", () => {
+  const textDashboard = (extra: Record<string, unknown> = {}): DashboardScreenDefinition =>
+    ({
+      id: "help",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "text",
+          id: "intro",
+          label: "demo.help.title",
+          blocks: [
+            { kind: "heading", text: "demo.help.heading" },
+            { kind: "paragraph", text: "demo.help.body" },
+            { kind: "paragraph", text: "demo.help.strong", emphasis: "strong" },
+            { kind: "list", items: ["demo.help.item-1", "demo.help.item-2"] },
+            { kind: "code", code: "curl -H 'x-demo: demo.help.heading' <url>" },
+            { kind: "hint", text: "demo.help.hint" },
+          ],
+          ...extra,
+        },
+      ],
+    }) as DashboardScreenDefinition;
+
+  const translations = {
+    en: {
+      "demo.help.title": "Getting started",
+      "demo.help.heading": "Step one",
+      "demo.help.body": "Create a key.",
+      "demo.help.strong": "Keep it secret.",
+      "demo.help.item-1": "First item",
+      "demo.help.item-2": "Second item",
+      "demo.help.hint": "Takes a minute.",
+    },
+  };
+
+  test("renders every block kind with translated text and the code verbatim", async () => {
+    renderDashboard(textDashboard(), {}, { locale: "en", translations });
+    const panel = await screen.findByTestId("dashboard-panel-intro");
+    expect(within(panel).getByText("Getting started")).toBeTruthy();
+    expect(within(panel).getByRole("heading", { name: "Step one" })).toBeTruthy();
+    const paragraphs = [...panel.querySelectorAll("[data-block=paragraph]")];
+    expect(paragraphs.map((p) => p.textContent)).toEqual(["Create a key.", "Keep it secret."]);
+    expect(paragraphs[0]?.className).toContain("text-muted-foreground");
+    expect(paragraphs[1]?.className).toContain("font-medium");
+    expect(
+      within(panel)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["First item", "Second item"]);
+    const code = panel.querySelector("pre > code");
+    expect(code?.textContent).toBe("curl -H 'x-demo: demo.help.heading' <url>");
+    expect(panel.querySelector("pre")?.className).toContain("overflow-x-auto");
+    expect(panel.querySelector("[data-block=hint]")?.textContent).toBe("Takes a minute.");
+  });
+
+  test("renders without a label as a plain card", async () => {
+    renderDashboard(textDashboard({ label: undefined }), {}, { locale: "en", translations });
+    const panel = await screen.findByTestId("dashboard-panel-intro");
+    expect(panel.querySelector("h2")).toBeNull();
+    expect(within(panel).getByText("Create a key.")).toBeTruthy();
+  });
+
+  test.each([
+    [false, false],
+    [true, true],
+  ])("visibleWhen gate result %p makes the panel visible: %p", async (gateValue, visible) => {
+    const { calls } = renderDashboard(
+      textDashboard({ visibleWhen: { query: "demo:query:gate", field: "ok", eq: true } }),
+      { "demo:query:gate": () => ok({ ok: gateValue }) },
+      { locale: "en", translations },
+    );
+    await waitFor(() => expect(calls.some((c) => c.type === "demo:query:gate")).toBe(true));
+    if (visible) {
+      expect(await screen.findByTestId("dashboard-panel-intro")).toBeTruthy();
+    } else {
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.queryByTestId("dashboard-panel-intro")).toBeNull();
+    }
+  });
+});
