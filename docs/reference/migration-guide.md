@@ -10,6 +10,30 @@ verified: 2026-10-19
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.376.0
+
+### @cosmicdrift/kumiko-server-runtime
+
+**effectiveFeatures is gone from runProdApp, runDevApp and runWorkerApp**
+
+The effectiveFeatures option of the boot functions is removed. Global operator switches come from the featureToggles option, tier gating from the tier-engine feature, which the boot functions wire themselves.
+
+**Migration:** Replace a hand-built effectiveFeatures resolver with featureToggles true (global switches) and mount createTierEngineFeature for tier gating. A custom resolver that did neither has no replacement on the boot functions; wire it through createKumikoServer or setupTestStack in tests. The boot functions now abort when the option is still passed, because an ignored option would drop an operator kill-switch silently; the same goes for a feature-toggles feature in features without the featureToggles option, or with it set (the option mounts the feature).
+
+**The default mail resolver only reaches members of the notifying tenant**
+
+The default resolveEmail of the mail boot option returns an address for a notification from a tenant other than the system tenant only if the user is a member of that tenant or holds the SystemAdmin role in the stored user row. Everyone else resolves to null and the mail is skipped. The new option mail.recipientScope takes "membership" (default) or "any", which restores the old behaviour of reaching every user. EmailChannelOptions resolveEmail now receives the tenant database as TenantDb instead of unknown.
+
+**Migration:** Apps that notify users outside the notifying tenant on purpose, for example merchants reached from a SystemAdmin context, set mail recipientScope to "any" or keep their own resolveEmail. Apps whose notifications go to members of the active tenant need no change. Known consumers on the default: offlot-app (main.ts) reaches merchants and SystemAdmins across tenants and needs recipientScope any; publicstatus (main.ts), show-pony, solon (main.ts) and kumiko-studio (main.ts) take the default, which fits notifications to members of the active tenant. money-horse and phronexsis keep their own resolveEmail. Per-app resolvers that only copied the membership check can be deleted. A custom resolveEmail that cast ctx.db can drop the cast.
+
+### @cosmicdrift/kumiko-testing
+
+**Test stack and seed helpers moved to @cosmicdrift/kumiko-dev-server/testing**
+
+setupAppTestStack, SetupAppTestStackOptions, seedTenant, persistTenantRows and createE2eSeedRoutes are no longer exported from @cosmicdrift/kumiko-testing; the bundled-features and dev-server optional peers are gone.
+
+**Migration:** Import the five names from @cosmicdrift/kumiko-dev-server/testing and add @cosmicdrift/kumiko-dev-server to your dependencies; run bun kumiko-upgrade --apply to rewrite the imports. Namespace imports are listed as manual.
+
 ## 0.374.0
 
 ### cap-overview

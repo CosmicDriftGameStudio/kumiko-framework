@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "Named S3 provider feature",
+    "detail": "createFileProviderS3NamedEnvFeature mounts an additional S3 provider under its own name with an env prefix, next to the default one, so a second bucket needs no hand-written wiring."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "S3 endpoint over http outside production",

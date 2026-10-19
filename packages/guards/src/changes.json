@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "The pre-push bypass is gone",
+    "detail": "PRE_PUSH_SKIP no longer skips the hook, neither in the shipped hook nor in kumiko-pre-push. KUMIKO_CHECK_WT=1 only stops the hook from re-entering a wrapping scripts/check-wt.sh. The i18n-keys guard treats keys defined by installed @cosmicdrift packages as known."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "test-timeouts guard flags hook timeouts and scans recipes",

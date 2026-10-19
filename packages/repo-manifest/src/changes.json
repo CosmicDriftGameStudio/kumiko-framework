@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "App port reader moves to repo-manifest/app-ports",
+    "detail": "listAppPorts, findPortCollisions, scanWorkspaceApps and readStaticAppConfig are exported from @cosmicdrift/kumiko-repo-manifest/app-ports. dev-server managed-files re-exports the same names."
+  },
+  {
     "version": "0.338.0",
     "type": "breaking",
     "title": "manifest patterns reject symlinks escaping the repo root behind wildcard segments",

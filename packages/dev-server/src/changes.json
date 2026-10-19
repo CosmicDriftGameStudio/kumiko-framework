@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "composeSaasStack with stripe warns instead of requiring billing",
+    "detail": "A stripe stack without the billing option logs a boot warning instead of aborting, and composeSaasStack takes featureToggles to require that option."
+  },
+  {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "Managed workflows take infraRef, visibility and app-* jobs",
+    "detail": "ci.yml and release.yml render the infra reusables as @<infraRef> from package.json#kumiko.deploy.infraRef. Without it sync-managed renders @main and kumiko check managed warns; this warning becomes an error in a later release. kumiko.deploy.visibility \"public\" renders a self-contained ci.yml and a release.yml that only prints the gh workflow run hint for the public rollout. Jobs named app-* survive a sync and are not drift. kumiko.deploy.docStatusGuard false renders doc-status-guard false."
+  },
+  {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "./testing subpath with the bound test stack and seed helpers",
+    "detail": "setupAppTestStack, seedTenant, persistTenantRows and createE2eSeedRoutes, wired to the bundled user, tenant and auth features."
+  },
+  {
     "version": "0.373.0",
     "type": "improvement",
     "title": "kumiko-build pins dist-server dependencies with a bun.lock seeded from the app's bun.lock",
