@@ -98,3 +98,41 @@ describe("seedSystemTemplateBundle with resources", () => {
     );
   });
 });
+
+describe("seedSystemTemplateBundle titles", () => {
+  const titledBundle: TemplateBundle = {
+    slug: "seeded-titled-layout",
+    kind: "mail-layout",
+    contentFormat: "html",
+    locales: { de: { body: LAYOUT, title: "Standardlayout" }, en: { body: LAYOUT } },
+    resources: {},
+    pdfAttachments: {},
+  };
+
+  async function titledRow(locale: string): Promise<TemplateResourceRow | undefined> {
+    return fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug: titledBundle.slug,
+      kind: titledBundle.kind,
+      locale,
+    });
+  }
+
+  test("a locale title lands on its row, a locale without one stays untitled", async () => {
+    await seedSystemTemplateBundle(stack.db, titledBundle);
+    expect((await titledRow("de"))?.title).toBe("Standardlayout");
+    expect((await titledRow("en"))?.title).toBeNull();
+  });
+
+  test("a changed title updates the row on the next seed", async () => {
+    await seedSystemTemplateBundle(
+      stack.db,
+      {
+        ...titledBundle,
+        locales: { ...titledBundle.locales, de: { body: LAYOUT, title: "Neues Layout" } },
+      },
+      { ifExists: "update" },
+    );
+    expect((await titledRow("de"))?.title).toBe("Neues Layout");
+  });
+});

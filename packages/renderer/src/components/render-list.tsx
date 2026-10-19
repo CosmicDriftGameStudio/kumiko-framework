@@ -7,10 +7,12 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
 import { useReferenceLinkResolver } from "../app/reference-link.ts";
 import type {
+  CellLinkItem,
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
   RuntimeCellLink,
+  RuntimeCellLinkItems,
   RuntimeRenderer,
   Translate,
 } from "../headless/index.ts";
@@ -316,7 +318,7 @@ export function RenderList(props: RenderListProps): ReactNode {
       const labelField = col.refLabelField ?? "id";
       const refEntity = col.refEntity ?? "";
       // Only a row the user can see is linkable: resolved by the server
-      // eagerload or by the lookup query. A multi-reference stays text.
+      // eagerload or by the lookup query. A multi-reference links per entry via linkItemsFor.
       const linkFor: RuntimeCellLink = (value, row) => {
         if (value === null || value === undefined || value === "" || Array.isArray(value)) {
           return undefined;
@@ -330,6 +332,24 @@ export function RenderList(props: RenderListProps): ReactNode {
             !Array.isArray(eagerloaded)) ||
           map?.has(id);
         return resolved === true ? resolveReferenceLink(refEntity, id) : undefined;
+      };
+      const linkItemsFor: RuntimeCellLinkItems = (value, row) => {
+        if (!Array.isArray(value) || value.length === 0) return undefined;
+        const eagerloaded = eagerloadedRef(row, col.field);
+        const eagerById = new Map<string, Record<string, unknown>>(
+          Array.isArray(eagerloaded) ? eagerloaded.map((r) => [String(r["id"]), r]) : [],
+        );
+        return value.map((v): CellLinkItem => {
+          const id = String(v);
+          const target = eagerById.get(id);
+          const label = String(target?.[labelField] ?? map?.get(id) ?? id);
+          // Only a row the user can see is linkable: server eagerload or lookup query.
+          const link =
+            target !== undefined || map?.has(id) === true
+              ? resolveReferenceLink(refEntity, id)
+              : undefined;
+          return { id, label, ...(link !== undefined && { link }) };
+        });
       };
       const renderer: RuntimeRenderer = (
         value: unknown,
@@ -356,7 +376,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         const idStr = String(value);
         return map?.get(idStr) ?? idStr;
       };
-      return { ...col, renderer, linkFor };
+      return { ...col, renderer, linkFor, linkItemsFor };
     });
   }, [vm.columns, referenceColumns, referenceLookups, resolveReferenceLink]);
   const enrichedVm = useMemo(
@@ -482,7 +502,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         narrowed={narrowed}
         translate={translate}
         createButton={
-          onCreate !== undefined && !narrowed ? (
+          onCreate !== undefined && !narrowed && !createInPageHeader ? (
             <Button
               variant="primary"
               icon="plus"

@@ -1789,4 +1789,23 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from": "Sender address",
   "mail-transport-smtp.from.description":
     "The address mails are sent from, for example status@example.com. Your provider must allow it.",
+  "screen:mail-accounts.title": "Mailboxes",
+  "screen:mail-account-edit.title": "Edit mailbox",
+  "inboundMail.accounts.col.name": "Name",
+  "inboundMail.accounts.col.address": "Address",
+  "inboundMail.accounts.col.provider": "Provider",
+  "inboundMail.accounts.col.status": "Status",
+  "inboundMail.accounts.col.connected": "Connected",
+  "inboundMail.accounts.status.active": "Active",
+  "inboundMail.accounts.status.auth_error": "Sign-in failed",
+  "inboundMail.accounts.status.degraded": "Interrupted",
+  "inboundMail.accounts.status.disconnected": "Disconnected",
+  "inboundMail.accounts.edit": "Rename",
+  "inboundMail.accounts.edit.submit": "Save",
+  "inboundMail.accounts.disconnect": "Disconnect",
+  "inboundMail.accounts.disconnect.confirm":
+    "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",
+  "inbound-mail-foundation:entity:__action-form__:field:accountId": "Mailbox",
+  "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
+  "inbound-mail-foundation:entity:__action-form__:field:reason": "Reason",
 };

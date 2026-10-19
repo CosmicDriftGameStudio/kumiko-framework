@@ -35,6 +35,19 @@ export type RuntimeCellLink = (
   row?: Readonly<Record<string, unknown>>,
 ) => CellLink | undefined;
 
+/** One entry of a multi-reference cell: its label, linked when the target is readable. */
+export type CellLinkItem = {
+  readonly id: string;
+  readonly label: string;
+  readonly link?: CellLink;
+};
+
+/** Runtime-only like RuntimeCellLink; undefined means the cell uses its single renderer. */
+export type RuntimeCellLinkItems = (
+  value: unknown,
+  row?: Readonly<Record<string, unknown>>,
+) => readonly CellLinkItem[] | undefined;
+
 // View-Models — plain data structures produced by computeListViewModel and
 // computeEditViewModel. They flatten the combined [screen-def + entity-def
 // + row-data + user] inputs into a shape the renderer draws directly,
@@ -70,6 +83,7 @@ export type ListColumnViewModel = {
   readonly type: string; // field-type ("text", "number", "money", ...)
   readonly renderer?: FieldRenderer | RuntimeRenderer;
   readonly linkFor?: RuntimeCellLink;
+  readonly linkItemsFor?: RuntimeCellLinkItems;
   readonly sortable: boolean;
   /** Only for `type: "select"` or `type: "multiSelect"` — translated option
    *  labels keyed by raw value. The renderer renders `optionLabels[value]`
@@ -224,7 +238,7 @@ export type EditFieldViewModel = {
    *  `true` = default rows, `{ rows }` = explicit height. */
   readonly multiline?: boolean | { readonly rows?: number };
   /** From TextFieldDef.format — `password` makes the renderer mask the input. */
-  readonly format?: "email" | "url" | "phone" | "password";
+  readonly format?: "email" | "url" | "phone" | "password" | "month";
   /** From TextFieldDef.autoComplete — HTML autocomplete token for the text input. */
   readonly autoComplete?: string;
   /** From TextFieldDef.writeOnly — value is `true` (set) / `null` (empty), never plaintext. */

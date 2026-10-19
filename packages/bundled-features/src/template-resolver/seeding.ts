@@ -78,6 +78,7 @@ export type SeedSystemTemplateOptions = {
    *  system admin uploaded through resource-upload. */
   readonly linkedResources?: Record<string, string>;
   readonly meta?: unknown;
+  readonly title?: string;
   readonly parentTemplateId?: string | null;
   readonly by?: SessionUser;
   readonly ifExists?: SeedIfExists;
@@ -138,7 +139,7 @@ export async function seedSystemTemplate(
     variableSchema,
     ...(linkedResources !== undefined && { linkedResources }),
     meta,
-    title: null,
+    title: opts.title ?? null,
     folder: null,
     scope: "system" as const,
     parentTemplateId,
@@ -261,6 +262,7 @@ export async function seedSystemTemplateBundle(
       contentFormat: bundle.contentFormat,
       variableSchema: bundle.variableSchema ?? {},
       meta: entry.meta,
+      ...(entry.title !== undefined ? { title: entry.title } : {}),
       ...(opts.by !== undefined ? { by: opts.by } : {}),
       ...(opts.ifExists !== undefined ? { ifExists: opts.ifExists } : {}),
     });

@@ -79,6 +79,7 @@ import { ingestMessageHandler } from "./handlers/ingest-message.write.ts";
 import { listAccountsQuery } from "./handlers/list-accounts.query.ts";
 import { listMessagesQuery } from "./handlers/list-messages.query.ts";
 import { updateAccountHandler } from "./handlers/update-account.write.ts";
+import { INBOUND_MAIL_FOUNDATION_I18N } from "./i18n.ts";
 import {
   applyInboundMessageReceived,
   applyMailAccountConnected,
@@ -90,6 +91,7 @@ import {
   mailThreadsProjectionTable,
 } from "./projection.ts";
 import { runInboundMailRetention } from "./retention-sweep.ts";
+import { mailAccountEditScreen, mailAccountListScreen } from "./screens.ts";
 import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
@@ -194,6 +196,12 @@ export function createInboundMailFoundationFeature() {
       // List-Queries (PII-decrypted, scope-gefiltert).
       r.queryHandler(listAccountsQuery);
       r.queryHandler(listMessagesQuery);
+
+      // Declarative mailbox admin: list (rename, disconnect) and rename form.
+      // The app places `mailAccountListScreen` via r.nav in its settings area.
+      r.screen(mailAccountListScreen);
+      r.screen(mailAccountEditScreen);
+      r.translations({ keys: INBOUND_MAIL_FOUNDATION_I18N });
 
       // Entity-genaue GDPR-Destroy-Hooks — der gdpr-storage-Boot-Validator
       // prueft die EXT_TENANT_DATA-Registrierung pro tenant-subject-Entity.

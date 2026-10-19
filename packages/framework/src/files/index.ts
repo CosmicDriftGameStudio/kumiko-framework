@@ -22,7 +22,7 @@ export {
   deriveKey,
   storageKeyStemPrefix,
 } from "./file-handle.ts";
-export { fileRefEntity } from "./file-ref-entity.ts";
+export { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 export { fileRefsTable } from "./file-ref-table.ts";
 export type {
   FileAccessDecision,

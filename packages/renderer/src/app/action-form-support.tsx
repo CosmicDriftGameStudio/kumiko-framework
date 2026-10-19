@@ -1,4 +1,4 @@
-import type { ActionFormLoad } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { ActionFormLoad, ActionFormSuccessFact } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
 import type { DispatcherError, Translate } from "../headless/index.ts";
@@ -126,20 +126,59 @@ export type ResolvedSuccessLink = {
   readonly onPress: () => void;
 };
 
+export type ResolvedSuccessFact = {
+  readonly key: string;
+  readonly label: string;
+  readonly lines: readonly string[];
+};
+
 export type ActionFormSuccessState = {
   readonly text: string;
   readonly links: readonly ResolvedSuccessLink[];
+  readonly facts: readonly ResolvedSuccessFact[];
 };
+
+function factLine(entry: unknown, locale: string): string | undefined {
+  if (typeof entry === "number") return entry.toLocaleString(locale);
+  if (typeof entry === "string") return entry;
+  if (typeof entry === "object" && entry !== null && "label" in entry) {
+    return typeof entry.label === "string" ? entry.label : undefined;
+  }
+  return undefined;
+}
+
+export function resolveSuccessFacts(
+  facts: readonly ActionFormSuccessFact[] | undefined,
+  data: unknown,
+  translate: (key: string) => string,
+  locale: string,
+): readonly ResolvedSuccessFact[] {
+  const resolved: ResolvedSuccessFact[] = [];
+  (facts ?? []).forEach((fact, index) => {
+    const value = propertyOf(data, fact.field);
+    const entries = Array.isArray(value) ? value : [value];
+    const lines = entries.flatMap((entry) => factLine(entry, locale) ?? []);
+    if (lines.length > 0) {
+      resolved.push({ key: String(index), label: translate(fact.label), lines });
+    }
+  });
+  return resolved;
+}
 
 export function ActionFormSuccessBanner({
   success,
 }: {
   readonly success: ActionFormSuccessState;
 }): ReactNode {
-  const { Banner, Link } = usePrimitives();
+  const { Banner, Link, Text } = usePrimitives();
   return (
     <Banner variant="info" testId="action-form-success">
       {success.text}
+      {success.facts.map((fact) => (
+        <Text key={fact.key} testId={`action-form-success-fact-${fact.key}`}>
+          {fact.label}: {fact.lines.join(", ")}
+        </Text>
+      ))}
       {success.links.map((link) => (
         <Link
           key={link.key}

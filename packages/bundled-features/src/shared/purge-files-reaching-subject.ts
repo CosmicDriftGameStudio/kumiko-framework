@@ -16,9 +16,14 @@ import {
   type EntityDefinition,
   parseTenantId,
   type Registry,
+  SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import {
+  FILE_REF_ENTITY_NAME,
+  fileRefEntity,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
 import {
   collectSingleFileHolders,
   type FileRefPurgeOutcome,
@@ -155,7 +160,8 @@ export async function purgeFilesReachingSubject(args: {
   const storageByTenant = new Map<TenantId, Promise<DeleteFileBytes | undefined>>();
   let firstFailure: FileSweepError | undefined;
 
-  for (const fileEntity of collectFileEntities(registry)) {
+  const fileEntities = collectFileEntities(registry);
+  for (const fileEntity of fileEntities) {
     const seenRowIds = new Set<string>();
     for (const where of candidateWheres(subject, recordTenantId, fileEntity)) {
       const rows = await selectMany<Record<string, unknown>>(db, fileEntity.table, where);
@@ -202,5 +208,124 @@ export async function purgeFilesReachingSubject(args: {
       }
     }
   }
+  // Runs even after an entity-sweep failure: one failed row must not leave the pending uploads.
+  const pendingFailure = await purgePendingUploadsOfUser({
+    db,
+    registry,
+    subject,
+    fileFieldKeys: pendingFieldKeys(fileEntities),
+    fileHolders,
+    storageByTenant,
+    resolveDeleteBytes,
+    missingStorage,
+  });
+  firstFailure ??= pendingFailure;
   if (firstFailure) throw firstFailure;
+}
+
+const pendingFieldKey = (entityType: unknown, fieldName: unknown) =>
+  `${entityType}\u0000${fieldName}`;
+
+function pendingFieldKeys(fileEntities: readonly FileEntity[]): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const { entityName, fileFields } of fileEntities) {
+    for (const fieldName of fileFields) keys.add(pendingFieldKey(entityName, fieldName));
+  }
+  return keys;
+}
+
+async function isFileRefHeldByRecord(
+  db: DbRunner,
+  holders: readonly SingleFileHolder[],
+  tenantId: TenantId,
+  fileRefId: string,
+): Promise<boolean> {
+  for (const holder of holders) {
+    for (const field of holder.singleFields) {
+      const where: WhereObject = { [field]: fileRefId };
+      if (holder.tableHasTenantId) where["tenantId"] = tenantId;
+      if ((await selectMany(db, holder.table, where, { limit: 1 })).length > 0) return true;
+    }
+  }
+  return false;
+}
+
+// An upload the user made but never bound to a record has no entity row to find it through, so
+// the uploader id is the only link. Only refs that originate from a registered entity file
+// field count as pending uploads: config saves (a tenant logo) and server-made files never
+// bind and must outlive the uploader. A legacy unbound ref a record's single file column still
+// names is not pending but in use and stays with that record.
+async function purgePendingUploadsOfUser(args: {
+  readonly db: DbRunner;
+  readonly registry: Registry;
+  readonly subject: SubjectId;
+  readonly fileFieldKeys: ReadonlySet<string>;
+  readonly fileHolders: readonly SingleFileHolder[];
+  readonly storageByTenant: Map<TenantId, Promise<DeleteFileBytes | undefined>>;
+  readonly resolveDeleteBytes: (tenantId: TenantId) => Promise<DeleteFileBytes | undefined>;
+  readonly missingStorage: MissingStoragePolicy;
+}): Promise<FileSweepError | undefined> {
+  const { db, registry, subject, fileFieldKeys } = args;
+  // skip: only a user uploads files without binding them to a record
+  if (subject.kind !== "user") return undefined;
+  // skip: the system user is not a person; its server-made files are not pending uploads
+  if (subject.userId === SYSTEM_USER_ID) return undefined;
+  // skip: without the files feature there is no file_refs table to sweep
+  if (registry.getEntity(FILE_REF_ENTITY_NAME) === undefined) return undefined;
+  const pending = await selectMany<Record<string, unknown>>(db, fileRefsTable, {
+    insertedById: subject.userId,
+    entityId: null,
+  });
+  let firstFailure: FileSweepError | undefined;
+  for (const fileRef of pending) {
+    // skip: not uploaded for a registered entity file field (config, server-made, unknown origin)
+    if (!fileFieldKeys.has(pendingFieldKey(fileRef["entityType"], fileRef["fieldName"]))) continue;
+    firstFailure ??= await purgePendingFileRef(args, fileRef);
+  }
+  return firstFailure;
+}
+
+async function purgePendingFileRef(
+  args: {
+    readonly db: DbRunner;
+    readonly fileHolders: readonly SingleFileHolder[];
+    readonly storageByTenant: Map<TenantId, Promise<DeleteFileBytes | undefined>>;
+    readonly resolveDeleteBytes: (tenantId: TenantId) => Promise<DeleteFileBytes | undefined>;
+    readonly missingStorage: MissingStoragePolicy;
+  },
+  fileRef: Record<string, unknown>,
+): Promise<FileSweepError | undefined> {
+  const { db, fileHolders, storageByTenant, resolveDeleteBytes, missingStorage } = args;
+  const tenantId = parseTenantId(fileRef["tenantId"]);
+  const fileRefId = String(fileRef["id"]);
+  const storageKey = fileRef["storageKey"];
+  // skip: a ref without tenant or key has no bytes this sweep could address
+  if (tenantId === null || typeof storageKey !== "string" || storageKey === "") return undefined;
+  // skip: a record still uses this file
+  if (await isFileRefHeldByRecord(db, fileHolders, tenantId, fileRefId)) return undefined;
+
+  let storagePromise = storageByTenant.get(tenantId);
+  if (storagePromise === undefined) {
+    storagePromise = resolveDeleteBytes(tenantId);
+    storageByTenant.set(tenantId, storagePromise);
+  }
+  const deleteBytes = await storagePromise;
+  if (deleteBytes === undefined) {
+    if (missingStorage.mode === "skip") {
+      missingStorage.warn(tenantId);
+      return undefined;
+    }
+    return new FileSweepError("missing_file_storage", FILE_REF_ENTITY_NAME);
+  }
+  if ((await deleteBytesFailingClosed(deleteBytes, storageKey)).length > 0) {
+    return new FileSweepError("file_delete_failed", FILE_REF_ENTITY_NAME);
+  }
+  const forgotten = await fileRefExecutor.forget(
+    { id: fileRefId },
+    createSystemUser(tenantId),
+    createTenantDb({ db, tenantId, mode: "system" }),
+  );
+  return forgotten.isSuccess
+    ? undefined
+    : new FileSweepError("file_delete_failed", FILE_REF_ENTITY_NAME);
 }

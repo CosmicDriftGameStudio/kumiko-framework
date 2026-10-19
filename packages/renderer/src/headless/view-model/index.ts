@@ -23,6 +23,7 @@ export {
 } from "./list.ts";
 export type {
   CellLink,
+  CellLinkItem,
   EditExtensionSectionViewModel,
   EditFieldSpec,
   EditFieldsSectionViewModel,
@@ -41,6 +42,7 @@ export type {
   ListRowViewModel,
   ListViewModel,
   RuntimeCellLink,
+  RuntimeCellLinkItems,
   RuntimeRenderer,
   ScreenSlots,
   Translate,

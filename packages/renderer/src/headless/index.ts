@@ -92,6 +92,7 @@ export type { Store, WritableStore } from "./store/index.ts";
 export { createStore, shallowEqual } from "./store/index.ts";
 export type {
   CellLink,
+  CellLinkItem,
   ComputeEditViewModelInput,
   ComputeListViewModelInput,
   DerivedCellRoundingTarget,
@@ -116,6 +117,7 @@ export type {
   ListRowViewModel,
   ListViewModel,
   RuntimeCellLink,
+  RuntimeCellLinkItems,
   RuntimeRenderer,
   ScreenSlots,
   Translate,

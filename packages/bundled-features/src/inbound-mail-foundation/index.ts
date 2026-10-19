@@ -78,6 +78,10 @@ export {
   resolveInboundProviderForKey,
 } from "./provider-factory.ts";
 export {
+  MAIL_ACCOUNT_EDIT_SCREEN_ID,
+  MAIL_ACCOUNT_LIST_SCREEN_ID,
+} from "./screens.ts";
+export {
   InboundAuthError,
   InboundCursorInvalidError,
   type InboundFetchResult,

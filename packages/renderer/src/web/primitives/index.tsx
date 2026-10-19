@@ -70,9 +70,11 @@ import {
 } from "react";
 import type {
   CellLink,
+  CellLinkItem,
   ListColumnFileDisplay,
   ListRowViewModel,
   RuntimeCellLink,
+  RuntimeCellLinkItems,
 } from "../../headless/index.ts";
 import { applyFormatSpec, EMPTY_VALUE_PLACEHOLDER, isSafeHref } from "../../headless/index.ts";
 import type {
@@ -925,6 +927,16 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           autoComplete={props.autoComplete ?? "email"}
+        />
+      );
+    case "month":
+      return (
+        <UiInput
+          type="month"
+          {...common}
+          data-testid={props.testId}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
         />
       );
     case "password":
@@ -2323,8 +2335,8 @@ function DefaultDataTable({
         <p
           data-testid={testId !== undefined ? `${testId}-description` : "render-list-description"}
           className={cn(
-            "m-0 text-[13px] text-muted-foreground",
-            fillsHeight && (isNarrow ? "px-3 pb-2" : "px-6 pb-2"),
+            "m-0 pb-2 text-sm text-muted-foreground",
+            fillsHeight && (isNarrow ? "px-3" : "px-6"),
           )}
         >
           {toolbarDescription}
@@ -3305,17 +3317,37 @@ type DataTableCellProps = {
   readonly fileDisplay?: ListColumnFileDisplay;
   readonly compactFile?: boolean;
   readonly link?: CellLink;
+  readonly linkItems?: readonly CellLinkItem[];
 };
+
+// A multi reference may list the same id twice; the occurrence count keeps React keys unique.
+function uniqueLinkItemKeys(items: readonly CellLinkItem[]): readonly string[] {
+  const seen = new Map<string, number>();
+  return items.map((item) => {
+    const occurrence = seen.get(item.id) ?? 0;
+    seen.set(item.id, occurrence + 1);
+    return `${item.id}#${occurrence}`;
+  });
+}
 
 // A link nested in the clickable first-cell button or card button would be an
 // <a> inside a <button>, so those cells stay plain text.
 function cellLinkProp(
-  col: { readonly field: string; readonly linkFor?: RuntimeCellLink | undefined },
+  col: {
+    readonly field: string;
+    readonly linkFor?: RuntimeCellLink | undefined;
+    readonly linkItemsFor?: RuntimeCellLinkItems | undefined;
+  },
   row: ListRowViewModel,
   allowed: boolean,
-): { readonly link?: CellLink } {
-  const link = allowed ? col.linkFor?.(row.values[col.field], row.values) : undefined;
-  return link === undefined ? {} : { link };
+): { readonly link?: CellLink; readonly linkItems?: readonly CellLinkItem[] } {
+  if (!allowed) return {};
+  const link = col.linkFor?.(row.values[col.field], row.values);
+  const linkItems = col.linkItemsFor?.(row.values[col.field], row.values);
+  return {
+    ...(link !== undefined && { link }),
+    ...(linkItems !== undefined && { linkItems }),
+  };
 }
 
 type TableItem =
@@ -3420,6 +3452,7 @@ function DataTableCell({
   fileDisplay,
   compactFile = false,
   link,
+  linkItems,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
@@ -3463,6 +3496,23 @@ function DataTableCell({
     return applyFormatSpec({ ...spec, locale: spec.locale ?? locale }, value, translate);
   }
   if (typeof renderer === "function") {
+    if (linkItems !== undefined) {
+      const linkItemKeys = uniqueLinkItemKeys(linkItems);
+      return (
+        <>
+          {linkItems.map((item, index) => (
+            <Fragment key={linkItemKeys[index]}>
+              {index > 0 && ", "}
+              {item.link === undefined ? (
+                item.label
+              ) : (
+                <CellTextLink link={item.link}>{item.label}</CellTextLink>
+              )}
+            </Fragment>
+          ))}
+        </>
+      );
+    }
     const fn = renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
     const text = fn(value, row);
     return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
