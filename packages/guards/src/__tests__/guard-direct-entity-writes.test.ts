@@ -130,7 +130,7 @@ describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
     const hits = scanDirectWrites(sf, esTables);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.kind).toBe("non-tx-receiver");
-    expect(hits[0]?.receiver).toBe("ctx");
+    expect(hits[0]?.receiver).toBe("ctx.db");
     expect(hits[0]?.op).toBe("update");
     expect(hits[0]?.table).toBe("fooTable");
   });
@@ -184,7 +184,7 @@ describe("scanDirectWrites :: non-tx-receiver", () => {
     const sf = project.getSourceFileOrThrow("/repo/foo.ts");
     const hits = scanDirectWrites(sf, collectEsTables(project.getSourceFiles()));
     expect(hits).toHaveLength(1);
-    expect(hits[0]?.receiver).toBe("ctx");
+    expect(hits[0]?.receiver).toBe("ctx.db");
     expect(hits[0]?.kind).toBe("non-tx-receiver");
   });
 });
@@ -495,5 +495,90 @@ describe("guard.run() :: empty esTables canary", () => {
     });
     const outcome = guard.run(project.getSourceFiles());
     expect(outcome.violations).toHaveLength(0);
+  });
+});
+
+describe("scanDirectWrites :: tables imported from another file", () => {
+  const DEFINITION = `${SINGLE_FILE_PRELUDE}
+    export const plainTable = t;
+  `;
+  const WRITE_DB = "db: { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } }";
+
+  function hitsInConsumer(files: Record<string, string>) {
+    const project = makeProject(files);
+    const esTables = collectEsTables(project.getSourceFiles());
+    return scanDirectWrites(project.getSourceFileOrThrow("/repo/consumer.ts"), esTables);
+  }
+
+  test("BLOCK: named import of an ES table", () => {
+    const hits = hitsInConsumer({
+      "/repo/foo.ts": DEFINITION,
+      "/repo/consumer.ts": `
+        import { fooTable } from "./foo";
+        export async function bad(${WRITE_DB}) { await db.insert(fooTable).values({}); }
+      `,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.table).toBe("fooTable");
+  });
+
+  test("BLOCK: renamed import of an ES table", () => {
+    const hits = hitsInConsumer({
+      "/repo/foo.ts": DEFINITION,
+      "/repo/consumer.ts": `
+        import { fooTable as t } from "./foo";
+        export async function bad(${WRITE_DB}) { await db.insert(t).values({}); }
+      `,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.table).toBe("t");
+  });
+
+  test("BLOCK: ES table re-exported under a new name through a barrel", () => {
+    const hits = hitsInConsumer({
+      "/repo/foo.ts": DEFINITION,
+      "/repo/barrel.ts": `export { fooTable as barTable } from "./foo";`,
+      "/repo/consumer.ts": `
+        import { barTable } from "./barrel";
+        export async function bad(${WRITE_DB}) { await db.insert(barTable).values({}); }
+      `,
+    });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.table).toBe("barTable");
+  });
+
+  test("ALLOW: a same-named parameter that is not the ES table", () => {
+    const hits = hitsInConsumer({
+      "/repo/foo.ts": DEFINITION,
+      "/repo/consumer.ts": `
+        export async function ok(fooTable: unknown, ${WRITE_DB}) { await db.insert(fooTable).values({}); }
+      `,
+    });
+    expect(hits).toHaveLength(0);
+  });
+
+  test("ALLOW: a same-named local variable that is not the ES table", () => {
+    const hits = hitsInConsumer({
+      "/repo/foo.ts": DEFINITION,
+      "/repo/consumer.ts": `
+        declare const other: unknown;
+        export async function ok(${WRITE_DB}) {
+          const fooTable = other;
+          await db.insert(fooTable).values({});
+        }
+      `,
+    });
+    expect(hits).toHaveLength(0);
+  });
+
+  test("ALLOW: imported table that is not event-sourced", () => {
+    const hits = hitsInConsumer({
+      "/repo/foo.ts": DEFINITION,
+      "/repo/consumer.ts": `
+        import { plainTable } from "./foo";
+        export async function ok(${WRITE_DB}) { await db.insert(plainTable).values({}); }
+      `,
+    });
+    expect(hits).toHaveLength(0);
   });
 });

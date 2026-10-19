@@ -156,16 +156,20 @@ export function unwrapTableExpression(node: Node): Node {
 // declaration disambiguates them.
 type TableId = string; // "${filePath}::${name}"
 
-function declIdOf(id: import("ts-morph").Identifier): TableId | undefined {
+function declIdOf(id: Identifier): TableId | undefined {
   const symbol = id.getSymbol();
   if (!symbol) return undefined;
-  const decls = symbol.getDeclarations();
+  // An imported identifier's own declaration is the ImportSpecifier; follow the alias
+  // chain (barrels, renames) so the ID matches the one built at the definition.
+  const resolved = symbol.isAlias() ? (symbol.getAliasedSymbol() ?? symbol) : symbol;
+  const decls = resolved.getDeclarations();
   if (decls.length === 0) return undefined;
   // Param-only symbols are factory pass-throughs — skip.
   if (decls.every((d) => d.getKind() === SyntaxKind.Parameter)) return undefined;
   const first = decls[0];
   if (!first) return undefined;
-  return `${first.getSourceFile().getFilePath()}::${id.getText()}`;
+  const name = Node.hasName(first) ? first.getName() : id.getText();
+  return `${first.getSourceFile().getFilePath()}::${name}`;
 }
 
 export function collectEsTables(files: readonly SourceFile[]): Set<TableId> {
@@ -438,8 +442,18 @@ function tableNamesOf(tableIds: ReadonlySet<TableId>): Set<string> {
   return new Set([...tableIds].map((tableId) => tableId.slice(tableId.lastIndexOf("::") + 2)));
 }
 
-function mentionsAny(text: string, names: ReadonlySet<string>): boolean {
-  return [...names].some((name) => text.includes(name));
+// Local names an import can give a table in this file (`import { a as b }` -> b). Syntactic,
+// so a rename or barrel re-export never hides an ES table from the name prefilter.
+function importedBindingNames(sf: SourceFile): Set<string> {
+  const names = new Set<string>();
+  for (const declaration of sf.getImportDeclarations()) {
+    const defaultName = declaration.getDefaultImport()?.getText();
+    if (defaultName) names.add(defaultName);
+    for (const specifier of declaration.getNamedImports()) {
+      names.add(specifier.getAliasNode()?.getText() ?? specifier.getName());
+    }
+  }
+  return names;
 }
 
 export function scanDirectWrites(
@@ -447,12 +461,12 @@ export function scanDirectWrites(
   esTables: ReadonlySet<TableId>,
 ): Omit<Violation, "file">[] {
   const out: Omit<Violation, "file">[] = [];
-  const esTableNames = tableNamesOf(esTables);
-  if (!mentionsAny(sf.getFullText(), esTableNames)) return out;
+  // Superset of every name a write may use for an ES table: definition names plus import bindings.
+  const candidateNames = new Set([...tableNamesOf(esTables), ...importedBindingNames(sf)]);
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const w = resolveWrite(call);
     if (!w) continue;
-    if (!esTableNames.has(w.tableArg.getText())) continue;
+    if (!candidateNames.has(w.tableArg.getText())) continue;
 
     // Walk the receiver chain down to its leftmost identifier. For `db.insert`
     // that's `db`; for `ctx.db.raw` (function-form arg0) that's `ctx`; for
@@ -475,7 +489,7 @@ export function scanDirectWrites(
       if (isInsideProjectionApply(call)) continue;
       out.push({
         line: call.getStartLineNumber(),
-        receiver: receiverName,
+        receiver: w.receiver.getText(),
         op: w.op,
         table: w.tableArg.getText(),
         snippet: call.getText().slice(0, 120),
@@ -486,7 +500,7 @@ export function scanDirectWrites(
 
     out.push({
       line: call.getStartLineNumber(),
-      receiver: receiverName,
+      receiver: w.receiver.getText(),
       op: w.op,
       table: w.tableArg.getText(),
       snippet: call.getText().slice(0, 120),
