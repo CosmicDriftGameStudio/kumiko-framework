@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
-import { RateLimitError } from "../../errors/index.ts";
+import { InternalError, RateLimitError } from "../../errors/index.ts";
 import {
   createRateLimitResolver,
   type RateLimitDecision,
@@ -255,5 +255,23 @@ describe("createRateLimitResolver — enforceAll", () => {
 
   test("an empty request list resolves to no decisions", async () => {
     expect(await resolver.enforceAll([])).toEqual([]);
+  });
+
+  test("the same bucket twice is refused before Redis and is not a RateLimitError", async () => {
+    const config = { limit: 5, windowSeconds: 60 };
+
+    let thrown: unknown;
+    try {
+      await resolver.enforceAll([
+        { bucket: "user:a", config },
+        { bucket: "user:a", config },
+      ]);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(InternalError);
+    expect(thrown).not.toBeInstanceOf(RateLimitError);
+    expect((await resolver.peek("user:a", config)).remaining).toBe(5);
   });
 });

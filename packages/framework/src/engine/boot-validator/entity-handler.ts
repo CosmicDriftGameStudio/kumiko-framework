@@ -188,8 +188,19 @@ export function validateAdditionalRateLimits(
   }
   validateAnonymousHasIpBucket(where, handler);
   const shape = handler.schema instanceof ZodObject ? handler.schema.shape : undefined;
+  const seenFields = new Set<string>();
   for (const entry of additionalRateLimits) {
     validatePayloadBucket(where, shape, entry);
+    const field = entry.per.payloadField;
+    // Two entries on one field hash the same value into the same Redis key, so enforceAll
+    // would deduct only one of the costs.
+    if (seenFields.has(field)) {
+      throw new Error(
+        `${where} with payloadField "${field}" more than once — both entries would share one ` +
+          `Redis bucket per value. Keep one entry per payloadField.`,
+      );
+    }
+    seenFields.add(field);
   }
 }
 

@@ -264,6 +264,32 @@ defineFeature("f", (r) => {
     expect(findPattern(reparsed.patterns, "writeHandler")).toMatchObject(expected);
   });
 
+  describe.each([
+    [
+      "a literal bucket next to a constant",
+      `[{ per: "user+handler", limit: 10, windowSeconds: 60 }, APPROVAL_RATE_LIMIT]`,
+    ],
+    ["only constants", "[USER_LIMIT, APPROVAL_RATE_LIMIT]"],
+  ])("a list with %s", (_label, source) => {
+    const mixed = parse(handlerWith(source));
+
+    test("keeps the whole list verbatim as one raw reference", () => {
+      expect(mixed.errors).toEqual([]);
+      expect(findPattern(mixed.patterns, "writeHandler")).toMatchObject({
+        rateLimit: { __raw: source },
+      });
+    });
+
+    test("render → parse roundtrip re-emits the list verbatim", () => {
+      const rendered = renderFeatureFile({
+        featureName: mixed.featureName ?? "",
+        patterns: mixed.patterns,
+      });
+      expect(rendered).toContain(`rateLimit: ${source},`);
+      expect(parse(rendered).errors).toEqual([]);
+    });
+  });
+
   test("an empty list or a list with an unknown per is not recognised", () => {
     expect(parse(handlerWith("[]")).errors).not.toEqual([]);
     expect(

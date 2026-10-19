@@ -28,6 +28,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
+import { ANONYMOUS_ROLE } from "../../engine/system-user.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import { createFilesFeature } from "../feature.ts";
 import { fileRefsTable } from "../file-ref-table.ts";
@@ -79,6 +80,38 @@ const probeFeature = defineFeature("bind-probe", (r) => {
         fieldName: event.payload.fieldName,
         entityId: event.payload.entityId,
         user: event.user,
+        db: ctx.db,
+      });
+      return { isSuccess: true as const, data: { outcome } };
+    },
+  });
+  // The anonymous session keeps the uploader's id: only the role marks it as a visitor.
+  r.writeHandler({
+    name: "load-as-anonymous",
+    schema: probePayload,
+    access: { roles: ["Admin"] },
+    handler: async (event, ctx) => {
+      const pending = await loadPendingFileRef({
+        fileRefId: event.payload.fileRefId,
+        entityName: ENTITY,
+        fieldName: event.payload.fieldName,
+        user: { ...event.user, roles: [ANONYMOUS_ROLE] },
+        db: ctx.db,
+      });
+      return { isSuccess: true as const, data: { pending: pending ?? null } };
+    },
+  });
+  r.writeHandler({
+    name: "bind-as-anonymous",
+    schema: probePayload,
+    access: { roles: ["Admin"] },
+    handler: async (event, ctx) => {
+      const outcome = await bindPendingFileRef({
+        fileRefId: event.payload.fileRefId,
+        entityName: ENTITY,
+        fieldName: event.payload.fieldName,
+        entityId: event.payload.entityId,
+        user: { ...event.user, roles: [ANONYMOUS_ROLE] },
         db: ctx.db,
       });
       return { isSuccess: true as const, data: { outcome } };
@@ -242,5 +275,28 @@ describe("bindPendingFileRef", () => {
     expect(loser).toMatch(/^(not-pending|version-conflict)$/);
     const winnerIndex = outcomes.indexOf("bound");
     expect(await boundEntityId(fileRefId)).toBe(entityIds.at(winnerIndex));
+  });
+});
+
+describe("anonymous sessions", () => {
+  test("never own an upload, even when the session carries the uploader's id", async () => {
+    const fileRefId = await upload(owner);
+    const entityId = crypto.randomUUID();
+
+    const { pending } = await stack.http.writeOk<{ pending: PendingFileRef | null }>(
+      "bind-probe:write:load-as-anonymous",
+      { fileRefId, fieldName: FIELD },
+      owner,
+    );
+    const { outcome } = await stack.http.writeOk<{ outcome: BindPendingFileRefOutcome }>(
+      "bind-probe:write:bind-as-anonymous",
+      { fileRefId, fieldName: FIELD, entityId },
+      owner,
+    );
+
+    expect(pending).toBeNull();
+    expect(outcome).toBe("not-pending");
+    expect(await boundEntityId(fileRefId)).toBeNull();
+    expect(await loadAs(owner, fileRefId)).not.toBeNull();
   });
 });

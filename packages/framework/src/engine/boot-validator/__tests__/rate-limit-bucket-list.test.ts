@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.ts";
-import type { RateLimitDeclaration, WriteHandlerDefinition } from "../../types/index.ts";
+import type {
+  PayloadRateLimitOption,
+  RateLimitDeclaration,
+  WriteHandlerDefinition,
+} from "../../types/index.ts";
 import { validateHandlerAccess } from "../entity-handler.ts";
 
 const ip = { per: "ip", limit: 5, windowSeconds: 60 } as const;
@@ -71,5 +75,39 @@ describe("validateHandlerAccess — rateLimit bucket lists", () => {
       tenantlessAnonymous: true,
     });
     expect(() => validateHandlerAccess(feature)).not.toThrow();
+  });
+});
+
+describe("validateHandlerAccess — additionalRateLimits payload buckets", () => {
+  const byTopic: PayloadRateLimitOption = {
+    per: { payloadField: "topic" },
+    limit: 5,
+    windowSeconds: 60,
+  };
+  const byOther: PayloadRateLimitOption = { ...byTopic, per: { payloadField: "other" } };
+
+  function featureWithPayloadBuckets(additionalRateLimits: readonly PayloadRateLimitOption[]) {
+    return defineFeature("payload-rl", (r) => {
+      r.writeHandler({
+        name: "act",
+        schema: z.object({ topic: z.string(), other: z.string() }),
+        access: { roles: ["Admin"] },
+        additionalRateLimits,
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+      });
+    });
+  }
+
+  test("distinct payload fields boot", () => {
+    expect(() =>
+      validateHandlerAccess(featureWithPayloadBuckets([byTopic, byOther])),
+    ).not.toThrow();
+  });
+
+  test("the same payloadField twice is rejected and names the field", () => {
+    const feature = featureWithPayloadBuckets([byTopic, { ...byTopic, limit: 50 }]);
+    expect(() => validateHandlerAccess(feature)).toThrow(
+      /"payload-rl:write:act" declares additionalRateLimits with payloadField "topic" more than once/,
+    );
   });
 });

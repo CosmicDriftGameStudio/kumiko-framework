@@ -6,7 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Redis } from "ioredis";
-import { RateLimitError } from "../errors/index.ts";
+import { InternalError, RateLimitError } from "../errors/index.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
 import { toPublicBucketName } from "./bucket.ts";
 
@@ -286,6 +286,13 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     if (requests.length === 0) return [];
     const nowMs = now();
     const keys = requests.map(({ bucket }) => `${prefix}${bucket}`);
+    // The script writes each key back once, so a repeated key would deduct only one of its costs.
+    const duplicate = keys.find((key, index) => keys.indexOf(key) !== index);
+    if (duplicate !== undefined) {
+      throw new InternalError({
+        message: `enforceAll received the bucket "${duplicate.slice(prefix.length)}" more than once — merge the requests into one.`,
+      });
+    }
     const perBucketArgs = requests.flatMap(({ config }) => [
       String(config.limit),
       String(config.limit / (config.windowSeconds * 1000)),

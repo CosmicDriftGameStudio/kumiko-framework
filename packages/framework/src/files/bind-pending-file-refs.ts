@@ -1,4 +1,5 @@
 import type { TenantDb } from "../db/tenant-db.ts";
+import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import {
   isFileField,
   isUuid,
@@ -124,6 +125,8 @@ type PendingFileRefLookup = {
 
 async function loadPendingRow(lookup: PendingFileRefLookup): Promise<FileRefRow | undefined> {
   const { fileRefId, entityName, fieldName, user, db } = lookup;
+  // Every anonymous visitor shares one user id, so insertedById cannot tell their uploads apart.
+  if (isAnonymousSessionUser(user)) return undefined;
   if (!isUuid(fileRefId)) return undefined;
   const row = (await loadFileRefRows(db, [fileRefId], user.tenantId)).get(fileRefId);
   return row !== undefined && isPendingUploadFor(row, entityName, fieldName, user)
@@ -155,14 +158,22 @@ export type BindPendingFileRefOutcome = "bound" | "not-pending" | "version-confl
 
 const CONCURRENT_BIND_ERROR_CODES: readonly string[] = ["version_conflict", "unique_violation"];
 
-// Binds one of the caller's own pending uploads to a record from a custom handler, with the
-// same ownership predicate as the save pipeline. A parallel bind of the same fileRef loses with
-// "version-conflict" (or "not-pending" once the winner has committed); anything else throws.
+/**
+ * Binds one of the caller's own pending uploads to a record from a custom handler, with the
+ * same ownership predicate as the save pipeline. Anonymous callers never own an upload.
+ *
+ * The helper checks the upload, not the target: the caller must already be authorized to write
+ * `entityId` itself (for example a record the handler just wrote); `canWriteRecord` is not checked.
+ *
+ * A parallel bind of the same fileRef loses with "version-conflict" (or "not-pending" once the
+ * winner has committed); anything else throws.
+ */
 export async function bindPendingFileRef(
   args: PendingFileRefLookup & { readonly entityId: string },
 ): Promise<BindPendingFileRefOutcome> {
   const row = await loadPendingRow(args);
-  if (row === undefined) return "not-pending";
+  // Without a stream version the update would run unversioned and could overwrite a concurrent bind.
+  if (row === undefined || streamVersionOf(row) === undefined) return "not-pending";
   const outcome = await bindPendingRow({ ...args, row });
   switch (outcome.kind) {
     case "bound":
