@@ -21,7 +21,9 @@ const STAT_PANEL = {
 function dashboardFeature(
   panels: DashboardScreenDefinition["panels"],
   filter?: DashboardScreenDefinition["filter"],
-  extra: Partial<Pick<DashboardScreenDefinition, "timeRange" | "scope">> = {},
+  extra: Partial<
+    Pick<DashboardScreenDefinition, "timeRange" | "scope" | "record" | "actions" | "refresh">
+  > = {},
 ) {
   return defineFeature("demo", (r) => {
     r.queryHandler({
@@ -34,6 +36,12 @@ function dashboardFeature(
       name: "incident:latest",
       schema: z.object({}),
       handler: async () => ({ rows: [], nextCursor: null }),
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
+    r.writeHandler({
+      name: "recheck",
+      schema: z.object({}),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     r.screen({
@@ -58,6 +66,7 @@ function dashboardFeature(
         "demo:dashboard:chart:subtitle": { de: "7 Tage", en: "7 days" },
         "demo:dashboard:chart:empty": { de: "Leer", en: "Empty" },
         "demo:dashboard:chart:empty-hint": { de: "Später", en: "Later" },
+        "demo:dashboard:action:send": { de: "Senden", en: "Send" },
       },
     });
   });
@@ -1213,5 +1222,180 @@ describe("validateBoot — dashboard screen-panel fallback and text panels", () 
       ]),
     );
     expect(keys).not.toContain("demo:not-a-key");
+  });
+});
+
+describe("validateBoot — dashboard record binding, actions and refresh", () => {
+  const SEND_ACTION = {
+    kind: "writeHandler",
+    id: "send",
+    label: "demo:dashboard:action:send",
+    handler: "demo:write:recheck",
+  } as const;
+
+  function boot(extra: Parameters<typeof dashboardFeature>[2]): void {
+    validateBoot([dashboardFeature([STAT_PANEL], undefined, extra)]);
+  }
+
+  test("accepts a record-bound dashboard with query, title, actions and refresh", () => {
+    expect(() =>
+      boot({
+        record: {
+          param: "monitorId",
+          payloadKey: "id",
+          query: "demo:query:incident:latest",
+          titleField: "name",
+        },
+        actions: [
+          SEND_ACTION,
+          {
+            kind: "clientAction",
+            id: "send-mail",
+            label: "x",
+            action: "demo:send-mail",
+            icon: "send",
+          },
+        ],
+        refresh: { field: "intervalSeconds" },
+      }),
+    ).not.toThrow();
+  });
+
+  test("accepts a plain refresh interval at the minimum", () => {
+    expect(() => boot({ refresh: { seconds: 5 } })).not.toThrow();
+  });
+
+  test.each([
+    ["empty param", { record: { param: "" } }, /record\.param is empty/],
+    [
+      "empty payloadKey",
+      { record: { param: "id", payloadKey: "" } },
+      /record\.payloadKey is empty/,
+    ],
+    ["empty query", { record: { param: "id", query: "" } }, /record\.query is empty/],
+    [
+      "titleField without query",
+      { record: { param: "id", titleField: "name" } },
+      /record\.titleField needs record\.query/,
+    ],
+    ["actions without record", { actions: [SEND_ACTION] }, /declares actions without a record/],
+    [
+      "refresh.field without record",
+      { refresh: { field: "intervalSeconds" } },
+      /refresh\.field "intervalSeconds" needs record\.query/,
+    ],
+    [
+      "refresh.field without record.query",
+      { record: { param: "id" }, refresh: { field: "intervalSeconds" } },
+      /refresh\.field "intervalSeconds" needs record\.query/,
+    ],
+    [
+      "refresh.seconds below the minimum",
+      { refresh: { seconds: 4 } },
+      /refresh\.seconds "4" must be a number of at least 5/,
+    ],
+    ["refresh.seconds NaN", { refresh: { seconds: Number.NaN } }, /refresh\.seconds "NaN"/],
+  ] as const)("rejects %s", (_name, extra, message) => {
+    expect(() => boot(extra)).toThrow(message);
+  });
+
+  test("rejects a record param that collides with the filter id", () => {
+    const feature = dashboardFeature(
+      [STAT_PANEL],
+      {
+        id: "region",
+        label: "demo:dashboard:filter:region",
+        kind: "select",
+        options: [{ value: "eu", label: "demo:dashboard:filter:region" }],
+      },
+      { record: { param: "region" } },
+    );
+    expect(() => validateBoot([feature])).toThrow(/collides with the filter or timeRange id/);
+  });
+
+  test("rejects a record action on an unregistered write handler", () => {
+    expect(() =>
+      boot({
+        record: { param: "id" },
+        actions: [{ ...SEND_ACTION, handler: "demo:write:missing" }],
+      }),
+    ).toThrow(/action "send" handler "demo:write:missing" is not a registered write-handler/);
+  });
+
+  test("rejects a drawer action, rowClick and a redirect", () => {
+    const record = { param: "id" };
+    expect(() =>
+      boot({
+        record,
+        actions: [{ kind: "drawer", id: "send", label: "x", screen: "overview" }],
+      }),
+    ).toThrow(/is a drawer action — a dashboard has no drawer host/);
+    expect(() =>
+      boot({
+        record,
+        actions: [{ kind: "navigate", id: "send", label: "x", screen: "overview", rowClick: true }],
+      }),
+    ).toThrow(/sets rowClick: true/);
+    expect(() => boot({ record, actions: [{ ...SEND_ACTION, redirect: "overview" }] })).toThrow(
+      /sets redirect — a dashboard action stays on the dashboard/,
+    );
+  });
+
+  test("rejects a malformed client action name", () => {
+    expect(() =>
+      boot({
+        record: { param: "id" },
+        actions: [{ kind: "clientAction", id: "send", label: "x", action: "NotValid" }],
+      }),
+    ).toThrow(/is not a client action name/);
+  });
+
+  test("rejects an action without a resolvable icon", () => {
+    expect(() =>
+      boot({
+        record: { param: "id" },
+        actions: [{ ...SEND_ACTION, id: "zzz-unknown" }],
+      }),
+    ).toThrow(/has no resolvable icon/);
+  });
+
+  test("relativeTime is accepted on stat panels and stat-group children, not on charts", () => {
+    const relative: DashboardValueFormat = { kind: "relativeTime" };
+    expect(() =>
+      validateBoot([
+        dashboardFeature([
+          { ...STAT_PANEL, valueFormat: relative },
+          {
+            kind: "stat-group",
+            id: "kpis",
+            stats: [{ ...STAT_PANEL, id: "child", valueFormat: relative }],
+          },
+        ]),
+      ]),
+    ).not.toThrow();
+    const chart = {
+      kind: "chart",
+      id: "area",
+      label: "demo:dashboard:panel:latest",
+      chart: "stacked-area",
+      query: "demo:query:incident:latest",
+      valueFormat: relative,
+    } as unknown as DashboardScreenDefinition["panels"][number];
+    expect(() => validateBoot([dashboardFeature([chart])])).toThrow(
+      /valueFormat\.kind "relativeTime" must be "currency"/,
+    );
+  });
+
+  test("requires translations for the labels of dashboard actions", () => {
+    const keys = requiredKeysFromScreen("demo", {
+      id: "overview",
+      type: "dashboard",
+      panels: [STAT_PANEL],
+      record: { param: "id" },
+      actions: [{ ...SEND_ACTION, confirm: "demo:dashboard:action:confirm" }],
+    });
+    expect(keys).toEqual(
+      expect.arrayContaining(["demo:dashboard:action:send", "demo:dashboard:action:confirm"]),
+    );
   });
 });

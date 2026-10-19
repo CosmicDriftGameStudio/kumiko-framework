@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-types/fields";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
+import { DASHBOARD_MIN_REFRESH_SECONDS } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { isListFilterAllowed } from "../../db/entity-field-encryption.ts";
 import { rowMetaFieldNames } from "../../db/table-builder.ts";
@@ -53,6 +54,8 @@ import type {
   DashboardFilterDefinition,
   DashboardPanelDefinition,
   DashboardPanelVisibility,
+  DashboardRecordBinding,
+  DashboardRefresh,
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,
@@ -176,6 +179,7 @@ function validateFieldFormRefs(
     }
   }
   const params = fieldSpec.fillAction?.params;
+  // skip: no fill-action params to cross-check
   if (params === undefined) return;
   const sourceFields = "pick" in params ? params.pick : Object.values(params.map);
   for (const sourceField of sourceFields) {
@@ -234,6 +238,7 @@ export function readsNavigateParamsAsFormPrefill(
 }
 
 type NavigateSourceScreenType =
+  | "dashboard"
   | "entityList"
   | "projectionList"
   | "projectionDetail"
@@ -475,7 +480,7 @@ function isRegisteredIcon(icon: IconKey): boolean {
 export function validateActionHasIcon(
   featureName: string,
   screenId: string,
-  screenType: "projectionDetail" | "entityEdit" | "entityList" | "projectionList",
+  screenType: "projectionDetail" | "entityEdit" | "entityList" | "projectionList" | "dashboard",
   context: string,
   action: { readonly id: string; readonly icon?: IconKey },
 ): void {
@@ -660,6 +665,25 @@ function validateDrawerTargetAction(
   );
 }
 
+function renderedEditFieldNames(sections: EditLayout["sections"]): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const section of sections) {
+    if (!isFieldsEditSection(section)) continue;
+    for (const spec of sectionFieldSpecs(section)) names.add(normalizeEditField(spec).field);
+  }
+  return names;
+}
+
+function isSensitiveOrPasswordField(
+  field: ActionFormScreenDefinition["fields"][string] | undefined,
+): boolean {
+  return (
+    field !== undefined &&
+    (("sensitive" in field && field.sensitive === true) ||
+      ("format" in field && field.format === "password"))
+  );
+}
+
 export function validateDrawerPrefillKeys(
   where: string,
   targetLabel: "drawer-target" | "navigate-target",
@@ -667,12 +691,7 @@ export function validateDrawerPrefillKeys(
   target: ActionFormScreenDefinition | SecretMintScreenDefinition,
   params: RowFieldExtractor,
 ): void {
-  const renderedFieldNames = new Set<string>();
-  for (const section of target.layout.sections) {
-    if (!isFieldsEditSection(section)) continue;
-    for (const spec of sectionFieldSpecs(section))
-      renderedFieldNames.add(normalizeEditField(spec).field);
-  }
+  const renderedFieldNames = renderedEditFieldNames(target.layout.sections);
   for (const fieldName of rowFieldExtractorKeys(params)) {
     // A `load` form reads only the record id from these params, never a value.
     if (fieldName === "id" && target.type === "actionForm" && target.load !== undefined) continue;
@@ -683,12 +702,7 @@ export function validateDrawerPrefillKeys(
           `${Object.keys(target.fields).sort().join(", ") || "(none)"}.`,
       );
     }
-    const targetField = target.fields[fieldName];
-    const isSensitiveOrPassword =
-      targetField !== undefined &&
-      (("sensitive" in targetField && targetField.sensitive === true) ||
-        ("format" in targetField && targetField.format === "password"));
-    if (isSensitiveOrPassword) {
+    if (isSensitiveOrPasswordField(target.fields[fieldName])) {
       throw new Error(
         `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" marks as ` +
           `sensitive or password — the renderer never prefills those fields and would leave the form empty. Remove that param or prefill a non-sensitive field.`,
@@ -1288,6 +1302,7 @@ function validateClientActionName(
     name !== undefined &&
     isKebabSegment(scope) &&
     isKebabSegment(name);
+  // skip: well-formed name, nothing to reject
   if (wellFormed) return;
   throw new Error(
     `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
@@ -2584,6 +2599,13 @@ export function validateScreens(
 
     if (screen.type === "dashboard") {
       validateDashboardScreen(feature.name, screenId, screen, featureMap);
+      validateDashboardRecordBinding(feature.name, screenId, screen);
+      validateDashboardActions(feature.name, screenId, screen, allWriteHandlerQns, {
+        allScreenQns,
+        navTargetShortIds,
+        screensByShortId,
+        detailForScreens,
+      });
       continue;
     }
 
@@ -3321,6 +3343,171 @@ function validateDashboardScreen(
   }
 }
 
+type DashboardActionNavLookups = {
+  readonly allScreenQns: Parameters<typeof resolveRowActionNavigateTarget>[5];
+  readonly navTargetShortIds: Parameters<typeof resolveRowActionNavigateTarget>[6];
+  readonly screensByShortId: Parameters<typeof resolveRowActionNavigateTarget>[7];
+  readonly detailForScreens: Parameters<typeof resolveRowActionNavigateTarget>[8];
+};
+
+function validateDashboardActions(
+  featureName: string,
+  screenId: string,
+  screen: DashboardScreenDefinition,
+  allWriteHandlerQns: ReadonlySet<string>,
+  lookups: DashboardActionNavLookups,
+): void {
+  const { allScreenQns, navTargetShortIds, screensByShortId, detailForScreens } = lookups;
+  // Header actions run on the bound record like projectionDetail's, minus
+  // what needs a drawer host or a record screen to leave.
+  for (const action of screen.actions ?? []) {
+    const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) action "${action.id}"`;
+    validateActionHasIcon(featureName, screenId, "dashboard", "action", action);
+    if (isRowClickAction(action)) {
+      throw new Error(
+        `${where} sets rowClick: true — a dashboard has no row to click. Remove rowClick.`,
+      );
+    }
+    if (action.kind === "drawer") {
+      throw new Error(
+        `${where} is a drawer action — a dashboard has no drawer host. Use a navigate, ` +
+          `writeHandler or clientAction action.`,
+      );
+    }
+    if (action.kind === "navigate") {
+      const target = resolveRowActionNavigateTarget(
+        featureName,
+        screenId,
+        "dashboard",
+        "action",
+        action,
+        allScreenQns,
+        navTargetShortIds,
+        screensByShortId,
+        detailForScreens,
+      );
+      validateRowActionNavigateParams(
+        featureName,
+        screenId,
+        "dashboard",
+        screen.detailFor,
+        action,
+        target,
+      );
+    } else if (action.kind === "clientAction") {
+      validateClientActionName(featureName, screenId, "dashboard", "action", action);
+    } else {
+      if (action.redirect !== undefined) {
+        throw new Error(
+          `${where} sets redirect — a dashboard action stays on the dashboard and refetches ` +
+            `after success. Remove redirect.`,
+        );
+      }
+      if (!allWriteHandlerQns.has(action.handler)) {
+        throw new Error(
+          `${where} handler "${action.handler}" is not a registered write-handler. Check the QN ` +
+            `spelling (expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+        );
+      }
+    }
+  }
+}
+
+// record / actions / refresh hang together: actions and a field-driven refresh
+// read the record row, and the record id travels in the URL next to the
+// filter and time-range values.
+function validateDashboardRecordBinding(
+  featureName: string,
+  screenId: string,
+  screen: DashboardScreenDefinition,
+): void {
+  const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard)`;
+  const { record, refresh } = screen;
+  if (record === undefined) {
+    if (screen.actions !== undefined) {
+      throw new Error(
+        `${where} declares actions without a record — the actions run on the bound record. ` +
+          `Add record: { param } or remove actions.`,
+      );
+    }
+  } else {
+    validateDashboardRecordShape(where, record, [screen.filter?.id, screen.timeRange?.id]);
+  }
+  // skip: no refresh declared, nothing to validate
+  if (refresh === undefined) return;
+  validateDashboardRefresh(where, refresh, record);
+}
+
+function validateDashboardRecordShape(
+  where: string,
+  record: DashboardRecordBinding,
+  otherUrlParamIds: readonly (string | undefined)[],
+): void {
+  if (typeof record.param !== "string" || record.param.length === 0) {
+    throw new Error(`${where} record.param is empty. Name the URL search param carrying the id.`);
+  }
+  if (record.payloadKey !== undefined && record.payloadKey.length === 0) {
+    throw new Error(
+      `${where} record.payloadKey is empty. Omit it to reuse record.param as the payload key.`,
+    );
+  }
+  if (record.query !== undefined && record.query.length === 0) {
+    throw new Error(`${where} record.query is empty. Set a registered query name or omit it.`);
+  }
+  if (record.titleField !== undefined && isTitleFieldUnusable(record)) {
+    throw new Error(
+      `${where} record.titleField needs record.query and a field name — the title is read ` +
+        `from the record row.`,
+    );
+  }
+  const payloadKey = record.payloadKey ?? record.param;
+  for (const other of otherUrlParamIds) {
+    if (other !== undefined && (other === record.param || other === payloadKey)) {
+      throw new Error(
+        `${where} record.param/payloadKey "${other}" collides with the filter or timeRange id — ` +
+          `all of them live in the URL search params and panel payloads. Use a different name.`,
+      );
+    }
+  }
+}
+
+function isTitleFieldUnusable(record: DashboardRecordBinding): boolean {
+  return record.query === undefined || record.titleField === "";
+}
+
+function validateDashboardRefresh(
+  where: string,
+  refresh: DashboardRefresh,
+  record: DashboardRecordBinding | undefined,
+): void {
+  if ("seconds" in refresh && "field" in refresh) {
+    throw new Error(`${where} refresh sets both seconds and field — set exactly one.`);
+  }
+  if ("seconds" in refresh) {
+    if (!isRefreshSecondsAllowed(refresh.seconds)) {
+      throw new Error(
+        `${where} refresh.seconds "${String(refresh.seconds)}" must be a number of at least ` +
+          `${DASHBOARD_MIN_REFRESH_SECONDS} — shorter intervals would hammer every panel query.`,
+      );
+    }
+    // skip: seconds validated, field rules below do not apply
+    return;
+  }
+  if (refresh.field.length === 0) {
+    throw new Error(`${where} refresh.field is empty. Name the record field holding the seconds.`);
+  }
+  if (record?.query === undefined) {
+    throw new Error(
+      `${where} refresh.field "${refresh.field}" needs record.query to read the seconds from. ` +
+        `Add record: { param, query } or use refresh: { seconds }.`,
+    );
+  }
+}
+
+function isRefreshSecondsAllowed(seconds: number): boolean {
+  return Number.isFinite(seconds) && seconds >= DASHBOARD_MIN_REFRESH_SECONDS;
+}
+
 function validateDashboardTimeRange(
   featureName: string,
   screenId: string,
@@ -3413,6 +3600,7 @@ export function validateDashboardScreenPanel(
   const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}"`;
   validateEmbeddableScreenRef(context, "screen", panel.screen, featureName, featureMap);
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
+  // skip: no fallback declared, nothing more to validate
   if (panel.fallback === undefined) return;
   if (panel.visibleWhen === undefined) {
     throw new Error(
@@ -3509,7 +3697,13 @@ function validateDashboardStatGroupPanel(
         `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty valueField. Set valueField to a field of the query result.`,
       );
     }
-    validateDashboardValueFormat(featureName, screenId, stat.id, stat.valueFormat);
+    validateDashboardValueFormat(
+      featureName,
+      screenId,
+      stat.id,
+      stat.valueFormat,
+      STAT_VALUE_FORMATS,
+    );
   }
 }
 
@@ -3521,13 +3715,7 @@ function validateFromTodayWindowReach(where: string, panel: DashboardChartPanel)
   }
 }
 
-function validateDashboardChartDisplay(
-  featureName: string,
-  screenId: string,
-  panel: DashboardChartPanel,
-): void {
-  validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
-  const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}"`;
+function validateChartScrollableAndUnit(where: string, panel: DashboardChartPanel): void {
   if (panel.scrollable !== undefined && typeof panel.scrollable !== "boolean") {
     throw new Error(`${where} has a non-boolean scrollable. Use true or false.`);
   }
@@ -3541,6 +3729,22 @@ function validateDashboardChartDisplay(
       `${where} sets unit on chart "${panel.chart}" — only "timeseries" supports it. Remove unit or use chart "timeseries".`,
     );
   }
+}
+
+function validateDashboardChartDisplay(
+  featureName: string,
+  screenId: string,
+  panel: DashboardChartPanel,
+): void {
+  validateDashboardValueFormat(
+    featureName,
+    screenId,
+    panel.id,
+    panel.valueFormat,
+    CHART_VALUE_FORMATS,
+  );
+  const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}"`;
+  validateChartScrollableAndUnit(where, panel);
   validateStackedAreaOnlyProps(where, panel);
   validateStackedAreaEnumProp(where, "dateFormat", panel.dateFormat, ["day", "month"]);
   validateStackedAreaEnumProp(where, "initialWindow", panel.initialWindow, [
@@ -3656,18 +3860,29 @@ function validateDashboardChartRanges(where: string, ranges: DashboardChartRange
 const CURRENCY_CODE_RE = /^[A-Z]{3}$/;
 const MAX_VALUE_FORMAT_FRACTION_DIGITS = 4;
 
+const STAT_VALUE_FORMATS = [
+  "currency",
+  "relativeTime",
+] as const satisfies readonly DashboardValueFormat["kind"][];
+const CHART_VALUE_FORMATS = ["currency"] as const satisfies readonly DashboardValueFormat["kind"][];
+
 function validateDashboardValueFormat(
   featureName: string,
   screenId: string,
   panelId: string,
   valueFormat: DashboardValueFormat | undefined,
+  allowedKinds: readonly DashboardValueFormat["kind"][],
 ): void {
   // skip: valueFormat is optional, nothing to validate without it
   if (valueFormat === undefined) return;
   const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panelId}" valueFormat`;
-  if (valueFormat.kind !== "currency") {
-    throw new Error(`${where}.kind "${String(valueFormat.kind)}" must be "currency".`);
+  if (!allowedKinds.includes(valueFormat.kind)) {
+    throw new Error(
+      `${where}.kind "${String(valueFormat.kind)}" must be ${allowedKinds.map((kind) => `"${kind}"`).join(" or ")}.`,
+    );
   }
+  // skip: relativeTime carries no options
+  if (valueFormat.kind === "relativeTime") return;
   if (!CURRENCY_CODE_RE.test(valueFormat.currency)) {
     throw new Error(
       `${where}.currency "${String(valueFormat.currency)}" must be a 3-letter uppercase ISO currency code.`,
@@ -3718,7 +3933,13 @@ function validateDashboardQueryPanel(
         `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField. Set valueField to a field of the query result.`,
       );
     }
-    validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
+    validateDashboardValueFormat(
+      featureName,
+      screenId,
+      panel.id,
+      panel.valueFormat,
+      STAT_VALUE_FORMATS,
+    );
   }
   validateDashboardPanelVisibleWhen(
     `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,

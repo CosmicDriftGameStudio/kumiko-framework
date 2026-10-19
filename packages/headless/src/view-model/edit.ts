@@ -198,6 +198,26 @@ function translateAffix(affix: FieldAffix, translate: Translate): FieldAffix {
   return typeof affix === "string" ? translate(affix) : affix;
 }
 
+type FieldAffixHints = Pick<EditFieldViewModel, "placeholder" | "prefix" | "suffix" | "fillAction">;
+
+function deriveFieldAffixHints(
+  normalized: NormalizedEditField,
+  translate: Translate,
+): FieldAffixHints {
+  return {
+    ...(normalized.placeholder !== undefined && { placeholder: translate(normalized.placeholder) }),
+    ...(normalized.prefix !== undefined && {
+      prefix: translateAffix(normalized.prefix, translate),
+    }),
+    ...(normalized.suffix !== undefined && {
+      suffix: translateAffix(normalized.suffix, translate),
+    }),
+    ...(normalized.fillAction !== undefined && {
+      fillAction: { ...normalized.fillAction, label: translate(normalized.fillAction.label) },
+    }),
+  };
+}
+
 type SelectFieldHints = Pick<
   EditFieldViewModel,
   | "options"
@@ -748,18 +768,7 @@ export function computeEditViewModel<
           ...referenceHints,
           ...fileHints,
           ...(normalized.icon !== undefined && { icon: normalized.icon }),
-          ...(normalized.placeholder !== undefined && {
-            placeholder: translate(normalized.placeholder),
-          }),
-          ...(normalized.prefix !== undefined && {
-            prefix: translateAffix(normalized.prefix, translate),
-          }),
-          ...(normalized.suffix !== undefined && {
-            suffix: translateAffix(normalized.suffix, translate),
-          }),
-          ...(normalized.fillAction !== undefined && {
-            fillAction: { ...normalized.fillAction, label: translate(normalized.fillAction.label) },
-          }),
+          ...deriveFieldAffixHints(normalized, translate),
           ...embeddedListHints,
         };
         return view;

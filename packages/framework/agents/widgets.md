@@ -118,6 +118,7 @@ Value exports of `@cosmicdrift/kumiko-renderer-web`.
 | `useDraft` | Formular-State für Rechner-Screens: ein Draft-Objekt + `patch` für Teil-Updates + `field(name)` das die `{ id, name, value, onChange }`-Props fertig für die Feld-Widgets (NumberField/MoneyField/PercentField) liefert. |
 | `useForm` |  |
 | `useIsNarrowViewport` |  |
+| `useIsViewportBelow` |  |
 | `useLiveEvents` | Hook für useQuery-like Consumer. |
 | `useLocale` | Liefert den aktuellen LocaleResolver und abonniert automatisch Locale-Änderungen — der aufrufende Component re-rendert sobald die Sprache gewechselt wird. |
 | `useNav` |  |

@@ -229,6 +229,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "pat.created.hint":
     "Kopieren Sie diesen Token jetzt. Aus Sicherheitsgründen wird er nur dieses eine Mal angezeigt.",
   "kumiko.list.empty.hint": "Legen Sie den ersten an, um loszulegen.",
+  "kumiko.dashboard.record.missing":
+    "Öffnen Sie diese Seite über einen Datensatz, um das Dashboard zu sehen.",
   "kumiko.screen-access-denied.title": "Sie haben keinen Zugriff auf diese Seite.",
   "kumiko.screen-missing.hint":
     "Sie ist für Ihr Konto nicht freigeschaltet oder existiert nicht mehr.",

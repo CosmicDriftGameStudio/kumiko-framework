@@ -81,6 +81,7 @@ export type {
   WorkspaceSchema,
 } from "./app/feature-schema.ts";
 export { isAppSchema, toAppSchema } from "./app/feature-schema.ts";
+export { HeaderActionsBar } from "./app/header-actions-bar.tsx";
 export type { KumikoScreenProps } from "./app/kumiko-screen.tsx";
 export {
   KumikoScreen,
@@ -129,6 +130,7 @@ export {
 } from "./app/return-to.tsx";
 export type { EmbeddedScreenTarget } from "./app/use-embedded-screen.ts";
 export { useEmbeddedScreen } from "./app/use-embedded-screen.ts";
+export { useRecordActions } from "./app/use-record-actions.ts";
 export type { VariableChipsProps } from "./app/variable-chips.tsx";
 export { VariableChips } from "./app/variable-chips.tsx";
 export { evalVisibleWhen, type VisibleWhenVerdict } from "./app/visible-when.ts";

@@ -44,6 +44,22 @@ function schemaAccepts(schema: QueryHandlerDef["schema"] | undefined, key: strin
   return shape !== undefined && key in shape;
 }
 
+// sortable/paginated are derived by buildAppSchema from the query's Zod
+// schema (fw#2165) — there is no separate wire type from the author-facing
+// ProjectionListScreenDefinition, so hand-authoring them would otherwise be
+// silently overwritten with no signal to the author. Reject outright.
+function rejectHandAuthoredDerivedFlags(
+  prefix: string,
+  screen: ProjectionListScreenDefinition,
+): void {
+  if (screen.sortable !== undefined) {
+    throw new Error(`${prefix}: sortable is derived from the query's Zod schema, don't set it`);
+  }
+  if (screen.paginated !== undefined) {
+    throw new Error(`${prefix}: paginated is derived from the query's Zod schema, don't set it`);
+  }
+}
+
 function validateOneProjectionListScreen(
   feature: FeatureDefinition,
   screen: ProjectionListScreenDefinition,
@@ -81,16 +97,7 @@ function validateOneProjectionListScreen(
     );
   }
 
-  // sortable/paginated are derived by buildAppSchema from the query's Zod
-  // schema (fw#2165) — there is no separate wire type from the author-facing
-  // ProjectionListScreenDefinition, so hand-authoring them would otherwise be
-  // silently overwritten with no signal to the author. Reject outright.
-  if (screen.sortable !== undefined) {
-    throw new Error(`${prefix}: sortable is derived from the query's Zod schema, don't set it`);
-  }
-  if (screen.paginated !== undefined) {
-    throw new Error(`${prefix}: paginated is derived from the query's Zod schema, don't set it`);
-  }
+  rejectHandAuthoredDerivedFlags(prefix, screen);
 
   const searchActive =
     screen.searchable !== false && !searchDerivedOff && schemaAccepts(schema, "search");

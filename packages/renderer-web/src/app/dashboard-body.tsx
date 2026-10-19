@@ -45,10 +45,18 @@
 // filter). useQuery refetches automatically through its existing payloadKey
 // mechanism, so no special case is needed. Each query panel loads and fails
 // on its own (skeleton / empty / error with retry).
+//
+// Record binding (DashboardRecordBinding): the record id from the URL search
+// param is merged into every panel and gate query after filter/timeRange and
+// before panel `params`. Without the param the screen shows a hint and runs no
+// query. `record.query` loads the row for the title, header `actions` and
+// `refresh.field`; an action success and every refresh tick refetch the record
+// and all panels (each panel query registers its refetch in the registry).
 
 import type {
   DashboardChartMarkerKind,
   DashboardChartPanel,
+  DashboardCurrencyFormat,
   DashboardCustomPanel,
   DashboardDateParam,
   DashboardFeedPanel,
@@ -60,6 +68,7 @@ import type {
   DashboardPanelQueryOptions,
   DashboardProgressListPanel,
   DashboardProgressTone,
+  DashboardRelativeTimeParam,
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,
@@ -67,7 +76,6 @@ import type {
   DashboardTextBlock,
   DashboardTextPanel,
   DashboardTextParam,
-  DashboardValueFormat,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
@@ -82,20 +90,32 @@ import {
   type EmbeddedScreenTarget,
   evalVisibleWhen,
   extensionSectionName,
+  HeaderActionsBar,
   KumikoScreen,
   type UseQueryResult,
   useEmbeddedScreen,
   useExtensionSectionComponent,
   useLocale,
   useNav,
+  usePageHeaderCompact,
   usePageHeaderSlotAvailable,
   usePrimitives,
   useQuery,
+  useRecordActions,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "../lib/cn.ts";
 import { EmbeddedFormProvider } from "../primitives/index.tsx";
 import { PageSection } from "../primitives/layout.tsx";
@@ -127,6 +147,8 @@ import { SectionCard } from "../widgets/section-card.tsx";
 import { StatCard, type StatDelta, StatStripCell, type StatTone } from "../widgets/stat.tsx";
 import { EmptyState, LoadingState } from "../widgets/states.tsx";
 import { StatusBadge } from "../widgets/status-badge.tsx";
+import { resolveRefreshIntervalMs } from "./dashboard-refresh.ts";
+import { useRelativeTimeFormatter } from "./relative-time.ts";
 
 const SKELETON_SEGMENT_WIDTHS = ["100%", "72%", "48%"] as const;
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";
@@ -139,6 +161,8 @@ const SKELETON_BAR_HEIGHTS = ["40%", "65%", "50%", "85%", "60%", "75%", "45%", "
 type ScreenParams = {
   readonly filterParams: Readonly<Record<string, unknown>>;
   readonly rangeParams: Readonly<Record<string, unknown>>;
+  /** `{ [payloadKey]: recordId }` of a record-bound dashboard, else empty. */
+  readonly recordParams: Readonly<Record<string, unknown>>;
 };
 
 function panelPayload(
@@ -148,8 +172,60 @@ function panelPayload(
   return {
     ...(panel.ignoreScreenFilter === true ? {} : screenParams.filterParams),
     ...screenParams.rangeParams,
+    ...screenParams.recordParams,
     ...panel.params,
   };
+}
+
+type RefetchQuery = () => Promise<void>;
+
+type DashboardQueryRuntime = {
+  /** Polling interval for every panel and gate query; undefined = off. */
+  readonly refreshIntervalMs: number | undefined;
+  /** Adds a query's refetch to the set `refetchAll` walks; returns its removal. */
+  readonly register: (refetch: RefetchQuery) => () => void;
+};
+
+const DashboardQueryContext = createContext<DashboardQueryRuntime>({
+  refreshIntervalMs: undefined,
+  register: () => () => {},
+});
+
+function useRefetchRegistry(): {
+  readonly register: DashboardQueryRuntime["register"];
+  readonly refetchRegistered: () => Promise<void>;
+} {
+  const registered = useRef(new Set<RefetchQuery>());
+  const register = useCallback((refetch: RefetchQuery) => {
+    registered.current.add(refetch);
+    return () => {
+      registered.current.delete(refetch);
+    };
+  }, []);
+  const refetchRegistered = useCallback(async () => {
+    await Promise.all([...registered.current].map((refetch) => refetch()));
+  }, []);
+  return { register, refetchRegistered };
+}
+
+/** Live query of a panel or gate that takes part in the dashboard's refresh:
+ *  polls at the screen's interval and is refetched by `refetchAll` after an
+ *  action. A disabled query registers nothing. */
+function useDashboardQuery<TData>(
+  type: string,
+  payload: Readonly<Record<string, unknown>>,
+  options: { readonly enabled?: boolean } = {},
+): UseQueryResult<TData> {
+  const { refreshIntervalMs, register } = useContext(DashboardQueryContext);
+  const enabled = options.enabled ?? true;
+  const result = useQuery<TData>(type, payload, {
+    live: true,
+    enabled,
+    ...(refreshIntervalMs !== undefined && { refetchIntervalMs: refreshIntervalMs }),
+  });
+  const { refetch } = result;
+  useEffect(() => (enabled ? register(refetch) : undefined), [enabled, register, refetch]);
+  return result;
 }
 
 type DashboardFormats = {
@@ -162,13 +238,16 @@ type DashboardFormats = {
   readonly formatDateTime: (atMs: number) => string;
   readonly formatMedium: (atMs: number) => string;
   readonly formatMinor: (amountMinor: number, currency: string, fractionDigits?: number) => string;
+  /** "5 minutes ago"; the component that called `useDashboardFormats` redraws on a
+   *  timer while at least one of its renders used this. */
+  readonly formatRelative: (atMs: number) => string;
   /** Number formatter for a panel; currency when `valueFormat` is set. */
   readonly formatPanelValue: (
-    valueFormat: DashboardValueFormat | undefined,
+    valueFormat: DashboardCurrencyFormat | undefined,
   ) => (value: number) => string;
   /** Compact variant of `formatPanelValue` for chart axes ("1,5 Mio. €"). */
   readonly formatPanelAxisValue: (
-    valueFormat: DashboardValueFormat | undefined,
+    valueFormat: DashboardCurrencyFormat | undefined,
   ) => (value: number) => string;
 };
 
@@ -176,6 +255,7 @@ function useDashboardFormats(): DashboardFormats {
   const resolver = useLocale();
   const locale = resolver.locale();
   const timeZone = resolver.timeZone();
+  const formatRelative = useRelativeTimeFormatter(locale);
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
   // Without the significant-digit cap, values below the locale's first
   // abbreviation step keep a decimal ("298.989,9 €" in de); lessPrecision
@@ -204,6 +284,7 @@ function useDashboardFormats(): DashboardFormats {
     timeZone,
     formatMedium: (atMs) => medium.format(atMs),
     formatMinor,
+    formatRelative,
     formatPanelValue: (valueFormat) =>
       valueFormat === undefined
         ? (value) => number.format(value)
@@ -252,13 +333,18 @@ function isDateParam(value: unknown): value is DashboardDateParam {
   return isRecord(value) && value["kind"] === "date" && typeof value["atMs"] === "number";
 }
 
+function isRelativeTimeParam(value: unknown): value is DashboardRelativeTimeParam {
+  return isRecord(value) && value["kind"] === "relativeTime" && typeof value["atMs"] === "number";
+}
+
 function isTextParam(value: unknown): value is DashboardTextParam {
   return (
     typeof value === "string" ||
     typeof value === "number" ||
     isDashboardI18nText(value) ||
     isMoneyParam(value) ||
-    isDateParam(value)
+    isDateParam(value) ||
+    isRelativeTimeParam(value)
   );
 }
 
@@ -271,6 +357,7 @@ function resolveTextParam(
   if (typeof param === "string" || typeof param === "number") return param;
   if (isMoneyParam(param)) return formats.formatMinor(param.amountMinor, param.currency);
   if (isDateParam(param)) return formats.formatMedium(param.atMs);
+  if (isRelativeTimeParam(param)) return formats.formatRelative(param.atMs);
   if (isDashboardI18nText(param)) {
     // Too deep: show the key instead of recursing further.
     return depth >= MAX_TEXT_PARAM_DEPTH
@@ -406,7 +493,9 @@ type QueryPanelProps<TData> = {
   readonly translate: Translate;
   readonly skeleton: SkeletonShape;
   readonly isEmpty: (data: TData) => boolean;
-  readonly children: (data: TData) => ReactNode;
+  /** Receives the formats of the panel itself, so a relative time inside the body
+   *  redraws this panel and nothing else. */
+  readonly children: (data: TData, formats: DashboardFormats) => ReactNode;
 };
 
 function QueryPanel<TData>({
@@ -420,10 +509,10 @@ function QueryPanel<TData>({
   isEmpty,
   children,
 }: QueryPanelProps<TData>): ReactNode {
-  const { data, error, loading, refetch } = useQuery<TData>(
+  const formats = useDashboardFormats();
+  const { data, error, loading, refetch } = useDashboardQuery<TData>(
     panel.query,
     panelPayload(panel, screenParams),
-    { live: true },
   );
   useReportPanelLoaded(data);
   let body: ReactNode;
@@ -439,7 +528,7 @@ function QueryPanel<TData>({
       />
     );
   } else {
-    body = children(data);
+    body = children(data, formats);
   }
   return (
     <PanelShell
@@ -516,10 +605,9 @@ function StatPanelBody({
     }
   }, [panel.icon, panel.id, iconName, Icon, screenId]);
 
-  const { data, error, loading, refetch } = useQuery<Readonly<Record<string, unknown>>>(
+  const { data, error, loading, refetch } = useDashboardQuery<Readonly<Record<string, unknown>>>(
     panel.query,
     panelPayload(panel, screenParams),
-    { live: true },
   );
   useReportPanelLoaded(data);
   if (loading && data === null) return <LoadingState rows={2} />;
@@ -534,11 +622,17 @@ function StatPanelBody({
     (rawValue === 0 ? undefined : panel.tone);
   const sub = panel.subField !== undefined ? record[panel.subField] : undefined;
   const delta = readDelta(panel, record);
-  const value =
-    typeof rawValue === "number"
-      ? formats.formatPanelValue(panel.valueFormat)(rawValue)
-      : (resolveDashboardText(rawValue, translate, formats) ??
-        fallbackText(rawValue, EMPTY_VALUE_PLACEHOLDER));
+  const valueFormat = panel.valueFormat;
+  let value: string;
+  if (typeof rawValue !== "number") {
+    value =
+      resolveDashboardText(rawValue, translate, formats) ??
+      fallbackText(rawValue, EMPTY_VALUE_PLACEHOLDER);
+  } else if (valueFormat?.kind === "relativeTime") {
+    value = formats.formatRelative(rawValue);
+  } else {
+    value = formats.formatPanelValue(valueFormat)(rawValue);
+  }
   const spark = readSparkline(panel, record);
   const testId = `dashboard-panel-${panel.id}`;
   const subText = resolveDashboardText(sub, translate, formats) ?? fallbackText(sub, undefined);
@@ -756,7 +850,6 @@ function ChartPanelBody({
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
-  const formats = useDashboardFormats();
   const t = useTranslation();
   const todayLabel = t("kumiko.dashboard.today");
   const tones = panel.seriesTones;
@@ -803,7 +896,7 @@ function ChartPanelBody({
       skeleton={panel.chart === "segment-bars" ? "segments" : "bars"}
       isEmpty={(data) => isChartEmpty(panel.chart, data, chartSeries(data, label, translate))}
     >
-      {(data) => {
+      {(data, formats) => {
         const series = chartSeries(data, label, translate);
         const { startMs, endMs } = windowOf(data, series);
         const markers = resolveMarkers(data.markers, translate, formats, panel.markerKinds);
@@ -983,7 +1076,6 @@ function FeedPanelBody({
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
-  const formats = useDashboardFormats();
   return (
     <QueryPanel<FeedEnvelope>
       panel={panel}
@@ -993,7 +1085,7 @@ function FeedPanelBody({
       skeleton="rows"
       isEmpty={(data) => (data.rows ?? []).length === 0}
     >
-      {(data) => {
+      {(data, formats) => {
         const rows: readonly FeedRow[] = (data.rows ?? []).map((row, i) => {
           const trailing = resolveDashboardText(row.trailing, translate, formats);
           return {
@@ -1079,7 +1171,6 @@ function ProgressListPanelBody({
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
-  const formats = useDashboardFormats();
   return (
     <QueryPanel<ProgressListEnvelope>
       panel={panel}
@@ -1089,7 +1180,7 @@ function ProgressListPanelBody({
       skeleton="rows"
       isEmpty={(data) => (data.rows ?? []).length === 0}
     >
-      {(data) => {
+      {(data, formats) => {
         const rows = (data.rows ?? []).map((row, i) =>
           toProgressListRow(row, i, translate, formats),
         );
@@ -1237,7 +1328,10 @@ function CustomPanelBody({
 // Value lives in the URL under `filter.id` (like useListUrlState's
 // `<screenId>.page`, same replaceState) so a `navigate` rowAction with
 // `params` can deep-link onto this filter.
-function useFilterParams(screen: DashboardScreenDefinition): {
+function useFilterParams(
+  screen: DashboardScreenDefinition,
+  enabled: boolean,
+): {
   readonly params: Readonly<Record<string, unknown>>;
   readonly picker: ReactNode;
 } {
@@ -1248,7 +1342,7 @@ function useFilterParams(screen: DashboardScreenDefinition): {
   const value = filter !== undefined ? (nav.searchParams[filter.id] ?? "") : "";
   const optionsQueryResult = useQuery<{
     readonly rows: readonly { readonly value: string; readonly label: string }[];
-  }>(filter?.optionsQuery ?? "", {}, { enabled: filter?.optionsQuery !== undefined });
+  }>(filter?.optionsQuery ?? "", {}, { enabled: enabled && filter?.optionsQuery !== undefined });
 
   if (filter === undefined) {
     return { params: {}, picker: null };
@@ -1347,7 +1441,11 @@ function PanelBody({
       <CustomPanelBody
         panel={panel}
         screenId={screenId}
-        filterParams={{ ...screenParams.filterParams, ...screenParams.rangeParams }}
+        filterParams={{
+          ...screenParams.filterParams,
+          ...screenParams.rangeParams,
+          ...screenParams.recordParams,
+        }}
       />
     );
   }
@@ -1427,6 +1525,7 @@ function panelVisibilityGate(
   return visibilityGate(panel.visibleWhen.query, {
     ...(dropsFilter ? {} : screenParams.filterParams),
     ...screenParams.rangeParams,
+    ...screenParams.recordParams,
   });
 }
 
@@ -1444,10 +1543,9 @@ function VisibilityGateQuery({
   readonly onResult: (key: string, result: VisibilityQueryResult) => void;
   readonly onForget: (key: string) => void;
 }): null {
-  const { data, error, loading, refetch } = useQuery<Readonly<Record<string, unknown>>>(
+  const { data, error, loading, refetch } = useDashboardQuery<Readonly<Record<string, unknown>>>(
     gate.query,
     gate.payload,
-    { live: true },
   );
   const { key } = gate;
   useEffect(() => {
@@ -1641,7 +1739,11 @@ function useLoadedAt(screenParams: ScreenParams): {
   readonly loadedAtMs: number;
   readonly reportLoaded: (atMs: number) => void;
 } {
-  const paramsKey = JSON.stringify([screenParams.filterParams, screenParams.rangeParams]);
+  const paramsKey = JSON.stringify([
+    screenParams.filterParams,
+    screenParams.rangeParams,
+    screenParams.recordParams,
+  ]);
   const [loaded, setLoaded] = useState(() => ({ paramsKey, atMs: Date.now() }));
   if (loaded.paramsKey !== paramsKey) setLoaded({ paramsKey, atMs: Date.now() });
   const reportLoaded = useCallback(
@@ -1660,6 +1762,15 @@ function useReportPanelLoaded(data: unknown): void {
   }, [data, reportLoaded]);
 }
 
+const NO_RECORD_ROW: Readonly<Record<string, unknown>> = {};
+
+function recordTitleText(row: Readonly<Record<string, unknown>> | null, field: string | undefined) {
+  if (row === null || field === undefined) return undefined;
+  const value = row[field];
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  return String(value) === "" ? undefined : String(value);
+}
+
 export function WebDashboardBody({
   featureName,
   screen,
@@ -1667,15 +1778,73 @@ export function WebDashboardBody({
 }: DashboardBodyProps): ReactNode {
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
-  const { Text, Banner, PageHeader } = usePrimitives();
+  const { Text, Banner, PageHeader, Heading, Button, Dialog, ActionOverflowMenu, Grid } =
+    usePrimitives();
+  const nav = useNav();
   const headerSlotAvailable = usePageHeaderSlotAvailable();
+  const headerCompactContext = usePageHeaderCompact();
   const { formatDateTime } = useDashboardFormats();
-  const { params: filterParams, picker } = useFilterParams(screen);
+
+  const recordBinding = screen.record;
+  const recordId = recordBinding !== undefined ? (nav.searchParams[recordBinding.param] ?? "") : "";
+  const recordMissing = recordBinding !== undefined && recordId === "";
+  const recordPayloadKey = recordBinding?.payloadKey ?? recordBinding?.param;
+  const recordParams: Readonly<Record<string, unknown>> =
+    recordPayloadKey !== undefined && recordId !== "" ? { [recordPayloadKey]: recordId } : {};
+  const recordQueryName = recordBinding?.query;
+
+  const { params: filterParams, picker } = useFilterParams(screen, !recordMissing);
   const { params: rangeParams, control: rangeControl } = useTimeRange(screen, effectiveTranslate);
-  const screenParams: ScreenParams = { filterParams, rangeParams };
+  const screenParams: ScreenParams = { filterParams, rangeParams, recordParams };
   const { loadedAtMs, reportLoaded } = useLoadedAt(screenParams);
   const visibilityGates = distinctVisibilityGates(screen.panels, screenParams);
   const gateResults = useVisibilityGateResults();
+
+  // The record query is not a panel query: it needs the interval before the
+  // registry context below exists, and `refresh.field` reads from its own row.
+  const [refreshIntervalMs, setRefreshIntervalMs] = useState(() =>
+    resolveRefreshIntervalMs(screen.refresh, null),
+  );
+  const recordQuery = useQuery<Readonly<Record<string, unknown>>>(
+    recordQueryName ?? "",
+    recordParams,
+    {
+      enabled: recordQueryName !== undefined && !recordMissing,
+      live: true,
+      ...(refreshIntervalMs !== undefined && { refetchIntervalMs: refreshIntervalMs }),
+    },
+  );
+  const { data: recordRow, refetch: refetchRecord } = recordQuery;
+  useEffect(() => {
+    setRefreshIntervalMs(resolveRefreshIntervalMs(screen.refresh, recordRow));
+  }, [screen.refresh, recordRow]);
+
+  const { register, refetchRegistered } = useRefetchRegistry();
+  const queryRuntime = useMemo(
+    () => ({ refreshIntervalMs, register }),
+    [refreshIntervalMs, register],
+  );
+  const refetchAll = useCallback(async () => {
+    await Promise.all([
+      recordQueryName !== undefined ? refetchRecord() : Promise.resolve(),
+      refetchRegistered(),
+    ]);
+  }, [recordQueryName, refetchRecord, refetchRegistered]);
+
+  const [actionError, setActionError] = useState<string | null>(null);
+  const idOnlyRow = useMemo(
+    () => (recordPayloadKey !== undefined ? { id: recordId, [recordPayloadKey]: recordId } : null),
+    [recordId, recordPayloadKey],
+  );
+  const actionRow = recordQueryName !== undefined ? recordRow : idOnlyRow;
+  const headerActions = useRecordActions({
+    actions: actionRow !== null && !recordMissing ? screen.actions : undefined,
+    record: actionRow ?? NO_RECORD_ROW,
+    recordId,
+    translate: effectiveTranslate,
+    onWriteSuccess: refetchAll,
+  });
+
   const scope = screen.scope;
   // A raw description is agent-facing prose; only an i18n key is user-facing copy.
   const translatedDescription =
@@ -1688,82 +1857,144 @@ export function WebDashboardBody({
         {effectiveTranslate(scope.badge)}
       </StatusBadge>
     ) : null;
-  // The shell header owns the title; the badge sits right after it there.
-  const badgeInHeader = scopeBadge !== null && headerSlotAvailable && PageHeader !== undefined;
+
+  if (recordMissing) {
+    return (
+      <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
+        <Banner variant="info" testId={`dashboard-${screen.id}-record-missing`}>
+          {t("kumiko.dashboard.record.missing")}
+        </Banner>
+      </PageSection>
+    );
+  }
+
+  const usesPageHeaderSlot = headerSlotAvailable && PageHeader !== undefined;
+  const recordTitle = recordTitleText(recordRow, recordBinding?.titleField);
+  const headerActionsBar =
+    headerActions !== undefined && headerActions.length > 0 ? (
+      <Grid columns="auto" testId={`dashboard-${screen.id}-actions`}>
+        <HeaderActionsBar
+          actions={headerActions}
+          Button={Button}
+          Dialog={Dialog}
+          ActionOverflowMenu={ActionOverflowMenu}
+          onError={setActionError}
+          collapseAfterPrimary={usesPageHeaderSlot}
+          compact={headerCompactContext && usesPageHeaderSlot}
+          PageHeader={PageHeader}
+          overflowTestId={`dashboard-${screen.id}-actions-overflow`}
+        />
+      </Grid>
+    ) : null;
+  // The shell header owns the title; the badge and the actions sit in it there.
+  const badgeInHeader = scopeBadge !== null && usesPageHeaderSlot;
+  const showPageHeader =
+    usesPageHeaderSlot && (badgeInHeader || recordTitle !== undefined || headerActionsBar !== null);
   return (
     <PanelLoadedContext.Provider value={reportLoaded}>
-      <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
-        {badgeInHeader && <PageHeader status={scopeBadge} />}
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {!badgeInHeader && scopeBadge}
-            {picker}
+      <DashboardQueryContext.Provider value={queryRuntime}>
+        <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
+          {showPageHeader && (
+            <PageHeader
+              {...(recordTitle !== undefined && { title: recordTitle })}
+              {...(badgeInHeader && { status: scopeBadge })}
+              {...(headerActionsBar !== null && { actions: headerActionsBar })}
+            />
+          )}
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {!usesPageHeaderSlot && recordTitle !== undefined && (
+                <Heading variant="page" testId={`dashboard-${screen.id}-record-title`}>
+                  {recordTitle}
+                </Heading>
+              )}
+              {!badgeInHeader && scopeBadge}
+              {picker}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {!usesPageHeaderSlot && headerActionsBar}
+              {screen.showUpdatedAt !== false && (
+                <span
+                  data-testid={`dashboard-${screen.id}-updated-at`}
+                  className="text-xs tabular-nums text-muted-foreground"
+                >
+                  {t("kumiko.dashboard.updated-at", { time: formatDateTime(loadedAtMs) })}
+                </span>
+              )}
+              {rangeControl}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {screen.showUpdatedAt !== false && (
-              <span
-                data-testid={`dashboard-${screen.id}-updated-at`}
-                className="text-xs tabular-nums text-muted-foreground"
-              >
-                {t("kumiko.dashboard.updated-at", { time: formatDateTime(loadedAtMs) })}
-              </span>
-            )}
-            {rangeControl}
-          </div>
-        </div>
-        {description !== undefined && (
-          <Text variant="muted" testId={`dashboard-${screen.id}-description`}>
-            {description}
-          </Text>
-        )}
-        {scope?.notice !== undefined && (
-          <Banner variant="info" testId={`dashboard-${screen.id}-scope-notice`}>
-            {effectiveTranslate(scope.notice)}
-          </Banner>
-        )}
-        <VisibilityQueryContext.Provider value={gateResults.results}>
-          <VisibilityGateQueries
-            gates={visibilityGates}
-            onResult={gateResults.report}
-            onForget={gateResults.forget}
-          />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {screen.panels.map((panel) => {
-              if (panel.kind === "screen") {
+          {actionError !== null && (
+            <Banner variant="error" testId="render-edit-action-error">
+              {actionError}
+            </Banner>
+          )}
+          {recordQuery.error !== null && recordRow === null && (
+            <div
+              role="alert"
+              data-testid={`dashboard-${screen.id}-record-error`}
+              className="flex flex-col items-start gap-2 text-sm"
+            >
+              <span className="text-status-bad">{dispatcherErrorText(recordQuery.error, t)}</span>
+              <Button variant="secondary" onClick={() => void refetchRecord()}>
+                {t("kumiko.dashboard.panel.error.retry")}
+              </Button>
+            </div>
+          )}
+          {description !== undefined && (
+            <Text variant="muted" testId={`dashboard-${screen.id}-description`}>
+              {description}
+            </Text>
+          )}
+          {scope?.notice !== undefined && (
+            <Banner variant="info" testId={`dashboard-${screen.id}-scope-notice`}>
+              {effectiveTranslate(scope.notice)}
+            </Banner>
+          )}
+          <VisibilityQueryContext.Provider value={gateResults.results}>
+            <VisibilityGateQueries
+              gates={visibilityGates}
+              onResult={gateResults.report}
+              onForget={gateResults.forget}
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {screen.panels.map((panel) => {
+                if (panel.kind === "screen") {
+                  return (
+                    <ScreenPanelTile
+                      key={panel.id}
+                      panel={panel}
+                      featureName={featureName}
+                      translate={effectiveTranslate}
+                    />
+                  );
+                }
+                const label =
+                  panel.kind === "custom" || panel.label === undefined
+                    ? undefined
+                    : effectiveTranslate(panel.label);
                 return (
-                  <ScreenPanelTile
+                  <GatedGridCell
                     key={panel.id}
                     panel={panel}
-                    featureName={featureName}
-                    translate={effectiveTranslate}
-                  />
-                );
-              }
-              const label =
-                panel.kind === "custom" || panel.label === undefined
-                  ? undefined
-                  : effectiveTranslate(panel.label);
-              return (
-                <GatedGridCell
-                  key={panel.id}
-                  panel={panel}
-                  screenParams={screenParams}
-                  label={label ?? panel.id}
-                  className={panelSpanClassName(panel)}
-                >
-                  <PanelBody
-                    panel={panel}
-                    label={label}
-                    screenId={screen.id}
                     screenParams={screenParams}
-                    translate={effectiveTranslate}
-                  />
-                </GatedGridCell>
-              );
-            })}
-          </div>
-        </VisibilityQueryContext.Provider>
-      </PageSection>
+                    label={label ?? panel.id}
+                    className={panelSpanClassName(panel)}
+                  >
+                    <PanelBody
+                      panel={panel}
+                      label={label}
+                      screenId={screen.id}
+                      screenParams={screenParams}
+                      translate={effectiveTranslate}
+                    />
+                  </GatedGridCell>
+                );
+              })}
+            </div>
+          </VisibilityQueryContext.Provider>
+        </PageSection>
+      </DashboardQueryContext.Provider>
     </PanelLoadedContext.Provider>
   );
 }

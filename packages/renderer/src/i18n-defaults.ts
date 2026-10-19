@@ -147,6 +147,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dashboard.panel.error.retry": "Try again",
     "kumiko.dashboard.panel.error.title": "{label} could not be loaded",
     "kumiko.dashboard.progress.unlimited": "unlimited",
+    "kumiko.dashboard.record.missing": "Open this page from a record to see its dashboard.",
     "kumiko.dashboard.time-range": "Time range",
     "kumiko.screen.unavailable": "This page is not available right now.",
     "kumiko.dashboard.brush-end": "Window end",
