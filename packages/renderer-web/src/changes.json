@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "ClientFeatureDefinition.clientActions",
+    "detail": "Client features register clientAction handlers; createKumikoApp merges them and shows their outcome as toasts."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Screen-panel fallback and static text panel",
+    "detail": "A dashboard screen panel embeds its fallback screen when visibleWhen is unmet or the gate query fails (nothing while loading). The new text panel renders heading, paragraph, list, code and hint blocks from i18n keys, without markdown or HTML."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "progress-list rows take used/limit, an unlimited state and a danger tone",
+    "detail": "A progress-list row may return used and limit (number or null) instead of value and fraction; limit null shows \"used / unlimited\" without a bar. Row tone \"danger\" (automatic once used >= limit in used/limit rows) colors bar and value. ProgressListRow.fraction accepts null and gains tone."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "TimeseriesChart y-axis unit shown once and viewport-dependent height",
+    "detail": "TimeseriesYAxis.unit renders the unit once above the y ticks instead of on every tick label. TimeseriesChart height accepts { narrow, wide, narrowBelowPx? } (default 768). New exported hook useIsViewportBelow(breakpointPx)."
+  },
+  {
     "version": "0.372.0",
     "type": "fix",
     "title": "Sidebar, breadcrumb, drawer and table labels for screen readers follow the user's language",

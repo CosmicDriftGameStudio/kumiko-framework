@@ -1,5 +1,210 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.374.0
+
+### Minor Changes
+
+- 40b8667: actionForm successLinks and resetOnSuccess, field placeholder
+  
+  An `actionForm` takes `successLinks` (`{ screen, idFrom?, label }[]`, exclusive with `redirect`): after a successful submit the screen stays and shows the success box (`successMessage`, default "Done.") with one link per entry. Targets resolve like `redirect`; the id comes from the handler's success payload, and a link to a record screen without a string id is hidden. `idFrom` is required for a record target (`entityEdit`, `projectionDetail`) and optional for a list, dashboard or form target, which opens without an id; boot rejects a record target without `idFrom`. `resetOnSuccess: true` resets the form to its initial values after a successful submit while the screen stays put. The box disappears with the next edit or submit.
+  
+  `EditFieldSpec.placeholder` (i18n key, literal as fallback) sets the empty-input hint of single-line text, number and textarea fields on every screen type with edit fields; other field kinds ignore it.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: actionForm successLinks and resetOnSuccess
+  detail: successLinks keeps the actionForm open after a successful submit and lists links resolved like redirect; boot rejects it together with redirect, with an unknown target or with a record target without idFrom. resetOnSuccess clears typed values after success. Role projection drops links to screens the role cannot reach.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Success box with links, form reset and field placeholder
+  detail: The actionForm success box shows the default text "Done." (kumiko.actionForm.success) next to successMessage links, resetOnSuccess remounts the form with its initial values, and EditFieldSpec.placeholder reaches text, number and textarea inputs.
+  -->
+- de5d674: clientAction row actions backed by a client registry
+  
+  A row action with `kind: "clientAction"` runs a function from a client bundle instead of a write handler. The schema carries `action: "<feature>:<kebab>"`; a client feature registers the function under `ClientFeatureDefinition.clientActions` (merged like `columnRenderers`, last wins with a warning). The handler gets the payload (default `{ id: row.id }`, or the `payload` extractor) and returns `{ ok: true }` or `{ ok: false, message }`. Success shows a toast (`successMessage`, default "Done.") and refetches, a failure shows an error toast, and a throw or an unregistered name shows a generic one and logs the name. `confirm`, `confirmLabel`, `style: "danger"`, `visible`, `icon` and `display` work as on a write handler; `redirect` and `rowClick` do not exist. Toolbar actions do not take it. Boot rejects a name that is not `<feature>:<kebab>`.
+  
+  auth-email-password registers `auth-email-password:request-password-reset` and `auth-email-password:request-email-verification`, both taking `{ email }`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: clientAction row actions
+  detail: RowAction gains kind "clientAction" with a client-registered handler name; boot rejects a name that is not <feature>:<kebab>, and the surface keys include its confirm, confirmLabel and successMessage.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Client action registry for row actions
+  detail: ClientActionsProvider, ActionNoticeProvider and runClientAction execute clientAction row actions on list, related list and record actions, with confirm, toast feedback and refetch.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: ClientFeatureDefinition.clientActions
+  detail: Client features register clientAction handlers; createKumikoApp merges them and shows their outcome as toasts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Client actions for password reset and email verification
+  detail: emailPasswordClient registers auth-email-password:request-password-reset and auth-email-password:request-email-verification for clientAction row actions.
+  -->
+- 47e3a05: Dashboard screen panels get a fallback, new static text panel
+  
+  A dashboard `screen` panel takes `fallback` (same-feature short id or `<feature>:screen:<id>`): when `visibleWhen` is unmet or its gate query fails, that screen is embedded in the panel's place, with the same `label` and `chromeless`. While the gate loads nothing renders. The boot validator requires `visibleWhen` for it, resolves the target like the panel's own screen and rejects a target that has its own `visibleWhen`. Extension-selector owner panels qualify a short `fallback` like `screen`, and a role without access to the fallback screen gets the panel without it.
+  
+  The new `text` panel (`DashboardTextPanel`) renders static `blocks`: `heading`, `paragraph` (`emphasis` muted or strong), `list`, `code` (verbatim, scrollable) and `hint`. `text` and list items are i18n keys and are checked as required translation keys; `visibleWhen`, `span` and an optional `label` work as on other panels.
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Screen-panel fallback and static text panel
+  detail: A dashboard screen panel embeds its fallback screen when visibleWhen is unmet or the gate query fails (nothing while loading). The new text panel renders heading, paragraph, list, code and hint blocks from i18n keys, without markdown or HTML.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validation for screen-panel fallback and text panels
+  detail: DashboardScreenPanel.fallback needs visibleWhen and a registered, embeddable target without its own visibleWhen. DashboardTextPanel (kind "text", exported with DashboardTextBlock) rejects empty blocks and empty lists; its text keys are required translation keys. Extension-selector panels qualify a short fallback ref, and role projection drops a fallback the role cannot reach.
+  -->
+- 926e08e: Dashboards bound to a record, with header actions, auto refresh and relative times
+  
+  `DashboardScreenDefinition.record: { param, payloadKey?, query?, titleField? }` ties a dashboard to one record via a URL search param. The id is merged into every panel and `visibleWhen` gate query after `filter`/`timeRange` and before a panel's own `params`; screen-kind panels get none. Without the param the dashboard shows a hint (`kumiko.dashboard.record.missing`) and runs no query. `record.query` loads the record row for the page title (`titleField`), the actions and `refresh.field`.
+  
+  `actions` puts writeHandler, navigate and clientAction actions in the dashboard header, running on the record row (or `{ id, [payloadKey]: id }` without `record.query`). After a success the record and all panels refetch. The header bar is the shared `HeaderActionsBar` component also used by projectionDetail. Boot rejects actions without `record`, drawer actions, `rowClick` and `redirect`.
+  
+  `refresh: { seconds } | { field }` polls the record and all panels, never faster than 5 s (`DASHBOARD_MIN_REFRESH_SECONDS`): boot rejects `seconds` below it, a `field` value is clamped at runtime. A running refetch is never stacked and polling stops on unmount.
+  
+  `valueFormat: { kind: "relativeTime" }` on stat panels and `{ kind: "relativeTime", atMs }` as a text param render epoch ms via `Intl.RelativeTimeFormat` in the user locale ("5 minutes ago", "in 30 seconds") and keep ticking while mounted.
+  
+  fillAction is only allowed on text, number, decimal and bigInt fields and rejected on password, sensitive and writeOnly ones; an actionForm `load` never fills those fields from the loaded record. The email clientActions answer a 429 with the new `auth.errors.tooManyRequests` instead of the login-specific rate-limit text.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Dashboard record binding, header actions, refresh and relative time
+  detail: Dashboards take record, actions and refresh; stat panels and text params gain a relativeTime format; the surface keys include kumiko.dashboard.record.missing.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: DashboardChartPanel.valueFormat only takes the currency format
+  detail: DashboardValueFormat is now a union of DashboardCurrencyFormat and DashboardRelativeTimeFormat. Stat panels take both, chart panels only the currency one, and boot rejects relativeTime on a chart.
+  migration: A chart panel that declares valueFormat keeps working with { kind: "currency", currency }. Code that types a chart's valueFormat as DashboardValueFormat should use DashboardCurrencyFormat instead; relativeTime on a chart was never meaningful and now fails boot.
+  -->
+- 1d72366: Derived list searchability, actionForm load, drawer rowClick
+  
+  A projectionList over an entity-convention list query whose entity has no searchable field derives `searchable: false` (no search box, no whitelist entry needed); declaring `searchable: true` there fails boot. `ActionFormScreenDefinition.load` (`{ query, idParam? }`) seeds the form from a query keyed by the record id; with `load` no URL param, drawer param or handoff value reaches the form. A `drawer` row action takes `rowClick: true` like `navigate` does, in lists and relatedList sections, and counts toward the one-rowClick limit.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Derived list searchability, actionForm load and drawer rowClick
+  detail: projectionList searchable is derived false for entity-convention lists without searchable fields (searchable true is rejected at boot), actionForm.load registers a query checked at boot, and a drawer row action may set rowClick, counted with navigate rowClick and rejected on projectionDetail header actions.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm load states and drawer row click
+  detail: An actionForm with load queries by the route, drawer or URL id and shows loading, error, not-found and missing-id states; loaded values count as prefill for submitPrefilled. A row click fires a rowClick drawer action in entityList, projectionList and relatedList.
+  -->
+- c3df9a2: Field prefix, suffix and fill action
+  
+  `EditFieldSpec` takes `prefix` and `suffix` (an i18n key with the literal as fallback, or `{ field }` for the live value of another form field) and `fillAction` (`{ label, query, field, params? }`). The affixes render beside single-line text and number inputs. The fill button runs `query` with the form values picked by `params` and writes `result[field]` (string or number) into the field, which makes the form dirty and submits the value even on a `readOnly` field. A failed query or a result of another type shows an error under the field.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot checks for field affixes and fillAction
+  detail: Boot fails when a fillAction query is not a registered query handler, or when a { field } affix or a fillAction params source is not a field of the same form.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Input prefix, suffix and fill button
+  detail: Text and number inputs show prefix and suffix text, and a fillAction renders a button that fetches a suggestion into the field, also for a readOnly field. The Input primitive takes prefix, suffix and fill; renderer-web draws them beside the input.
+  -->
+- 1b710f1: pagedListSchema and pageRows for in-memory projectionList queries, tenant-caps:list pages by offset
+  
+  `pagedListSchema(sortableFields)` is the query schema for a projectionList whose rows are merged in memory: `limit`, `offset`, `search`, `sort` (enum of the sortable fields), `sortDirection` and `totalCount`. `pageRows(rows, request, { searchFields, defaultSort })` searches case-insensitively, sorts (missing values last, ties by `id`), slices by `offset` and `limit`, and returns a `CursorResult` with `nextCursor: null` and `total` only when `totalCount` is set.
+  
+  `cap-overview:query:tenant-caps:list` now uses them. The projectionList pager sends `offset` and never a cursor, so every page used to show page 1. The query no longer pages by `cursor`: a caller that still sends one gets a 400 validation error instead of page 1 (`pagedListSchema` rejects `cursor`). An unknown `sort` is rejected by the schema.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: pagedListSchema and pageRows for in-memory list queries
+  detail: pagedListSchema(sortableFields) and pageRows(rows, request, { searchFields, defaultSort }) cover search, sort (missing values last, ties by id), offset paging and an optional total for projectionList queries over merged rows. PagedListRequest and PagedListRowValue are exported; nextCursor is always null.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: breaking
+  title: tenant-caps:list pages by offset and rejects cursor
+  detail: The cap overview list showed page 1 on every page because the pager sends offset and the query only read cursor. tenant-caps:list now takes offset like the pager; a cursor in the payload is rejected with a 400 validation error and sort is an enum of the sortable fields. The unused cap-overview.errors.invalidCursor and sortFieldUnsupported keys are gone.
+  migration: Callers of cap-overview:query:tenant-caps:list must send offset instead of cursor, and only a sortable field name as sort. Apps that override the removed i18n keys cap-overview.errors.invalidCursor or cap-overview.errors.sortFieldUnsupported can delete them. No caller in the kumiko-enterprise, kumiko-platform, kumiko-studio or app repos sends a cursor or defines these keys.
+  -->
+- 8e735ed: progress-list rows take used/limit, an unlimited state and a danger tone
+  
+  A `progress-list` row may return `used` and `limit` (`number | null`) instead of `value` and `fraction`. The panel shows "used / limit" with the viewer's number format and fills the bar with `used / limit`. `limit: null` shows "used / unlimited" without a bar. The new row field `tone` (`DashboardProgressTone`: `"default" | "danger"`) colors bar and value; used/limit rows turn `danger` automatically once `used >= limit`, and an explicit `tone` wins. `ProgressListRow.fraction` accepts `null` (no bar) and gains `tone`. New translation key `kumiko.dashboard.progress.unlimited` in the defaults and the de, es, fr and it bundles.
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: progress-list rows take used/limit, an unlimited state and a danger tone
+  detail: A progress-list row may return used and limit (number or null) instead of value and fraction; limit null shows "used / unlimited" without a bar. Row tone "danger" (automatic once used >= limit in used/limit rows) colors bar and value. ProgressListRow.fraction accepts null and gains tone.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: DashboardProgressTone type and unlimited label key
+  detail: New exported type DashboardProgressTone for progress-list row tones. The default translations gain kumiko.dashboard.progress.unlimited.
+  -->
+- fc221ab: TimeseriesChart shows the y-axis unit once and takes a per-viewport height
+  
+  `TimeseriesYAxis` gains `unit`: the ready-to-display unit is drawn once above the tick labels (test id `<testId>-y-unit`) while the ticks show only `format(tick)`. `TimeseriesChart` `height` also accepts `{ narrow, wide, narrowBelowPx? }` (default breakpoint 768) and picks the value from the viewport. The new `useIsViewportBelow(breakpointPx)` hook backs this; `useIsNarrowViewport` is now built on it.
+  
+  `DashboardChartPanel` gains `unit` (i18n key, chart `timeseries` only): the dashboard renders the y axis for it even without `valueFormat`. The boot validator rejects `unit` on other chart kinds, and a `unit` key without a translation fails the required-surface key check like `subtitle`.
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: TimeseriesChart y-axis unit shown once and viewport-dependent height
+  detail: TimeseriesYAxis.unit renders the unit once above the y ticks instead of on every tick label. TimeseriesChart height accepts { narrow, wide, narrowBelowPx? } (default 768). New exported hook useIsViewportBelow(breakpointPx).
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Dashboard chart panels take a y-axis unit
+  detail: DashboardChartPanel.unit (i18n key) is shown once on the y axis of a timeseries chart, with or without valueFormat. The boot validator rejects unit on other chart kinds; an untranslated unit key fails the required-surface key check.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [40b8667]
+- Updated dependencies [de5d674]
+- Updated dependencies [47e3a05]
+- Updated dependencies [926e08e]
+- Updated dependencies [1d72366]
+- Updated dependencies [c3df9a2]
+- Updated dependencies [8e735ed]
+- Updated dependencies [fc221ab]
+  - @cosmicdrift/kumiko-types@0.374.0
+  - @cosmicdrift/kumiko-http@0.374.0
+
 ## 0.373.0
 
 ### Minor Changes

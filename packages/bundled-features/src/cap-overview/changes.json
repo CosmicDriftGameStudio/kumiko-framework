@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.374.0",
+    "type": "breaking",
+    "title": "tenant-caps:list pages by offset and rejects cursor",
+    "detail": "The cap overview list showed page 1 on every page because the pager sends offset and the query only read cursor. tenant-caps:list now takes offset like the pager; a cursor in the payload is rejected with a 400 validation error and sort is an enum of the sortable fields. The unused cap-overview.errors.invalidCursor and sortFieldUnsupported keys are gone.",
+    "migration": "Callers of cap-overview:query:tenant-caps:list must send offset instead of cursor, and only a sortable field name as sort. Apps that override the removed i18n keys cap-overview.errors.invalidCursor or cap-overview.errors.sortFieldUnsupported can delete them. No caller in the kumiko-enterprise, kumiko-platform, kumiko-studio or app repos sends a cursor or defines these keys."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "Cap overview lists no destroyed tenants",

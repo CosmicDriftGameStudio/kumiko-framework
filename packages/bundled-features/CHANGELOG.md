@@ -1,5 +1,107 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.374.0
+
+### Minor Changes
+
+- de5d674: clientAction row actions backed by a client registry
+  
+  A row action with `kind: "clientAction"` runs a function from a client bundle instead of a write handler. The schema carries `action: "<feature>:<kebab>"`; a client feature registers the function under `ClientFeatureDefinition.clientActions` (merged like `columnRenderers`, last wins with a warning). The handler gets the payload (default `{ id: row.id }`, or the `payload` extractor) and returns `{ ok: true }` or `{ ok: false, message }`. Success shows a toast (`successMessage`, default "Done.") and refetches, a failure shows an error toast, and a throw or an unregistered name shows a generic one and logs the name. `confirm`, `confirmLabel`, `style: "danger"`, `visible`, `icon` and `display` work as on a write handler; `redirect` and `rowClick` do not exist. Toolbar actions do not take it. Boot rejects a name that is not `<feature>:<kebab>`.
+  
+  auth-email-password registers `auth-email-password:request-password-reset` and `auth-email-password:request-email-verification`, both taking `{ email }`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: clientAction row actions
+  detail: RowAction gains kind "clientAction" with a client-registered handler name; boot rejects a name that is not <feature>:<kebab>, and the surface keys include its confirm, confirmLabel and successMessage.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Client action registry for row actions
+  detail: ClientActionsProvider, ActionNoticeProvider and runClientAction execute clientAction row actions on list, related list and record actions, with confirm, toast feedback and refetch.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: ClientFeatureDefinition.clientActions
+  detail: Client features register clientAction handlers; createKumikoApp merges them and shows their outcome as toasts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Client actions for password reset and email verification
+  detail: emailPasswordClient registers auth-email-password:request-password-reset and auth-email-password:request-email-verification for clientAction row actions.
+  -->
+- 926e08e: Dashboards bound to a record, with header actions, auto refresh and relative times
+  
+  `DashboardScreenDefinition.record: { param, payloadKey?, query?, titleField? }` ties a dashboard to one record via a URL search param. The id is merged into every panel and `visibleWhen` gate query after `filter`/`timeRange` and before a panel's own `params`; screen-kind panels get none. Without the param the dashboard shows a hint (`kumiko.dashboard.record.missing`) and runs no query. `record.query` loads the record row for the page title (`titleField`), the actions and `refresh.field`.
+  
+  `actions` puts writeHandler, navigate and clientAction actions in the dashboard header, running on the record row (or `{ id, [payloadKey]: id }` without `record.query`). After a success the record and all panels refetch. The header bar is the shared `HeaderActionsBar` component also used by projectionDetail. Boot rejects actions without `record`, drawer actions, `rowClick` and `redirect`.
+  
+  `refresh: { seconds } | { field }` polls the record and all panels, never faster than 5 s (`DASHBOARD_MIN_REFRESH_SECONDS`): boot rejects `seconds` below it, a `field` value is clamped at runtime. A running refetch is never stacked and polling stops on unmount.
+  
+  `valueFormat: { kind: "relativeTime" }` on stat panels and `{ kind: "relativeTime", atMs }` as a text param render epoch ms via `Intl.RelativeTimeFormat` in the user locale ("5 minutes ago", "in 30 seconds") and keep ticking while mounted.
+  
+  fillAction is only allowed on text, number, decimal and bigInt fields and rejected on password, sensitive and writeOnly ones; an actionForm `load` never fills those fields from the loaded record. The email clientActions answer a 429 with the new `auth.errors.tooManyRequests` instead of the login-specific rate-limit text.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Dashboard record binding, header actions, refresh and relative time
+  detail: Dashboards take record, actions and refresh; stat panels and text params gain a relativeTime format; the surface keys include kumiko.dashboard.record.missing.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: DashboardChartPanel.valueFormat only takes the currency format
+  detail: DashboardValueFormat is now a union of DashboardCurrencyFormat and DashboardRelativeTimeFormat. Stat panels take both, chart panels only the currency one, and boot rejects relativeTime on a chart.
+  migration: A chart panel that declares valueFormat keeps working with { kind: "currency", currency }. Code that types a chart's valueFormat as DashboardValueFormat should use DashboardCurrencyFormat instead; relativeTime on a chart was never meaningful and now fails boot.
+  -->
+- 1b710f1: pagedListSchema and pageRows for in-memory projectionList queries, tenant-caps:list pages by offset
+  
+  `pagedListSchema(sortableFields)` is the query schema for a projectionList whose rows are merged in memory: `limit`, `offset`, `search`, `sort` (enum of the sortable fields), `sortDirection` and `totalCount`. `pageRows(rows, request, { searchFields, defaultSort })` searches case-insensitively, sorts (missing values last, ties by `id`), slices by `offset` and `limit`, and returns a `CursorResult` with `nextCursor: null` and `total` only when `totalCount` is set.
+  
+  `cap-overview:query:tenant-caps:list` now uses them. The projectionList pager sends `offset` and never a cursor, so every page used to show page 1. The query no longer pages by `cursor`: a caller that still sends one gets a 400 validation error instead of page 1 (`pagedListSchema` rejects `cursor`). An unknown `sort` is rejected by the schema.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: pagedListSchema and pageRows for in-memory list queries
+  detail: pagedListSchema(sortableFields) and pageRows(rows, request, { searchFields, defaultSort }) cover search, sort (missing values last, ties by id), offset paging and an optional total for projectionList queries over merged rows. PagedListRequest and PagedListRowValue are exported; nextCursor is always null.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: breaking
+  title: tenant-caps:list pages by offset and rejects cursor
+  detail: The cap overview list showed page 1 on every page because the pager sends offset and the query only read cursor. tenant-caps:list now takes offset like the pager; a cursor in the payload is rejected with a 400 validation error and sort is an enum of the sortable fields. The unused cap-overview.errors.invalidCursor and sortFieldUnsupported keys are gone.
+  migration: Callers of cap-overview:query:tenant-caps:list must send offset instead of cursor, and only a sortable field name as sort. Apps that override the removed i18n keys cap-overview.errors.invalidCursor or cap-overview.errors.sortFieldUnsupported can delete them. No caller in the kumiko-enterprise, kumiko-platform, kumiko-studio or app repos sends a cursor or defines these keys.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [40b8667]
+- Updated dependencies [de5d674]
+- Updated dependencies [47e3a05]
+- Updated dependencies [926e08e]
+- Updated dependencies [1d72366]
+- Updated dependencies [c3df9a2]
+- Updated dependencies [1b710f1]
+- Updated dependencies [8e735ed]
+- Updated dependencies [fc221ab]
+  - @cosmicdrift/kumiko-types@0.374.0
+  - @cosmicdrift/kumiko-framework@0.374.0
+  - @cosmicdrift/kumiko-headless@0.374.0
+  - @cosmicdrift/kumiko-renderer@0.374.0
+  - @cosmicdrift/kumiko-renderer-web@0.374.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.374.0
+
 ## 0.373.0
 
 ### Patch Changes

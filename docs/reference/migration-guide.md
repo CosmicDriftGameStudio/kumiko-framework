@@ -10,6 +10,24 @@ verified: 2026-10-19
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.374.0
+
+### cap-overview
+
+**tenant-caps:list pages by offset and rejects cursor**
+
+The cap overview list showed page 1 on every page because the pager sends offset and the query only read cursor. tenant-caps:list now takes offset like the pager; a cursor in the payload is rejected with a 400 validation error and sort is an enum of the sortable fields. The unused cap-overview.errors.invalidCursor and sortFieldUnsupported keys are gone.
+
+**Migration:** Callers of cap-overview:query:tenant-caps:list must send offset instead of cursor, and only a sortable field name as sort. Apps that override the removed i18n keys cap-overview.errors.invalidCursor or cap-overview.errors.sortFieldUnsupported can delete them. No caller in the kumiko-enterprise, kumiko-platform, kumiko-studio or app repos sends a cursor or defines these keys.
+
+### framework-core
+
+**DashboardChartPanel.valueFormat only takes the currency format**
+
+DashboardValueFormat is now a union of DashboardCurrencyFormat and DashboardRelativeTimeFormat. Stat panels take both, chart panels only the currency one, and boot rejects relativeTime on a chart.
+
+**Migration:** A chart panel that declares valueFormat keeps working with { kind: "currency", currency }. Code that types a chart's valueFormat as DashboardValueFormat should use DashboardCurrencyFormat instead; relativeTime on a chart was never meaningful and now fails boot.
+
 ## 0.373.0
 
 ### framework-core
