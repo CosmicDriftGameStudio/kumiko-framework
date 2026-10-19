@@ -13,7 +13,7 @@
 import {
   currencyDecimals,
   formatMoney as formatMoneyForLocale,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.ts";
 import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";

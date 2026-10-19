@@ -1,5 +1,5 @@
-import type { DispatcherError, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import type { DispatcherError, FieldIssue } from "../headless/index.ts";
 
 // The server returns failure envelopes whose shape is nearly — but not
 // exactly — DispatcherError. Kumiko's error-contract (see

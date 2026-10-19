@@ -1,4 +1,4 @@
-import { type DispatcherError, StreamFrame } from "@cosmicdrift/kumiko-headless";
+import { type DispatcherError, StreamFrame } from "../headless/index.ts";
 import { serverErrorSchema } from "./envelopes.ts";
 import { mapServerError } from "./error-mapping.ts";
 

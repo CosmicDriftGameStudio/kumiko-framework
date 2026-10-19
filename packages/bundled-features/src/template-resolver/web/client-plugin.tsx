@@ -1,4 +1,4 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 // @runtime client
 // Client feature factory for the text-block content tree. Apps mount it via
 // createKumikoApp({ clientFeatures: [textBlocksClient()] }); it loads the
@@ -12,7 +12,6 @@ import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // (a hint that the slug exists but is empty).
 
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
-import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import type {
   TargetRef,
   TreeChildrenSubscribe,
@@ -28,6 +27,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
 import {
   type ClientFeatureDefinition,
   PlainContentEditor,

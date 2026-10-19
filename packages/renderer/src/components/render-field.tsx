@@ -7,13 +7,6 @@ import {
   isFormatSpec,
   SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import {
-  applyFormatSpec,
-  currencyDecimals,
-  type EditFieldViewModel,
-  EMPTY_VALUE_PLACEHOLDER,
-  type FieldIssue,
-} from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   createContext,
@@ -35,6 +28,13 @@ import { evalRowExtractor } from "../app/row-actions.ts";
 import { screenAccessAllows } from "../app/screen-access.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import {
+  applyFormatSpec,
+  currencyDecimals,
+  type EditFieldViewModel,
+  EMPTY_VALUE_PLACEHOLDER,
+  type FieldIssue,
+} from "../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";

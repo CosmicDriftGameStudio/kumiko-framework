@@ -8,8 +8,8 @@
 
 import { describe, expect, test } from "bun:test";
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { SecretsEditBody } from "../../../renderer/src/app/secrets-edit-body.tsx";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 

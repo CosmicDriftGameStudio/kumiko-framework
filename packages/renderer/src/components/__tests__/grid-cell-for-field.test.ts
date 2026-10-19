@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
+import type { EditFieldViewModel } from "../../headless/index.ts";
 import { fieldCellWidth } from "../grid-cell-for-field.tsx";
 
 function field(type: string): EditFieldViewModel {

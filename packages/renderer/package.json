@@ -12,11 +12,30 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./headless": {
+      "types": "./src/headless/index.ts",
+      "default": "./src/headless/index.ts"
+    },
+    "./headless/apex": {
+      "types": "./src/headless/apex/index.ts",
+      "default": "./src/headless/apex/index.ts"
+    },
+    "./headless/dispatcher": {
+      "types": "./src/headless/dispatcher/index.ts",
+      "default": "./src/headless/dispatcher/index.ts"
+    },
+    "./headless/locale-routing": {
+      "types": "./src/headless/locale-routing/index.ts",
+      "default": "./src/headless/locale-routing/index.ts"
+    },
+    "./live": {
+      "types": "./src/live/index.ts",
+      "default": "./src/live/index.ts"
     }
   },
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
     "react": "^19.2.6",
     "temporal-polyfill": "^0.3.2",
@@ -28,7 +47,8 @@
     "@types/react-dom": "^19.2.3",
     "jsdom": "^29.1.1",
     "react-dom": "^19.2.6",
-    "@cosmicdrift/kumiko-locale-de": "workspace:*"
+    "@cosmicdrift/kumiko-locale-de": "workspace:*",
+    "@cosmicdrift/kumiko-testing": "workspace:*"
   },
   "repository": {
     "type": "git",
@@ -46,6 +66,26 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./headless": {
+        "types": "./dist/headless/index.d.ts",
+        "default": "./dist/headless/index.js"
+      },
+      "./headless/apex": {
+        "types": "./dist/headless/apex/index.d.ts",
+        "default": "./dist/headless/apex/index.js"
+      },
+      "./headless/dispatcher": {
+        "types": "./dist/headless/dispatcher/index.d.ts",
+        "default": "./dist/headless/dispatcher/index.js"
+      },
+      "./headless/locale-routing": {
+        "types": "./dist/headless/locale-routing/index.d.ts",
+        "default": "./dist/headless/locale-routing/index.js"
+      },
+      "./live": {
+        "types": "./dist/live/index.d.ts",
+        "default": "./dist/live/index.js"
       }
     }
   },

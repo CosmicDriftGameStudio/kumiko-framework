@@ -11,11 +11,11 @@ import {
   type ProjectionListScreenDefinition,
   SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher, RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher, RuntimeRenderer } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";

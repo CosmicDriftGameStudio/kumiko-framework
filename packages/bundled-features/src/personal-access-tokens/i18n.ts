@@ -1,5 +1,5 @@
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
-import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
+import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { PAT_FEATURE } from "./constants.ts";
 import type { PatScopeConfig } from "./scopes.ts";
 

@@ -6,15 +6,15 @@ import type {
   RowAction,
   RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { ReactNode } from "react";
+import type * as z from "zod";
 import type {
   DispatcherError,
   FormSnapshot,
   FormValues,
   SubmitResult,
   Translate,
-} from "@cosmicdrift/kumiko-headless";
-import type { ReactNode } from "react";
-import type * as z from "zod";
+} from "../headless/index.ts";
 
 export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly screen: EntityEditScreenDefinition;

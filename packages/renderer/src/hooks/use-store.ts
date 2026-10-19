@@ -1,14 +1,14 @@
-import type { Store } from "@cosmicdrift/kumiko-headless";
 import { useRef, useSyncExternalStore } from "react";
+import type { Store } from "../headless/index.ts";
 
-// React-Bindings für Kumikos Store-Primitive (`createStore` aus
-// @cosmicdrift/kumiko-headless). Beide Hooks sind dünne Wrapper um React's
-// useSyncExternalStore — die ganze Subscribe/Notify-Mechanik lebt im
-// Store selbst, hier wird nur React verdrahtet.
+// React bindings for Kumiko's store primitive (`createStore` from
+// @cosmicdrift/kumiko-renderer/headless). Both hooks are thin wrappers around React's
+// useSyncExternalStore — the whole subscribe/notify mechanism lives in the
+// store itself, only React wiring happens here.
 //
-// useStore: gibt den ganzen Snapshot zurück. Re-rendert wenn der
-// Store seine Identität wechselt. Object.is-Gate im Store selbst
-// verhindert no-op-Updates.
+// useStore: returns the whole snapshot. Re-renders when the store changes
+// its identity. The Object.is gate in the store itself prevents no-op
+// updates.
 //
 // useStoreSelector: gibt eine abgeleitete Sicht zurück. Selectors die
 // Object-/Array-Literale zurückgeben (z.B. `s => ({ a, b })`) erzeugen

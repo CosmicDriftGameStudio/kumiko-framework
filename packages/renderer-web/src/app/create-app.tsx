@@ -1,12 +1,5 @@
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import type { TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
-import type {
-  Dispatcher,
-  ListRowViewModel,
-  LocaleResolver,
-  Translate,
-} from "@cosmicdrift/kumiko-headless";
 import {
   AppFeaturesProvider,
   type AppSchema,
@@ -54,6 +47,13 @@ import {
   useTranslation,
   withSessionEndedDetection,
 } from "@cosmicdrift/kumiko-renderer";
+import type {
+  Dispatcher,
+  ListRowViewModel,
+  LocaleResolver,
+  Translate,
+} from "@cosmicdrift/kumiko-renderer/headless";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-renderer/live";
 import {
   type ComponentType,
   createContext,

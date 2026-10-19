@@ -4,8 +4,8 @@
 // createKumikoApp). Gleiches Muster wie CustomScreensProvider.
 
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
+import type { Translate } from "../headless/index.ts";
 
 export type DashboardBodyProps = {
   readonly featureName: string;

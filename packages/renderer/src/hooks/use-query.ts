@@ -1,7 +1,7 @@
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-context.tsx";
 import type { QuerySlot } from "../context/query-pool.ts";
+import type { DispatcherError } from "../headless/index.ts";
 import { useLiveEvents } from "../sse/live-events.tsx";
 
 // React wrapper around dispatcher.query. Fires on mount, re-fires

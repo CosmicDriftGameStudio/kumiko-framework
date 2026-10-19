@@ -86,7 +86,7 @@ import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
-import type { PageHeadResolver } from "@cosmicdrift/kumiko-headless/apex";
+import type { PageHeadResolver } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import {
   assertStackBootRequirements,
   type BillingBootOption,

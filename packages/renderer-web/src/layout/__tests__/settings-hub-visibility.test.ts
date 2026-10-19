@@ -14,8 +14,8 @@ import {
   createUserConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import { qualifyScreenId } from "@cosmicdrift/kumiko-renderer";
+import { resolveNavigation } from "@cosmicdrift/kumiko-renderer/headless";
 import { buildNavRegistrySliceForApp } from "../nav-tree.tsx";
 
 const billing = defineFeature("billing", (r) => {

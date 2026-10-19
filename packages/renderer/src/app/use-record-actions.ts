@@ -1,8 +1,8 @@
 import type { RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { useMemo } from "react";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
+import type { Translate } from "../headless/index.ts";
 import { useClientActionRuntime } from "./client-actions.tsx";
 import { useNav } from "./nav.tsx";
 import { useReturnHost } from "./return-to.tsx";

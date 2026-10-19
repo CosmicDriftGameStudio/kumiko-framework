@@ -1,5 +1,5 @@
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { dispatcherErrorText, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 import { Skeleton } from "../ui/skeleton.tsx";

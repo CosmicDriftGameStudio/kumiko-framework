@@ -11,9 +11,9 @@ import type {
   FeatureSchema,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { NavTarget } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 

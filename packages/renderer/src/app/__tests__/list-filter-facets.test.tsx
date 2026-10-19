@@ -13,10 +13,10 @@ import {
   type ProjectionListScreenDefinition,
   translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher } from "../../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";

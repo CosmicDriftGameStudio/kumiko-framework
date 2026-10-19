@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, useMutation } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils.tsx";
 

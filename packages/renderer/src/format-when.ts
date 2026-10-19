@@ -1,4 +1,4 @@
-import { toInstant } from "@cosmicdrift/kumiko-headless";
+import { toInstant } from "./headless/index.ts";
 
 // Shared timestamp formatter for operator screens (audit log, job runs) —
 // falls back to the raw ISO string on an unparseable value instead of "Invalid Date".

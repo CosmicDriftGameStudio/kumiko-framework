@@ -1,4 +1,4 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
 

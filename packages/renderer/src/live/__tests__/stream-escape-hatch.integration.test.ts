@@ -2,7 +2,6 @@
 // same contract as write/query handlers.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { executeRawQuery } from "@cosmicdrift/kumiko-framework/db";
 import type { EscapeHatchUseEvent, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -10,6 +9,7 @@ import { createSystemUser, defineFeature } from "@cosmicdrift/kumiko-framework/e
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { createLiveDispatcher } from "../index.ts";
 
 const user = TestUsers.user;
 const otherUserNoRole: SessionUser = createTestUser({

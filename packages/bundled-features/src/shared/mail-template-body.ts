@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 
 const SLOT_PATTERN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 

@@ -2,7 +2,7 @@
 // bunfig.toml (unit `test`) ignores *.test.tsx; bunfig.dom.toml picks this up.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import type { Dispatcher, QueryResult } from "@cosmicdrift/kumiko-headless";
+import type { Dispatcher, QueryResult } from "@cosmicdrift/kumiko-renderer/headless";
 import { postWithDownload } from "../download.ts";
 
 function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {

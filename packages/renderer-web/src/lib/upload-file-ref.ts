@@ -1,4 +1,4 @@
-import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
+import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { buildFileUploadFormData, type FileUploadFormDataInput } from "./file-upload-form-data.ts";
 

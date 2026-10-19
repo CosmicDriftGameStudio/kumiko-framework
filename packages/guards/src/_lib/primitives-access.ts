@@ -6,7 +6,7 @@ const RENDERER_WEB_MODULE = "@cosmicdrift/kumiko-renderer-web";
 // (guard-no-custom-primitives, guard-raw-interactive-elements): proves the
 // primitive set was reachable in this file — either an import from
 // @cosmicdrift/kumiko-renderer-web (any symbol), or a `usePrimitives` named
-// import, which lives in @cosmicdrift/kumiko-renderer (headless layer), not
+// import, which lives in @cosmicdrift/kumiko-renderer (shared layer), not
 // only in -web (see kumiko-enterprise/packages/ai-agent/src/web/turn-cards.tsx).
 export function hasPrimitivesAccess(sf: SourceFile): boolean {
   for (const imp of sf.getImportDeclarations()) {

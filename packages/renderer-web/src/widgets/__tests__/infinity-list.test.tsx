@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
   type LiveEvent,
   type LiveEventSubscriber,
   LiveEventsProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import {
   act,

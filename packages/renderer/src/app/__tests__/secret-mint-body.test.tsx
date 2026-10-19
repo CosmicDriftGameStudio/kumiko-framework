@@ -10,11 +10,11 @@ import type {
   SecretMintScreenDefinition,
   TextFieldDef,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher } from "../../headless/index.ts";
 import {
   createStaticLocaleResolver,
   LocaleProvider,

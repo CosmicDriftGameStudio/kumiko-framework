@@ -17,13 +17,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
-  CellLink,
-  ListColumnFileDisplay,
-  ListRowViewModel,
-  RuntimeCellLink,
-} from "@cosmicdrift/kumiko-headless";
-import { applyFormatSpec, EMPTY_VALUE_PLACEHOLDER, isSafeHref } from "@cosmicdrift/kumiko-headless";
-import type {
   DataTableRowAction,
   DataTableRowActionMode,
   DataTableSort,
@@ -75,6 +68,17 @@ import {
   type WizardStepGroupProps,
   WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
+import type {
+  CellLink,
+  ListColumnFileDisplay,
+  ListRowViewModel,
+  RuntimeCellLink,
+} from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  applyFormatSpec,
+  EMPTY_VALUE_PLACEHOLDER,
+  isSafeHref,
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { cva } from "class-variance-authority";
@@ -4684,7 +4688,7 @@ function DefaultText({ variant = "body", decorative, children, testId }: TextPro
 
 // ---- Link (anchor mit Button-/Muted-Optik) ----
 
-// isSafeHref lives in @cosmicdrift/kumiko-headless — shared with
+// isSafeHref lives in @cosmicdrift/kumiko-renderer/headless — shared with
 // page-render's server-side markdown renderer, both take untrusted
 // tenant-authored hrefs.
 

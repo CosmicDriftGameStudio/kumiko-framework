@@ -2,7 +2,7 @@
 // no JavaScript. Every echoed value goes through escapeHtml/escapeHtmlAttr.
 
 import { type AnonymousExtraRoute, getSessionCookies } from "@cosmicdrift/kumiko-framework/api";
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";

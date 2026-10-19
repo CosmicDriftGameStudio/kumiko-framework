@@ -21,7 +21,6 @@
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",

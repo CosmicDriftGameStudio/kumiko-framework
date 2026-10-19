@@ -1,7 +1,7 @@
 // @runtime client
 
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { dispatcherErrorText } from "@cosmicdrift/kumiko-renderer";
+import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 

@@ -5,7 +5,7 @@ import {
   type SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
-import { fieldOptionLabelKeyPrefix } from "@cosmicdrift/kumiko-headless";
+import { fieldOptionLabelKeyPrefix } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   PAT_FEATURE,
   PAT_MINT_SCREEN_ID,

@@ -3,13 +3,13 @@
 // the outcome; none merely check that the component mounts.
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
-import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type { EmbeddedListColumn, EmbeddedListInputProps } from "@cosmicdrift/kumiko-renderer";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
   LocaleProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { FieldIssue } from "@cosmicdrift/kumiko-renderer/headless";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { act, type ReactElement, useState } from "react";
 import { computeScrollAffordance, EmbeddedListInput } from "../embedded-list-input.tsx";

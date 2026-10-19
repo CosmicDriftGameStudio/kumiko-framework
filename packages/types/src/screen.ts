@@ -35,7 +35,7 @@ export type PlatformComponent = {
 
 // Closed set of unit identifiers for `{ format: "unit" }` (no bare `string`
 // per house convention). "m2" has no ECMA-402 sanctioned unit — Intl throws
-// RangeError for "square-meter" — so kumiko-headless's applyFormatSpec
+// RangeError for "square-meter" — so renderer/headless's applyFormatSpec
 // formats it as a locale-formatted number with a literal "m²" suffix. The
 // rest map to a CLDR-sanctioned Intl.NumberFormat unit id and get
 // locale-correct pluralization/spacing straight from Intl.
@@ -78,7 +78,7 @@ export interface FieldFormatRegistry {
   // `<feature>:entity:<entity>:field:<field>:option:<value>` — same
   // fallback-to-raw-value rule as buildOptionLabels: an untranslated key
   // renders the raw enum value instead of the literal i18n key.
-  // Prefer fieldOptionLabelKeyPrefix() from @cosmicdrift/kumiko-headless
+  // Prefer fieldOptionLabelKeyPrefix() from @cosmicdrift/kumiko-renderer/headless
   // over hand-typed prefix strings.
   enumOption: { readonly keyPrefix: string };
   /** JSON-safe structured value rendered as indented text. */

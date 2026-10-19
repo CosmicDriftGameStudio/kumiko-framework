@@ -105,4 +105,36 @@ describe("check.run — RepoCheck seam", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("headless and live subtrees only get the import rules", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      const headlessDir = join(dir, "packages/renderer/src/headless");
+      const liveDir = join(dir, "packages/renderer/src/live");
+      mkdirSync(headlessDir, { recursive: true });
+      mkdirSync(liveDir, { recursive: true });
+      writeFileSync(
+        join(headlessDir, "page.ts"),
+        'export const html = `<div class="x"></div>`;\nexport const a = () => document.title;\n',
+      );
+      writeFileSync(join(liveDir, "client.ts"), 'export const a = () => fetch("/api/x");\n');
+      writeFileSync(
+        join(headlessDir, "bad.ts"),
+        'import { createRoot } from "react-dom/client";\nimport { x } from "@cosmicdrift/kumiko-renderer-web";\n',
+      );
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations.map((v) => `${v.file}:${v.line}`).sort()).toEqual([
+        "packages/renderer/src/headless/bad.ts:1",
+        "packages/renderer/src/headless/bad.ts:2",
+      ]);
+      expect(outcome.violations.every((v) => v.message.includes("forbidden-import"))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

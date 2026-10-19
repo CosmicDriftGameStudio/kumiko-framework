@@ -18,7 +18,7 @@ import {
   type ApexPage,
   type ApexPricingTier,
   renderApexPage,
-} from "@cosmicdrift/kumiko-headless/apex";
+} from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { HERO_SCREENSHOT } from "./constants";
 
 // --- Inputs: shapes the surrounding features hand you -----------------------

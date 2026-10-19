@@ -7,9 +7,9 @@ import type {
   SecretMintScreenDefinition,
   TextFieldDef,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { fireEvent } from "@testing-library/react";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 

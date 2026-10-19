@@ -210,9 +210,9 @@ describe("resolveNavigation", () => {
     expect(tree[0]?.children[0]?.children[0]?.qualifiedName).toBe("a:nav:leaf");
   });
 
-  // Visual-Tree-Merge: die polymorphen Felder (target/actions/createAction/
-  // provider) müssen durch resolveNavigation durchgereicht werden, sonst
-  // kann der eine Renderer dynamische/dispatch-Knoten nicht bauen.
+  // Visual-tree merge: the polymorphic fields (target/actions/createAction/
+  // provider) must pass through resolveNavigation, otherwise the single
+  // renderer cannot build dynamic/dispatch nodes.
   test("polymorphic fields pass through: target, actions, createAction, provider", () => {
     const editTarget = { featureId: "text-content", action: "edit", args: { slug: "hero" } };
     const createTarget = { featureId: "text-content", action: "create", args: { folder: "page" } };

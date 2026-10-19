@@ -3,7 +3,6 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher, FormSnapshot, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -16,6 +15,7 @@ import {
   type RenderEditControls,
   useExtensionFormSubmit,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher, FormSnapshot, SubmitResult } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useCallback, useState } from "react";
 import * as z from "zod";
 import { buildFormSchema } from "../../../renderer/src/app/form-schema.ts";

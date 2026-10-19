@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import {
   asRawClient,
@@ -17,6 +16,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { createLiveDispatcher } from "../index.ts";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.
 // This test wires dispatcher-live against the real Kumiko HTTP stack via

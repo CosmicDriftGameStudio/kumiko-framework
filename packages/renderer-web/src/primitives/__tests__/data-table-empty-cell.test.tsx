@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { render, screen } from "@testing-library/react";
 import { defaultPrimitives } from "../index.tsx";

@@ -32,24 +32,6 @@ import {
   metricField,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type {
-  Command,
-  Dispatcher,
-  DispatcherError,
-  FormSnapshot,
-  FormValues,
-  ListRowViewModel,
-  SubmitResult,
-  Translate,
-} from "@cosmicdrift/kumiko-headless";
-import {
-  applyFormatSpec,
-  buildOptionLabels,
-  computeRelatedListSectionViewModel,
-  fieldLabelKey,
-  fieldOptionLabelKey,
-  isSafeHref,
-} from "@cosmicdrift/kumiko-headless";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -71,6 +53,24 @@ import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-cont
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { useOptionalCurrentUser } from "../current-user.tsx";
+import type {
+  Command,
+  Dispatcher,
+  DispatcherError,
+  FormSnapshot,
+  FormValues,
+  ListRowViewModel,
+  SubmitResult,
+  Translate,
+} from "../headless/index.ts";
+import {
+  applyFormatSpec,
+  buildOptionLabels,
+  computeRelatedListSectionViewModel,
+  fieldLabelKey,
+  fieldOptionLabelKey,
+  isSafeHref,
+} from "../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
 import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state.ts";
 import { type UseQueryResult, useQuery } from "../hooks/use-query.ts";

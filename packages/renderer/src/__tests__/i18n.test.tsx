@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { LocaleResolver } from "../headless/index.ts";
 import {
   createStaticLocaleResolver,
   FormalityProvider,

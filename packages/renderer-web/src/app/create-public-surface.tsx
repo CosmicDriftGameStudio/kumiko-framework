@@ -1,5 +1,3 @@
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
-import type { Dispatcher, LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
   type Formality,
@@ -9,6 +7,8 @@ import {
   PrimitivesProvider,
   type PrimitivesRegistry,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher, LocaleResolver } from "@cosmicdrift/kumiko-renderer/headless";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-renderer/live";
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { defaultPrimitives } from "../primitives/index.tsx";

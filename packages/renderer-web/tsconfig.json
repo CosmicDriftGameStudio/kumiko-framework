@@ -9,11 +9,6 @@
     "emitDeclarationOnly": true,
     "rewriteRelativeImportExtensions": false
   },
-  "references": [
-    { "path": "../renderer" },
-    { "path": "../headless" },
-    { "path": "../dispatcher-live" },
-    { "path": "../locale-de" }
-  ],
+  "references": [{ "path": "../renderer" }, { "path": "../locale-de" }],
   "include": ["./src/**/*"]
 }

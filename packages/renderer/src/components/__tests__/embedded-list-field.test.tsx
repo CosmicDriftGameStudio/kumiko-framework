@@ -6,10 +6,10 @@
 // onChange call.
 
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher, EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import { act, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher, EditFieldViewModel, FieldIssue } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {

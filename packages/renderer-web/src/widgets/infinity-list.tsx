@@ -1,10 +1,10 @@
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import {
   entityFromQueryType,
   useDispatcher,
   useLiveEvents,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "./states.tsx";
 

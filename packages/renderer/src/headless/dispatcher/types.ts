@@ -202,12 +202,12 @@ export type Dispatcher = {
 
   // --- Status ---
 
-  // Subscribe/Emit-Store für Online/Offline/Syncing-Transitions. Konsumenten
-  // greifen direkt mit `useStore(dispatcher.statusStore)` zu — keine eigenen
-  // status()/subscribe()-Wrapper, der Store ist die ganze API.
-  // `Store` (read-only): UI darf den Status NICHT setzen, das ist
-  // Dispatcher-intern. Live-Dispatcher hält intern eine WritableStore-Ref,
-  // exportiert aber nur den Read-View.
+  // Subscribe/emit store for online/offline/syncing transitions. Consumers
+  // access it directly via `useStore(dispatcher.statusStore)` — no separate
+  // status()/subscribe() wrappers, the store is the whole API.
+  // `Store` (read-only): the UI must NOT set the status, that is internal
+  // to the dispatcher. The live dispatcher keeps a WritableStore ref
+  // internally but only exports the read view.
   readonly statusStore: Store<DispatcherStatus>;
 
   // --- Pending queues (only meaningful for savable; live returns []) ---

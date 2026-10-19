@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -7,6 +6,7 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";

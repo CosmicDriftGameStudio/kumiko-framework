@@ -5,9 +5,9 @@ import type {
   FeatureSchema,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { NavTarget } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";

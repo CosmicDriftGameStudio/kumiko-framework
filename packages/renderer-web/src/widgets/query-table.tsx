@@ -1,10 +1,10 @@
-import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import {
   type DataTableProps,
   usePrimitives,
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import type { ListRowViewModel } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { EmptyState, ErrorState, LoadingState } from "./states.tsx";
 

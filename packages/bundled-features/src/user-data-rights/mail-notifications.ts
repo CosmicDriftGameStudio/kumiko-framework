@@ -12,7 +12,7 @@ import {
   mailT,
   resolveMailLocale,
 } from "@cosmicdrift/kumiko-framework/i18n";
-import { escapeHtml } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { mailParagraph } from "../shared/index.ts";
 import { USER_DATA_RIGHTS_FEATURE } from "./constants.ts";
 

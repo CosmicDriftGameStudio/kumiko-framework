@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { Dispatcher, DispatcherError, QueryResult } from "@cosmicdrift/kumiko-headless";
+import type {
+  Dispatcher,
+  DispatcherError,
+  QueryResult,
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { postWithDownload } from "../download.ts";
 
 function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {

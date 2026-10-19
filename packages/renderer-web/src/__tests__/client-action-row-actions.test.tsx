@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   type ClientActionHandler,
   ClientActionsProvider,
@@ -8,6 +7,7 @@ import {
   type FeatureSchema,
   KumikoScreen,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { ToastActionNotifier } from "../app/toast-action-notifier.tsx";
 import { ToastProvider } from "../primitives/toast.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";

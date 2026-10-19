@@ -1,8 +1,8 @@
 import type { SecretMintScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { SubmitResult, Translate } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit.tsx";
+import type { SubmitResult, Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import {

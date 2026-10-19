@@ -1,5 +1,5 @@
-import type { DispatcherError, Translate } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
+import type { DispatcherError, Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { dispatcherErrorText } from "./write-failed-error.ts";

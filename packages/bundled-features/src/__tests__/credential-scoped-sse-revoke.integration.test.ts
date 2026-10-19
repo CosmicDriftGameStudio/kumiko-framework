@@ -18,12 +18,12 @@ import {
   createAuthFoundationFeature,
   resolveTokenVerifier,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter, generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-renderer/live";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,

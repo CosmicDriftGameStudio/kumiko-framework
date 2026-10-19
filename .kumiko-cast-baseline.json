@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "generated": "2026-10-18",
-  "totalSuspect": 182,
+  "generated": "2026-10-19",
+  "totalSuspect": 179,
   "perFile": {
     "packages/bundled-features/src/auth-email-password/handlers/switch-tenant-mfa-gate.write.ts": {
       "TenantId": 1
@@ -29,7 +29,7 @@
       "TenantId": 1
     },
     "packages/bundled-features/src/data-retention/run-retention-cleanup.ts": {
-      "EntityId": 2
+      "EntityId": 1
     },
     "packages/bundled-features/src/files-tenant-data/handlers/sweep-orphaned-derivatives.job.ts": {
       "TenantId": 1
@@ -98,12 +98,6 @@
       "(...args: unknown[]) => FeatureDefinition": 1,
       "FeatureDefinition": 1,
       "Record<string, unknown>": 1
-    },
-    "packages/dispatcher-live/src/dispatcher-live.ts": {
-      "TData": 2
-    },
-    "packages/dispatcher-live/src/sse-stream.ts": {
-      "TChunk": 1
     },
     "packages/framework/src/api/auth-routes.ts": {
       "number": 1
@@ -259,7 +253,6 @@
       "UncheckedSystemDb": 1
     },
     "packages/framework/src/schema-cli.ts": {
-      "{ ENTITY_METAS?: unknown; FEATURES?: unknown }": 1,
       "Parameters<typeof renderTablesDdl>[0]": 1,
       "readonly FeatureDefinition[]": 1
     },
@@ -286,22 +279,6 @@
     },
     "packages/guards/src/guard-write-handler-qns.ts": {
       "{ readonly features?: ReadonlyArray<{ readonly writeHandlers": 1
-    },
-    "packages/headless/src/form/form-controller.ts": {
-      "Promise<SubmitResult<TData>>": 1,
-      "TCtx": 3,
-      "TValues": 1
-    },
-    "packages/headless/src/locale-routing/index.ts": {
-      "[ TPage, Record<string, string>, ][]": 1,
-      "[TPage, Record<string, string>][]": 1,
-      "TPage": 1
-    },
-    "packages/headless/src/store/create-store.ts": {
-      "(prev: T) => T": 1
-    },
-    "packages/headless/src/view-model/edit.ts": {
-      "EntityDefinition": 1
     },
     "packages/renderer-web/src/app/create-app.tsx": {
       "string | undefined": 1
@@ -340,8 +317,21 @@
       "( partial: Readonly<Record<string, unknown>>, ) => void": 1,
       "(k: string, v: unknown) => void": 1
     },
-    "packages/renderer/src/components/render-list.tsx": {
-      "EagerloadedRow | undefined": 1
+    "packages/renderer/src/headless/form/form-controller.ts": {
+      "Promise<SubmitResult<TData>>": 1,
+      "TCtx": 3,
+      "TValues": 1
+    },
+    "packages/renderer/src/headless/locale-routing/index.ts": {
+      "[ TPage, Record<string, string>, ][]": 1,
+      "[TPage, Record<string, string>][]": 1,
+      "TPage": 1
+    },
+    "packages/renderer/src/headless/store/create-store.ts": {
+      "(prev: T) => T": 1
+    },
+    "packages/renderer/src/headless/view-model/edit.ts": {
+      "EntityDefinition": 1
     },
     "packages/renderer/src/hooks/use-form.ts": {
       "FullOptions": 1
@@ -351,6 +341,12 @@
     },
     "packages/renderer/src/hooks/use-stream-handler.ts": {
       "DispatcherError": 1
+    },
+    "packages/renderer/src/live/dispatcher-live.ts": {
+      "TData": 2
+    },
+    "packages/renderer/src/live/sse-stream.ts": {
+      "TChunk": 1
     },
     "packages/renderer/src/tokens.tsx": {
       "Tokens": 1

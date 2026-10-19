@@ -68,8 +68,8 @@ function valuesDiff<TValues extends FormValues>(
   // Iterate over BOTH sides — a field that existed on initial but was
   // deleted from current (via `setValues({ foo: undefined })`) still
   // counts as a change.
-  // FormValues<T> erlaubt kein keyof-T-Iteration (T ist generic). Cast
-  // zu Record<string, unknown> für dynamic-key-Inspection.
+  // FormValues<T> does not allow keyof-T iteration (T is generic). Cast
+  // to Record<string, unknown> for dynamic-key inspection.
   const cur = current as Record<string, unknown>; // @cast-boundary form-values
   const ini = initial as Record<string, unknown>; // @cast-boundary form-values
   const o = out as Record<string, unknown>; // @cast-boundary form-values

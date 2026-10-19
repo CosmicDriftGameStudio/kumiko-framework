@@ -20,12 +20,6 @@
       "@cosmicdrift/kumiko-renderer-web/*": [
         "../../../packages/renderer-web/src/*"
       ],
-      "@cosmicdrift/kumiko-dispatcher-live": [
-        "../../../packages/dispatcher-live/src/index.ts"
-      ],
-      "@cosmicdrift/kumiko-headless": [
-        "../../../packages/headless/src/index.ts"
-      ],
       "@cosmicdrift/kumiko-renderer": [
         "../../../packages/renderer/src/index.ts"
       ],

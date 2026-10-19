@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-    "@cosmicdrift/kumiko-headless": "workspace:*"
+    "@cosmicdrift/kumiko-renderer": "workspace:*"
   },
   "devDependencies": {
     "@cosmicdrift/kumiko-testing": "workspace:*",

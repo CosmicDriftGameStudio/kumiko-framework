@@ -6,13 +6,13 @@
 // sofort im Sidebar-Tree. Der content:edit-Resolver rendert das Anlege-
 // Formular (leeres target) bzw. die Detail-Ansicht (target mit id).
 
-import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import type {
   TargetRef,
   TreeChildrenSubscribe,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { useDispatcher, usePrimitives, useQuery } from "@cosmicdrift/kumiko-renderer";
+import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 

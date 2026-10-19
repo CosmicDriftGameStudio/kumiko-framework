@@ -1,6 +1,5 @@
-// Primitives-Contract. Plattform-neutral — die Types beschreiben die
-// semantische Oberfläche, die konkrete Implementation (HTML, React
-// Native) kommt aus `@cosmicdrift/kumiko-renderer-web` oder `@cosmicdrift/kumiko-renderer-native`.
+// Primitives contract. Platform-neutral: the types describe the semantic
+// surface, the concrete implementation (HTML) comes from `@cosmicdrift/kumiko-renderer-web`.
 //
 // Die Renderer (RenderEdit, RenderList, RenderField, KumikoScreen)
 // konsumieren nur diesen Context. Es gibt KEIN Default-Registry hier
@@ -16,7 +15,7 @@
 //   Input     — discriminated union über text/number/boolean/date
 //   DataTable — Spalten + Zeilen + onRowClick, Empty-State intern
 //   EmbeddedListInput — row array + totals table for createEmbeddedListField
-//   Form      — submit-Wrapper (Web: <form>, Native: View + onSubmit)
+//   Form      — submit-Wrapper (<form> + onSubmit)
 //   Section   — titled Gruppe von Feldern (Web: <fieldset>+<legend>)
 //   Grid      — columns-basiertes Layout innerhalb einer Section
 //   Text      — semantische Text-Variante (body/small/code/required-mark)
@@ -43,12 +42,6 @@ import type {
   RowActionDisplay,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type {
-  FieldIssue,
-  ListColumnViewModel,
-  ListRowViewModel,
-  RuntimeRenderer,
-} from "@cosmicdrift/kumiko-headless";
 import {
   type ComponentType,
   createContext,
@@ -58,6 +51,12 @@ import {
   type Ref,
   useContext,
 } from "react";
+import type {
+  FieldIssue,
+  ListColumnViewModel,
+  ListRowViewModel,
+  RuntimeRenderer,
+} from "./headless/index.ts";
 
 export type { RuntimeRenderer };
 
@@ -906,7 +905,7 @@ export type DataTableProps = {
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----
 
 /** Cell type for one column of an embedded-list field. Mirrors
- *  EmbeddedListCellViewModel["type"] from `@cosmicdrift/kumiko-headless`. */
+ *  EmbeddedListCellViewModel["type"] from `@cosmicdrift/kumiko-renderer/headless`. */
 export type EmbeddedListCellType =
   | "text"
   | "number"

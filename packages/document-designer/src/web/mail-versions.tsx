@@ -1,6 +1,6 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 import { formatWhen, useAppFeatures, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 import { RailHint, RailRow, RailSection } from "./rail.tsx";

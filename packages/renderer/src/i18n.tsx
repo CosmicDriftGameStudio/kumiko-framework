@@ -1,6 +1,6 @@
 // Locale handling for React consumers of the Kumiko renderer. A thin layer
 // around the platform-agnostic `LocaleResolver` contract from
-// @cosmicdrift/kumiko-headless: provider, hooks, a default no-op resolver,
+// @cosmicdrift/kumiko-renderer/headless: provider, hooks, a default no-op resolver,
 // and a fallback-bundle merge for feature-supplied translations.
 //
 // Architecture:
@@ -20,7 +20,6 @@ import {
   resolveTranslationValue,
   type TranslationValue,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
   createContext,
   type ReactNode,
@@ -29,6 +28,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
+import type { LocaleResolver } from "./headless/index.ts";
 
 /** Map of i18n key → TranslationValue. Strings may contain `{name}`
  *  placeholders (same semantics as i18next t); plural entries resolve via

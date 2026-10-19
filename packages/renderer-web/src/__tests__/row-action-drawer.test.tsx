@@ -8,7 +8,6 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavTarget } from "@cosmicdrift/kumiko-renderer";
 import {
   createStaticLocaleResolver,
@@ -17,6 +16,7 @@ import {
   LocaleProvider,
   NavProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 

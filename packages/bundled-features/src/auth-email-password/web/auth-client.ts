@@ -9,8 +9,8 @@
 // reuse'n ihn hier, damit die Konstanten (Cookie-Name, Header-Name)
 // nicht divergieren.
 
-import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
 
 export type TenantSummary = {
   readonly tenantId: string;

@@ -3,7 +3,7 @@ import type {
   EditFieldViewModel,
   EditSectionViewModel,
   SubmitResult,
-} from "@cosmicdrift/kumiko-headless";
+} from "../headless/index.ts";
 
 // Hides the Save button when no field is editable and no extension section
 // contributes to the composed form submit. Extensions that persist via their

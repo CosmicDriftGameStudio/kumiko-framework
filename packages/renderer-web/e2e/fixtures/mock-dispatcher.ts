@@ -1,5 +1,5 @@
 // In-memory Dispatcher für renderer-web/e2e. Implementiert das
-// Dispatcher-Interface aus @cosmicdrift/kumiko-headless ohne HTTP-Layer — der
+// Dispatcher-Interface aus @cosmicdrift/kumiko-renderer/headless ohne HTTP-Layer — der
 // Mock lebt im Browser-Bundle, jeder Playwright-Page-Boot bekommt
 // einen fresh Mock mit fresh State.
 //
@@ -25,7 +25,7 @@ import type {
   Store,
   WriteOpts,
   WriteResult,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 
 import { dashboardQueryResponse } from "./dashboard-fixture";
 import { ROLE_AVAILABILITY_QUERY } from "./schema";

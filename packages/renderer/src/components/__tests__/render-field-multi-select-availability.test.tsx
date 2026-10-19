@@ -2,10 +2,10 @@
 // able to "remove" a role the write path would keep anyway.
 
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher, EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher, EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";

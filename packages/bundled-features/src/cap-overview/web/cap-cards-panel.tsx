@@ -1,7 +1,7 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
 import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   EmptyState,
   StatCard,

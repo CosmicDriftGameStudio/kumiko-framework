@@ -2,7 +2,6 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
 import {
@@ -11,6 +10,7 @@ import {
   useMoneyCurrencyOverrides,
 } from "../app/kumiko-screen.tsx";
 import { toKebab } from "../app/qn.ts";
+import type { SubmitResult } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { RenderEdit } from "./render-edit.tsx";

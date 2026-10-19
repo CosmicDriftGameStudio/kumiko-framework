@@ -1,5 +1,5 @@
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
+import type { EditFieldViewModel } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 

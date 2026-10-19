@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   AppFeaturesProvider,
@@ -13,6 +12,7 @@ import {
   NavProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";
 import {

@@ -3,7 +3,6 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -18,6 +17,10 @@ import {
   RelatedListSection,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type {
+  Dispatcher,
+  EditRelatedListSectionViewModel,
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { defaultTokens } from "../tokens.ts";

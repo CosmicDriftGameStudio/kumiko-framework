@@ -7,8 +7,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import userEvent from "@testing-library/user-event";
 import { ReferenceCreateDialog } from "../../../renderer/src/components/reference-create-dialog.tsx";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";

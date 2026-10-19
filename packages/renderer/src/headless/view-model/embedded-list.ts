@@ -39,7 +39,7 @@ export type EmbeddedListIssueGroups = {
 };
 
 /** Buckets a flat issues-by-path map (FormSnapshot.errors shape — see
- *  packages/headless/src/form/zod-bridge.ts groupIssuesByPath) into the
+ *  packages/renderer/src/headless/form/zod-bridge.ts groupIssuesByPath) into the
  *  three levels an embedded-list widget renders. Only keys that are
  *  exactly `listField`, `listField.N`, or `listField.N.subfield` are
  *  claimed; unrelated keys (other top-level fields, or deeper nesting

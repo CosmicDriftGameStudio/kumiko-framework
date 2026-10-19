@@ -1,6 +1,5 @@
 // @runtime client
 
-import { toInstant, type WriteResult } from "@cosmicdrift/kumiko-headless";
 import {
   type ExtensionSectionProps,
   useLocale,
@@ -9,6 +8,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { toInstant, type WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   formatMoney,
   PlanCard,

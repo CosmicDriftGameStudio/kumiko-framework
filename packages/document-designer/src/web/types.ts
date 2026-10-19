@@ -1,5 +1,5 @@
 // @runtime client
-import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
+import type { FieldIssue } from "@cosmicdrift/kumiko-renderer/headless";
 import type { TemplateDiff } from "./layout-types.ts";
 
 export type TemplateScope = "system" | "tenant";

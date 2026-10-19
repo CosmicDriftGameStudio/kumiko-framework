@@ -1,4 +1,4 @@
-import type { ListColumnFileDisplay } from "@cosmicdrift/kumiko-headless";
+import type { ListColumnFileDisplay } from "@cosmicdrift/kumiko-renderer/headless";
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { ImageIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";

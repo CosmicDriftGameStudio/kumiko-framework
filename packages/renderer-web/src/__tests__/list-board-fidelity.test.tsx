@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { fireEvent, render, screen, within } from "./test-utils.tsx";
 

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { EntityEditScreenDefinition, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { AppFeaturesProvider } from "../../app/app-features-context.tsx";
@@ -9,6 +8,7 @@ import { type NavApi, NavProvider, type NavTarget } from "../../app/nav.tsx";
 import { resetDrawerActionWarningsForTests } from "../../app/row-actions.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
+import type { Dispatcher, EditRelatedListSectionViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {

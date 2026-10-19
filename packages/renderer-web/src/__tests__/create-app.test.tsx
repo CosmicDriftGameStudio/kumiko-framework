@@ -6,7 +6,6 @@ import type {
   EntityListScreenDefinition,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type {
   AppSchema,
   ColumnRendererProps,
@@ -20,6 +19,7 @@ import {
   UserRolesProvider,
   useContentEditor,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useSyncExternalStore } from "react";
 import { APP_SCHEMA_API_PATH } from "../app/app-schema-boot.tsx";

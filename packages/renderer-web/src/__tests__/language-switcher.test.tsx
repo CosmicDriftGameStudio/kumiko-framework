@@ -1,11 +1,11 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
   LocaleProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-renderer/headless";
 import { render as _render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
