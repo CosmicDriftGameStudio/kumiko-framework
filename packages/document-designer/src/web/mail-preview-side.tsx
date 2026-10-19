@@ -9,6 +9,7 @@ import type { MailPreview, MailValidation, PickedValues, PreviewCheck } from "./
 import { usePreviewRecordPicker } from "./preview-record-picker.tsx";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 import type { OwnAddress } from "./use-own-address.ts";
+import type { TestMailAvailability } from "./use-test-mail.ts";
 import { variableLabelText } from "./used-by-label.ts";
 
 const noop = (): void => undefined;
@@ -125,6 +126,7 @@ function RecordPickerLink({
 }
 
 export type TestMailControls = {
+  readonly availability: TestMailAvailability;
   readonly pending: boolean;
   readonly onSend: () => void;
   readonly includeAttachments: boolean;
@@ -233,7 +235,7 @@ export function PreviewSide({
           <Button
             variant="secondary"
             width="full"
-            disabled={testMail.pending}
+            disabled={testMail.pending || !testMail.availability.canSend}
             loading={testMail.pending}
             onClick={testMail.onSend}
             testId="mail-test-send"
@@ -241,6 +243,15 @@ export function PreviewSide({
             {t("documentDesigner.mail.testMail.send")}
           </Button>
         </RailField>
+        {testMail.availability.reason !== null && (
+          <RailHint>
+            {t(
+              testMail.availability.reason === "no_channel"
+                ? "documentDesigner.mail.testMail.unavailable.noChannel"
+                : "documentDesigner.mail.testMail.unavailable.noAddress",
+            )}
+          </RailHint>
+        )}
         <RailHint>{t("documentDesigner.mail.testMail.hint")}</RailHint>
       </RailSection>
       <RailSection title={t("documentDesigner.mail.preview.checks")} testId="mail-preview-checks">

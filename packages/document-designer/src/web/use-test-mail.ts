@@ -1,8 +1,16 @@
 // @runtime client
-import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { dispatcherErrorText, useMutation, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  TemplateResolverHandlers,
+  TemplateResolverQueries,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import {
+  dispatcherErrorText,
+  useMutation,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
-import type { SendTestResponse } from "./mail-types.ts";
+import type { SendTestResponse, SendTestStatus } from "./mail-types.ts";
 
 const TOO_MANY_REQUESTS = 429;
 
@@ -11,7 +19,15 @@ export type TestMailState =
   | { readonly kind: "sent"; readonly subject: string }
   | { readonly kind: "error"; readonly text: string };
 
+// While the status loads, or when it cannot be read, canSend is false and reason is null: the
+// button stays disabled without a hint.
+export type TestMailAvailability = {
+  readonly canSend: boolean;
+  readonly reason: SendTestStatus["reason"];
+};
+
 export type TestMail = {
+  readonly availability: TestMailAvailability;
   readonly state: TestMailState;
   readonly pending: boolean;
   readonly send: (payload: Readonly<Record<string, unknown>>) => Promise<void>;
@@ -21,6 +37,11 @@ export type TestMail = {
 export function useTestMail(): TestMail {
   const t = useTranslation();
   const sendTest = useMutation<SendTestResponse>(TemplateResolverHandlers.sendTest);
+  const status = useQuery<SendTestStatus>(TemplateResolverQueries.sendTestStatus, {});
+  const availability: TestMailAvailability = {
+    canSend: status.data?.canSend === true,
+    reason: status.data?.reason ?? null,
+  };
   const [state, setState] = useState<TestMailState>({ kind: "idle" });
 
   const send = async (payload: Readonly<Record<string, unknown>>): Promise<void> => {
@@ -38,5 +59,5 @@ export function useTestMail(): TestMail {
       });
     }
   };
-  return { state, pending: sendTest.pending, send };
+  return { availability, state, pending: sendTest.pending, send };
 }

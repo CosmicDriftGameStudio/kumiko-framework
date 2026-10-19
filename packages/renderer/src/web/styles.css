@@ -34,12 +34,13 @@
    imported through. Here that is `<package>/src/web` in both layouts, so:
    - `../` is the renderer's own src (shared screens and components) and
      `../../dist` its compiled twin;
-   - the sibling packages (bundled-features, document-designer, neither
-     ships its own compiled CSS) need two variants: `../../../X` in the
+   - the sibling package bundled-features (no compiled CSS of its own) needs two variants: `../../../X` in the
      workspace (unscoped dir name) and `../../../kumiko-X` in a standalone
      consumer (scoped registry name under node_modules/@cosmicdrift/).
    A path that doesn't exist in a given layout is simply not matched, no
-   error. samples is monorepo-only (in-repo sample build), a no-op elsewhere.
+   error. The document designer is not scanned from here: it ships its own
+   `@cosmicdrift/kumiko-document-designer/web/styles.css`, which an app imports
+   after this file. samples is monorepo-only (in-repo sample build), a no-op elsewhere.
 
    The published packages ship compiled dist (class names survive as string
    literals in the .js), so every src line has a dist twin; src stays for
@@ -51,10 +52,6 @@
 @source "../../../bundled-features/dist/**/*.js";
 @source "../../../kumiko-bundled-features/src/**/*.{ts,tsx}";
 @source "../../../kumiko-bundled-features/dist/**/*.js";
-@source "../../../document-designer/src/**/*.{ts,tsx}";
-@source "../../../document-designer/dist/**/*.js";
-@source "../../../kumiko-document-designer/src/**/*.{ts,tsx}";
-@source "../../../kumiko-document-designer/dist/**/*.js";
 @source "../../../../samples/**/src/**/*.{ts,tsx}";
 /* In the monorepo `tsc --build` emits composite output (incl. compiled tests
    and stale files of deleted components) into dist; scanning it would make the
@@ -62,8 +59,6 @@
 @source not "../../dist/**/__tests__/**";
 @source not "../../../bundled-features/dist/**/__tests__/**";
 @source not "../../../kumiko-bundled-features/dist/**/__tests__/**";
-@source not "../../../document-designer/dist/**/__tests__/**";
-@source not "../../../kumiko-document-designer/dist/**/__tests__/**";
 
 /* Dark-Mode via class-selector (nicht media). Erlaubt JS-Toggle
    und überschreibt System-Preference wenn die App will. */

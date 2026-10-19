@@ -67,8 +67,9 @@ drops it.
 A POSIX-sh pre-push hook, wired by copying the package's `hooks/pre-push`
 shim to `.husky/pre-push`. The shim execs the nearest executable
 `node_modules/.bin/kumiko-pre-push` from the repo root upwards (so worktrees
-without their own `node_modules` resolve via the parent install) and fails
-closed with a `bun install` hint when none exists. Inside
+without their own `node_modules` resolve via the parent install, up to and
+including `$HOME`, skipping ancestors owned by another user or writable by
+group/others) and fails closed with a `bun install` hint when none exists. Inside
 the cosmicdriftgamestudio parent workspace it runs a scoped `bun check` for
 the pushing repo only; in a standalone clone it runs the repo's own
 `package.json` `test` script. From a `.wt/<name>` worktree under the parent

@@ -16,12 +16,14 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 export function PdfResourceSection({
   resourceKeys,
   canUpload,
+  filesAvailable,
   layoutName,
   onInsert,
   onUpload,
 }: {
   readonly resourceKeys: readonly string[];
   readonly canUpload: boolean;
+  readonly filesAvailable: boolean;
   readonly layoutName: string;
   readonly onInsert: (key: string) => void;
   readonly onUpload: (file: File) => Promise<void>;
@@ -41,7 +43,7 @@ export function PdfResourceSection({
         />
       ))}
       <RailField>
-        {canUpload ? (
+        {canUpload && filesAvailable ? (
           <UploadZone
             multiple={false}
             accept={IMAGE_TYPES}
@@ -55,7 +57,10 @@ export function PdfResourceSection({
           </Button>
         )}
       </RailField>
-      {!canUpload && <RailHint>{t("documentDesigner.resources.saveFirst")}</RailHint>}
+      {!filesAvailable && <RailHint>{t("documentDesigner.resources.noFilesFeature")}</RailHint>}
+      {filesAvailable && !canUpload && (
+        <RailHint>{t("documentDesigner.resources.saveFirst")}</RailHint>
+      )}
       <RailHint>{t("documentDesigner.placeholders.layoutHint", { layout: layoutName })}</RailHint>
     </RailSection>
   );

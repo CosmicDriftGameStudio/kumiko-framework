@@ -16,7 +16,8 @@
     "./web": {
       "types": "./src/web/index.ts",
       "default": "./src/web/index.ts"
-    }
+    },
+    "./web/styles.css": "./src/web/styles.css"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
@@ -51,11 +52,13 @@
       "./web": {
         "types": "./dist/web/index.d.ts",
         "default": "./dist/web/index.js"
-      }
+      },
+      "./web/styles.css": "./src/web/styles.css"
     }
   },
   "files": [
     "dist",
+    "src/web/styles.css",
     "src/changes.json",
     "README.md",
     "LICENSE"

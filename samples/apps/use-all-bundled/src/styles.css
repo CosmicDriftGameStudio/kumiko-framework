@@ -1,0 +1,4 @@
+@import "@cosmicdrift/kumiko-renderer/web/styles.css";
+@import "@cosmicdrift/kumiko-document-designer/web/styles.css";
+
+@source "./**/*.{ts,tsx}";
