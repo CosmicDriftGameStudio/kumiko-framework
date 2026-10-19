@@ -28,6 +28,7 @@ import { templateResourceEntity } from "../table.ts";
 const NOT_EDITABLE_REASON = "template_not_tenant_editable";
 const OPEN_SLUG = "policy:notify:open";
 const CLOSED_SLUG = "policy:notify:closed";
+const UNKNOWN_ID = "00000000-0000-4000-8000-0000000000cc";
 const OPEN_BLOCK_SLUG = "policy-block-open";
 
 const systemAdmin = TestUsers.systemAdmin;
@@ -109,6 +110,7 @@ describe("template edit policy :: no tenantEditable (default)", () => {
         },
       ],
       [TemplateResolverHandlers.resourceRemove, { templateId: systemOverrideId, key: "logo" }],
+      [TemplateResolverHandlers.sendTest, { slug: OPEN_SLUG, locale: "de" }],
     ];
     for (const [handler, payload] of attempts) {
       const error = await stack.http.writeErr(handler, payload, tenantAdmin);
@@ -352,6 +354,11 @@ describe("template edit policy :: tenantEditable for one mail slug", () => {
         TemplateResolverHandlers.resourceRemove,
         { templateId: "00000000-0000-4000-8000-0000000000bb", key: "logo" },
       ],
+      [TemplateResolverHandlers.sendTest, { slug: CLOSED_SLUG, locale: "de" }],
+      [TemplateResolverHandlers.publish, { id: UNKNOWN_ID }],
+      [TemplateResolverHandlers.archive, { id: UNKNOWN_ID }],
+      [TemplateResolverHandlers.discardDraft, { id: UNKNOWN_ID }],
+      [TemplateResolverHandlers.resetToSystem, { id: UNKNOWN_ID }],
     ];
     for (const [handler, payload] of attempts) {
       const error = await stack.http.writeErr(handler, payload, tenantAdmin);
@@ -362,6 +369,32 @@ describe("template edit policy :: tenantEditable for one mail slug", () => {
         reason: (error.details as { reason?: string } | undefined)?.reason,
       }).toEqual({ handler, code: "access_denied", status: 403, reason: NOT_EDITABLE_REASON });
     }
+  });
+
+  test("a SystemAdmin gets not_found on an unknown id, no existence probe for a TenantAdmin", async () => {
+    for (const handler of [
+      TemplateResolverHandlers.publish,
+      TemplateResolverHandlers.archive,
+      TemplateResolverHandlers.discardDraft,
+      TemplateResolverHandlers.resetToSystem,
+    ]) {
+      const error = await stack.http.writeErr(handler, { id: UNKNOWN_ID }, systemAdmin);
+      expect({ handler, code: error.code, status: error.httpStatus }).toEqual({
+        handler,
+        code: "not_found",
+        status: 404,
+      });
+    }
+  });
+
+  test("the test mail is part of editing: the unlocked slug passes the policy", async () => {
+    const error = await stack.http.writeErr(
+      TemplateResolverHandlers.sendTest,
+      { slug: OPEN_SLUG, locale: "de" },
+      tenantAdmin,
+    );
+    // No mail channel is mounted here, so the send stops after the policy check.
+    expect(error.httpStatus).not.toBe(403);
   });
 
   test("a bundle carries one template, so a closed slug is refused and nothing is written", async () => {

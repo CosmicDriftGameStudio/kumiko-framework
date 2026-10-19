@@ -5,6 +5,7 @@ import * as z from "zod";
 import type { TemplateResourceRow } from "../table.ts";
 import { templateResourcesTable } from "../table.ts";
 import {
+  refuseMissingTemplate,
   refuseTemplateEdit,
   type TemplateEditPolicy,
   templateEditAccess,
@@ -23,7 +24,10 @@ export function makeResetToSystemWrite(policy: TemplateEditPolicy) {
         id: event.payload.id,
       });
       if (!existing || existing.tenantId !== event.user.tenantId || existing.scope !== "tenant") {
-        return writeFailure(new NotFoundError("template-resource", event.payload.id));
+        return (
+          refuseMissingTemplate(policy, event.user) ??
+          writeFailure(new NotFoundError("template-resource", event.payload.id))
+        );
       }
       const refused = refuseTemplateEdit(policy, event.user, existing);
       if (refused !== null) return refused;

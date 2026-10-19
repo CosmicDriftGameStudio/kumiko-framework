@@ -206,7 +206,7 @@ describe("template-resolver :: own-tenant status handlers", () => {
       { id: created.id },
       tenantAdmin,
     );
-    expect(err.code).toBe("not_found");
+    expect(err.code).toBe("access_denied");
     expect((await findById(created.id)).status).toBe("active");
   });
 });
@@ -563,13 +563,13 @@ describe("template-resolver :: reset-to-system", () => {
     expect(again.status).toBe("archived");
   });
 
-  test("the system row id is NotFound", async () => {
+  test("the system row id is refused like a locked template", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.resetToSystem,
       { id: systemRowId },
       tenantAdmin,
     );
-    expect(err.code).toBe("not_found");
+    expect(err.code).toBe("access_denied");
   });
 
   test("an override without an active system counterpart is a validation error", async () => {

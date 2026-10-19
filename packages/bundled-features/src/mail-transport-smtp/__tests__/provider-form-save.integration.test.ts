@@ -128,6 +128,27 @@ describe("mail provider form :: one save over /api/batch", () => {
     expect(secrets.map((row) => row.key)).toContain(secretKeyOf(PASSWORD_FIELD));
   });
 
+  test("the reads the form loads from show the password as set, never its value", async () => {
+    const admin = adminFor(814);
+    const password = "provider-form-read-password";
+    const saved = await stack.http.batch(
+      [
+        {
+          type: "secrets:write:set",
+          payload: { key: secretKeyOf(PASSWORD_FIELD), value: password },
+        },
+      ],
+      admin,
+    );
+    expect(saved.status).toBe(200);
+
+    const values = await stack.http.queryOk<StoredConfig>("config:query:values", {}, admin);
+    const secrets = await stack.http.queryOk<StoredSecret[]>("secrets:query:list", {}, admin);
+    expect(secrets.map((row) => row.key)).toContain(secretKeyOf(PASSWORD_FIELD));
+    expect(JSON.stringify(values)).not.toContain(password);
+    expect(JSON.stringify(secrets)).not.toContain(password);
+  });
+
   test("a rejected provider stores neither the password nor the server address", async () => {
     const admin = adminFor(812);
     const res = await stack.http.batch(

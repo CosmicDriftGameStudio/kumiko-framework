@@ -2,7 +2,11 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { TemplateResolverErrors } from "../qualified-names.ts";
-import { refuseTemplateEdit, type TemplateEditPolicy } from "../template-edit-policy.ts";
+import {
+  refuseMissingTemplate,
+  refuseTemplateEdit,
+  type TemplateEditPolicy,
+} from "../template-edit-policy.ts";
 import { executor } from "./shared.ts";
 import { loadTargetRow, type StatusTarget, writeAccessFor } from "./toggle-status.write.ts";
 
@@ -20,7 +24,10 @@ function createDiscardDraftHandler(
     description,
     handler: async (event, ctx) => {
       const { db, scoped, row } = await loadTargetRow(ctx, target, event.user, event.payload.id);
-      if (!row) return writeFailure(new NotFoundError("template-resource", event.payload.id));
+      if (!row) {
+        const refused = target === "own" ? refuseMissingTemplate(policy, event.user) : null;
+        return refused ?? writeFailure(new NotFoundError("template-resource", event.payload.id));
+      }
       if (target === "own") {
         const refused = refuseTemplateEdit(policy, event.user, row);
         if (refused !== null) return refused;

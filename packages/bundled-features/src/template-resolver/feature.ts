@@ -29,7 +29,7 @@ import { makeResetToSystemWrite } from "./handlers/reset-to-system.write.ts";
 import { makeResourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.ts";
 import { makeResourceRemoveWrite } from "./handlers/resource-remove.write.ts";
 import { makeResourceUploadWrite } from "./handlers/resource-upload.write.ts";
-import { sendTestWrite } from "./handlers/send-test.write.ts";
+import { makeSendTestWrite } from "./handlers/send-test.write.ts";
 import { sendTestStatusQuery } from "./handlers/send-test-status.query.ts";
 import { makeSetWrite } from "./handlers/set.write.ts";
 import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.ts";
@@ -162,7 +162,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       resourceUpload: r.writeHandler(makeResourceUploadWrite(policy)),
       resourceRemove: r.writeHandler(makeResourceRemoveWrite(policy)),
       resourceLinkPdf: r.writeHandler(makeResourceLinkPdfWrite(policy)),
-      sendTest: r.writeHandler(sendTestWrite),
+      sendTest: r.writeHandler(makeSendTestWrite(policy)),
       patchDraft: r.writeHandler(makePatchDraftWrite(policy)),
     };
 

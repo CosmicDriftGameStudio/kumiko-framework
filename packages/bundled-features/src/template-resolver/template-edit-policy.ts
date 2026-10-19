@@ -64,6 +64,15 @@ export function refuseTemplateEdit(
   );
 }
 
+// Fail closed: a missing row gives a non-SystemAdmin the same refusal as a locked one,
+// so the response never reveals whether an id exists. SystemAdmin keeps the 404.
+export function refuseMissingTemplate(
+  policy: TemplateEditPolicy,
+  user: EditUser,
+): WriteFailure | null {
+  return isSystemAdmin(user) ? null : refuseTemplateEdit(policy, user, { slug: "", kind: "" });
+}
+
 export async function refuseTemplateEditById(
   db: HandlerContext["db"],
   policy: TemplateEditPolicy,
@@ -76,8 +85,7 @@ export async function refuseTemplateEditById(
     tenantId,
     id: templateId,
   });
-  // Fail closed: a missing row gives a non-SystemAdmin the same refusal as a locked one.
   return row === undefined
-    ? refuseTemplateEdit(policy, user, { slug: "", kind: "" })
+    ? refuseMissingTemplate(policy, user)
     : refuseTemplateEdit(policy, user, row);
 }
