@@ -355,6 +355,14 @@ export type BillingPlanBenefit = {
   readonly params?: Readonly<Record<string, string | number>>;
 };
 
+/** Price-less card (e.g. "Enterprise · Contact us"); `href` must be an absolute https: or mailto: URL. */
+export type BillingPlanContactCard = {
+  readonly labelKey: string;
+  readonly benefits: readonly BillingPlanBenefit[];
+  readonly actionLabelKey: string;
+  readonly href: string;
+};
+
 export type BillingPlanCatalog<TTier extends string = string> = {
   /** Purchasable tiers, in display order. */
   readonly plans: readonly TTier[];
@@ -380,6 +388,8 @@ export type BillingPlanCatalog<TTier extends string = string> = {
   readonly returnPath?: string;
   /** Defaults to the only registered provider exposing `priceToTier`. */
   readonly providerName?: string;
+  /** Rendered as the last card, no price, visible to `viewRoles` regardless of `purchaseRoles`. */
+  readonly contact?: BillingPlanContactCard;
 };
 
 export type LegalLinkSet = {
@@ -483,6 +493,8 @@ export type BillingPlansResult = {
   } | null;
   readonly canPurchase: boolean;
   readonly plans: readonly BillingPlanView[];
+  /** Present only when `catalog.contact` is configured. */
+  readonly contact?: BillingPlanContactCard;
   /** Present only when `consumerProtection` is configured. */
   readonly consumerProtection?: {
     readonly consentTexts: Readonly<

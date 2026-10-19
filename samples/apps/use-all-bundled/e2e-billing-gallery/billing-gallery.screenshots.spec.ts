@@ -16,6 +16,7 @@ import {
   captureScreenshot,
   expect,
   mailCapture,
+  pinEnglishLocale,
   syntheticClientIpFor,
   test,
 } from "@cosmicdrift/kumiko-testing/e2e";
@@ -149,6 +150,20 @@ async function fillDeclaration(page: Page, email: string): Promise<void> {
 
 test.describe.configure({ mode: "serial" });
 
+test("contact card de/en", async ({ page, seedTenant }) => {
+  await seedTenant({ admin: { email: "contact-{tenantId}@gallery.example" } });
+  const contactCard = page.getByTestId("billing-plan-card-contact");
+
+  await openPlans(page);
+  await expect(contactCard).toContainText("Kontakt aufnehmen");
+  await shot(page, "00-01-plans-contact-de");
+
+  await pinEnglishLocale(page);
+  await openPlans(page);
+  await expect(contactCard).toContainText("Contact us");
+  await shot(page, "00-02-plans-contact-en");
+});
+
 test("flows 1-3: checkout with consent, confirmation mail, account cancellation", async ({
   page,
   request,
@@ -157,6 +172,10 @@ test("flows 1-3: checkout with consent, confirmation mail, account cancellation"
   const tenant = await seedTenant({ admin: { email: "buyer-{tenantId}@gallery.example" } });
 
   await openPlans(page);
+  await expect(page.getByTestId("billing-plan-card-contact-cta")).toHaveAttribute(
+    "href",
+    "mailto:sales@gallery.example",
+  );
   await shot(page, "01-01-plans-panel");
 
   await startCheckout(page);

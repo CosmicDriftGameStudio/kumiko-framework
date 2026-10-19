@@ -6,8 +6,10 @@
 import * as z from "zod";
 import { isTerminationScope, TERMINATION_SCOPES } from "./constants.ts";
 import { CONSENT_LOCALES, type ConsentLocale } from "./consumer-protection/consent-locale.ts";
+import { isContactCardHref } from "./contact-card.ts";
 import {
   type BillingFoundationOptions,
+  type BillingPlanContactCard,
   type ConsumerProtectionOptions,
   isLegalLinkSet,
   type LegalLinkSet,
@@ -83,6 +85,19 @@ function validateLegalLinkSet(set: LegalLinkSet, path: string): void {
   }
 }
 
+function validateContactCard(contact: BillingPlanContactCard): void {
+  for (const key of ["labelKey", "actionLabelKey"] as const) {
+    if (contact[key].trim() === "") {
+      throw new Error(`createBillingFoundationFeature: catalog.contact.${key} must not be empty.`);
+    }
+  }
+  if (!isContactCardHref(contact.href)) {
+    throw new Error(
+      `createBillingFoundationFeature: catalog.contact.href "${contact.href}" must be an absolute https: or mailto: URL.`,
+    );
+  }
+}
+
 function validateBaseUrl(baseUrl: string): void {
   let parsed: URL;
   try {
@@ -147,4 +162,5 @@ export function validateOptions(options: BillingFoundationOptions): void {
   if (catalog.viewRoles.length === 0) {
     throw new Error("createBillingFoundationFeature: catalog.viewRoles must not be empty.");
   }
+  if (catalog.contact !== undefined) validateContactCard(catalog.contact);
 }

@@ -277,6 +277,7 @@ describe("billing-plans query — no subscription", () => {
     expect(result.currentTier.benefits).toEqual([{ labelKey: "plan.free.benefit.core" }]);
     expect(result.subscription).toBeNull();
     expect(result.canPurchase).toBe(true);
+    expect("contact" in result).toBe(false);
     expect(result.plans).toHaveLength(2);
     const starter = result.plans.find((p) => p.tier === "starter");
     const pro = result.plans.find((p) => p.tier === "pro");
@@ -769,6 +770,12 @@ describe("create-checkout-session — redirect + price hardening", () => {
 
 describe("roles — view-only access without purchase rights", () => {
   let roleStack: TestStack;
+  const contactCard = {
+    labelKey: "plan.enterprise.label",
+    benefits: [{ labelKey: "plan.enterprise.benefit", params: { seats: 50 } }],
+    actionLabelKey: "plan.enterprise.action",
+    href: "mailto:sales@example.com",
+  };
 
   beforeAll(async () => {
     roleStack = await setupTestStack({
@@ -779,7 +786,10 @@ describe("roles — view-only access without purchase rights", () => {
         createTenantLifecycleFeature(),
         createBillingFoundationFeature({
           baseUrl: "https://app.example.com",
-          catalog: catalog({ viewRoles: ["TenantAdmin", "SystemAdmin", "Member"] }),
+          catalog: catalog({
+            viewRoles: ["TenantAdmin", "SystemAdmin", "Member"],
+            contact: contactCard,
+          }),
         }),
         mockPlanProviderFeature,
       ],
@@ -801,6 +811,16 @@ describe("roles — view-only access without purchase rights", () => {
     )) as { canPurchase: boolean; plans: Array<{ action: string }> };
     expect(result.canPurchase).toBe(false);
     for (const plan of result.plans) expect(plan.action).toBe("unavailable");
+  });
+
+  test("a view-only Member still receives the configured contact card unchanged", async () => {
+    const member = createTestUser({ id: 7022, tenantId: testTenantId(7022), roles: ["Member"] });
+    const result = (await roleStack.http.queryOk(
+      "billing-foundation:query:billing-plans",
+      {},
+      member,
+    )) as { contact?: unknown };
+    expect(result.contact).toEqual(contactCard);
   });
 
   test("a Member is rejected with 403 on start-plan-checkout", async () => {

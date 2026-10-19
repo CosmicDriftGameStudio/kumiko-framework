@@ -85,6 +85,7 @@ export {
   type BillingFoundationOptions,
   type BillingPlanBenefit,
   type BillingPlanCatalog,
+  type BillingPlanContactCard,
   type BillingPlanPrice,
   type BillingPlansResult,
   type BillingPlanView,

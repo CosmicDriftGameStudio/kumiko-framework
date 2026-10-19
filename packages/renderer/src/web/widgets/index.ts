@@ -74,6 +74,7 @@ export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-sl
 export {
   PlanCard,
   type PlanCardActionSlot,
+  type PlanCardLinkSlot,
   type PlanCardPrice,
   type PlanCardProps,
   PlanGrid,

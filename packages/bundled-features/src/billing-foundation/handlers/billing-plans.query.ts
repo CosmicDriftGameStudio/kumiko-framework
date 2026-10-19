@@ -29,7 +29,7 @@ export function createBillingPlansQuery(
   return {
     name: "billing-plans",
     description:
-      "Lists the purchasable plans with live price, benefits, the caller's current tier and which action (checkout | switch | current | unavailable | paymentPending) each plan offers.",
+      "Lists the purchasable plans with live price, benefits, the caller's current tier and which action (checkout | switch | current | unavailable | paymentPending) each plan offers, plus the optional price-less contact card.",
     schema: billingPlansSchema,
     access: { roles: catalog.viewRoles },
     handler: async (_query, ctx): Promise<BillingPlansResult> => {

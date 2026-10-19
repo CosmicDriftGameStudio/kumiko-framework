@@ -75,6 +75,12 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
       successPath: GALLERY_PLAN_PATH,
       cancelPath: GALLERY_PLAN_PATH,
       providerName: GALLERY_PROVIDER,
+      contact: {
+        labelKey: "gallery-screens:plan.enterprise.label",
+        benefits: [{ labelKey: "gallery-screens:plan.enterprise.benefit" }],
+        actionLabelKey: "gallery-screens:plan.enterprise.action",
+        href: "mailto:sales@gallery.example",
+      },
     },
     consumerProtection: {
       termsTextBlock: GALLERY_TERMS_SLUG,
@@ -140,6 +146,12 @@ export const galleryScreensFeature: FeatureDefinition = defineFeature("gallery-s
       "gallery-screens:plan.free.label": { de: "Free", en: "Free" },
       "gallery-screens:plan.starter.label": { de: "Starter", en: "Starter" },
       "gallery-screens:plan.pro.label": { de: "Pro", en: "Pro" },
+      "gallery-screens:plan.enterprise.label": { de: "Enterprise", en: "Enterprise" },
+      "gallery-screens:plan.enterprise.benefit": {
+        de: "Individuelle Konditionen und persönlicher Ansprechpartner",
+        en: "Custom terms and a dedicated contact",
+      },
+      "gallery-screens:plan.enterprise.action": { de: "Kontakt aufnehmen", en: "Contact us" },
       "gallery-screens:plan.starter.benefit": { de: "Für kleine Teams", en: "For small teams" },
       "gallery-screens:plan.pro.benefit": { de: "Für wachsende Teams", en: "For growing teams" },
       "gallery-screens:plan.free.benefit": { de: "Zum Ausprobieren", en: "To try things out" },

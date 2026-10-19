@@ -231,5 +231,6 @@ export async function buildBillingPlans(
     subscription,
     canPurchase,
     plans,
+    ...(catalog.contact !== undefined && { contact: catalog.contact }),
   };
 }
