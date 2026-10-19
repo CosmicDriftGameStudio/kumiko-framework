@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 // Matches ui/use-mobile.ts's MOBILE_BREAKPOINT. Kept as a separate constant
 // because that file is vendored shadcn (regenerated via scripts/sync-shadcn.ts)
 // and cannot be imported from without risking a future overwrite.
-const MOBILE_BREAKPOINT = 768;
+export const NARROW_VIEWPORT_BREAKPOINT_PX = 768;
 const SM_BREAKPOINT = 640;
 
 type BelowBreakpointStore = {
@@ -25,8 +25,15 @@ function createBelowBreakpointStore(breakpoint: number): BelowBreakpointStore {
   };
 }
 
-const belowMobileStore = createBelowBreakpointStore(MOBILE_BREAKPOINT);
-const belowSmStore = createBelowBreakpointStore(SM_BREAKPOINT);
+const belowBreakpointStores = new Map<number, BelowBreakpointStore>();
+
+function belowBreakpointStore(breakpoint: number): BelowBreakpointStore {
+  const cached = belowBreakpointStores.get(breakpoint);
+  if (cached !== undefined) return cached;
+  const created = createBelowBreakpointStore(breakpoint);
+  belowBreakpointStores.set(breakpoint, created);
+  return created;
+}
 
 function getServerSnapshot(): boolean {
   return false;
@@ -36,15 +43,16 @@ function getServerSnapshot(): boolean {
 // result in a `useEffect` and therefore always reports `false` on the first
 // render regardless of actual viewport, this reads the real value up front
 // via `useSyncExternalStore` — no wrong-then-corrected first render.
+export function useIsViewportBelow(breakpointPx: number): boolean {
+  const store = belowBreakpointStore(breakpointPx);
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, getServerSnapshot);
+}
+
 export function useIsNarrowViewport(): boolean {
-  return useSyncExternalStore(
-    belowMobileStore.subscribe,
-    belowMobileStore.getSnapshot,
-    getServerSnapshot,
-  );
+  return useIsViewportBelow(NARROW_VIEWPORT_BREAKPOINT_PX);
 }
 
 // Tailwind's `sm` boundary: true below 640px.
 export function useIsBelowSmViewport(): boolean {
-  return useSyncExternalStore(belowSmStore.subscribe, belowSmStore.getSnapshot, getServerSnapshot);
+  return useIsViewportBelow(SM_BREAKPOINT);
 }

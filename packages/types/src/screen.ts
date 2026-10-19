@@ -1061,6 +1061,8 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     /** Formats values as currency (minor units): y ticks, legend totals and tooltips on
      *  stacked-bars/segment-bars/stacked-area, only the y ticks on timeseries. */
     readonly valueFormat?: DashboardValueFormat;
+    /** i18n key of a unit label. Only for chart "timeseries": shown once above the y ticks instead of on every tick. */
+    readonly unit?: string;
     /** Only for chart "stacked-area": fixed width per bucket, plot scrolls horizontally. */
     readonly scrollable?: boolean;
     /** Only for chart "stacked-area": marker `kind` -> look. Markers without a

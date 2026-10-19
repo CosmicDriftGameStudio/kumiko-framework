@@ -148,7 +148,10 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
   if (panel.kind === "custom") return;
   pushKey(out, panel.label);
   if (panel.kind === "chart" || panel.kind === "stat-group") pushKey(out, panel.subtitle);
-  if (panel.kind === "chart") pushDashboardChartRangeKeys(out, panel);
+  if (panel.kind === "chart") {
+    pushKey(out, panel.unit);
+    pushDashboardChartRangeKeys(out, panel);
+  }
   if (
     panel.kind === "chart" ||
     panel.kind === "list" ||

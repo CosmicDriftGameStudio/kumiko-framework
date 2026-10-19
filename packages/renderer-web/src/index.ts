@@ -189,7 +189,7 @@ export { PageSection, Stack } from "./primitives/layout.tsx";
 export { formatMoney } from "./primitives/money-input.tsx";
 export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast.tsx";
 export { ToastProvider, useToast } from "./primitives/toast.tsx";
-export { useIsNarrowViewport } from "./primitives/use-narrow-viewport.ts";
+export { useIsNarrowViewport, useIsViewportBelow } from "./primitives/use-narrow-viewport.ts";
 export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events.ts";
 export { createEventSourceLiveEvents } from "./sse/live-events.ts";
 export {
@@ -241,6 +241,7 @@ export type {
   StatusTone,
   TextareaFieldProps,
   TextFieldProps,
+  TimeseriesHeight,
   TimeseriesPoint,
   TimeseriesReferenceLine,
   TimeseriesXAxis,

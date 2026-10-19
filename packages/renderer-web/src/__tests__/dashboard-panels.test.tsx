@@ -1610,6 +1610,23 @@ describe("dashboard stacked-area panel header and axes", () => {
     expect(screen.getByTestId("dashboard-chart-main").textContent).not.toContain("1.500.000,00");
   });
 
+  test("timeseries unit is shown once on the y axis without a valueFormat", async () => {
+    renderDashboard(
+      chartScreen("timeseries", { unit: "demo:unit-ms" }),
+      {
+        "demo:query:metric:chart": () =>
+          ok({ windowStartMs: day1, windowEndMs: day3, points: dayPoints([120, 560, 300]) }),
+      },
+      { locale: "en", translations: { en: { "demo:unit-ms": "ms" } } },
+    );
+    const unit = await screen.findByTestId("dashboard-chart-main-y-unit");
+    expect(unit.textContent).toBe("ms");
+    expect(screen.getAllByTestId("dashboard-chart-main-y-unit")).toHaveLength(1);
+    const tickLabels = [...document.querySelectorAll("[data-y-label]")].map((n) => n.textContent);
+    expect(tickLabels.length).toBe(3);
+    for (const label of tickLabels) expect(label).not.toContain("ms");
+  });
+
   test("the subtitle sits in its own element right after the title inside the header", async () => {
     renderDashboard(chartScreen("stacked-area", { subtitle: "demo:chart-subtitle" }), handlers);
     const subtitle = await screen.findByText("demo:chart-subtitle");
