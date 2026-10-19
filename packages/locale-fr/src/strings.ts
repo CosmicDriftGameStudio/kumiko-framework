@@ -1155,6 +1155,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Supprimer le lien",
   "template-resolver.documentEditor.repeat": "Répéter",
   "template-resolver.documentEditor.repeatList": "Liste à répéter",
+  "template-resolver.documentEditor.images": "Photos",
+  "template-resolver.documentEditor.imagesVariable": "Photos issues de",
   "template-resolver.documentEditor.steps": "Étapes",
   "template-resolver.documentEditor.stepsVariable": "Étape actuelle issue de",
   "template-resolver.documentEditor.stepsList": "Étapes séparées par des virgules (valeur=libellé)",
@@ -1176,6 +1178,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Enregistré.",
   "template-resolver.editor.saving": "Enregistrement…",
   "template-resolver.editor.titleLabel": "Titre",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "Les blocs de photos ne sont autorisés que dans les documents PDF.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La cible du bouton « {detail} » doit être un espace réservé.",
   "templateResolver.errors.document.disallowedLinkHref":

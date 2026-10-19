@@ -5,6 +5,7 @@ import { Dropcursor, Gapcursor, Placeholder, UndoRedo } from "@tiptap/extensions
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import {
   DocumentButton,
+  DocumentImages,
   DocumentPageBreak,
   DocumentResource,
   DocumentSteps,
@@ -23,6 +24,7 @@ export type DocumentEditorLabels = {
   readonly pageBreak: string;
   readonly button?: string;
   readonly steps?: string;
+  readonly images?: string;
   /** Canvas block label of an image, e.g. "Image · inline". */
   readonly imageBlock?: string;
   readonly variableLabels?: Readonly<Record<string, string>>;
@@ -206,6 +208,31 @@ function createStepsView(labels: DocumentEditorLabels): NodeViewRenderer {
   };
 }
 
+// A sketch only: the photos are record data, known at render time.
+function createImagesView(labels: DocumentEditorLabels): NodeViewRenderer {
+  return ({ node }) => {
+    const dom = createElementWithClass(
+      "div",
+      "relative my-3 rounded border border-dashed border-input px-3 pb-3 pt-4",
+    );
+    dom.setAttribute(DOCUMENT_BLOCK_ATTRIBUTE, "");
+    dom.contentEditable = "false";
+    const variable = String(node.attrs["variable"]);
+    const variableLabels = labels.variableLabels ?? {};
+    const variableLabel = Object.hasOwn(variableLabels, variable)
+      ? variableLabels[variable]
+      : undefined;
+    dom.append(createBlockLabel(`${labels.images ?? "Photos"} · ${variableLabel ?? variable}`));
+    const grid = createElementWithClass("div", "grid grid-cols-2 gap-1.5");
+    grid.append(
+      createElementWithClass("div", "h-12 rounded bg-muted"),
+      createElementWithClass("div", "h-12 rounded bg-muted"),
+    );
+    dom.append(grid);
+    return { dom };
+  };
+}
+
 // Replaced by name, not appended: the schema must keep exactly one node per
 // name, and only the editor view differs from the shared document schema.
 export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Extensions {
@@ -224,6 +251,8 @@ export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Ex
           : extension;
       case DocumentSteps.name:
         return DocumentSteps.extend({ addNodeView: () => createStepsView(labels) });
+      case DocumentImages.name:
+        return DocumentImages.extend({ addNodeView: () => createImagesView(labels) });
       case DocumentPageBreak.name:
         return DocumentPageBreak.extend({
           addNodeView: () => createPageBreakView(labels.pageBreak),

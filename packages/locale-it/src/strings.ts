@@ -1143,6 +1143,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Rimuovi il link",
   "template-resolver.documentEditor.repeat": "Ripeti",
   "template-resolver.documentEditor.repeatList": "Elenco da ripetere",
+  "template-resolver.documentEditor.images": "Foto",
+  "template-resolver.documentEditor.imagesVariable": "Foto da",
   "template-resolver.documentEditor.steps": "Passaggi",
   "template-resolver.documentEditor.stepsVariable": "Passaggio attuale da",
   "template-resolver.documentEditor.stepsList": "Passaggi separati da virgole (valore=etichetta)",
@@ -1164,6 +1166,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Salvato.",
   "template-resolver.editor.saving": "Salvataggio…",
   "template-resolver.editor.titleLabel": "Titolo",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "I blocchi di foto sono consentiti solo nei documenti PDF.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La destinazione del pulsante «{detail}» deve essere un segnaposto.",
   "templateResolver.errors.document.disallowedLinkHref":

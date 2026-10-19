@@ -56,6 +56,7 @@ export type {
   RegistrarExtensionHooks,
   RegistrarExtensionRegistration,
   RunIn,
+  TemplateImagesVariableDef,
   TemplateListVariableDef,
   TemplateScalarVariableDef,
   TemplateVariableDef,

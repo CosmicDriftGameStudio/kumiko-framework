@@ -171,6 +171,20 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
   );
   r.writeHandler(
     defineWriteHandler({
+      name: "generate-photos",
+      schema: z.object({ photos: z.array(z.string()) }),
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: async (event, ctx) =>
+        renderPdfBeforeTransaction(ctx, {
+          slug: "photo-sheet",
+          locale: "de",
+          variables: { photos: event.payload.photos },
+        }),
+      handler: async (event, ctx) => storeRenderedPdf(ctx, event.prepared),
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
       name: "send-mail",
       schema: z.object({ number: z.string() }),
       access: { roles: ["TenantAdmin"] },
@@ -297,6 +311,20 @@ beforeAll(async () => {
     TestUsers.systemAdmin,
   );
   invoiceTemplateId = invoice.id;
+  await stack.http.writeOk(
+    TemplateResolverHandlers.upsertSystem,
+    {
+      slug: "photo-sheet",
+      kind: "document-pdf",
+      locale: "de",
+      content: '<p>Fotos</p><div data-images="photos"></div>',
+      contentFormat: "html",
+      meta: { layoutSlug: "letterhead", pageFormat: "A4" },
+      variableSchema: { photos: { type: "images" } },
+      linkedResources: {},
+    },
+    TestUsers.systemAdmin,
+  );
   await uploadImageFor(layoutTemplateId, "logo");
 });
 
@@ -346,6 +374,25 @@ async function uploadImageFor(
     },
     user,
   );
+}
+
+async function uploadFile(
+  user: typeof TestUsers.systemAdmin,
+  name: string,
+  mimeType: string,
+  bytes: Uint8Array,
+): Promise<string> {
+  const token = await stack.jwt.sign(user);
+  const fd = new FormData();
+  fd.append("file", new File([Buffer.from(bytes)], name, { type: mimeType }));
+  const { body, contentType } = await buildMultipartBody(fd);
+  const res = await stack.app.request("/api/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body,
+  });
+  expect(res.status).toBe(201);
+  return ((await res.json()) as { id: string }).id;
 }
 
 type Generated = {
@@ -833,5 +880,60 @@ describe("document-pdf preview", () => {
       adminTenantA,
     );
     expect(preview.html).toContain("Rechnung [number]");
+  });
+});
+
+describe("record images in document-pdf", () => {
+  const PHOTO_GENERATE = qn(FEATURE, QnTypes.write, "generate-photos");
+  const dataImages = (html: string) => html.match(/<img src="data:image\/png;base64,[^"]+"/g) ?? [];
+
+  async function photoIds(): Promise<string[]> {
+    const own = await uploadFile(adminTenantA, "own.png", "image/png", PNG_BYTES);
+    const foreign = await uploadFile(adminTenantB, "foreign.png", "image/png", PNG_BYTES);
+    const text = await uploadFile(
+      adminTenantA,
+      "note.txt",
+      "text/plain",
+      new TextEncoder().encode("not an image"),
+    );
+    return [own, foreign, text, "not-a-uuid"];
+  }
+
+  test("the real render embeds only the own-tenant image and drops foreign, non-image and invalid ids", async () => {
+    const photos = await photoIds();
+    await stack.http.writeOk<Generated>(PHOTO_GENERATE, { photos }, adminTenantA);
+
+    const { html } = onlyStubRequest();
+    expect(dataImages(html)).toHaveLength(1);
+    expect(html).toContain('class="kumiko-doc-images"');
+    for (const id of photos) expect(html).not.toContain(id);
+  });
+
+  test("the preview with the same client variables shows the placeholder and reads no file", async () => {
+    const photos = await photoIds();
+    const preview = await stack.http.queryOk<DocumentPreview>(
+      TemplateResolverQueries.preview,
+      { slug: "photo-sheet", kind: "document-pdf", locale: "de", variables: { photos } },
+      adminTenantA,
+    );
+
+    expect(preview.html).toContain("kumiko-doc-image-placeholder");
+    expect(preview.html).not.toContain("data:image");
+    for (const id of photos) expect(preview.html).not.toContain(id);
+  });
+
+  test("the draft PDF preview prints the placeholder, not the files", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        content: '<div data-images="photos"></div>',
+        variableSchema: { photos: { type: "images" } },
+      }),
+      adminTenantA,
+    );
+
+    const { html } = onlyStubRequest();
+    expect(html).toContain("kumiko-doc-image-placeholder");
+    expect(html).not.toContain("data:image");
   });
 });

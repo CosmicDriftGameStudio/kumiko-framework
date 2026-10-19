@@ -31,6 +31,7 @@ import {
   SYSTEM_INVOICE_DOCUMENTS,
   SYSTEM_INVOICE_ISSUED,
   SYSTEM_PDF_LAYOUT,
+  SYSTEM_PROPERTY_EXPOSE,
   SYSTEM_TENANCY_CERTIFICATE,
   SYSTEM_TERMS_CHANGED,
   TENANT_INVOICE_OVERRIDES,
@@ -168,6 +169,7 @@ export const seedTemplates: SeedFn = async (stack) => {
   await upsertSystem(SYSTEM_INVOICE_ISSUED);
   await upsertSystem(SYSTEM_TERMS_CHANGED);
   for (const document of SYSTEM_INVOICE_DOCUMENTS) await upsertSystem(document);
+  await upsertSystem(SYSTEM_PROPERTY_EXPOSE);
   const certificate = await upsertSystem(SYSTEM_TENANCY_CERTIFICATE);
   await stack.http.writeOk(
     TemplateResolverHandlers.archiveSystem,

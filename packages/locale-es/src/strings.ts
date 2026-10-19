@@ -1141,6 +1141,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Quitar enlace",
   "template-resolver.documentEditor.repeat": "Repetición",
   "template-resolver.documentEditor.repeatList": "Lista a repetir",
+  "template-resolver.documentEditor.images": "Fotos",
+  "template-resolver.documentEditor.imagesVariable": "Fotos de",
   "template-resolver.documentEditor.steps": "Pasos",
   "template-resolver.documentEditor.stepsVariable": "Paso actual de",
   "template-resolver.documentEditor.stepsList": "Pasos separados por comas (valor=etiqueta)",
@@ -1162,6 +1164,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Guardado.",
   "template-resolver.editor.saving": "Guardando…",
   "template-resolver.editor.titleLabel": "Título",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "Los bloques de fotos solo se permiten en documentos PDF.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "El destino del botón «{detail}» debe ser un marcador.",
   "templateResolver.errors.document.disallowedLinkHref":

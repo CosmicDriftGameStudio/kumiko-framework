@@ -4,6 +4,7 @@ import {
   type SessionUser,
   type TemplateListVariableDef,
   type TemplateScalarVariableDef,
+  type TemplateVariableDef,
   type TemplateVariables,
   templateVariablesToZod,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -120,6 +121,12 @@ function sampleList(def: TemplateListVariableDef, labelText: LabelText): Record<
   return rows;
 }
 
+function sampleValueFor(name: string, def: TemplateVariableDef, labelText: LabelText): unknown {
+  // An images variable has no sample: file ids are record data, never preview content.
+  if (def.type === "images") return [];
+  return def.type === "list" ? sampleList(def, labelText) : sampleScalar(name, def, labelText);
+}
+
 // Declared examples win; the fallbacks are deterministic so a preview never differs between calls.
 export function sampleValuesFor(
   variables: TemplateVariables,
@@ -127,8 +134,7 @@ export function sampleValuesFor(
 ): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const [name, def] of Object.entries(variables)) {
-    values[name] =
-      def.type === "list" ? sampleList(def, labelText) : sampleScalar(name, def, labelText);
+    values[name] = sampleValueFor(name, def, labelText);
   }
   return values;
 }
