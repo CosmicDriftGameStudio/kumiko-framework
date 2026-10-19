@@ -22,7 +22,6 @@
   "references": [
     { "path": "." },
     { "path": "../types" },
-    { "path": "../http" },
     { "path": "../testing" }
   ]
 }

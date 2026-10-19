@@ -21,6 +21,14 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./repo-manifest": {
+      "types": "./src/repo-manifest/index.ts",
+      "default": "./src/repo-manifest/index.ts"
+    },
+    "./repo-manifest/app-ports": {
+      "types": "./src/repo-manifest/app-ports/index.ts",
+      "default": "./src/repo-manifest/app-ports/index.ts"
     }
   },
   "bin": {
@@ -28,8 +36,8 @@
     "kumiko-pre-push": "./src/pre-push.sh"
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
-    "ts-morph": "^28.0.0"
+    "ts-morph": "^28.0.0",
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
@@ -41,5 +49,16 @@
     "hooks",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "peerDependencies": {
+    "@cosmicdrift/kumiko-framework": ">=0.366.0 <1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@cosmicdrift/kumiko-framework": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
 }

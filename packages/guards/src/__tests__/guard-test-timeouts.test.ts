@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { loadRepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
 import { Project, type SourceFile } from "ts-morph";
 import type { RepoRoot } from "../_lib/roots";
 import { scanFiles } from "../_lib/scan-scope";
 import { guard, scanTimeouts } from "../guard-test-timeouts";
+import { loadRepoManifest } from "../repo-manifest/index.ts";
 
 const DIR = `${process.cwd()}/packages/framework/src/x`;
 

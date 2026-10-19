@@ -140,3 +140,19 @@ bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/remove-engine
 
 Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the changed files
 with Biome. `--check` exits 1 while any rewritable or manual site is left.
+
+## package-merge.ts
+
+Packages folded into another package stay as re-export shims for one wave. The codemod rewrites
+imports, re-exports, `import("…")` and `mock.module` specifiers (including subpaths) of the old
+package to the new one, and in `package.json` replaces the old dependency with the target package
+(same version range, same block, skipped when the block already lists it). The moves are the rows
+of `PACKAGE_MERGE_MAPPINGS`: `@cosmicdrift/kumiko-http` to `@cosmicdrift/kumiko-framework/http`,
+`@cosmicdrift/kumiko-repo-manifest` to `@cosmicdrift/kumiko-guards/repo-manifest`.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/package-merge.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes. `--check` exits 1 while any
+site is left. Run your package manager's install afterwards to refresh the lockfile.

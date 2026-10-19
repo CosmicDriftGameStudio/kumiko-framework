@@ -35,15 +35,15 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 
 | Package | Purpose |
 | --- | --- |
-| `framework` | Engine, pipeline, API, DB, event store; ships the app-facing `AGENTS.md` |
+| `framework` | Engine, pipeline, API, DB, event store, SSRF-safe egress (`/http`); ships the app-facing `AGENTS.md` |
 | `types` | Engine and DB type contracts without the runtime |
-| `http` | SSRF-safe egress fetch |
+| `http` | Deprecated shim for `framework/http`, removed after wave 4 |
 | `bundled-features` | Ready-made features: tenant, user, auth, files, billing, jobs and more |
 | `cli`, `dev-server`, `create-kumiko-app` | `kumiko` CLI, dev server and scaffolding, `bun create kumiko-app` |
 | `server-runtime` | Production boot: connections, schema-drift gate, lifecycle |
 | `testing` | Test stack, seeding, preloads, integration runner |
-| `guards` | AST guards and repo checks (`kumiko-guards`) |
-| `repo-manifest` | `kumiko.json` schema and loader |
+| `guards` | AST guards and repo checks (`kumiko-guards`), `kumiko.json` schema and loader (`/repo-manifest`) |
+| `repo-manifest` | Deprecated shim for `guards/repo-manifest`, removed after wave 4 |
 | `headless`, `renderer`, `renderer-web`, `dispatcher-live` | UI logic, platform-agnostic renderer, web bindings, HTTP dispatcher |
 | `renderer-mail-html`, `renderer-puppeteer-client`, `document-designer` | Mail and PDF rendering, template editor |
 | `locale-de`, `locale-es`, `locale-fr`, `locale-it` | Opt-in UI and mail copy |

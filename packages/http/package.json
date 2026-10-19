@@ -1,7 +1,7 @@
 {
   "name": "@cosmicdrift/kumiko-http",
   "version": "0.376.0",
-  "description": "SSRF-safe egress fetch for Kumiko: a single egress(policy) entry point that enforces external/internal/tenant-supplied host policy, DNS-rebinding-safe resolve-then-pin, and no external runtime dependencies.",
+  "description": "Deprecated shim: re-exports @cosmicdrift/kumiko-framework/http. Removed after wave 4.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -38,5 +38,8 @@
     "src/changes.json",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
 }

@@ -1,9 +1,13 @@
-export { buildPinnedRequest, egress } from "./egress.ts";
-export type { EgressPolicy, ResolvedHost } from "./policy.ts";
+export type {
+  EgressPolicy,
+  ResolvedHost,
+} from "@cosmicdrift/kumiko-framework/http";
 export {
   BlockedHostError,
+  buildPinnedRequest,
+  egress,
   HostResolutionError,
   isPublicHost,
   resolvePublicHost,
   resolvePublicHostname,
-} from "./policy.ts";
+} from "@cosmicdrift/kumiko-framework/http";

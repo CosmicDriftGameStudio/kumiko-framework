@@ -8,7 +8,7 @@ import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import {
   readStaticAppConfig,
   type StaticAppConfig,
-} from "@cosmicdrift/kumiko-repo-manifest/app-ports";
+} from "@cosmicdrift/kumiko-guards/repo-manifest/app-ports";
 import { BUNFIG_FILES, type BunfigOptions, renderBunfig } from "@cosmicdrift/kumiko-testing/bunfig";
 import { isKebabSegment } from "../kebab.ts";
 import {

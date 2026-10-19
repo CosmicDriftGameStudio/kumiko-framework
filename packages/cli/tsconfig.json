@@ -9,7 +9,7 @@
   },
   "references": [
     { "path": "../dev-server" },
-    { "path": "../repo-manifest" },
+    { "path": "../guards" },
     { "path": "../testing" }
   ],
   "include": ["./src", "./bin"]

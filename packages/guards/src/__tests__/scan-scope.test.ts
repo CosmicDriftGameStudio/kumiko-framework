@@ -2,11 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  loadRepoManifest,
-  type RepoManifest,
-  RepoManifestError,
-} from "@cosmicdrift/kumiko-repo-manifest";
 import { Project } from "ts-morph";
 import { type AstGuard, checkRootFloor, runGuards } from "../_lib/guard-kit";
 import { findLocalRepo, type RepoRoot } from "../_lib/roots";
@@ -14,6 +9,7 @@ import { keepsRootKind, type ScanSpec, scanFiles, scanRoots } from "../_lib/scan
 import { guard as htmlEscape } from "../guard-html-escape";
 import { guard as restrictedSymbols } from "../guard-restricted-symbols";
 import { guard as unsafeJsonParse } from "../guard-unsafe-json-parse";
+import { loadRepoManifest, type RepoManifest, RepoManifestError } from "../repo-manifest/index.ts";
 import { GUARDS } from "../run-guards";
 
 const cleanups: Array<() => void> = [];

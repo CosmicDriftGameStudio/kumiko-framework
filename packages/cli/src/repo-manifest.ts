@@ -9,4 +9,4 @@ export {
   type RepoManifestSource,
   repoKindSchema,
   repoManifestSchema,
-} from "@cosmicdrift/kumiko-repo-manifest";
+} from "@cosmicdrift/kumiko-guards/repo-manifest";

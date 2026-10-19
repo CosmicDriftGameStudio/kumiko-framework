@@ -22,7 +22,7 @@
   "exclude": ["./src/**/__tests__/**", "./bin/__tests__/**"],
   "references": [
     { "path": "../framework" },
-    { "path": "../repo-manifest" },
+    { "path": "../guards" },
     { "path": "../types" }
   ]
 }

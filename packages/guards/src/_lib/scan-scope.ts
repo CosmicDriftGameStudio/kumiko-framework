@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import { join, sep } from "node:path";
-import { type RepoKind, repoKindSchema } from "@cosmicdrift/kumiko-repo-manifest";
 import { Glob } from "bun";
+import { type RepoKind, repoKindSchema } from "../repo-manifest/index.ts";
 import type { RepoRoot } from "./roots";
 
 // Security-shaped guards name this explicitly: the default skips "tooling" roots, and a one-word manifest kind must not switch them off.

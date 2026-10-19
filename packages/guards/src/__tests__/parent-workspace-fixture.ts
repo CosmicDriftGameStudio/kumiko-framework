@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
 import type { RepoRoot } from "../_lib/roots";
+import type { RepoManifest } from "../repo-manifest/index.ts";
 
 export type RepoLayout = "flat" | "packages" | { readonly manifest: RepoManifest };
 

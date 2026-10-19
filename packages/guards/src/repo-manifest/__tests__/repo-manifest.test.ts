@@ -288,7 +288,7 @@ describe("loadRepoManifest", () => {
   });
 
   test("loads this repo's own kumiko.json", () => {
-    const repoRoot = resolve(import.meta.dir, "../../../..");
+    const repoRoot = resolve(import.meta.dir, "../../../../..");
     let warned = false;
     const result = loadRepoManifest(repoRoot, { warn: () => (warned = true) });
     expect(result.source).toBe("file");

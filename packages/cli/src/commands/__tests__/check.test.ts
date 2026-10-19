@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
+import type { RepoManifest } from "@cosmicdrift/kumiko-guards/repo-manifest";
 import type { Output } from "../../output";
 import {
   type CheckDeps,

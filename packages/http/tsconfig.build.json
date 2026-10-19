@@ -5,7 +5,9 @@
     "incremental": false,
     "declaration": true,
     "declarationMap": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "preserveSymlinks": true,
+    "paths": {}
   },
   "exclude": ["**/__tests__/**"]
 }

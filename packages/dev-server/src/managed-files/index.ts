@@ -8,7 +8,7 @@ export {
   type ScannedApp,
   type StaticAppConfig,
   scanWorkspaceApps,
-} from "@cosmicdrift/kumiko-repo-manifest/app-ports";
+} from "@cosmicdrift/kumiko-guards/repo-manifest/app-ports";
 export {
   type AppScriptsReport,
   checkAppScripts,

@@ -17,12 +17,12 @@ import {
   type RepoManifest,
   RepoManifestError,
   type RepoManifestSource,
-} from "@cosmicdrift/kumiko-repo-manifest";
+} from "../repo-manifest/index.ts";
 import { gitEnv } from "./git-env";
 
-export type { RepoKind } from "@cosmicdrift/kumiko-repo-manifest";
+export type { RepoKind } from "../repo-manifest/index.ts";
 
-import type { RepoKind } from "@cosmicdrift/kumiko-repo-manifest";
+import type { RepoKind } from "../repo-manifest/index.ts";
 
 // Worktrees (`.wt/kumiko-framework-*`) keep this package name, so it is stable across checkouts.
 const FRAMEWORK_PACKAGE_NAME = "kumiko-framework";
