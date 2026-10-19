@@ -2719,6 +2719,11 @@ describe("boot-validator", () => {
         }>;
       }>;
       readonly redirect?: string | { readonly screen: string; readonly idFrom: string };
+      readonly successLinks?: ReadonlyArray<{
+        readonly screen: string;
+        readonly idFrom: string;
+        readonly label: string;
+      }>;
       readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
       readonly extraDetailScreens?: readonly string[];
@@ -2758,6 +2763,7 @@ describe("boot-validator", () => {
             ...(override.draft !== undefined && { draft: override.draft }),
           },
           ...(override.redirect !== undefined && { redirect: override.redirect }),
+          ...(override.successLinks !== undefined && { successLinks: override.successLinks }),
           ...(override.cancelTarget !== undefined && { cancelTarget: override.cancelTarget }),
         });
         for (const extra of override.extraScreens ?? []) {
@@ -3056,6 +3062,54 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/redirect\.idFrom " leaseId" has leading\/trailing whitespace/);
+    });
+
+    // --- successLinks ---
+    test("successLinks → existing screens → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successLinks: [
+              { screen: "after-form", idFrom: "leaseId", label: "shop.link.lease" },
+              { screen: "other-form", idFrom: "id", label: "shop.link.other" },
+            ],
+            extraDetailScreens: ["after-form", "other-form"],
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("successLinks together with redirect → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: "overview",
+            successLinks: [{ screen: "overview", idFrom: "id", label: "shop.link.overview" }],
+            extraScreens: ["overview"],
+          }),
+        ]),
+      ).toThrow(/sets both redirect and successLinks/);
+    });
+
+    test("successLinks → unknown screen → Throw naming the link", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successLinks: [{ screen: "ghost-screen", idFrom: "id", label: "shop.link.ghost" }],
+          }),
+        ]),
+      ).toThrow(/successLinks\[0\] "ghost-screen" does not resolve to a registered screen/);
+    });
+
+    test("successLinks idFrom on a screen without id → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successLinks: [{ screen: "overview", idFrom: "leaseId", label: "shop.link.overview" }],
+            extraScreens: ["overview"],
+          }),
+        ]),
+      ).toThrow(/successLinks\[0\]\.idFrom is set but target screen "overview" \(custom\)/);
     });
 
     test("cancelTarget → existing screen-id → kein Throw", () => {

@@ -608,6 +608,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "jobs:entity:__action-form__:field:jobName": "Job name",
   "jobs:entity:__action-form__:field:payload": "JSON payload",
   "jobs:nav.jobRuns": "Jobs",
+  "kumiko.actionForm.success": "Done.",
   "kumiko.actions.back": "Back",
   "kumiko.actions.cancel": "Cancel",
   "kumiko.actions.copyLink": "Copy link",

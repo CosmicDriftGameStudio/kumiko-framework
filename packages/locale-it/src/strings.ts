@@ -627,6 +627,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "jobs:entity:__action-form__:field:jobName": "Nome del job",
   "jobs:entity:__action-form__:field:payload": "Payload JSON",
   "jobs:nav.jobRuns": "Job",
+  "kumiko.actionForm.success": "Fatto.",
   "kumiko.actions.back": "Indietro",
   "kumiko.actions.cancel": "Annulla",
   "kumiko.actions.copyLink": "Copia il link",

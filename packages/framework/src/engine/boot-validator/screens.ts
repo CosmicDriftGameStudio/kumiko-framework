@@ -1117,6 +1117,8 @@ function validateRedirectTarget(
   screenKind: "actionForm" | "secretMint" | "entityEdit" | "projectionDetail",
   redirect: string | ActionFormRedirect,
   lookups: NavigateTargetLookups,
+  // Property name used in error messages (`successLinks[0]` for a success link).
+  propertyPath = "redirect",
 ): void {
   const { allScreenQns } = lookups;
   const redirectTarget = typeof redirect === "string" ? redirect : redirect.screen;
@@ -1125,7 +1127,7 @@ function validateRedirectTarget(
     (typeof redirect.idFrom !== "string" || redirect.idFrom.trim() === "")
   ) {
     throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) redirect.idFrom is empty or not a string — ` +
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is empty or not a string — ` +
         `name the success-payload field carrying the navigation id, or use the plain string ` +
         `redirect form to navigate with the handler's own "id".`,
     );
@@ -1134,7 +1136,7 @@ function validateRedirectTarget(
   // never matches and the navigation silently lands without an entityId.
   if (typeof redirect !== "string" && redirect.idFrom !== redirect.idFrom.trim()) {
     throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) redirect.idFrom "${redirect.idFrom}" ` +
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom "${redirect.idFrom}" ` +
         `has leading/trailing whitespace — it would never match a payload field. Remove the whitespace from idFrom.`,
     );
   }
@@ -1142,7 +1144,7 @@ function validateRedirectTarget(
     feature.name,
     screenId,
     screenKind,
-    "redirect",
+    propertyPath,
     redirectTarget,
     allScreenQns,
     feature.screens,
@@ -1158,7 +1160,7 @@ function validateRedirectTarget(
     sameFeatureTarget.type !== "projectionDetail"
   ) {
     throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) redirect.idFrom is set but target screen ` +
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is set but target screen ` +
         `"${redirectTarget}" (${sameFeatureTarget.type}) carries no id — use the plain string form.`,
     );
   }
@@ -1173,7 +1175,7 @@ function validateRedirectTarget(
       feature.name,
       screenId,
       screenKind,
-      "redirect",
+      propertyPath,
       { kind: "navigate", id: redirectTarget, label: redirectTarget, tab: redirect.tab },
       target,
     );
@@ -1302,6 +1304,17 @@ function validateInlineFormNavTargets(
   const { allScreenQns } = lookups;
   if (screen.redirect !== undefined) {
     validateRedirectTarget(feature, screenId, kind, screen.redirect, lookups);
+  }
+  if (screen.type === "actionForm" && screen.successLinks !== undefined) {
+    if (screen.redirect !== undefined) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successLinks — ` +
+          `redirect leaves the screen, successLinks keep it open. Use one of them.`,
+      );
+    }
+    screen.successLinks.forEach((link, index) => {
+      validateRedirectTarget(feature, screenId, kind, link, lookups, `successLinks[${index}]`);
+    });
   }
   if (typeof screen.cancelTarget === "string") {
     // Same rule as redirect — `false` (no Cancel button) needs no validation.

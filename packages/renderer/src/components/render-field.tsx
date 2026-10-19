@@ -712,6 +712,8 @@ function renderInput({
     hasError,
   } as const;
 
+  const placeholderProp = field.placeholder !== undefined ? { placeholder: field.placeholder } : {};
+
   switch (field.type) {
     // decimal/bigInt are both plain numbers on the wire (fieldToZod:
     // z.number() / z.number().int().safe()) — the number input's onChange
@@ -730,6 +732,7 @@ function renderInput({
           locale={appLocale}
           {...(field.grouping !== undefined && { grouping: field.grouping })}
           {...(field.type === "bigInt" && { integer: true })}
+          {...placeholderProp}
           {...(icon !== undefined && { icon })}
           {...(unit !== undefined && { unit })}
         />
@@ -745,6 +748,7 @@ function renderInput({
           onChange={(v) => onChange(v)}
           locale={appLocale}
           {...(field.grouping !== undefined && { grouping: field.grouping })}
+          {...placeholderProp}
           {...(icon !== undefined && { icon })}
         />
       );
@@ -953,6 +957,7 @@ function renderInput({
             value={stringValue(field.value)}
             onChange={(v) => onChange(v)}
             {...(rows !== undefined && { rows })}
+            {...placeholderProp}
           />
         );
       }
@@ -963,6 +968,7 @@ function renderInput({
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
+          {...placeholderProp}
           {...(icon !== undefined && { icon })}
           {...(field.autoComplete !== undefined && { autoComplete: field.autoComplete })}
         />

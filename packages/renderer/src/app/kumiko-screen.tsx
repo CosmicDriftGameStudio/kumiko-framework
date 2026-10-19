@@ -6,6 +6,7 @@ import type {
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
+  ActionFormSuccessLink,
   ConfigEditScreenDefinition,
   DashboardPanelVisibility,
   DashboardScreenDefinition,
@@ -98,6 +99,11 @@ import {
   synthesizeActionFormEntity,
   synthesizeActionFormScreen,
 } from "./action-form-shim.ts";
+import {
+  ActionFormSuccessBanner,
+  type ActionFormSuccessState,
+  type ResolvedSuccessLink,
+} from "./action-form-support.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import {
   buildConfigEditSchema,
@@ -4274,6 +4280,36 @@ function navigateToRedirectTarget(nav: NavApi, target: ResolvedRedirectTarget): 
   else nav.navigate(navTarget, { searchParams: { tab: target.tab } });
 }
 
+// Links of the success box. Targets resolve like `redirect`; a link whose target
+// needs a record id (entityEdit, projectionDetail) but whose payload field holds
+// no string id is dropped instead of navigating to an id-less record screen.
+function resolveSuccessLinks(
+  links: readonly ActionFormSuccessLink[] | undefined,
+  data: unknown,
+  schema: FeatureSchema,
+  appFeatures: readonly FeatureSchema[],
+  nav: NavApi,
+  translate: Translate,
+): readonly ResolvedSuccessLink[] {
+  const resolved: ResolvedSuccessLink[] = [];
+  (links ?? []).forEach((link, index) => {
+    const target = resolveRedirectTarget(link, data, schema, appFeatures);
+    if (target.entityId === undefined && redirectTargetsRecord(link, schema, appFeatures)) return;
+    const navTarget = {
+      screenId: target.screenId,
+      ...(target.entityId !== undefined && { entityId: target.entityId }),
+    };
+    const options = target.tab === undefined ? undefined : { searchParams: { tab: target.tab } };
+    resolved.push({
+      key: String(index),
+      label: translate(link.label),
+      href: nav.hrefFor(navTarget, options),
+      onPress: () => nav.navigate(navTarget, options),
+    });
+  });
+  return resolved;
+}
+
 // Success navigation for a configured redirect — shared by entityEdit's
 // save and writeHandler record actions. The string form navigates without an
 // entityId; the object form resolves like actionForm's, with `record` as the
@@ -4410,7 +4446,10 @@ function ActionFormBody({
     [screen.summary, initialOverrides, effectiveTranslate, locale],
   );
   const dispatcher = useDispatcher();
-  const [successText, setSuccessText] = useState<string | undefined>(undefined);
+  const [success, setSuccess] = useState<ActionFormSuccessState | undefined>(undefined);
+  // Bumped after a successful submit with resetOnSuccess: remounts RenderEdit, which
+  // re-seeds the form from `initial` (prefill kept, typed values cleared).
+  const [formEpoch, setFormEpoch] = useState(0);
   // A slow label lookup of an earlier submit must not overwrite the banner of a later one.
   const successSequence = useRef(0);
   useEffect(
@@ -4423,22 +4462,39 @@ function ActionFormBody({
     (result: SubmitResult<unknown>, values: FormValues) => {
       successSequence.current += 1;
       const sequence = successSequence.current;
-      setSuccessText(undefined);
+      setSuccess(undefined);
       if (!result.isSuccess) return;
       if (onSuccess !== undefined) {
         onSuccess();
         return;
       }
-      if (screen.successMessage !== undefined && screen.redirect === undefined) {
-        const messageKey = screen.successMessage;
-        const show = (params: Record<string, string>): void => {
-          if (successSequence.current === sequence) {
-            setSuccessText(effectiveTranslate(messageKey, params));
-          }
+      if (screen.redirect === undefined) {
+        const hasSuccessLinks = (screen.successLinks?.length ?? 0) > 0;
+        const publish = (text: string): void => {
+          if (successSequence.current !== sequence) return;
+          setSuccess({
+            text,
+            links: resolveSuccessLinks(
+              screen.successLinks,
+              result.data,
+              schema,
+              appFeatures,
+              nav,
+              effectiveTranslate,
+            ),
+          });
         };
-        void resolveSuccessMessageParams(screen, schema.featureName, values, dispatcher, locale)
-          .then(show)
-          .catch(() => show(formatSummaryParams(values, locale)));
+        const messageKey = screen.successMessage;
+        if (messageKey !== undefined) {
+          const show = (params: Record<string, string>): void =>
+            publish(effectiveTranslate(messageKey, params));
+          void resolveSuccessMessageParams(screen, schema.featureName, values, dispatcher, locale)
+            .then(show)
+            .catch(() => show(formatSummaryParams(values, locale)));
+        } else if (hasSuccessLinks || screen.resetOnSuccess === true) {
+          publish(effectiveTranslate("kumiko.actionForm.success"));
+        }
+        if (screen.resetOnSuccess === true) setFormEpoch((epoch) => epoch + 1);
       }
       // Without a redirect the form stays put; returnTo only replaces an existing
       // navigation, and never one to a record screen (see redirectTargetsRecord).
@@ -4464,6 +4520,17 @@ function ActionFormBody({
       locale,
       effectiveTranslate,
     ],
+  );
+  // The success box disappears with the next edit; a submit clears it itself.
+  const handleDirtyChange = useCallback(
+    (dirty: boolean) => {
+      if (dirty) {
+        successSequence.current += 1;
+        setSuccess(undefined);
+      }
+      onDirtyChange?.(dirty);
+    },
+    [onDirtyChange],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget
@@ -4497,6 +4564,7 @@ function ActionFormBody({
   }
   return (
     <RenderEdit
+      key={formEpoch}
       screen={synthScreen}
       entity={synthEntity}
       featureName={schema.featureName}
@@ -4509,18 +4577,14 @@ function ActionFormBody({
       {...(screen.submitPrefilled === true && {
         submitWithoutChanges: hiddenRequiredFieldsFilled(synthScreen, screen.fields, initial),
       })}
-      {...(successText !== undefined && {
-        leadContent: (
-          <Banner variant="info" testId="action-form-success">
-            {successText}
-          </Banner>
-        ),
+      {...(success !== undefined && {
+        leadContent: <ActionFormSuccessBanner success={success} />,
       })}
       writeCommand={screen.handler}
       payloadMode="values"
       onSubmit={handleSubmitted}
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
-      {...(onDirtyChange !== undefined && { onDirtyChange })}
+      onDirtyChange={handleDirtyChange}
       {...((insideDrawer || screenFillsHeight(screen)) && { fillScreenHeight: true })}
       {...((screen.submitLabel ?? submitLabelFallback) !== undefined && {
         submitLabel: screen.submitLabel ?? submitLabelFallback,

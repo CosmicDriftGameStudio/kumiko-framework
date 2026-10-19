@@ -291,6 +291,8 @@ export type EditFieldViewModel = {
   readonly capture?: "environment" | "user";
   /** Closed FieldIconKey from EditFieldSpec.icon (FIELD_ICONS registry). */
   readonly icon?: FieldIconKey;
+  /** From EditFieldSpec.placeholder, already translated — hint shown while the input is empty. */
+  readonly placeholder?: string;
   /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
    *  metadata the renderer needs to draw each column/cell. Absent for a
    *  plain (non-list) embedded field. */

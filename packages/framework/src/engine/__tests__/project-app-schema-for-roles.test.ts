@@ -165,6 +165,17 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
       listScreenId: SECRET_SCREEN_ID,
     });
     r.screen({
+      id: "host-links",
+      type: "actionForm",
+      handler: "host:write:noop",
+      fields: { note: { type: "text" } },
+      layout: { sections: [{ fields: ["note"] }] },
+      successLinks: [
+        { screen: SECRET_QN, idFrom: "id", label: "host.link.secret" },
+        { screen: "list", idFrom: "id", label: "host.link.list" },
+      ],
+    });
+    r.screen({
       id: "host-mint",
       type: "secretMint",
       handler: "host:write:noop",
@@ -301,6 +312,13 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     expect(hostAction.cancelTarget).toBe(SECRET_QN);
     expect(hostAction.listScreenId).toBe(SECRET_SCREEN_ID);
 
+    const hostLinks = host.screens.find((s) => s.id === "host-links");
+    if (hostLinks?.type !== "actionForm") throw new Error("unreachable");
+    expect(hostLinks.successLinks?.map((link) => link.label)).toEqual([
+      "host.link.secret",
+      "host.link.list",
+    ]);
+
     const detail = host.screens.find((s) => s.id === "detail");
     expect(detail?.type).toBe("projectionDetail");
     if (detail?.type !== "projectionDetail") throw new Error("unreachable");
@@ -393,6 +411,11 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     expect(hostAction.redirect).toBeUndefined();
     expect(hostAction.cancelTarget).toBeUndefined();
     expect(hostAction.listScreenId).toBeUndefined();
+
+    // the link into the denied screen is stripped, the reachable one stays
+    const hostLinks = host.screens.find((s) => s.id === "host-links");
+    if (hostLinks?.type !== "actionForm") throw new Error("unreachable");
+    expect(hostLinks.successLinks?.map((link) => link.label)).toEqual(["host.link.list"]);
 
     const detail = host.screens.find((s) => s.id === "detail");
     expect(detail?.type).toBe("projectionDetail");
