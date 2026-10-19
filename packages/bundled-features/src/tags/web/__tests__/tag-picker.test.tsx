@@ -55,7 +55,7 @@ const useQuerySpy = mock((type: string) => {
   };
 });
 
-const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
+const actual_renderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actual_renderer,
   useDispatcher: mock(() => ({ write: dispatchSpy, query: mock(), batch: mock() })),
@@ -153,6 +153,7 @@ describe("TagPicker — open/confirm/cancel sync", () => {
 });
 
 // mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+// The restore source is a spread copy: mock.module patches an already imported namespace in place.
 afterAll(() => {
   mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
 });

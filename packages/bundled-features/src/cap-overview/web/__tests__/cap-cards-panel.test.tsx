@@ -29,7 +29,7 @@ const useQuerySpy = mock((_type: string, _params: unknown) => ({
   refetch: mock(async () => {}),
 }));
 
-const actualRenderer = await import("@cosmicdrift/kumiko-renderer");
+const actualRenderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actualRenderer,
   useQuery: useQuerySpy,
@@ -38,7 +38,7 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
 // The real StatusBadge bakes `tone` into a computed Tailwind class string and
 // exposes it nowhere in the DOM — asserting TONE_TO_STATUS through it would
 // mean matching class substrings. Surface the prop as data-tone instead.
-const actualRendererWeb = await import("@cosmicdrift/kumiko-renderer/web");
+const actualRendererWeb = { ...(await import("@cosmicdrift/kumiko-renderer/web")) };
 mock.module("@cosmicdrift/kumiko-renderer/web", () => ({
   ...actualRendererWeb,
   StatusBadge: ({
@@ -298,6 +298,7 @@ describe("CapCardsPanel", () => {
 });
 
 // mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+// The restore source is a spread copy: mock.module patches an already imported namespace in place.
 afterAll(() => {
   mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
   mock.module("@cosmicdrift/kumiko-renderer/web", () => actualRendererWeb);

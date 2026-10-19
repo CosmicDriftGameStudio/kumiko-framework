@@ -19,12 +19,14 @@ import type { ReactNode } from "react";
 import { textBlocksClient } from "../client-plugin.tsx";
 import { defaultTranslations } from "../i18n.ts";
 
-const realModule0 = await import("@cosmicdrift/kumiko-bundled-features/auth-email-password/web");
+const realModule0 = {
+  ...(await import("@cosmicdrift/kumiko-bundled-features/auth-email-password/web")),
+};
 mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
   useShellUser: mock(),
 }));
 
-const actualRenderer = await import("@cosmicdrift/kumiko-renderer");
+const actualRenderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actualRenderer,
   useDispatcher: mock(() => ({ write: mock(), query: mock() })),
@@ -401,6 +403,7 @@ describe("textBlocksClient — document editor block set follows the collection 
 });
 
 // mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+// The restore source is a spread copy: mock.module patches an already imported namespace in place.
 afterAll(() => {
   mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => realModule0);
   mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);

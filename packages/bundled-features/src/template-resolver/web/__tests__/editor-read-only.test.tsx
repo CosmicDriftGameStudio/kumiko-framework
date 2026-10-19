@@ -14,12 +14,14 @@ import type { ReactNode } from "react";
 import { textBlocksClient } from "../client-plugin.tsx";
 import { defaultTranslations } from "../i18n.ts";
 
-const realModule0 = await import("@cosmicdrift/kumiko-bundled-features/auth-email-password/web");
+const realModule0 = {
+  ...(await import("@cosmicdrift/kumiko-bundled-features/auth-email-password/web")),
+};
 mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
   useShellUser: mock(),
 }));
 
-const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
+const actual_renderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actual_renderer,
   useDispatcher: mock(),
@@ -189,6 +191,7 @@ describe("TextContentEditor — handleSave", () => {
 });
 
 // mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+// The restore source is a spread copy: mock.module patches an already imported namespace in place.
 afterAll(() => {
   mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => realModule0);
   mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
