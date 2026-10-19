@@ -79,6 +79,14 @@ describe("findPositionalRegistrarCalls", () => {
     expect(findPositionalRegistrarCalls(sfs)).toHaveLength(1);
   });
 
+  test("flags a positional call whose member access is broken across lines", () => {
+    const sfs = files({
+      [FEATURE_PATH]: 'export const setup = (r: FeatureRegistrar) => r\n  .\n  entity("a", def);',
+    });
+
+    expect(findPositionalRegistrarCalls(sfs)).toHaveLength(1);
+  });
+
   test("flags an unresolvable receiver named r", () => {
     const sfs = files({ [FEATURE_PATH]: 'const r = createRegistrar();\nr.requires("users");' });
 

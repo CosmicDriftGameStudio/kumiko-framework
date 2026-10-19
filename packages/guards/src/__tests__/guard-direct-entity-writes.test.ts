@@ -189,6 +189,51 @@ describe("scanDirectWrites :: non-tx-receiver", () => {
   });
 });
 
+describe("scanDirectWrites :: files and arguments that name no ES table", () => {
+  test("ALLOW: a file that never mentions an ES table name has no hits", () => {
+    const project = makeProject({
+      "/repo/foo.ts": SINGLE_FILE_PRELUDE,
+      "/repo/other.ts": `
+        declare const barTable: unknown;
+        declare const db: { delete: (t: unknown) => Promise<void> };
+        export const run = () => db.delete(barTable);
+      `,
+    });
+    const esTables = collectEsTables(project.getSourceFiles());
+    expect(scanDirectWrites(project.getSourceFileOrThrow("/repo/other.ts"), esTables)).toEqual([]);
+  });
+
+  test("BLOCK: only the ES-table write is reported next to map.delete and a non-ES table write", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
+        declare const barTable: unknown;
+        declare const db: { delete: (t: unknown) => Promise<void> };
+        const seen = new Map<string, number>();
+        export async function mixed(key: string) {
+          seen.delete(key);
+          await db.delete(barTable);
+          await db.delete(fooTable);
+        }
+      `,
+    });
+    const esTables = collectEsTables(project.getSourceFiles());
+    const hits = scanDirectWrites(project.getSourceFileOrThrow("/repo/foo.ts"), esTables);
+    expect(hits.map((h) => h.table)).toEqual(["fooTable"]);
+  });
+
+  test("BLOCK: a cast-wrapped ES table argument is still resolved", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
+        declare const db: { delete: (t: unknown) => Promise<void> };
+        export const run = () => db.delete(fooTable as unknown);
+      `,
+    });
+    const esTables = collectEsTables(project.getSourceFiles());
+    const hits = scanDirectWrites(project.getSourceFileOrThrow("/repo/foo.ts"), esTables);
+    expect(hits).toHaveLength(1);
+  });
+});
+
 describe("scanDirectWrites :: tx-Receiver context-aware", () => {
   test("ALLOW: tx.insert(fooTable) innerhalb r.projection({apply: ...}) als direct value", () => {
     const project = makeProject({

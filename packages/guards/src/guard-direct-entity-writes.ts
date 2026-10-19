@@ -171,6 +171,7 @@ function declIdOf(id: import("ts-morph").Identifier): TableId | undefined {
 export function collectEsTables(files: readonly SourceFile[]): Set<TableId> {
   const tables = new Set<TableId>();
   for (const sf of files) {
+    if (!sf.getFullText().includes("createEventStoreExecutor")) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const expr = call.getExpression();
       if (expr.getText() !== "createEventStoreExecutor") continue;
@@ -253,12 +254,15 @@ function rebuildableEntityTableDeclId(
 
 // Tables registered via `r.entity({ name, ...entityDef })` as a rebuildable implicit
 // projection, linked entity→table via the shared entity-def symbol (see header), not by name string.
+const ENTITY_METHOD_ACCESS = /\.\s*entity\b/;
+
 export function collectEntityProjectionTables(files: readonly SourceFile[]): Set<TableId> {
   const rebuildableEntities = new Set<TableId>();
   const tables = new Set<TableId>();
 
   // Pass 1: entity-def decls that r.entity makes rebuildable (+ {table} override).
   for (const sf of files) {
+    if (!ENTITY_METHOD_ACCESS.test(sf.getFullText())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const registration = entityRegistrationOf(call);
       if (!registration) continue;
@@ -270,6 +274,7 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
   // Pass 2: `const xTable = buildEntityTable(<name>, <entityDef>)` where entityDef
   // is in the rebuildable set → xTable is a rebuildable entity table.
   for (const sf of files) {
+    if (!sf.getFullText().includes("buildEntityTable")) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const did = rebuildableEntityTableDeclId(call, rebuildableEntities);
       if (did) tables.add(did);
@@ -427,14 +432,27 @@ function hasAnyTableWriteOrDeclaration(files: readonly SourceFile[]): boolean {
   return false;
 }
 
+// A TableId ends in `::<identifier text>`, so a table argument whose text is no ES table name
+// can never match; filtering on the name avoids a symbol lookup (TS program build) per call.
+function tableNamesOf(tableIds: ReadonlySet<TableId>): Set<string> {
+  return new Set([...tableIds].map((tableId) => tableId.slice(tableId.lastIndexOf("::") + 2)));
+}
+
+function mentionsAny(text: string, names: ReadonlySet<string>): boolean {
+  return [...names].some((name) => text.includes(name));
+}
+
 export function scanDirectWrites(
   sf: SourceFile,
   esTables: ReadonlySet<TableId>,
 ): Omit<Violation, "file">[] {
   const out: Omit<Violation, "file">[] = [];
+  const esTableNames = tableNamesOf(esTables);
+  if (!mentionsAny(sf.getFullText(), esTableNames)) return out;
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const w = resolveWrite(call);
     if (!w) continue;
+    if (!esTableNames.has(w.tableArg.getText())) continue;
 
     // Walk the receiver chain down to its leftmost identifier. For `db.insert`
     // that's `db`; for `ctx.db.raw` (function-form arg0) that's `ctx`; for

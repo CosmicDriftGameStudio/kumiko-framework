@@ -41,6 +41,8 @@ const REGISTRAR_TYPE_MARKER = "FeatureRegistrar";
 const FEATURE_FACTORY_NAME = "defineFeature";
 const REGISTRAR_RECEIVER_NAMES: ReadonlySet<string> = new Set(["r", "registrar"]);
 const EXCLUDED_PATH = /(\/__tests__\/fixtures\/|\.d\.ts$)/;
+// Cheap text superset of what positionalCallMethod can match; skips the AST walk for most files.
+const REGISTRAR_METHOD_ACCESS = new RegExp(`\\.\\s*(?:${REGISTRAR_METHODS.join("|")})\\b`);
 const UPGRADE_HINT = "run `bun kumiko-upgrade --apply` (codemod object-form)";
 
 type ReceiverResolution = "registrar" | "other" | "unresolved";
@@ -145,39 +147,51 @@ function positionalCallMethod(call: CallExpression): RegistrarMethod | undefined
 
 export type ObjectFormFinding = { file: string; line: number; message: string };
 
+function positionalCallFindings(sf: SourceFile, file: string): ObjectFormFinding[] {
+  if (!REGISTRAR_METHOD_ACCESS.test(sf.getFullText())) return [];
+  const out: ObjectFormFinding[] = [];
+  for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const method = positionalCallMethod(call);
+    if (method === undefined) continue;
+    out.push({
+      file,
+      line: call.getStartLineNumber(),
+      message: `positional r.${method}(…) removed in 0.366 — ${UPGRADE_HINT}`,
+    });
+  }
+  return out;
+}
+
+function crudFindings(sf: SourceFile, file: string): ObjectFormFinding[] {
+  // Every crud local name is CRUD_FUNCTION_NAME itself or an import alias of it.
+  if (!sf.getFullText().includes(CRUD_FUNCTION_NAME)) return [];
+  const crudNames = crudLocalNames(sf);
+  const out: ObjectFormFinding[] = [];
+  for (const id of sf.getDescendantsOfKind(SyntaxKind.Identifier)) {
+    if (!crudNames.has(id.getText())) continue;
+    const parent = id.getParent();
+    const isCall = Node.isCallExpression(parent) && parent.getExpression() === id;
+    const isImportOrExport =
+      Node.isImportSpecifier(parent) ||
+      Node.isExportSpecifier(parent) ||
+      id.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined;
+    if (!isCall && !isImportOrExport) continue;
+    if (Node.isImportSpecifier(parent) && parent.getAliasNode() === id) continue;
+    out.push({
+      file,
+      line: id.getStartLineNumber(),
+      message: `registerEntityCrud removed in 0.366 — use r.crud(…); ${UPGRADE_HINT}`,
+    });
+  }
+  return out;
+}
+
 export function findPositionalRegistrarCalls(files: readonly SourceFile[]): ObjectFormFinding[] {
   const out: ObjectFormFinding[] = [];
   for (const sf of files) {
     if (EXCLUDED_PATH.test(sf.getFilePath())) continue;
     const file = relativeToCwd(sf.getFilePath());
-    const crudNames = crudLocalNames(sf);
-
-    for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      const method = positionalCallMethod(call);
-      if (method === undefined) continue;
-      out.push({
-        file,
-        line: call.getStartLineNumber(),
-        message: `positional r.${method}(…) removed in 0.366 — ${UPGRADE_HINT}`,
-      });
-    }
-
-    for (const id of sf.getDescendantsOfKind(SyntaxKind.Identifier)) {
-      if (!crudNames.has(id.getText())) continue;
-      const parent = id.getParent();
-      const isCall = Node.isCallExpression(parent) && parent.getExpression() === id;
-      const isImportOrExport =
-        Node.isImportSpecifier(parent) ||
-        Node.isExportSpecifier(parent) ||
-        id.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined;
-      if (!isCall && !isImportOrExport) continue;
-      if (Node.isImportSpecifier(parent) && parent.getAliasNode() === id) continue;
-      out.push({
-        file,
-        line: id.getStartLineNumber(),
-        message: `registerEntityCrud removed in 0.366 — use r.crud(…); ${UPGRADE_HINT}`,
-      });
-    }
+    out.push(...positionalCallFindings(sf, file), ...crudFindings(sf, file));
   }
   return out;
 }

@@ -68,6 +68,8 @@ type Pattern = {
 // identifier in the AST (not in strings, not in comments).
 function identifierHits(sf: SourceFile, name: string): Array<{ line: number; snippet: string }> {
   const out: Array<{ line: number; snippet: string }> = [];
+  // Cheap text prefilter: a full descendant walk over every file costs seconds.
+  if (!sf.getFullText().includes(name)) return out;
   for (const id of sf.getDescendantsOfKind(SyntaxKind.Identifier)) {
     if (id.getText() !== name) continue;
     out.push({
@@ -85,6 +87,7 @@ function stringLiteralHits(
   literal: string,
 ): Array<{ line: number; snippet: string }> {
   const out: Array<{ line: number; snippet: string }> = [];
+  if (!sf.getFullText().includes(literal)) return out;
   for (const lit of sf.getDescendantsOfKind(SyntaxKind.StringLiteral)) {
     if (lit.getLiteralText() !== literal) continue;
     out.push({
@@ -129,6 +132,7 @@ const PATTERNS: readonly Pattern[] = [
       // Match `.postEvent(` property accesses to distinguish from the word
       // "postEvent" in prose. Identifier scan would miss method invocations.
       const out: Array<{ line: number; snippet: string }> = [];
+      if (!sf.getFullText().includes("postEvent")) return out;
       for (const pa of sf.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
         if (pa.getName() !== "postEvent") continue;
         // Only flag when invoked as a method — a property read named

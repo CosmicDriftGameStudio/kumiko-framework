@@ -128,6 +128,7 @@ function scannableFiles(files: readonly SourceFile[]): SourceFile[] {
 export function systemScopeDirs(files: readonly SourceFile[]): string[] {
   const dirs: string[] = [];
   for (const sf of scannableFiles(files)) {
+    if (!sf.getFullText().includes("systemScope")) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const expr = call.getExpression();
       if (
@@ -189,6 +190,10 @@ function isTenantDbExpression(node: Node): boolean {
   return (node.getSymbol()?.getDeclarations() ?? []).some(isTenantDbDeclaration);
 }
 
+// Text prefilters: a node walk per rule per file is the guard's dominant cost, and
+// a rule's anchor name must appear verbatim in any file it can fire on.
+const RAW_ACCESS = /\.\s*raw\b/;
+
 function findRawFindings(
   sf: SourceFile,
   root: string,
@@ -196,6 +201,7 @@ function findRawFindings(
 ): EscapeHatchFinding[] {
   if (isInSystemScope(sf.getFilePath(), systemDirs)) return [];
   const out: EscapeHatchFinding[] = [];
+  if (!RAW_ACCESS.test(sf.getFullText())) return out;
   for (const pa of sf.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
     if (pa.getName() !== "raw") continue;
     if (!isTenantDbExpression(pa.getExpression())) continue;
@@ -217,6 +223,7 @@ function findUnsafeRawFindings(
 ): EscapeHatchFinding[] {
   if (isInSystemScope(sf.getFilePath(), systemDirs)) return [];
   const out: EscapeHatchFinding[] = [];
+  if (!sf.getFullText().includes("unsafeRaw")) return out;
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const expr = call.getExpression();
     if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) continue;
@@ -531,6 +538,8 @@ function findSystemIdentityFindings(
   systemDirs: readonly string[],
 ): EscapeHatchFinding[] {
   const out: EscapeHatchFinding[] = [];
+  const text = sf.getFullText();
+  if (!text.includes("queryAs") && !text.includes("writeAs")) return out;
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const expr = call.getExpression();
     if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) continue;
@@ -562,6 +571,7 @@ function findUnsafeAllTenantsFindings(
   systemDirs: readonly string[],
 ): EscapeHatchFinding[] {
   const out: EscapeHatchFinding[] = [];
+  if (!sf.getFullText().includes("unsafeAllTenants")) return out;
   for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
     const nameNode = prop.getNameNode();
     if (!nameNode.isKind(SyntaxKind.Identifier) || nameNode.getText() !== "unsafeAllTenants") {
@@ -609,6 +619,8 @@ const GENERIC_REASON_METHODS = new Set(["acknowledgeCrossTenant", "unsafeRaw"]);
 
 function findGenericReasonMethodCalls(sf: SourceFile, root: string): GenericReasonFinding[] {
   const out: GenericReasonFinding[] = [];
+  const text = sf.getFullText();
+  if (![...GENERIC_REASON_METHODS].some((method) => text.includes(method))) return out;
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const expr = call.getExpression();
     if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) continue;
@@ -634,6 +646,7 @@ function findGenericReasonDeclareEscapeHatchCalls(
   root: string,
 ): GenericReasonFinding[] {
   const out: GenericReasonFinding[] = [];
+  if (!sf.getFullText().includes("declareEscapeHatch")) return out;
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression();
     if (!callee.isKind(SyntaxKind.Identifier) || callee.getText() !== "declareEscapeHatch") {
@@ -662,6 +675,7 @@ function findGenericReasonObjectProperty(
   propertyName: string,
 ): GenericReasonFinding[] {
   const out: GenericReasonFinding[] = [];
+  if (!sf.getFullText().includes(propertyName)) return out;
   for (const pa of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
     if (pa.getName() !== propertyName) continue;
     const init = pa.getInitializer();
