@@ -397,10 +397,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "cap-overview.cards.loading": "Caricamento dell'utilizzo…",
   "cap-overview.errors.filterFieldUnsupported":
     "Il filtro per questo campo non è supportato oppure tier è stato filtrato più volte.",
-  "cap-overview.errors.invalidCursor": "Il cursore di paginazione non è valido.",
   "cap-overview.errors.progressPrimitiveMissing":
     "Barra di utilizzo non disponibile: il componente Progress non è registrato.",
-  "cap-overview.errors.sortFieldUnsupported": "L'ordinamento per questo campo non è supportato.",
   "cap-overview.errors.tenantOverrideRequiresSystemAdmin":
     "Solo SystemAdmin può interrogare i dati di un'altra organizzazione.",
   "cap-overview.errors.tierFilterOpUnsupported":

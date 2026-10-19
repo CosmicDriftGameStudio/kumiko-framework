@@ -1,17 +1,12 @@
-import {
-  buildEntityTable,
-  decodeCursor,
-  encodeCursor,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   definePagedQueryHandler,
-  MAX_LIST_LIMIT,
+  pagedListSchema,
+  pageRows,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
 import type { CapLimitContext } from "../../cap-counter/index.ts";
@@ -59,7 +54,6 @@ const FILTER_OP = z.enum(["eq", "ne", "lt", "gt", "in"]);
 type FilterOp = z.infer<typeof FILTER_OP>;
 
 const SORTABLE_FIELDS = ["name", "tier", "billing"] as const;
-type SortableField = (typeof SORTABLE_FIELDS)[number];
 
 function tenantCapKey(tenantId: string, capId: string): string {
   return JSON.stringify([tenantId, capId]);
@@ -81,10 +75,6 @@ async function resolveLimitsByTenantAndCap(
     }),
   );
   return new Map(entries);
-}
-
-function isSortableField(field: string): field is SortableField {
-  return isOneOf(SORTABLE_FIELDS, field);
 }
 
 // tier is a plain string with no defined ordering — lt/gt have no meaning
@@ -152,16 +142,10 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
     name: "tenant-caps:list",
     description:
       "Lists every tenant on the platform with its tier, billing provider/status and per-cap usage, paged, searchable by name and filterable by tier; use it as the operator-wide capacity overview.",
-    schema: z.object({
-      cursor: z.string().optional(),
-      limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(50),
-      sort: z.string().optional(),
-      sortDirection: z.enum(["asc", "desc"]).optional(),
-      search: z.string().optional(),
+    schema: pagedListSchema(SORTABLE_FIELDS).extend({
       filters: z
         .array(z.object({ field: z.string(), op: FILTER_OP, value: z.unknown() }))
         .optional(),
-      totalCount: z.boolean().optional(),
     }),
     access: { roles: ["SystemAdmin"] },
     escapeHatch: {
@@ -190,68 +174,30 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       const assignmentByTenant = new Map(assignments.map((row) => [row.tenantId, row]));
       const subscriptionByTenant = new Map(subscriptions.map((row) => [row.tenantId, row]));
 
-      // Case-insensitive substring search has no `ilike` operator in the
-      // query builder (only `like`, SQL-LIKE case-sensitive) — filtered here
-      // in JS, same as tenant/team-list.query.ts's search.
-      const search = query.payload.search?.trim().toLowerCase();
       const tierFilter = extractTierFilter(query.payload.filters ?? []);
 
       const merged = tenants
-        .filter(
-          (tenant) =>
-            search === undefined || search === "" || tenant.name.toLowerCase().includes(search),
-        )
         .map((tenant) => {
           const assignment = assignmentByTenant.get(tenant.id);
           return {
+            id: tenant.id,
             tenantId: tenant.id,
             name: tenant.name,
             tier: assignment?.tier ?? "",
-            source: assignment?.source ?? null,
             billing: billingLabel(subscriptionByTenant.get(tenant.id), assignment?.source ?? null),
           };
         })
         .filter((row) => matchesTierFilter(row.tier, tierFilter));
 
-      const sortField = query.payload.sort ?? "name";
-      if (!isSortableField(sortField)) {
-        throw new ValidationError({
-          fields: [
-            {
-              path: "sort",
-              code: "unsupported_field",
-              i18nKey: "cap-overview.errors.sortFieldUnsupported",
-              params: { field: sortField },
-            },
-          ],
-        });
-      }
-      const sortDirection = query.payload.sortDirection ?? "asc";
-      const directionMultiplier = sortDirection === "asc" ? 1 : -1;
-      const sorted = [...merged].sort(
-        (a, b) => a[sortField].localeCompare(b[sortField]) * directionMultiplier,
-      );
-
-      // ponytail: base64-wrapped offset, not a SQL keyset — rows come from a
-      // JS merge of three tables (tenant/tier-assignment/subscription), same
-      // rationale as tenant/team-list.query.ts. Holds up to tier-engine's
-      // documented "single-pass scan" scale (a few thousand tenants); past
-      // that the fix is a real combined read-projection, not a cursor
-      // bolted onto this merge.
-      const offset = query.payload.cursor ? Number(decodeCursor(query.payload.cursor)) : 0;
-      if (!Number.isInteger(offset) || offset < 0) {
-        throw new ValidationError({
-          fields: [
-            {
-              path: "cursor",
-              code: "invalid_cursor",
-              i18nKey: "cap-overview.errors.invalidCursor",
-            },
-          ],
-        });
-      }
-      const limit = query.payload.limit;
-      const page = sorted.slice(offset, offset + limit);
+      // Search and paging run in memory because the rows are a JS merge of
+      // three tables (tenant/tier-assignment/subscription), same rationale as
+      // tenant/team-list.query.ts. Holds up to tier-engine's documented
+      // "single-pass scan" scale (a few thousand tenants); past that the fix
+      // is a real combined read-projection.
+      const { rows: page, total } = pageRows(merged, query.payload, {
+        searchFields: ["name"],
+        defaultSort: "name",
+      });
 
       // Usage is computed only for this page's tenant ids, never for the
       // full tenant set; caps without usageBatch still cost one query per
@@ -302,14 +248,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         };
       });
 
-      const nextCursor =
-        offset + limit < sorted.length ? encodeCursor(String(offset + limit)) : null;
-
-      return {
-        rows,
-        nextCursor,
-        ...(query.payload.totalCount === true && { total: merged.length }),
-      };
+      return { rows, nextCursor: null, ...(total !== undefined && { total }) };
     },
   });
 }

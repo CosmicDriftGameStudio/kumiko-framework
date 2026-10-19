@@ -294,6 +294,12 @@ export {
   userCanReadFieldRow,
   userCanWriteFieldRow,
 } from "./ownership.ts";
+export {
+  type PagedListRequest,
+  type PagedListRowValue,
+  pagedListSchema,
+  pageRows,
+} from "./paged-list.ts";
 export type { ParsedRefTarget } from "./parse-ref-target.ts";
 export { parseRefTarget, parseRefTargetEntityName } from "./parse-ref-target.ts";
 export { buildPipelineSteps, stepsPipeline } from "./pipeline.ts";
