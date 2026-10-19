@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.376.0",
+    "type": "fix",
+    "title": "MEILI_URL in the test preload follows the app's Meilisearch port",
+    "detail": "service-env-defaults derives MEILI_URL from ports.infra.meilisearch of the app's kumiko.config.ts when the variable is unset; without a configured port the old default stays."
+  },
+  {
+    "version": "0.376.0",
+    "type": "breaking",
+    "title": "Test stack and seed helpers moved to @cosmicdrift/kumiko-dev-server/testing",
+    "detail": "setupAppTestStack, SetupAppTestStackOptions, seedTenant, persistTenantRows and createE2eSeedRoutes are no longer exported from @cosmicdrift/kumiko-testing; the bundled-features and dev-server optional peers are gone.",
+    "migration": "Import the five names from @cosmicdrift/kumiko-dev-server/testing and add @cosmicdrift/kumiko-dev-server to your dependencies; run bun kumiko-upgrade --apply to rewrite the imports. Namespace imports are listed as manual.",
+    "codemod": "scripts/codemod/testing-injection.ts"
+  },
+  {
     "version": "0.372.0",
     "type": "improvement",
     "title": "defineAppE2eConfig runs against a remote instance via KUMIKO_E2E_REMOTE_BASE_URL; csrfFetch handles the __Host- csrf cookie",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "fix",
+    "title": "kumiko ports and sync-managed use the shared port reader and print managed warnings",
+    "detail": "kumiko ports reads from repo-manifest/app-ports; check managed and sync-managed print the infraRef warning."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "kumiko codemod lists and runs codemods",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "DELETION_TOKEN_SECRET is part of the env schema",
+    "detail": "The feature declares DELETION_TOKEN_SECRET through its env schema, so the dry run and the pulumi inventory list it. Unset, it is derived from JWT_SECRET as before."
+  },
+  {
     "version": "0.372.0",
     "type": "fix",
     "title": "Account forget-cleanup removes userOwned files uploaded by someone else",

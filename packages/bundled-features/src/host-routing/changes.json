@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "tenantBy resolver, apex path tenants, redirects and anonymous query allowlist",
+    "detail": "tenantBy accepts (host, db) => TenantId | null for profile subdomains and custom domains; tenantPathPrefix also works in host and resolver mode for apex path tenants. redirects send fixed 301/302 answers before host classification, apexAnonymousQueryAllowlist limits the anonymous apex anchor to listed query types per host (/api/query and /api/stream), and createHostTenantIdResolver(options, db) maps a Host header to its tenant for managed-pages. Existing \"host\" and \"path\" configs behave as before, except that apexAnonymousQueryAllowlist with tenantBy \"path\" is rejected at boot."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "createHostRoutingFeature and createHostDispatch route tenants by host or path",

@@ -1,5 +1,183 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.376.0
+
+### Minor Changes
+
+- 05ba6c5: runDevApp and runWorkerApp understand the declarative boot options of runProdApp, and the default mail resolver stops reaching users outside the notifying tenant.
+  
+  `runDevApp` takes `mail`, `fileStorage`, `kmsMode`, `billing`, `seeds` (shortcuts plus free seeds that get the test stack), `demoMode`, `envSchema` and `featureToggles`; `runWorkerApp` takes `mail`, `fileStorage`, `kmsMode`, `billing`, `featureToggles` and `envSchema` and understands every `KUMIKO_DRY_RUN_ENV` mode. All of them resolve through the same functions as `runProdApp`. `featureToggles: true` mounts feature-toggles and layers the global operator switches over the tier resolver; `composeSaasStack({ featureToggles: true })` expects it. `runProdApp` seeds and `extraContext` factories receive `masterKeyProvider` and `configEncryption`; `appOverrides` overrides tenant-model, branding and seo defaults.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: effectiveFeatures is gone from runProdApp, runDevApp and runWorkerApp
+  detail: The effectiveFeatures option of the boot functions is removed. Global operator switches come from the featureToggles option, tier gating from the tier-engine feature, which the boot functions wire themselves.
+  migration: Replace a hand-built effectiveFeatures resolver with featureToggles true (global switches) and mount createTierEngineFeature for tier gating. A custom resolver that did neither has no replacement on the boot functions; wire it through createKumikoServer or setupTestStack in tests. The boot functions now abort when the option is still passed, because an ignored option would drop an operator kill-switch silently; the same goes for a feature-toggles feature in features without the featureToggles option, or with it set (the option mounts the feature).
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: The default mail resolver only reaches members of the notifying tenant
+  detail: The default resolveEmail of the mail boot option returns an address for a notification from a tenant other than the system tenant only if the user is a member of that tenant or holds the SystemAdmin role in the stored user row. Everyone else resolves to null and the mail is skipped. The new option mail.recipientScope takes "membership" (default) or "any", which restores the old behaviour of reaching every user. EmailChannelOptions resolveEmail now receives the tenant database as TenantDb instead of unknown.
+  migration: Apps that notify users outside the notifying tenant on purpose, for example merchants reached from a SystemAdmin context, set mail recipientScope to "any" or keep their own resolveEmail. Apps whose notifications go to members of the active tenant need no change. Known consumers on the default: offlot-app (main.ts) reaches merchants and SystemAdmins across tenants and needs recipientScope any; publicstatus (main.ts), show-pony, solon (main.ts) and kumiko-studio (main.ts) take the default, which fits notifications to members of the active tenant. money-horse and phronexsis keep their own resolveEmail. Per-app resolvers that only copied the membership check can be deleted. A custom resolveEmail that cast ctx.db can drop the cast.
+  -->
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: resolveEmail receives a typed tenant database
+  detail: The context of EmailChannelOptions resolveEmail types db as TenantDb, so resolvers read tables without a cast.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runDevApp and runWorkerApp take the declarative boot options
+  detail: mail, fileStorage, kmsMode, billing, seeds, demoMode, envSchema and featureToggles work in runDevApp, and mail, fileStorage, kmsMode, billing, featureToggles and envSchema in runWorkerApp, through the same resolve functions as runProdApp. The worker honours KUMIKO_DRY_RUN_ENV with an env schema. A stack that sets runSingleInstance false only warns when no worker mounts the features.
+  migration: RunDevAppOptions.seeds is now `readonly SeedFn[] | RunDevAppSeedsConfig`. Code that spreads `seeds` from an object typed as RunDevAppOptions no longer type-checks; declare that object with `satisfies RunDevAppOptions` so the array type survives, or build the seed list separately. An app that lists createFeatureTogglesFeature() in the features passed to runDevApp or runProdApp removes it there and sets `featureToggles: true`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: featureToggles, appOverrides and secrets in boot deps
+  detail: featureToggles true mounts feature-toggles and layers the global switches over the tier resolver in runProdApp, runDevApp and runWorkerApp. appOverrides sets tenant-model, branding and seo defaults. masterKeyProvider and configEncryption reach extraContext factories, system wiring and seed functions, so an app no longer resolves its KEK a second time.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Boot errors for removed and half-wired feature toggles
+  detail: runProdApp, runDevApp and runWorkerApp abort when the removed effectiveFeatures option is still passed, and when feature-toggles sits in features without the featureToggles option. runWorkerApp now enforces a stack that expects featureToggles, so a worker cannot keep running jobs and event handlers of features an operator switched off.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Named S3 provider names are validated at boot
+  detail: fileStorage.providers refuses the names s3-env, s3 and inmemory, which the bundled providers register, and a name listed twice. A tenant admin can still select any mounted provider through the file-foundation provider config, so name a provider only if every tenant may use its bucket.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Named S3 providers and a corrected SMTP_HOST description
+  detail: fileStorage.providers takes entries with name, envPrefix and lazy, each validated through createS3EnvSchema with its own prefix. The SMTP_HOST description in the env schema of mail smtp-env now says the variable is required.
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: improvement
+  title: Named S3 provider feature
+  detail: createFileProviderS3NamedEnvFeature mounts an additional S3 provider under its own name with an env prefix, next to the default one, so a second bucket needs no hand-written wiring.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-foundation
+  type: improvement
+  title: authEnvSchema for auth.admin and auth.mail
+  detail: authEnvSchema declares APP_BASE_URL, AUTH_ADMIN_EMAIL and AUTH_ADMIN_PASSWORD with descriptions and the pulumi secret marker; an app spreads its shape into its env schema.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: DELETION_TOKEN_SECRET is part of the env schema
+  detail: The feature declares DELETION_TOKEN_SECRET through its env schema, so the dry run and the pulumi inventory list it. Unset, it is derived from JWT_SECRET as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeSaasStack with stripe warns instead of requiring billing
+  detail: A stripe stack without the billing option logs a boot warning instead of aborting, and composeSaasStack takes featureToggles to require that option.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: StackBootRequirement severity and the featureToggles option name
+  detail: StackBootRequirement takes severity "warn" for requirements that only log, and BootOptionName lists featureToggles.
+  -->
+- 6a15526: Managed workflows pin the infra reusables through `package.json#kumiko.deploy.infraRef` and have a public variant. `kumiko-upgrade --apply` writes a CHANGELOG.md. The pre-push bypass is gone. The testing preload reads the Meilisearch port from the app config.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Managed workflows take infraRef, visibility and app-* jobs
+  detail: ci.yml and release.yml render the infra reusables as @<infraRef> from package.json#kumiko.deploy.infraRef. Without it sync-managed renders @main and kumiko check managed warns; this warning becomes an error in a later release. kumiko.deploy.visibility "public" renders a self-contained ci.yml and a release.yml that only prints the gh workflow run hint for the public rollout. Jobs named app-* survive a sync and are not drift. kumiko.deploy.docStatusGuard false renders doc-status-guard false.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: The pre-push bypass is gone
+  detail: PRE_PUSH_SKIP no longer skips the hook, neither in the shipped hook nor in kumiko-pre-push. KUMIKO_CHECK_WT=1 only stops the hook from re-entering a wrapping scripts/check-wt.sh. The i18n-keys guard treats keys defined by installed @cosmicdrift packages as known.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-upgrade writes CHANGELOG.md and shows manual entries with --verbose
+  detail: --apply adds one section per bump to CHANGELOG.md in the app (changed packages, breaking titles, manual migrations with status, codemods applied); a re-run of the same bump replaces its section. --verbose prints detail and migration of the open manual entries. A second --apply keeps the codemods already recorded in the marker. The biome-app preset allows console in bin and scripts. AppConfig takes an optional includeBundled flag that the managed kumiko/schema.ts uses to compose the bundled auth features.
+  -->
+  
+  <!-- kumiko-changes
+  feature: repo-manifest
+  type: improvement
+  title: App port reader moves to repo-manifest/app-ports
+  detail: listAppPorts, findPortCollisions, scanWorkspaceApps and readStaticAppConfig are exported from @cosmicdrift/kumiko-repo-manifest/app-ports. dev-server managed-files re-exports the same names.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: MEILI_URL in the test preload follows the app's Meilisearch port
+  detail: service-env-defaults derives MEILI_URL from ports.infra.meilisearch of the app's kumiko.config.ts when the variable is unset; without a configured port the old default stays.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko ports and sync-managed use the shared port reader and print managed warnings
+  detail: kumiko ports reads from repo-manifest/app-ports; check managed and sync-managed print the infraRef warning.
+  -->
+- e3e3faa: kumiko-testing no longer reaches into bundled-features or dev-server. The functions that need them (`setupAppTestStack`, `seedTenant`, `persistTenantRows`, `createE2eSeedRoutes`) are bound in the new `@cosmicdrift/kumiko-dev-server/testing` subpath, so the testing package has no optional peers left. Framework tests that exercised dispatcher-live, dev-server or the tier engine moved into the packages they test, and `scripts/check-package-cycles.ts` checks the package graph.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: Test stack and seed helpers moved to @cosmicdrift/kumiko-dev-server/testing
+  detail: setupAppTestStack, SetupAppTestStackOptions, seedTenant, persistTenantRows and createE2eSeedRoutes are no longer exported from @cosmicdrift/kumiko-testing; the bundled-features and dev-server optional peers are gone.
+  migration: Import the five names from @cosmicdrift/kumiko-dev-server/testing and add @cosmicdrift/kumiko-dev-server to your dependencies; run bun kumiko-upgrade --apply to rewrite the imports. Namespace imports are listed as manual.
+  codemod: scripts/codemod/testing-injection.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: ./testing subpath with the bound test stack and seed helpers
+  detail: setupAppTestStack, seedTenant, persistTenantRows and createE2eSeedRoutes, wired to the bundled user, tenant and auth features.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [05ba6c5]
+- Updated dependencies [5274ebc]
+- Updated dependencies [6a15526]
+- Updated dependencies [e3e3faa]
+  - @cosmicdrift/kumiko-server-runtime@0.376.0
+  - @cosmicdrift/kumiko-bundled-features@0.376.0
+  - @cosmicdrift/kumiko-types@0.376.0
+  - @cosmicdrift/kumiko-framework@0.376.0
+  - @cosmicdrift/kumiko-repo-manifest@0.376.0
+  - @cosmicdrift/kumiko-testing@0.376.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.376.0
+  - @cosmicdrift/kumiko-headless@0.376.0
+  - @cosmicdrift/kumiko-renderer-web@0.376.0
+
 ## 0.375.0
 
 ### Patch Changes

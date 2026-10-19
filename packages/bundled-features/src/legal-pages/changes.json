@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "Legal layout receives alternates",
+    "detail": "createLegalPagesLayout passes alternates as second argument to headerHtml and footerHtml, and legal-pages routes provide the other-language paths of the same slug, so a layout can render a language switch."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "legal-pages serves terms of service, ships a layout helper and a boot seed",

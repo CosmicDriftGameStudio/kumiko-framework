@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "authEnvSchema for auth.admin and auth.mail",
+    "detail": "authEnvSchema declares APP_BASE_URL, AUTH_ADMIN_EMAIL and AUTH_ADMIN_PASSWORD with descriptions and the pulumi secret marker; an app spreads its shape into its env schema."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "Boot warning when anonymous routes run without anonymousAccess",

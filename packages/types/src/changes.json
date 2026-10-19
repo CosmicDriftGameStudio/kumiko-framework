@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "StackBootRequirement severity and the featureToggles option name",
+    "detail": "StackBootRequirement takes severity \"warn\" for requirements that only log, and BootOptionName lists featureToggles."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "SaveContext.event and DeleteContext.event are required",

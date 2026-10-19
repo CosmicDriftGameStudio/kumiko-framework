@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "Client-safe account-security/constants subpath",
+    "detail": "\"@cosmicdrift/kumiko-bundled-features/account-security/constants\" exports ACCOUNT_SECURITY_FEATURE, the screen id and QN, the nav label and the new ACCOUNT_SECURITY_SCREEN_TITLE_KEY without importing server code."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "createAccountSecurityFeature bundles the self-service screen for MFA and own sessions",

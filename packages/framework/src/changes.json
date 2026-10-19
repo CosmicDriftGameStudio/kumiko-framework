@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.376.0",
+    "type": "improvement",
+    "title": "kumiko-upgrade writes CHANGELOG.md and shows manual entries with --verbose",
+    "detail": "--apply adds one section per bump to CHANGELOG.md in the app (changed packages, breaking titles, manual migrations with status, codemods applied); a re-run of the same bump replaces its section. --verbose prints detail and migration of the open manual entries. A second --apply keeps the codemods already recorded in the marker. The biome-app preset allows console in bin and scripts. AppConfig takes an optional includeBundled flag that the managed kumiko/schema.ts uses to compose the bundled auth features."
+  },
+  {
     "version": "0.374.0",
     "type": "improvement",
     "title": "actionForm successLinks and resetOnSuccess",
