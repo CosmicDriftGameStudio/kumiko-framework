@@ -9,7 +9,7 @@
 `loadFileRefRows` now reads stream versions before the rows, so a bind that commits in between makes the second update conflict instead of overwriting the first.
 
 <!-- kumiko-changes
-feature: files
+feature: framework
 type: improvement
 title: loadPendingFileRef and bindPendingFileRef bind a caller's own pending upload from a custom handler
 detail: Additive. fileName is not part of PendingFileRef because it is personal data; read it via the fileRef executor's detail. Unexpected update errors throw; version_conflict and unique_violation map to "version-conflict".
