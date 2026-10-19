@@ -1420,6 +1420,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
   // the title then lives in the shell header when the shell offers a slot.
+  const rootIssues = snapshot.errors[ROOT_ISSUE_PATH] ?? [];
   const isScreenForm = fillScreenHeight === true && hideSectionTitles !== true && !insideDrawer;
   const titleInShell =
     PageHeader !== undefined &&
@@ -2334,6 +2335,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               <Text testId="render-edit-form-error-key">
                 {translate(formError.i18nKey, formError.i18nParams)}
               </Text>
+              {rootIssues.map((issue) => (
+                <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-root">
+                  {translate(issue.i18nKey, issue.params)}
+                </Text>
+              ))}
               {extraDeleteIssues.map((issue) => (
                 <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-extra">
                   {translate(issue.i18nKey, issue.params)}
@@ -2341,11 +2347,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               ))}
             </Banner>
           )}
-          {(snapshot.errors[ROOT_ISSUE_PATH] ?? []).map((issue) => (
-            <Banner variant="error" testId="render-edit-root-issue" key={issue.i18nKey}>
-              <Text>{translate(issue.i18nKey, issue.params)}</Text>
-            </Banner>
-          ))}
+          {formError === null &&
+            rootIssues.map((issue) => (
+              <Banner variant="error" testId="render-edit-root-issue" key={issue.i18nKey}>
+                <Text>{translate(issue.i18nKey, issue.params)}</Text>
+              </Banner>
+            ))}
           {extensionErrorKey !== null && (
             <Banner variant="error" testId="render-edit-extension-error">
               <Text testId="render-edit-extension-error-key">{translate(extensionErrorKey)}</Text>

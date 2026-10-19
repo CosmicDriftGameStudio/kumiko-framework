@@ -1834,4 +1834,23 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from": "Absenderadresse",
   "mail-transport-smtp.from.description":
     "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Dein Anbieter muss sie erlauben.",
+  "screen:mail-accounts.title": "Postfächer",
+  "screen:mail-account-edit.title": "Postfach bearbeiten",
+  "inboundMail.accounts.col.name": "Name",
+  "inboundMail.accounts.col.address": "Adresse",
+  "inboundMail.accounts.col.provider": "Anbieter",
+  "inboundMail.accounts.col.status": "Status",
+  "inboundMail.accounts.col.connected": "Verbunden seit",
+  "inboundMail.accounts.status.active": "Aktiv",
+  "inboundMail.accounts.status.auth_error": "Anmeldung fehlgeschlagen",
+  "inboundMail.accounts.status.degraded": "Unterbrochen",
+  "inboundMail.accounts.status.disconnected": "Getrennt",
+  "inboundMail.accounts.edit": "Umbenennen",
+  "inboundMail.accounts.edit.submit": "Speichern",
+  "inboundMail.accounts.disconnect": "Trennen",
+  "inboundMail.accounts.disconnect.confirm":
+    "Dieses Postfach trennen? Es werden keine neuen Mails abgerufen, gespeicherte Mails bleiben erhalten.",
+  "inbound-mail-foundation:entity:__action-form__:field:accountId": "Postfach",
+  "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
+  "inbound-mail-foundation:entity:__action-form__:field:reason": "Grund",
 };

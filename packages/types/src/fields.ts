@@ -303,8 +303,9 @@ export type TextFieldDef = {
    *  "high" on the directly-dispatched entry handler; a revert doesn't undo a
    *  run that already read the compromised value. See irreversible-operation-gate. */
   readonly readAsInstruction?: boolean;
-  /** "password" is a pure render hint (masked input) — no storage semantics. */
-  readonly format?: "email" | "url" | "phone" | "password";
+  /** "password" is a pure render hint (masked input) — no storage semantics.
+   *  "month" stores `YYYY-MM`: month picker in the form, format enforced on write. */
+  readonly format?: "email" | "url" | "phone" | "password" | "month";
   readonly default?: string;
   readonly access?: FieldAccess;
   /** Mehrzeiliger Text — DefaultInput rendert dann ein <textarea> statt

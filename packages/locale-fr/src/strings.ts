@@ -1854,4 +1854,23 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from": "Adresse de l'expéditeur",
   "mail-transport-smtp.from.description":
     "L'adresse depuis laquelle les e-mails sont envoyés, par exemple status@example.com. Votre fournisseur doit l'autoriser.",
+  "screen:mail-accounts.title": "Boîtes mail",
+  "screen:mail-account-edit.title": "Modifier la boîte mail",
+  "inboundMail.accounts.col.name": "Nom",
+  "inboundMail.accounts.col.address": "Adresse",
+  "inboundMail.accounts.col.provider": "Fournisseur",
+  "inboundMail.accounts.col.status": "Statut",
+  "inboundMail.accounts.col.connected": "Connectée depuis",
+  "inboundMail.accounts.status.active": "Active",
+  "inboundMail.accounts.status.auth_error": "Échec de connexion",
+  "inboundMail.accounts.status.degraded": "Interrompue",
+  "inboundMail.accounts.status.disconnected": "Déconnectée",
+  "inboundMail.accounts.edit": "Renommer",
+  "inboundMail.accounts.edit.submit": "Enregistrer",
+  "inboundMail.accounts.disconnect": "Déconnecter",
+  "inboundMail.accounts.disconnect.confirm":
+    "Déconnecter cette boîte mail ? Aucun nouveau message ne sera récupéré ; les messages enregistrés sont conservés.",
+  "inbound-mail-foundation:entity:__action-form__:field:accountId": "Boîte mail",
+  "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nom",
+  "inbound-mail-foundation:entity:__action-form__:field:reason": "Motif",
 };

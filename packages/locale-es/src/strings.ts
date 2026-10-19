@@ -1828,4 +1828,23 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from": "Dirección del remitente",
   "mail-transport-smtp.from.description":
     "La dirección desde la que se envían los correos, por ejemplo status@example.com. Tu proveedor debe permitirla.",
+  "screen:mail-accounts.title": "Buzones",
+  "screen:mail-account-edit.title": "Editar buzón",
+  "inboundMail.accounts.col.name": "Nombre",
+  "inboundMail.accounts.col.address": "Dirección",
+  "inboundMail.accounts.col.provider": "Proveedor",
+  "inboundMail.accounts.col.status": "Estado",
+  "inboundMail.accounts.col.connected": "Conectado desde",
+  "inboundMail.accounts.status.active": "Activo",
+  "inboundMail.accounts.status.auth_error": "Error de inicio de sesión",
+  "inboundMail.accounts.status.degraded": "Interrumpido",
+  "inboundMail.accounts.status.disconnected": "Desconectado",
+  "inboundMail.accounts.edit": "Renombrar",
+  "inboundMail.accounts.edit.submit": "Guardar",
+  "inboundMail.accounts.disconnect": "Desconectar",
+  "inboundMail.accounts.disconnect.confirm":
+    "¿Desconectar este buzón? No se recibirá correo nuevo; el correo guardado se conserva.",
+  "inbound-mail-foundation:entity:__action-form__:field:accountId": "Buzón",
+  "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nombre",
+  "inbound-mail-foundation:entity:__action-form__:field:reason": "Motivo",
 };

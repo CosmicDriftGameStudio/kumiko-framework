@@ -2009,6 +2009,10 @@ export type ActionFormScreenDefinition = {
    *  handler's success payload); a link without a string id is hidden.
    *  Mutually exclusive with `redirect`. */
   readonly successLinks?: readonly ActionFormSuccessLink[];
+  /** Key figures from the handler's success payload, shown in the success box
+   *  while the screen stays put (e.g. charged/skipped/failed of a batch run).
+   *  Mutually exclusive with `redirect`. */
+  readonly successFacts?: readonly ActionFormSuccessFact[];
   /** Reset the form to its initial values after a successful submit (prefill
    *  kept, typed values cleared). Only applies while the screen stays put,
    *  i.e. without `redirect`. */
@@ -2076,6 +2080,16 @@ export type ActionFormLoad = {
   readonly query: string;
   /** Payload key carrying the record id (default "id"). */
   readonly idParam?: string;
+};
+
+/** One key figure of the success box, read from the handler's success payload. */
+export type ActionFormSuccessFact = {
+  /** Flat field name in the handler's success payload. A number or string is
+   *  shown as one value, an array a comma-separated list (numbers, strings and
+   *  `{ label }` objects). A missing field hides the fact. */
+  readonly field: string;
+  /** Label (i18n key). */
+  readonly label: string;
 };
 
 /** A redirect target rendered as a link in the success box. */

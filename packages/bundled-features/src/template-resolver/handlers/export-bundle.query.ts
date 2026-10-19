@@ -66,6 +66,15 @@ function assertLocalesShareFormat(rows: readonly TemplateResourceRow[]): void {
   });
 }
 
+function localeEntryOf(row: TemplateResourceRow): { body: string; meta?: unknown; title?: string } {
+  const meta = parseStoredJson(row.meta);
+  return {
+    body: row.content ?? "",
+    ...(meta === undefined ? {} : { meta }),
+    ...(row.title === null ? {} : { title: row.title }),
+  };
+}
+
 export const exportBundleQuery = defineQueryHandler({
   name: "export-bundle",
   schema: z.object({
@@ -92,11 +101,10 @@ export const exportBundleQuery = defineQueryHandler({
     if (!first) throw new NotFoundError("template-resource", slug);
     assertLocalesShareFormat(rows);
 
-    const locales: Record<string, { body: string; meta?: unknown }> = {};
+    const locales: Record<string, { body: string; meta?: unknown; title?: string }> = {};
     const entryByKey = new Map<string, LinkedResourceEntry>();
     for (const row of rows) {
-      const meta = parseStoredJson(row.meta);
-      locales[row.locale] = { body: row.content ?? "", ...(meta === undefined ? {} : { meta }) };
+      locales[row.locale] = localeEntryOf(row);
       for (const [key, entry] of Object.entries(parseLinkedResourceEntries(row.linkedResources))) {
         if (!entryByKey.has(key)) entryByKey.set(key, entry);
       }

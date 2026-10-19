@@ -1833,4 +1833,23 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from": "Indirizzo del mittente",
   "mail-transport-smtp.from.description":
     "L'indirizzo da cui vengono inviate le e-mail, ad esempio status@example.com. Il tuo provider deve consentirlo.",
+  "screen:mail-accounts.title": "Caselle di posta",
+  "screen:mail-account-edit.title": "Modifica casella di posta",
+  "inboundMail.accounts.col.name": "Nome",
+  "inboundMail.accounts.col.address": "Indirizzo",
+  "inboundMail.accounts.col.provider": "Provider",
+  "inboundMail.accounts.col.status": "Stato",
+  "inboundMail.accounts.col.connected": "Connessa dal",
+  "inboundMail.accounts.status.active": "Attiva",
+  "inboundMail.accounts.status.auth_error": "Accesso non riuscito",
+  "inboundMail.accounts.status.degraded": "Interrotta",
+  "inboundMail.accounts.status.disconnected": "Disconnessa",
+  "inboundMail.accounts.edit": "Rinomina",
+  "inboundMail.accounts.edit.submit": "Salva",
+  "inboundMail.accounts.disconnect": "Disconnetti",
+  "inboundMail.accounts.disconnect.confirm":
+    "Disconnettere questa casella di posta? Non verrà recuperata nuova posta; la posta salvata viene conservata.",
+  "inbound-mail-foundation:entity:__action-form__:field:accountId": "Casella di posta",
+  "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nome",
+  "inbound-mail-foundation:entity:__action-form__:field:reason": "Motivo",
 };

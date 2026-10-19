@@ -6,6 +6,8 @@ import { withDerivedCells } from "./embedded-derived.ts";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types/index.ts";
 import { DEFAULT_CURRENCIES } from "./types/index.ts";
 
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 // True if `n` carries at most `scale` decimal places. A relative epsilon
 // tolerates float artifacts (`0.1 + 0.2 = 0.30000000000000004` is accepted at
 // scale 2) — the exact `toFixed`-roundtrip-equality it replaces rejected such
@@ -118,6 +120,12 @@ export function fieldToZod(
       }
       if (field.format === "email") schema = schema.email();
       if (field.format === "url") schema = schema.url();
+      if (field.format === "month") {
+        // "" stays valid for an optional field; `required` rejects it via min(1) below.
+        schema = schema.refine((value) => value === "" || MONTH_PATTERN.test(value), {
+          message: "expected a month as YYYY-MM",
+        });
+      }
       if (field.required) schema = schema.min(1);
       return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }

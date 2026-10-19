@@ -5,12 +5,17 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createEntity,
   createFileField,
   createFilesField,
+  createSystemUser,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
@@ -24,6 +29,7 @@ import {
   createInMemoryFileProvider,
   deriveKey,
   type FileStorageProvider,
+  fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -102,6 +108,10 @@ const flakyProvider: FileStorageProvider = {
   },
 };
 
+const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+  entityName: "fileRef",
+});
+
 let stack: TestStack;
 
 beforeAll(async () => {
@@ -136,11 +146,15 @@ afterEach(() => {
 
 type Uploader = typeof dpo;
 
-async function upload(as: Uploader, entityType: string, fieldName: string): Promise<string> {
+async function upload(
+  as: Uploader,
+  entityType: string | undefined,
+  fieldName?: string,
+): Promise<string> {
   const token = await stack.jwt.sign(as);
   const fd = new FormData();
-  fd.append("entityType", entityType);
-  fd.append("fieldName", fieldName);
+  if (entityType !== undefined) fd.append("entityType", entityType);
+  if (fieldName !== undefined) fd.append("fieldName", fieldName);
   fd.append(
     "file",
     new File([Buffer.from("%PDF-1.4 minimal")], "doc.pdf", { type: "application/pdf" }),
@@ -335,5 +349,76 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     expect(await fileRefExists(contractId)).toBe(false);
     expect(await memory.exists(otherKey)).toBe(true);
     expect(await fileRefExists(otherContractId)).toBe(true);
+  });
+
+  test("user subject: the user's uploads never bound to a record are removed, bound files and other users' pending uploads stay", async () => {
+    const pendingId = await upload(foreignUploader, "owned-doc", "contract");
+    const otherPendingId = await upload(dpo, "owned-doc", "contract");
+    const boundId = await upload(foreignUploader, "owned-doc", "contract");
+    await stack.http.writeOk(
+      CREATE_OWNED,
+      { ownerId: "dddddddd-dddd-4ddd-8ddd-0000000000ff", contract: boundId },
+      foreignUploader,
+    );
+    const pendingKey = await storageKeyOf(pendingId);
+    const otherPendingKey = await storageKeyOf(otherPendingId);
+    const boundKey = await storageKeyOf(boundId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: foreignUploader.id }, reason: REASON },
+      dpo,
+    );
+
+    expect(await memory.exists(pendingKey)).toBe(false);
+    expect(await fileRefExists(pendingId)).toBe(false);
+    expect(await memory.exists(otherPendingKey)).toBe(true);
+    expect(await fileRefExists(otherPendingId)).toBe(true);
+    expect(await memory.exists(boundKey)).toBe(true);
+    expect(await fileRefExists(boundId)).toBe(true);
+  });
+
+  test("user subject: an unbound upload without an entity field origin (config logo, server-made file) is not a pending upload and stays", async () => {
+    const configOriginId = await upload(foreignUploader, undefined);
+    const pendingFieldId = await upload(foreignUploader, "owned-doc", "contract");
+    const configOriginKey = await storageKeyOf(configOriginId);
+    const pendingFieldKey = await storageKeyOf(pendingFieldId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: foreignUploader.id }, reason: REASON },
+      dpo,
+    );
+
+    expect(await memory.exists(configOriginKey)).toBe(true);
+    expect(await fileRefExists(configOriginId)).toBe(true);
+    expect(await memory.exists(pendingFieldKey)).toBe(false);
+    expect(await fileRefExists(pendingFieldId)).toBe(false);
+  });
+
+  test("user subject: an unbound ref that a record's single file column still names is in use and stays", async () => {
+    const heldId = await upload(foreignUploader, "owned-doc", "contract");
+    await stack.http.writeOk(
+      CREATE_OWNED,
+      { ownerId: "dddddddd-dddd-4ddd-8ddd-0000000000ff", contract: heldId },
+      foreignUploader,
+    );
+    const [row] = await selectMany<{ version: number }>(stack.db, fileRefsTable, { id: heldId });
+    const unbound = await fileRefExecutor.update(
+      { id: heldId, version: row?.version, changes: { entityId: null } },
+      createSystemUser(TENANT),
+      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
+    );
+    expect(unbound.isSuccess).toBe(true);
+    const heldKey = await storageKeyOf(heldId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: foreignUploader.id }, reason: REASON },
+      dpo,
+    );
+
+    expect(await memory.exists(heldKey)).toBe(true);
+    expect(await fileRefExists(heldId)).toBe(true);
   });
 });

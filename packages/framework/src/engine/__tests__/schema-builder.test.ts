@@ -70,6 +70,19 @@ describe("buildInsertSchema", () => {
       invalid: { email: "not-an-email" },
     },
     {
+      name: "month format",
+      fields: {
+        period: createTextField({
+          required: true,
+          format: "month",
+          personal: false,
+          reason: "test_fixture",
+        }),
+      },
+      valid: { period: "2026-03" },
+      invalid: { period: "2026-13" },
+    },
+    {
       name: "boolean field",
       fields: { active: createBooleanField() },
       valid: { active: true },

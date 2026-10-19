@@ -214,6 +214,7 @@ export async function importTemplateBundle(
       contentFormat: args.bundle.contentFormat,
       variableSchema,
       meta: entry.meta,
+      ...(entry.title !== undefined && { title: entry.title }),
     };
     const written = await writeTemplateRow({
       ctx: args.ctx,

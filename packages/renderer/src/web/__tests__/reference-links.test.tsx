@@ -248,6 +248,46 @@ describe("reference column links", async () => {
   });
 });
 
+const multiEntity = {
+  fields: {
+    name: { type: "text" },
+    guests: { type: "reference", entity: "owner", labelField: "displayName", multiple: true },
+  },
+} as unknown as EntityDefinition;
+
+const multiScreen: EntityListScreenDefinition = {
+  id: "",
+  type: "entityList",
+  entity: "dog",
+  columns: [{ field: "name" }, { field: "guests" }],
+};
+
+describe("multi-reference column links", () => {
+  test("each resolved entry links, an unresolved one stays text", async () => {
+    const view = await renderSettled(
+      <RenderList
+        screen={multiScreen}
+        entity={multiEntity}
+        featureName="people"
+        rows={[
+          {
+            id: "r1",
+            name: "Rex",
+            guests: [OWNER_ID, OTHER_OWNER_ID],
+            _refs: { guests: [{ id: OWNER_ID, displayName: "Ada" }] },
+          },
+        ]}
+      />,
+    );
+    const cell = view.getByTestId("cell-r1-guests");
+    const anchors = cell.querySelectorAll("a");
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0]?.textContent).toBe("Ada");
+    expect(anchors[0]?.getAttribute("href")).toBe(`/owner-detail/${OWNER_ID}`);
+    expect(cell.textContent).toBe(`Ada, ${OTHER_OWNER_ID}`);
+  });
+});
+
 const detailEntity = {
   fields: {
     owner: { type: "reference", entity: "owner", labelField: "displayName" },

@@ -2218,6 +2218,43 @@ describe("RenderEdit wizard mode", () => {
     expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
   });
 
+  test("a server root issue without a field shows once, in the banner", async () => {
+    const write = mock(
+      async () =>
+        ({
+          isSuccess: false,
+          error: {
+            code: "validation_failed",
+            httpStatus: 422,
+            i18nKey: "kumiko.errors.validation",
+            message: "Validation failed",
+            details: {
+              fields: [{ path: "(root)", code: "custom", i18nKey: "kumiko.errors.cross-field" }],
+            },
+          },
+        }) as never,
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("render-edit-form-error-root").textContent).toBe(
+      "kumiko.errors.cross-field",
+    );
+    expect(screen.queryByTestId("render-edit-root-issue")).toBeNull();
+  });
+
   // An extension section on an earlier wizard step used to unmount when the
   // wizard advanced (only the current step's section was rendered), which
   // tore down its useExtensionFormSubmit registration (registry.remove on

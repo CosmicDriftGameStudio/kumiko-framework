@@ -321,6 +321,18 @@ export type InputProps =
       readonly testId?: string;
     }
   | {
+      /** Month picker; the value is `YYYY-MM` (empty string when unset). */
+      readonly kind: "month";
+      readonly id: string;
+      readonly name: string;
+      readonly value: string;
+      readonly onChange: (v: string) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      readonly testId?: string;
+    }
+  | {
       readonly kind: "password";
       readonly id: string;
       readonly name: string;

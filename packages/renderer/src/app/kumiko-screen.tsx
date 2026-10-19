@@ -104,6 +104,7 @@ import {
   isSecretFormField,
   type ResolvedSuccessLink,
   resolveActionFormRecordId,
+  resolveSuccessFacts,
   useActionFormLoad,
 } from "./action-form-support.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
@@ -4435,7 +4436,8 @@ function ActionFormBody({
         return;
       }
       if (screen.redirect === undefined) {
-        const hasSuccessLinks = (screen.successLinks?.length ?? 0) > 0;
+        const hasSuccessLinks =
+          (screen.successLinks?.length ?? 0) > 0 || (screen.successFacts?.length ?? 0) > 0;
         const publish = (text: string): void => {
           if (successSequence.current !== sequence) return;
           setSuccess({
@@ -4447,6 +4449,12 @@ function ActionFormBody({
               appFeatures,
               nav,
               effectiveTranslate,
+            ),
+            facts: resolveSuccessFacts(
+              screen.successFacts,
+              result.data,
+              effectiveTranslate,
+              locale,
             ),
           });
         };

@@ -1073,6 +1073,16 @@ function renderInput({
           />
         );
       }
+      if (field.type === "text" && field.format === "month") {
+        return (
+          <Input
+            kind="month"
+            {...common}
+            value={stringValue(field.value)}
+            onChange={(v) => onChange(v)}
+          />
+        );
+      }
       // text + unknown scalar type → text input. If TextFieldDef.multiline
       // is set (the view-model carries it), the renderer switches to
       // textarea. longText always renders a textarea — that's the point of

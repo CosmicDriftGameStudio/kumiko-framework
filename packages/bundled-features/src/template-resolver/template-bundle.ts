@@ -40,7 +40,12 @@ const bundleResourceSchema = z
 const pdfAttachmentLinkBodySchema = templatePdfAttachmentLinkSchema.omit({ kind: true });
 
 const bundleLocaleEntrySchema = z
-  .object({ body: z.string().max(200_000), meta: z.unknown().optional() })
+  .object({
+    body: z.string().max(200_000),
+    meta: z.unknown().optional(),
+    // Shown in the template overview instead of the slug; one per locale, so it is translated.
+    title: z.string().min(1).max(200).optional(),
+  })
   .strict();
 
 export const templateBundleSchema = z

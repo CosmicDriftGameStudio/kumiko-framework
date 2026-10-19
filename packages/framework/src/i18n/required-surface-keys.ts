@@ -350,6 +350,7 @@ export function requiredKeysFromScreen(
       pushKey(out, form.summary?.subtitle);
       for (const action of form.footerActions ?? []) pushKey(out, action.label);
       for (const link of form.successLinks ?? []) pushKey(out, link.label);
+      for (const fact of form.successFacts ?? []) pushKey(out, fact.label);
       for (const fieldName of Object.keys(form.fields)) {
         const override = form.fieldLabels?.[fieldName];
         if (override !== undefined) pushKey(out, override);

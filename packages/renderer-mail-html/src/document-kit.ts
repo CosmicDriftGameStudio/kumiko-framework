@@ -11,6 +11,11 @@ import {
   type TemplateResolverApi,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import {
+  decryptTenantNames,
+  TENANT_FEATURE,
+  tenantTable,
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   isUuid,
@@ -19,6 +24,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import { TENANT_TIMEZONE_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/pipeline";
+import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import {
   DOCUMENT_FALLBACK_CURRENCY,
   formatDocumentDate,
@@ -33,14 +40,24 @@ import Handlebars from "handlebars";
 const documentKitLogger = createFallbackLogger("renderer-mail-html");
 const SAFE_LINK_PROTOCOL = /^(https?:|mailto:)/i;
 
-export type DocumentFormat = { readonly locale: string; readonly currency: string };
+export type DocumentFormat = {
+  readonly locale: string;
+  readonly currency: string;
+  /** Tenant zone for `{{date x time=true}}`; absent = UTC. */
+  readonly timeZone?: string;
+};
 
 export function createDocumentHandlebars(format: DocumentFormat): typeof Handlebars {
   const hbs = Handlebars.create();
   hbs.registerHelper("money", (value: unknown): string =>
     formatDocumentMoney(value, format.currency, format.locale),
   );
-  hbs.registerHelper("date", (value: unknown): string => formatDocumentDate(value, format.locale));
+  hbs.registerHelper("date", (value: unknown, options?: Handlebars.HelperOptions): string =>
+    formatDocumentDate(value, format.locale, {
+      time: options?.hash?.["time"] === true,
+      ...(format.timeZone !== undefined && { timeZone: format.timeZone }),
+    }),
+  );
   hbs.registerHelper("percent", (value: unknown): string =>
     formatDocumentPercent(value, format.locale),
   );
@@ -133,11 +150,22 @@ export async function readDocumentFormat(
   templateLocale: string,
 ): Promise<DocumentFormat> {
   const currency = await readConfigText(ctx, TENANT_CURRENCY_CONFIG_KEY);
-  return { locale: templateLocale, currency: currency ?? DOCUMENT_FALLBACK_CURRENCY };
+  const zone = await readConfigText(ctx, TENANT_TIMEZONE_CONFIG_KEY);
+  return {
+    locale: templateLocale,
+    currency: currency ?? DOCUMENT_FALLBACK_CURRENCY,
+    ...(zone !== undefined && isValidIanaTimeZone(zone) && { timeZone: zone }),
+  };
 }
 
+// Without managed-pages there is no branding title; the tenant record's own name is the fallback.
 export async function readTenantName(ctx: RendererContext): Promise<string> {
-  return (await readConfigText(ctx, BRANDING_QN.title)) ?? "";
+  const branded = await readConfigText(ctx, BRANDING_QN.title);
+  if (branded !== undefined) return branded;
+  if (ctx.registry.getFeature(TENANT_FEATURE) === undefined) return "";
+  const rows = await selectMany<{ name?: unknown }>(ctx.db, tenantTable, { id: ctx.tenantId });
+  const [row] = await decryptTenantNames(rows, "renderer-mail-html:tenant-name");
+  return typeof row?.name === "string" ? row.name : "";
 }
 
 export async function readBrandingAccentColor(ctx: RendererContext): Promise<string | undefined> {

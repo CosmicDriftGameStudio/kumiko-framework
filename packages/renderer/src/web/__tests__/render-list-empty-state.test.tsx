@@ -5,7 +5,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fireEvent } from "@testing-library/react";
 import { RenderList } from "../../index.ts";
-import { render } from "./test-utils.tsx";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
+import { ShellHeader } from "../layout/shell-header.tsx";
+import { render, renderWithSidebar } from "./test-utils.tsx";
 
 const entity = {
   fields: { name: { type: "text", sortable: true } },
@@ -77,5 +79,30 @@ describe("RenderList — empty state", () => {
     expect(container.querySelector("#render-list-search")).not.toBeNull();
     const toolbar = getByTestId("render-list-table-toolbar");
     expect(toolbar.contains(getByTestId("render-list-table-description"))).toBe(false);
+  });
+
+  test("with create in the page header the empty state shows no second create button", () => {
+    const { getByTestId, getByText, queryByTestId } = renderWithSidebar(
+      <PageHeaderSlotProvider>
+        <ShellHeader schema={{ features: [] }} />
+        <RenderList
+          screen={screen}
+          entity={entity}
+          rows={[]}
+          featureName="shop"
+          onCreate={() => {}}
+        />
+      </PageHeaderSlotProvider>,
+    );
+    expect(getByTestId("render-list-create")).toBeDefined();
+    expect(getByText("No entries yet.")).toBeDefined();
+    expect(queryByTestId("render-list-empty-create")).toBeNull();
+  });
+
+  test("the description always carries the standard bottom spacing and form typography", () => {
+    const { getByTestId } = renderEmptyList({ description: "Open leases" });
+    const cls = getByTestId("render-list-table-description").className;
+    expect(cls).toContain("pb-2");
+    expect(cls).toContain("text-sm");
   });
 });

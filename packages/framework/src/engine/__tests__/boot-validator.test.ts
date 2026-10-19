@@ -2725,6 +2725,7 @@ describe("boot-validator", () => {
         readonly idFrom?: string;
         readonly label: string;
       }>;
+      readonly successFacts?: ReadonlyArray<{ readonly field: string; readonly label: string }>;
       readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
       readonly extraDetailScreens?: readonly string[];
@@ -2773,6 +2774,7 @@ describe("boot-validator", () => {
           },
           ...(override.redirect !== undefined && { redirect: override.redirect }),
           ...(override.successLinks !== undefined && { successLinks: override.successLinks }),
+          ...(override.successFacts !== undefined && { successFacts: override.successFacts }),
           ...(override.cancelTarget !== undefined && { cancelTarget: override.cancelTarget }),
         });
         for (const extra of override.extraScreens ?? []) {
@@ -3098,6 +3100,18 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/sets both redirect and successLinks/);
+    });
+
+    test("successFacts together with redirect → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: "overview",
+            successFacts: [{ field: "count", label: "shop.fact.count" }],
+            extraScreens: ["overview"],
+          }),
+        ]),
+      ).toThrow(/sets both redirect and successFacts/);
     });
 
     test("successLinks → unknown screen → Throw naming the link", () => {

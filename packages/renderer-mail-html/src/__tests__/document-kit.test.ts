@@ -39,6 +39,43 @@ describe("renderer-mail-html :: date helper", () => {
   });
 });
 
+describe("renderer-mail-html :: date helper with time", () => {
+  const renderWith = (timeZone: string | undefined, value: unknown) =>
+    compileDocumentSource(
+      createDocumentHandlebars({
+        locale: "de",
+        currency: "EUR",
+        ...(timeZone !== undefined && { timeZone }),
+      }),
+      "{{date value time=true}}",
+    )({ value });
+
+  test("a call without a value or with a stray argument renders instead of throwing", () => {
+    const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
+    expect(() => compileDocumentSource(hbs, "{{date}}")({})).not.toThrow();
+    expect(compileDocumentSource(hbs, '{{date value "x"}}')({ value: "2026-10-18" })).toBe(
+      "18. Oktober 2026",
+    );
+  });
+
+  test("an instant prints its time in the tenant zone, UTC without one", () => {
+    expect(renderWith("Europe/Berlin", "2026-10-18T00:30:00Z")).toBe("18. Oktober 2026 um 02:30");
+    expect(renderWith(undefined, "2026-10-18T00:30:00Z")).toBe("18. Oktober 2026 um 00:30");
+  });
+
+  test("an offset datetime keeps its own wall clock, a date-only value has no time", () => {
+    expect(renderWith("Asia/Tokyo", "2026-10-18T00:30:00+02:00")).toBe("18. Oktober 2026 um 00:30");
+    expect(renderWith("Europe/Berlin", "2026-10-18")).toBe("18. Oktober 2026");
+  });
+
+  test("without time=true the zone changes nothing", () => {
+    const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR", timeZone: "Asia/Tokyo" });
+    expect(compileDocumentSource(hbs, "{{date value}}")({ value: "2026-10-18T20:30:00Z" })).toBe(
+      "18. Oktober 2026",
+    );
+  });
+});
+
 describe("renderer-mail-html :: richText helper", () => {
   const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
   const render = (source: string, data: Record<string, unknown>) =>

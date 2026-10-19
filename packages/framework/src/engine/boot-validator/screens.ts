@@ -1467,6 +1467,16 @@ function validateInlineFormNavTargets(
   if (screen.redirect !== undefined) {
     validateRedirectTarget(feature, screenId, kind, screen.redirect, lookups);
   }
+  if (
+    screen.type === "actionForm" &&
+    screen.successFacts !== undefined &&
+    screen.redirect !== undefined
+  ) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successFacts — ` +
+        `redirect leaves the screen, successFacts are shown on it. Use one of them.`,
+    );
+  }
   if (screen.type === "actionForm" && screen.successLinks !== undefined) {
     if (screen.redirect !== undefined) {
       throw new Error(
