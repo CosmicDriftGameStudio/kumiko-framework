@@ -301,6 +301,15 @@
   --shell-header-height: 3.5rem;
 }
 
+/* A non-modal side Drawer publishes the width it occupies (widgets/drawer.tsx); the content area
+   narrows by that much instead of sitting underneath. Only <main>: the drawer starts below the
+   header, and the pinned form footer lives inside <main>. No transition: the sheet slides by
+   transform, its width never animates. */
+[data-slot="sidebar-inset"] > main {
+  padding-inline-end: var(--kumiko-drawer-inset-right, 0px);
+  padding-inline-start: var(--kumiko-drawer-inset-left, 0px);
+}
+
 /* Light-Mode-Overrides — aktiv wenn `<html>` KEINE `.dark` Klasse
    hat. Dark ist der Default (siehe @theme oben); toggled der User
    auf light, greifen diese Werte. */

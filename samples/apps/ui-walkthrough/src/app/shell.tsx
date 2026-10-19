@@ -14,6 +14,7 @@ import {
   SidebarBrand,
   ThemeMenuItem,
   ThemeToggle,
+  useNav,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer/web";
 import { MoonStar, Sun } from "lucide-react";
@@ -25,8 +26,10 @@ import {
   NORDLICHT_TENANT_ID,
   NORDLICHT_TENANT_NAME,
 } from "./auth-constants";
+import { HelpAction } from "./help-action";
 
 const APP_NAME = "Kumiko Walkthrough";
+const HELP_SCREEN_ID = "vehicle-edit";
 
 const tenantName = (tenantId: string): string => {
   if (tenantId === DEV_TENANT_ID) return "Dev Tenant";
@@ -49,6 +52,7 @@ export function AppShell({
 }): ReactNode {
   const t = useTranslation();
   const session = useSession();
+  const nav = useNav();
   // Without the user the shell hides role-gated navs and KumikoScreen denies role-gated screens.
   const user = session.user !== null ? { id: session.user.id, roles: session.roles } : undefined;
   return (
@@ -58,6 +62,8 @@ export function AppShell({
       {...(user !== undefined && { user })}
       headerActions={
         <>
+          {/* Only here: the editor screens need the header width for their own actions. */}
+          {nav.route?.screenId === HELP_SCREEN_ID && <HelpAction />}
           <AssistantAction />
           <ThemeToggle />
         </>
