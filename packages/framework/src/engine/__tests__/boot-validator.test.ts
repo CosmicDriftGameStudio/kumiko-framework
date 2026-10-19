@@ -3207,6 +3207,42 @@ describe("boot-validator", () => {
       }
     });
 
+    test.each([
+      [
+        "a password field",
+        { type: "text", format: "password" },
+        /sensitive, writeOnly or password/,
+      ],
+      ["a sensitive field", { type: "text", sensitive: true }, /sensitive, writeOnly or password/],
+      [
+        "a boolean field",
+        { type: "boolean" },
+        /fillAction needs a text, number, decimal, bigInt field/,
+      ],
+    ])("fillAction on %s → Throw", (_name, noteField, message) => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            queries: ["suggest-note"],
+            fields: { note: noteField, priority: { type: "number" } },
+            sections: fillSections({ fillAction }),
+          }),
+        ]),
+      ).toThrow(message);
+    });
+
+    test("fillAction on a number field → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            queries: ["suggest-note"],
+            fields: { note: { type: "number" }, priority: { type: "number" } },
+            sections: fillSections({ fillAction }),
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
     test("cancelTarget → existing screen-id → kein Throw", () => {
       expect(() =>
         validateBoot([makeFeature({ cancelTarget: "after-form", extraScreens: ["after-form"] })]),

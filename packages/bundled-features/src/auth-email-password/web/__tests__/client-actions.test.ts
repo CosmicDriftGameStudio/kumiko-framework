@@ -50,7 +50,7 @@ describe.each([
 
     expect(await handler(name)({ email: "ada@example.com" })).toEqual({
       ok: false,
-      message: "auth.errors.rateLimited",
+      message: "auth.errors.tooManyRequests",
     });
   });
 

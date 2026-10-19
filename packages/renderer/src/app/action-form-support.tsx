@@ -1,5 +1,6 @@
 import type { ActionFormLoad } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { DispatcherError, Translate } from "@cosmicdrift/kumiko-headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
 import { useQuery } from "../hooks/use-query.ts";
 import { usePrimitives } from "../primitives.tsx";
@@ -34,6 +35,16 @@ export type ActionFormLoadState =
   | { readonly status: "error"; readonly error: DispatcherError }
   | { readonly status: "missing-record" }
   | { readonly status: "ready"; readonly values: Readonly<Record<string, unknown>> };
+
+/** A sensitive, writeOnly or password field never takes a value from a loaded
+ *  record: the form must not echo a secret back into an input. */
+export function isSecretFormField(field: unknown): boolean {
+  return (
+    propertyOf(field, "sensitive") === true ||
+    propertyOf(field, "writeOnly") === true ||
+    propertyOf(field, "format") === "password"
+  );
+}
 
 function pickDeclaredFields(
   record: unknown,

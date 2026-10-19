@@ -101,6 +101,7 @@ import {
   ActionFormLoadStatus,
   ActionFormSuccessBanner,
   type ActionFormSuccessState,
+  isSecretFormField,
   type ResolvedSuccessLink,
   resolveActionFormRecordId,
   useActionFormLoad,
@@ -4353,7 +4354,13 @@ function ActionFormBody({
     loading: currencyLoading,
     unresolved: currencyUnresolved,
   } = useMoneyCurrencyOverrides(screen.fields, tenantCurrencyFieldNames, undefined);
-  const submittableFieldNames = useMemo(() => Object.keys(submittableFields), [submittableFields]);
+  const loadableFieldNames = useMemo(
+    () =>
+      Object.entries(submittableFields)
+        .filter(([, field]) => !isSecretFormField(field))
+        .map(([name]) => name),
+    [submittableFields],
+  );
   const loadState = useActionFormLoad(
     screen.load,
     screen.load !== undefined
@@ -4363,7 +4370,7 @@ function ActionFormBody({
           searchParams: nav.searchParams,
         })
       : undefined,
-    submittableFieldNames,
+    loadableFieldNames,
   );
   const loadedValues = loadState?.status === "ready" ? loadState.values : undefined;
   const initial = useMemo(() => {

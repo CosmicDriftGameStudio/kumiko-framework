@@ -18,7 +18,8 @@ detail: pagedListSchema(sortableFields) and pageRows(rows, request, { searchFiel
 
 <!-- kumiko-changes
 feature: cap-overview
-type: fix
-title: tenant-caps:list pages by offset
-detail: The cap overview list showed page 1 on every page because the pager sends offset and the query only read cursor. tenant-caps:list now takes offset like the pager. A cursor in the payload is now rejected with a 400 validation error; no caller in the workspace sends one. The unused cap-overview.errors.invalidCursor and sortFieldUnsupported keys are gone.
+type: breaking
+title: tenant-caps:list pages by offset and rejects cursor
+detail: The cap overview list showed page 1 on every page because the pager sends offset and the query only read cursor. tenant-caps:list now takes offset like the pager; a cursor in the payload is rejected with a 400 validation error and sort is an enum of the sortable fields. The unused cap-overview.errors.invalidCursor and sortFieldUnsupported keys are gone.
+migration: Callers of cap-overview:query:tenant-caps:list must send offset instead of cursor, and only a sortable field name as sort. Apps that override the removed i18n keys cap-overview.errors.invalidCursor or cap-overview.errors.sortFieldUnsupported can delete them. No caller in the kumiko-enterprise, kumiko-platform, kumiko-studio or app repos sends a cursor or defines these keys.
 -->

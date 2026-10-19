@@ -78,6 +78,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.errors.signupEmailAlreadyRegistered":
     "An account already exists for this email. Please sign in or reset your password.",
   "auth.errors.unknownError": "Something went wrong. Please try again.",
+  "auth.errors.tooManyRequests": "Too many requests. Please wait briefly.",
   "auth.forgotPassword.backToLogin": "Back to sign in",
   "auth.forgotPassword.email": "Email",
   "auth.forgotPassword.intro":
