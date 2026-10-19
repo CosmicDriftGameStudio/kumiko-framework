@@ -897,8 +897,12 @@ function ChartPanelBody({
             windowEndMs={endMs}
             markers={markers}
             formatMarkerTime={formats.formatDay}
-            {...(panel.valueFormat !== undefined && {
-              yAxis: { ticks: 3, format: formats.formatPanelAxisValue(panel.valueFormat) },
+            {...((panel.valueFormat !== undefined || panel.unit !== undefined) && {
+              yAxis: {
+                ticks: 3,
+                format: formats.formatPanelAxisValue(panel.valueFormat),
+                ...(panel.unit !== undefined && { unit: translate(panel.unit) }),
+              },
             })}
             ariaLabel={label}
             testId={testId}

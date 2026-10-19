@@ -10,6 +10,10 @@ import {
 } from "react";
 import { cn } from "../lib/cn.ts";
 import {
+  NARROW_VIEWPORT_BREAKPOINT_PX,
+  useIsViewportBelow,
+} from "../primitives/use-narrow-viewport.ts";
+import {
   bucketIndexAtFraction,
   type ChartWindow,
   initialWindowSelection,
@@ -198,7 +202,16 @@ export type TimeseriesYAxis = {
   readonly ticks: number;
   /** Label text per tick value (unit, locale). Default: the plain number. */
   readonly format?: (value: number) => string;
+  /** Ready-to-display unit (e.g. "ms"), shown once above the tick labels so
+   *  `format` can stay unit-free. */
+  readonly unit?: string;
 };
+
+/** Pixel height, or one height per viewport class. `narrowBelowPx` defaults
+ *  to the shared narrow-viewport breakpoint (768). */
+export type TimeseriesHeight =
+  | number
+  | { readonly narrow: number; readonly wide: number; readonly narrowBelowPx?: number };
 
 export type TimeseriesXAxis = {
   /** Number of evenly spaced time labels (min 2). */
@@ -267,7 +280,7 @@ export function TimeseriesChart({
   /** Gridlines plus value labels in a left gutter. */
   readonly yAxis?: TimeseriesYAxis;
   /** Chart height in px. Default: 64 (`h-16`). */
-  readonly height?: number;
+  readonly height?: TimeseriesHeight;
   /** Numbered pins on the x-axis plus a numbered list below the chart. */
   readonly markers?: readonly ChartMarker[];
   readonly formatMarkerTime?: (atMs: number) => string;
@@ -283,8 +296,14 @@ export function TimeseriesChart({
   const descId = useId();
   const chartWidth = 300;
   const chartHeight = 64;
-  const heightClass = height === undefined ? DEFAULT_TIMESERIES_HEIGHT_CLASS : undefined;
-  const heightStyle = height === undefined ? undefined : { height };
+  const isNarrow = useIsViewportBelow(
+    typeof height === "object"
+      ? (height.narrowBelowPx ?? NARROW_VIEWPORT_BREAKPOINT_PX)
+      : NARROW_VIEWPORT_BREAKPOINT_PX,
+  );
+  const heightPx = typeof height === "object" ? (isNarrow ? height.narrow : height.wide) : height;
+  const heightClass = heightPx === undefined ? DEFAULT_TIMESERIES_HEIGHT_CLASS : undefined;
+  const heightStyle = heightPx === undefined ? undefined : { height: heightPx };
 
   const values = points.map((p) => p.value).filter((v): v is number => v !== null);
   if (values.length === 0) {
@@ -450,7 +469,7 @@ export function TimeseriesChart({
       {yAxis === undefined ? (
         plot
       ) : (
-        <div className="flex gap-1.5">
+        <div className={cn("flex gap-1.5", yAxis.unit !== undefined && "pt-4")}>
           <div
             aria-hidden="true"
             className={cn(
@@ -459,6 +478,15 @@ export function TimeseriesChart({
             )}
             style={heightStyle}
           >
+            {yAxis.unit !== undefined && (
+              <span
+                data-testid={testId === undefined ? undefined : `${testId}-y-unit`}
+                data-y-unit=""
+                className="absolute right-0 bottom-full mb-1 whitespace-nowrap leading-none"
+              >
+                {yAxis.unit}
+              </span>
+            )}
             {yTicks.map((tick, index) => (
               <span
                 key={tick}

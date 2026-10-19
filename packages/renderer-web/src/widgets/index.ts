@@ -28,6 +28,7 @@ export {
   type StatusBarEntry,
   smoothPath,
   TimeseriesChart,
+  type TimeseriesHeight,
   type TimeseriesPoint,
   type TimeseriesReferenceLine,
   type TimeseriesXAxis,

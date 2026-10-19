@@ -781,6 +781,7 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
           "demo:dashboard:range:1y": { de: "1 Jahr", en: "1 year" },
           "demo:dashboard:range:max": { de: "Max", en: "Max" },
           "demo:dashboard:marker:payoff": { de: "Ablösung", en: "Payoff" },
+          "demo:dashboard:unit:ms": { de: "ms", en: "ms" },
         },
       });
     });
@@ -939,6 +940,13 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
     expect(() => validateBoot([gatedFeature([{ ...AREA, brush: true }])])).not.toThrow();
     const feature = gatedFeature([{ ...AREA, brush: "yes" as unknown as boolean }]);
     expect(() => validateBoot([feature])).toThrow(/non-boolean brush/);
+  });
+
+  test("accepts unit on timeseries and rejects it on other chart kinds", () => {
+    const timeseries = { ...AREA, chart: "timeseries", unit: "demo:dashboard:unit:ms" } as const;
+    expect(() => validateBoot([gatedFeature([timeseries])])).not.toThrow();
+    const feature = gatedFeature([{ ...timeseries, chart: "stacked-bars" }]);
+    expect(() => validateBoot([feature])).toThrow(/sets unit on chart "stacked-bars"/);
   });
 
   test("accepts markerLabels on stacked-area and rejects a non-boolean markerLabels", () => {

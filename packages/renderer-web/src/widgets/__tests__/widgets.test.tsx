@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
 import { StackedAreaChart, StatusBarChart, smoothPath, TimeseriesChart } from "../charts.tsx";
 import { CollapsibleSection } from "../collapsible-section.tsx";
@@ -692,6 +692,81 @@ describe("TimeseriesChart axes and height", () => {
     const svg = container.querySelector("svg");
     expect(svg?.getAttribute("style")).toContain("height: 120px");
     expect(svg?.getAttribute("class")).not.toContain("h-16");
+  });
+
+  test("yAxis unit renders once above the ticks, which carry no unit", () => {
+    const { container } = render(
+      <TimeseriesChart {...base} testId="rt" yAxis={{ ticks: 4, unit: "ms" }} />,
+    );
+    const units = container.querySelectorAll("[data-y-unit]");
+    expect(units.length).toBe(1);
+    expect(screen.getByTestId("rt-y-unit").textContent).toBe("ms");
+    const labels = [...container.querySelectorAll("[data-y-label]")].map((n) => n.textContent);
+    expect(labels).toEqual(["0", "200", "400", "600"]);
+  });
+
+  test("no unit element without yAxis.unit", () => {
+    const { container } = render(<TimeseriesChart {...base} yAxis={{ ticks: 3 }} />);
+    expect(container.querySelectorAll("[data-y-unit]").length).toBe(0);
+  });
+
+  describe("responsive height", () => {
+    let originalDescriptor: PropertyDescriptor | undefined;
+
+    // Evaluates `(max-width: Npx)` queries against a fixed viewport width, so
+    // a custom breakpoint changes the outcome like a real browser would.
+    function mockViewportWidth(width: number): void {
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: (query: string) => {
+          const maxWidth = Number(/max-width:\s*(\d+)px/.exec(query)?.[1]);
+          return {
+            matches: width <= maxWidth,
+            media: query,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+          };
+        },
+      });
+    }
+
+    beforeEach(() => {
+      originalDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+    });
+
+    afterEach(() => {
+      if (originalDescriptor) {
+        Object.defineProperty(window, "matchMedia", originalDescriptor);
+      } else {
+        delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+      }
+    });
+
+    function renderedHeight(height: Parameters<typeof TimeseriesChart>[0]["height"]): string {
+      const { container } = render(<TimeseriesChart {...base} height={height} />);
+      return container.querySelector("svg")?.getAttribute("style") ?? "";
+    }
+
+    test("uses the narrow height below the default 768px breakpoint", () => {
+      mockViewportWidth(500);
+      expect(renderedHeight({ narrow: 110, wide: 200 })).toContain("height: 110px");
+    });
+
+    test("uses the wide height at and above the default breakpoint", () => {
+      mockViewportWidth(768);
+      expect(renderedHeight({ narrow: 110, wide: 200 })).toContain("height: 200px");
+    });
+
+    test("narrowBelowPx moves the breakpoint", () => {
+      mockViewportWidth(700);
+      expect(renderedHeight({ narrow: 110, wide: 200, narrowBelowPx: 640 })).toContain(
+        "height: 200px",
+      );
+      expect(renderedHeight({ narrow: 110, wide: 200, narrowBelowPx: 800 })).toContain(
+        "height: 110px",
+      );
+    });
   });
 
   test("default rendering has no gridlines, labels or inline height", () => {

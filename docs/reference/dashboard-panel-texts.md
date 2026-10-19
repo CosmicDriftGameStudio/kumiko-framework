@@ -68,6 +68,8 @@ valueFormat: { kind: "currency", currency: "EUR", fractionDigits: 0 }
 
 The value is in minor units (cents). `fractionDigits` defaults to the currency's own decimals. On a stat panel the format applies to a numeric value; a string value is shown unchanged and the sparkline stays unformatted. On `stacked-bars`, `segment-bars` and `stacked-area` charts it applies to the y axis ticks, legend totals and tooltips. A `timeseries` chart uses it only for its y axis ticks. The boot validator rejects a currency that is not three upper-case letters and a `fractionDigits` outside 0 to 4.
 
+A `timeseries` chart also takes `unit` (i18n key, e.g. for "ms"). The unit is shown once above the y axis ticks, and the ticks show only the number. The boot validator rejects `unit` on other chart kinds.
+
 ## Scrolling stacked-area charts: `scrollable`
 
 `scrollable: true` gives each bucket of a `stacked-area` chart a fixed width of 48 px, and the plot scrolls horizontally when the buckets do not fit. On first render the chart scrolls so that `todayMs` sits in the middle, or to the end when the result has no `todayMs`. The boot validator rejects `scrollable` on other chart kinds.

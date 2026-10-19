@@ -3323,6 +3323,11 @@ function validateDashboardChartDisplay(
       `${where} sets scrollable on chart "${panel.chart}" — only "stacked-area" supports it. Remove scrollable or use chart "stacked-area".`,
     );
   }
+  if (panel.unit !== undefined && panel.chart !== "timeseries") {
+    throw new Error(
+      `${where} sets unit on chart "${panel.chart}" — only "timeseries" supports it. Remove unit or use chart "timeseries".`,
+    );
+  }
   validateStackedAreaOnlyProps(where, panel);
   validateStackedAreaEnumProp(where, "dateFormat", panel.dateFormat, ["day", "month"]);
   validateStackedAreaEnumProp(where, "initialWindow", panel.initialWindow, [
