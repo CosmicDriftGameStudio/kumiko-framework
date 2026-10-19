@@ -63,6 +63,22 @@ test("mail-editor-preview", async ({ page }) => {
   await shot(page, "mail-editor-preview");
 });
 
+test("mail-editor-preview-mobile", async ({ page }) => {
+  await openEditor(page);
+  await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
+  await page.getByTestId("mail-preview-width").locator("button").nth(1).click();
+  await expect(page.getByTestId("mail-preview-iframe")).toHaveClass(/w-\[375px\]/);
+  await shot(page, "mail-editor-preview-mobile");
+});
+
+test("mail-editor-preview-text", async ({ page }) => {
+  await openEditor(page);
+  await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
+  await page.getByTestId("mail-preview-format").locator("button").nth(1).click();
+  await expect(page.getByTestId("mail-preview-text")).toBeVisible();
+  await shot(page, "mail-editor-preview-text");
+});
+
 // Nothing is saved: the preview renders the unsaved draft, so the seeded template stays as it is.
 test("mail-editor-chrome-rail", async ({ page }) => {
   await openEditor(page);
