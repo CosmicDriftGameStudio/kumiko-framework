@@ -12,6 +12,7 @@ export {
   readClientEntriesConfig,
   readExtraRuntimeExternals,
   resolveClientEntries,
+  writeServerLockfile,
 } from "./build.ts";
 export { createCrashTracker } from "./crash-tracker.ts";
 export { runInitDeployCli } from "./init-deploy-cli.ts";

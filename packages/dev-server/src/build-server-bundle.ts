@@ -31,6 +31,7 @@
 //     <basename>.js        ← one per extraEntries path
 //     chunk-*.js           ← geteilte Framework-Chunks
 //     package.json         ← runtime-deps mit gepinnten Versionen
+//     bun.lock             ← written by writeServerLockfile (kumiko-build), not by buildServerBundle
 //
 // Externals — Pakete die NICHT ins Bundle gebakt werden, sondern via
 // `bun install` im Runtime-Container nachgeholt werden:

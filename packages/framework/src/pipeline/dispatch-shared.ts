@@ -1,5 +1,9 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
+import type {
+  RateLimitBucketRequest,
+  RateLimitResolver,
+} from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { requestContext, runWithOrigin } from "../api/request-context.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection.ts";
@@ -40,7 +44,11 @@ import type {
   TenantWriteTarget,
   WriteResult,
 } from "../engine/types/index.ts";
-import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types/index.ts";
+import {
+  declaredRateLimitOptions,
+  isRateLimitDisabled,
+  resolveAgentExposure,
+} from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   FeatureDisabledError,
@@ -1528,17 +1536,34 @@ const DEFAULT_SYSTEM_SCOPE_RATE_LIMIT: RateLimitOption = {
   windowSeconds: 60,
 };
 
-function resolveEffectiveRateLimit(
-  rateLimit: RateLimitOption | undefined,
+function resolveEffectiveRateLimits(
+  rateLimit: RateLimitDeclaration | undefined,
   isSystemScope: boolean,
   user: SessionUser,
   resolver: AppContext["rateLimit"],
-): RateLimitOption | undefined {
-  if (rateLimit) return rateLimit;
-  if (!isSystemScope) return undefined;
-  if (!resolver) return undefined;
-  if (isSystemIdentity(user)) return undefined;
-  return DEFAULT_SYSTEM_SCOPE_RATE_LIMIT;
+): readonly RateLimitOption[] {
+  const declared = declaredRateLimitOptions(rateLimit);
+  if (declared.length > 0) return declared;
+  if (!isSystemScope) return [];
+  if (!resolver) return [];
+  if (isSystemIdentity(user)) return [];
+  return [DEFAULT_SYSTEM_SCOPE_RATE_LIMIT];
+}
+
+type BucketRequests = readonly RateLimitBucketRequest[];
+
+// A single bucket keeps the plain enforce path; several go through one atomic
+// all-or-nothing call so a rejection by one bucket never charges the others.
+async function enforceBuckets(
+  resolver: RateLimitResolver,
+  requests: BucketRequests,
+): Promise<void> {
+  const [only, ...rest] = requests;
+  // skip: no bucket to charge
+  if (!only) return;
+  await (rest.length === 0
+    ? resolver.enforce(only.bucket, only.config)
+    : resolver.enforceAll(requests));
 }
 
 // L3 rate limit gate. Called by both query and write paths before
@@ -1563,39 +1588,46 @@ export async function enforceRateLimit(
   const { appContext: context } = ctx;
   // skip: handler explicitly opts out via rateLimit: { disabled: true }
   if (isRateLimitDisabled(rateLimit)) return;
-  const effective = resolveEffectiveRateLimit(rateLimit, isSystemScope, user, context.rateLimit);
+  const effective = resolveEffectiveRateLimits(rateLimit, isSystemScope, user, context.rateLimit);
   // skip: no rateLimit declared and not systemScope (or resolved to no-op) — nothing to enforce
-  if (!effective) return;
+  if (effective.length === 0) return;
   const reqCtx = requestContext.get();
-  const bucket = buildBucketKey(effective, {
-    handlerName,
-    user,
-    ip: reqCtx?.ip,
-  });
-  // skip: ip-bucket + no IP (non-HTTP entry point) — pass through before
-  // requiring a resolver; HTTP path always has an IP + L1/L2 middleware.
-  if (bucket.kind === "skip") return;
-  if (!context.rateLimit) {
-    throw new InternalError({
-      message: `Handler "${handlerName}" declares rateLimit but no RateLimitResolver is configured. Load the rate-limiting feature or remove the option.`,
-    });
-  }
   // A nested dispatch re-hitting a bucket its entry dispatch already charged
   // (e.g. a per:"ip" handler delegating via queryAs) must not cost a second token.
   // The mark is set only after a successful enforce and includes the limit
   // parameters: a denied or failed check never lets a later nested call through,
   // and a nested handler with a stricter limit on the same bucket is still checked.
   const charged = reqCtx?.chargedRateLimitBuckets;
-  const chargedKey = `${bucket.key}|${effective.limit}|${effective.windowSeconds}|${effective.cost}`;
-  // skip: this exact bucket, limit and window was already charged by the entry dispatch
-  if (charged?.has(chargedKey)) return;
-  try {
-    await context.rateLimit.enforce(bucket.key, {
-      limit: effective.limit,
-      windowSeconds: effective.windowSeconds,
-      cost: effective.cost,
+  const pending: { readonly request: RateLimitBucketRequest; readonly chargedKey: string }[] = [];
+  for (const option of effective) {
+    const bucket = buildBucketKey(option, { handlerName, user, ip: reqCtx?.ip });
+    // skip: ip-bucket + no IP (non-HTTP entry point) — pass through before
+    // requiring a resolver; HTTP path always has an IP + L1/L2 middleware.
+    if (bucket.kind === "skip") continue;
+    const chargedKey = `${bucket.key}|${option.limit}|${option.windowSeconds}|${option.cost}`;
+    // skip: this exact bucket, limit and window was already charged by the entry dispatch
+    if (charged?.has(chargedKey)) continue;
+    pending.push({
+      request: {
+        bucket: bucket.key,
+        config: { limit: option.limit, windowSeconds: option.windowSeconds, cost: option.cost },
+      },
+      chargedKey,
     });
-    charged?.add(chargedKey);
+  }
+  // skip: every bucket was skipped or already charged — nothing left to enforce
+  if (pending.length === 0) return;
+  if (!context.rateLimit) {
+    throw new InternalError({
+      message: `Handler "${handlerName}" declares rateLimit but no RateLimitResolver is configured. Load the rate-limiting feature or remove the option.`,
+    });
+  }
+  try {
+    await enforceBuckets(
+      context.rateLimit,
+      pending.map(({ request }) => request),
+    );
+    for (const { chargedKey } of pending) charged?.add(chargedKey);
   } catch (error) {
     // Backend failure (Redis down): fail closed as 503, same as L1/L2.
     if (error instanceof RateLimitError) throw error;
@@ -1632,6 +1664,7 @@ export async function enforcePayloadRateLimits(
       message: `Handler "${handlerName}" declares additionalRateLimits but its payload is not an object.`,
     });
   }
+  const requests: RateLimitBucketRequest[] = [];
   for (const { per, limit, windowSeconds, cost, normalize } of limits) {
     const value = data[per.payloadField];
     // skip: optional field not sent — nothing to bucket on
@@ -1641,14 +1674,15 @@ export async function enforcePayloadRateLimits(
         message: `Handler "${handlerName}" additionalRateLimits payloadField "${per.payloadField}" is not a string.`,
       });
     }
-    const key = buildPayloadBucketKey(
+    const bucket = buildPayloadBucketKey(
       user.tenantId,
       handlerName,
       per.payloadField,
       digest(normalizePayloadBucketValue(value, normalize)),
     );
-    await context.rateLimit.enforce(key, { limit, windowSeconds, cost });
+    requests.push({ bucket, config: { limit, windowSeconds, cost } });
   }
+  await enforceBuckets(context.rateLimit, requests);
 }
 
 // Build the per-hook context every auth-claims invocation gets. Claims

@@ -42,6 +42,13 @@ const resolver: RateLimitResolver = {
     }
     return allow(config);
   },
+  enforceAll: async (requests) => {
+    const decisions: RateLimitDecision[] = [];
+    for (const { bucket, config } of requests) {
+      decisions.push(await resolver.enforce(bucket, config));
+    }
+    return decisions;
+  },
   peek: async (_bucket, config) => allow(config),
 };
 

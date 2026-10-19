@@ -49,16 +49,14 @@ export async function loadFileRefRows(
 ): Promise<FileRefRows> {
   // skip: nothing referenced, nothing to load
   if (ids.length === 0) return new Map();
+  // Versions before rows: a bind committing in between leaves a stale row paired with an older
+  // version, so the binding update conflicts instead of overwriting the winner's entityId.
+  const streamVersions = await getStreamVersions(tenantDbRunner(db), [...ids], db.tenantId);
   const rows = await selectMany<Record<string, unknown>>(db, fileRefsTable, {
     id: { in: [...ids] },
     tenantId,
     isDeleted: false,
   });
-  const streamVersions = await getStreamVersions(
-    tenantDbRunner(db),
-    rows.map((row) => String(row["id"])),
-    db.tenantId,
-  );
   return new Map(
     rows.map((row) => {
       const id = String(row["id"]);

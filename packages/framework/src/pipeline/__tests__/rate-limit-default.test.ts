@@ -34,6 +34,14 @@ function fakeResolver(): {
       calls.push({ bucket, config });
       return { ...decision, limit: config.limit, windowSeconds: config.windowSeconds };
     },
+    enforceAll: async (requests) => {
+      for (const { bucket, config } of requests) calls.push({ bucket, config });
+      return requests.map(({ config }) => ({
+        ...decision,
+        limit: config.limit,
+        windowSeconds: config.windowSeconds,
+      }));
+    },
     peek: async (bucket, config) => {
       calls.push({ bucket, config: { ...config } });
       return { ...decision, limit: config.limit, windowSeconds: config.windowSeconds };

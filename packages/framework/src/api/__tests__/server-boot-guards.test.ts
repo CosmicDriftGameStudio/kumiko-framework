@@ -146,6 +146,7 @@ describe("buildServer — payload rate limits need a resolver", () => {
     };
     const resolver = {
       enforce: async () => decision,
+      enforceAll: async (requests: readonly unknown[]) => requests.map(() => decision),
       check: async () => decision,
       peek: async () => decision,
     };

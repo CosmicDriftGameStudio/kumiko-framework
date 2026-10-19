@@ -60,10 +60,11 @@ WORKDIR /app
 
 RUN addgroup -S app && adduser -S app -G app
 
-# Server bundle + its minimal package.json. `bun install --production`
-# only pulls the actual externals.
+# Server bundle + its minimal package.json and the bun.lock kumiko-build wrote
+# next to it. `--frozen-lockfile` installs exactly the locked externals and
+# fails on drift instead of resolving newer versions.
 COPY --from=build --chown=app:app /app/dist-server ./
-RUN bun install --production
+RUN bun install --production --frozen-lockfile
 
 # Client build (static assets) — served by runProdApp.staticDir.
 COPY --from=build --chown=app:app /app/dist ./dist

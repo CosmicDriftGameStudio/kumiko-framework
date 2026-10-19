@@ -20,5 +20,18 @@ export function createRateLimitShowcaseFeature(): FeatureDefinition {
       access: { roles: ["Admin", "User"] },
       rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
     });
+
+    // Combined budget: each caller gets 2 submits per hour and the tenant 3 per hour in
+    // total. Both buckets are checked together; a request one bucket rejects charges neither.
+    r.writeHandler({
+      name: "submit-report",
+      schema: z.object({}),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin", "User"] },
+      rateLimit: [
+        { per: "user", limit: 2, windowSeconds: 3600 },
+        { per: "tenant+handler", limit: 3, windowSeconds: 3600 },
+      ],
+    });
   });
 }

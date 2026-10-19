@@ -28,3 +28,9 @@ export {
   parseKumikoBuildArgs,
   readExtraRuntimeExternals,
 } from "./build-server-bundle.ts";
+
+export {
+  type ServerLockfileResult,
+  type WriteServerLockfileOptions,
+  writeServerLockfile,
+} from "./write-server-lockfile.ts";

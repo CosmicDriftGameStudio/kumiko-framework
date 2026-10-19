@@ -1,4 +1,5 @@
 import type {
+  RateLimitBucketRequest,
   RateLimitConfig,
   RateLimitDecision,
   RateLimitResolver,
@@ -115,7 +116,67 @@ end
 return { math.floor(tokens), retryAfterMs }
 `;
 
+// All-or-nothing variant for several buckets. Every bucket is refilled and
+// checked first; tokens are deducted only when each one has enough, so a
+// rejected request charges no bucket. Multi-key EVAL needs all keys in one
+// hash slot on Redis Cluster; the framework uses standalone Redis.
+//
+// KEYS[i]  — bucket keys
+// ARGV[1]  — nowMs
+// ARGV[2 + 4(i-1) .. 5 + 4(i-1)] — limit, refillRatePerMs, cost, ttlSeconds of KEYS[i]
+//
+// Returns the flat list { allAllowed (1|0), remaining_1, retryAfterMs_1, remaining_2, ... }.
+// retryAfterMs_i is 0 for buckets that had enough tokens.
+const TOKEN_BUCKET_ALL_LUA = `
+local nowMs = tonumber(ARGV[1])
+local count = #KEYS
+local tokens = {}
+local costs = {}
+local retries = {}
+local allAllowed = 1
+
+for i = 1, count do
+  local base = 2 + (i - 1) * 4
+  local limit = tonumber(ARGV[base])
+  local refillRatePerMs = tonumber(ARGV[base + 1])
+  costs[i] = tonumber(ARGV[base + 2])
+
+  local data = redis.call('HMGET', KEYS[i], 'tokens', 'ts')
+  local current = tonumber(data[1])
+  local ts = tonumber(data[2])
+  if current == nil then
+    current = limit
+  else
+    local elapsed = math.max(0, nowMs - ts)
+    current = math.min(limit, current + elapsed * refillRatePerMs)
+  end
+  tokens[i] = current
+
+  if current >= costs[i] then
+    retries[i] = 0
+  else
+    retries[i] = math.ceil((costs[i] - current) / refillRatePerMs)
+    allAllowed = 0
+  end
+end
+
+local result = { allAllowed }
+for i = 1, count do
+  if allAllowed == 1 then
+    tokens[i] = tokens[i] - costs[i]
+  end
+  local base = 2 + (i - 1) * 4
+  redis.call('HMSET', KEYS[i], 'tokens', tokens[i], 'ts', nowMs)
+  redis.call('EXPIRE', KEYS[i], tonumber(ARGV[base + 3]))
+  result[#result + 1] = math.floor(tokens[i])
+  result[#result + 1] = retries[i]
+end
+
+return result
+`;
+
 export type {
+  RateLimitBucketRequest,
   RateLimitConfig,
   RateLimitDecision,
   RateLimitResolver,
@@ -151,6 +212,8 @@ type CommandClient = Redis & {
     refillRatePerMs: string,
     nowMs: string,
   ): Promise<readonly [number, number]>;
+  // No fixed numberOfKeys: the first argument is the key count, then keys, then ARGV.
+  kumikoRateLimitAll(keyCount: number, ...keysThenArgs: string[]): Promise<readonly number[]>;
 };
 
 const REGISTERED = new WeakSet<Redis>();
@@ -165,6 +228,7 @@ function ensureCommand(redis: Redis): CommandClient {
       numberOfKeys: 1,
       lua: TOKEN_BUCKET_PEEK_LUA,
     });
+    redis.defineCommand("kumikoRateLimitAll", { lua: TOKEN_BUCKET_ALL_LUA });
     REGISTERED.add(redis);
   }
   return redis as CommandClient; // @cast-boundary engine-bridge
@@ -216,6 +280,53 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     });
   }
 
+  async function enforceAll(
+    requests: readonly RateLimitBucketRequest[],
+  ): Promise<readonly RateLimitDecision[]> {
+    if (requests.length === 0) return [];
+    const nowMs = now();
+    const keys = requests.map(({ bucket }) => `${prefix}${bucket}`);
+    const perBucketArgs = requests.flatMap(({ config }) => [
+      String(config.limit),
+      String(config.limit / (config.windowSeconds * 1000)),
+      String(config.cost ?? 1),
+      String(Math.max(1, config.windowSeconds * 2)),
+    ]);
+
+    const [allAllowedFlag, ...flat] = await client.kumikoRateLimitAll(
+      keys.length,
+      ...keys,
+      String(nowMs),
+      ...perBucketArgs,
+    );
+
+    const outcomes = requests.map(({ bucket, config }, index) => {
+      const retryAfterMs = flat[index * 2 + 1] ?? 0;
+      const decision: RateLimitDecision = {
+        allowed: retryAfterMs === 0,
+        limit: config.limit,
+        remaining: flat[index * 2] ?? 0,
+        retryAfterSeconds: Math.ceil(retryAfterMs / 1000),
+        windowSeconds: config.windowSeconds,
+        resetAt: Temporal.Instant.fromEpochMilliseconds(nowMs + retryAfterMs),
+      };
+      return { bucket, retryAfterMs, decision };
+    });
+    if (allAllowedFlag === 1) return outcomes.map(({ decision }) => decision);
+
+    const rejected = outcomes.reduce((worst, outcome) =>
+      outcome.retryAfterMs > worst.retryAfterMs ? outcome : worst,
+    );
+    throw new RateLimitError({
+      bucket: toPublicBucketName(rejected.bucket),
+      limit: rejected.decision.limit,
+      windowSeconds: rejected.decision.windowSeconds,
+      remaining: rejected.decision.remaining,
+      retryAfterSeconds: rejected.decision.retryAfterSeconds,
+      resetAt: rejected.decision.resetAt.toString(),
+    });
+  }
+
   async function peek(
     bucket: string,
     config: Omit<RateLimitConfig, "cost">,
@@ -245,5 +356,5 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     };
   }
 
-  return { check, enforce, peek };
+  return { check, enforce, enforceAll, peek };
 }

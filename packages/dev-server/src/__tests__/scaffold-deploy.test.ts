@@ -88,6 +88,10 @@ describe("scaffoldDeploy", () => {
       "COPY --from=build --chown=app:app /app/kumiko/migrations ./kumiko/migrations",
     );
 
+    expect(dockerfile).toContain(
+      "COPY --from=build --chown=app:app /app/dist-server ./\nRUN bun install --production --frozen-lockfile",
+    );
+
     expect(dockerfile).not.toContain("/app/dist-server/drizzle.config.ts");
     expect(dockerfile).not.toContain("COPY --from=build --chown=app:app /app/drizzle ./drizzle");
     expect(dockerfile).not.toContain("KUMIKO_MIGRATION_HOOKS");

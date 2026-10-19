@@ -26,6 +26,7 @@ describe("default fail-closed logging", () => {
     const resolver: RateLimitResolver = {
       check: failingCall,
       enforce: failingCall,
+      enforceAll: failingCall,
       peek: failingCall,
     };
     const app = new Hono();

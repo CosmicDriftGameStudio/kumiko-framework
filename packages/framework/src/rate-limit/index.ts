@@ -16,6 +16,7 @@ export {
 } from "./middleware.ts";
 export {
   createRateLimitResolver,
+  type RateLimitBucketRequest,
   type RateLimitConfig,
   type RateLimitDecision,
   type RateLimitResolver,

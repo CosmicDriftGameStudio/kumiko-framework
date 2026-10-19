@@ -209,3 +209,51 @@ describe("createRateLimitResolver — enforce", () => {
     expect(err.details.resetAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
+
+describe("createRateLimitResolver — enforceAll", () => {
+  test("deducts from every bucket when all have enough tokens", async () => {
+    const perUser = { limit: 3, windowSeconds: 3600 };
+    const perTenant = { limit: 5, windowSeconds: 3600, cost: 2 };
+
+    const decisions = await resolver.enforceAll([
+      { bucket: "user:a", config: perUser },
+      { bucket: "tenant:t", config: perTenant },
+    ]);
+
+    expect(decisions.map((d) => d.remaining)).toEqual([2, 3]);
+    expect((await resolver.peek("user:a", perUser)).remaining).toBe(2);
+    expect((await resolver.peek("tenant:t", perTenant)).remaining).toBe(3);
+  });
+
+  test("a rejected bucket leaves every bucket untouched and reports the largest retryAfter", async () => {
+    const perUser = { limit: 5, windowSeconds: 60 };
+    const perTenant = { limit: 1, windowSeconds: 3600 };
+    const perIp = { limit: 1, windowSeconds: 60 };
+    await resolver.enforce("tenant:t", perTenant);
+    await resolver.enforce("ip:1", perIp);
+
+    let thrown: unknown;
+    try {
+      await resolver.enforceAll([
+        { bucket: "user:a", config: perUser },
+        { bucket: "ip:1", config: perIp },
+        { bucket: "tenant:t", config: perTenant },
+      ]);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(RateLimitError);
+    const err = thrown as RateLimitError;
+    expect(err.details.bucket).toBe("tenant");
+    expect(err.details.windowSeconds).toBe(3600);
+    expect(err.details.retryAfterSeconds).toBeGreaterThan(60);
+    expect((await resolver.peek("user:a", perUser)).remaining).toBe(5);
+    expect((await resolver.peek("ip:1", perIp)).remaining).toBe(0);
+    expect((await resolver.peek("tenant:t", perTenant)).remaining).toBe(0);
+  });
+
+  test("an empty request list resolves to no decisions", async () => {
+    expect(await resolver.enforceAll([])).toEqual([]);
+  });
+});

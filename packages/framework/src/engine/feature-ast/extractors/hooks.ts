@@ -1,4 +1,4 @@
-import { isEscapeHatchGrant } from "@cosmicdrift/kumiko-types/handlers";
+import { isEscapeHatchGrant, isRateLimitOption } from "@cosmicdrift/kumiko-types/handlers";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { LifecycleHookType } from "../../constants.ts";
@@ -87,6 +87,11 @@ export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
 }
 
 export function readOptionalRateLimit(value: unknown): RateLimitDeclaration | undefined {
+  if (Array.isArray(value)) {
+    if (!value.every(isRateLimitOption)) return undefined;
+    const [first, ...rest] = value;
+    return first === undefined ? undefined : [first, ...rest];
+  }
   if (!isPlainObject(value)) return undefined;
   if (value["disabled"] === true) {
     // Strict shape: exactly { disabled: true, reason } — anything extra
@@ -95,10 +100,7 @@ export function readOptionalRateLimit(value: unknown): RateLimitDeclaration | un
     if (Object.keys(value).length !== 2) return undefined;
     return { disabled: true, reason: value["reason"] };
   }
-  if (typeof value["per"] !== "string") return undefined;
-  if (typeof value["limit"] !== "number") return undefined;
-  if (typeof value["windowSeconds"] !== "number") return undefined;
-  return value as unknown as RateLimitDeclaration;
+  return isRateLimitOption(value) ? value : undefined;
 }
 
 function isPayloadRateLimitOption(value: unknown): value is PayloadRateLimitOption {

@@ -11,7 +11,8 @@
 // in each layer's test.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createRateLimitShowcaseFeature } from "../feature";
 
@@ -71,6 +72,35 @@ describe("L3 — handler opt-in (per-user budget on expensive-search)", () => {
     };
     expect(body.error.code).toBe("rate_limited");
     expect(body.error.details?.bucket).toBe("user");
+  });
+});
+
+describe("L3 — combined buckets (per-user and per-tenant budget on submit-report)", () => {
+  const submitReport = "rl-showcase:write:submit-report";
+
+  async function rejectedBucket(user: SessionUser): Promise<string | undefined> {
+    const res = await stack.http.write(submitReport, {}, user);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { error: { details?: { bucket?: string } } };
+    return body.error.details?.bucket;
+  }
+
+  test("the user bucket rejects first; the tenant bucket only counts accepted requests", async () => {
+    await stack.http.writeOk(submitReport, {}, admin);
+    await stack.http.writeOk(submitReport, {}, admin);
+    expect(await rejectedBucket(admin)).toBe("user");
+
+    // The rejected third call did not touch the tenant bucket: one of its 3 tokens is left.
+    await stack.http.writeOk(submitReport, {}, TestUsers.user);
+    expect(await rejectedBucket(TestUsers.user)).toBe("tenant+handler");
+  });
+
+  test("a caller without Admin or User role is rejected with access_denied before any bucket is charged", async () => {
+    const outsider = createTestUser({ id: 9, tenantId: admin.tenantId, roles: ["Guest"] });
+    const res = await stack.http.write(submitReport, {}, outsider);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("access_denied");
   });
 });
 
