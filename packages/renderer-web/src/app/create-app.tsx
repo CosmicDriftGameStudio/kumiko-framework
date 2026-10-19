@@ -10,6 +10,8 @@ import type {
 import {
   AppFeaturesProvider,
   type AppSchema,
+  type ClientActionHandler,
+  ClientActionsProvider,
   type ColumnRendererComponent,
   ColumnRenderersProvider,
   type ContentEditorComponent,
@@ -81,6 +83,7 @@ import { NavProvidersProvider } from "./nav-providers-context.tsx";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context.tsx";
 import { RootErrorFallback } from "./root-error-fallback.tsx";
 import { ScreenErrorFallback } from "./screen-error-fallback.tsx";
+import { ToastActionNotifier } from "./toast-action-notifier.tsx";
 
 const EMPTY_FEATURES: readonly FeatureSchema[] = [];
 const EMPTY_COLLECTIONS: readonly QualifiedContentCollection[] = [];
@@ -404,6 +407,7 @@ type KumikoAppRootProps = {
   readonly customScreens: Readonly<Record<string, ComponentType>>;
   readonly columnRenderers: Readonly<Record<string, ColumnRendererComponent>>;
   readonly extensionSectionComponents: Readonly<Record<string, ExtensionSectionComponent>>;
+  readonly clientActions: Readonly<Record<string, ClientActionHandler>>;
   readonly contentEditors: Readonly<Record<string, ContentEditorComponent>>;
   readonly resolvers: ReadonlyMap<string, ResolverComponent>;
   readonly dispatcher: Dispatcher;
@@ -504,19 +508,25 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                         <ColumnRenderersProvider value={props.columnRenderers}>
                           <ContentEditorsProvider value={props.contentEditors}>
                             <ExtensionSectionsProvider value={props.extensionSectionComponents}>
-                              <NavProvidersProvider value={navProviders} entities={navEntities}>
-                                <ResolversProvider resolvers={props.resolvers}>
-                                  <ToastProvider>
-                                    <UpdateChecker />
-                                    <SessionEndedSignalProvider signal={props.sessionEndedSignal}>
-                                      {stackWrappers(
-                                        props.providers,
-                                        stackWrappers(props.gates, screenNode),
-                                      )}
-                                    </SessionEndedSignalProvider>
-                                  </ToastProvider>
-                                </ResolversProvider>
-                              </NavProvidersProvider>
+                              <ClientActionsProvider value={props.clientActions}>
+                                <NavProvidersProvider value={navProviders} entities={navEntities}>
+                                  <ResolversProvider resolvers={props.resolvers}>
+                                    <ToastProvider>
+                                      <ToastActionNotifier>
+                                        <UpdateChecker />
+                                        <SessionEndedSignalProvider
+                                          signal={props.sessionEndedSignal}
+                                        >
+                                          {stackWrappers(
+                                            props.providers,
+                                            stackWrappers(props.gates, screenNode),
+                                          )}
+                                        </SessionEndedSignalProvider>
+                                      </ToastActionNotifier>
+                                    </ToastProvider>
+                                  </ResolversProvider>
+                                </NavProvidersProvider>
+                              </ClientActionsProvider>
                             </ExtensionSectionsProvider>
                           </ContentEditorsProvider>
                         </ColumnRenderersProvider>
@@ -679,6 +689,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     (f) => f.extensionSectionComponents,
     "extensionSectionComponent",
   );
+  const clientActions = mergeByKey(clientFeatures, (f) => f.clientActions, "clientAction");
 
   const contentEditors = mergeContentEditors(clientFeatures);
 
@@ -719,6 +730,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
           customScreens={customScreens}
           columnRenderers={columnRenderers}
           extensionSectionComponents={extensionSectionComponents}
+          clientActions={clientActions}
           contentEditors={contentEditors}
           resolvers={resolvers}
           dispatcher={dispatcher}

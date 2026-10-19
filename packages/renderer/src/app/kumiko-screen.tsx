@@ -108,6 +108,7 @@ import {
   useActionFormLoad,
 } from "./action-form-support.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
+import { useClientActionRuntime } from "./client-actions.tsx";
 import {
   buildConfigEditSchema,
   synthesizeConfigEditEntity,
@@ -161,6 +162,7 @@ import {
   useReturnTarget,
 } from "./return-to.tsx";
 import {
+  buildClientActionRowAction,
   buildDefaultEditRowAction,
   buildDrawerRowAction,
   buildProjectionRowActions,
@@ -168,7 +170,6 @@ import {
   buildRecordActions,
   evalRowExtractor,
   findRowClickAction,
-  isWriteHandlerRowAction,
   navigateActionSearchParams,
   refetchAfterWrite,
   runDrawerRowAction,
@@ -1691,6 +1692,7 @@ function EntityEditUpdateForm({
   const nav = useNav();
   const appFeatures = useAppFeatures();
   const dispatcher = useDispatcher();
+  const clientActions = useClientActionRuntime();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
@@ -1762,6 +1764,7 @@ function EntityEditUpdateForm({
         onWriteSuccess: onReload,
         onRecordLeft: handleRecordLeft,
         sameEntityScreenId,
+        clientActions,
         defaultWritePayloadId: entityId,
         ...(formDirty && {
           discardChanges: {
@@ -1781,6 +1784,7 @@ function EntityEditUpdateForm({
       onReload,
       handleRecordLeft,
       sameEntityScreenId,
+      clientActions,
       entityId,
     ],
   );
@@ -2582,6 +2586,7 @@ function EntityListBody({
   // (sonst rendert die Action-Spalte still nichts und der "warum sind
   // meine Buttons weg?"-Debug ist teuer).
   const dispatcher = useOptionalDispatcher();
+  const clientActions = useClientActionRuntime();
   const hasRowActions = screen.rowActions !== undefined && screen.rowActions.length > 0;
   useEffect(() => {
     if (hasRowActions && dispatcher === undefined) {
@@ -2677,8 +2682,15 @@ function EntityListBody({
         if (action.kind === "drawer") {
           return buildDrawerRowAction(action, effectiveTranslate, openDrawer);
         }
+        if (action.kind === "clientAction") {
+          return buildClientActionRowAction(
+            action,
+            effectiveTranslate,
+            clientActions,
+            refreshRowsAfterWrite,
+          );
+        }
         if (dispatcher === undefined) return null;
-        if (!isWriteHandlerRowAction(action)) return null;
         const writeAction = action;
         const writeActionVisible = writeAction.visible;
         return {
@@ -2722,6 +2734,7 @@ function EntityListBody({
     defaultEditScreen,
     effectiveTranslate,
     dispatcher,
+    clientActions,
     runNavigate,
     refreshRowsAfterWrite,
     openDrawer,
@@ -2967,6 +2980,7 @@ function ProjectionListBody({
   const nav = useNav();
   const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
+  const clientActions = useClientActionRuntime();
   const effectiveTranslate = translate ?? t;
   const userRoles = useUserRoles();
   const appFeatures = useAppFeatures();
@@ -3142,11 +3156,13 @@ function ProjectionListBody({
         openDrawer,
         defaultEditRowAction,
         host,
+        clientActions,
       }),
     [
       screen.rowActions,
       effectiveTranslate,
       dispatcher,
+      clientActions,
       nav,
       rowsQuery.refetch,
       openDrawer,
@@ -3652,6 +3668,7 @@ function ProjectionDetailBody({
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
   const dispatcher = useOptionalDispatcher();
+  const clientActions = useClientActionRuntime();
   const host = useReturnHost();
   const returnTargetParam = useReturnTarget(screen.id);
   // A singleton has no record route to come back to — same as entityEdit.
@@ -3759,6 +3776,7 @@ function ProjectionDetailBody({
         onWriteSuccess: detailQuery.refetch,
         onRecordLeft: handleRecordLeft,
         sameEntityScreenId,
+        clientActions,
       }),
     [
       detailQuery.data,
@@ -3767,6 +3785,7 @@ function ProjectionDetailBody({
       nav,
       host,
       dispatcher,
+      clientActions,
       openDrawer,
       handleRecordLeft,
       sameEntityScreenId,
@@ -3785,6 +3804,7 @@ function ProjectionDetailBody({
       onWriteSuccess: detailQuery.refetch,
       onRecordLeft: handleRecordLeft,
       sameEntityScreenId,
+      clientActions,
     });
     if (defaultEditAction === undefined || declaredHasEdit) return resolved;
     return [defaultEditAction, ...(resolved ?? [])];
@@ -3795,6 +3815,7 @@ function ProjectionDetailBody({
     nav,
     host,
     dispatcher,
+    clientActions,
     detailQuery.data,
     detailQuery.refetch,
     openDrawer,

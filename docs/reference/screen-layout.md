@@ -140,6 +140,28 @@ rowActions: [
 - `kind: "drawer"` is also available on related list row actions and on toolbar actions. Without `kind: "drawer"`, actions behave as before.
 - Each field of the form is prefilled from the row through `params` (`pick`, `map`) when the field names match.
 
+## Client action row actions
+
+A row action with `kind: "clientAction"` runs a function from a client bundle instead of a write handler. The schema carries only the name; a client feature registers the function under `ClientFeatureDefinition.clientActions`.
+
+```ts illustration
+rowActions: [
+  {
+    kind: "clientAction",
+    id: "send-reset",
+    label: "auth.actions.send-reset",
+    action: "auth-email-password:request-password-reset",
+    payload: { pick: ["email"] },
+    successMessage: "auth.actions.reset-sent",
+  },
+],
+```
+
+- The handler gets the payload (default `{ id: row.id }`) and returns `{ ok: true }` or `{ ok: false, message }` (an i18n key). Success shows a toast with `successMessage` (default "Done.") and refetches; a failure shows an error toast with the message.
+- A handler that throws, or a name no client feature registered, shows a generic error toast and logs the name to the console.
+- `confirm`, `confirmLabel`, `style: "danger"`, `visible`, `icon` and `display` work as on a write handler. There is no `redirect` and no `rowClick`.
+- Available on list, related list and record (header and section) actions, not on toolbar actions.
+
 ## Expandable rows
 
 `expandableRow` on an entityList puts a related list under each row. It takes the same fields as a projectionDetail `relatedList` section, without `id` and `countField`. The row's `id` is the parent id, passed through `parentFilter` or `parentParam` as in a tab.

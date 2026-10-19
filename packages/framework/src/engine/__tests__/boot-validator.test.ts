@@ -5076,6 +5076,66 @@ describe("boot-validator", () => {
     });
   });
 
+  describe("clientAction row actions", () => {
+    function orderQuery(r: Parameters<Parameters<typeof defineFeature>[1]>[0]): void {
+      r.queryHandler({
+        name: "orders",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+    }
+
+    function listWithClientAction(action: string) {
+      return defineFeature("shop", (r) => {
+        orderQuery(r);
+        r.screen({
+          id: "order-list",
+          type: "projectionList",
+          query: "shop:query:orders",
+          columns: [{ field: "name", label: "shop:col:name" }],
+          rowActions: [{ kind: "clientAction", id: "send", label: "shop:action:send", action }],
+        });
+      });
+    }
+
+    test("accepts <feature>:<kebab>", () => {
+      expect(() =>
+        validateBoot([listWithClientAction("auth-email-password:request-password-reset")]),
+      ).not.toThrow();
+    });
+
+    test.each(["resetPassword", "shop:", "shop:Reset", "a:b:c", "reset"])(
+      "rejects the malformed name %s",
+      (name) => {
+        expect(() => validateBoot([listWithClientAction(name)])).toThrow(
+          /is not a client action name — expected "<feature>:<kebab-name>"/,
+        );
+      },
+    );
+
+    test("projectionDetail header action is checked too", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.queryHandler({
+          name: "order-detail",
+          schema: z.object({}),
+          handler: async () => ({ id: "o1" }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: { sections: [{ fields: ["total"] }] },
+          actions: [
+            { kind: "clientAction", id: "send", label: "shop:action:send", action: "Not Valid" },
+          ],
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/action "send" action "Not Valid"/);
+    });
+  });
+
   // --- action/rowAction drawer-target reachability across the remaining
   //     RowAction call sites (fw#2710): projectionDetail.actions,
   //     entityEdit.actions, and a relatedList section's rowActions. The

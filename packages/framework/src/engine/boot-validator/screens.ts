@@ -1270,6 +1270,32 @@ function validateIdlessSuccessLink(
   }
 }
 
+// A clientAction names a handler a client feature registers
+// (ClientFeatureDefinition.clientActions). Nothing server-side can confirm the
+// registration, so the shape is the only boot-time check.
+function validateClientActionName(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  actionLabel: "rowAction" | "emptyState action" | "action",
+  action: Extract<RowAction, { readonly kind: "clientAction" }>,
+): void {
+  const segments = action.action.split(":");
+  const [scope, name] = segments;
+  const wellFormed =
+    segments.length === 2 &&
+    scope !== undefined &&
+    name !== undefined &&
+    isKebabSegment(scope) &&
+    isKebabSegment(name);
+  if (wellFormed) return;
+  throw new Error(
+    `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
+      `action "${action.action}" is not a client action name — expected "<feature>:<kebab-name>", ` +
+      `e.g. "auth-email-password:request-password-reset".`,
+  );
+}
+
 // redirect is only honored on record actions; on list/related-list row
 // actions it would be silently dropped, so the author would believe it works.
 function rejectRedirectOnListRowAction(
@@ -1278,7 +1304,12 @@ function rejectRedirectOnListRowAction(
   screenKind: string,
   action: RowAction,
 ): void {
-  if (action.kind !== "navigate" && action.kind !== "drawer" && action.redirect !== undefined) {
+  if (
+    action.kind !== "navigate" &&
+    action.kind !== "drawer" &&
+    action.kind !== "clientAction" &&
+    action.redirect !== undefined
+  ) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) rowAction "${action.id}" sets redirect — ` +
         `redirect is only honored on record actions (projectionDetail/entityEdit header and section ` +
@@ -1296,7 +1327,12 @@ function validateRecordActionRedirect(
   action: RowAction,
   lookups: NavigateTargetLookups,
 ): void {
-  if (action.kind !== "navigate" && action.kind !== "drawer" && action.redirect !== undefined) {
+  if (
+    action.kind !== "navigate" &&
+    action.kind !== "drawer" &&
+    action.kind !== "clientAction" &&
+    action.redirect !== undefined
+  ) {
     validateRedirectTarget(feature, screenId, screenKind, action.redirect, lookups);
   }
 }
@@ -1750,6 +1786,8 @@ function validateListActionTargets(
     );
   } else if (action.kind === "drawer") {
     validateDrawerTargetAction(featureName, screenId, screenType, actionLabel, action, ctx.screens);
+  } else if (action.kind === "clientAction") {
+    validateClientActionName(featureName, screenId, screenType, actionLabel, action);
   } else if (!ctx.allWriteHandlerQns.has(action.handler)) {
     throw new Error(
       `[Feature ${featureName}] ${ctx.where} ` +
@@ -2091,6 +2129,8 @@ export function validateScreens(
               action,
               feature.screens,
             );
+          } else if (action.kind === "clientAction") {
+            validateClientActionName(feature.name, screenId, "projectionList", "rowAction", action);
           }
         }
         validateAtMostOneRowClick(feature.name, screenId, "projectionList", screen.rowActions);
@@ -2526,6 +2566,8 @@ export function validateScreens(
               action,
               feature.screens,
             );
+          } else if (action.kind === "clientAction") {
+            validateClientActionName(feature.name, screenId, "projectionDetail", "action", action);
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
               throw new Error(
@@ -2966,6 +3008,8 @@ export function validateScreens(
               action,
               feature.screens,
             );
+          } else if (action.kind === "clientAction") {
+            validateClientActionName(feature.name, screenId, "entityList", "rowAction", action);
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
               throw new Error(
@@ -3195,6 +3239,8 @@ export function validateScreens(
               action,
               feature.screens,
             );
+          } else if (action.kind === "clientAction") {
+            validateClientActionName(feature.name, screenId, "entityEdit", "action", action);
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
               throw new Error(
