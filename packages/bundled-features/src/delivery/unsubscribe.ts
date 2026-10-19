@@ -3,6 +3,7 @@ import {
   ExtraRouteRejection,
   type SignatureExtraRouteDeps,
   type SignatureExtraRouteVerifyRequest,
+  type SystemDispatchArgs,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -423,7 +424,9 @@ export type UnsubscribeResultPage =
 
 /** The result page the unsubscribe routes answer with, for apps serving their own
  *  (e.g. legacy) unsubscribe links. Texts come from the mail translations of `locale`;
- *  `chrome` (the mail renderer's readMailChrome) adds the tenant's brand row and footer.
+ *  `chrome` adds the tenant's brand row and footer: read it with
+ *  createUnsubscribePageChromeReader for a tenant the server resolved itself (e.g. by
+ *  Host), never for a tenantId taken from the query string or body.
  *  Served under runProdApp's default CSP the style block and the same-origin font pass;
  *  an https logo additionally needs its origin, e.g.
  *  `securityHeaders: { csp: { extend: { "img-src": [logoOrigin] } } }`. A hand-written CSP
@@ -454,10 +457,14 @@ const mailChromeSchema = z
   })
   .nullable();
 
+type SystemQueryDispatch = {
+  readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
+};
+
 // Branding is decoration: an opt-out that went through must never turn into an
 // error page because a footer resolver or the config read failed.
 async function readPageChrome(
-  deps: SignatureExtraRouteDeps,
+  deps: SystemQueryDispatch,
   tenantId: TenantId,
   locale: string,
 ): Promise<MailChrome | null> {
@@ -475,6 +482,20 @@ async function readPageChrome(
     });
     return null;
   }
+}
+
+export type UnsubscribePageChromeReader = (
+  tenantId: TenantId,
+  locale: string | undefined,
+) => Promise<MailChrome | null>;
+
+/** Reads the chrome for renderUnsubscribeResultPage in an app route without
+ *  public access: build it once in the `wire` hook from its dispatchSystemQuery.
+ *  Null without a mail renderer or when the read fails. */
+export function createUnsubscribePageChromeReader(
+  deps: SystemQueryDispatch,
+): UnsubscribePageChromeReader {
+  return (tenantId, locale) => readPageChrome(deps, tenantId, pageLocale(locale));
 }
 
 type PageScope = { readonly tenantId: TenantId | undefined; readonly locale: string | undefined };

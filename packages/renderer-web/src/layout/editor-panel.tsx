@@ -13,7 +13,7 @@
 // Siehe visual-tree.md V.1.2 + V.1.1-B + V.1.4b.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
-import { useNav, usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import { useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { X } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useCallback, useMemo } from "react";
@@ -38,6 +38,7 @@ function EditorPanelInner({
   readonly onClose: () => void;
 }): ReactNode {
   const { JsonView } = usePrimitives();
+  const t = useTranslation();
   const resolverKey = `${target.featureId}:${target.action}`;
   const Resolver = resolvers.get(resolverKey);
 
@@ -51,7 +52,7 @@ function EditorPanelInner({
         <h2 className="text-lg font-semibold">Editor</h2>
         <button
           type="button"
-          aria-label="close editor"
+          aria-label={t("kumiko.dialog.close")}
           className="p-1 hover:bg-accent rounded"
           onClick={onClose}
         >

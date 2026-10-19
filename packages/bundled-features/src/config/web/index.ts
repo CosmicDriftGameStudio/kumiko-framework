@@ -1,4 +1,6 @@
 // @runtime client
+
+export { ConfigQueries } from "../constants.ts";
 export {
   type ConfigClientFeature,
   type ConfigClientOptions,

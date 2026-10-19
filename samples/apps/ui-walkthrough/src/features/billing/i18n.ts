@@ -20,6 +20,9 @@ export const billingTranslations: TranslationsByLocale = {
     "billing:mail.variable.lines.amount": "Betrag",
     "billing:mail.variable.lines": "Rechnungspositionen",
     "billing:mail.variable.paymentReference": "Zahlungsreferenz",
+    "billing:mail.variable.noticeLabel": "Kennzeichen der Rechnung",
+    "billing:mail.example.noticeLabel": "Neue Rechnung",
+    "billing:mail.variable.noticeTone": "Farbe der Meldung (success, warning oder danger)",
   },
   en: {
     "billing:feature.label": "Invoices",
@@ -37,5 +40,8 @@ export const billingTranslations: TranslationsByLocale = {
     "billing:mail.variable.lines.amount": "Amount",
     "billing:mail.variable.lines": "Invoice lines",
     "billing:mail.variable.paymentReference": "Payment reference",
+    "billing:mail.variable.noticeLabel": "Invoice label",
+    "billing:mail.example.noticeLabel": "New invoice",
+    "billing:mail.variable.noticeTone": "Notice colour (success, warning or danger)",
   },
 };

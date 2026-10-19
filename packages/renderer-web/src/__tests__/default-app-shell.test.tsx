@@ -9,7 +9,13 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
+import {
+  createStaticLocaleResolver,
+  DispatcherProvider,
+  KumikoScreen,
+  kumikoDefaultTranslations,
+  LocaleProvider,
+} from "@cosmicdrift/kumiko-renderer";
 import { DefaultAppShell } from "../layout/default-app-shell.tsx";
 import { createMockDispatcher, render, screen } from "./test-utils.tsx";
 
@@ -202,5 +208,29 @@ describe("DefaultAppShell sidebar controls row", () => {
     );
     const inset = document.querySelector('[data-slot="sidebar-inset"]');
     expect(inset?.classList.contains("bg-card")).toBe(true);
+  });
+});
+
+describe("DefaultAppShell sidebar controls speak the user's language", () => {
+  test("trigger and rail are named from the translations, not the vendored English", () => {
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "de" })}
+        fallbackBundles={[
+          { de: { "kumiko.sidebar.toggle": "Seitenleiste ein- oder ausblenden" } },
+          kumikoDefaultTranslations,
+        ]}
+      >
+        <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
+          <div>content</div>
+        </DefaultAppShell>
+      </LocaleProvider>,
+    );
+    const trigger = document.querySelector("[data-sidebar='trigger']");
+    expect(trigger?.textContent).toBe("Seitenleiste ein- oder ausblenden");
+    const rail = document.querySelector("[data-sidebar='rail']");
+    expect(rail?.getAttribute("aria-label")).toBe("Seitenleiste ein- oder ausblenden");
+    expect(rail?.getAttribute("title")).toBe("Seitenleiste ein- oder ausblenden");
+    expect(document.body.textContent).not.toContain("Toggle Sidebar");
   });
 });

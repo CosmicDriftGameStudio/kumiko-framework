@@ -19,75 +19,31 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { formatMoney, resolveSafeMoneyLocale } from "@cosmicdrift/kumiko-headless";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import {
+  DOCUMENT_FALLBACK_CURRENCY,
+  formatDocumentDate,
+  formatDocumentMoney,
+  formatDocumentPercent,
+} from "@cosmicdrift/kumiko-headless";
 import Handlebars from "handlebars";
 
 // Handlebars instance, template resolution and resource lookup shared by the
 // mail and PDF renderers, so both format money/dates and find images the same way.
 
 const documentKitLogger = createFallbackLogger("renderer-mail-html");
-const FALLBACK_CURRENCY = "EUR";
 const SAFE_LINK_PROTOCOL = /^(https?:|mailto:)/i;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-const DATE_TIME_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T.*[+-]\d{2}(:?\d{2})?$/;
 
 export type DocumentFormat = { readonly locale: string; readonly currency: string };
 
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 export function createDocumentHandlebars(format: DocumentFormat): typeof Handlebars {
   const hbs = Handlebars.create();
-  hbs.registerHelper("money", (value: unknown): string => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return formatMoney(value, format.currency, format.locale);
-    }
-    if (isPlainRecord(value)) {
-      const { amount, currency } = value;
-      if (typeof amount === "number" && Number.isFinite(amount) && typeof currency === "string") {
-        return formatMoney(amount, currency, format.locale);
-      }
-    }
-    return value === undefined || value === null ? "" : String(value);
-  });
-  hbs.registerHelper("date", (value: unknown): string => {
-    if (typeof value !== "string" && typeof value !== "number") {
-      return value === undefined || value === null ? "" : String(value);
-    }
-    const locale = resolveSafeMoneyLocale(format.locale);
-    try {
-      // A date-only string has no zone; going through an instant would show the
-      // previous day west of UTC.
-      if (typeof value === "string" && DATE_ONLY.test(value)) {
-        return Temporal.PlainDate.from(value).toLocaleString(locale, { dateStyle: "long" });
-      }
-      // An explicit offset names the sender's zone: the calendar date is the wall-clock
-      // date of the string, not the date at UTC.
-      if (typeof value === "string" && DATE_TIME_WITH_OFFSET.test(value)) {
-        return Temporal.PlainDateTime.from(value)
-          .toPlainDate()
-          .toLocaleString(locale, { dateStyle: "long" });
-      }
-      const instant =
-        typeof value === "number"
-          ? Temporal.Instant.fromEpochMilliseconds(value)
-          : Temporal.Instant.from(value);
-      return instant.toLocaleString(locale, { dateStyle: "long", timeZone: "UTC" });
-    } catch {
-      return String(value);
-    }
-  });
-  hbs.registerHelper("percent", (value: unknown): string => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return new Intl.NumberFormat(resolveSafeMoneyLocale(format.locale), {
-        style: "percent",
-        maximumFractionDigits: 2,
-      }).format(value / 100);
-    }
-    return value === undefined || value === null ? "" : String(value);
-  });
+  hbs.registerHelper("money", (value: unknown): string =>
+    formatDocumentMoney(value, format.currency, format.locale),
+  );
+  hbs.registerHelper("date", (value: unknown): string => formatDocumentDate(value, format.locale));
+  hbs.registerHelper("percent", (value: unknown): string =>
+    formatDocumentPercent(value, format.locale),
+  );
   hbs.registerHelper(
     "richText",
     (value: unknown, options: Handlebars.HelperOptions): Handlebars.SafeString | string => {
@@ -177,7 +133,7 @@ export async function readDocumentFormat(
   templateLocale: string,
 ): Promise<DocumentFormat> {
   const currency = await readConfigText(ctx, TENANT_CURRENCY_CONFIG_KEY);
-  return { locale: templateLocale, currency: currency ?? FALLBACK_CURRENCY };
+  return { locale: templateLocale, currency: currency ?? DOCUMENT_FALLBACK_CURRENCY };
 }
 
 export async function readTenantName(ctx: RendererContext): Promise<string> {

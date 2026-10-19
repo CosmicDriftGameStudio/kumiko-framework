@@ -37,6 +37,20 @@ const TRAILING_TONE = {
   muted: "text-muted-foreground",
 } as const;
 
+// The star rides on the last word so a wrapping label never leaves it alone on a line.
+function RequiredLabel({ label }: { readonly label: string }): ReactNode {
+  const lastSpace = label.lastIndexOf(" ");
+  return (
+    <>
+      {label.slice(0, lastSpace + 1)}
+      <span className="whitespace-nowrap">
+        {label.slice(lastSpace + 1)}
+        <span className="font-semibold text-status-bad">{" *"}</span>
+      </span>
+    </>
+  );
+}
+
 export function RailRow({
   symbol,
   label,
@@ -71,13 +85,12 @@ export function RailRow({
       <span
         className={cn(
           "min-w-0 grow break-words text-sm",
-          trailing !== undefined && "max-w-[65%] shrink-0",
+          trailing !== undefined && "min-w-min max-w-[65%] shrink-0",
           bad === true && "text-status-bad",
         )}
         title={nameHint !== undefined && nameHint !== label ? nameHint : undefined}
       >
-        {label}
-        {required === true && <span className="font-semibold text-status-bad"> *</span>}
+        {required === true ? <RequiredLabel label={label} /> : label}
       </span>
       {trailing !== undefined && (
         <span

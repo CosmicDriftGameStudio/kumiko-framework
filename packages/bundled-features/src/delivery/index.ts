@@ -96,11 +96,13 @@ export {
 } from "./types.ts";
 export {
   type AddressUnsubscribeTokenPayload,
+  createUnsubscribePageChromeReader,
   createUnsubscribeRoutes,
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   renderUnsubscribeResultPage,
   signAddressUnsubscribeToken,
   signUnsubscribeToken,
+  type UnsubscribePageChromeReader,
   type UnsubscribeResultPage,
   type UnsubscribeRouteOptions,
   type UnsubscribeTokenPayload,

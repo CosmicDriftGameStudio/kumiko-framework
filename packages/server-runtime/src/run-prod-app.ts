@@ -193,7 +193,11 @@ import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
 import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.ts";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.ts";
-import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.ts";
+import {
+  makeDispatchSystemQuery,
+  makeDispatchSystemWrite,
+  type SystemWireDeps,
+} from "./extra-routes-deps.ts";
 import { assertPiiBootInvariants } from "./pii-boot-gate.ts";
 import { type RateLimitOption, resolveRateLimit } from "./rate-limit-defaults.ts";
 import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.ts";
@@ -1572,6 +1576,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       registry,
       metricsFor: createMetricsForFactory(entrypoint.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
+      dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
     });
   }
 

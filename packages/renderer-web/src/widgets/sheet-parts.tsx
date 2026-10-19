@@ -16,6 +16,7 @@ export type DrawerSheetContentProps = ComponentProps<typeof SheetPrimitive.Conte
   readonly side?: "top" | "right" | "bottom" | "left";
   readonly showCloseButton?: boolean;
   readonly overlayStyle?: CSSProperties;
+  readonly closeLabel: string;
 };
 
 export function DrawerSheetContent({
@@ -24,6 +25,7 @@ export function DrawerSheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  closeLabel,
   ...props
 }: DrawerSheetContentProps): ReactNode {
   return (
@@ -53,7 +55,7 @@ export function DrawerSheetContent({
         {showCloseButton && (
           <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">
             <XIcon className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{closeLabel}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Content>

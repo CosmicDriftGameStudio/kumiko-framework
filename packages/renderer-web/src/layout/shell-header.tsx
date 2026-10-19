@@ -117,9 +117,9 @@ export function ShellHeader({
       )}
     >
       <div className={cn("flex min-w-0 items-center gap-3", compact && "flex-1")}>
-        <SidebarTrigger />
+        <SidebarTrigger label={t("kumiko.sidebar.toggle")} />
         {shownCrumbs !== undefined && shownCrumbs.length > 0 && (
-          <Breadcrumb className="min-w-0">
+          <Breadcrumb className="min-w-0" aria-label={t("kumiko.breadcrumb.label")}>
             <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-1.5">
               {shownCrumbs.map((crumb, index) => {
                 const screenId = crumb.screenId;

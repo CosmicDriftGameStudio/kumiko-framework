@@ -29,8 +29,8 @@ export const unsubscribePageChromeQuery = defineQueryHandler({
   name: "unsubscribePageChrome",
   schema: z.object({ locale: z.string().min(2).max(35) }),
   access: { roles: access.systemAdmin },
-  // Only reachable via createUnsubscribeRoutes' dispatchSystemQuery once verify()
-  // proved the token signature.
+  // Only reachable via a system dispatch: the signed unsubscribe routes after verify(),
+  // or createUnsubscribePageChromeReader for a tenant the app resolved server-side.
   agent: { expose: false },
   description:
     "Returns the tenant's mail brand row and footer resolved for one locale, or null without a mail renderer; dispatched by the signed unsubscribe route to dress its pages like the mail, not meant for UI callers.",

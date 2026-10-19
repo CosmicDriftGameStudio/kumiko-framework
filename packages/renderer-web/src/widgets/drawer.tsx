@@ -248,6 +248,7 @@ export function Drawer({
         // to suppress, so a click into the page behind keeps the panel open.
         onInteractOutside={modal ? undefined : (event) => event.preventDefault()}
         showCloseButton={showCloseButton}
+        closeLabel={t("kumiko.dialog.close")}
         className={cn(
           sidePanelClass(side, narrow, variant, belowHeader),
           fillBody && "gap-0",

@@ -42,7 +42,11 @@ import {
   type WorkerMetricsOptions,
   type WorkerMetricsServer,
 } from "./boot/worker-metrics-server.ts";
-import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.ts";
+import {
+  makeDispatchSystemQuery,
+  makeDispatchSystemWrite,
+  type SystemWireDeps,
+} from "./extra-routes-deps.ts";
 
 export type WorkerContextOption =
   | Record<string, unknown>
@@ -198,6 +202,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
       registry,
       metricsFor: createMetricsForFactory(entrypoint.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
+      dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
       lifecycle: entrypoint.lifecycle,
       ...(boot.secrets && { secrets: boot.secrets }),
     });

@@ -1,3 +1,4 @@
+import type { SystemDispatchArgs } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
@@ -38,4 +39,7 @@ export type SystemWireDeps = {
     readonly payload: unknown;
     readonly tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId;
   }) => Promise<WriteResult>;
+  /** Read counterpart of dispatchSystemWrite, same SystemAdmin scope. Hand
+   *  anonymous routes only a narrow function built from it, never this. */
+  readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
 };

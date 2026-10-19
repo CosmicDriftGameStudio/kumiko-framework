@@ -1,4 +1,10 @@
 // @runtime client
+import {
+  DOCUMENT_FALLBACK_CURRENCY,
+  formatDocumentDate,
+  formatDocumentMoney,
+  formatDocumentPercent,
+} from "@cosmicdrift/kumiko-headless";
 import type {
   LinkedResourceView,
   MailCategory,
@@ -48,6 +54,17 @@ export function systemPlaceholderLabel(t: Translate, name: string): string {
   const key = `documentDesigner.placeholder.${name}`;
   const translated = t(key);
   return translated === key ? name : translated;
+}
+
+// For places that show a stored {{name}} line as plain text instead of chips.
+export function labelPlaceholders(
+  line: string,
+  variableLabels: Readonly<Record<string, string>>,
+): string {
+  return line.replace(/\{\{([^{}]*)\}\}/g, (_token, rawName: string) => {
+    const name = rawName.trim();
+    return Object.hasOwn(variableLabels, name) ? (variableLabels[name] ?? name) : name;
+  });
 }
 
 // Chips in the editors show these instead of the raw system names.
@@ -187,16 +204,31 @@ export function variableLabelMap(
   return labels;
 }
 
+export type SampleValueFormat = {
+  readonly locale: string;
+  // Undefined while the tenant setting is still loading: a bare amount then stays raw
+  // instead of showing a currency the rendered mail might not use.
+  readonly tenantCurrency: string | undefined;
+};
+
 export function displayValue(
   t: (key: string, params?: Readonly<Record<string, unknown>>) => string,
   value: unknown,
+  type: PlaceholderType | undefined,
+  format: SampleValueFormat,
 ): string {
   if (Array.isArray(value))
     return t("documentDesigner.mail.preview.entries", { count: value.length });
-  if (isRecord(value)) {
-    const { amount, currency } = value;
-    if (typeof amount === "number" && typeof currency === "string") return `${amount} ${currency}`;
-    return JSON.stringify(value);
+  if (type === "money") {
+    if (typeof value === "number" && format.tenantCurrency === undefined) return String(value);
+    return formatDocumentMoney(
+      value,
+      format.tenantCurrency ?? DOCUMENT_FALLBACK_CURRENCY,
+      format.locale,
+    );
   }
+  if (type === "date") return formatDocumentDate(value, format.locale);
+  if (type === "percent") return formatDocumentPercent(value, format.locale);
+  if (isRecord(value)) return JSON.stringify(value);
   return String(value ?? "");
 }

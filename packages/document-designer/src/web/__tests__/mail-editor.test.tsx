@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { ConfigQueries } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import { type Dispatcher, formatMoney } from "@cosmicdrift/kumiko-headless";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -15,6 +16,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { TENANT_MAIL_SENDING_SCREEN_ID } from "../../constants.ts";
@@ -146,6 +148,8 @@ function fakeDispatcher(
         return { usedBy: [] };
       case "user:query:user:me":
         return { email: "editor@example.org" };
+      case ConfigQueries.values:
+        return { [TENANT_CURRENCY_CONFIG_KEY]: { value: "CHF" } };
       default:
         return undefined;
     }
@@ -381,8 +385,16 @@ describe("MailEditor", () => {
 
   test("the rail keeps the stored header chip and footer note, and a changed tone is previewed and saved", async () => {
     const calls: Call[] = [];
+    const chromeValidation = {
+      ...validation,
+      variables: {
+        ...validation.variables,
+        eventLabel: { type: "text", label: "Event name" },
+        tone: { type: "text", label: "Incident colour" },
+      },
+    };
     renderEditor(
-      fakeDispatcher("draft", calls, validation, preview, {
+      fakeDispatcher("draft", calls, chromeValidation, preview, {
         ...STORED_META,
         headerChip: "{{eventLabel}}",
         tone: "{{tone}}",
@@ -391,9 +403,15 @@ describe("MailEditor", () => {
     );
     const chrome = await screen.findByTestId("mail-editor-chrome");
     expect(chrome.textContent).toContain("Label in the header");
+    // The rail names placeholders by their label only, never by the raw name.
+    await waitFor(() => expect(chrome.textContent).toContain("Event name"));
+    expect(chrome.textContent).not.toContain("eventLabel");
+    expect(chrome.textContent).not.toContain("{{");
     const toneSelect = await screen.findByTestId("combobox-mail-tone");
     // A placeholder tone is kept as its own option instead of being reset to the default.
-    await waitFor(() => expect(toneSelect.textContent).toContain("From placeholder: {{tone}}"));
+    await waitFor(() =>
+      expect(toneSelect.textContent).toContain("From placeholder: Incident colour"),
+    );
     fireEvent.click(toneSelect);
     const warning = (await screen.findAllByText("Warning (amber)")).find(
       (node) => node.closest("[role=option], [cmdk-item]") !== null,
@@ -531,6 +549,42 @@ describe("MailEditor", () => {
     expect(
       calls.filter((call) => call.type === "template-resolver:write:send-test")[1]?.payload,
     ).toMatchObject({ includeAttachments: false });
+  });
+
+  test("the German sample values show money and dates the way the rendered mail does", async () => {
+    const formattedValidation = {
+      ...validation,
+      missingRequired: [],
+      variables: {
+        ...validation.variables,
+        total: { type: "money", label: "Invoice total" },
+        fee: { type: "money", label: "Late fee" },
+      },
+    };
+    const dispatcher = fakeDispatcher("draft", [], formattedValidation, {
+      ...preview,
+      sampleValues: {
+        invoiceNumber: "RE-1",
+        dueDate: "2026-01-15",
+        total: { amount: 128450, currency: "EUR" },
+        fee: 500,
+      },
+    });
+    renderEditor(dispatcher);
+    await openPreview();
+
+    expect((await screen.findByTestId("mail-sample-total")).textContent).toContain(
+      formatMoney(128450, "EUR", "de"),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("mail-sample-fee").textContent).toContain(
+        formatMoney(500, "CHF", "de"),
+      ),
+    );
+    expect(screen.getByTestId("mail-sample-dueDate").textContent).toContain("15. Januar 2026");
+    const bar = screen.getByTestId("mail-preview-side").textContent ?? "";
+    expect(bar).not.toContain("128450");
+    expect(bar).not.toContain("2026-01-15");
   });
 
   test("a template without attachments says so instead of offering the checkbox", async () => {

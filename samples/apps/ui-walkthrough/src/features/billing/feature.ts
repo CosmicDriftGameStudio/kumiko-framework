@@ -54,6 +54,15 @@ const INVOICE_ISSUED_VARIABLES = {
     label: "billing:mail.variable.paymentReference",
     example: "RE-2026-0142 / Yilmaz",
   }),
+  // A text example given as i18n key follows the edited template's language.
+  noticeLabel: templateVariable.text({
+    label: "billing:mail.variable.noticeLabel",
+    example: "billing:mail.example.noticeLabel",
+  }),
+  noticeTone: templateVariable.text({
+    label: "billing:mail.variable.noticeTone",
+    example: "success",
+  }),
 } as const;
 
 const PAYMENT_REMINDER_VARIABLES = {

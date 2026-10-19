@@ -340,7 +340,7 @@ test.describe("mobile", () => {
     await page.goto("/campaign-list");
     await page.getByText("Škoda Octavia (2021)").waitFor();
     await page
-      .getByRole("button", { name: /toggle sidebar|menü|navigation/i })
+      .getByRole("button", { name: /toggle sidebar|seitenleiste/i })
       .first()
       .click();
     await expect(page.locator("[data-mobile='true']")).toBeVisible();

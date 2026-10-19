@@ -1677,7 +1677,7 @@ function DefaultDataTable({
                   // page edge. No border-l: a permanent divider looks heavy;
                   // the sticky bg already sets the column apart during scroll.
                   className="w-px text-right text-muted-foreground md:sticky md:right-0 md:z-10 md:bg-muted"
-                  aria-label="Actions"
+                  aria-label={tableTranslate?.("kumiko.list.actions") ?? "Actions"}
                 />
               )}
             </TableRow>

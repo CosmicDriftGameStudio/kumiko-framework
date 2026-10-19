@@ -61,7 +61,7 @@ function currentHtml(): string {
 }
 
 describe("DocumentTiptapEditor labels, handle and previews", () => {
-  test("a labelled variable chip shows label and name", async () => {
+  test("a labelled variable chip shows only the label, the name stays a tooltip", async () => {
     render(
       <Controlled
         initial='<p><span data-variable="invoice.number"></span></p>'
@@ -70,7 +70,8 @@ describe("DocumentTiptapEditor labels, handle and previews", () => {
     );
     await screen.findByRole("button", { name: "Bold" });
     const chip = await screen.findByText("Invoice number");
-    expect(chip.textContent).toContain("invoice.number");
+    expect(chip.textContent).toBe("Invoice number");
+    expect(chip.closest("[title]")?.getAttribute("title")).toBe("invoice.number");
   });
 
   test("the handle inserts a variable node and a resource", async () => {

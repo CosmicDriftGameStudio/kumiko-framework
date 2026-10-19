@@ -63,7 +63,6 @@ function repeatRowListAt(doc: ProseMirrorNode, position: number | undefined): st
 export function createVariableView(
   variableLabels: Readonly<Record<string, string>>,
   systemVariables: readonly string[],
-  labelOnly = false,
 ): NodeViewRenderer {
   return ({ node, editor, getPos }) => {
     const name = String(node.attrs["name"]);
@@ -79,9 +78,6 @@ export function createVariableView(
     const hasOwnLabel = label !== undefined && label !== "" && label !== name;
     dom.append(document.createTextNode(hasOwnLabel ? label : name));
     if (hasOwnLabel) dom.title = name;
-    if (!labelOnly && hasOwnLabel) {
-      dom.append(createElementWithClass("small", "font-mono text-[10px] opacity-75", name));
-    }
     return { dom };
   };
 }
@@ -218,11 +214,7 @@ export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Ex
       case DocumentVariable.name:
         return DocumentVariable.extend({
           addNodeView: () =>
-            createVariableView(
-              labels.variableLabels ?? {},
-              labels.systemVariables ?? [],
-              labels.blockLabels === true,
-            ),
+            createVariableView(labels.variableLabels ?? {}, labels.systemVariables ?? []),
         });
       case DocumentResource.name:
         return DocumentResource.extend({ addNodeView: () => createResourceView(labels) });

@@ -226,6 +226,8 @@ const tenantInvoiceMeta = (subject: string) => ({
   ...invoiceIssuedMeta(subject),
   senderName: "Nordlicht Immobilien GmbH",
   replyTo: "buchhaltung@nordlicht-immobilien.de",
+  headerChip: "{{noticeLabel}}",
+  tone: "{{noticeTone}}",
 });
 
 // The platform default has a due date; the tenant drafts below drop it, which

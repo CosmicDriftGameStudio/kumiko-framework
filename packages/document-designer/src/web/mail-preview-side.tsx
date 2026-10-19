@@ -1,5 +1,8 @@
 // @runtime client
-import { useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { ConfigQueries } from "@cosmicdrift/kumiko-bundled-features/config/web";
+import { DOCUMENT_FALLBACK_CURRENCY } from "@cosmicdrift/kumiko-headless";
+import { useNav, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useState } from "react";
 import { displayValue } from "./mail-draft.ts";
 import type { MailPreview, MailValidation, PreviewCheck } from "./mail-types.ts";
@@ -12,28 +15,50 @@ const noop = (): void => undefined;
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
-// Check params list names as arrays; the message templates expect one string.
-function checkText(t: Translate, check: PreviewCheck): string {
+// Check params list placeholder names as arrays; the message templates expect one string, and
+// the editor shows each placeholder by its label.
+function checkText(t: Translate, check: PreviewCheck, validation: MailValidation | null): string {
+  const labelOf = (name: unknown): string =>
+    typeof name === "string"
+      ? variableLabelText(t, name, validation?.variables[name]?.label)
+      : String(name);
   const params = Object.fromEntries(
     Object.entries(check.params ?? {}).map(([name, value]) => [
       name,
-      Array.isArray(value) ? value.join(", ") : value,
+      Array.isArray(value) ? value.map(labelOf).join(", ") : value,
     ]),
   );
   const translated = t(check.i18nKey, params);
   return translated === check.i18nKey ? check.code : translated;
 }
 
+type TenantConfigValues = Readonly<Record<string, { readonly value: unknown } | undefined>>;
+
+// Same source and fallback as the renderer's readDocumentFormat, so a bare amount shows
+// the currency the rendered mail prints.
+function useTenantCurrency(): string | undefined {
+  const { data, error } = useQuery<TenantConfigValues>(ConfigQueries.values, {
+    keys: [TENANT_CURRENCY_CONFIG_KEY],
+  });
+  if (error) return undefined;
+  if (data === null) return undefined;
+  const value = data[TENANT_CURRENCY_CONFIG_KEY]?.value;
+  return typeof value === "string" && value !== "" ? value : DOCUMENT_FALLBACK_CURRENCY;
+}
+
 function SampleValues({
   preview,
   validation,
   picked,
+  locale,
 }: {
   readonly preview: MailPreview | null;
   readonly validation: MailValidation | null;
   readonly picked: Readonly<Record<string, unknown>> | null;
+  readonly locale: string;
 }): ReactNode {
   const t = useTranslation();
+  const tenantCurrency = useTenantCurrency();
   const values = { ...(preview?.sampleValues ?? {}), ...(picked ?? {}) };
   const names = Object.keys(validation?.variables ?? values);
   return (
@@ -50,7 +75,10 @@ function SampleValues({
             trailing={
               missing
                 ? t("documentDesigner.mail.preview.missingInContent")
-                : displayValue(t, values[name])
+                : displayValue(t, values[name], validation?.variables[name]?.type, {
+                    locale,
+                    tenantCurrency,
+                  })
             }
           />
         );
@@ -161,7 +189,7 @@ export function PreviewSide({
         title={t("documentDesigner.mail.preview.samples")}
         action={<RecordPickerLink slug={slug} locale={locale} onPick={setPicked} />}
       >
-        <SampleValues preview={preview} validation={validation} picked={picked} />
+        <SampleValues preview={preview} validation={validation} picked={picked} locale={locale} />
         <RailHint>{t("documentDesigner.mail.preview.samplesHint")}</RailHint>
       </RailSection>
       <RailSection title={t("documentDesigner.mail.testMail.title")}>
@@ -218,7 +246,7 @@ export function PreviewSide({
             key={check.code}
             testId={`mail-check-${check.code}`}
             symbol={check.ok ? "✓" : "!"}
-            label={checkText(t, check)}
+            label={checkText(t, check, validation)}
             bad={!check.ok}
           />
         ))}

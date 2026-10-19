@@ -80,7 +80,7 @@ export function SettingsPanel({
               name="fileName"
               value={meta.fileName}
               onChange={(fileName) => patch({ fileName })}
-              placeholder="rechnung-{{number}}.pdf"
+              placeholder={t("documentDesigner.settings.fileNamePlaceholder")}
             />
           </Field>
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-2">
