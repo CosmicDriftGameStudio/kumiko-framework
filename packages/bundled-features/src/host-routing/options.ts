@@ -74,9 +74,9 @@ export type HostRoutingOptions = HostRoutingTenantMode & {
   // public signup forms). Omit and the apex answers tenant_required.
   readonly apexAnonymousTenantId?: TenantId;
   // Per apex hostname ("example.com" or "www.example.com"): the only
-  // /api/query types that get the apexAnonymousTenantId anchor. Other anonymous
+  // /api/query and /api/stream types that get the apexAnonymousTenantId anchor. Other anonymous
   // queries on that host get no tenant (tenant_required). Hosts without an
-  // entry, and non-query paths, keep the anchor for everything.
+  // entry, and other paths (e.g. /api/batch), keep the anchor for everything.
   readonly apexAnonymousQueryAllowlist?: Readonly<Record<string, readonly string[]>>;
   // Checked first, before any host classification.
   readonly redirects?: readonly HostRoutingRedirect[];

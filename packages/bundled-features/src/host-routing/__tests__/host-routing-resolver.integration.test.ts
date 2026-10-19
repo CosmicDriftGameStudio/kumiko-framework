@@ -209,6 +209,17 @@ describe("host-routing with a tenantBy resolver", () => {
     expect(await errorCode(res)).toBe("tenant_required");
   });
 
+  test("apex allowlist: an unlisted type over /api/stream gets no anchor either", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/stream",
+      { type: WHOAMI, payload: {} },
+      { Host: BASE_DOMAIN },
+    );
+    expect(res.status).toBe(400);
+    expect(await errorCode(res)).toBe("tenant_required");
+  });
+
   test("createHostTenantIdResolver maps hosts for managed-pages", async () => {
     const resolveHost = createHostTenantIdResolver(options, stack.db);
     expect(await resolveHost(`shop.${BASE_DOMAIN}`)).toBe(ACME.id);

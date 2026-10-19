@@ -50,8 +50,10 @@ async function isHostKnown(systemQuery: PageHeadSystemQuery, host: string): Prom
     result = await systemQuery(HostRoutingQueries.hostTenantExists, { host }, SYSTEM_TENANT_ID);
   } catch (error) {
     if (error instanceof ValidationError) return false;
-    // Unlike a tenant key, a rate-limited host is not served: it may not be one of ours.
-    if (error instanceof RateLimitError) return false;
+    // The shell is harmless: the API resolver is authoritative and answers
+    // tenant_required for unknown hosts, while a 404 would hit visitors behind
+    // a shared NAT under load.
+    if (error instanceof RateLimitError) return true;
     throw error;
   }
   return tenantKeyExistsResultSchema.parse(result).exists;

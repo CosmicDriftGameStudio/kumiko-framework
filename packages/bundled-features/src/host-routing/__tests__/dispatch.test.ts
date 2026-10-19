@@ -110,6 +110,26 @@ describe("createHostDispatch — tenant per host", () => {
     expect((await dispatch(request("acme.example.test"), { systemQuery })).kind).toBe("html");
   });
 
+  test("a rate-limited host check in resolver mode still serves the tenant shell", async () => {
+    const systemQuery: PageHeadSystemQuery = async () => {
+      throw new RateLimitError({
+        bucket: "host-routing",
+        limit: 120,
+        windowSeconds: 60,
+        remaining: 0,
+        retryAfterSeconds: 1,
+        resetAt: "2026-01-01T00:00:00.000Z",
+      });
+    };
+    const resolverDispatch = createHostDispatch({
+      ...hostMode,
+      tenantBy: async () => null,
+    });
+    expect((await resolverDispatch(request("shop.example.test"), { systemQuery })).kind).toBe(
+      "html",
+    );
+  });
+
   test.each([
     ["foreign domain", "evil.test"],
     ["suffix without dot", "acmeexample.test"],

@@ -58,7 +58,8 @@ function pathnameOf(c: RequestReader): string | null {
   }
 }
 
-const QUERY_PATH = "/api/query";
+// Both carry { type, payload } and run read handlers; /api/batch is commands only.
+const TYPED_READ_PATHS: ReadonlySet<string> = new Set(["/api/query", "/api/stream"]);
 const queryTypeBodySchema = z.object({ type: z.string() });
 
 // Reads the query type from a clone, so the body stays intact for the handler.
@@ -73,7 +74,7 @@ async function peekQueryType(c: RequestReader): Promise<string | null> {
 }
 
 // Apex anchor tenant for anonymous calls. A host with an allowlist only gets
-// the anchor for the listed query types; every other path keeps it.
+// the anchor for the listed query types on read paths; other paths keep it.
 async function apexAnchorFor(
   options: HostRoutingOptions,
   c: RequestReader,
@@ -82,7 +83,10 @@ async function apexAnchorFor(
   const anchor = options.apexAnonymousTenantId ?? null;
   if (anchor === null) return null;
   const allowlist = options.apexAnonymousQueryAllowlist?.[hostname];
-  if (allowlist === undefined || pathnameOf(c) !== QUERY_PATH) return anchor;
+  const pathname = pathnameOf(c);
+  if (allowlist === undefined || pathname === null || !TYPED_READ_PATHS.has(pathname)) {
+    return anchor;
+  }
   const type = await peekQueryType(c);
   return type !== null && allowlist.includes(type) ? anchor : null;
 }
