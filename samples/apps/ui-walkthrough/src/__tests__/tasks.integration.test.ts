@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedTenant } from "@cosmicdrift/kumiko-testing";
+import { seedTenant } from "@cosmicdrift/kumiko-dev-server/testing";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { setupTasksStack } from "./_setup";
 

@@ -5,7 +5,7 @@ import { ts } from "ts-morph";
 import * as z from "zod";
 
 const TESTING_PACKAGE_NAME = "@cosmicdrift/kumiko-testing";
-const OPTIONAL_PEER_PACKAGES = [
+const INJECTED_PACKAGES = [
   "@cosmicdrift/kumiko-bundled-features",
   "@cosmicdrift/kumiko-dev-server",
 ] as const;
@@ -17,7 +17,6 @@ const sourceRoot = join(packageRoot, "src");
 const manifestSchema = z.object({
   dependencies: z.record(z.string(), z.string()),
   peerDependencies: z.record(z.string(), z.string()),
-  peerDependenciesMeta: z.record(z.string(), z.object({ optional: z.boolean().optional() })),
   exports: z.record(z.string(), z.object({ default: z.string() })),
 });
 const manifest = manifestSchema.parse(
@@ -66,33 +65,25 @@ function selfSubpathOf(specifier: string): string | undefined {
     : undefined;
 }
 
-function isOptionalPeerSpecifier(specifier: string): boolean {
-  return OPTIONAL_PEER_PACKAGES.some(
-    (name) => specifier === name || specifier.startsWith(`${name}/`),
-  );
+function isInjectedPackageSpecifier(specifier: string): boolean {
+  return INJECTED_PACKAGES.some((name) => specifier === name || specifier.startsWith(`${name}/`));
 }
 
-function coreEntryFiles(): string[] {
-  return CORE_ENTRY_KEYS.map((key) => join(packageRoot, manifest.exports[key]?.default ?? ""));
+function entryFiles(keys: readonly string[]): string[] {
+  return keys.map((key) => join(packageRoot, manifest.exports[key]?.default ?? ""));
 }
 
-function collectCoreGraph(): { files: Set<string>; violations: string[] } {
+function collectImportGraph(keys: readonly string[]): { files: Set<string>; violations: string[] } {
   const files = new Set<string>();
   const violations: string[] = [];
-  const queue = coreEntryFiles();
-  const rootEntry = join(sourceRoot, "index.ts");
-  const e2eDir = `${join(sourceRoot, "e2e")}/`;
+  const queue = entryFiles(keys);
 
   while (queue.length > 0) {
     const file = queue.pop();
     if (file === undefined || files.has(file)) continue;
     files.add(file);
-    if (file === rootEntry || file.startsWith(e2eDir)) {
-      violations.push(`${relative(packageRoot, file)} is reachable from a Core entry`);
-      continue;
-    }
     for (const specifier of importSpecifiersOf(file)) {
-      if (isOptionalPeerSpecifier(specifier)) {
+      if (isInjectedPackageSpecifier(specifier)) {
         violations.push(`${relative(packageRoot, file)} imports ${specifier}`);
         continue;
       }
@@ -129,17 +120,17 @@ describe("kumiko-testing package manifest", () => {
     ]);
   });
 
-  test("bundled-features and dev-server are optional peers, not dependencies", () => {
-    for (const name of OPTIONAL_PEER_PACKAGES) {
+  test("bundled-features and dev-server are neither dependencies nor peers; they are injected", () => {
+    for (const name of INJECTED_PACKAGES) {
       expect(manifest.dependencies[name]).toBeUndefined();
-      expect(manifest.peerDependencies[name]).toBeDefined();
-      expect(manifest.peerDependenciesMeta[name]?.optional).toBe(true);
+      expect(manifest.peerDependencies[name]).toBeUndefined();
     }
   });
 });
 
 describe("kumiko-testing Core import graph", () => {
-  const graph = collectCoreGraph();
+  const graph = collectImportGraph(CORE_ENTRY_KEYS);
+  const fullGraph = collectImportGraph(Object.keys(manifest.exports));
 
   test("the Core entries are the stack, helpers, preload, bunfig and integration-runner subpaths", () => {
     expect(CORE_ENTRY_KEYS).toEqual(
@@ -160,8 +151,14 @@ describe("kumiko-testing Core import graph", () => {
     expect(graph.files.has(join(sourceRoot, "helpers", "wait-for.ts"))).toBe(true);
   });
 
-  test("reaches no bundled-features or dev-server specifier, no root entry, no e2e source", () => {
+  test("reaches no bundled-features or dev-server specifier", () => {
     expect(graph.violations).toEqual([]);
+  });
+
+  test("the root and e2e entries reach none either; injection replaces the optional peers", () => {
+    expect(fullGraph.files.has(join(sourceRoot, "seed-tenant.ts"))).toBe(true);
+    expect(fullGraph.files.has(join(sourceRoot, "e2e", "seed-route.ts"))).toBe(true);
+    expect(fullGraph.violations).toEqual([]);
   });
 });
 

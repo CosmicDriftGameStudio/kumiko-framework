@@ -26,6 +26,10 @@
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
     },
+    "./provider-env-keys": {
+      "types": "./src/provider-env-keys.ts",
+      "default": "./src/provider-env-keys.ts"
+    },
     "./helpers": {
       "types": "./src/helpers/index.ts",
       "default": "./src/helpers/index.ts"
@@ -101,20 +105,12 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@cosmicdrift/kumiko-bundled-features": ">=0.366.0 <1.0.0",
-    "@cosmicdrift/kumiko-dev-server": ">=0.366.0 <1.0.0",
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2"
   },
   "peerDependenciesMeta": {
-    "@cosmicdrift/kumiko-bundled-features": {
-      "optional": true
-    },
-    "@cosmicdrift/kumiko-dev-server": {
-      "optional": true
-    },
     "@happy-dom/global-registrator": {
       "optional": true
     },

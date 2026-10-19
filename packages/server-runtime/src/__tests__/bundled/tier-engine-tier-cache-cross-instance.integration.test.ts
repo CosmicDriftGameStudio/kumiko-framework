@@ -4,6 +4,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import type { TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import {
+  createTierEngineFeature,
+  tierAssignmentEntity,
+} from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -24,9 +29,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { TierMap } from "../compose-app.ts";
-import { tierAssignmentEntity } from "../entity.ts";
-import { createTierEngineFeature } from "../feature.ts";
 
 const TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },

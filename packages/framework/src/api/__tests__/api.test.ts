@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { parseSseFrames } from "@cosmicdrift/kumiko-dispatcher-live";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { Hono } from "hono";
 import * as z from "zod";
@@ -14,6 +13,18 @@ import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispat
 import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes.ts";
 import { buildServer } from "../server.ts";
+
+// Reads the SSE wire format independently of the client-side parser in kumiko-dispatcher-live.
+function parseSseFrames(text: string): { event: string; data: string }[] {
+  return text
+    .split("\n\n")
+    .map((block) => block.trim())
+    .filter((block) => block.length > 0)
+    .map((block) => ({
+      event: /^event: (.*)$/m.exec(block)?.[1] ?? "",
+      data: /^data: (.*)$/m.exec(block)?.[1] ?? "",
+    }));
+}
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 

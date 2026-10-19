@@ -42,6 +42,11 @@ export const PROD_BUNDLES_ENV = "KUMIKO_DEV_PROD_BUNDLES";
 // duplicated for the same Node/Bun-toolchain reason.
 export const TRUSTED_PROXY_HOPS_ENV = "KUMIKO_TRUSTED_PROXY_HOPS";
 
+// Same literals as kumiko-bundled-features' AuthMfaHandlers (enableStart, enableConfirm),
+// duplicated so the e2e kit has no bundled-features import; e2e-mfa-parity.test.ts pins them.
+export const AUTH_MFA_ENABLE_START_QN = "auth-mfa:write:enable-start";
+export const AUTH_MFA_ENABLE_CONFIRM_QN = "auth-mfa:write:enable-confirm";
+
 export const SEED_ROUTE_PREFIX = "/__test";
 
 export const SEED_ROUTES = {

@@ -28,6 +28,10 @@
     "@cosmicdrift/kumiko-types": "workspace:*",
     "zod": "^4.4.3"
   },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
     "access": "public",

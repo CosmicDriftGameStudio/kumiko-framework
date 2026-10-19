@@ -24,6 +24,9 @@ bun packages/guards/src/run-guards.ts || fail=1
 echo "→ Runtime isolation (bun packages/guards/src/check-runtime-isolation.ts)"
 bun packages/guards/src/check-runtime-isolation.ts || fail=1
 
+echo "→ Package cycles (bun scripts/check-package-cycles.ts)"
+bun scripts/check-package-cycles.ts || fail=1
+
 echo "→ integration mock guard (bun integration.guard.ts)"
 bun integration.guard.ts || fail=1
 

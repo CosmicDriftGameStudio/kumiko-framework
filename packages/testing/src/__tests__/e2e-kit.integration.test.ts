@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type KumikoServerHandle, runDevApp } from "@cosmicdrift/kumiko-dev-server";
+import {
+  createE2eSeedRoutes,
+  seedTenant,
+  setupAppTestStack,
+} from "@cosmicdrift/kumiko-dev-server/testing";
 import { type APIRequestContext, request as playwrightRequest } from "@playwright/test";
 import {
   apiCommand,
@@ -18,8 +23,7 @@ import {
 } from "../e2e/constants";
 import { waitForProjection } from "../e2e/poll";
 import { seedTenantResponseSchema } from "../e2e/seed-contract";
-import { createE2eSeedRoutes } from "../e2e/seed-route";
-import { type SeededTenant, type SeedPart, seedTenant, setupAppTestStack } from "../index";
+import type { SeededTenant, SeedPart } from "../index";
 import { withSession } from "../seed-types";
 import { NOTE_CREATE, NOTE_LIST, noteFeature } from "./note-feature";
 

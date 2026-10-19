@@ -1,10 +1,4 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { EmailMessage } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import {
-  createMailTransportInMemoryFeature,
-  getInbox,
-} from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   type ExtraRouteDefinition,
   ExtraRouteRejection,
@@ -14,21 +8,22 @@ import {
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { isSeedModeEnabled } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";
+import type { InboxMessage, SeedRouteBundledApi } from "../bundled-injection.ts";
 import {
   persistTenantRows,
   persistUserRows,
   type SeedWriter,
   unwrapSavedRow,
   unwrapWriteData,
-} from "../seed-tenant";
-import { SEED_ROUTES, SEED_TOKEN_ENV, SEED_TOKEN_HEADER } from "./constants";
+} from "../seed-tenant.ts";
+import { SEED_ROUTES, SEED_TOKEN_ENV, SEED_TOKEN_HEADER } from "./constants.ts";
 import {
   type CapturedMail,
   createSeedUserRequestSchema,
   extraSeedRequestSchema,
   inboxQuerySchema,
   seedTenantRequestSchema,
-} from "./seed-contract";
+} from "./seed-contract.ts";
 
 type ParsedBody<T> =
   | { readonly success: true; readonly data: T }
@@ -137,11 +132,11 @@ export type E2eSeedRoutesOptions = {
   // Apps that send tenantless mail (signup/forgot-password/magic-link) via
   // their own raw createInMemoryTransport() pass its `sent` array here so
   // the inbox route can read it without a tenantId. Independent of
-  // createMailTransportInMemoryFeature() — both sources may be present at once.
-  readonly mailOutbox?: { readonly sent: readonly EmailMessage[] };
+  // the in-memory mail transport feature — both sources may be present at once.
+  readonly mailOutbox?: { readonly sent: readonly InboxMessage[] };
 };
 
-function toCapturedMail(message: EmailMessage): CapturedMail {
+function toCapturedMail(message: InboxMessage): CapturedMail {
   return {
     to: message.to,
     subject: message.subject,
@@ -162,7 +157,8 @@ function toCapturedMail(message: EmailMessage): CapturedMail {
 // (kumiko-framework#3120). Each route's own assertGateOpen() 404s outside
 // the seed condition regardless — this is belt-and-suspenders, not the only gate.
 export function createE2eSeedRoutes(
-  options: E2eSeedRoutesOptions = {},
+  options: E2eSeedRoutesOptions,
+  bundled: SeedRouteBundledApi,
 ): readonly ExtraRouteDefinition[] {
   const seedUserRequestSchema = createSeedUserRequestSchema(options.extraRoles);
   const extraSeeders = options.extraSeeders ?? {};
@@ -183,11 +179,11 @@ export function createE2eSeedRoutes(
       const write: SeedWriter = async (handlerQn, payload, tenantId) =>
         unwrapSavedRow(handlerQn, await deps.dispatchSystemWrite({ handlerQn, payload, tenantId }));
       try {
-        const persisted = await persistTenantRows(write, {
-          name: verified.name,
-          users: verified.members,
-          admin: verified.admin,
-        });
+        const persisted = await persistTenantRows(
+          write,
+          { name: verified.name, users: verified.members, admin: verified.admin },
+          bundled,
+        );
         seededTenantIds.add(persisted.id);
         return c.json(persisted);
       } catch (error) {
@@ -209,7 +205,7 @@ export function createE2eSeedRoutes(
     handler: async (c, verified, deps) => {
       // seededTenantIds is never pruned, so a tenant removed after seeding must still 404.
       const tenantRow = await deps.dispatchSystemQuery({
-        handlerQn: TenantQueries.me,
+        handlerQn: bundled.tenantMeQuery,
         payload: {},
         tenantId: verified.tenantId,
       });
@@ -220,10 +216,13 @@ export function createE2eSeedRoutes(
         unwrapSavedRow(handlerQn, await deps.dispatchSystemWrite({ handlerQn, payload, tenantId }));
       try {
         return c.json(
-          await persistUserRows(write, verified.tenantId, verified.roles, {
-            displayName: verified.displayName,
-            email: verified.email,
-          }),
+          await persistUserRows(
+            write,
+            verified.tenantId,
+            verified.roles,
+            { displayName: verified.displayName, email: verified.email },
+            bundled,
+          ),
         );
       } catch (error) {
         return c.json({ error: error instanceof Error ? error.message : "seed failed" }, 500);
@@ -252,13 +251,12 @@ export function createE2eSeedRoutes(
       const tenantId = verified.tenantId;
       const mailOutbox = options.mailOutbox;
       const hasTenantSource =
-        tenantId !== undefined &&
-        deps.registry.features.has(createMailTransportInMemoryFeature().name);
+        tenantId !== undefined && deps.registry.features.has(bundled.mailInbox.featureName);
       if (!hasTenantSource && mailOutbox === undefined) {
         return c.json(
           {
             error:
-              `no inbox to read: neither ${createMailTransportInMemoryFeature().name} is mounted with a ` +
+              `no inbox to read: neither ${bundled.mailInbox.featureName} is mounted with a ` +
               "tenantId nor was mailOutbox passed to createE2eSeedRoutes()",
           },
           501,
@@ -270,7 +268,7 @@ export function createE2eSeedRoutes(
       // first — that ordering is what mailCapture and its tests rely on.
       const tenantMessages =
         hasTenantSource && tenantId !== undefined
-          ? [...getInbox(tenantId)].filter(isRecipient).reverse().map(toCapturedMail)
+          ? [...bundled.mailInbox.read(tenantId)].filter(isRecipient).reverse().map(toCapturedMail)
           : [];
       const outboxMessages =
         mailOutbox !== undefined

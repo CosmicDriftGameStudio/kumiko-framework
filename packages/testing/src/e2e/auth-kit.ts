@@ -1,11 +1,15 @@
 import { createHash } from "node:crypto";
-import { AuthMfaHandlers, base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
-import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import { type APIRequestContext, type APIResponse, expect, type Page } from "@playwright/test";
 import * as z from "zod";
 import type { BoundApi } from "../seed-types";
-import { CSRF_COOKIE_NAMES, CSRF_HEADER_NAME } from "./constants";
+import {
+  AUTH_MFA_ENABLE_CONFIRM_QN,
+  AUTH_MFA_ENABLE_START_QN,
+  CSRF_COOKIE_NAMES,
+  CSRF_HEADER_NAME,
+} from "./constants";
+import { base32Decode, currentTotpCode } from "./totp";
 
 export type LoginCredentials = {
   readonly email: string;
@@ -238,10 +242,10 @@ export async function enrollTotpViaApi(
   }
   const started = await apiWrite<{ setupToken: string; totpSecret: string }>(
     request,
-    AuthMfaHandlers.enableStart,
+    AUTH_MFA_ENABLE_START_QN,
     {},
   );
-  await apiWrite(request, AuthMfaHandlers.enableConfirm, {
+  await apiWrite(request, AUTH_MFA_ENABLE_CONFIRM_QN, {
     setupToken: started.setupToken,
     code: await totpCode(started.totpSecret),
   });

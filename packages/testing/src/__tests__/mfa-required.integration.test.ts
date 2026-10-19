@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { TenantHandlers } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { type KumikoServerHandle, runDevApp } from "@cosmicdrift/kumiko-dev-server";
+import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-dev-server/testing";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { type APIRequestContext, request as playwrightRequest } from "@playwright/test";
 import { createHttpApi, csrfFetch, loginViaApi } from "../e2e/auth-kit";
@@ -13,7 +14,6 @@ import {
   SEED_TOKEN_HEADER,
 } from "../e2e/constants";
 import { seedTenantResponseSchema } from "../e2e/seed-contract";
-import { createE2eSeedRoutes } from "../e2e/seed-route";
 import { type ProvideSeedTenantDeps, provideSeedTenant } from "../e2e/seeded-tenant-fixture";
 import { NOTE_CREATE, NOTE_LIST, noteFeature } from "./note-feature";
 

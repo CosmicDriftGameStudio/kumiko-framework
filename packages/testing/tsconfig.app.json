@@ -12,7 +12,7 @@
   "include": [
     "./src/index.ts",
     "./src/seed-*.ts",
-    "./src/setup-app-test-stack.ts",
+    "./src/bundled-injection.ts",
     "./src/scaffold.ts",
     "./src/e2e",
     "./src/__tests__",

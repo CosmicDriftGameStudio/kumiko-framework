@@ -61,7 +61,7 @@ function renderE2eServer(appName: string): string {
     TEST_RUNTIME_DIRECTIVE,
     'import { randomUUID } from "node:crypto";',
     'import { runDevApp } from "@cosmicdrift/kumiko-dev-server";',
-    'import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-testing/e2e/seed-route";',
+    'import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-dev-server/testing";',
     'import { APP_FEATURES } from "../src/run-config";',
     "",
     "await runDevApp({",
@@ -131,7 +131,7 @@ function renderE2eHelpers(): string {
 
 function renderIntegrationSetup(): string {
   return [
-    'import { setupAppTestStack } from "@cosmicdrift/kumiko-testing";',
+    'import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";',
     'import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";',
     'import { tasksFeature } from "../features/tasks";',
     "",
@@ -165,7 +165,7 @@ function renderUnitTest(): string {
 function renderIntegrationTest(): string {
   return [
     'import { afterAll, beforeAll, describe, expect, test } from "bun:test";',
-    'import { seedTenant } from "@cosmicdrift/kumiko-testing";',
+    'import { seedTenant } from "@cosmicdrift/kumiko-dev-server/testing";',
     'import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";',
     'import { setupTasksStack } from "./_setup";',
     "",

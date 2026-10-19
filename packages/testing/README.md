@@ -3,7 +3,7 @@
 Test template for Kumiko apps. Test-only: never import it from production code.
 
 ```ts
-import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 
 const stack = await setupAppTestStack([myFeature]);
 const tenant = await seedTenant(stack, { users: 2 }); // light: no rows, own id/key/users

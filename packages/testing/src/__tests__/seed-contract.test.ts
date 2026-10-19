@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-dev-server/testing";
 import {
   createSeedUserRequestSchema,
   inboxQuerySchema,
   resolveSeedableRoles,
   SEEDABLE_ROLES,
 } from "../e2e/seed-contract";
-import { createE2eSeedRoutes } from "../e2e/seed-route";
 
 const TENANT_ID = "0b6ee0e0-2f6c-4f1f-9d5b-6f3f4f3a3c11";
 

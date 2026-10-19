@@ -1,7 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { hashPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { TenantHandlers } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   createSystemUser,
@@ -11,6 +8,8 @@ import {
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-framework/utils";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import type { SeedBundledApi } from "./bundled-injection.ts";
 import {
   type BoundApi,
   type SeedAdminIdentity,
@@ -19,8 +18,7 @@ import {
   type SeedTenantOptions,
   splitSeedRoles,
   withSession,
-} from "./seed-types";
-import type { TestStack } from "./stack/index.ts";
+} from "./seed-types.ts";
 
 export type {
   BoundApi,
@@ -30,7 +28,7 @@ export type {
   SeededUser,
   SeedPart,
   SeedTenantOptions,
-} from "./seed-types";
+} from "./seed-types.ts";
 
 export type SavedRow = { readonly id: string; readonly data: { readonly version: number } };
 
@@ -114,8 +112,10 @@ export async function persistUserRows(
   write: SeedWriter,
   tenantId: TenantId,
   roles: readonly string[],
-  identity: SeedAdminIdentity = {},
+  identity: SeedAdminIdentity,
+  bundled: SeedBundledApi,
 ): Promise<SeededCredentials> {
+  const { hashPassword, UserHandlers, TenantHandlers } = bundled;
   const light = lightCredentials(
     identity.email !== undefined ? substituteTenantId(identity.email, tenantId) : undefined,
   );
@@ -149,14 +149,16 @@ export async function persistTenantRows(
     readonly name?: string;
     readonly users?: number;
     readonly admin?: SeedAdminIdentity;
-  } = {},
+  },
+  bundled: SeedBundledApi,
 ): Promise<PersistedTenant> {
+  const { TenantHandlers } = bundled;
   const { id, key, name } = newTenantIdentity(opts.name);
   await write(TenantHandlers.create, { id, key, name }, id);
-  const admin = await persistUserRows(write, id, [ROLES.TenantAdmin], opts.admin);
+  const admin = await persistUserRows(write, id, [ROLES.TenantAdmin], opts.admin ?? {}, bundled);
   const members: SeededCredentials[] = [];
   for (let i = 0; i < (opts.users ?? 0); i++) {
-    members.push(await persistUserRows(write, id, [ROLES.Member]));
+    members.push(await persistUserRows(write, id, [ROLES.Member], {}, bundled));
   }
   return { id, key, name, admin, members };
 }
@@ -176,11 +178,12 @@ export type InProcessSeededTenant = SeededTenant & {
 
 export async function seedTenant(
   stack: TestStack,
-  opts: SeedTenantOptions = {},
+  opts: SeedTenantOptions,
+  bundled: SeedBundledApi,
 ): Promise<InProcessSeededTenant> {
   const write = stackSeedWriter(stack);
   const persist = opts.persist === true;
-  const rows = persist ? await persistTenantRows(write, opts) : lightTenantRows(opts);
+  const rows = persist ? await persistTenantRows(write, opts, bundled) : lightTenantRows(opts);
   const { id } = rows;
 
   // setupTestStack subscribes events.sse only to test tenant 1; a seeded tenant has a fresh random id.
@@ -201,7 +204,7 @@ export async function seedTenant(
     addUser: async (roles = [ROLES.Member], identity = {}) =>
       withSession(
         persist
-          ? await persistUserRows(write, id, roles, identity)
+          ? await persistUserRows(write, id, roles, identity, bundled)
           : lightCredentials(
               identity.email !== undefined ? substituteTenantId(identity.email, id) : undefined,
             ),
