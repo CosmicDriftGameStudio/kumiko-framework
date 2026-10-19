@@ -728,6 +728,75 @@ describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
     expect(screen.getByTestId("dashboard-panel-mfa-disable")).toBeTruthy();
   });
 
+  describe("fallback", () => {
+    const fallbackSchema: FeatureSchema = {
+      ...accountSecuritySchema,
+      screens: [
+        {
+          id: "account-security",
+          type: "dashboard",
+          panels: [
+            {
+              kind: "screen",
+              id: "mfa",
+              screen: "auth-mfa:screen:auth-mfa-disable",
+              visibleWhen: { ...mfaStatus, eq: true },
+              fallback: "sessions:screen:my-sessions",
+            },
+          ],
+        },
+      ],
+    };
+
+    test("shows the fallback screen in the panel's place while visibleWhen is unmet", async () => {
+      renderAccountSecurity(false, fallbackSchema);
+      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+      expect(
+        within(screen.getByTestId("dashboard-panel-mfa")).getByText("Firefox on Linux"),
+      ).toBeTruthy();
+      expect(screen.queryByText("mfa.disable.submit")).toBeNull();
+    });
+
+    test("shows the panel itself once visibleWhen is met", async () => {
+      renderAccountSecurity(true, fallbackSchema);
+      await waitFor(() => expect(screen.getByText("mfa.disable.submit")).toBeTruthy());
+      expect(screen.queryByText("Firefox on Linux")).toBeNull();
+    });
+
+    test("shows nothing while the gate query is loading", () => {
+      renderAccountSecurity(false, fallbackSchema);
+      expect(screen.queryByTestId("dashboard-panel-mfa")).toBeNull();
+      expect(screen.queryByText("Firefox on Linux")).toBeNull();
+    });
+
+    test("falls back when the gate query fails instead of showing an error", async () => {
+      renderAccountSecurity(true, fallbackSchema, sessionsSchema, { statusFails: true });
+      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    test("chromeless applies to the fallback as well", async () => {
+      const chromeless: FeatureSchema = {
+        ...fallbackSchema,
+        screens: fallbackSchema.screens.map((screenDef) =>
+          screenDef.type === "dashboard"
+            ? {
+                ...screenDef,
+                panels: screenDef.panels.map((panel) =>
+                  panel.kind === "screen" ? { ...panel, chromeless: true } : panel,
+                ),
+              }
+            : screenDef,
+        ),
+      };
+      renderAccountSecurity(false, chromeless, paddedSessionsSchema);
+      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+      expect(
+        screen.getByTestId("dashboard-panel-mfa").querySelector("[data-slot=card]"),
+      ).toBeNull();
+    });
+  });
+
   test("ohne Zugriff auf den Ziel-Screen fällt die Kachel komplett weg (kein Access-Banner)", async () => {
     renderAccountSecurity(false);
     await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());

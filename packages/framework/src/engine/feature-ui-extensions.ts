@@ -79,8 +79,12 @@ function qualifySelectorPanel(
           `the settings dashboard has no i18n namespace for it; the embedded screen carries its own title.`,
       );
     }
-    if (panel.screen === "" || isValidQn(panel.screen)) return panel;
-    return { ...panel, screen: qualifyEntityName(featureName, "screen", panel.screen) };
+    const qualify = (ref: string): string =>
+      ref === "" || isValidQn(ref) ? ref : qualifyEntityName(featureName, "screen", ref);
+    const screen = qualify(panel.screen);
+    const fallback = panel.fallback === undefined ? undefined : qualify(panel.fallback);
+    if (screen === panel.screen && fallback === panel.fallback) return panel;
+    return { ...panel, screen, ...(fallback !== undefined && { fallback }) };
   }
   throw new Error(
     `[Feature ${featureName}] extensionSelector panel ${JSON.stringify(panel)} has an unsupported kind — ` +

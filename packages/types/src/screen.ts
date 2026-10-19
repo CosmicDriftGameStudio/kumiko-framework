@@ -1159,6 +1159,29 @@ export type DashboardCustomPanel = {
   readonly component: PlatformComponent;
 };
 
+// Static text panel without a query. Every `text` and `items` entry is an i18n key
+// (a missing translation falls back to the literal); only `code` is shown verbatim.
+export type DashboardTextBlock =
+  | { readonly kind: "heading"; readonly text: string }
+  | {
+      readonly kind: "paragraph";
+      readonly text: string;
+      /** Default "muted", like body copy inside panels. */
+      readonly emphasis?: "muted" | "strong";
+    }
+  | { readonly kind: "list"; readonly items: readonly string[] }
+  | { readonly kind: "code"; readonly code: string }
+  | { readonly kind: "hint"; readonly text: string };
+
+export type DashboardTextPanel = DashboardPanelGate & {
+  readonly kind: "text";
+  readonly id: string;
+  /** Panel title (i18n key). */
+  readonly label?: string;
+  readonly span?: DashboardPanelSpan;
+  readonly blocks: readonly DashboardTextBlock[];
+};
+
 // Live query, so a write that flips `field` swaps panels without reload; hidden while loading.
 export type DashboardPanelVisibility = {
   readonly query: string;
@@ -1174,6 +1197,10 @@ export type DashboardScreenPanel = {
   readonly screen: string;
   readonly label?: string;
   readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` embedded in this
+   *  panel's place when `visibleWhen` is unmet or its query fails (nothing while it loads).
+   *  Needs `visibleWhen`; the target must not have a `visibleWhen` of its own. */
+  readonly fallback?: string;
   /** Render the embedded form without its own card frame and padding, aligned to
    *  the dashboard's page grid like a standalone settings screen. Default false
    *  (framed card); set for panels whose body is a settings-list form, where a
@@ -1188,6 +1215,7 @@ export type DashboardPanelDefinition =
   | DashboardListPanel
   | DashboardFeedPanel
   | DashboardProgressListPanel
+  | DashboardTextPanel
   | DashboardCustomPanel
   | DashboardScreenPanel;
 

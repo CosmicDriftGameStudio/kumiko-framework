@@ -55,6 +55,7 @@ import type {
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,
+  DashboardTextPanel,
   DashboardTimeRangeDefinition,
   DashboardValueFormat,
   EditFieldSpec,
@@ -3143,6 +3144,8 @@ function validateDashboardScreen(
       validateDashboardCustomPanel(featureName, screenId, panel);
     } else if (panel.kind === "screen") {
       validateDashboardScreenPanel(featureName, screenId, panel, featureMap);
+    } else if (panel.kind === "text") {
+      validateDashboardTextPanel(featureName, screenId, panel);
     } else {
       validateDashboardQueryPanel(featureName, screenId, panel, featureMap);
     }
@@ -3201,19 +3204,19 @@ const EMBEDDABLE_SCREEN_TYPES: ReadonlySet<ScreenDefinition["type"]> = new Set([
   "secretsEdit",
 ]);
 
-export function validateDashboardScreenPanel(
+function validateEmbeddableScreenRef(
+  context: string,
+  prop: "screen" | "fallback",
+  ref: string,
   featureName: string,
-  screenId: string,
-  panel: DashboardScreenPanel,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
-): void {
-  const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}"`;
-  const targetQn = resolveScreenTargetQn(featureName, panel.screen);
+): ScreenDefinition {
+  const targetQn = resolveScreenTargetQn(featureName, ref);
   const [targetFeatureName = "", , targetShortId = ""] = targetQn.split(":");
   const target = featureMap.get(targetFeatureName)?.screens[targetShortId];
   if (target === undefined) {
     throw new Error(
-      `${context} screen "${panel.screen}" does not resolve to a registered screen (checked "${targetQn}"). ` +
+      `${context} ${prop} "${ref}" does not resolve to a registered screen (checked "${targetQn}"). ` +
         `Use a same-feature short id or a cross-feature QN "<feature>:screen:<id>".`,
     );
   }
@@ -3236,7 +3239,55 @@ export function validateDashboardScreenPanel(
         `with cancelTarget: false (or omitted).`,
     );
   }
+  return target;
+}
+
+export function validateDashboardScreenPanel(
+  featureName: string,
+  screenId: string,
+  panel: DashboardScreenPanel,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}"`;
+  validateEmbeddableScreenRef(context, "screen", panel.screen, featureName, featureMap);
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
+  if (panel.fallback === undefined) return;
+  if (panel.visibleWhen === undefined) {
+    throw new Error(
+      `${context} declares fallback without visibleWhen. Add visibleWhen or remove fallback.`,
+    );
+  }
+  const target = validateEmbeddableScreenRef(
+    context,
+    "fallback",
+    panel.fallback,
+    featureName,
+    featureMap,
+  );
+  // A gated fallback could hide in turn; the tile would show nothing where it promised a stand-in.
+  if (target.visibleWhen !== undefined) {
+    throw new Error(
+      `${context} fallback "${panel.fallback}" has its own visibleWhen; a fallback must always render.`,
+    );
+  }
+}
+
+function validateDashboardTextPanel(
+  featureName: string,
+  screenId: string,
+  panel: DashboardTextPanel,
+): void {
+  const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) text-panel "${panel.id}"`;
+  if (panel.blocks.length === 0) {
+    throw new Error(`${context} has an empty blocks list. Add at least one block.`);
+  }
+  validateDashboardPanelSpan(featureName, screenId, panel);
+  validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
+  for (const block of panel.blocks) {
+    if (block.kind === "list" && block.items.length === 0) {
+      throw new Error(`${context} has a list block without items. Add items or remove the block.`);
+    }
+  }
 }
 
 function validateDashboardPanelVisibleWhen(
@@ -3489,7 +3540,7 @@ function validateDashboardQueryPanel(
   screenId: string,
   panel: Exclude<
     DashboardPanelDefinition,
-    DashboardStatGroupPanel | DashboardCustomPanel | DashboardScreenPanel
+    DashboardStatGroupPanel | DashboardCustomPanel | DashboardScreenPanel | DashboardTextPanel
   >,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {

@@ -143,7 +143,16 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     r.screen({
       id: "board",
       type: "dashboard",
-      panels: [{ kind: "screen", id: "secret-panel", screen: SECRET_QN }],
+      panels: [
+        { kind: "screen", id: "secret-panel", screen: SECRET_QN },
+        {
+          kind: "screen",
+          id: "open-panel",
+          screen: "list",
+          visibleWhen: { query: "host:query:record:related", field: "ok", eq: true },
+          fallback: SECRET_QN,
+        },
+      ],
     });
     r.screen({
       id: "host-action",
@@ -278,7 +287,8 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     const board = host.screens.find((s) => s.id === "board");
     expect(board?.type).toBe("dashboard");
     if (board?.type !== "dashboard") throw new Error("unreachable");
-    expect(board.panels).toHaveLength(1);
+    expect(board.panels).toHaveLength(2);
+    expect(board.panels[1]).toMatchObject({ id: "open-panel", fallback: SECRET_QN });
 
     const mint = host.screens.find((s) => s.id === "host-mint");
     if (mint?.type !== "secretMint") throw new Error("unreachable");
@@ -373,7 +383,9 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     const board = host.screens.find((s) => s.id === "board");
     expect(board?.type).toBe("dashboard");
     if (board?.type !== "dashboard") throw new Error("unreachable");
-    expect(board.panels).toHaveLength(0);
+    // secret-panel is dropped; open-panel stays but loses the fallback the role cannot reach
+    expect(board.panels.map((p) => p.id)).toEqual(["open-panel"]);
+    expect(board.panels[0]).not.toHaveProperty("fallback");
 
     const hostAction = host.screens.find((s) => s.id === "host-action");
     expect(hostAction?.type).toBe("actionForm");

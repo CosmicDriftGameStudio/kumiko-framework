@@ -11,6 +11,7 @@ import type {
   DashboardFilterDefinition,
   DashboardPanelDefinition,
   DashboardScreenDefinition,
+  DashboardTextPanel,
   EntityListExpandableRow,
   FeatureDefinition,
   ListEmptyStateSpec,
@@ -148,6 +149,7 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
   if (panel.kind === "custom") return;
   pushKey(out, panel.label);
   if (panel.kind === "chart" || panel.kind === "stat-group") pushKey(out, panel.subtitle);
+  if (panel.kind === "text") pushDashboardTextBlockKeys(out, panel);
   if (panel.kind === "chart") {
     pushKey(out, panel.unit);
     pushDashboardChartRangeKeys(out, panel);
@@ -168,6 +170,18 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
     for (const col of panel.columns) {
       const normalized = normalizeListColumn(col);
       if (normalized.label !== undefined) pushKey(out, normalized.label);
+    }
+  }
+}
+
+function pushDashboardTextBlockKeys(out: Set<string>, panel: DashboardTextPanel): void {
+  for (const block of panel.blocks) {
+    // skip: code is shown verbatim, not translated
+    if (block.kind === "code") continue;
+    if (block.kind === "list") {
+      for (const item of block.items) pushKey(out, item);
+    } else {
+      pushKey(out, block.text);
     }
   }
 }

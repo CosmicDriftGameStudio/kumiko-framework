@@ -6,6 +6,7 @@ import { defineFeature } from "../define-feature.ts";
 import type {
   DashboardScreenDefinition,
   DashboardScreenPanel,
+  DashboardTextPanel,
   DashboardValueFormat,
 } from "../types/screen.ts";
 
@@ -1036,5 +1037,181 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
     ]) {
       expect(keys).toContain(key);
     }
+  });
+});
+
+describe("validateBoot — dashboard screen-panel fallback and text panels", () => {
+  const GATE = { query: "catalog:query:items:status", field: "enabled", eq: true } as const;
+  const fallbackCatalog = defineFeature("catalog", (r) => {
+    r.queryHandler({
+      name: "items:list",
+      schema: z.object({}),
+      handler: async () => ({ rows: [], nextCursor: null }),
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
+    r.queryHandler({
+      name: "items:status",
+      schema: z.object({}),
+      handler: async () => ({ enabled: true }),
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
+    for (const id of ["items", "items-hint"]) {
+      r.screen({
+        id,
+        type: "projectionList",
+        query: "catalog:query:items:list",
+        columns: ["name"],
+      });
+    }
+    r.screen({ id: "items-board", type: "dashboard", panels: [STAT_PANEL] });
+    r.screen({
+      id: "items-gated",
+      type: "projectionList",
+      query: "catalog:query:items:list",
+      columns: ["name"],
+      visibleWhen: GATE,
+    });
+    r.translations({
+      keys: {
+        "screen:items.title": { de: "Artikel", en: "Items" },
+        "screen:items-hint.title": { de: "Hinweis", en: "Hint" },
+        "screen:items-gated.title": { de: "Gesperrt", en: "Gated" },
+        "screen:items-board.title": { de: "Board", en: "Board" },
+        "demo:dashboard:panel:open-incidents": { de: "Offene Vorfälle", en: "Open incidents" },
+      },
+    });
+  });
+
+  const panelWith = (extra: Partial<DashboardScreenPanel>): DashboardScreenPanel => ({
+    kind: "screen",
+    id: "items",
+    screen: "catalog:screen:items",
+    ...extra,
+  });
+
+  test("accepts a fallback with visibleWhen", () => {
+    const feature = screenPanelFeature(
+      panelWith({ visibleWhen: GATE, fallback: "catalog:screen:items-hint" }),
+    );
+    expect(() => validateBoot([feature, fallbackCatalog])).not.toThrow();
+  });
+
+  test("rejects a fallback without visibleWhen", () => {
+    const feature = screenPanelFeature(panelWith({ fallback: "catalog:screen:items-hint" }));
+    expect(() => validateBoot([feature, fallbackCatalog])).toThrow(
+      /screen-panel "items" declares fallback without visibleWhen/,
+    );
+  });
+
+  test("rejects a fallback that resolves to no registered screen", () => {
+    const feature = screenPanelFeature(
+      panelWith({ visibleWhen: GATE, fallback: "catalog:screen:ghost" }),
+    );
+    expect(() => validateBoot([feature, fallbackCatalog])).toThrow(
+      /screen-panel "items" fallback "catalog:screen:ghost" does not resolve/,
+    );
+  });
+
+  test("rejects a fallback with its own visibleWhen", () => {
+    const feature = screenPanelFeature(
+      panelWith({ visibleWhen: GATE, fallback: "catalog:screen:items-gated" }),
+    );
+    expect(() => validateBoot([feature, fallbackCatalog])).toThrow(
+      /fallback "catalog:screen:items-gated" has its own visibleWhen/,
+    );
+  });
+
+  test("rejects a fallback that cannot be embedded", () => {
+    const feature = screenPanelFeature(
+      panelWith({ visibleWhen: GATE, fallback: "catalog:screen:items-board" }),
+    );
+    expect(() => validateBoot([feature, fallbackCatalog])).toThrow(
+      /embeds "catalog:screen:items-board" of type "dashboard", which can't be embedded/,
+    );
+  });
+
+  const TEXT: DashboardTextPanel = {
+    kind: "text",
+    id: "help",
+    label: "demo:dashboard:panel:latest",
+    blocks: [
+      { kind: "heading", text: "demo:dashboard:panel:open-incidents" },
+      { kind: "code", code: "curl -H 'x: y' https://example.test" },
+    ],
+  };
+
+  test("accepts a text panel with a registered visibleWhen query", () => {
+    const feature = defineFeature("demo", (r) => {
+      r.queryHandler({
+        name: "incident:open-count",
+        schema: z.object({}),
+        handler: async () => ({ count: 3 }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "overview",
+        type: "dashboard",
+        panels: [
+          {
+            ...TEXT,
+            visibleWhen: { query: "demo:query:incident:open-count", field: "count", eq: 3 },
+          },
+        ],
+      });
+      r.translations({
+        keys: {
+          "screen:overview.title": { de: "Übersicht", en: "Overview" },
+          "demo:dashboard:panel:latest": { de: "Neueste", en: "Latest" },
+          "demo:dashboard:panel:open-incidents": { de: "Offene Vorfälle", en: "Open incidents" },
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("rejects a text panel with empty blocks", () => {
+    const feature = dashboardFeature([STAT_PANEL, { ...TEXT, blocks: [] }]);
+    expect(() => validateBoot([feature])).toThrow(/text-panel "help" has an empty blocks list/);
+  });
+
+  test("rejects a list block without items", () => {
+    const feature = dashboardFeature([
+      STAT_PANEL,
+      { ...TEXT, blocks: [{ kind: "list", items: [] }] },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(/list block without items/);
+  });
+
+  test("rejects a duplicate panel id between a text and a stat panel", () => {
+    const feature = dashboardFeature([STAT_PANEL, { ...TEXT, id: STAT_PANEL.id }]);
+    expect(() => validateBoot([feature])).toThrow(/duplicate panel id/);
+  });
+
+  test("requires translations for text and list entries but not for code", () => {
+    const keys = requiredKeysFromScreen("demo", {
+      id: "overview",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "text",
+          id: "help",
+          label: "demo:help:title",
+          blocks: [
+            { kind: "heading", text: "demo:help:heading" },
+            { kind: "list", items: ["demo:help:item-1", "demo:help:item-2"] },
+            { kind: "code", code: "demo:not-a-key" },
+          ],
+        },
+      ],
+    });
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "demo:help:title",
+        "demo:help:heading",
+        "demo:help:item-1",
+        "demo:help:item-2",
+      ]),
+    );
+    expect(keys).not.toContain("demo:not-a-key");
   });
 });

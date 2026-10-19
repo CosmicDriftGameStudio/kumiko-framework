@@ -462,6 +462,8 @@ export type {
   DashboardStatGroupPanel,
   DashboardStatPanel,
   DashboardText,
+  DashboardTextBlock,
+  DashboardTextPanel,
   DashboardTextParam,
   DashboardValueFormat,
   DateFieldDef,
