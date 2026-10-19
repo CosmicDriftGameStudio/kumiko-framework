@@ -3,7 +3,8 @@
 //
 //   package.json "kumiko.clientEntries"/"kumiko.clientEntry",
 //     or src/client.tsx | src/styles.css | public/   →  client bundle (dist/)
-//   bin/main.ts                                       →  server bundle (dist-server/)
+//   bin/main.ts                                       →  server bundle (dist-server/,
+//                                                        incl. bun.lock seeded from the app's bun.lock)
 //
 // Both are built when their conventions match, otherwise skipped. A workspace
 // with only bin/main.ts gets just the server bundle, a browser-only sample
@@ -21,7 +22,7 @@
 //   kumiko-build --entry bin/remote-probe.ts
 
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import {
   buildProdBundle,
   buildServerBundle,
@@ -32,6 +33,7 @@ import {
   readClientEntriesConfig,
   readExtraRuntimeExternals,
   resolveClientEntries,
+  writeServerLockfile,
 } from "@cosmicdrift/kumiko-dev-server/cli";
 
 if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
@@ -43,6 +45,7 @@ if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
 
 const red = "\x1b[31m";
 const yellow = "\x1b[33m";
+const dim = "\x1b[2m";
 const reset = "\x1b[0m";
 
 try {
@@ -85,8 +88,13 @@ try {
       ...(buildArgs.extraEntries.length > 0 && { extraEntries: buildArgs.extraEntries }),
     });
     const ms = Math.round(performance.now() - t0);
+    const lock = await writeServerLockfile({ cwd, outDir: result.outDir });
+    const lockLine =
+      lock.mode === "seeded"
+        ? `    ${dim}bun.lock seeded from ${relative(cwd, lock.seedLockfile) || "bun.lock"}${reset}`
+        : `    ${yellow}!${reset} bun.lock resolved fresh – no bun.lock found above ${cwd}`;
     // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
-    console.log(formatServerBuildResult(result, ms));
+    console.log(`${formatServerBuildResult(result, ms)}\n${lockLine}`);
   }
 } catch (err) {
   // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg

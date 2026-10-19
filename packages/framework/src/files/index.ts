@@ -1,3 +1,5 @@
+export type { BindPendingFileRefOutcome, PendingFileRef } from "./bind-pending-file-refs.ts";
+export { bindPendingFileRef, loadPendingFileRef } from "./bind-pending-file-refs.ts";
 export type {
   CreatedFileRef,
   CreateFileRefContext,

@@ -15,6 +15,7 @@ import type { Logger } from "./logger.ts";
 import type { Meter, MetricsHandle, Tracer } from "./observability/index.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
 import type { CrossTenantReads, TenantDb } from "./tenant-db-types.ts";
+import { isOneOf, propertyOf } from "./type-guards.ts";
 import type { Clock, TzContext } from "./tz-context.ts";
 
 // --- Access ---
@@ -1369,13 +1370,16 @@ export type HandlerRef = {
 //   "ip+handler"      → IP + handlerName (anonymous endpoints)
 // `cost` is the tokens this handler-call deducts. Default 1 — bump for
 // expensive operations (bulk export, bulk import).
-export type RateLimitPer =
-  | "user"
-  | "tenant"
-  | "ip"
-  | "user+handler"
-  | "tenant+handler"
-  | "ip+handler";
+export const RATE_LIMIT_PERS = [
+  "user",
+  "tenant",
+  "ip",
+  "user+handler",
+  "tenant+handler",
+  "ip+handler",
+] as const;
+
+export type RateLimitPer = (typeof RATE_LIMIT_PERS)[number];
 
 export type RateLimitOption = {
   readonly per: RateLimitPer;
@@ -1405,11 +1409,37 @@ export type PayloadRateLimitOption = {
   readonly normalize?: PayloadBucketNormalization;
 };
 
+export function isRateLimitOption(value: unknown): value is RateLimitOption {
+  const cost = propertyOf(value, "cost");
+  return (
+    isOneOf(RATE_LIMIT_PERS, propertyOf(value, "per")) &&
+    typeof propertyOf(value, "limit") === "number" &&
+    typeof propertyOf(value, "windowSeconds") === "number" &&
+    (cost === undefined || typeof cost === "number")
+  );
+}
+
+// Several buckets on one handler: each bucket applies on its own, and a rejected request charges none of them.
+export type RateLimitOptions = readonly [RateLimitOption, ...RateLimitOption[]];
+
 export type RateLimitDisabled = { readonly disabled: true; readonly reason: string };
-export type RateLimitDeclaration = RateLimitOption | RateLimitDisabled;
+export type RateLimitDeclaration = RateLimitOption | RateLimitOptions | RateLimitDisabled;
+
+export function declaredRateLimitOptions(
+  declaration: RateLimitDeclaration | undefined,
+): readonly RateLimitOption[] {
+  if (declaration === undefined || isRateLimitDisabled(declaration)) return [];
+  return isRateLimitOptionList(declaration) ? declaration : [declaration];
+}
+
+function isRateLimitOptionList(
+  declaration: RateLimitOption | RateLimitOptions,
+): declaration is RateLimitOptions {
+  return Array.isArray(declaration);
+}
 
 export function isRateLimitDisabled(v: RateLimitDeclaration | undefined): v is RateLimitDisabled {
-  return v !== undefined && "disabled" in v && v.disabled === true;
+  return v !== undefined && !Array.isArray(v) && "disabled" in v && v.disabled === true;
 }
 
 export type AgentRisk = "low" | "mid" | "high";

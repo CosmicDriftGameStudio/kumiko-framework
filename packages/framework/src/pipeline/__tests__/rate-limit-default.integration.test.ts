@@ -37,6 +37,10 @@ function fakeResolver(): {
       calls.push({ bucket, config });
       return decision(config);
     },
+    enforceAll: async (requests) => {
+      for (const { bucket, config } of requests) calls.push({ bucket, config });
+      return requests.map(({ config }) => decision(config));
+    },
     peek: async (bucket, config) => {
       calls.push({ bucket, config: { ...config } });
       return decision({ ...config, cost: undefined });

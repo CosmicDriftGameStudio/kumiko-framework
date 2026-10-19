@@ -114,8 +114,9 @@ Or call `buildServerBundle({ extraRuntimeExternals })` from
 is the reference — multi-stage Dockerfile builds both bundles, runtime
 image only knows `dist/`, `dist-server/`, migration SQL dirs (`drizzle/`
 legacy or `kumiko/migrations/`). The
-`dist-server/package.json` is filled in the runtime stage via
-`bun install --production` (~30 MB node_modules + 100 MB bun-alpine base
+`dist-server/package.json` and the `dist-server/bun.lock` written by `kumiko-build`
+are installed in the runtime stage via
+`bun install --production --frozen-lockfile` (~30 MB node_modules + 100 MB bun-alpine base
 ≈ 270 MB image). Migrate step in pre-deploy: `bun /app/kumiko.js migrate
 apply` runs the bundled kumiko CLI against the DB.
 

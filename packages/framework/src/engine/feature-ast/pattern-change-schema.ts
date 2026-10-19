@@ -231,6 +231,8 @@ const rateLimitOptionSchema = z
   })
   .strict();
 
+const rateLimitOptionListSchema = z.tuple([rateLimitOptionSchema], rateLimitOptionSchema);
+
 const additionalRateLimitsSchema = z.array(
   z
     .object({
@@ -332,7 +334,9 @@ const WRITE_HANDLER_PATTERN_HEADER_SHAPE = {
   ...WRITE_HANDLER_HEADER_SHAPE,
   access: orRawRef(accessRuleSchema),
   agent: orRawRef(agentHandlerHintsSchema),
-  rateLimit: orRawRef(z.union([rateLimitOptionSchema, rateLimitDisabledSchema])),
+  rateLimit: orRawRef(
+    z.union([rateLimitOptionSchema, rateLimitOptionListSchema, rateLimitDisabledSchema]),
+  ),
   additionalRateLimits: orRawRef(additionalRateLimitsSchema),
   escapeHatch: orRawRef(escapeHatchSchema),
 };
@@ -340,13 +344,17 @@ const QUERY_HANDLER_PATTERN_HEADER_SHAPE = {
   ...QUERY_HANDLER_HEADER_SHAPE,
   access: orRawRef(accessRuleSchema),
   agent: orRawRef(agentHandlerHintsSchema),
-  rateLimit: orRawRef(z.union([rateLimitOptionSchema, rateLimitDisabledSchema])),
+  rateLimit: orRawRef(
+    z.union([rateLimitOptionSchema, rateLimitOptionListSchema, rateLimitDisabledSchema]),
+  ),
   escapeHatch: orRawRef(escapeHatchSchema),
 };
 const STREAM_HANDLER_PATTERN_HEADER_SHAPE = {
   ...STREAM_HANDLER_HEADER_SHAPE,
   access: orRawRef(accessRuleSchema),
-  rateLimit: orRawRef(z.union([rateLimitOptionSchema, rateLimitDisabledSchema])),
+  rateLimit: orRawRef(
+    z.union([rateLimitOptionSchema, rateLimitOptionListSchema, rateLimitDisabledSchema]),
+  ),
   escapeHatch: orRawRef(escapeHatchSchema),
 };
 

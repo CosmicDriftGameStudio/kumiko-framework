@@ -53,6 +53,8 @@ Check it on a running app: `curl -sI https://host/ | grep -i content-security-po
 
 `rateLimit: false` disables both. `rateLimit: { global: { limit: 100 } }` changes only that field; the window and the other layer keep their defaults. `global: false` or `auth: false` disables a single layer. The limiter is a token bucket in Redis, so a burst may exceed the limit by what refilled during the burst.
 
+A handler adds its own L3 limit with `rateLimit: { per, limit, windowSeconds }`. A list such as `rateLimit: [{ per: "user", ... }, { per: "tenant+handler", ... }]` enforces several buckets together: every bucket must have a token, and a rejected request charges none of them. See [`samples/recipes/rate-limiting`](../../samples/recipes/rate-limiting/).
+
 ## Client IP behind a proxy
 
 The limits are keyed on the client IP. Behind an ingress or load balancer set `trustedProxyHops` (or `KUMIKO_TRUSTED_PROXY_HOPS`) to the number of trusted hops. Without it every request carries the proxy's address, all clients share one bucket and the default limits throttle the whole site at once. Boot logs a warning in that case. Set it to the real hop count only: a higher value lets a client choose its own bucket through `X-Forwarded-For`.

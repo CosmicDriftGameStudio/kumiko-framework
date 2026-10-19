@@ -1,6 +1,6 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
-import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
+import { declaredRateLimitOptions, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { ZodObject } from "zod";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.ts";
 import { access as accessPresets } from "../config-helpers.ts";
@@ -157,6 +157,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
         );
       }
       validateNoAllRoleInHandlerAccess(feature.name, kind, name, handler.access);
+      validateRateLimitBucketList(feature.name, kind, name, handler.rateLimit);
       validateAnonymousRateLimit(feature.name, kind, name, handler.access, handler.rateLimit);
       validateRateLimitDisabledReason(feature.name, kind, name, handler.rateLimit);
     }
@@ -187,8 +188,19 @@ export function validateAdditionalRateLimits(
   }
   validateAnonymousHasIpBucket(where, handler);
   const shape = handler.schema instanceof ZodObject ? handler.schema.shape : undefined;
+  const seenFields = new Set<string>();
   for (const entry of additionalRateLimits) {
     validatePayloadBucket(where, shape, entry);
+    const field = entry.per.payloadField;
+    // Two entries on one field hash the same value into the same Redis key, so enforceAll
+    // would deduct only one of the costs.
+    if (seenFields.has(field)) {
+      throw new Error(
+        `${where} with payloadField "${field}" more than once — both entries would share one ` +
+          `Redis bucket per value. Keep one entry per payloadField.`,
+      );
+    }
+    seenFields.add(field);
   }
 }
 
@@ -200,10 +212,9 @@ function validateAnonymousHasIpBucket(
   const allowsAnonymous = "roles" in access && access.roles.includes("anonymous");
   // skip: only anonymous callers need an ip bucket
   if (!allowsAnonymous) return;
-  const hasIpBucket =
-    rateLimit !== undefined &&
-    !isRateLimitDisabled(rateLimit) &&
-    IP_BUCKETED_RATE_LIMIT_PER.has(rateLimit.per);
+  const hasIpBucket = declaredRateLimitOptions(rateLimit).some((option) =>
+    IP_BUCKETED_RATE_LIMIT_PER.has(option.per),
+  );
   if (!hasIpBucket) {
     throw new Error(
       `${where} and allows anonymous callers, but has no ip-keyed rateLimit ` +
@@ -278,16 +289,18 @@ export function validateTenantlessAnonymous(
         `carries no principal beyond the anonymous visitor. Set access to { roles: ["anonymous"] } or remove tenantlessAnonymous.`,
     );
   }
-  if (!handler.rateLimit || isRateLimitDisabled(handler.rateLimit)) {
+  const options = declaredRateLimitOptions(handler.rateLimit);
+  if (options.length === 0) {
     throw new Error(
       `${where} without a rateLimit — a handler reachable on hosts that resolve no tenant ` +
         `needs a real upper bound (rateLimit: { per: "ip", ... }); { disabled: true } does not count.`,
     );
   }
-  if (!IP_SCOPED_RATE_LIMIT_PER.includes(handler.rateLimit.per)) {
+  for (const { per } of options) {
+    if (IP_SCOPED_RATE_LIMIT_PER.includes(per)) continue;
     throw new Error(
-      `${where} with rateLimit.per "${handler.rateLimit.per}" — every anonymous visitor shares the same ` +
-        `tenant/user bucket, so one caller could exhaust it for all. Use ${IP_SCOPED_RATE_LIMIT_PER.map((per) => `"${per}"`).join(" or ")}.`,
+      `${where} with rateLimit.per "${per}" — every anonymous visitor shares the same ` +
+        `tenant/user bucket, so one caller could exhaust it for all. Use ${IP_SCOPED_RATE_LIMIT_PER.map((allowed) => `"${allowed}"`).join(" or ")}.`,
     );
   }
 }
@@ -306,6 +319,32 @@ export function validateRateLimitDisabledReason(
         `without a reason. Provide { disabled: true, reason: "..." } explaining why this handler must not ` +
         `be rate-limited.`,
     );
+  }
+}
+
+export function validateRateLimitBucketList(
+  featureName: string,
+  kind: "write" | "query" | "stream",
+  handlerName: string,
+  rateLimit: FeatureDefinition["writeHandlers"][string]["rateLimit"],
+): void {
+  // skip: a single option or a disabled declaration has no bucket list to check
+  if (!Array.isArray(rateLimit)) return;
+  const where = `${kind} handler "${featureName}:${kind}:${handlerName}"`;
+  if (rateLimit.length === 0) {
+    throw new Error(
+      `${where} declares rateLimit as an empty array — declare at least one bucket or drop the option.`,
+    );
+  }
+  const seen = new Set<RateLimitPer>();
+  for (const { per } of rateLimit) {
+    if (seen.has(per)) {
+      throw new Error(
+        `${where} declares rateLimit with per "${per}" more than once — both entries would share one ` +
+          `Redis bucket with conflicting limits. Keep one entry per "per".`,
+      );
+    }
+    seen.add(per);
   }
 }
 
@@ -342,7 +381,8 @@ export function validateAnonymousRateLimit(
   if (!access.roles.includes("anonymous")) return;
   // skip: disabled declarations carry no `.per` to bucket on
   if (isRateLimitDisabled(rateLimit)) return;
-  if (!rateLimit) {
+  const options = declaredRateLimitOptions(rateLimit);
+  if (options.length === 0) {
     throw new Error(
       `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but declares no ` +
         `rateLimit — an anonymous, internet-facing endpoint needs an upper bound. Set rateLimit: ` +
@@ -350,14 +390,16 @@ export function validateAnonymousRateLimit(
         `rateLimit: { disabled: true, reason: "..." }.`,
     );
   }
-  // skip: rate-limit is already keyed on something safe (ip / tenant)
-  if (!USER_BUCKETED_RATE_LIMIT_PER.has(rateLimit.per)) return;
-  throw new Error(
-    `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but uses ` +
-      `rateLimit.per="${rateLimit.per}" — every anonymous request shares user.id="anonymous", ` +
-      `so this bucket would be a single global tap any caller could drain. ` +
-      `Use rateLimit.per="ip" or "ip+handler" for anonymous endpoints.`,
-  );
+  for (const { per } of options) {
+    // skip: this bucket is keyed on something safe (ip / tenant)
+    if (!USER_BUCKETED_RATE_LIMIT_PER.has(per)) continue;
+    throw new Error(
+      `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but uses ` +
+        `rateLimit.per="${per}" — every anonymous request shares user.id="anonymous", ` +
+        `so this bucket would be a single global tap any caller could drain. ` +
+        `Use rateLimit.per="ip" or "ip+handler" for anonymous endpoints.`,
+    );
+  }
 }
 
 // --- MultiStreamProjection delivery-invariant ---

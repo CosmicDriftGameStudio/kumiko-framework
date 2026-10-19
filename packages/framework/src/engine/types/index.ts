@@ -243,6 +243,7 @@ export type {
   RateLimitDeclaration,
   RateLimitDisabled,
   RateLimitOption,
+  RateLimitOptions,
   RateLimitPer,
   RoleAccessPersonalData,
   RoleAccessRule,
@@ -262,10 +263,12 @@ export type {
 export {
   DELIVERY_FAILURE_CODES,
   DELIVERY_SKIP_REASONS,
+  declaredRateLimitOptions,
   HTTP_ERROR_CODE_PATTERN,
   isDeliveryErrorCode,
   isOpenToAllGranted,
   isRateLimitDisabled,
+  isRateLimitOption,
   isUiAccessGranted,
 } from "@cosmicdrift/kumiko-types/handlers";
 export type {

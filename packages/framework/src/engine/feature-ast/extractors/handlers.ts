@@ -264,7 +264,7 @@ function readHandlerHeaderFields(
     readOptionalRateLimit,
     methodName,
     sourceFile,
-    "rateLimit must be { per, limit, windowSeconds } or { disabled: true, reason }, or a reference to one",
+    "rateLimit must be { per, limit, windowSeconds }, a non-empty list of those, or { disabled: true, reason }, or a reference to one",
   );
   if (rateLimitResult.kind === "error") return rateLimitResult;
 

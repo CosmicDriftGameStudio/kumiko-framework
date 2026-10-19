@@ -23,6 +23,7 @@ export function createUnlimitedRateLimitResolver(): RateLimitResolver {
   return {
     check: async (_bucket, config) => fullBucket(config),
     enforce: async (_bucket, config) => fullBucket(config),
+    enforceAll: async (requests) => requests.map(({ config }) => fullBucket(config)),
     peek: async (_bucket, config) => fullBucket(config),
   };
 }

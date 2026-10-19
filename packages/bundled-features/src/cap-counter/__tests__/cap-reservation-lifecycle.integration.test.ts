@@ -84,6 +84,13 @@ const countingRateLimiter: RateLimitResolver = {
     }
     return decisionFor(config, used);
   },
+  enforceAll: async (requests) => {
+    const decisions: RateLimitDecision[] = [];
+    for (const { bucket, config } of requests) {
+      decisions.push(await countingRateLimiter.enforce(bucket, config));
+    }
+    return decisions;
+  },
 };
 
 const amountPayload = z.object({ amount: z.number().int().min(1) });

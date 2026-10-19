@@ -5,7 +5,28 @@ End-to-end rate limiting: L1 global-IP + L2 auth + L3 handler opt-in.
 ## What it shows
 
 - Handler `rateLimit: { per, limit, windowSeconds }`
+- Several buckets on one handler: `rateLimit: [{ per: "user", ... }, { per: "tenant+handler", ... }]`
 - How L1/L2 from `buildServer` stack with L3
+
+## Combined buckets
+
+Pass a list to enforce several budgets on one handler, for example a per-caller and a per-tenant cap:
+
+```ts illustration
+r.writeHandler({
+  // ...
+  rateLimit: [
+    { per: "user", limit: 2, windowSeconds: 3600 },
+    { per: "tenant+handler", limit: 3, windowSeconds: 3600 },
+  ],
+});
+```
+
+Each bucket applies on its own. The check is all-or-nothing: if any bucket is exhausted the call
+answers 429 `rate_limited` for that bucket (the one with the longest wait when several are
+exhausted) and no bucket is charged. Each `per` may appear once; an empty list fails at boot.
+An anonymous handler needs every bucket to be ip-keyed, and `{ disabled: true, reason }`
+stays a single declaration.
 
 ## Per-payload limits
 

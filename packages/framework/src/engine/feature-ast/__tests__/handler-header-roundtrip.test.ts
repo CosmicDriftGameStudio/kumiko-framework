@@ -222,6 +222,82 @@ defineFeature("f", (r) => {
   });
 });
 
+describe("rateLimit as a list of buckets", () => {
+  const handlerWith = (rateLimit: string) => `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { roles: ["Admin"] },
+    rateLimit: ${rateLimit},
+  });
+});
+`;
+  const expected = {
+    rateLimit: [
+      { per: "user", limit: 2, windowSeconds: 3600 },
+      { per: "tenant+handler", limit: 3, windowSeconds: 3600, cost: 2 },
+    ],
+  };
+  const result = parse(
+    handlerWith(
+      `[{ per: "user", limit: 2, windowSeconds: 3600 }, { per: "tenant+handler", limit: 3, windowSeconds: 3600, cost: 2 }]`,
+    ),
+  );
+
+  test("parses into a structured list, not a raw sentinel", () => {
+    expect(result.errors).toEqual([]);
+    expect(findPattern(result.patterns, "writeHandler")).toMatchObject(expected);
+  });
+
+  test("render → parse roundtrip keeps the list", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+    });
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    expect(findPattern(reparsed.patterns, "writeHandler")).toMatchObject(expected);
+  });
+
+  describe.each([
+    [
+      "a literal bucket next to a constant",
+      `[{ per: "user+handler", limit: 10, windowSeconds: 60 }, APPROVAL_RATE_LIMIT]`,
+    ],
+    ["only constants", "[USER_LIMIT, APPROVAL_RATE_LIMIT]"],
+  ])("a list with %s", (_label, source) => {
+    const mixed = parse(handlerWith(source));
+
+    test("keeps the whole list verbatim as one raw reference", () => {
+      expect(mixed.errors).toEqual([]);
+      expect(findPattern(mixed.patterns, "writeHandler")).toMatchObject({
+        rateLimit: { __raw: source },
+      });
+    });
+
+    test("render → parse roundtrip re-emits the list verbatim", () => {
+      const rendered = renderFeatureFile({
+        featureName: mixed.featureName ?? "",
+        patterns: mixed.patterns,
+      });
+      expect(rendered).toContain(`rateLimit: ${source},`);
+      expect(parse(rendered).errors).toEqual([]);
+    });
+  });
+
+  test("an empty list or a list with an unknown per is not recognised", () => {
+    expect(parse(handlerWith("[]")).errors).not.toEqual([]);
+    expect(
+      parse(handlerWith(`[{ per: "planet", limit: 2, windowSeconds: 60 }]`)).errors,
+    ).not.toEqual([]);
+  });
+});
+
 describe('access: { roles: ["anonymous"], personalData: PD }, non-literal sub-value', () => {
   const source = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

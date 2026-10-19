@@ -13,7 +13,28 @@ End-to-end rate limiting: L1 global-IP + L2 auth + L3 handler opt-in.
 ## What it shows
 
 - Handler `rateLimit: { per, limit, windowSeconds }`
+- Several buckets on one handler: `rateLimit: [{ per: "user", ... }, { per: "tenant+handler", ... }]`
 - How L1/L2 from `buildServer` stack with L3
+
+## Combined buckets
+
+Pass a list to enforce several budgets on one handler, for example a per-caller and a per-tenant cap:
+
+```ts illustration
+r.writeHandler({
+  // ...
+  rateLimit: [
+    { per: "user", limit: 2, windowSeconds: 3600 },
+    { per: "tenant+handler", limit: 3, windowSeconds: 3600 },
+  ],
+});
+```
+
+Each bucket applies on its own. The check is all-or-nothing: if any bucket is exhausted the call
+answers 429 `rate_limited` for that bucket (the one with the longest wait when several are
+exhausted) and no bucket is charged. Each `per` may appear once; an empty list fails at boot.
+An anonymous handler needs every bucket to be ip-keyed, and `{ disabled: true, reason }`
+stays a single declaration.
 
 ## Per-payload limits
 
@@ -67,7 +88,8 @@ bun test
 // in each layer's test.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createRateLimitShowcaseFeature } from "../feature";
 
@@ -127,6 +149,35 @@ describe("L3 — handler opt-in (per-user budget on expensive-search)", () => {
     };
     expect(body.error.code).toBe("rate_limited");
     expect(body.error.details?.bucket).toBe("user");
+  });
+});
+
+describe("L3 — combined buckets (per-user and per-tenant budget on submit-report)", () => {
+  const submitReport = "rl-showcase:write:submit-report";
+
+  async function rejectedBucket(user: SessionUser): Promise<string | undefined> {
+    const res = await stack.http.write(submitReport, {}, user);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { error: { details?: { bucket?: string } } };
+    return body.error.details?.bucket;
+  }
+
+  test("the user bucket rejects first; the tenant bucket only counts accepted requests", async () => {
+    await stack.http.writeOk(submitReport, {}, admin);
+    await stack.http.writeOk(submitReport, {}, admin);
+    expect(await rejectedBucket(admin)).toBe("user");
+
+    // The rejected third call did not touch the tenant bucket: one of its 3 tokens is left.
+    await stack.http.writeOk(submitReport, {}, TestUsers.user);
+    expect(await rejectedBucket(TestUsers.user)).toBe("tenant+handler");
+  });
+
+  test("a caller without Admin or User role is rejected with access_denied before any bucket is charged", async () => {
+    const outsider = createTestUser({ id: 9, tenantId: admin.tenantId, roles: ["Guest"] });
+    const res = await stack.http.write(submitReport, {}, outsider);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("access_denied");
   });
 });
 
@@ -204,6 +255,19 @@ export function createRateLimitShowcaseFeature(): FeatureDefinition {
       handler: async ({ payload }) => ({ q: payload.q, hits: 0 }),
       access: { roles: ["Admin", "User"] },
       rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
+    });
+
+    // Combined budget: each caller gets 2 submits per hour and the tenant 3 per hour in
+    // total. Both buckets are checked together; a request one bucket rejects charges neither.
+    r.writeHandler({
+      name: "submit-report",
+      schema: z.object({}),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin", "User"] },
+      rateLimit: [
+        { per: "user", limit: 2, windowSeconds: 3600 },
+        { per: "tenant+handler", limit: 3, windowSeconds: 3600 },
+      ],
     });
   });
 }

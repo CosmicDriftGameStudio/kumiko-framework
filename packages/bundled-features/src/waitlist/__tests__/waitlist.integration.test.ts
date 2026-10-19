@@ -441,7 +441,7 @@ describe("waitlist submit while the rate-limit backend is down", () => {
     };
     const outageStack = await createWaitlistTestStack(
       { appName: "Acme" },
-      { rateLimit: { enforce: outage, check: outage, peek: outage } },
+      { rateLimit: { enforce: outage, enforceAll: outage, check: outage, peek: outage } },
     );
     try {
       const res = await outageStack.http.raw(

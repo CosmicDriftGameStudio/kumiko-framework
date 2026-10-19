@@ -16,6 +16,11 @@ export type RateLimitConfig = {
   readonly cost?: number;
 };
 
+export type RateLimitBucketRequest = {
+  readonly bucket: string;
+  readonly config: RateLimitConfig;
+};
+
 export type RateLimitResolver = {
   // Atomic check + deduct. Returns the decision and current bucket state
   // — caller decides whether to throw RateLimitError or proceed.
@@ -24,6 +29,12 @@ export type RateLimitResolver = {
   // Convenience: throws RateLimitError when blocked. Useful inside the
   // dispatcher / middleware code-paths where the failure shape is fixed.
   enforce(bucket: string, config: RateLimitConfig): Promise<RateLimitDecision>;
+
+  // Atomic all-or-nothing across buckets: tokens are deducted from every
+  // bucket only when each one has enough; otherwise none is touched and
+  // RateLimitError is thrown for the rejected bucket with the largest
+  // retryAfter. Decisions are returned in request order.
+  enforceAll(requests: readonly RateLimitBucketRequest[]): Promise<readonly RateLimitDecision[]>;
 
   // Read-only inspection: returns the same shape as check() but never
   // mutates the bucket — no token deduction, no refill-timestamp update.
