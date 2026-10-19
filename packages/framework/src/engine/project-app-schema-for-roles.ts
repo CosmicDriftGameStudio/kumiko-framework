@@ -39,7 +39,7 @@
 //     resolves app-wide via a global short-id map, mirroring
 //     resolveRowActionNavigateTarget; kind:"drawer" resolves same-feature
 //     only, mirroring validateDrawerTargetAction)
-//   - projectionDetail header actions + metrics[].navigate
+//   - projectionDetail and dashboard header actions + projectionDetail metrics[].navigate
 //   - entityEdit/actionForm/secretMint redirect + actionForm successLinks and cancelTarget
 //     (resolveScreenTargetQn: same-feature short id or cross-feature QN)
 //   - dashboard DashboardScreenPanel.screen (resolveScreenTargetQn)
@@ -842,8 +842,15 @@ function projectScreen(
     case "projectionDetail":
       return projectProjectionDetailScreen(screen, feature, indices, keptScreenQns);
     case "dashboard": {
+      const { actions, ...rest } = screen;
       const nextPanels = projectDashboardPanels(screen.panels, feature, keptScreenQns);
-      return nextPanels === screen.panels ? screen : { ...screen, panels: nextPanels };
+      const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
+      if (nextPanels === screen.panels && nextActions === actions) return screen;
+      return {
+        ...rest,
+        panels: nextPanels,
+        ...(nextActions !== undefined && { actions: nextActions }),
+      };
     }
     case "entityEdit":
       return projectEntityEditScreen(screen, feature, indices, keptScreenQns);

@@ -709,6 +709,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.dashboard.panel.error.retry": "Erneut versuchen",
   "kumiko.dashboard.panel.error.title": "{label} konnte nicht geladen werden",
   "kumiko.dashboard.progress.unlimited": "unbegrenzt",
+  "kumiko.dashboard.record.missing":
+    "Öffne diese Seite über einen Datensatz, um das Dashboard zu sehen.",
   "kumiko.dashboard.time-range": "Zeitraum",
   "kumiko.screen-error.detail": "Screen: {screen}. {message}",
   "kumiko.screen-error.screen": "Screen: {screen}",

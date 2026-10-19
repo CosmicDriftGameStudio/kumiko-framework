@@ -705,6 +705,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.dashboard.panel.error.retry": "Riprova",
   "kumiko.dashboard.panel.error.title": "Impossibile caricare {label}",
   "kumiko.dashboard.progress.unlimited": "illimitato",
+  "kumiko.dashboard.record.missing": "Apri questa pagina da un record per vedere la sua dashboard.",
   "kumiko.dashboard.time-range": "Intervallo di tempo",
   "kumiko.screen-error.detail": "Schermata: {screen}. {message}",
   "kumiko.screen-error.screen": "Schermata: {screen}",

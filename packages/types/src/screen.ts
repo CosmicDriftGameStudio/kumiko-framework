@@ -934,6 +934,13 @@ export type DashboardDateParam = {
   readonly atMs: number;
 };
 
+/** Epoch ms, rendered relative to now ("5 minutes ago", "in 30 seconds") in the
+ *  user locale; the text keeps ticking while it is on screen. */
+export type DashboardRelativeTimeParam = {
+  readonly kind: "relativeTime";
+  readonly atMs: number;
+};
+
 /** Nested DashboardI18nText params resolve first (e.g. a duration "{years} {months}"
  *  with one plural key each); numbers stay raw so plural rules can read `count`. */
 export type DashboardTextParam =
@@ -941,18 +948,27 @@ export type DashboardTextParam =
   | number
   | DashboardI18nText
   | DashboardMoneyParam
-  | DashboardDateParam;
+  | DashboardDateParam
+  | DashboardRelativeTimeParam;
 
 /** Plain string is displayed as-is; DashboardI18nText is translated by the renderer. */
 export type DashboardText = string | DashboardI18nText;
 
 /** Chart/stat values are minor units, formatted with the user locale. */
-export type DashboardValueFormat = {
+export type DashboardCurrencyFormat = {
   readonly kind: "currency";
   readonly currency: string;
   /** Defaults to the currency's own decimals. */
   readonly fractionDigits?: number;
 };
+
+/** The stat value is an epoch ms timestamp, shown relative to now and kept current. */
+export type DashboardRelativeTimeFormat = {
+  readonly kind: "relativeTime";
+};
+
+/** Stat panels take both formats; chart panels only the currency one. */
+export type DashboardValueFormat = DashboardCurrencyFormat | DashboardRelativeTimeFormat;
 
 // Shared by every panel that runs a query.
 export type DashboardPanelQueryOptions = {
@@ -1007,7 +1023,8 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     readonly valueField: string;
     readonly subField?: string;
     readonly toneField?: string;
-    /** Formats a numeric value as currency (minor units); ignored for string values. The sparkline is not formatted. */
+    /** Formats a numeric value as currency (minor units) or, with `relativeTime`, as
+     *  a ticking "5 minutes ago" from epoch ms; ignored for string values. The sparkline is not formatted. */
     readonly valueFormat?: DashboardValueFormat;
     /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
     readonly tone?: DashboardStatTone;
@@ -1099,7 +1116,7 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly seriesColors?: Readonly<Record<string, string>>;
     /** Formats values as currency (minor units): y ticks, legend totals and tooltips on
      *  stacked-bars/segment-bars/stacked-area, only the y ticks on timeseries. */
-    readonly valueFormat?: DashboardValueFormat;
+    readonly valueFormat?: DashboardCurrencyFormat;
     /** i18n key of a unit label. Only for chart "timeseries": shown once above the y ticks instead of on every tick. */
     readonly unit?: string;
     /** Only for chart "stacked-area": fixed width per bucket, plot scrolls horizontally. */
@@ -1287,6 +1304,34 @@ export type DashboardScopeDefinition = {
   readonly notice?: string;
 };
 
+/** Minimum polling interval of `DashboardScreenDefinition.refresh`; shorter values are rejected
+ *  at boot (`seconds`) or raised at runtime (`field`). */
+export const DASHBOARD_MIN_REFRESH_SECONDS = 5;
+
+// Ties a dashboard to one record, identified by a URL search param. The id is
+// merged into every panel query and visibleWhen gate query of the screen
+// (screen-kind panels get none), after `filter` and `timeRange` and before a
+// panel's own `params`: a panel can still pin its own value, the screen filter
+// cannot override the record key.
+export type DashboardRecordBinding = {
+  /** URL search param carrying the record id. Without it the dashboard shows a
+   *  hint instead of its panels and runs no query. */
+  readonly param: string;
+  /** Key of the id in each panel query payload. Default: `param`. */
+  readonly payloadKey?: string;
+  /** Optional query for the record row (QN). It receives `{ [payloadKey]: id }`
+   *  and returns a flat row; `actions` take that row as their input and
+   *  `refresh.field` and `titleField` read from it. */
+  readonly query?: string;
+  /** Field of the record row shown as the page title. Needs `query`. */
+  readonly titleField?: string;
+};
+
+/** Polling of the record and all panel queries, never faster than
+ *  DASHBOARD_MIN_REFRESH_SECONDS. `field` reads the seconds from the record row
+ *  (needs `record.query`), so a monitor can be polled at its own check interval. */
+export type DashboardRefresh = { readonly seconds: number } | { readonly field: string };
+
 export type DashboardScreenDefinition = {
   readonly id: string;
   readonly type: "dashboard";
@@ -1302,6 +1347,14 @@ export type DashboardScreenDefinition = {
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
   readonly panels: readonly DashboardPanelDefinition[];
+  /** Binds the dashboard to one record via a URL search param, see DashboardRecordBinding. */
+  readonly record?: DashboardRecordBinding;
+  /** Header actions on the bound record (writeHandler, navigate, clientAction).
+   *  The row is the `record.query` row, or `{ id, [payloadKey]: id }` without a
+   *  query. After a success the record and all panels refetch. Needs `record`;
+   *  no drawer, redirect or rowClick. */
+  readonly actions?: readonly RowAction[];
+  readonly refresh?: DashboardRefresh;
   readonly filter?: DashboardFilterDefinition;
   /** Segmented control in the toolbar; the value lives in URL search param
    *  `id` and is merged into EVERY panel query (also ignoreScreenFilter ones). */

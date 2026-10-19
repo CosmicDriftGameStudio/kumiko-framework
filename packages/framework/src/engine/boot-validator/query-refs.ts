@@ -86,6 +86,13 @@ function checkDashboardQueryRefs(
   screenId: string,
   screen: DashboardScreenDefinition,
 ): void {
+  if (screen.record?.query !== undefined) {
+    checkQueryRef(
+      queryHandlers,
+      screen.record.query,
+      () => `[Feature ${featureName}] Screen "${screenId}" (dashboard) record`,
+    );
+  }
   for (const panel of screen.panels) {
     if (panel.kind === "custom") continue;
     if (panel.visibleWhen !== undefined) {
@@ -160,6 +167,39 @@ function checkFormFieldQueryRefs(
   }
 }
 
+type EditFormScreenDefinition = Extract<
+  ScreenDefinition,
+  { readonly type: "entityEdit" | "actionForm" | "configEdit" | "secretMint" }
+>;
+
+function checkEditFormScreenQueryRefs(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screen: EditFormScreenDefinition,
+): void {
+  checkEditLayoutQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.layout);
+  if (screen.type === "actionForm" && screen.load !== undefined) {
+    checkQueryRef(
+      queryHandlers,
+      screen.load.query,
+      () => `[Feature ${featureName}] Screen "${screenId}" (actionForm) load`,
+    );
+  }
+  if (screen.type !== "entityEdit") {
+    checkFormFieldQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.fields);
+  }
+  if (screen.type === "secretMint" && screen.confirm !== undefined) {
+    checkFormFieldQueryRefs(
+      queryHandlers,
+      featureName,
+      screenId,
+      "secretMint confirm",
+      screen.confirm.fields,
+    );
+  }
+}
+
 function checkScreenQueryRefs(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -207,26 +247,7 @@ function checkScreenQueryRefs(
     screen.type === "configEdit" ||
     screen.type === "secretMint"
   ) {
-    checkEditLayoutQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.layout);
-    if (screen.type === "actionForm" && screen.load !== undefined) {
-      checkQueryRef(
-        queryHandlers,
-        screen.load.query,
-        () => `[Feature ${featureName}] Screen "${screenId}" (actionForm) load`,
-      );
-    }
-    if (screen.type !== "entityEdit") {
-      checkFormFieldQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.fields);
-    }
-    if (screen.type === "secretMint" && screen.confirm !== undefined) {
-      checkFormFieldQueryRefs(
-        queryHandlers,
-        featureName,
-        screenId,
-        "secretMint confirm",
-        screen.confirm.fields,
-      );
-    }
+    checkEditFormScreenQueryRefs(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "dashboard") {
     checkDashboardQueryRefs(queryHandlers, featureName, screenId, screen);
   }

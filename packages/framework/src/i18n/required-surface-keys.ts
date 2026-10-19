@@ -93,6 +93,7 @@ function editFieldName(f: string | { readonly field: string }): string {
 // Placeholder, affix texts and the fill button label of a field spec; a `{ field }`
 // affix reads another form field and is no key.
 function pushEditFieldTextKeys(out: Set<string>, spec: EditFieldSpec, treatAsKey = false): void {
+  // skip: shorthand field name carries no texts
   if (typeof spec === "string") return;
   pushKey(out, spec.placeholder, treatAsKey);
   for (const affix of [spec.prefix, spec.suffix]) {
@@ -160,6 +161,7 @@ function pushDashboardScreenKeys(out: Set<string>, dashboard: DashboardScreenDef
   for (const option of dashboard.timeRange?.options ?? []) pushKey(out, option.label);
   pushKey(out, dashboard.scope?.badge);
   pushKey(out, dashboard.scope?.notice);
+  for (const action of dashboard.actions ?? []) pushRowActionKeys(out, action);
 }
 
 function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinition): void {
@@ -181,6 +183,10 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
     pushKey(out, panel.emptyLabel);
     pushKey(out, panel.emptyHint);
   }
+  pushDashboardChildLabelKeys(out, panel);
+}
+
+function pushDashboardChildLabelKeys(out: Set<string>, panel: DashboardPanelDefinition): void {
   if (panel.kind === "stat-group") {
     for (const stat of panel.stats) pushKey(out, stat.label);
   }
