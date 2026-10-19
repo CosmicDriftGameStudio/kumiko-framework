@@ -1,10 +1,14 @@
 import { smtpEnvSchema } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { kmsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding/env";
-import { s3EnvSchema } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
+import {
+  createS3EnvSchema,
+  s3EnvSchema,
+} from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
 import { demoAdminEnvSchema } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { subscriptionStripeEnvSchema } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { type ComposedEnvSchema, readKumikoMeta } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
+import { isNamedS3FileProvider, s3KeysOf } from "./file-storage-option.ts";
 import { type BootOptionFields, isSeedFnList } from "./resolve-boot-options.ts";
 import type { ProdSeedsConfig } from "./seed-shortcuts.ts";
 
@@ -14,17 +18,22 @@ type OptionEnvBlock = {
   /** Keys the option cannot run without, although the shared block marks
    *  them optional for apps that mount the feature differently. */
   readonly required: readonly string[];
+  /** Replaces a field's description in this block, e.g. when the shared text contradicts the option. */
+  readonly descriptions?: Readonly<Record<string, string>>;
 };
+
+const SMTP_HOST_REQUIRED_DESCRIPTION = 'SMTP host; required with mail transport "smtp-env".';
 
 const S3_REQUIRED_KEYS = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
 
 // `.unwrap()` drops what sits on the optional wrapper: the description and the
 // kumiko meta (pulumi secret, kms), both of which the dry run reports.
-function requiredField(field: z.core.$ZodType): z.core.$ZodType {
+function requiredField(field: z.core.$ZodType, description?: string): z.core.$ZodType {
   if (!(field instanceof z.ZodOptional)) return field;
   const inner = field.unwrap();
   if (!(inner instanceof z.ZodType)) return field;
-  const described = field.description ? inner.describe(field.description) : inner;
+  const text = description ?? field.description;
+  const described = text ? inner.describe(text) : inner;
   const meta = readKumikoMeta(field);
   return Object.keys(meta).length > 0 ? described.meta({ kumiko: meta }) : described;
 }
@@ -60,12 +69,8 @@ function seedEnvBlock(seeds: ProdSeedsConfig): OptionEnvBlock | undefined {
   return { source: "runProdApp.seeds", shape: pickShape(demoAdminEnvSchema.shape, keys), required };
 }
 
-function collectOptionEnvBlocks(options: BootOptionFields): OptionEnvBlock[] {
+function fileStorageEnvBlocks(fileStorage: BootOptionFields["fileStorage"]): OptionEnvBlock[] {
   const blocks: OptionEnvBlock[] = [];
-  if (options.mail?.transport === "smtp-env") {
-    blocks.push({ source: "runProdApp.mail", shape: smtpEnvSchema.shape, required: ["SMTP_HOST"] });
-  }
-  const { fileStorage } = options;
   if (
     fileStorage &&
     (fileStorage.provider === "s3-env" ||
@@ -80,6 +85,28 @@ function collectOptionEnvBlocks(options: BootOptionFields): OptionEnvBlock[] {
       required: fileStorage.provider === "s3-env" ? S3_REQUIRED_KEYS : [],
     });
   }
+  for (const provider of fileStorage?.providers ?? []) {
+    if (!isNamedS3FileProvider(provider)) continue;
+    blocks.push({
+      source: `runProdApp.fileStorage.${provider.name}`,
+      shape: createS3EnvSchema({ prefix: provider.envPrefix }).shape,
+      required: provider.lazy ? [] : s3KeysOf(provider.envPrefix),
+    });
+  }
+  return blocks;
+}
+
+function collectOptionEnvBlocks(options: BootOptionFields): OptionEnvBlock[] {
+  const blocks: OptionEnvBlock[] = [];
+  if (options.mail?.transport === "smtp-env") {
+    blocks.push({
+      source: "runProdApp.mail",
+      shape: smtpEnvSchema.shape,
+      required: ["SMTP_HOST"],
+      descriptions: { SMTP_HOST: SMTP_HOST_REQUIRED_DESCRIPTION },
+    });
+  }
+  blocks.push(...fileStorageEnvBlocks(options.fileStorage));
   // The trio stays optional even under "required": each KMS slot may arrive
   // as its *_CIPHERTEXT twin instead, which resolveKmsMode checks after decryption.
   if (options.kmsMode === "required" || options.kmsMode === "optional") {
@@ -117,7 +144,7 @@ export function withBootOptionEnvBlocks(
     for (const [key, field] of Object.entries(block.shape)) {
       const existing = additions[key] ?? declared[key];
       if (required.has(key)) {
-        additions[key] = requiredField(existing ?? field);
+        additions[key] = requiredField(existing ?? field, block.descriptions?.[key]);
         sources[key] ??= block.source;
       } else if (existing === undefined) {
         additions[key] = field;

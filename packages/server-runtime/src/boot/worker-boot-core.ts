@@ -49,6 +49,7 @@ import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framewo
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
+import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
 import { composeFeatures } from "../compose-features.ts";
 import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
 import { requireEnv } from "../run-prod-app.ts";
@@ -73,6 +74,8 @@ export type WorkerBootProfile = {
   /** One-shot process: its job queue is not drained after exit, so ctx.notify
    *  sends queued channels inline. */
   readonly deliverQueuedInline?: boolean;
+  /** Set by runWorkerApp when `featureToggles` mounted the feature; bound once the database exists. */
+  readonly featureToggles?: FeatureTogglesWiring;
 };
 
 export type BootedWorkerProcess = {
@@ -231,9 +234,21 @@ export async function bootWorkerProcess(
     throw err;
   }
 
-  const resolvedEffectiveFeatures =
-    options.effectiveFeatures ??
-    (await buildTierEffectiveFeatures(features, db, registry, cacheSync));
+  let resolvedEffectiveFeatures = await buildTierEffectiveFeatures(
+    features,
+    db,
+    registry,
+    cacheSync,
+  );
+  if (profile.featureToggles) {
+    const bound = await profile.featureToggles.bind({
+      db,
+      registry,
+      cacheSync,
+      tierResolver: resolvedEffectiveFeatures,
+    });
+    resolvedEffectiveFeatures = bound.resolver;
+  }
 
   if (options.migrations !== false) {
     try {

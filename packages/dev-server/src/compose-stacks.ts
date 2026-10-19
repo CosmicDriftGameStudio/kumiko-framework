@@ -142,8 +142,12 @@ function withBootRequires<TFeature extends FeatureDefinition>(
   feature: TFeature,
   stack: string,
   options: readonly BootOptionName[],
+  severity: "error" | "warn" = "error",
 ): TFeature {
-  return { ...feature, bootRequires: { stack, options } };
+  return {
+    ...feature,
+    bootRequires: { stack, options, ...(severity === "warn" && { severity }) },
+  };
 }
 
 export function stackFeatureNames(features: readonly FeatureDefinition[]): string[] {
@@ -319,10 +323,13 @@ export type SaasStackOptions<
   readonly caps?: CreateCapOverviewOptions;
   /** Mounts waitlist; it needs auth-email-password and user-data-rights. */
   readonly waitlist?: WaitlistOptions;
+  /** Operator switches over the tiers: the stack then expects runProdApp / runDevApp's `featureToggles` option. */
+  readonly featureToggles?: boolean;
 };
 
 /** billing-foundation + tier-engine (+ caps, waitlist). `"stripe"` leaves
  *  subscription-stripe and its webhook route to runProdApp's `billing` option;
+ *  Without that option a stripe stack only warns at boot.
  *  `"mollie"` mounts subscription-mollie, whose webhook route the app adds.
  *  billing-foundation requires tenant-lifecycle and compliance-profiles, which
  *  composeGdprStack({ tenantLifecycle: true }) mounts. */
@@ -330,11 +337,14 @@ export function composeSaasStack<TCaps extends Readonly<Record<string, unknown>>
   options: SaasStackOptions<TCaps>,
 ): FeatureDefinition[] {
   const foundation = createBillingFoundationFeature(options.billingFoundation ?? {});
+  const tierEngine = createTierEngineFeature(options.tiers);
   const out: FeatureDefinition[] = [
     options.billing === "stripe"
-      ? withBootRequires(foundation, "composeSaasStack", ["billing"])
+      ? withBootRequires(foundation, "composeSaasStack", ["billing"], "warn")
       : foundation,
-    createTierEngineFeature(options.tiers),
+    options.featureToggles
+      ? withBootRequires(tierEngine, "composeSaasStack", ["featureToggles"])
+      : tierEngine,
   ];
   if (options.billing === "mollie") out.push(createSubscriptionMollieFeature(options.mollie));
   if (options.caps) out.push(createCapCounterFeature(), createCapOverviewFeature(options.caps));

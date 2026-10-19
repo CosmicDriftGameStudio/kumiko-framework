@@ -1,5 +1,6 @@
 import { BILLING_FOUNDATION_FEATURE } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { DELIVERY_FEATURE } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { FEATURE_TOGGLES_FEATURE } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { TIER_ENGINE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
@@ -8,6 +9,10 @@ import type { ProdSeedFn } from "../run-prod-app.ts";
 import { type BillingBootOption, resolveBillingOption } from "./billing-option.ts";
 import { buildDemoModeRoute, type DemoModeOption, withDemoReadOnlyFetch } from "./demo-mode.ts";
 import {
+  type FeatureTogglesWiring,
+  resolveFeatureTogglesOption,
+} from "./feature-toggles-option.ts";
+import {
   FILE_FOUNDATION_FEATURE,
   type FileStorageBootOption,
   resolveFileStorageOption,
@@ -15,6 +20,7 @@ import {
 import { type KmsMode, type ResolvedKmsMode, resolveKmsMode } from "./kms-mode.ts";
 import { CHANNEL_EMAIL_FEATURE, type MailBootOption, resolveMailOption } from "./mail-option.ts";
 import { type DbSeedFn, type ProdSeedsConfig, resolveSeedShortcuts } from "./seed-shortcuts.ts";
+import { stackBootWarnings } from "./stack-boot-requirements.ts";
 
 export type BootOptionFields = {
   readonly features: readonly FeatureDefinition[];
@@ -22,12 +28,16 @@ export type BootOptionFields = {
   readonly kmsMode?: KmsMode;
   readonly fileStorage?: FileStorageBootOption;
   readonly billing?: BillingBootOption;
+  readonly featureToggles?: boolean;
   readonly demoMode?: DemoModeOption;
   readonly seeds?: readonly ProdSeedFn[] | ProdSeedsConfig;
   readonly kms?: ResolvedKmsMode["kms"];
   readonly blindIndexKey?: string;
   readonly allowPlaintextPii?: string;
   readonly runSingleInstance?: boolean;
+  /** With `runSingleInstance: false`: the worker process mounts the same mail / fileStorage
+   *  features (its own boot options or by hand), which silences the boot warning. */
+  readonly workerMountsFeatures?: boolean;
   readonly auth?: {
     readonly admin?: unknown;
     readonly mail?: { readonly from?: string };
@@ -42,6 +52,8 @@ export type BootOptionWiring = {
   readonly kms: ResolvedKmsMode;
   readonly shortcutSeeds: readonly DbSeedFn[];
   readonly customSeeds: readonly ProdSeedFn[];
+  /** Set when `featureToggles` mounted the feature; bind it once the database exists. */
+  readonly featureToggles?: FeatureTogglesWiring;
   /** True when `mail` mounted a transport; the auth mail flows then wire without `SMTP_HOST`. */
   readonly mailConfigured: boolean;
   readonly wrapFetch: <TArg>(
@@ -49,9 +61,9 @@ export type BootOptionWiring = {
   ) => (req: Request, arg?: TArg) => Promise<Response>;
 };
 
-export function isSeedFnList(
-  seeds: readonly ProdSeedFn[] | ProdSeedsConfig,
-): seeds is readonly ProdSeedFn[] {
+export function isSeedFnList<Fn, Config extends object>(
+  seeds: readonly Fn[] | Config,
+): seeds is readonly Fn[] {
   return Array.isArray(seeds);
 }
 
@@ -74,6 +86,51 @@ function rejectDoubleMount(mounted: ReadonlySet<string>, option: string, feature
     throw new Error(
       `[runProdApp] ${option} mounts ${feature} itself — remove it from \`features\` or drop the option.`,
     );
+  }
+}
+
+// The old option was a function the app computed; ignoring it silently would drop an operator kill-switch.
+export function rejectRemovedEffectiveFeatures(options: object): void {
+  if ("effectiveFeatures" in options) {
+    throw new Error(
+      "[runProdApp] The `effectiveFeatures` option was removed — operator switches no longer take effect through it. Set `featureToggles: true` (it mounts feature-toggles and layers the switches over the tier resolver) and drop the `feature-toggles` feature from `features`.",
+    );
+  }
+}
+
+function wireFeatureToggles(
+  options: BootOptionFields,
+  mounted: ReadonlySet<string>,
+): FeatureTogglesWiring | undefined {
+  rejectRemovedEffectiveFeatures(options);
+  if (options.featureToggles) {
+    rejectDoubleMount(mounted, "featureToggles", FEATURE_TOGGLES_FEATURE);
+    return resolveFeatureTogglesOption();
+  }
+  if (mounted.has(FEATURE_TOGGLES_FEATURE)) {
+    throw new Error(
+      `[runProdApp] ${FEATURE_TOGGLES_FEATURE} is in \`features\` but \`featureToggles\` is not set — its switches would not reach the dispatcher. Set \`featureToggles: true\` and remove the feature from \`features\`.`,
+    );
+  }
+  return undefined;
+}
+
+function warnAboutBootOptions(options: BootOptionFields): void {
+  const bootWarnings = stackBootWarnings(options).map(
+    (line) => `stacks in \`features\` expect boot options that are not set:\n${line}`,
+  );
+  if (
+    options.runSingleInstance === false &&
+    (options.mail || options.fileStorage || options.featureToggles) &&
+    options.workerMountsFeatures !== true
+  ) {
+    bootWarnings.push(
+      "runSingleInstance:false — delivery and file jobs run in runWorkerApp. Pass the same mail / fileStorage / featureToggles options there, or set workerMountsFeatures: true if it mounts those features itself.",
+    );
+  }
+  if (bootWarnings.length > 0) {
+    // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
+    console.warn(`[runProdApp] ${bootWarnings.join("\n[runProdApp] ")}`);
   }
 }
 
@@ -130,17 +187,15 @@ export async function resolveBootOptionWiring(
     extraRoutes.push(billing.route);
   }
 
+  const featureToggles = wireFeatureToggles(options, mounted);
+  if (featureToggles) features.push(featureToggles.feature);
+
   const { demoMode } = options;
   if (demoMode) {
     extraRoutes.push(buildDemoModeRoute(demoMode, envSource));
   }
 
-  if (options.runSingleInstance === false && (options.mail || options.fileStorage)) {
-    // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
-    console.warn(
-      "[runProdApp] runSingleInstance:false — delivery and file jobs run in runWorkerApp, which does not read mail / fileStorage. Mount the same channel-email and file provider features there.",
-    );
-  }
+  warnAboutBootOptions(options);
 
   const seeds = options.seeds ?? [];
   const shortcutSeeds = isSeedFnList(seeds)
@@ -160,6 +215,7 @@ export async function resolveBootOptionWiring(
     extraRoutes,
     envDefaults,
     kms,
+    ...(featureToggles && { featureToggles }),
     shortcutSeeds,
     customSeeds,
     mailConfigured: options.mail !== undefined,

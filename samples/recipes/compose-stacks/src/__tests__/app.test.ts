@@ -48,11 +48,15 @@ describe("compose stacks recipe", () => {
     expect(lines.some((line: string) => line.includes("boot validation OK"))).toBe(true);
   });
 
-  test("a missing billing option names composeSaasStack and the option", async () => {
+  test("a missing billing option only warns and names composeSaasStack", async () => {
     const { billing: _billing, ...withoutBilling } = bootOptions();
-    await expect(bootValidate(withoutBilling)).rejects.toThrow(
-      "composeSaasStack needs the boot option `billing`",
-    );
+    await bootValidate(withoutBilling);
+    const warnings = warnSpy.mock.calls.map((call: unknown[]) => String(call[0]));
+    expect(
+      warnings.some((line: string) =>
+        line.includes("composeSaasStack needs the boot option `billing`"),
+      ),
+    ).toBe(true);
   });
 
   test("a missing KMS decision names every stack that needs it", async () => {

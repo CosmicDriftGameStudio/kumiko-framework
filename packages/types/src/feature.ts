@@ -267,6 +267,7 @@ export type BootOptionName =
   | "kmsMode"
   | "fileStorage"
   | "billing"
+  | "featureToggles"
   | "demoMode"
   | "seeds"
   | "signals"
@@ -275,6 +276,8 @@ export type BootOptionName =
 export type StackBootRequirement = {
   readonly stack: string;
   readonly options: readonly BootOptionName[];
+  /** `"warn"`: a missing option logs a boot warning instead of aborting. Default `"error"`. */
+  readonly severity?: "error" | "warn";
 };
 
 export type FeatureDefinition = {

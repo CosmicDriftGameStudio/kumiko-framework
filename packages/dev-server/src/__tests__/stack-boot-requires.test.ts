@@ -89,11 +89,6 @@ describe("stack boot requirements", () => {
       features: () => composeUserDataRightsStack(),
     },
     { stack: "composeSecurityStack", option: "kmsMode", features: () => composeSecurityStack() },
-    {
-      stack: "composeSaasStack",
-      option: "billing",
-      features: () => composeSaasStack({ billing: "stripe", tiers: TIERS }),
-    },
   ];
 
   for (const { stack, option, features } of missingOptionCases) {
@@ -152,6 +147,23 @@ describe("stack boot requirements", () => {
       expect(reportedBootValidationOk()).toBe(true);
     });
   }
+
+  test("composeSaasStack stripe without `billing` only warns at boot", async () => {
+    await expect(
+      bootValidate(
+        [
+          ...corePeers(),
+          ...composeGdprStack({ tenantLifecycle: true }),
+          ...composeSaasStack({ billing: "stripe", tiers: TIERS }),
+        ],
+        PII_KMS,
+      ),
+    ).resolves.toBeUndefined();
+    const warned = warnSpy.mock.calls.some((call: unknown[]) =>
+      String(call[0]).includes("composeSaasStack needs the boot option `billing`"),
+    );
+    expect(warned).toBe(true);
+  });
 
   test("the low-level paths satisfy the requirements", async () => {
     await expect(

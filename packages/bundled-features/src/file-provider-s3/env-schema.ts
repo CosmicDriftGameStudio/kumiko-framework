@@ -17,17 +17,8 @@ export const s3EndpointSchema = z
   .url({ protocol: /^https?$/ })
   .refine(isAcceptableEndpoint, "must use https unless the host is loopback");
 
-/** Builds the env block `createS3ProviderFromEnv(prefix)` reads, e.g.
- *  `createS3EnvSchema({ prefix: "RELEASES_S3_" })` for a second bucket.
- *  Every field is optional: an app that mounts the env provider next to
- *  another one picks the provider at runtime, and the provider reports
- *  missing credentials on its first file operation. */
-export function createS3EnvSchema<const TPrefix extends string>(options: {
-  readonly prefix: TPrefix;
-}) {
-  const { prefix } = options;
-  // @cast-boundary schema-walk — computed template keys widen to an index signature; the literal keys below are exactly the ones S3EnvShape names.
-  const shape = {
+function buildS3Shape(prefix: string) {
+  return {
     [`${prefix}BUCKET`]: z.string().min(1).optional().describe("S3 bucket."),
     [`${prefix}REGION`]: z.string().min(1).optional().describe("S3 region."),
     [`${prefix}ACCESS_KEY`]: z
@@ -51,8 +42,24 @@ export function createS3EnvSchema<const TPrefix extends string>(options: {
       .enum(["true", "false"])
       .optional()
       .describe('Path-style bucket addressing ("true"), needed by MinIO and some S3 clones.'),
-  } as S3EnvShape<TPrefix>;
-  return z.object(shape);
+  };
+}
+
+/** Builds the env block `createS3ProviderFromEnv(prefix)` reads, e.g.
+ *  `createS3EnvSchema({ prefix: "RELEASES_S3_" })` for a second bucket.
+ *  Every field is optional: an app that mounts the env provider next to
+ *  another one picks the provider at runtime, and the provider reports
+ *  missing credentials on its first file operation. */
+export function createS3EnvSchema<const TPrefix extends string>(options: {
+  readonly prefix: TPrefix;
+}) {
+  // @cast-boundary schema-walk — computed template keys widen to an index signature; the literal keys below are exactly the ones S3EnvShape names.
+  return z.object(buildS3Shape(options.prefix) as S3EnvShape<TPrefix>);
+}
+
+/** Same block for a prefix only known at runtime (named providers); keys are typed as a record. */
+export function createRuntimeS3EnvSchema(prefix: string) {
+  return z.object(buildS3Shape(prefix));
 }
 
 type OptionalString = z.ZodOptional<z.ZodString>;

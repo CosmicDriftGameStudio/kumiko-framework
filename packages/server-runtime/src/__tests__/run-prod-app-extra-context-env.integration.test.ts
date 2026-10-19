@@ -2,6 +2,7 @@
 // the declarative boot options put underneath (fileStorage -> FILE_STORAGE_PROVIDER).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import {
   configValuesTable,
   createConfigFeature,
@@ -87,5 +88,33 @@ describe("runProdApp extraContext deps.env", () => {
     });
 
     expect(seenEnv?.[FILE_STORAGE_PROVIDER_ENV]).toBe("inmemory");
+  });
+
+  test("carries the master key provider and config cipher when a KEK is configured", async () => {
+    let seen: Pick<RunProdAppDeps, "masterKeyProvider" | "configEncryption"> | undefined;
+    handle = await runProdApp({
+      features: [createConfigFeature()],
+      envSource: {
+        DATABASE_URL: TEST_DB_URL,
+        REDIS_URL: process.env["REDIS_URL"] ?? "redis://localhost:16379",
+        JWT_SECRET: "test-runprod-secret-32-chars-min!!",
+        KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+        PORT: "0",
+      },
+      allowPlaintextPii: "test: KEK wiring, not PII crypto",
+      extraContext: (deps) => {
+        seen = {
+          masterKeyProvider: deps.masterKeyProvider,
+          configEncryption: deps.configEncryption,
+        };
+        return { configResolver: createConfigResolver() };
+      },
+      envSchema: composeEnvSchema({ features: [] }),
+      autoListen: false,
+      migrations: false,
+    });
+
+    expect(seen?.masterKeyProvider).toBeDefined();
+    expect(seen?.configEncryption).toBeDefined();
   });
 });

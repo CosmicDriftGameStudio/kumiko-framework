@@ -18,6 +18,7 @@ import {
   buildEnvConfigOverrides,
   createConfigAccessorFactory,
   createConfigResolver,
+  validateAppOverrides,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   collectChannels,
@@ -200,13 +201,20 @@ function bootCryptoContext(crypto: BootCrypto): Record<string, unknown> {
   };
 }
 
+/** Config key (`feature:config:name`) to value; wins over the key's env variable. */
+export type ConfigOverridesInput = Readonly<Record<string, string | number | boolean>>;
+
 function createBootConfigResolver(
   registry: Registry,
   envSource: Record<string, string | undefined>,
   crypto: BootCrypto,
+  appOverrides: ConfigOverridesInput | undefined,
 ) {
+  const envOverrides = buildEnvConfigOverrides(registry, envSource);
   return createConfigResolver({
-    appOverrides: buildEnvConfigOverrides(registry, envSource),
+    appOverrides: appOverrides
+      ? new Map([...envOverrides, ...validateAppOverrides(registry, appOverrides)])
+      : envOverrides,
     ...(crypto.configCipher && { cipher: crypto.configCipher }),
   });
 }
@@ -219,12 +227,13 @@ function resolveDeliveryConfigResolver(
     readonly hasAuth: boolean;
     readonly registry: Registry;
     readonly envSource: Record<string, string | undefined>;
+    readonly appOverrides?: ConfigOverridesInput;
   },
   hasDeliveryFeature: boolean,
   crypto: BootCrypto,
 ): ReturnType<typeof createBootConfigResolver> | undefined {
   return opts.hasAuth || hasDeliveryFeature
-    ? createBootConfigResolver(opts.registry, opts.envSource, crypto)
+    ? createBootConfigResolver(opts.registry, opts.envSource, crypto, opts.appOverrides)
     : undefined;
 }
 
@@ -250,6 +259,8 @@ type BootExtraContextOptions = {
   readonly log?: Logger;
   /** Signs `unsubscribe: true` notifications' mail links; see runProdApp `unsubscribe`. */
   readonly unsubscribeLinks?: UnsubscribeLinkConfig;
+  /** App-level config values (tenant model, branding, seo ...) above the env bridge. */
+  readonly appOverrides?: ConfigOverridesInput;
 };
 
 function bootDeliveryContext(

@@ -106,7 +106,7 @@ beforeAll(async () => {
         transport: emailTransport,
         // Raw stored column, exactly like an app that reads user.email directly.
         resolveEmail: async (userId, ctx) => {
-          const row = await fetchOne<{ email: string }>(ctx.db as typeof stack.db, userTable, {
+          const row = await fetchOne<{ email: string }>(ctx.db, userTable, {
             id: userId,
             tenantId: SYSTEM_TENANT_ID,
           });

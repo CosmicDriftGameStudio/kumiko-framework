@@ -72,7 +72,6 @@ import {
   PAT_FEATURE,
   patRateLimitFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import { SECRETS_MASTER_KEK_ENV_KEYS } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -94,7 +93,6 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   type KmsAdapter,
-  resolvePlatformKeks,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   configureEntityFieldEncryption,
@@ -120,23 +118,7 @@ import {
   createAllInOneEntrypoint,
   createApiEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
-import {
-  type ComposedEnvSchema,
-  type EnvFieldInspection,
-  inspectEnv,
-  KumikoBootError,
-  kmsSlotsOf,
-  parseEnv,
-  withOptionalEnvKeys,
-} from "@cosmicdrift/kumiko-framework/env";
-import {
-  DRY_RUN_ENV_VAR,
-  type DryRunEnvMode,
-  type DryRunMode,
-  parseDryRunEnvMode,
-  renderDryRun,
-  renderEnvInspection,
-} from "@cosmicdrift/kumiko-framework/env/dry-run";
+import type { ComposedEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createEsOperationsTable,
@@ -177,6 +159,7 @@ import type {
 import { Redis } from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds.ts";
 import { resolveBootCrypto } from "./boot/boot-crypto.ts";
+import { runEnvGate } from "./boot/env-gate.ts";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
@@ -186,7 +169,6 @@ import type { DemoModeOption } from "./boot-options/demo-mode.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
 import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
-import { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.ts";
 import { installShutdownSignals, type SignalsOption } from "./boot-options/process-signals.ts";
 import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
@@ -206,6 +188,7 @@ import {
   addConfigAccessorFactory,
   buildBootExtraContext,
   buildProdSessionAuth,
+  type ConfigOverridesInput,
   loggerFromExtraContext,
   resolveAuthMail,
   wireProdPatAutoRevoke,
@@ -221,6 +204,7 @@ import { assertSessionBootInvariants } from "./session-boot-gate.ts";
 import { shouldWireProdSessions } from "./session-wiring.ts";
 import { stripNoRouteMatchHeader } from "./try-hono-first.ts";
 
+export { parseRunMode } from "./boot/env-gate.ts";
 export { buildBunServeOptions } from "./bun-serve-options.ts";
 export {
   resolveUnsubscribeWiring,
@@ -229,28 +213,11 @@ export {
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
+  type ConfigOverridesInput,
   loggerFromExtraContext,
   resolveAuthMail,
 } from "./run-prod-app-boot-context.ts";
 export { staticCachePolicy } from "./run-prod-app-static-files.ts";
-
-// runProdApp reads these itself, so the boot dry run lists them even when
-// the app schema leaves them out (JWT_SECRET usually comes from auth-email-password).
-const RUNTIME_REQUIRED_ENV_KEYS = ["DATABASE_URL", "REDIS_URL", "JWT_SECRET"] as const;
-
-function inspectUndeclaredRuntimeEnv(
-  declaredShape: Readonly<Record<string, unknown>>,
-  env: Readonly<Record<string, string | undefined>>,
-): readonly EnvFieldInspection[] {
-  return RUNTIME_REQUIRED_ENV_KEYS.filter((name) => !(name in declaredShape)).map(
-    (name): EnvFieldInspection => ({
-      name,
-      klass: "required",
-      source: "server-runtime",
-      status: env[name] ? "set" : "missing",
-    }),
-  );
-}
 
 // Strict env-var read. Throws with a clear hint when missing — better
 // than discovering a Postgres-connection-refused 30s into the boot.
@@ -281,34 +248,6 @@ function readEnv(
 ): string | undefined {
   const value = src[name];
   return value === undefined || value === "" ? undefined : value;
-}
-
-// `boot` is the C1 smoke-test path — validators run, no DB/Redis connect,
-// exit after registry-build. Render-modes (human|json|pulumi|k8s|1)
-// inspect the env-schema and exit before any feature wiring.
-type RunMode = DryRunEnvMode;
-
-export function parseRunMode(raw: string | undefined): RunMode | null {
-  const mode = parseDryRunEnvMode(raw);
-  if (mode !== undefined) return mode;
-  if (raw) {
-    // biome-ignore lint/suspicious/noConsole: boot-time warn for typo discovery
-    console.warn(
-      `[runProdApp] ${DRY_RUN_ENV_VAR}="${raw}" unrecognized ` +
-        `(expected 1|human|json|pulumi|k8s|boot); continuing with normal boot.`,
-    );
-  }
-  return null;
-}
-
-function isRenderMode(mode: RunMode | null): mode is DryRunMode {
-  return mode !== null && mode !== "boot";
-}
-
-function defaultBootErrorReporter(err: KumikoBootError): never {
-  // biome-ignore lint/suspicious/noConsole: boot-time error, no logger configured yet
-  console.error(err.format());
-  process.exit(1);
 }
 
 // Returned from runProdApp when KUMIKO_DRY_RUN_ENV is set AND envSource
@@ -499,6 +438,9 @@ export type ProdSeedFn = (deps: {
   /** Stores bytes as a fileRef of `tenantId` (same validation and storage
    *  layout as POST /files) without a helper write handler. */
   createFileRef: SeedCreateFileRef;
+  /** Present when a master key is configured: decrypts the same keys the handlers do, so a seed need not resolve the KEK itself. */
+  masterKeyProvider?: import("@cosmicdrift/kumiko-framework/secrets").MasterKeyProvider;
+  configEncryption?: import("@cosmicdrift/kumiko-framework/secrets").EnvelopeCipher;
 }) => Promise<void>;
 
 /** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
@@ -514,6 +456,9 @@ export type RunProdAppDeps = {
   readonly sseBroker: SseBroker;
   /** The env the boot runs on: process env or `envSource`, with the boot-option defaults (e.g. `fileStorage`) underneath. */
   readonly env: Readonly<Record<string, string | undefined>>;
+  /** Present when a master key is configured; the same keyring the handlers use. */
+  readonly masterKeyProvider?: import("@cosmicdrift/kumiko-framework/secrets").MasterKeyProvider;
+  readonly configEncryption?: import("@cosmicdrift/kumiko-framework/secrets").EnvelopeCipher;
 };
 
 export type AnonymousAccessOption =
@@ -711,6 +656,9 @@ export type RunProdAppOptions = {
    *  @example
    *  billing: { stripe: { priceToTier: { [env.STRIPE_PRICE_PRO]: "pro" } }, defaultTier: "free" } */
   readonly billing?: BillingBootOption;
+  /** Global operator switches: mounts `feature-toggles` and layers them over the tier resolver, so
+   *  an operator can switch a feature off for every tenant. */
+  readonly featureToggles?: boolean;
   /** Live-demo mode: read-only gate in the fetch chain plus the anonymous
    *  `GET /demo-mode` route. See `DemoModeOption`.
    *  @example
@@ -735,6 +683,9 @@ export type RunProdAppOptions = {
    *  jobs and queued delivery attempts (email/push/chat) stay pending and the
    *  read side stays empty (2026-06-11 incident class). */
   readonly runSingleInstance?: boolean;
+  /** With `runSingleInstance: false`: the worker mounts the same mail / fileStorage features
+   *  (its own boot options or by hand), so the boot warning about them stays silent. */
+  readonly workerMountsFeatures?: boolean;
   /** Job-Block. Wenn das Feature `r.job(...)` registriert, wird er
    *  automatisch verdrahtet (siehe runSingleInstance). */
   readonly jobs?: {
@@ -791,11 +742,10 @@ export type RunProdAppOptions = {
    *  the fetch-handler directly (Bun.serve isn't available under vitest +
    *  node), then call handle.listen() manually if needed. */
   readonly autoListen?: boolean;
-  /** Per-tenant feature resolver, passed to the dispatcher.
-   *  @deprecated Removed in the next release. `createTierEngineFeature({ tierMap })`
-   *  (or `composeSaasStack`) builds the resolver at boot, and prod-only features
-   *  come from the `mail`, `fileStorage` and `billing` options. */
-  readonly effectiveFeatures?: EffectiveFeaturesResolver;
+  /** App-level config values (tenant model, branding, seo ...) keyed by the qualified config
+   *  key. Validated against the registered keys at boot; they win over the key's env variable
+   *  and sit below tenant and user values. */
+  readonly appOverrides?: ConfigOverridesInput;
   /** Composed Zod-schema for env-validation (from `composeEnvSchema({
    *  core, features, extend })` in @cosmicdrift/kumiko-framework/env):
    *  - `process.env` is parsed against it BEFORE any boot work; missing
@@ -898,21 +848,6 @@ function warnLegacyJwtSecretOnce(): void {
   );
 }
 
-// JS callers and apps built against older typings can still omit it.
-function requireEnvSchema(envSchema: ComposedEnvSchema | undefined): ComposedEnvSchema {
-  if (envSchema === undefined) {
-    throw new KumikoBootError([
-      {
-        name: "envSchema",
-        kind: "missing",
-        message:
-          "runProdApp needs envSchema. Pass composeEnvSchema({ core: frameworkCoreEnvSchema, features, extend }): composeEnvSchema from @cosmicdrift/kumiko-framework/env, frameworkCoreEnvSchema from @cosmicdrift/kumiko-dev-server/env-schema, features the same list as runProdApp's.",
-      },
-    ]);
-  }
-  return envSchema;
-}
-
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   assertSeedModeNotInProduction();
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
@@ -932,103 +867,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    at parse-time before the polyfill loads. Plain strings + .regex /
   //    .min / .email / .url cover every env-var shape we've actually
   //    needed in 9.1's audit (37 references, 25 distinct vars).
-  const rawEnvSource = options.envSource ?? process.env;
-  const runMode = parseRunMode(rawEnvSource[DRY_RUN_ENV_VAR]);
-  const composedEnvSchema = withBootOptionEnvBlocks(requireEnvSchema(options.envSchema), options);
-  const effectiveEnvSchema = options.masterKey
-    ? withOptionalEnvKeys(composedEnvSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
-    : composedEnvSchema.schema;
-  const reportBootError = (err: KumikoBootError): void => {
-    const reporter = options.bootErrorReporter ?? defaultBootErrorReporter;
-    reporter(err);
-  };
-  const validateEnv = (source: Record<string, string | undefined>): void => {
-    try {
-      parseEnv(effectiveEnvSchema, source, {
-        sources: composedEnvSchema.sources,
-        ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
-      });
-    } catch (err) {
-      if (err instanceof KumikoBootError) reportBootError(err);
-      throw err;
-    }
-  };
-  if (isRenderMode(runMode)) {
-    // biome-ignore lint/suspicious/noConsole: dry-run output IS the deliverable
-    console.log(
-      renderDryRun(composedEnvSchema, runMode, {
-        ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
-        sources: composedEnvSchema.sources,
-      }),
-    );
-    // Tests inject envSource and want a return-value, not exit. Detecting
-    // "this is a test" via envSource is brittle; instead exit when running
-    // against the real process.env (the deploy-flow), return otherwise.
-    if (options.envSource === undefined) {
-      process.exit(0);
-    }
-    return makeDryRunHandle();
-  }
-  if (runMode === "boot") {
-    const inspection = [
-      ...inspectEnv(effectiveEnvSchema, rawEnvSource, { sources: composedEnvSchema.sources }),
-      ...inspectUndeclaredRuntimeEnv(effectiveEnvSchema.shape, rawEnvSource),
-    ];
-    // biome-ignore lint/suspicious/noConsole: boot-mode output IS the deliverable
-    console.log(renderEnvInspection(inspection));
-    if (inspection.some((row) => row.status === "invalid")) {
-      // Missing rows go into the same report: the run fails anyway, so the
-      // operator sees every variable to fix in one pass.
-      reportBootError(
-        new KumikoBootError(
-          inspection.flatMap((row) =>
-            row.status === "invalid" || row.status === "missing"
-              ? [
-                  {
-                    name: row.name,
-                    kind: row.status,
-                    message:
-                      row.message ?? (row.status === "missing" ? "missing" : "invalid value"),
-                    source: row.source,
-                  },
-                ]
-              : [],
-          ),
-        ),
-      );
-      return makeDryRunHandle();
-    }
-    // A build pipeline has no deploy secrets: the inventory is the result,
-    // and the wiring check below needs every value, so it stops here.
-    if (inspection.some((row) => row.status === "missing")) {
-      if (options.envSource === undefined) {
-        process.exit(0);
-      }
-      return makeDryRunHandle();
-    }
-  }
-  // boot-mode with a complete env AND normal boot run the full validation,
-  // including object-level refinements the per-field check skips.
-  validateEnv(rawEnvSource);
-
-  // Slots the schema marks `kms` are decrypted once here so every consumer
-  // below (boot probe, master-key keyring, config) sees the same resolved env.
-  const decryptedEnvSource: Record<string, string | undefined> = await resolvePlatformKeks(
-    rawEnvSource,
-    {
-      slots: kmsSlotsOf(composedEnvSchema.schema),
-      logPrefix: "[runProdApp]",
-    },
-  );
-  // The first parse relaxes ciphertext-only slots, so their decrypted
-  // plaintext never met the slot's own validators (.regex/.min/.refine).
-  if (
-    kmsSlotsOf(composedEnvSchema.schema).some(
-      (slot) => rawEnvSource[slot] === undefined && decryptedEnvSource[slot] !== undefined,
-    )
-  ) {
-    validateEnv(decryptedEnvSource);
-  }
+  const envGate = await runEnvGate(options, "runProdApp");
+  if (envGate.kind === "stopped") return makeDryRunHandle();
+  const { runMode, decryptedEnvSource } = envGate;
 
   // Stacks whose boot options are missing and the declarative boot options
   // (mail, kmsMode, fileStorage, billing, demoMode, seed shortcuts) fail here, before any connection. Their defaults sit under
@@ -1192,9 +1033,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   await waitForDatabase(db, { processName: "runProdApp" });
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
-  // tenantTierResolver-extension. If found AND user didn't supply own
-  // effectiveFeatures, build the resolver here (db + registry are
-  // available) before the dispatcher is constructed. App-Author sees
+  // tenantTierResolver-extension. If found, build the resolver here (db +
+  // registry are available) before the dispatcher is constructed. App-Author sees
   // nothing — `createTierEngineFeature(opts)` mounts + framework auto-wires.
   // One bus per process: the tier resolver, the dispatcher and the file-provider
   // resolver all subscribe to it (invalidation across the API pods).
@@ -1202,16 +1042,23 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     redisUrl,
     clientOptions: redisClientOptionsFromEnv(envSource),
   });
-  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined = options.effectiveFeatures;
-  if (resolvedEffectiveFeatures === undefined) {
-    const tierResolverUsage = findTierResolverUsage(features);
-    if (tierResolverUsage) {
-      resolvedEffectiveFeatures = await requireTierResolverPlugin(tierResolverUsage).build({
-        db,
-        registry,
-        cacheSync,
-      });
-    }
+  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined;
+  const tierResolverUsage = findTierResolverUsage(features);
+  if (tierResolverUsage) {
+    resolvedEffectiveFeatures = await requireTierResolverPlugin(tierResolverUsage).build({
+      db,
+      registry,
+      cacheSync,
+    });
+  }
+  if (bootOptionWiring.featureToggles) {
+    const bound = await bootOptionWiring.featureToggles.bind({
+      db,
+      registry,
+      cacheSync,
+      tierResolver: resolvedEffectiveFeatures,
+    });
+    resolvedEffectiveFeatures = bound.resolver;
   }
 
   // 5. Schema-Drift-Gate (drizzle-frei, kumiko/migrations). `kumiko schema
@@ -1264,7 +1111,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // wins), which is exactly how fw#2630's cross-replica fanout fix shipped
   // without ever taking effect in production.
   const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
-  const deps: RunProdAppDeps = { db, redis, registry, sseBroker, env: envSource };
+  const deps: RunProdAppDeps = {
+    db,
+    redis,
+    registry,
+    sseBroker,
+    env: envSource,
+    ...(bootCrypto.masterKeyProvider && { masterKeyProvider: bootCrypto.masterKeyProvider }),
+    ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
+  };
   const resolvedExtraContext =
     typeof options.extraContext === "function"
       ? options.extraContext(deps)
@@ -1298,6 +1153,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(bootKms.kms && { kms: bootKms.kms }),
     ...(bootLogger && { log: bootLogger }),
     ...(unsubscribeLinks && { unsubscribeLinks }),
+    ...(options.appOverrides && { appOverrides: options.appOverrides }),
   });
   const extraContext = {
     ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
@@ -1574,6 +1430,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       db,
       redis,
       registry,
+      ...(bootCrypto.masterKeyProvider && { masterKeyProvider: bootCrypto.masterKeyProvider }),
+      ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
       metricsFor: createMetricsForFactory(entrypoint.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
       dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
@@ -1625,7 +1483,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   if (seedDispatcher && seedContext) {
     const createFileRef = makeSeedCreateFileRef({ db, registry, context: seedContext });
     for (const seed of customSeeds) {
-      await seed({ db, registry, dispatcher: seedDispatcher, createFileRef });
+      await seed({
+        db,
+        registry,
+        dispatcher: seedDispatcher,
+        createFileRef,
+        ...(bootCrypto.masterKeyProvider && { masterKeyProvider: bootCrypto.masterKeyProvider }),
+        ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
+      });
     }
   }
 

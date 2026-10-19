@@ -1,4 +1,5 @@
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
@@ -185,7 +186,7 @@ type EmailChannelTransports =
 export type EmailChannelOptions = EmailChannelTransports & {
   readonly resolveEmail: (
     userId: string,
-    ctx: { db: unknown; tenantId: TenantId },
+    ctx: { db: TenantDb; tenantId: TenantId },
   ) => Promise<string | null>;
 };
 
