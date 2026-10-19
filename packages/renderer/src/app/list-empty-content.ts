@@ -6,7 +6,7 @@ import { buildRecordActions } from "./row-actions.ts";
 
 type ActionBindings = Pick<
   Parameters<typeof buildRecordActions>[0],
-  "nav" | "host" | "dispatcher" | "openDrawer" | "onWriteSuccess"
+  "nav" | "host" | "dispatcher" | "openDrawer" | "onWriteSuccess" | "clientActions"
 >;
 
 const NO_RECORD: Readonly<Record<string, unknown>> = {};
@@ -17,7 +17,7 @@ export function useListEmptyContent(
   translate: Translate,
   bindings: ActionBindings,
 ): ListEmptyStateContent | undefined {
-  const { nav, host, dispatcher, openDrawer, onWriteSuccess } = bindings;
+  const { nav, host, dispatcher, openDrawer, onWriteSuccess, clientActions } = bindings;
   return useMemo(() => {
     if (spec === undefined) return undefined;
     const action =
@@ -32,13 +32,14 @@ export function useListEmptyContent(
             dispatcher,
             openDrawer,
             onWriteSuccess,
+            clientActions,
           })?.[0];
     return {
       title: translate(spec.title),
       ...(spec.description !== undefined && { description: translate(spec.description) }),
       ...(action !== undefined && { action }),
     };
-  }, [spec, translate, nav, host, dispatcher, openDrawer, onWriteSuccess]);
+  }, [spec, translate, nav, host, dispatcher, openDrawer, onWriteSuccess, clientActions]);
 }
 
 // Facets with a default are only "narrowed" once the user moved off that default.

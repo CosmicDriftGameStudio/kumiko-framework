@@ -266,7 +266,14 @@ export type RowActionMode = "adaptive" | "inline";
 //   - "drawer" (fw#2710): mounts an actionForm in a Drawer without leaving
 //     the list/detail screen, prefilled from the clicked row via `params`.
 //     Row-level pendant to ToolbarAction's "drawer" variant (fw#2225).
-export type RowAction = RowActionWriteHandler | RowActionNavigate | RowActionDrawer;
+//   - "clientAction": runs a handler the client app registered under a
+//     `<feature>:<kebab>` name (ClientFeatureDefinition.clientActions) — for
+//     actions that need browser-side work or an unauthenticated endpoint.
+export type RowAction =
+  | RowActionWriteHandler
+  | RowActionNavigate
+  | RowActionDrawer
+  | RowActionClientAction;
 
 export type RowActionWriteHandler = {
   /** Default für RowActions ohne explizit gesetzten `kind` —
@@ -404,6 +411,34 @@ export type RowActionDrawer = {
    *  `rowClick` action (navigate or drawer) per list; rejected on
    *  projectionDetail header actions, like navigate's. */
   readonly rowClick?: boolean;
+};
+
+export type RowActionClientAction = {
+  readonly kind: "clientAction";
+  readonly id: string;
+  readonly label: string;
+  /** Registered client handler name, `<feature>:<kebab>`, e.g.
+   *  "auth-email-password:request-password-reset". Resolved when the action is
+   *  triggered; a name no client feature registered shows an error toast. */
+  readonly action: string;
+  /** Payload handed to the handler, picked from the row (or the shown record).
+   *  Default `{ id: row.id }`, like a writeHandler. */
+  readonly payload?: RowFieldExtractor;
+  /** i18n key for the confirm dialog description. */
+  readonly confirm?: string;
+  /** i18n key for the confirm button, default `label`. */
+  readonly confirmLabel?: string;
+  /** Conditional visibility per row. */
+  readonly visible?: FieldCondition;
+  /** Visual style. "danger" forces a confirm dialog, like a writeHandler. */
+  readonly style?: "primary" | "secondary" | "danger";
+  /** Overrides the id-based default icon, see `RowActionWriteHandler.icon`. */
+  readonly icon?: IconKey;
+  /** Inline render form in the row-action column — see `RowActionDisplay`. */
+  readonly display?: RowActionDisplay;
+  /** i18n key of the toast shown after the handler reported `{ ok: true }`
+   *  (default `kumiko.clientAction.success`). */
+  readonly successMessage?: string;
 };
 
 // ToolbarAction — button in the list header. Three variants: navigate to

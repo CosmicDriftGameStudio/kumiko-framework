@@ -19,6 +19,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
+import { useClientActionRuntime } from "../app/client-actions.tsx";
 import {
   buildFilterFacets,
   buildFilterPayload,
@@ -211,6 +212,7 @@ export function RelatedListSection({
   const nav = useNav();
   const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
+  const clientActions = useClientActionRuntime();
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
   const defaultEditScreen = useMemo(() => {
@@ -402,11 +404,13 @@ export function RelatedListSection({
         openDrawer: onOpenDrawer,
         defaultEditRowAction,
         host,
+        clientActions,
       }),
     [
       section.rowActions,
       effectiveTranslate,
       dispatcher,
+      clientActions,
       nav,
       refetchSelfAndHost,
       onOpenDrawer,
@@ -473,6 +477,7 @@ export function RelatedListSection({
       dispatcher,
       openDrawer: onOpenDrawer ?? (() => {}),
       onWriteSuccess: refetchSelfAndHost,
+      clientActions,
     })?.[0];
   }, [
     section.emptyState,
@@ -481,6 +486,7 @@ export function RelatedListSection({
     nav,
     host,
     dispatcher,
+    clientActions,
     onOpenDrawer,
     refetchSelfAndHost,
   ]);

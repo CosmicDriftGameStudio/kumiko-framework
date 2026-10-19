@@ -10,6 +10,7 @@ import { RenderEditActionButton } from "../components/render-edit-action-button.
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
+import { useClientActionRuntime } from "./client-actions.tsx";
 import { useNav } from "./nav.tsx";
 import { useReturnHost } from "./return-to.tsx";
 import { buildRecordActions } from "./row-actions.ts";
@@ -47,6 +48,7 @@ export function EntityListExpandedRow({
   const nav = useNav();
   const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
+  const clientActions = useClientActionRuntime();
   const [actionError, setActionError] = useState<string | null>(null);
 
   const onTitleActionWritten = useCallback(async () => {
@@ -66,6 +68,7 @@ export function EntityListExpandedRow({
             dispatcher,
             openDrawer,
             onWriteSuccess: onTitleActionWritten,
+            clientActions,
           })
         : undefined,
     [
@@ -77,6 +80,7 @@ export function EntityListExpandedRow({
       dispatcher,
       openDrawer,
       onTitleActionWritten,
+      clientActions,
     ],
   );
   const titleActionButtons: ReactNode = titleActions?.map((action) => (

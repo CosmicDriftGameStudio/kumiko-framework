@@ -2,6 +2,7 @@ import type {
   EntityEditScreenDefinition,
   RelatedListToolbarAction,
   RowAction,
+  RowActionClientAction,
   RowActionDrawer,
   RowActionNavigate,
   RowActionWriteHandler,
@@ -15,6 +16,7 @@ import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
 import type { ToolbarActionButton } from "../components/render-list.tsx";
 import type { DataTableRowAction } from "../primitives.tsx";
+import { type ClientActionRuntime, runClientAction } from "./client-actions.tsx";
 import type { NavApi, ScreenTarget } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { navigateWithReturnTo, type ReturnHost } from "./return-to.tsx";
@@ -263,6 +265,46 @@ function buildWriteHandlerRowAction(
   };
 }
 
+function clientActionPayload(
+  action: RowActionClientAction,
+  values: Readonly<Record<string, unknown>>,
+  defaultId: unknown,
+): Readonly<Record<string, unknown>> {
+  return action.payload !== undefined
+    ? evalRowExtractor(action.payload, values)
+    : { id: defaultId };
+}
+
+export function buildClientActionRowAction(
+  action: RowActionClientAction,
+  translate: Translate,
+  runtime: ClientActionRuntime | undefined,
+  refetch: () => Promise<unknown>,
+): DataTableRowAction {
+  const { visible } = action;
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
+    icon: resolveActionIcon(action.id, action.icon),
+    ...(action.confirm !== undefined && { confirm: translate(action.confirm) }),
+    ...(action.confirmLabel !== undefined && { confirmLabel: translate(action.confirmLabel) }),
+    onTrigger: async (row: ListRowViewModel) => {
+      const succeeded = await runClientAction({
+        action,
+        payload: clientActionPayload(action, row.values, row.values["id"]),
+        runtime,
+        translate,
+      });
+      if (succeeded) await refetchAfterWrite(refetch);
+    },
+    ...(visible !== undefined && {
+      isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+    }),
+  };
+}
+
 // Builds the DataTable-ready row-action set for a query-driven row source
 // (projectionList, relatedList) — navigate dispatches through
 // runProjectionRowNavigate, writeHandler dispatches through the shared
@@ -283,6 +325,7 @@ export function buildProjectionRowActions(options: {
   /** Prepended unless a declared action already has id "edit" — declared wins. */
   readonly defaultEditRowAction?: RowActionNavigate;
   readonly host: ReturnHost | undefined;
+  readonly clientActions?: ClientActionRuntime;
 }): readonly DataTableRowAction[] | undefined {
   const {
     rowActions,
@@ -293,6 +336,7 @@ export function buildProjectionRowActions(options: {
     openDrawer,
     defaultEditRowAction,
     host,
+    clientActions,
   } = options;
   const effectiveActions = mergeDefaultEditAction(rowActions, defaultEditRowAction);
   if (effectiveActions.length === 0) return undefined;
@@ -308,6 +352,10 @@ export function buildProjectionRowActions(options: {
         continue;
       }
       out.push(buildDrawerRowAction(action, translate, openDrawer));
+      continue;
+    }
+    if (action.kind === "clientAction") {
+      out.push(buildClientActionRowAction(action, translate, clientActions, refetch));
       continue;
     }
     // writeHandler (default-kind) — a swallowed failure result must become a
@@ -593,6 +641,54 @@ function buildDrawerRecordAction(
   };
 }
 
+function buildClientActionRecordAction(
+  action: RowActionClientAction,
+  options: {
+    readonly record: Readonly<Record<string, unknown>>;
+    readonly translate: Translate;
+    readonly actionIcon: IconKey | undefined;
+    readonly runtime: ClientActionRuntime | undefined;
+    readonly onWriteSuccess: () => void | Promise<void>;
+    readonly defaultWritePayloadId: string | undefined;
+    readonly discardChanges: DiscardChanges | undefined;
+  },
+): RenderEditAction {
+  const {
+    record,
+    translate,
+    actionIcon,
+    runtime,
+    onWriteSuccess,
+    defaultWritePayloadId,
+    discardChanges,
+  } = options;
+  const confirm = withDiscardHint(
+    action.confirm !== undefined ? translate(action.confirm) : undefined,
+    discardChanges,
+  );
+  const confirmLabel =
+    discardChanges?.confirmLabel ??
+    (action.confirmLabel !== undefined ? translate(action.confirmLabel) : undefined);
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    ...(confirm !== undefined && { confirm }),
+    ...(confirmLabel !== undefined && { confirmLabel }),
+    onPress: async () => {
+      const succeeded = await runClientAction({
+        action,
+        payload: clientActionPayload(action, record, defaultWritePayloadId ?? record["id"]),
+        runtime,
+        translate,
+      });
+      if (succeeded) await onWriteSuccess();
+    },
+  };
+}
+
 // Entity delete handler QN: `<feature>:write:<entity>:delete` (see
 // entityWriteCommand in kumiko-screen.tsx).
 const ENTITY_DELETE_HANDLER_PATTERN = /:write:[^:]+:delete$/;
@@ -717,6 +813,7 @@ export function buildRecordActions(options: {
    *  action (they reload or remount the surrounding form). Set while that
    *  form holds unsaved input so it is not lost silently. */
   readonly discardChanges?: DiscardChanges;
+  readonly clientActions?: ClientActionRuntime;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -732,6 +829,7 @@ export function buildRecordActions(options: {
     sameEntityScreenId,
     defaultWritePayloadId,
     discardChanges,
+    clientActions,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
@@ -757,6 +855,20 @@ export function buildRecordActions(options: {
           translate,
           actionIcon,
           openDrawer,
+          discardChanges,
+        }),
+      );
+      continue;
+    }
+    if (action.kind === "clientAction") {
+      out.push(
+        buildClientActionRecordAction(action, {
+          record,
+          translate,
+          actionIcon,
+          runtime: clientActions,
+          onWriteSuccess,
+          defaultWritePayloadId,
           discardChanges,
         }),
       );

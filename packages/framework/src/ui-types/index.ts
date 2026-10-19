@@ -153,6 +153,7 @@ export type {
   RelatedListRowTone,
   RelatedListToolbarAction,
   RowAction,
+  RowActionClientAction,
   RowActionDisplay,
   RowActionDrawer,
   RowActionMode,

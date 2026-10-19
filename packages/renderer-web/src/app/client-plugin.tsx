@@ -11,6 +11,7 @@
 
 import type { TargetRef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import type {
+  ClientActionHandler,
   ColumnRendererComponent,
   ContentEditorComponent,
   ExtensionSectionComponent,
@@ -69,6 +70,10 @@ export type ClientFeatureDefinition = {
    *  `{ entityName, entityId }`. Pattern wie columnRenderers — Last-Wins
    *  bei Key-Kollision über mehrere Features. */
   readonly extensionSectionComponents?: Readonly<Record<string, ExtensionSectionComponent>>;
+  /** Handlers for RowAction `kind: "clientAction"`, keyed by the action name
+   *  `<feature>:<kebab>`. Last-wins with a warning on key collisions, like
+   *  columnRenderers. */
+  readonly clientActions?: Readonly<Record<string, ClientActionHandler>>;
   /** Nav-Provider für die EINE Nav (Visual-Tree-Merge): hängt dynamische
    *  Children an einen statischen `r.nav({ provider: true })`-Knoten. Keyed
    *  auf die LOKALE nav-id (create-app qualifiziert zu `<feature>:nav:<id>`;

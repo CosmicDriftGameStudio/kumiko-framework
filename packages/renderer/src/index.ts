@@ -14,6 +14,21 @@ export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/ac
 export type { AppFeaturesProviderProps } from "./app/app-features-context.tsx";
 export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context.tsx";
 export type {
+  ActionNotice,
+  ActionNotifier,
+  ClientActionHandler,
+  ClientActionOutcome,
+  ClientActionRuntime,
+  ClientActionsMap,
+} from "./app/client-actions.tsx";
+export {
+  ActionNoticeProvider,
+  ClientActionsProvider,
+  runClientAction,
+  useClientActionHandler,
+  useClientActionRuntime,
+} from "./app/client-actions.tsx";
+export type {
   ColumnRendererComponent,
   ColumnRendererProps,
   ColumnRenderersMap,

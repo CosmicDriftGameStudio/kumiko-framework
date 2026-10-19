@@ -224,6 +224,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.aiText.capExceeded": "Monthly AI limit reached.",
 
     "kumiko.rowAction.failed": "Action failed",
+    "kumiko.clientAction.success": "Done.",
+    "kumiko.clientAction.unregistered": "This action is not available in this app.",
+    "kumiko.clientAction.failed": "The action could not be completed.",
 
     "kumiko.contentEditor.insertVariable": "Insert {name}",
     "kumiko.contentEditor.preview": "Preview",

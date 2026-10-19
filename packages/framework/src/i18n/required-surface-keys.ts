@@ -139,10 +139,15 @@ function pushActionFormShapedKeys(
 
 function pushRowActionKeys(out: Set<string>, action: RowAction): void {
   pushKey(out, action.label);
-  if (action.kind === "writeHandler" || action.kind === undefined) {
+  if (
+    action.kind === "writeHandler" ||
+    action.kind === "clientAction" ||
+    action.kind === undefined
+  ) {
     pushKey(out, action.confirm);
     pushKey(out, action.confirmLabel);
   }
+  if (action.kind === "clientAction") pushKey(out, action.successMessage);
   if (action.kind === "drawer") {
     pushKey(out, action.title);
     pushKey(out, action.subtitle);

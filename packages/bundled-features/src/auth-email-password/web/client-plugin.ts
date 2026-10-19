@@ -5,7 +5,7 @@
 // Translations (de/en) mit. Alles ist overridbar — Login-Screen,
 // Strings pro Locale, pro Key.
 
-import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import type { ClientActionHandler, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 import { defaultTranslations, mergeTranslations } from "../i18n.ts";
 import {
@@ -14,6 +14,7 @@ import {
   type MfaVerifyComponentProps,
   makeSessionAuthGate,
 } from "./auth-gate.tsx";
+import { emailPasswordClientActions } from "./client-actions.ts";
 import type { LoginScreenProps } from "./login-screen.tsx";
 
 export type EmailPasswordClientOptions = {
@@ -55,6 +56,7 @@ export type EmailPasswordClientFeature = {
   readonly providers: readonly ComponentType<{ children: ReactNode }>[];
   readonly gates: readonly ComponentType<{ children: ReactNode }>[];
   readonly translations: TranslationsByLocale;
+  readonly clientActions: Readonly<Record<string, ClientActionHandler>>;
 };
 
 export function emailPasswordClient(
@@ -75,5 +77,6 @@ export function emailPasswordClient(
       }),
     ],
     translations,
+    clientActions: emailPasswordClientActions,
   };
 }
