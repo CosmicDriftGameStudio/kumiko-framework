@@ -171,25 +171,31 @@ async function mountEdit(actions: EntityEditScreenDefinition["actions"]): Promis
     searchParams: {},
     setSearchParams: () => {},
   };
-  const { getByTestId } = render(
-    <LocaleProvider
-      resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
-    >
-      <DispatcherProvider dispatcher={stubDispatcher(calls)}>
-        <AppFeaturesProvider features={[schema]}>
-          <UserRolesProvider roles={[]}>
-            <NavProvider value={navApi}>
-              <PrimitivesProvider value={testPrimitives}>
-                <KumikoScreen schema={schema} qn="app:screen:rent-edit" entityId="rent-1" />
-              </PrimitivesProvider>
-            </NavProvider>
-          </UserRolesProvider>
-        </AppFeaturesProvider>
-      </DispatcherProvider>
-    </LocaleProvider>,
+  // Render inside act so the detail query, the form commit and its mount
+  // effects (store subscription, dirty reporting) settle before the test
+  // types and clicks. A waitFor on the input only proves the commit; under
+  // load the effects ran after the click and the action had no confirm yet.
+  const { getByTestId } = await act(async () =>
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={stubDispatcher(calls)}>
+          <AppFeaturesProvider features={[schema]}>
+            <UserRolesProvider roles={[]}>
+              <NavProvider value={navApi}>
+                <PrimitivesProvider value={testPrimitives}>
+                  <KumikoScreen schema={schema} qn="app:screen:rent-edit" entityId="rent-1" />
+                </PrimitivesProvider>
+              </NavProvider>
+            </UserRolesProvider>
+          </AppFeaturesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    ),
   );
-  await waitFor(() => getByTestId("input-name"));
+  getByTestId("input-name");
   return { calls, getByTestId };
 }
 
