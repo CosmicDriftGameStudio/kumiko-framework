@@ -3,6 +3,7 @@
 "@cosmicdrift/kumiko-framework": minor
 "@cosmicdrift/kumiko-renderer": minor
 "@cosmicdrift/kumiko-renderer-web": minor
+"@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-locale-de": minor
 "@cosmicdrift/kumiko-locale-es": minor
 "@cosmicdrift/kumiko-locale-fr": minor
@@ -19,9 +20,19 @@ Dashboards bound to a record, with header actions, auto refresh and relative tim
 
 `valueFormat: { kind: "relativeTime" }` on stat panels and `{ kind: "relativeTime", atMs }` as a text param render epoch ms via `Intl.RelativeTimeFormat` in the user locale ("5 minutes ago", "in 30 seconds") and keep ticking while mounted.
 
+fillAction is only allowed on text, number, decimal and bigInt fields and rejected on password, sensitive and writeOnly ones; an actionForm `load` never fills those fields from the loaded record. The email clientActions answer a 429 with the new `auth.errors.tooManyRequests` instead of the login-specific rate-limit text.
+
 <!-- kumiko-changes
 feature: framework
 type: improvement
 title: Dashboard record binding, header actions, refresh and relative time
 detail: Dashboards take record, actions and refresh; stat panels and text params gain a relativeTime format; the surface keys include kumiko.dashboard.record.missing.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: DashboardChartPanel.valueFormat only takes the currency format
+detail: DashboardValueFormat is now a union of DashboardCurrencyFormat and DashboardRelativeTimeFormat. Stat panels take both, chart panels only the currency one, and boot rejects relativeTime on a chart.
+migration: A chart panel that declares valueFormat keeps working with { kind: "currency", currency }. Code that types a chart's valueFormat as DashboardValueFormat should use DashboardCurrencyFormat instead; relativeTime on a chart was never meaningful and now fails boot.
 -->

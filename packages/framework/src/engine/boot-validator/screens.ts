@@ -191,6 +191,31 @@ function validateFieldFormRefs(
   }
 }
 
+const FILL_ACTION_FIELD_TYPES: readonly string[] = ["text", "number", "decimal", "bigInt"];
+
+// The fill button writes a plain text or numeric query result into the field;
+// a secret value must never be filled from a query response.
+function validateFillActionTarget(
+  where: string,
+  fieldSpec: Exclude<EditFieldSpec, string>,
+  fieldDef: { readonly type: string } | undefined,
+): void {
+  // skip: no fill action, or the field is unknown (reported elsewhere)
+  if (fieldSpec.fillAction === undefined || fieldDef === undefined) return;
+  if (!FILL_ACTION_FIELD_TYPES.includes(fieldDef.type)) {
+    throw new Error(
+      `${where} fillAction needs a ${FILL_ACTION_FIELD_TYPES.join(", ")} field, not "${fieldDef.type}". ` +
+        `Remove fillAction or use a fitting field type.`,
+    );
+  }
+  if (isSensitiveOrPasswordField(fieldDef)) {
+    throw new Error(
+      `${where} fillAction targets a sensitive, writeOnly or password field — a query result is ` +
+        `never written into those. Remove fillAction.`,
+    );
+  }
+}
+
 function validateNoWidgetRequiredField(
   featureName: string,
   screenId: string,
@@ -674,12 +699,11 @@ function renderedEditFieldNames(sections: EditLayout["sections"]): ReadonlySet<s
   return names;
 }
 
-function isSensitiveOrPasswordField(
-  field: ActionFormScreenDefinition["fields"][string] | undefined,
-): boolean {
+function isSensitiveOrPasswordField(field: object | undefined): boolean {
   return (
     field !== undefined &&
     (("sensitive" in field && field.sensitive === true) ||
+      ("writeOnly" in field && field.writeOnly === true) ||
       ("format" in field && field.format === "password"))
   );
 }
@@ -1111,6 +1135,7 @@ function validateFormLayoutSections(
   context: string,
   layout: EditLayout,
   fieldNames: ReadonlySet<string>,
+  fieldDefs: Readonly<Record<string, { readonly type: string }>>,
   allowEmptySections: boolean,
 ): void {
   if (layout.sections.length === 0) {
@@ -1153,11 +1178,9 @@ function validateFormLayoutSections(
             `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
         );
       }
-      validateFieldFormRefs(
-        `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${normalized.field}"`,
-        normalized,
-        fieldNames,
-      );
+      const fieldWhere = `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${normalized.field}"`;
+      validateFieldFormRefs(fieldWhere, normalized, fieldNames);
+      validateFillActionTarget(fieldWhere, normalized, fieldDefs[normalized.field]);
     }
   }
 }
@@ -1509,6 +1532,7 @@ function validateInlineFormScreen(
     kind,
     screen.layout,
     fieldNames,
+    screen.fields,
     allowEmptyMintForm && fieldNames.size === 0,
   );
   validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
@@ -1541,7 +1565,15 @@ function validateSecretMintConfirm(
     allWriteHandlerQns,
   );
   const fieldNames = validateFormFieldsMap(feature.name, screenId, context, confirm.fields, false);
-  validateFormLayoutSections(feature.name, screenId, context, confirm.layout, fieldNames, false);
+  validateFormLayoutSections(
+    feature.name,
+    screenId,
+    context,
+    confirm.layout,
+    fieldNames,
+    confirm.fields,
+    false,
+  );
   if (confirm.layout.mode !== undefined && confirm.layout.mode !== "single") {
     throw new Error(
       `[Feature ${feature.name}] Screen "${screenId}" (${context}) sets layout.mode: ` +
@@ -3210,11 +3242,9 @@ export function validateScreens(
           }
           validateNoWidgetRequiredField(feature.name, screenId, entityDef, normalized);
           validateEditFieldExtras(feature.name, screenId, entityDef, normalized);
-          validateFieldFormRefs(
-            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) field "${normalized.field}"`,
-            normalized,
-            fieldNames,
-          );
+          const fieldWhere = `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) field "${normalized.field}"`;
+          validateFieldFormRefs(fieldWhere, normalized, fieldNames);
+          validateFillActionTarget(fieldWhere, normalized, entityDef.fields[normalized.field]);
         }
       }
       validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);

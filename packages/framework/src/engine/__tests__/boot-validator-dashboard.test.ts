@@ -1261,6 +1261,14 @@ describe("validateBoot — dashboard record binding, actions and refresh", () =>
     ).not.toThrow();
   });
 
+  test("rejects a record.query that is not a registered query-handler", () => {
+    expect(() =>
+      boot({ record: { param: "monitorId", query: "demo:query:monitor:ghost" } }),
+    ).toThrow(
+      /Screen "overview" \(dashboard\) record query "demo:query:monitor:ghost" is not a registered query-handler/,
+    );
+  });
+
   test("accepts a plain refresh interval at the minimum", () => {
     expect(() => boot({ refresh: { seconds: 5 } })).not.toThrow();
   });

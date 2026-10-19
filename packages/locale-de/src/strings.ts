@@ -81,6 +81,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.errors.signupEmailAlreadyRegistered":
     "Für diese E-Mail-Adresse existiert bereits ein Konto. Bitte logge dich ein oder setze dein Passwort zurück.",
   "auth.errors.unknownError": "Etwas ist schief gegangen. Bitte erneut versuchen.",
+  "auth.errors.tooManyRequests": "Zu viele Anfragen. Bitte kurz warten.",
   "auth.forgotPassword.backToLogin": "Zurück zum Login",
   "auth.forgotPassword.email": "E-Mail",
   "auth.forgotPassword.intro":

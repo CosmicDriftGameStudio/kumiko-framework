@@ -14,7 +14,9 @@ type EmailFlow = (
 ) => Promise<{ readonly ok: true } | { readonly ok: false; readonly error: AuthTokenFailure }>;
 
 function failureMessageKey(failure: AuthTokenFailure): string {
-  return failure.reason === "rate_limited" ? "auth.errors.rateLimited" : "auth.errors.unknownError";
+  return failure.reason === "rate_limited"
+    ? "auth.errors.tooManyRequests"
+    : "auth.errors.unknownError";
 }
 
 function emailFlowHandler(flow: EmailFlow): ClientActionHandler {
