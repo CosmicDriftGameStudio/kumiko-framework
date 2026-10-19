@@ -1923,6 +1923,23 @@ export type EntityEditAction = RowAction & {
 // dafür anzulegen. Die FieldDefinitions sind dieselben wie auf
 // Entities (text/select/number/...) — alle DefaultInput-Renderer
 // greifen unverändert.
+/** A form field computed from other fields of the same form. `listSum` adds one
+ *  numeric cell over all rows of an embedded list field; its `whenEmpty`
+ *  fallback applies while the list has no rows (it must not be a `listSum`). */
+export type FormFieldDerivation =
+  | {
+      readonly op: "sum" | "subtract" | "multiply" | "percent";
+      readonly from: readonly string[];
+    }
+  | {
+      readonly op: "listSum";
+      readonly list: string;
+      readonly cell: string;
+      readonly whenEmpty?: FormFieldDerivationWithoutList;
+    };
+
+export type FormFieldDerivationWithoutList = Extract<FormFieldDerivation, { from: unknown }>;
+
 export type ActionFormScreenDefinition = {
   readonly id: string;
   readonly type: "actionForm";
@@ -1961,6 +1978,13 @@ export type ActionFormScreenDefinition = {
    *  A `money` field here must name its own currency source: this screen
    *  has no entity whose `defaultCurrency` it could inherit (fw#2839). */
   readonly fields: Readonly<Record<string, FormFieldDefinition>>;
+  /** Fields computed from other fields, shown read-only and recomputed on every
+   *  change. A `listSum` over an empty list without `whenEmpty` leaves the field
+   *  a normal input, and then the client value counts. Otherwise the client value
+   *  is never trusted: the handler must wrap its schema with
+   *  `withFormDerivations(schema, screen)`, which the boot validator enforces.
+   *  A field read only as `whenEmpty` operand is read-only while every such list has rows. */
+  readonly derive?: Readonly<Record<string, FormFieldDerivation>>;
   /** Layout analog zu EntityEditScreen: sections mit fields aus dem
    *  fields-Map oben. */
   readonly layout: EditLayout;

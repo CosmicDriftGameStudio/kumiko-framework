@@ -27,6 +27,14 @@ object and an embedded list rendered by a declarative `entityEdit` screen.
   `createEmbeddedListField`; its renderer receives `embeddedListCells`, so no
   custom screen component is required.
 
+- **Derived head totals** (`src/screens/invoice-receive.screen.ts`): an
+  `actionForm` declares `derive` so net, VAT, and gross follow the lines
+  (`listSum`), or follow a typed net and VAT rate while the list is empty
+  (`whenEmpty`, `percent`). The renderer shows them read-only and live; the
+  handler wraps its schema with `withFormDerivations(schema, screen)`
+  (`src/handlers/invoice-receive.write.ts`), so totals sent by the client are
+  replaced on the server.
+
 ## When to reach for it
 
 Use an embedded field or list when the nested data is created, changed, and
@@ -397,6 +405,74 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
     expect(error).toBeDefined();
   });
 });
+
+// --- actionForm derive ---
+
+describe("invoice receive form derives its totals on the server", () => {
+  type ReceiveTotals = {
+    netTotal: { amount: number; currency: string };
+    vatTotal: { amount: number; currency: string };
+    grossTotal: { amount: number; currency: string };
+  };
+  const eur = (amount: number) => ({ amount, currency: "EUR" });
+  const head = { supplier: "Papier AG", invoiceNumber: "RE-2026-0042" };
+
+  test("with lines, manipulated client totals are replaced by the line sums", async () => {
+    const totals = await stack.http.writeOk<ReceiveTotals>(
+      "contacts:write:invoice:receive",
+      {
+        ...head,
+        lines: [
+          { description: "Paper", amount: 1005, vatRate: 19, vatAmount: 5 },
+          { description: "Toner", amount: 2000, vatRate: 7 },
+        ],
+        netTotal: eur(1),
+        vatTotal: eur(2),
+        grossTotal: eur(3),
+      },
+      admin,
+    );
+    expect(totals).toEqual({
+      netTotal: eur(30.05),
+      vatTotal: eur(3.31),
+      grossTotal: eur(33.36),
+    });
+  });
+
+  test("without lines, the typed net stays and VAT and gross are computed from the rate", async () => {
+    const totals = await stack.http.writeOk<ReceiveTotals>(
+      "contacts:write:invoice:receive",
+      { ...head, lines: [], netTotal: eur(100), vatRate: 19, vatTotal: eur(0), grossTotal: eur(0) },
+      admin,
+    );
+    expect(totals).toEqual({ netTotal: eur(100), vatTotal: eur(19), grossTotal: eur(119) });
+  });
+
+  test("a stale gross total is overwritten", async () => {
+    const totals = await stack.http.writeOk<ReceiveTotals>(
+      "contacts:write:invoice:receive",
+      {
+        ...head,
+        lines: [],
+        netTotal: eur(50),
+        vatRate: 20,
+        vatTotal: eur(0),
+        grossTotal: eur(999),
+      },
+      admin,
+    );
+    expect(totals.grossTotal).toEqual(eur(60));
+  });
+
+  test("a caller without the Admin role is rejected", async () => {
+    const error = await stack.http.writeErr(
+      "contacts:write:invoice:receive",
+      { ...head, lines: [], netTotal: eur(50), vatRate: 20, vatTotal: eur(0), grossTotal: eur(0) },
+      viewer,
+    );
+    expect(error.code).toBe("access_denied");
+  });
+});
 ```
 
 ### src/entities/contact.ts
@@ -529,6 +605,9 @@ export const productTable = buildEntityTable("product", productEntity);
 //             on its `lines` sub-fields (Issue #1835), plus a declarative
 //             entityEdit screen that renders the list end-to-end via
 //             EmbeddedListField, no custom-screen code required
+//   invoice-receive — actionForm whose net/VAT/gross head fields are derived
+//             from the lines (`derive`); the handler recomputes them with
+//             `withFormDerivations`, so client-sent totals are never trusted
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { contactEntity } from "./entities/contact";
@@ -536,6 +615,8 @@ import { invoiceEntity } from "./entities/invoice";
 import { productEntity } from "./entities/product";
 import { contactCreate } from "./handlers/contact-create.write";
 import { contactDetail } from "./handlers/contact-detail.query";
+import { invoiceReceive } from "./handlers/invoice-receive.write";
+import { invoiceReceiveScreen } from "./screens/invoice-receive.screen";
 
 export { contactEntity } from "./entities/contact";
 export { invoiceEntity } from "./entities/invoice";
@@ -557,6 +638,7 @@ export const embeddedFeature = defineFeature("contacts", (r) => {
 
   r.writeHandler(contactCreate);
   r.queryHandler(contactDetail);
+  r.writeHandler(invoiceReceive);
 
   r.crud("product", productEntity, { write: adminWrite, read: openRead });
   r.crud("invoice", invoiceEntity, { write: adminWrite, read: openRead });
@@ -569,6 +651,8 @@ export const embeddedFeature = defineFeature("contacts", (r) => {
       sections: [{ columns: 1, fields: ["customer", "lines"] }],
     },
   });
+
+  r.screen(invoiceReceiveScreen);
 });
 ```
 
@@ -645,4 +729,111 @@ export const contactDetail = defineQueryHandler({
     return filterReadFields(contactEntity, row as Record<string, unknown>, query.user);
   },
 });
+```
+
+### src/handlers/invoice-receive.write.ts
+
+```ts
+import {
+  defineWriteHandler,
+  fieldToZod,
+  withFormDerivations,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { invoiceReceiveLines, invoiceReceiveScreen } from "../screens/invoice-receive.screen";
+
+const moneyPayload = z.object({ amount: z.number(), currency: z.string().min(1) });
+
+// The preprocess recomputes net/VAT/gross before validation: totals sent by the
+// client never reach the handler.
+const receiveInput = withFormDerivations(
+  z.object({
+    supplier: z.string().min(1),
+    invoiceNumber: z.string().min(1),
+    lines: fieldToZod(invoiceReceiveLines, ["EUR"]),
+    netTotal: moneyPayload,
+    vatRate: z.number().optional(),
+    vatTotal: moneyPayload,
+    grossTotal: moneyPayload,
+  }),
+  invoiceReceiveScreen,
+);
+
+export const invoiceReceive = defineWriteHandler({
+  name: "invoice:receive",
+  schema: receiveInput,
+  access: { roles: ["Admin"] },
+  handler: async (event) => ({
+    isSuccess: true,
+    data: {
+      netTotal: event.payload.netTotal,
+      vatTotal: event.payload.vatTotal,
+      grossTotal: event.payload.grossTotal,
+    },
+  }),
+});
+```
+
+### src/screens/invoice-receive.screen.ts
+
+```ts
+import {
+  type ActionFormScreenDefinition,
+  createDecimalField,
+  createEmbeddedListField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
+
+const euro = { kind: "literal", code: "EUR" } as const;
+
+export const invoiceReceiveLines = createEmbeddedListField(
+  {
+    description: { type: "text", required: true },
+    amount: { type: "money", required: true },
+    vatRate: { type: "decimal", scale: 2, required: true },
+    vatAmount: { type: "money" },
+  },
+  {
+    derived: { vatAmount: { op: "percent", from: ["amount", "vatRate"] } },
+    totals: ["amount", "vatAmount"],
+  },
+);
+
+// Net/VAT/gross are derived: with line items they are the sum of the lines,
+// without lines the net amount and the VAT rate are typed and VAT/gross follow.
+export const invoiceReceiveScreen: ActionFormScreenDefinition = {
+  id: "invoice-receive",
+  type: "actionForm",
+  handler: "contacts:write:invoice:receive",
+  fields: {
+    supplier: createTextField({ required: true, personal: "tenant", find: "none" }),
+    invoiceNumber: createTextField({
+      required: true,
+      personal: false,
+      reason: "is_business_data",
+    }),
+    lines: invoiceReceiveLines,
+    netTotal: { type: "money", currency: euro },
+    vatRate: createDecimalField({ precision: 5, scale: 2 }),
+    vatTotal: { type: "money", currency: euro },
+    grossTotal: { type: "money", currency: euro },
+  },
+  derive: {
+    netTotal: { op: "listSum", list: "lines", cell: "amount" },
+    vatTotal: {
+      op: "listSum",
+      list: "lines",
+      cell: "vatAmount",
+      whenEmpty: { op: "percent", from: ["netTotal", "vatRate"] },
+    },
+    grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] },
+  },
+  layout: {
+    sections: [
+      { columns: 2, fields: ["supplier", "invoiceNumber"] },
+      { columns: 1, fields: ["lines"] },
+      { columns: 2, fields: ["netTotal", "vatRate", "vatTotal", "grossTotal"] },
+    ],
+  },
+};
 ```

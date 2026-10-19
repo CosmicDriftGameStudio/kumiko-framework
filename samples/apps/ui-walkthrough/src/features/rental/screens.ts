@@ -1,5 +1,6 @@
 import {
   createDateField,
+  createDecimalField,
   createEmbeddedListField,
   createSelectField,
   createTextField,
@@ -459,6 +460,64 @@ export const recordPositionsScreen: ActionFormScreenDefinition = {
     ],
   },
   submitLabel: "rental.action.recordPositions",
+  access: OPEN_ACCESS,
+};
+
+const EUR = { kind: "literal", code: "EUR" } as const;
+
+export const receiveInvoiceLines = createEmbeddedListField(
+  {
+    description: { type: "text", required: true },
+    amount: { type: "money", required: true },
+    vatRate: { type: "decimal", scale: 2, required: true },
+    vatAmount: { type: "money" },
+  },
+  {
+    derived: { vatAmount: { op: "percent", from: ["amount", "vatRate"] } },
+    totals: ["amount", "vatAmount"],
+  },
+);
+
+export const receiveInvoiceScreen: ActionFormScreenDefinition = {
+  id: "receive-invoice",
+  type: "actionForm",
+  handler: RENTAL_WRITES.invoiceReceive,
+  fields: {
+    supplier: createTextField({ personal: "tenant", find: "none", required: true }),
+    invoiceNumber: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+    }),
+    lines: receiveInvoiceLines,
+    netTotal: { type: "money", currency: EUR },
+    vatRate: createDecimalField({ precision: 5, scale: 2 }),
+    vatTotal: { type: "money", currency: EUR },
+    grossTotal: { type: "money", currency: EUR },
+  },
+  derive: {
+    netTotal: { op: "listSum", list: "lines", cell: "amount" },
+    vatTotal: {
+      op: "listSum",
+      list: "lines",
+      cell: "vatAmount",
+      whenEmpty: { op: "percent", from: ["netTotal", "vatRate"] },
+    },
+    grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] },
+  },
+  layout: {
+    width: "full",
+    sections: [
+      { fields: ["supplier", "invoiceNumber"] },
+      { title: "rental.section.invoiceLines", columns: 1, fields: ["lines"] },
+      {
+        title: "rental.section.invoiceTotals",
+        description: "rental.section.invoiceTotalsHint",
+        fields: ["netTotal", "vatRate", "vatTotal", "grossTotal"],
+      },
+    ],
+  },
+  submitLabel: "rental.action.receiveInvoice",
   access: OPEN_ACCESS,
 };
 

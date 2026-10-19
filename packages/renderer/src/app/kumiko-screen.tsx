@@ -37,6 +37,7 @@ import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { withDerivedValues } from "../components/form-derivation-patch.ts";
 import {
   QueryOptionLabel,
   resolveOptionsQueryPayload,
@@ -4406,6 +4407,10 @@ function ActionFormBody({
     handoffValues,
     loadedValues,
   ]);
+  const derivedInitial = useMemo(
+    () => withDerivedValues(initial, screen.derive !== undefined ? screen : undefined),
+    [initial, screen],
+  );
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const summary = useMemo(
@@ -4547,7 +4552,8 @@ function ActionFormBody({
       screen={synthScreen}
       entity={synthEntity}
       featureName={schema.featureName}
-      initial={initial}
+      initial={derivedInitial}
+      {...(screen.derive !== undefined && { formDerivation: screen })}
       // Extension-Sections im actionForm sehen die initialen Form-Values
       // (inkl. searchParams-Prefill, z.B. ?incidentId=…) als initialValues
       // — anders als im entityEdit gibt es hier keinen record, aus dem

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { openToAllSignedIn, toKeyFirst } from "../translations";
 import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
 import { rentalTranslations } from "./i18n";
+import { receiveInvoicePayloadSchema } from "./invoice-receive";
 import {
   dayBefore,
   fileRefIdsPayloadSchema,
@@ -36,6 +37,7 @@ import {
   leaseUnterlagenScreen,
   partyEditScreen,
   positionEditScreen,
+  receiveInvoiceScreen,
   recordPositionsScreen,
   rentalDashboardScreen,
 } from "./screens";
@@ -231,6 +233,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
   });
 
   r.writeHandler({
+    name: "invoice:receive",
+    schema: receiveInvoicePayloadSchema,
+    handler: async (event) => ({ isSuccess: true, data: event.payload }),
+    ...open,
+  });
+
+  r.writeHandler({
     name: "rent:adjust",
     schema: rentAdjustPayloadSchema,
     handler: async (event, ctx) => {
@@ -283,6 +292,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
   r.screen(recordPositionsScreen);
+  r.screen(receiveInvoiceScreen);
   r.screen(leaseUnterlagenScreen);
   r.screen({
     id: "upload-standard-layout",
@@ -309,6 +319,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
     parent: "rental:nav:contracts",
     screen: "rental:screen:rental-dashboard",
     order: 20,
+  });
+  r.nav({
+    id: "receive-invoice",
+    label: i18nKey("rental.nav.receiveInvoice"),
+    parent: "rental:nav:contracts",
+    screen: "rental:screen:receive-invoice",
+    order: 40,
   });
   r.nav({
     id: "upload-standard-layout",

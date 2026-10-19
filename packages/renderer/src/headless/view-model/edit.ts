@@ -8,6 +8,7 @@ import type {
   EntityEditScreenDefinition,
   FieldAffix,
   FieldCondition,
+  FormDerivationScreen,
   ParsedRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
@@ -15,6 +16,8 @@ import {
   evalFieldCondition,
   isExtensionEditSection,
   isFieldsEditSection,
+  isFormDerivationInputMode,
+  isUnusedFallbackOperand,
   isWriteFormEditSection,
   normalizeEditField,
   parseRefTarget,
@@ -78,6 +81,9 @@ export type ComputeEditViewModelInput<
   readonly mode?: EditFormMode;
   /** The record being edited; omitted on create. */
   readonly entityId?: string;
+  /** actionForm `derive`: computed fields render read-only (and never block submit
+   *  as required) unless their derivation currently leaves them to the user. */
+  readonly derivation?: FormDerivationScreen;
 };
 
 export type EditFormMode = "create" | "update";
@@ -586,7 +592,10 @@ function deriveEmbeddedListHints(
         derived?: Readonly<
           Record<
             string,
-            { readonly op: "multiply" | "sum" | "subtract"; readonly from: readonly string[] }
+            {
+              readonly op: "multiply" | "sum" | "subtract" | "percent";
+              readonly from: readonly string[];
+            }
           >
         >;
         totals?: readonly string[];
@@ -650,10 +659,24 @@ function buildExtensionSectionViewModel(
 // Pure transform from screen-def + entity-def + row-values to the flat
 // section/field tree the renderer draws. FieldConditions are evaluated here
 // so the renderer never re-runs them during React render.
+// A computed field the user can't currently type into, or a fallback operand
+// that the list rows make irrelevant: read-only and never blocking as required.
+function isLockedByDerivation(
+  derivation: FormDerivationScreen | undefined,
+  values: Readonly<Record<string, unknown>>,
+  field: string,
+): boolean {
+  if (derivation === undefined) return false;
+  const isDerivedAndLocked =
+    derivation.derive?.[field] !== undefined &&
+    !isFormDerivationInputMode(derivation, values, field);
+  return isDerivedAndLocked || isUnusedFallbackOperand(derivation, values, field);
+}
+
 export function computeEditViewModel<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(input: ComputeEditViewModelInput<TValues>): EditViewModel {
-  const { screen, entity, values, translate, featureName, mode, entityId } = input;
+  const { screen, entity, values, translate, featureName, mode, entityId, derivation } = input;
   const excludedFields = new Set(mode === undefined ? [] : screen.writeExcludedFields?.[mode]);
   const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
     mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
@@ -710,15 +733,18 @@ export function computeEditViewModel<
         // `readOnly` (camelCase) is the name on both sides: EditFieldSpec
         // in the engine, and the view-model emitted here. One convention
         // through the stack beats translating at the boundary.
+        const lockedByDerivation = isLockedByDerivation(derivation, values, normalized.field);
         const readOnly =
           (mode === "update" && excludedFields.has(normalized.field)) ||
+          lockedByDerivation ||
           evalCondition(normalized.readOnly, false, values);
         // `required` on the field-spec overrides the entity-default. A
         // field that's required at the entity-level but marked required:
         // false on the screen (e.g. a soft-onboarding wizard that
         // collects less up-front) respects the screen override.
         const entityRequired = (fieldDef as unknown as { required?: boolean }).required === true;
-        const required = evalCondition(normalized.required, entityRequired, values);
+        const required =
+          !lockedByDerivation && evalCondition(normalized.required, entityRequired, values);
         // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
         // framework/src/engine/field-helpers.ts — headless has no dependency
         // on that module, so the literal is duplicated here instead of

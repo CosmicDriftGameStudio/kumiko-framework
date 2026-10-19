@@ -31,19 +31,13 @@
 // amount-Spalte (Legacy DB-Convention für Money — `SUM(buying_price)` bleibt
 // idiomatisch). `<name>Currency` ist die zusätzliche Spalte.
 
+import { MINOR_UNIT_SCALE, toMinorUnits } from "../engine/minor-units.ts";
 import type { EntityDefinition } from "../engine/types/index.ts";
 import { DEFAULT_CURRENCIES } from "../engine/types/index.ts";
 
 const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
 
-// 2 decimal places (cents) — covers every currently-supported currency
-// (EUR/USD/GBP/...). No ISO-4217 minor-unit table yet (JPY=0, BHD=3) —
-// upgrade path once a currency needing a different scale actually lands.
-const MINOR_UNIT_SCALE = 100;
-
-export function toMinorUnits(amount: number): number {
-  return Math.round(amount * MINOR_UNIT_SCALE);
-}
+export { toMinorUnits };
 
 function toMajorUnits(amountScaled: number): number {
   return amountScaled / MINOR_UNIT_SCALE;

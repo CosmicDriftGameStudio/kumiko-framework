@@ -19,6 +19,14 @@ object and an embedded list rendered by a declarative `entityEdit` screen.
   `createEmbeddedListField`; its renderer receives `embeddedListCells`, so no
   custom screen component is required.
 
+- **Derived head totals** (`src/screens/invoice-receive.screen.ts`): an
+  `actionForm` declares `derive` so net, VAT, and gross follow the lines
+  (`listSum`), or follow a typed net and VAT rate while the list is empty
+  (`whenEmpty`, `percent`). The renderer shows them read-only and live; the
+  handler wraps its schema with `withFormDerivations(schema, screen)`
+  (`src/handlers/invoice-receive.write.ts`), so totals sent by the client are
+  replaced on the server.
+
 ## When to reach for it
 
 Use an embedded field or list when the nested data is created, changed, and

@@ -2,7 +2,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types/index.ts";
 
 /** Computes a derived cell from its source values. Missing/non-numeric
- *  sources: "multiply" with any missing source → undefined; "sum"/"subtract"
+ *  sources: "multiply"/"percent" with any missing source → undefined; "sum"/"subtract"
  *  treat missing as 0 only when at least one source is present — if every
  *  source is missing, return undefined (do not invent 0). Money cells are
  *  minor-unit integers — unit-agnostic arithmetic; `withDerivedCells` rounds
@@ -18,6 +18,11 @@ export function computeDerivedCellValue(
       product *= value;
     }
     return product;
+  }
+  if (op === "percent") {
+    const [base, rate] = values;
+    if (values.length !== 2 || base === undefined || rate === undefined) return undefined;
+    return (base * rate) / 100;
   }
   if (values.every((value) => value === undefined)) return undefined;
   const numeric = values.map((value) => value ?? 0);

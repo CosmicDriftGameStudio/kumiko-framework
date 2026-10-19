@@ -78,6 +78,7 @@ import type {
   ToolbarAction,
 } from "../types/screen.ts";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
+import { validateFormDerivations, validateFormDerivationsEnforced } from "./form-derivations.ts";
 import { isSelectOptionTone } from "./select-option-tone.ts";
 
 function isRowClickAction(action: RowAction): boolean {
@@ -1546,6 +1547,10 @@ function validateInlineFormScreen(
     allowEmptyMintForm && fieldNames.size === 0,
   );
   validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
+  if (screen.type === "actionForm") {
+    validateFormDerivations(feature.name, screenId, screen);
+    validateFormDerivationsEnforced(feature.name, screenId, screen, featureMap);
+  }
   validateInlineFormNavTargets(feature, screenId, screen, kind, lookups);
 }
 

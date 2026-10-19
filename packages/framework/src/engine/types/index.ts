@@ -396,6 +396,7 @@ export type {
   FieldFormatRegistry,
   FieldRenderer,
   FormatSpec,
+  FormFieldDerivation,
   FormWidth,
   ListColumnSpec,
   ListEmptyStateSpec,

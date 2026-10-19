@@ -350,3 +350,71 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
     expect(error).toBeDefined();
   });
 });
+
+// --- actionForm derive ---
+
+describe("invoice receive form derives its totals on the server", () => {
+  type ReceiveTotals = {
+    netTotal: { amount: number; currency: string };
+    vatTotal: { amount: number; currency: string };
+    grossTotal: { amount: number; currency: string };
+  };
+  const eur = (amount: number) => ({ amount, currency: "EUR" });
+  const head = { supplier: "Papier AG", invoiceNumber: "RE-2026-0042" };
+
+  test("with lines, manipulated client totals are replaced by the line sums", async () => {
+    const totals = await stack.http.writeOk<ReceiveTotals>(
+      "contacts:write:invoice:receive",
+      {
+        ...head,
+        lines: [
+          { description: "Paper", amount: 1005, vatRate: 19, vatAmount: 5 },
+          { description: "Toner", amount: 2000, vatRate: 7 },
+        ],
+        netTotal: eur(1),
+        vatTotal: eur(2),
+        grossTotal: eur(3),
+      },
+      admin,
+    );
+    expect(totals).toEqual({
+      netTotal: eur(30.05),
+      vatTotal: eur(3.31),
+      grossTotal: eur(33.36),
+    });
+  });
+
+  test("without lines, the typed net stays and VAT and gross are computed from the rate", async () => {
+    const totals = await stack.http.writeOk<ReceiveTotals>(
+      "contacts:write:invoice:receive",
+      { ...head, lines: [], netTotal: eur(100), vatRate: 19, vatTotal: eur(0), grossTotal: eur(0) },
+      admin,
+    );
+    expect(totals).toEqual({ netTotal: eur(100), vatTotal: eur(19), grossTotal: eur(119) });
+  });
+
+  test("a stale gross total is overwritten", async () => {
+    const totals = await stack.http.writeOk<ReceiveTotals>(
+      "contacts:write:invoice:receive",
+      {
+        ...head,
+        lines: [],
+        netTotal: eur(50),
+        vatRate: 20,
+        vatTotal: eur(0),
+        grossTotal: eur(999),
+      },
+      admin,
+    );
+    expect(totals.grossTotal).toEqual(eur(60));
+  });
+
+  test("a caller without the Admin role is rejected", async () => {
+    const error = await stack.http.writeErr(
+      "contacts:write:invoice:receive",
+      { ...head, lines: [], netTotal: eur(50), vatRate: 20, vatTotal: eur(0), grossTotal: eur(0) },
+      viewer,
+    );
+    expect(error.code).toBe("access_denied");
+  });
+});
