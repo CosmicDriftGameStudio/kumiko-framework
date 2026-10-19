@@ -1,5 +1,43 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.373.0
+
+### Minor Changes
+
+- 6913834: `loadPendingFileRef` and `bindPendingFileRef` for custom handlers
+  
+  `@cosmicdrift/kumiko-framework/files` exports two helpers for handlers that create their own record from an uploaded file. `loadPendingFileRef({ fileRefId, entityName, fieldName, user, db })` returns `{ id, storageKey, mimeType, size, version }` of the caller's own unbound upload for that field, or `undefined` for a foreign, bound, deleted or wrong-field fileRef. `bindPendingFileRef({ ..., entityId })` binds it with the stream version and returns `"bound"`, `"not-pending"` or `"version-conflict"` (a parallel bind lost the race). It applies the same ownership check as the save pipeline. Anonymous callers never own an upload, so both helpers treat them as having none. The helper does not check write access to `entityId`; the handler must already be allowed to write that record.
+  
+  `loadFileRefRows` now reads stream versions before the rows, so a bind that commits in between makes the second update conflict instead of overwriting the first.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: loadPendingFileRef and bindPendingFileRef bind a caller's own pending upload from a custom handler
+  detail: Additive. fileName is not part of PendingFileRef because it is personal data; read it via the fileRef executor's detail. Unexpected update errors throw; version_conflict and unique_violation map to "version-conflict".
+  -->
+- 6913834: A handler can declare several rate-limit buckets
+  
+  `rateLimit` accepts a list: `rateLimit: [{ per: "user", limit: 2, windowSeconds: 3600 }, { per: "tenant+handler", limit: 3, windowSeconds: 3600 }]`. Each bucket applies on its own, and the check is all-or-nothing: if one bucket is exhausted the call answers 429 for that bucket and none of them is charged. `additionalRateLimits` (payload buckets) gets the same all-or-nothing check.
+  
+  All-or-nothing holds within one list. Handler `rateLimit` buckets are charged in the pre-handler gate, before schema validation; payload buckets (`additionalRateLimits`) need the validated payload. A later payload rejection therefore does not undo the handler charges.
+  
+  `RateLimitResolver` has a new required method `enforceAll(requests)` that checks and deducts several buckets atomically (one Lua script in the Redis resolver). Boot fails for an empty list, for the same `per` twice, for the same `payloadField` twice in `additionalRateLimits`, and for anonymous handlers with a user-keyed bucket or tenantless-anonymous handlers with a non-ip bucket in the list. `@cosmicdrift/kumiko-types/handlers` exports `RateLimitOptions`, `declaredRateLimitOptions` and `isRateLimitOption`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: rateLimit accepts a list of buckets that are enforced all-or-nothing
+  detail: RateLimitDeclaration is now a single option, a non-empty list of options or the disabled form. RateLimitResolver gains the required method enforceAll(requests: readonly RateLimitBucketRequest[]); createRateLimitResolver and createUnlimitedRateLimitResolver implement it. Payload buckets in additionalRateLimits are charged through the same call.
+  migration: Custom RateLimitResolver implementations and test fakes need an enforceAll method (check every bucket, then deduct from all or none, and throw RateLimitError for the rejected bucket with the largest retryAfter). Existing rateLimit declarations stay valid. A duplicate payloadField in additionalRateLimits is now a boot error; merge the entries into one.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [6913834]
+  - @cosmicdrift/kumiko-types@0.373.0
+  - @cosmicdrift/kumiko-http@0.373.0
+
 ## 0.372.0
 
 ### Minor Changes

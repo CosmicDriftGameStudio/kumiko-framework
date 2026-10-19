@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.373.0",
+    "type": "improvement",
+    "title": "kumiko-build pins dist-server dependencies with a bun.lock seeded from the app's bun.lock",
+    "detail": "The lock is written by writeServerLockfile after the bundle build and needs network or a warm Bun cache. The scaffolded Dockerfile runs bun install --production --frozen-lockfile in the runtime stage.",
+    "migration": "Apps with their own Dockerfile should run `bun install --production --frozen-lockfile` in dist-server instead of `bun install --production`."
+  },
+  {
     "version": "0.372.0",
     "type": "improvement",
     "title": "kumiko-build --entry and buildServerBundle extraEntries bundle additional server entry points as dist-server/<basename>.js",

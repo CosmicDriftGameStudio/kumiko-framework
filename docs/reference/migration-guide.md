@@ -10,6 +10,16 @@ verified: 2026-10-19
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.373.0
+
+### framework-core
+
+**rateLimit accepts a list of buckets that are enforced all-or-nothing**
+
+RateLimitDeclaration is now a single option, a non-empty list of options or the disabled form. RateLimitResolver gains the required method enforceAll(requests: readonly RateLimitBucketRequest[]); createRateLimitResolver and createUnlimitedRateLimitResolver implement it. Payload buckets in additionalRateLimits are charged through the same call.
+
+**Migration:** Custom RateLimitResolver implementations and test fakes need an enforceAll method (check every bucket, then deduct from all or none, and throw RateLimitError for the rejected bucket with the largest retryAfter). Existing rateLimit declarations stay valid. A duplicate payloadField in additionalRateLimits is now a boot error; merge the entries into one.
+
 ## 0.372.0
 
 ### delivery
