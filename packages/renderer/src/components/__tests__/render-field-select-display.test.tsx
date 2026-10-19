@@ -7,9 +7,9 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { computeEditViewModel, type EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { computeEditViewModel, type EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { RenderField } from "../render-field.tsx";

@@ -1,6 +1,6 @@
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
-import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
+import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import * as z from "zod";
 import { HostRoutingQueries, isPathTenantKeyCandidate, isTenantKeyCandidate } from "./constants.ts";
 import { classifyHost, splitFirstSegment, tenantKeyFromPath } from "./host.ts";

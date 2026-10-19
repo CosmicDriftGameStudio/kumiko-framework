@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, setSystemTime, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   DashboardBodyProvider,
@@ -8,6 +7,7 @@ import {
   KumikoScreen,
   NavProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { act, cleanup, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";

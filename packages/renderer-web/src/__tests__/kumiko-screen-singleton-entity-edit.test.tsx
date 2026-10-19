@@ -3,13 +3,13 @@ import {
   type EntityEditScreenDefinition,
   translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   DispatcherProvider,
   KumikoScreen,
   kumikoDefaultTranslations,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
 
 // Split out of kumiko-screen.test.tsx (#2495): the create->update submit

@@ -4,12 +4,12 @@
 // (LocaleProvider mit Bundle, SessionContext mit injizierbarem Wert).
 
 import { mock } from "bun:test";
-import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render as _render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";

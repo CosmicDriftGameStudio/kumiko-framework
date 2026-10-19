@@ -8,9 +8,9 @@
 // wie @cosmicdrift/* im Workspace aufgelöst wird.
 
 import { describe, expect, test } from "bun:test";
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import type { EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { RenderField } from "../render-field.tsx";

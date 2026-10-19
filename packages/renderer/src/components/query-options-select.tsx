@@ -1,6 +1,6 @@
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { isOptionsQueryFieldRef, type OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useEffect, useRef } from "react";
+import type { EditFieldViewModel } from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { usePrimitives } from "../primitives.tsx";
 

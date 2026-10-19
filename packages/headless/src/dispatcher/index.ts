@@ -9,8 +9,9 @@ export type {
   PendingWrite,
   QueryOpts,
   QueryResult,
+  StreamFrameEvent,
   StreamOpts,
   WriteOpts,
   WriteResult,
-} from "./types.ts";
-export { StreamFrame, type StreamFrameEvent } from "./types.ts";
+} from "@cosmicdrift/kumiko-renderer/headless/dispatcher";
+export { StreamFrame } from "@cosmicdrift/kumiko-renderer/headless/dispatcher";

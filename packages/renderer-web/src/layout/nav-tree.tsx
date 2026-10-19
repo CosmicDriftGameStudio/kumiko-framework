@@ -18,8 +18,6 @@ import type {
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
-import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   lastSegment,
@@ -28,6 +26,8 @@ import {
   useNav,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-renderer/headless";
+import { resolveNavigation } from "@cosmicdrift/kumiko-renderer/headless";
 import { ChevronDown, ChevronRight, type Folder, Plus, Search } from "lucide-react";
 import {
   createContext,

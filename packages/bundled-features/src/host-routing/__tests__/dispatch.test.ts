@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
-import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
+import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { HostRoutingQueries } from "../constants.ts";
 import { createHostDispatch } from "../dispatch.ts";
 import { normalizeHostname } from "../host.ts";

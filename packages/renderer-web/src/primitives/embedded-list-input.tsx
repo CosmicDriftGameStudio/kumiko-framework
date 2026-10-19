@@ -19,7 +19,6 @@
 // for the single-mount-per-side fix above. Upgrade: lift per-cell draft
 // state into a `draftsByCellId` map here that survives the layout swap.
 
-import { applyFormatSpec, type FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type {
   EmbeddedListCellType,
   EmbeddedListColumn,
@@ -27,6 +26,7 @@ import type {
   EmbeddedListTotal,
 } from "@cosmicdrift/kumiko-renderer";
 import { useLocale, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { applyFormatSpec, type FieldIssue } from "@cosmicdrift/kumiko-renderer/headless";
 import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from "lucide-react";
 import {
   type ClipboardEvent,

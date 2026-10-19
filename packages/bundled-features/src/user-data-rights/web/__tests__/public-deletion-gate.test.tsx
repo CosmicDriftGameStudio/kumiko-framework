@@ -6,7 +6,6 @@
 // verbietet test-utils-Import).
 
 import { afterEach, describe, expect, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -14,6 +13,7 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, within } from "@testing-library/react";
 import type { ReactNode } from "react";

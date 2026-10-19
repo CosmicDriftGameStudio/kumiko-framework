@@ -1,4 +1,4 @@
-import { escapeHtml, isSafeHref } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, isSafeHref } from "@cosmicdrift/kumiko-renderer/headless";
 import { Marked } from "marked";
 
 // Geteilter, gehärteter Markdown→HTML-Kern für server-gerenderte Public-

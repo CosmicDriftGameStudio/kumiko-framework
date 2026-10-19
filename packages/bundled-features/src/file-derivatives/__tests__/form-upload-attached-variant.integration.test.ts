@@ -33,7 +33,7 @@ import {
   computeEditViewModel,
   type EditFieldViewModel,
   type EditViewModel,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { buildFileUploadFormData } from "@cosmicdrift/kumiko-renderer-web";
 import {
   buildMultipartBody,

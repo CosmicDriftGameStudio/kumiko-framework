@@ -3,14 +3,20 @@
  * Guard: prevents `@cosmicdrift/kumiko-renderer` (shared, platform-neutral)
  * from touching DOM- or platform-specific APIs. As soon as window/document/
  * EventSource/react-dom show up, the separation is broken and the code
- * belongs in `@cosmicdrift/kumiko-renderer-web` (or renderer-native) instead.
+ * belongs in `@cosmicdrift/kumiko-renderer-web` instead.
+ *
+ * `src/headless/**` and `src/live/**` only get the import rules: the apex
+ * page builder emits HTML strings and the live dispatcher is a fetch client,
+ * so the symbol and JSX-tag rules would be noise there. They stay free of
+ * react-dom, jsdom and renderer-web.
  *
  * Deliberately simple: a regex scan over the source text. False positives
  * (e.g. "window" in a string literal) are possible but rare — the guard is a
  * maintenance alarm, not a semantic proof.
  *
  * Checked:
- *   - Imports:  react-dom/*, jsdom, @cosmicdrift/kumiko-renderer-web, @cosmicdrift/kumiko-renderer-native
+ *   - Imports:  react-dom/*, jsdom, @cosmicdrift/kumiko-renderer-web, and the deprecated
+ *               headless / dispatcher-live shims (they depend on this package)
  *   - Symbols:  window., document., location., history., localStorage,
  *               sessionStorage, navigator., EventSource, fetch(
  *               (bare — unqualified), HTMLElement, createRoot
@@ -27,7 +33,7 @@ const FORBIDDEN_IMPORTS = [
   /from ["']react-dom(?:\/.*)?["']/,
   /from ["']jsdom["']/,
   /from ["']@cosmicdrift\/kumiko-renderer-web["']/,
-  /from ["']@cosmicdrift\/kumiko-renderer-native["']/,
+  /from ["']@cosmicdrift\/kumiko-headless(?:\/.*)?["']/,
   /from ["']@cosmicdrift\/kumiko-dispatcher-live["']/,
 ];
 
@@ -59,6 +65,9 @@ const FORBIDDEN_SYMBOLS = [
 // after whitespace/newline/>, not after an identifier character).
 const FORBIDDEN_JSX_TAG = /(^|\s|>|\()<([a-z][a-zA-Z0-9-]*)(?=[\s/>])/g;
 
+// Subtrees of packages/renderer/src that carry only the import rules.
+const IMPORT_RULES_ONLY_DIRS = ["headless", "live"] as const;
+
 type Violation = {
   readonly file: string;
   readonly line: number;
@@ -83,7 +92,7 @@ function walk(dir: string): string[] {
   return out;
 }
 
-export function findViolations(file: string, root: string): Violation[] {
+export function findViolations(file: string, root: string, importRulesOnly = false): Violation[] {
   const text = fs.readFileSync(file, "utf-8");
   const lines = text.split("\n");
   const violations: Violation[] = [];
@@ -104,6 +113,7 @@ export function findViolations(file: string, root: string): Violation[] {
         });
       }
     }
+    if (importRulesOnly) continue;
     for (const pattern of FORBIDDEN_SYMBOLS) {
       if (pattern.test(line)) {
         violations.push({
@@ -126,9 +136,17 @@ export function findViolations(file: string, root: string): Violation[] {
   return violations;
 }
 
+function isImportRulesOnly(file: string): boolean {
+  return IMPORT_RULES_ONLY_DIRS.some((dir) =>
+    file.includes(
+      `${path.sep}packages${path.sep}renderer${path.sep}src${path.sep}${dir}${path.sep}`,
+    ),
+  );
+}
+
 export const check: RepoCheck = {
   name: "Renderer-Boundaries Guard",
-  hint: "@cosmicdrift/kumiko-renderer must not use DOM/browser/platform APIs. Platform-specific code belongs in @cosmicdrift/kumiko-renderer-web (or renderer-native).",
+  hint: "@cosmicdrift/kumiko-renderer must not use DOM/browser/platform APIs. Platform-specific code belongs in @cosmicdrift/kumiko-renderer-web.",
   run(roots) {
     const frameworkRoots = roots.filter((r) => r.kind === "framework");
     const scanDirs = frameworkRoots
@@ -141,7 +159,7 @@ export const check: RepoCheck = {
     for (const dir of scanDirs) files.push(...walk(dir));
     const root = frameworkRoots[0]?.absPath ?? process.cwd();
     const violations = files.flatMap((file) =>
-      findViolations(file, root).map((v) => ({
+      findViolations(file, root, isImportRulesOnly(file)).map((v) => ({
         file: v.file,
         line: v.line,
         message: `[${v.rule}] ${v.excerpt}`,

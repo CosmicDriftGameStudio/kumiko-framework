@@ -13,8 +13,8 @@ export type NavNode = {
   readonly label: string;
   readonly icon?: string;
   readonly screen?: string;
-  // Polymorphes Klick-Ziel (EditorPanel via dispatch) — Alternative zu
-  // `screen`. Knoten trägt screen XOR target.
+  // Polymorphic click target (EditorPanel via dispatch) — alternative to
+  // `screen`. A node carries screen XOR target.
   readonly target?: TargetRef;
   // Hover-Actions + „+"-Affordance, durchgereicht aus der NavDefinition.
   readonly actions?: readonly TreeAction[];

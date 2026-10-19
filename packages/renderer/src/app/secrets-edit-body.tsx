@@ -1,8 +1,8 @@
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import type { Translate } from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { useTranslation } from "../i18n.tsx";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";

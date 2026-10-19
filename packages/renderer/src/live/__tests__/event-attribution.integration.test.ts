@@ -14,7 +14,6 @@
 //      and stay readable without the new fields.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import {
   buildEntityTable,
@@ -36,6 +35,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { UNATTRIBUTED_ORIGIN, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import * as z from "zod";
+import { createLiveDispatcher } from "../index.ts";
 
 const orderEntity = createEntity({
   table: "read_attribution_orders",

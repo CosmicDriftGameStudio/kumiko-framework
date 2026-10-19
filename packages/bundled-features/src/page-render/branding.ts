@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 
 // Tenant-branding tokens resolved at render time (managed-pages reads them
 // from config — see managed-pages/branding.ts). Empty string = "unset, use

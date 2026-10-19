@@ -7,8 +7,6 @@
 // in styles.css (:has() selector) — the single source for the header height
 // that Drawer's `belowHeader` prop also reads.
 
-import type { NavNode } from "@cosmicdrift/kumiko-headless";
-import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   type ActionMenuItemSpec,
@@ -17,6 +15,8 @@ import {
   usePageHeaderCompact,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import type { NavNode } from "@cosmicdrift/kumiko-renderer/headless";
+import { resolveNavigation } from "@cosmicdrift/kumiko-renderer/headless";
 import { MoreHorizontal } from "lucide-react";
 import {
   Fragment,

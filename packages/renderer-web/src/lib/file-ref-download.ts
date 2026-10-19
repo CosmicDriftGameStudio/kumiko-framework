@@ -1,4 +1,4 @@
-import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
+import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
 
 const UTF8_BOM = String.fromCharCode(0xfeff);
 

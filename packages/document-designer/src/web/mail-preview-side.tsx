@@ -1,7 +1,7 @@
 // @runtime client
 import { ConfigQueries } from "@cosmicdrift/kumiko-bundled-features/config/web";
-import { DOCUMENT_FALLBACK_CURRENCY } from "@cosmicdrift/kumiko-headless";
 import { useNav, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { DOCUMENT_FALLBACK_CURRENCY } from "@cosmicdrift/kumiko-renderer/headless";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useState } from "react";
 import { displayValue } from "./mail-draft.ts";

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
   useDispatcher,
   useDispatcherStatus,
   useOptionalDispatcher,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { act, createMockDispatcher, render, renderHook } from "./test-utils.tsx";
 

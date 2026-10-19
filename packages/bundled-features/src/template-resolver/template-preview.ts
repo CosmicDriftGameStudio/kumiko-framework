@@ -16,7 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
-import { escapeHtml } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import * as z from "zod";
 import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.ts";
 import { fileContextForTenant } from "../file-foundation/index.ts";

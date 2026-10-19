@@ -148,7 +148,9 @@ imports, re-exports, `import("…")` and `mock.module` specifiers (including sub
 package to the new one, and in `package.json` replaces the old dependency with the target package
 (same version range, same block, skipped when the block already lists it). The moves are the rows
 of `PACKAGE_MERGE_MAPPINGS`: `@cosmicdrift/kumiko-http` to `@cosmicdrift/kumiko-framework/http`,
-`@cosmicdrift/kumiko-repo-manifest` to `@cosmicdrift/kumiko-guards/repo-manifest`.
+`@cosmicdrift/kumiko-repo-manifest` to `@cosmicdrift/kumiko-guards/repo-manifest`,
+`@cosmicdrift/kumiko-headless` to `@cosmicdrift/kumiko-renderer/headless` (subpaths keep their name),
+`@cosmicdrift/kumiko-dispatcher-live` to `@cosmicdrift/kumiko-renderer/live`.
 
 ```bash
 bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/package-merge.ts <dir> [--check | --dry-run | --write] [--no-format]

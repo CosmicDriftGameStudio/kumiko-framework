@@ -1,16 +1,16 @@
+import { type ReactNode, useState } from "react";
 import type {
   EditFieldViewModel,
   EmbeddedListCellViewModel,
   FieldIssue,
-} from "@cosmicdrift/kumiko-headless";
+} from "../headless/index.ts";
 import {
   computeDerivedCellValue,
   currencyDecimals,
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
-} from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useState } from "react";
+} from "../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";

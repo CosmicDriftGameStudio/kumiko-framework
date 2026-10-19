@@ -16,12 +16,6 @@
 import { afterEach, beforeEach } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
-  createStore,
-  type Dispatcher,
-  type DispatcherStatus,
-  type WritableStore,
-} from "@cosmicdrift/kumiko-headless";
-import {
   createStaticLocaleResolver,
   type DraftStorage,
   kumikoDefaultTranslations,
@@ -33,6 +27,12 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import {
+  createStore,
+  type Dispatcher,
+  type DispatcherStatus,
+  type WritableStore,
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { render as _render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { defaultPrimitives } from "../primitives/index.tsx";

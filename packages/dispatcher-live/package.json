@@ -1,7 +1,7 @@
 {
   "name": "@cosmicdrift/kumiko-dispatcher-live",
   "version": "0.376.0",
-  "description": "HTTP-only Dispatcher for Kumiko UIs. Always-online; failures surface immediately. Default client for web admin/cockpit apps.",
+  "description": "Deprecated shim: re-exports @cosmicdrift/kumiko-renderer/live. Removed after wave 4.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -24,13 +24,7 @@
     }
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-headless": "workspace:*",
-    "@cosmicdrift/kumiko-types": "workspace:*",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-testing": "workspace:*"
+    "@cosmicdrift/kumiko-renderer": "workspace:*"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

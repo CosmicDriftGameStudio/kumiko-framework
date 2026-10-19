@@ -803,7 +803,7 @@ export function computeEditViewModel<
       ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
       visible,
       emptiedByWriteExclusion: wasEmptiedByWriteExclusion(declaredFieldSpecs, fields),
-      // Titellose Section (flache Form) → kein h3; nur übersetzen wenn gesetzt.
+      // Untitled section (flat form) → no h3; translate only when set.
       ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
       ...(sectionSpec.description !== undefined && {
         description: translate(sectionSpec.description),

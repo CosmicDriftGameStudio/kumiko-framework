@@ -139,7 +139,7 @@ describe("accepts the escaping conventions", () => {
   test("escapeHtml / escapeHtmlAttr / escapeXml calls", () => {
     expect(
       violations(
-        `import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+        `import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 					function render(name: string, href: string) {
 						return \`<a href="\${escapeHtmlAttr(href)}">\${escapeHtml(name)}</a>\`;
 					}`,
@@ -261,7 +261,7 @@ describe("exemptions", () => {
   test("html`...` tagged template", () => {
     expect(
       violations(
-        `import { html } from "@cosmicdrift/kumiko-headless";
+        `import { html } from "@cosmicdrift/kumiko-renderer/headless";
 					function render(name: string) { return html\`<p>\${name}</p>\`; }`,
       ),
     ).toHaveLength(0);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-renderer/headless";
 import { render, waitFor } from "@testing-library/react";
 import { DocumentLangSync } from "../document-lang-sync.tsx";
 

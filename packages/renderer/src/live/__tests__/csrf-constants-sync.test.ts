@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { CSRF_HEADER_NAME as DISPATCHER_CSRF_HEADER_NAME } from "@cosmicdrift/kumiko-dispatcher-live";
 import { CSRF_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
+import { CSRF_HEADER_NAME as DISPATCHER_CSRF_HEADER_NAME } from "../index.ts";
 
 // dispatcher-live keeps its own literal copy of the header name
-// (see packages/dispatcher-live/src/csrf.ts) because it must stay
+// (see packages/renderer/src/live/csrf.ts) because it must stay
 // server-dep-free for browser/React Native bundles. This test is the
 // guardrail that catches drift in CI instead of at runtime. The cookie names
 // have a single definition in @cosmicdrift/kumiko-types/session-cookies.

@@ -7,7 +7,6 @@ import type {
   EntityEditScreenDefinition,
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   AppFeaturesProvider,
   DashboardBodyProvider,
@@ -17,6 +16,7 @@ import {
   qualifyScreenId,
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";

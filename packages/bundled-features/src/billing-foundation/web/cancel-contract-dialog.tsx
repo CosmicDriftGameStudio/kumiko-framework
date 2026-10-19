@@ -1,12 +1,12 @@
 // @runtime client
 
-import { toInstant } from "@cosmicdrift/kumiko-headless";
 import {
   useLocale,
   useMutation,
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { toInstant } from "@cosmicdrift/kumiko-renderer/headless";
 import { ModeSwitch } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { SubscriptionFoundationHandlers } from "../constants.ts";

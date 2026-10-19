@@ -3,13 +3,10 @@
  * Guard: enforces that app-/feature-web code uses UI building blocks from
  * the framework primitives, not hand-rolled Tailwind on raw HTML tags.
  *
- * Why: hand-rolled Tailwind in `web/` folders costs twice:
- *   1. Style drift — every renderer/theme update then has to be re-applied
- *      to each hand-tailwound screen individually.
- *   2. Multi-platform lock-out — native (renderer-native) has no
- *      `<table>`, `<form>`, `<button>`. Direct DOM tags bind the code to
- *      web. Framework primitives (`<DataTable>`, `<Form>`, `<Button>`) are
- *      contractually platform-neutral.
+ * Why: hand-rolled Tailwind in `web/` folders costs twice: every
+ * renderer/theme update then has to be re-applied to each hand-tailwound
+ * screen individually (style drift), and direct DOM tags bypass the
+ * primitives contract (`<DataTable>`, `<Form>`, `<Button>`).
  *
  * Forbidden in app-/feature-web code:
  *

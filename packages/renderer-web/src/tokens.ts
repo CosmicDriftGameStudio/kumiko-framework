@@ -1,4 +1,3 @@
-import { createStore } from "@cosmicdrift/kumiko-headless";
 import {
   cssVarTokens,
   type ThemeMode,
@@ -6,6 +5,7 @@ import {
   type Tokens,
   type TokensApi,
 } from "@cosmicdrift/kumiko-renderer";
+import { createStore } from "@cosmicdrift/kumiko-renderer/headless";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.ts";
 

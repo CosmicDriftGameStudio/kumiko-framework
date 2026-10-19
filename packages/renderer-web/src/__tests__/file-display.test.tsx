@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { RenderField, RenderList } from "@cosmicdrift/kumiko-renderer";
+import type { EditFieldViewModel } from "@cosmicdrift/kumiko-renderer/headless";
 import { fireEvent, waitFor } from "@testing-library/react";
 import {
   FileDisplayCell,

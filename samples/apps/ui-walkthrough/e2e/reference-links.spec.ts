@@ -1,5 +1,5 @@
 // @runtime test
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   captureScreenshot,
   expect,

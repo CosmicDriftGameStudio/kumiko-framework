@@ -1,12 +1,12 @@
 // @runtime test
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";

@@ -3,11 +3,11 @@
 // record-bound action dispatched the same way a toolbarAction is.
 
 import { describe, expect, test } from "bun:test";
-import type { EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { NavProvider } from "../../app/nav.tsx";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { EditRelatedListSectionViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {

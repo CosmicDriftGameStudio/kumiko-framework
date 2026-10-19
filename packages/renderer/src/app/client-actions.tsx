@@ -5,8 +5,8 @@
 // provider directly.
 
 import type { RowActionClientAction } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
+import type { Translate } from "../headless/index.ts";
 
 export type ClientActionOutcome =
   | { readonly ok: true }

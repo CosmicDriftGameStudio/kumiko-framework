@@ -1,6 +1,6 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { createStaticLocaleResolver, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { act, screen } from "@testing-library/react";
 import { createContext, type ReactNode, useContext } from "react";
 import type { ClientFeatureDefinition } from "../app/client-plugin.tsx";

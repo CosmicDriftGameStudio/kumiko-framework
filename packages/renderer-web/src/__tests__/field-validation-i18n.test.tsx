@@ -4,7 +4,7 @@
 // Default-Bundle definiert, und DefaultField reichte issue.params nicht
 // an t() durch (Platzhalter wie {minimum} blieben uninterpoliert).
 import { describe, expect, test } from "bun:test";
-import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
+import type { FieldIssue } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { render } from "./test-utils.tsx";
 

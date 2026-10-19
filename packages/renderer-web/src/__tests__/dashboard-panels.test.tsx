@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   createStaticLocaleResolver,
@@ -14,6 +13,7 @@ import {
   NavProvider,
   type TranslationsByLocale,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";

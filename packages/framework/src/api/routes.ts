@@ -22,8 +22,8 @@ import { requestContext } from "./request-context.ts";
 import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.ts";
 
 // SSE frame event names for POST /api/stream. Parallel definition lives in
-// @cosmicdrift/kumiko-headless (dispatcher-live imports that one) — framework
-// cannot depend on headless for four string literals.
+// @cosmicdrift/kumiko-renderer/headless (the live dispatcher imports that one) — framework
+// cannot depend on the renderer for four string literals.
 export const StreamFrame = {
   chunk: "chunk",
   ping: "ping",

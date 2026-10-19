@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { RenderField } from "@cosmicdrift/kumiko-renderer";
+import type { EditFieldViewModel } from "@cosmicdrift/kumiko-renderer/headless";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { render, screen } from "./test-utils.tsx";

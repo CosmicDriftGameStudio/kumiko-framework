@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { raw } from "@cosmicdrift/kumiko-headless";
+import { raw } from "@cosmicdrift/kumiko-renderer/headless";
 import { Marked } from "marked";
 import { type BuildInfo, buildInfoLines } from "./buildinfo";
 import { chromeFor } from "./chrome";

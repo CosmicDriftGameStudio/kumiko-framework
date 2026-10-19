@@ -79,11 +79,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
-  currencyDecimals,
-  EMPTY_VALUE_PLACEHOLDER,
-  type Translate,
-} from "@cosmicdrift/kumiko-headless";
-import {
   type DashboardBodyProps,
   dispatcherErrorText,
   EmbeddedScreenProvider,
@@ -104,6 +99,11 @@ import {
   useRecordActions,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import {
+  currencyDecimals,
+  EMPTY_VALUE_PLACEHOLDER,
+  type Translate,
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {

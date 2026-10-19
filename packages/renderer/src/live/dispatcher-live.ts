@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   type BatchResult,
   type Command,
@@ -12,8 +13,7 @@ import {
   type StreamOpts,
   type WriteOpts,
   type WriteResult,
-} from "@cosmicdrift/kumiko-headless";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+} from "../headless/index.ts";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf.ts";
 import {
   batchEnvelopeSchema,

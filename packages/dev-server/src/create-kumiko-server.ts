@@ -40,7 +40,7 @@ import {
   type PageHeadResolver,
   type PageHeadSystemQuery,
   resolveAndInjectPageHead,
-} from "@cosmicdrift/kumiko-headless/apex";
+} from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
 import {
   buildBunServeOptions,

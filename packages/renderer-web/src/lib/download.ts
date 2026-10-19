@@ -1,4 +1,4 @@
-import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-headless";
+import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 
 // Dispatch a query/handler whose result carries `{ url }` (a signed,
 // short-lived storage URL with `content-disposition: attachment`), then

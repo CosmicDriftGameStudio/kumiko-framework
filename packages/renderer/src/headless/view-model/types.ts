@@ -78,15 +78,15 @@ export type ListColumnViewModel = {
   readonly optionLabels?: Readonly<Record<string, string>>;
   /** Only for `type: "select"` — declared tone per raw option value. */
   readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
-  /** Nur bei `type: "reference"` — referenced Entity-Name für Bulk-
-   *  Lookup im Renderer (`<refFeature>:query:<refEntity>:list`). */
+  /** Only for `type: "reference"` — referenced entity name for the bulk
+   *  lookup in the renderer (`<refFeature>:query:<refEntity>:list`). */
   readonly refEntity?: string;
-  /** Nur bei `type: "reference"` — Feature-Name in dem die referenced
-   *  Entity wohnt. Default = current feature. Cross-Feature über
-   *  qualifizierte Form ("feature:entity") am ReferenceFieldDef. */
+  /** Only for `type: "reference"` — name of the feature the referenced
+   *  entity lives in. Default = current feature. Cross-feature via the
+   *  qualified form ("feature:entity") on ReferenceFieldDef. */
   readonly refFeature?: string;
-  /** Nur bei `type: "reference"` — Welches Feld der referenced Entity
-   *  als Display-Wert in der Cell erscheint (Default "id"). */
+  /** Only for `type: "reference"` — which field of the referenced entity
+   *  appears as the display value in the cell (default "id"). */
   readonly refLabelField?: string;
   /** Set by the caller at runtime (not schema-derived) to emphasize one
    *  column — e.g. the currently selected base-year column in a
@@ -231,13 +231,13 @@ export type EditFieldViewModel = {
   readonly writeOnly?: true;
   /** From the field's `sensitive: true` — the value must not leave the form (drafts, URL prefill). */
   readonly sensitive?: true;
-  /** Nur bei `type: "timestamp"` gesetzt wenn TimestampFieldDef.locatedBy
-   *  existiert — Wall-Clock-Zeit ohne Offset. Der Renderer emittiert
-   *  dann lokale Zeit ohne `Z` statt eines UTC-Instants. */
+  /** Only set for `type: "timestamp"` when TimestampFieldDef.locatedBy
+   *  exists — wall-clock time without offset. The renderer then emits
+   *  local time without `Z` instead of a UTC instant. */
   readonly wallClock?: boolean;
-  /** Nur bei `type: "date" | "timestamp"` — Datumsgrenzen (ISO) und
-   *  Format/Locale-Override aus der FieldDefinition. Der Renderer begrenzt
-   *  damit den Picker; die Write-Validierung läuft separat über Zod. */
+  /** Only for `type: "date" | "timestamp"` — date bounds (ISO) and
+   *  format/locale override from the FieldDefinition. The renderer limits
+   *  the picker with them; write validation runs separately via Zod. */
   readonly min?: string;
   readonly max?: string;
   readonly dateLocale?: string;
@@ -245,37 +245,37 @@ export type EditFieldViewModel = {
    *  `true`). `false` renders without thousands-separators (e.g. a model
    *  year). */
   readonly grouping?: boolean;
-  /** Nur bei `type: "reference"` gesetzt — Tier 2.7e-3.
-   *  Die referenced Entity (kurz, ohne feature-prefix). Der Renderer
-   *  baut die Query-QN als `<refFeature>:query:<refEntity>:list`. */
+  /** Only set for `type: "reference"`.
+   *  The referenced entity (short, without feature prefix). The renderer
+   *  builds the query QN as `<refFeature>:query:<refEntity>:list`. */
   readonly refEntity?: string;
-  /** Nur bei `type: "reference"` gesetzt — Feature-Name in dem die
-   *  referenced Entity wohnt. Same-feature default = aktuelles
-   *  Feature. Cross-Feature wird über "feature:entity" am
-   *  ReferenceFieldDef.entity erkannt. */
+  /** Only set for `type: "reference"` — name of the feature the
+   *  referenced entity lives in. Same-feature default = current
+   *  feature. Cross-feature is detected via "feature:entity" on
+   *  ReferenceFieldDef.entity. */
   readonly refFeature?: string;
-  /** Nur bei `type: "reference"` gesetzt — Welches Feld der referenced
-   *  Entity als Display-Label im Dropdown erscheint. Default: "id". */
+  /** Only set for `type: "reference"` — which field of the referenced
+   *  entity appears as the display label in the dropdown. Default: "id". */
   readonly refLabelField?: string;
   /** Only for `type: "reference"` — query handler QN the picker sources its
    *  options from (fw#2780), replacing the referenced entity's list handler.
    *  Rows carry `{ id, label }`; `refLabelField` is then unused for the
    *  picker but still drives list cells. */
   readonly refOptionsQuery?: string;
-  /** Nur bei `type: "reference"` — Multi-Mode (Tier 2.7e-Multi):
-   *  Wert ist UUID-Array, Renderer mountet Multi-Combobox mit Tags. */
+  /** Only for `type: "reference"` — multi mode:
+   *  the value is a UUID array, the renderer mounts a multi-combobox with tags. */
   readonly refMultiple?: boolean;
-  /** Nur bei `type: "file" | "image"` — erlaubte Extensions/MIME (z.B.
-   *  ["jpg","png"]) + Max-Größe ("5mb"). Der Renderer setzt das `accept`-
-   *  Attribut + zeigt die Grenze; die Validierung läuft serverseitig im
-   *  Upload-Endpoint gegen die Field-Def. */
+  /** Only for `type: "file" | "image"` — allowed extensions/MIME (e.g.
+   *  ["jpg","png"]) + max size ("5mb"). The renderer sets the `accept`
+   *  attribute and shows the limit; validation runs server-side in the
+   *  upload endpoint against the field def. */
   readonly accept?: readonly string[];
   readonly maxSize?: string;
   /** Only for `type: "files" | "images"` — upper bound on list length. */
   readonly maxCount?: number;
-  /** Nur bei `type: "file" | "image"` — Entity-Name + Field-Name für den
-   *  Upload-POST (`/api/files`), damit der Endpoint maxSize/accept gegen
-   *  die richtige Field-Def prüfen kann. */
+  /** Only for `type: "file" | "image"` — entity name + field name for the
+   *  upload POST (`/api/files`), so the endpoint can check maxSize/accept
+   *  against the right field def. */
   readonly entityType?: string;
   readonly fieldName?: string;
   /** Record being edited (update mode only). Sent with the upload so the

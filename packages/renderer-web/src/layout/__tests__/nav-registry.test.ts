@@ -11,7 +11,7 @@ import type {
   NavDefinition,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
+import { resolveNavigation } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   filterAppSchemaNavsByAllowlist,
   reparentAppSchemaNavs,

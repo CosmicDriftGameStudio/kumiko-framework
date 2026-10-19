@@ -7,7 +7,6 @@ import type {
   FeatureSchema,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   AppFeaturesProvider,
   DashboardBodyProvider,
@@ -18,6 +17,7 @@ import {
   UserRolesProvider,
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";

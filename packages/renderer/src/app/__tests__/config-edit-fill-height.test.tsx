@@ -2,10 +2,10 @@
 // (Form fillHeight + stickyActions); `fillHeight: false` opts out.
 import { describe, expect, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";

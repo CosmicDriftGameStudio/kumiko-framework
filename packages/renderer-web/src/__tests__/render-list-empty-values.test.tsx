@@ -3,7 +3,6 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -17,6 +16,7 @@ import {
   RenderList,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { cleanup, render } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { defaultPrimitives } from "../primitives/index.tsx";

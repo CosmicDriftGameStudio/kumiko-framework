@@ -44,7 +44,8 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 | `testing` | Test stack, seeding, preloads, integration runner |
 | `guards` | AST guards and repo checks (`kumiko-guards`), `kumiko.json` schema and loader (`/repo-manifest`) |
 | `repo-manifest` | Deprecated shim for `guards/repo-manifest`, removed after wave 4 |
-| `headless`, `renderer`, `renderer-web`, `dispatcher-live` | UI logic, platform-agnostic renderer, web bindings, HTTP dispatcher |
+| `renderer`, `renderer-web` | UI logic and HTTP dispatcher (`renderer/headless`, `renderer/live`), platform-agnostic renderer, web bindings |
+| `headless`, `dispatcher-live` | Deprecated shims for `renderer/headless` and `renderer/live`, removed after wave 4 |
 | `renderer-mail-html`, `renderer-puppeteer-client`, `document-designer` | Mail and PDF rendering, template editor |
 | `locale-de`, `locale-es`, `locale-fr`, `locale-it` | Opt-in UI and mail copy |
 | `samples` | Packaged source of recipes and sample apps |

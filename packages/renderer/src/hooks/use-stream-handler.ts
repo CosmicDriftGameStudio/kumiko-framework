@@ -1,6 +1,6 @@
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
+import type { DispatcherError } from "../headless/index.ts";
 
 // React wrapper around dispatcher.stream (#1382). Accumulates yielded
 // chunks into `chunks` (unlike useQuery({live:true}), which only

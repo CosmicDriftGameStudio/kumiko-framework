@@ -10,7 +10,6 @@
 // express); the danger zone is fields + actions.
 
 import { describe, expect, spyOn, test } from "bun:test";
-import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -21,6 +20,11 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import {
+  createStore,
+  type Dispatcher,
+  type DispatcherStatus,
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -7,6 +6,7 @@ import {
   LiveEventsProvider,
   useQuery,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { act, createMockDispatcher, render, waitFor } from "./test-utils.tsx";
 

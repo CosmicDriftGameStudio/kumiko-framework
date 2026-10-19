@@ -1,7 +1,7 @@
 const APP_PEER_PACKAGES = [
   "@cosmicdrift/kumiko-framework",
   "@cosmicdrift/kumiko-bundled-features",
-  "@cosmicdrift/kumiko-headless",
+  "@cosmicdrift/kumiko-renderer",
 ] as const;
 
 // The runtime packages are optional peers (so `new app` runs without them); a

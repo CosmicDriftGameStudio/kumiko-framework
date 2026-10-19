@@ -11,7 +11,6 @@ import type {
   ProjectionDetailScreenDefinition,
   SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type {
   ExtensionSectionProps,
   FeatureSchema,
@@ -28,6 +27,7 @@ import {
   useExtensionFormSubmit,
   usePrimitives,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";

@@ -1,7 +1,7 @@
 import type { ActionFormLoad } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { DispatcherError, Translate } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
+import type { DispatcherError, Translate } from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";

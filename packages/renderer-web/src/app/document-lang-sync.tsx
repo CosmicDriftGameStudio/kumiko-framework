@@ -10,7 +10,7 @@
 // app already goes through, so mounting this here covers every app with
 // zero app-side wiring, same as createBrowserLocaleResolver.
 
-import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-renderer/headless";
 import { useEffect } from "react";
 
 function syncDocumentLocale(locale: string): void {

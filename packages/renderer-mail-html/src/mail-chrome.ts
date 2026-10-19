@@ -3,7 +3,7 @@ import {
   MAIL_TONES,
   type MailTone,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 export type ToneColors = { readonly bar: string; readonly fg: string; readonly soft: string };

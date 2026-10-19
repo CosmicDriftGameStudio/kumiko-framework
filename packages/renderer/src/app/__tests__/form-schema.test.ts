@@ -4,7 +4,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { createFormController } from "@cosmicdrift/kumiko-headless";
+import { createFormController } from "../../headless/index.ts";
 import {
   buildFormSchema,
   OPTION_NOT_AVAILABLE_I18N_KEY,

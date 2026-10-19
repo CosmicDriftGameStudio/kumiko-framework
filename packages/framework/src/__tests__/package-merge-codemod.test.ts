@@ -182,8 +182,8 @@ describe("package-merge codemod: package.json", () => {
 describe("package-merge codemod: mapping table", () => {
   const extra: readonly PackageMergeMapping[] = [
     ...PACKAGE_MERGE_MAPPINGS,
-    { from: "@cosmicdrift/kumiko-headless", to: "@cosmicdrift/kumiko-renderer" },
-    { from: "@cosmicdrift/kumiko-headless/special", to: "@cosmicdrift/kumiko-renderer/elsewhere" },
+    { from: "@cosmicdrift/kumiko-example", to: "@cosmicdrift/kumiko-target" },
+    { from: "@cosmicdrift/kumiko-example/special", to: "@cosmicdrift/kumiko-target/elsewhere" },
   ];
 
   it("ships the http and repo-manifest moves", () => {
@@ -192,20 +192,48 @@ describe("package-merge codemod: mapping table", () => {
     expect(mergedSpecifier("@cosmicdrift/kumiko-framework/http")).toBeUndefined();
   });
 
-  it("takes additional rows, longest from first", () => {
-    expect(mergedSpecifier("@cosmicdrift/kumiko-headless/special", extra)).toBe(
-      "@cosmicdrift/kumiko-renderer/elsewhere",
+  it("ships the headless and dispatcher-live moves into renderer subpaths", () => {
+    expect(mergedSpecifier("@cosmicdrift/kumiko-headless")).toBe(
+      "@cosmicdrift/kumiko-renderer/headless",
     );
-    expect(mergedSpecifier("@cosmicdrift/kumiko-headless/other", extra)).toBe(
-      "@cosmicdrift/kumiko-renderer/other",
+    expect(mergedSpecifier("@cosmicdrift/kumiko-headless/locale-routing")).toBe(
+      "@cosmicdrift/kumiko-renderer/headless/locale-routing",
+    );
+    expect(mergedSpecifier("@cosmicdrift/kumiko-dispatcher-live")).toBe(
+      "@cosmicdrift/kumiko-renderer/live",
+    );
+    expect(mergedSpecifier("@cosmicdrift/kumiko-renderer")).toBeUndefined();
+  });
+
+  it("replaces the headless and dispatcher-live dependencies with renderer once", () => {
+    const result = transformPackageMergeSource(
+      JSON.stringify({
+        dependencies: {
+          "@cosmicdrift/kumiko-dispatcher-live": "^1.0.0",
+          "@cosmicdrift/kumiko-headless": "^1.0.0",
+        },
+      }),
+      "/repo/package.json",
+    );
+    expect(JSON.parse(result.output)).toEqual({
+      dependencies: { "@cosmicdrift/kumiko-renderer": "^1.0.0" },
+    });
+  });
+
+  it("takes additional rows, longest from first", () => {
+    expect(mergedSpecifier("@cosmicdrift/kumiko-example/special", extra)).toBe(
+      "@cosmicdrift/kumiko-target/elsewhere",
+    );
+    expect(mergedSpecifier("@cosmicdrift/kumiko-example/other", extra)).toBe(
+      "@cosmicdrift/kumiko-target/other",
     );
     const result = transformPackageMergeSource(
-      JSON.stringify({ dependencies: { "@cosmicdrift/kumiko-headless": "^1.0.0" } }),
+      JSON.stringify({ dependencies: { "@cosmicdrift/kumiko-example": "^1.0.0" } }),
       "/repo/package.json",
       extra,
     );
     expect(JSON.parse(result.output)).toEqual({
-      dependencies: { "@cosmicdrift/kumiko-renderer": "^1.0.0" },
+      dependencies: { "@cosmicdrift/kumiko-target": "^1.0.0" },
     });
   });
 });

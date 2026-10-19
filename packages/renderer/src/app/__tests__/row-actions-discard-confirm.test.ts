@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import type { Dispatcher } from "../../headless/index.ts";
 import type { NavApi } from "../nav.tsx";
 import { buildRecordActions } from "../row-actions.ts";
 

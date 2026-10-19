@@ -1,7 +1,7 @@
-// html`...` — Tagged-Template, das jede Interpolation automatisch HTML-escaped.
-// Macht Escaping strukturell statt per-Callsite-Konvention: vergessen ist
-// unmöglich, bewusst rohes HTML braucht ein explizites raw(). Der
-// HTML-Escape-Guard (kumiko-guards) akzeptiert html`...` als safe.
+// html`...` — tagged template that HTML-escapes every interpolation automatically.
+// Makes escaping structural instead of a per-call-site convention: forgetting
+// it is impossible, deliberately raw HTML needs an explicit raw(). The
+// HTML-escape guard (kumiko-guards) accepts html`...` as safe.
 
 import { escapeHtml } from "./escape.ts";
 
@@ -15,7 +15,7 @@ export class RawHtml {
   }
 }
 
-/** Markiert bereits escaptes/vertrauenswürdiges Markup für html`...`. */
+/** Marks already escaped or trusted markup for html`...`. */
 export function raw(html: string): RawHtml {
   return new RawHtml(html);
 }
@@ -37,9 +37,9 @@ function renderValue(value: HtmlValue): string {
   return String(value);
 }
 
-// Rückgabe ist RawHtml, damit Fragmente verschachtelbar sind ohne doppelt zu
-// escapen: `html`<div>${item}</div>`` innerhalb eines äußeren html`...`
-// passiert unverändert durch. toString() liefert das fertige Markup.
+// Returns RawHtml so fragments can be nested without double escaping:
+// `html`<div>${item}</div>`` inside an outer html`...` passes through
+// unchanged. toString() yields the finished markup.
 export function html(strings: TemplateStringsArray, ...values: ReadonlyArray<HtmlValue>): RawHtml {
   let out = strings[0] ?? "";
   values.forEach((value, i) => {

@@ -1,7 +1,7 @@
 import type { ListEmptyStateSpec } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { useMemo } from "react";
 import type { ListEmptyStateContent } from "../components/list-empty-state.tsx";
+import type { Translate } from "../headless/index.ts";
 import { buildRecordActions } from "./row-actions.ts";
 
 type ActionBindings = Pick<

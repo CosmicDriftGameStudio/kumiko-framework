@@ -4,7 +4,6 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -23,6 +22,7 @@ import {
   TokensProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   act,
   cleanup,

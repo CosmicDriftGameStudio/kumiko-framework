@@ -24,7 +24,7 @@ import {
   formatDocumentDate,
   formatDocumentMoney,
   formatDocumentPercent,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 import Handlebars from "handlebars";
 
 // Handlebars instance, template resolution and resource lookup shared by the

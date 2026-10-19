@@ -8,7 +8,6 @@ import type {
   EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { ActionMenuItemSpec, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   DispatcherProvider,
@@ -16,6 +15,7 @@ import {
   RenderList,
   usePrimitives,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useEffect, useState } from "react";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";

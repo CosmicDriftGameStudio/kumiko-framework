@@ -75,11 +75,11 @@ describe("mapServerError", () => {
   test("skips malformed field entries — stricter than the server, by design", () => {
     // A defensive parse: if a future server emits an extra intermediate
     // wrapper or garbled JSON, we drop the malformed entry instead of
-    // rendering undefined fields in the UI. Der Code warnt bei jedem
-    // Drop (ops-visible Contract-Bruch) — im Test stummschalten UND
-    // gleichzeitig prüfen: jeder der drei Malformed-Inputs muss genau
-    // einen warn() ausgelöst haben. Das macht das "silence" im Test-
-    // Output zur Assertion, nicht zu einem Sweep-under-the-rug.
+    // rendering undefined fields in the UI. The code warns on every
+    // drop (ops-visible contract break) — silence it in the test AND
+    // assert at the same time: each of the three malformed inputs must have
+    // triggered exactly one warn(). That turns the "silence" in the test
+    // output into an assertion instead of sweeping it under the rug.
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const mapped = mapServerError({
