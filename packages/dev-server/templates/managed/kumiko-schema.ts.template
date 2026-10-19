@@ -5,9 +5,24 @@
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
 import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import appConfig from "../kumiko.config";
 
-export const FEATURES: readonly FeatureDefinition[] = allAppFeatures(appConfig);
+const CONFIGURED_FEATURES = allAppFeatures(appConfig);
+
+// Auth apps mount config/user/tenant/auth-email-password through composeFeatures at boot;
+// without them here the generated schema would miss their tables. Composing an already
+// composed list is a no-op (app-side duplicates of bundled names are dropped).
+// kumiko.config.ts `includeBundled` wins; otherwise an auth-foundation or sessions feature marks an auth app.
+const HAS_AUTH =
+  appConfig.includeBundled ??
+  CONFIGURED_FEATURES.some(
+    (feature) => feature.name === "auth-foundation" || feature.name === "sessions",
+  );
+
+export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...CONFIGURED_FEATURES], {
+  includeBundled: HAS_AUTH,
+});
 
 // `kumiko check` validates the boot with the options kumiko.config.ts declares.
 export const VALIDATE_BOOT_OPTIONS = appConfig.validateBootOptions;

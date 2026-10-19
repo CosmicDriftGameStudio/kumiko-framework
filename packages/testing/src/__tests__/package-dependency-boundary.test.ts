@@ -120,9 +120,10 @@ function collectCoreGraph(): { files: Set<string>; violations: string[] } {
 }
 
 describe("kumiko-testing package manifest", () => {
-  test("regular dependencies are only framework, types and zod", () => {
+  test("regular dependencies are only framework, repo-manifest, types and zod", () => {
     expect(Object.keys(manifest.dependencies).sort()).toEqual([
       "@cosmicdrift/kumiko-framework",
+      "@cosmicdrift/kumiko-repo-manifest",
       "@cosmicdrift/kumiko-types",
       "zod",
     ]);

@@ -1574,3 +1574,181 @@ describe("upgrade command — --apply: one run, open manual entries survive", ()
     expect(readMarkerFile(cwd).pendingManual).toEqual([withId(OLD_OPEN)]);
   });
 });
+
+describe("upgrade command — CHANGELOG.md, --verbose and repeated --apply", () => {
+  const INSTALLED = "0.349.0";
+  const MANUAL = {
+    version: "0.348.0",
+    type: "breaking",
+    title: "new manual change",
+    detail: "The option moved.\nSecond line.",
+    migration: "rename it by hand",
+  };
+  const CODEMOD_ENTRY = {
+    version: "0.347.0",
+    type: "breaking",
+    title: "helper moved",
+    migration: "import from /testing",
+    codemod: REAL_CODEMOD,
+  };
+
+  function fixture(extra: Record<string, string> = {}): string {
+    return tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: INSTALLED }),
+      "packages/framework/src/changes.json": JSON.stringify([CODEMOD_ENTRY, MANUAL]),
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: "0.345.0",
+        appliedAt: "2024-01-01T00:00:00Z",
+        codemods: [],
+      }),
+      "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      ...extra,
+    });
+  }
+
+  const apply = async (cwd: string, flags: readonly string[] = []) => {
+    const spy = makeSpyOutput();
+    const exit = await runUpgradeCli(["--apply", ...flags], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
+    return { exit, spy };
+  };
+
+  const readChangelog = (cwd: string) => readFileSync(join(cwd, "CHANGELOG.md"), "utf-8");
+
+  test("--apply writes one section per bump with breaking titles, manual status and codemods", async () => {
+    const cwd = fixture();
+
+    expect((await apply(cwd)).exit).toBe(0);
+
+    const changelog = readChangelog(cwd);
+    expect(changelog).toStartWith("# Changelog\n");
+    expect(changelog).toContain("## [0.349.0] - ");
+    expect(changelog).toContain("@cosmicdrift/kumiko-*: 0.345.0 → 0.349.0");
+    expect(changelog).toContain("- 0.347.0 · helper moved");
+    expect(changelog).toContain(
+      `- [open] ${manualEntryId(MANUAL.version, MANUAL.title)} · 0.348.0 · new manual change`,
+    );
+    expect(changelog).toContain(`- 0.347.0 · ${REAL_CODEMOD} · helper moved`);
+  });
+
+  test("the CHANGELOG section runs from the marker version to the installed version", async () => {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.374.0" }),
+      "packages/framework/src/changes.json": JSON.stringify([{ ...MANUAL, version: "0.372.0" }]),
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: "0.370.0",
+        appliedAt: "2024-01-01T00:00:00Z",
+        codemods: [],
+      }),
+    });
+
+    expect((await apply(cwd)).exit).toBe(0);
+
+    const changelog = readChangelog(cwd);
+    expect(changelog).toContain("0.370.0 → 0.374.0");
+    expect(changelog).not.toContain("0.374.0 → 0.374.0");
+  });
+
+  test("codemods accumulate in the marker over two bumps without duplicates", async () => {
+    const cwd = fixture();
+    await apply(cwd);
+    const secondCodemod = { ...CODEMOD_ENTRY, version: "0.352.0", title: "helper moved again" };
+    writeFileSync(
+      join(cwd, "packages/framework/src/changes.json"),
+      JSON.stringify([CODEMOD_ENTRY, MANUAL, secondCodemod]),
+    );
+    writeFileSync(
+      join(cwd, "packages/bundled-features/package.json"),
+      JSON.stringify({ version: "0.355.0" }),
+    );
+
+    expect((await apply(cwd)).exit).toBe(0);
+    expect((await apply(cwd)).exit).toBe(0);
+
+    expect(readMarkerFile(cwd).codemods).toEqual([
+      { version: "0.347.0", codemod: REAL_CODEMOD, title: "helper moved" },
+      { version: "0.352.0", codemod: REAL_CODEMOD, title: "helper moved again" },
+    ]);
+  });
+
+  test("a second --apply leaves CHANGELOG.md and the applied codemods as they are", async () => {
+    const cwd = fixture();
+    await apply(cwd);
+    const changelogAfterFirst = readChangelog(cwd);
+    const markerAfterFirst = readMarkerFile(cwd);
+
+    expect((await apply(cwd)).exit).toBe(0);
+
+    expect(readChangelog(cwd)).toBe(changelogAfterFirst);
+    expect(markerAfterFirst.codemods).toHaveLength(1);
+    expect(readMarkerFile(cwd).codemods).toEqual(markerAfterFirst.codemods);
+  });
+
+  test("re-running the same bump replaces its section instead of duplicating it", async () => {
+    const cwd = fixture();
+    await apply(cwd);
+    writeFileSync(
+      join(cwd, ".kumiko/upgrade-state.json"),
+      JSON.stringify({ version: "0.345.0", appliedAt: "2024-01-01T00:00:00Z", codemods: [] }),
+    );
+
+    expect((await apply(cwd)).exit).toBe(0);
+
+    expect(readChangelog(cwd).match(/^## \[0\.349\.0\]/gm)).toHaveLength(1);
+  });
+
+  test("a new section goes on top of an existing CHANGELOG.md and keeps its other text", async () => {
+    const older = "## [0.340.0] - 2024-01-01\n\n### Changed\n\n- older bump\n";
+    const cwd = fixture({ "CHANGELOG.md": `# My app changes\n\nOwn intro.\n\n${older}` });
+
+    await apply(cwd);
+
+    const changelog = readChangelog(cwd);
+    expect(changelog).toStartWith("# My app changes\n\nOwn intro.\n");
+    expect(changelog.indexOf("## [0.349.0]")).toBeLessThan(changelog.indexOf("## [0.340.0]"));
+    expect(changelog).toContain("- older bump");
+  });
+
+  test("no CHANGELOG.md is written when nothing is pending", async () => {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: INSTALLED }),
+      "packages/framework/src/changes.json": JSON.stringify([]),
+    });
+
+    expect((await apply(cwd)).exit).toBe(0);
+
+    expect(existsSync(join(cwd, "CHANGELOG.md"))).toBe(false);
+  });
+
+  test("--verbose prints detail and migration of the open manual entries, the default does not", async () => {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: INSTALLED }),
+      "packages/framework/src/changes.json": JSON.stringify([MANUAL]),
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: INSTALLED,
+        appliedAt: "2024-01-01T00:00:00Z",
+        codemods: [],
+        pendingManual: [
+          {
+            id: manualEntryId(MANUAL.version, MANUAL.title),
+            version: MANUAL.version,
+            title: MANUAL.title,
+          },
+        ],
+      }),
+    });
+    const quiet = makeSpyOutput();
+    const verbose = makeSpyOutput();
+
+    await runUpgradeCli([], cwd, quiet.out);
+    await runUpgradeCli(["--verbose"], cwd, verbose.out);
+
+    const quietText = quiet.logs.join("\n");
+    const verboseText = verbose.logs.join("\n");
+    expect(quietText).toContain("1 manual migration(s) still open");
+    expect(quietText).not.toContain("The option moved.");
+    expect(verboseText).toContain("The option moved. Second line.");
+    expect(verboseText).toContain("→ Migration: rename it by hand");
+  });
+});

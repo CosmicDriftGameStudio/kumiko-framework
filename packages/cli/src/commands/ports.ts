@@ -1,4 +1,9 @@
 import { resolve } from "node:path";
+import {
+  findPortCollisions,
+  listAppPorts,
+  scanWorkspaceApps,
+} from "@cosmicdrift/kumiko-repo-manifest/app-ports";
 import type { CliCommand, CliCommandContext } from "./types";
 
 // Fixed column order so the table reads the same in every run.
@@ -10,8 +15,7 @@ export async function runPorts(ctx: CliCommandContext): Promise<number> {
     return 1;
   }
   const root = resolve(ctx.cwd, ctx.argv[0] ?? ".");
-  const managed = await import("@cosmicdrift/kumiko-dev-server/managed-files");
-  const apps = managed.scanWorkspaceApps(root);
+  const apps = scanWorkspaceApps(root);
   if (apps.length === 0) {
     ctx.out.err(`  No app with kumiko.config.ts directly below ${root}.`);
     return 1;
@@ -26,14 +30,12 @@ export async function runPorts(ctx: CliCommandContext): Promise<number> {
       ctx.out.log(`  ${app.padEnd(20)}(${reason})`);
       continue;
     }
-    const byRole = new Map(
-      managed.listAppPorts(appConfig.ports).map(({ role, port }) => [role, port]),
-    );
+    const byRole = new Map(listAppPorts(appConfig.ports).map(({ role, port }) => [role, port]));
     ctx.out.log(
       `  ${app.padEnd(20)}${PORT_COLUMNS.map((column) => String(byRole.get(column) ?? "-").padEnd(12)).join("")}`,
     );
   }
-  const collisions = managed.findPortCollisions(apps);
+  const collisions = findPortCollisions(apps);
   ctx.out.log("");
   for (const { port, claims } of collisions) {
     ctx.out.err(`  ✗ port ${port}: ${claims.map(({ app, role }) => `${app} ${role}`).join(", ")}`);

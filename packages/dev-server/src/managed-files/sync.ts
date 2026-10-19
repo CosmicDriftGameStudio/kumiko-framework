@@ -1,6 +1,7 @@
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { mergeBunfig } from "@cosmicdrift/kumiko-testing/bunfig";
+import { stripAppJobs, withAppJobsOf } from "./app-jobs.ts";
 import { readManagedMarker } from "./marker.ts";
 import {
   listManagedFiles,
@@ -45,10 +46,18 @@ function isBrokenSymlink(path: string): boolean {
   }
 }
 
+// App jobs stay where the app put them as long as the rest matches the template.
+function templateContent(rendered: string, existing: string | undefined): string {
+  if (existing === undefined) return rendered;
+  return stripAppJobs(existing) === stripAppJobs(rendered)
+    ? existing
+    : withAppJobsOf(rendered, existing);
+}
+
 function plannedContent(file: ManagedFile, existing: string | undefined): PlannedWrite | string {
   switch (file.kind) {
     case "template":
-      return { content: file.content, executable: file.executable };
+      return { content: templateContent(file.content, existing), executable: file.executable };
     case "bunfig": {
       const generated = renderManagedBunfig(file, existing);
       if (existing === undefined) return { content: generated, executable: false };

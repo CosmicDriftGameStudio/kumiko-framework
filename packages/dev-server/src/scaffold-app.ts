@@ -91,6 +91,9 @@ export type ScaffoldAppOptions = {
    *  @cosmicdrift/kumiko-testing/scaffold. Without it the app gets the managed
    *  bunfigs but no example tests and fewer standard scripts. */
   readonly testSetup?: ScaffoldTestSetupFactory;
+  /** Infra tag written to `package.json#kumiko.deploy.infraRef`. Unset: the managed
+   *  workflows call infra at `main` and `kumiko check managed` warns. */
+  readonly infraRef?: string;
 };
 
 export type ScaffoldAppResult = {
@@ -117,7 +120,10 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   const files: string[] = [];
 
-  write(join(destination, "package.json"), renderPackageJson(options.name, version, testSetup));
+  write(
+    join(destination, "package.json"),
+    renderPackageJson(options.name, version, testSetup, options.infraRef),
+  );
   files.push("package.json");
 
   write(join(destination, "kumiko.json"), renderKumikoManifest());
@@ -237,6 +243,7 @@ function renderPackageJson(
   name: string,
   version: string,
   testSetup: ScaffoldTestSetup | undefined,
+  infraRef: string | undefined,
 ): string {
   return `${JSON.stringify(
     {
@@ -244,6 +251,7 @@ function renderPackageJson(
       version: "0.1.0",
       private: true,
       type: "module",
+      ...(infraRef === undefined ? {} : { kumiko: { deploy: { infraRef } } }),
       scripts: appScripts(testSetup),
       dependencies: {
         "@cosmicdrift/kumiko-bundled-features": version,
@@ -835,7 +843,6 @@ function renderBinKumiko(): string {
     'import { envSchema } from "./env-schema";',
     "",
     "const [, , cmd, ...rest] = Bun.argv;",
-    "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
     "const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };",
     "",
     'if (cmd === "schema") {',
@@ -850,7 +857,6 @@ function renderBinKumiko(): string {
     "  process.exit(await runConsumerCli(rest, out));",
     "}",
     "",
-    "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
     "console.error(",
     `  \`\\n  Unknown: kumiko \${cmd ?? ""} — the standalone bundle only runs 'kumiko schema' and 'kumiko consumer'.\\n\`,`,
     ");",

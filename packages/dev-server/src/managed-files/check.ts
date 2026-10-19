@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { mergeBunfig } from "@cosmicdrift/kumiko-testing/bunfig";
+import { stripAppJobs } from "./app-jobs.ts";
 import { parseJsonc } from "./jsonc.ts";
 import { renderLineDiff } from "./line-diff.ts";
 import { readManagedMarker, stripManagedMarker } from "./marker.ts";
 import {
   BIOME_PRESET,
   listManagedFiles,
+  listManagedWarnings,
   type ManagedAppFacts,
   type ManagedBunfigFile,
   type ManagedFile,
@@ -35,6 +37,8 @@ export type ManagedCheckResult = {
   /** kumiko.config.ts calls defineAppConfig: drift fails the check from then on. */
   readonly adopted: boolean;
   readonly files: readonly ManagedFileReport[];
+  /** Findings that do not fail the check. */
+  readonly warnings: readonly string[];
 };
 
 function readIfExists(path: string): string | undefined {
@@ -49,7 +53,10 @@ function checkTemplate(file: ManagedTemplateFile, existing: string): ManagedFile
   const marker = readManagedMarker(existing);
   if (marker.kind === "invalid") return { state: "invalid", message: marker.message };
   if (marker.kind === "local") return { state: "local", reason: marker.reason };
-  const diff = compareBodies(stripManagedMarker(file.content), stripManagedMarker(existing));
+  const diff = compareBodies(
+    stripAppJobs(stripManagedMarker(file.content)),
+    stripAppJobs(stripManagedMarker(existing)),
+  );
   if (marker.kind === "unmarked")
     return diff === undefined ? { state: "unmarked" } : { state: "unmarked", diff };
   return diff === undefined ? { state: "ok" } : { state: "differs", diff };
@@ -138,6 +145,7 @@ export function checkManagedFiles(facts: ManagedAppFacts): ManagedCheckResult {
       kind: file.kind,
       ...checkFile(file, facts),
     })),
+    warnings: listManagedWarnings(facts),
   };
 }
 

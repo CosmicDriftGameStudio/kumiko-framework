@@ -1,0 +1,134 @@
+# CI for {{appName}}: a public repo cannot call the private reusable workflows in
+# cosmicdriftgamestudio/infra, so every job here is self-contained on GitHub-hosted
+# runners. The rollout is manual: see release.yml. Jobs only this app needs: name
+# them `app-<name>` in this file (they survive `kumiko sync-managed`).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  HUSKY: "0"
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun kumiko check
+      - name: Schema + boot validate
+        env:
+          FILE_STORAGE_PROVIDER: "inmemory"
+        run: bun kumiko-schema validate
+{{#uiGuards}}
+      - name: UI guards
+        run: bun kumiko-guards ui
+{{/uiGuards}}
+      - run: bun run test
+
+  integration:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_USER: kumiko
+          POSTGRES_PASSWORD: kumiko
+          POSTGRES_DB: kumiko_dev
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd "pg_isready -U kumiko -d kumiko_dev"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 16379:6379
+{{#meilisearch}}
+      meilisearch:
+        image: getmeili/meilisearch:v1.12
+        env:
+          MEILI_MASTER_KEY: kumiko-dev-key
+          MEILI_ENV: development
+        ports:
+          - 17700:7700
+{{/meilisearch}}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - run: bun install --frozen-lockfile
+      - name: Create test database
+        env:
+          PGPASSWORD: kumiko
+        run: psql -h localhost -p 15432 -U kumiko -d kumiko_dev -c "CREATE DATABASE kumiko_test;"
+      - name: Run integration tests
+        env:
+          NODE_ENV: test
+          KUMIKO_INSTANCE_ID: test-instance
+          DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_dev
+          TEST_DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_test
+          REDIS_URL: redis://localhost:16379
+          JWT_SECRET: testtesttesttesttesttesttesttest
+        run: bun run test:integration
+
+  # Build on main only; the rollout runs through the manual release workflow.
+  build:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/cosmicdriftgamestudio/{{appName}}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/arm64
+          build-args: |
+            BUILD_VERSION=${{ github.sha }}

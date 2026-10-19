@@ -41,6 +41,7 @@ export async function runManagedCheckStep(
   const local = result.files.filter((report) => report.state === "local");
   const okCount = result.files.length - drift.length - local.length;
   out.log(`    ${okCount}/${result.files.length} managed file(s) match the installed template`);
+  for (const warning of result.warnings) out.log(`    ! ${warning}`);
   for (const report of local) out.log(`    ~ ${report.path}: ${describeReport(report)}`);
   for (const report of drift) {
     out.log(`    ${result.adopted ? "✗" : "!"} ${report.path}: ${describeReport(report)}`);

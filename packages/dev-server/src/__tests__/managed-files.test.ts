@@ -13,16 +13,13 @@ import { join } from "node:path";
 import {
   checkAppScripts,
   checkManagedFiles,
-  findPortCollisions,
   isManagedDrift,
   type ManagedAppFacts,
   type ManagedFileReport,
   PREPARE_SCRIPT,
-  parseStaticAppConfig,
   readManagedMarker,
   resolveManagedAppFacts,
   STANDARD_APP_SCRIPTS,
-  scanWorkspaceApps,
   syncManagedFiles,
 } from "../managed-files/index.ts";
 import { render } from "../scaffold-deploy.ts";
@@ -219,51 +216,108 @@ describe("template values", () => {
   });
 });
 
-describe("kumiko.config.ts static read", () => {
-  test("defined, legacy and invalid configs", () => {
-    expect(parseStaticAppConfig(APP_CONFIG)).toEqual({
-      kind: "defined",
-      ports: { dev: 4400, e2e: 4401, infra: { meilisearch: 17710 } },
-    });
-    expect(parseStaticAppConfig("export default { features: [] };\n")).toEqual({
-      kind: "legacy",
-    });
-    const spread = parseStaticAppConfig(
-      "import { defineAppConfig } from 'x';\nconst p = { dev: 1, e2e: 2 };\nexport default defineAppConfig({ features: [], client: { entries: ['a'] }, ports: { ...p } });\n",
+describe("infraRef, visibility and app jobs", () => {
+  function setDeploy(deploy: Record<string, unknown>): void {
+    writeFileSync(
+      join(appRoot, "package.json"),
+      JSON.stringify({ name: "shop-app", kumiko: { deploy } }),
     );
-    expect(spread.kind).toBe("invalid");
-  });
-});
+  }
+  const read = (path: string) => readFileSync(join(appRoot, path), "utf-8");
 
-describe("port registry", () => {
-  test("reports a port claimed by two apps across roles", () => {
-    const root = mkdtempSync(join(tmpdir(), "kumiko-ports-"));
-    try {
-      for (const [name, ports] of [
-        ["app-a", "{ dev: 4320, e2e: 4321 }"],
-        ["app-b", "{ dev: 4330, e2e: 4320, infra: { postgres: 15432 } }"],
-        ["app-c", "{ dev: 4340, e2e: 4341, infra: { postgres: 15433 } }"],
-      ] as const) {
-        mkdirSync(join(root, name));
-        writeFileSync(
-          join(root, name, "kumiko.config.ts"),
-          `export default defineAppConfig({ features: [], client: { entries: ["src/client.tsx"] }, ports: ${ports} });\n`,
-        );
-      }
-      const apps = scanWorkspaceApps(root);
-      expect(apps.map((app) => app.app)).toEqual(["app-a", "app-b", "app-c"]);
-      expect(findPortCollisions(apps)).toEqual([
-        {
-          port: 4320,
-          claims: [
-            { app: "app-a", role: "dev" },
-            { app: "app-b", role: "e2e" },
-          ],
-        },
-      ]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+  test("infraRef pins every private reusable workflow to the tag", () => {
+    setDeploy({ infraRef: "infra-v3" });
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    const release = read(".github/workflows/release.yml");
+    expect(ci).toContain("@infra-v3");
+    expect(ci).not.toContain("@main");
+    expect(release).toContain("_app-deploy.yml@infra-v3");
+    expect(checkManagedFiles(facts()).warnings).toEqual([]);
+  });
+
+  test("a missing infraRef renders @main and warns instead of failing", () => {
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).toContain("@main");
+    expect(read(".github/workflows/release.yml")).toContain("_app-deploy.yml@main");
+    const result = checkManagedFiles(facts());
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain("infraRef");
+    expect(result.files.filter(isManagedDrift).map((file) => file.path)).not.toContain(
+      ".github/workflows/ci.yml",
+    );
+  });
+
+  test("an infraRef that could inject into a workflow is rejected", () => {
+    setDeploy({ infraRef: "main\nrun: evil" });
+    expect(() => syncManagedFiles(facts(), { write: false, adopt: false })).toThrow();
+  });
+
+  test("public visibility has no private reusables and only a rollout hint", () => {
+    setDeploy({ visibility: "public" });
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    const release = read(".github/workflows/release.yml");
+    expect(ci).not.toContain("_app-deploy.yml");
+    expect(ci).not.toContain("infra/.github");
+    expect(release).not.toContain("_app-deploy.yml");
+    expect(release).toContain(
+      "gh workflow run public-app-rollout.yml --repo cosmicdriftgamestudio/infra -f app=shop-app",
+    );
+    expect(checkManagedFiles(facts()).warnings).toEqual([]);
+  });
+
+  test("docStatusGuard false renders the input, the default does not", () => {
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).not.toContain("doc-status-guard");
+    setDeploy({ docStatusGuard: false });
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).toContain("doc-status-guard: false");
+  });
+
+  const APP_JOB =
+    "  app-seed-check:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo own\n";
+
+  test("an app-* job is no drift and survives a sync", () => {
+    syncAll();
+    const path = join(appRoot, ".github/workflows/ci.yml");
+    writeFileSync(path, `${read(".github/workflows/ci.yml").replace(/\n+$/, "")}\n\n${APP_JOB}`);
+
+    expect(report(".github/workflows/ci.yml").state).toBe("ok");
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).toContain("app-seed-check:");
+  });
+
+  test("a sync after a template change keeps the app job", () => {
+    syncAll();
+    const path = join(appRoot, ".github/workflows/ci.yml");
+    writeFileSync(path, `${read(".github/workflows/ci.yml").replace(/\n+$/, "")}\n\n${APP_JOB}`);
+    setDeploy({ infraRef: "infra-v4" });
+
+    expect(report(".github/workflows/ci.yml").state).toBe("differs");
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain("@infra-v4");
+    expect(ci).toContain("app-seed-check:");
+    expect(report(".github/workflows/ci.yml").state).toBe("ok");
+  });
+
+  test("a changed managed job next to an app job is still drift", () => {
+    syncAll();
+    const path = join(appRoot, ".github/workflows/ci.yml");
+    writeFileSync(
+      path,
+      `${read(".github/workflows/ci.yml").replace("name: CI", "name: Own CI").replace(/\n+$/, "")}\n\n${APP_JOB}`,
+    );
+    expect(report(".github/workflows/ci.yml").state).toBe("differs");
+  });
+
+  test("the pre-push template has no bypass variable", () => {
+    const template = readFileSync(
+      join(import.meta.dir, "..", "..", "templates", "managed", "husky-pre-push.template"),
+      "utf-8",
+    );
+    expect(template).not.toContain("PRE_PUSH_SKIP");
   });
 });
 

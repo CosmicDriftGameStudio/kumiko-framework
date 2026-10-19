@@ -1,5 +1,5 @@
 // changeset-required-check.sh is shared by CI and the worktree pre-push hook
-// (scripts/check-wt.sh); the branch exemptions and the consumer-repo skip live in
+// (scripts/pre-push-extra.sh); the branch exemptions and the consumer-repo skip live in
 // the script itself. Real git in a temp repo, real `changeset status` through a
 // node_modules symlink to this repo's install.
 
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const SCRIPT = join(REPO_ROOT, "scripts", "changeset-required-check.sh");
-const CHECK_WT = join(REPO_ROOT, "scripts", "check-wt.sh");
+const PRE_PUSH_EXTRA = join(REPO_ROOT, "scripts", "pre-push-extra.sh");
 
 let dir: string;
 
@@ -128,8 +128,8 @@ describe("changeset-required-check.sh", () => {
   });
 });
 
-describe("check-wt.sh entry points", () => {
-  const checkWt = readFileSync(CHECK_WT, "utf-8");
+describe("pre-push-extra.sh entry points", () => {
+  const checkWt = readFileSync(PRE_PUSH_EXTRA, "utf-8");
   const ci = readFileSync(join(REPO_ROOT, ".github", "workflows", "ci.yml"), "utf-8");
 
   test("runs the AST guard suite entry that kumiko check's guards step uses", () => {

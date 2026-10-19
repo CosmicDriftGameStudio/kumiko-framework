@@ -11,7 +11,13 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
-import { type Node, type ObjectLiteralExpression, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type Node,
+  type ObjectLiteralExpression,
+  Project,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { type AstGuard, type GuardOutcome, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
@@ -50,11 +56,11 @@ function isI18nBundleFile(filePath: string): boolean {
   return (
     /\/i18n\//.test(filePath) ||
     // Flat single-file bundle (src/i18n.ts), same status as src/i18n/index.ts.
-    /\/i18n\.ts$/.test(filePath) ||
+    /\/i18n\.(ts|js)$/.test(filePath) ||
     /\/features\/[^/]+\/i18n\./.test(filePath) ||
     // Covers any depth below bundled-features/src/<feature>/
     // (e.g. also .../schema/i18n.ts), not just exactly one level.
-    /bundled-features\/src\/.*\/i18n\.ts$/.test(filePath)
+    /bundled-features\/(src|dist)\/.*\/i18n\.(ts|js)$/.test(filePath)
   );
 }
 
@@ -370,7 +376,54 @@ export function resolveExpectedLocales(root: string = ROOT): Set<string> {
   return new Set(["de", "en"]);
 }
 
+// Published packages ship `dist` (compiled JS) only; workspace links also carry `src`.
+const INSTALLED_FRAMEWORK_SOURCES = [
+  "kumiko-*/{src,dist}/**/*.{ts,tsx,js}",
+  "!kumiko-*/**/__tests__/**",
+  "!kumiko-*/**/*.test.{ts,tsx,js}",
+  "!kumiko-*/**/*.d.ts",
+];
+
+/** Every `node_modules/@cosmicdrift` from the app root upwards: Node resolves per package, so an app's own
+ *  scope dir (a few linked packages) must not hide the hoisted one of the bun workspace above it. */
+function findInstalledScopeDirs(root: string): string[] {
+  const dirs: string[] = [];
+  let curr = path.resolve(root);
+  for (;;) {
+    const candidate = path.join(curr, "node_modules/@cosmicdrift");
+    if (existsSync(candidate)) dirs.push(candidate);
+    const parent = path.dirname(curr);
+    if (parent === curr) return dirs;
+    curr = parent;
+  }
+}
+
+/** Keys the installed framework packages define, so an app may use them without redefining. */
+export function collectInstalledFrameworkKeys(root: string = ROOT): Set<string> {
+  if (isFrameworkMonorepo(root)) return new Set();
+  // allowJs: definition lookup through imports must follow into the compiled .js files.
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    compilerOptions: { allowJs: true },
+  });
+  for (const scopeDir of findInstalledScopeDirs(root)) {
+    project.addSourceFilesAtPaths(
+      INSTALLED_FRAMEWORK_SOURCES.map((glob) =>
+        glob.startsWith("!") ? `!${path.join(scopeDir, glob.slice(1))}` : path.join(scopeDir, glob),
+      ),
+    );
+  }
+  const keys = new Set<string>();
+  for (const sf of project.getSourceFiles()) {
+    for (const entry of collectInlineTranslationsDefinedKeys(sf)) keys.add(entry.fullKey);
+    for (const entry of collectBundleDefinedKeys(sf)) keys.add(entry.fullKey);
+  }
+  return keys;
+}
+
 export type I18nKeysRunOptions = {
+  /** Inject the framework keys of the installed packages — tests must not scan node_modules. */
+  readonly installedFrameworkKeys?: () => ReadonlySet<string>;
   /** Inject expected locales per owning root — tests must not rely on process.cwd(). */
   readonly expectedLocalesForRoot?: (root: string) => Set<string>;
 };
@@ -391,7 +444,13 @@ export function checkI18nKeys(
   }
 
   const definedSet = new Set(definedKeys.map((d) => d.fullKey));
-  const missing = usedKeys.filter((u) => !definedSet.has(u.key));
+  const undefinedInApp = usedKeys.filter((u) => !definedSet.has(u.key));
+  // Scanning node_modules is slow; only pay for it when a key is unresolved.
+  const installedKeys =
+    undefinedInApp.length === 0
+      ? new Set<string>()
+      : (options.installedFrameworkKeys ?? collectInstalledFrameworkKeys)();
+  const missing = undefinedInApp.filter((u) => !installedKeys.has(u.key));
   const resolveLocales = options.expectedLocalesForRoot ?? resolveExpectedLocales;
   const expectedByRoot = new Map<string, Set<string>>();
   const expectedForFile = (rel: string): Set<string> => {
