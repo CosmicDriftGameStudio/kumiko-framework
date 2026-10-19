@@ -48,6 +48,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.reference-created-no-id":
       "Record was created but could not be selected automatically. Please select it manually.",
     "kumiko.field.unsupported": "This field type can't be edited here yet.",
+    "kumiko.field.file-list.download": "Download",
+    "kumiko.field.file-list.hidePreview": "Hide preview",
+    "kumiko.field.file-list.preview": "Preview",
     "kumiko.field.fillAction.failed": "Could not fetch a suggestion.",
     "kumiko.field.writeOnly.remove": "Remove stored value",
     "kumiko.field.writeOnly.set": "Set",
@@ -175,6 +178,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.done": "Uploaded",
     "kumiko.widget.upload.error": "Failed",
     "kumiko.widget.upload.rejected-type": "File type not allowed",
+    "kumiko.widget.pdf-preview.loading": "Loading PDF…",
+    "kumiko.widget.pdf-preview.pageOf": "Page {page} of {pages}",
+    "kumiko.widget.pdf-preview.renderFailed": "The PDF could not be displayed.",
 
     "kumiko.widget.step-bar.done": "Done",
 

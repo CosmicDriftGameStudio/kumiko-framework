@@ -7,6 +7,7 @@ import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
 import { rentalTranslations } from "./i18n";
 import {
   dayBefore,
+  fileRefIdsPayloadSchema,
   formatGermanDate,
   formatGermanMoney,
   germanStatusLabel,
@@ -32,6 +33,7 @@ import {
   leaseListScreen,
   leaseListShortScreen,
   leaseSuccessionListScreen,
+  leaseUnterlagenScreen,
   partyEditScreen,
   positionEditScreen,
   recordPositionsScreen,
@@ -94,6 +96,17 @@ export const rentalFeature = defineFeature("rental", (r) => {
     },
   });
   r.crud("leaseParty", leasePartyEntity, { write: open, read: open });
+
+  r.queryHandler({
+    name: "lease:unterlagen",
+    schema: fileRefIdsPayloadSchema,
+    handler: async (query) => ({
+      id: "unterlagen",
+      titel: "Unterlagen",
+      unterlagen: query.payload.id,
+    }),
+    ...open,
+  });
 
   r.queryHandler({
     name: "lease:akte",
@@ -270,6 +283,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
   r.screen(recordPositionsScreen);
+  r.screen(leaseUnterlagenScreen);
   r.screen({
     id: "upload-standard-layout",
     type: "custom",

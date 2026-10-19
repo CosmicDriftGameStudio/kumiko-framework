@@ -47,8 +47,6 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.placeholders.layoutHint":
       'Images travel with the PDF as data URIs. Header and footer come from the layout "{layout}" and are the same on every page.',
     "documentDesigner.preview.loading": "Generating PDF...",
-    "documentDesigner.preview.pageOf": "Page {page} of {pages}",
-    "documentDesigner.preview.renderFailed": "The PDF could not be displayed.",
     "documentDesigner.preview.stale": "The preview is out of date. Generate the PDF again.",
     "documentDesigner.resources.empty": "No images yet.",
     "documentDesigner.resources.noFilesFeature":
@@ -135,8 +133,6 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.placeholders.layoutHint":
       'Bilder gehen im PDF als Data-URI mit. Kopf- und Fußzeile kommen aus dem Layout "{layout}" und sind auf allen Seiten gleich.',
     "documentDesigner.preview.loading": "PDF wird erzeugt ...",
-    "documentDesigner.preview.pageOf": "Seite {page} von {pages}",
-    "documentDesigner.preview.renderFailed": "Das PDF konnte nicht angezeigt werden.",
     "documentDesigner.preview.stale": "Die Vorschau ist veraltet. Bitte das PDF neu erzeugen.",
     "documentDesigner.resources.empty": "Noch keine Bilder.",
     "documentDesigner.resources.noFilesFeature":
@@ -225,8 +221,6 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.placeholders.layoutHint":
       "Las imágenes van incluidas en el PDF como URI de datos. El encabezado y el pie de página vienen del diseño «{layout}» y son iguales en todas las páginas.",
     "documentDesigner.preview.loading": "Generando PDF...",
-    "documentDesigner.preview.pageOf": "Página {page} de {pages}",
-    "documentDesigner.preview.renderFailed": "No se pudo mostrar el PDF.",
     "documentDesigner.preview.stale":
       "La vista previa está desactualizada. Vuelve a generar el PDF.",
     "documentDesigner.resources.empty": "Todavía no hay imágenes.",

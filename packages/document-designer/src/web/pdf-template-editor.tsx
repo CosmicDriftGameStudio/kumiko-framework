@@ -10,7 +10,12 @@ import {
   useTranslation,
   useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
-import { ErrorState, LoadingState, uploadFileRef } from "@cosmicdrift/kumiko-renderer/web";
+import {
+  ErrorState,
+  LoadingState,
+  PdfPreview,
+  uploadFileRef,
+} from "@cosmicdrift/kumiko-renderer/web";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { BRANDING_QUERY_QN } from "../constants.ts";
@@ -32,7 +37,6 @@ import { PageCanvas } from "./page-canvas.tsx";
 import { pdfFooterMessage } from "./pdf-footer.ts";
 import { PdfResourceSection, visibleSystemPlaceholders } from "./pdf-left-rail.tsx";
 import { EMPTY_PDF_META, type PdfMetaDraft, parsePdfMeta, serializePdfMeta } from "./pdf-meta.ts";
-import { PdfPreview } from "./pdf-preview.tsx";
 import { SettingsPanel } from "./settings-panel.tsx";
 import { draftBesideActiveSentence } from "./status-label.ts";
 import { localesOf, parseJsonObject, pickRow, resolveLocale } from "./template-rows.ts";
@@ -550,7 +554,10 @@ export function PdfTemplateEditor({
           ) : (
             <div className="min-h-0 flex-1 overflow-auto">
               {generated !== null && generatedFresh ? (
-                <PdfPreview pdfBase64={generated.result.pdfBase64} />
+                <PdfPreview
+                  source={{ base64: generated.result.pdfBase64 }}
+                  testId="document-designer-pdf-preview"
+                />
               ) : (
                 <div
                   className="flex flex-col items-start gap-3 p-6"

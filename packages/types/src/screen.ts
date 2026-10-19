@@ -87,8 +87,9 @@ export interface FieldFormatRegistry {
    *  image variant to request (falls back to the original if it is not served).
    *  Outside list cells the raw value is shown. */
   image: { readonly variant?: string };
-  /** List cell: FileRef id (or id array) as a download link with the file name.
-   *  Outside list cells the raw value is shown. */
+  /** FileRef id (or id array) as a download link with the file name. On a
+   *  read-only detail field it renders a file list with download links and an
+   *  inline preview for PDFs; elsewhere the raw value is shown. */
   file: object;
 }
 

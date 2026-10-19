@@ -12,6 +12,14 @@ export const { executor: partyExecutor } = createEntityExecutor("leaseParty", le
 
 export const idPayloadSchema = z.object({ id: z.uuid() });
 
+// Walkthrough shortcut, not the pattern: real screens resolve FileRefs from the record, never from route-supplied ids.
+export const fileRefIdsPayloadSchema = z.object({
+  id: z
+    .string()
+    .transform((raw) => raw.split(","))
+    .pipe(z.array(z.uuid()).min(1).max(10)),
+});
+
 export const rentAdjustPayloadSchema = z.object({
   positionId: z.uuid(),
   wirksamAb: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

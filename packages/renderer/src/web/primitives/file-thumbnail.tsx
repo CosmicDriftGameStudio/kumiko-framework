@@ -1,6 +1,7 @@
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { ImageIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { fileIdsOf } from "../../file-ids-of.ts";
 import type { ListColumnFileDisplay } from "../../headless/index.ts";
 import { cn } from "../lib/cn.ts";
 
@@ -84,13 +85,34 @@ export function FileThumbnail({
   );
 }
 
-function isFileMeta(value: unknown): value is { readonly fileName: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "fileName" in value &&
-    typeof value.fileName === "string"
-  );
+type FileMeta = { readonly fileName: string; readonly mimeType: string | undefined };
+
+function parseFileMeta(value: unknown): FileMeta | null {
+  if (typeof value !== "object" || value === null || !("fileName" in value)) return null;
+  if (typeof value.fileName !== "string") return null;
+  const mimeType =
+    "mimeType" in value && typeof value.mimeType === "string" ? value.mimeType : undefined;
+  return { fileName: value.fileName, mimeType };
+}
+
+export function useFileMeta(fileId: string): FileMeta | null {
+  const [meta, setMeta] = useState<FileMeta | null>(null);
+  const validId = isUuid(fileId);
+  useEffect(() => {
+    let cancelled = false;
+    setMeta(null);
+    if (!validId) return;
+    fetch(`${fileOriginalUrl(fileId)}/meta`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: unknown) => {
+        if (!cancelled) setMeta(parseFileMeta(json));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fileId, validId]);
+  return meta;
 }
 
 export function FileNameLink({
@@ -102,23 +124,8 @@ export function FileNameLink({
   readonly fallbackLabel: string;
   readonly className?: string;
 }): ReactNode {
-  const [fileName, setFileName] = useState<string | null>(null);
-  const validId = isUuid(fileId);
-  useEffect(() => {
-    let cancelled = false;
-    setFileName(null);
-    if (!validId) return;
-    fetch(`${fileOriginalUrl(fileId)}/meta`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((meta: unknown) => {
-        if (!cancelled && isFileMeta(meta)) setFileName(meta.fileName);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [fileId, validId]);
-  if (!validId) return <span className={cn("text-sm", className)}>{fallbackLabel}</span>;
+  const fileName = useFileMeta(fileId)?.fileName ?? null;
+  if (!isUuid(fileId)) return <span className={cn("text-sm", className)}>{fallbackLabel}</span>;
   return (
     <a
       href={fileOriginalUrl(fileId)}
@@ -129,12 +136,6 @@ export function FileNameLink({
       {fileName ?? fallbackLabel}
     </a>
   );
-}
-
-function fileIdsOf(value: unknown): readonly string[] {
-  if (typeof value === "string") return value === "" ? [] : [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
 }
 
 // Height-bound, width follows the aspect ratio within a clamp, so a portrait and
