@@ -43,14 +43,14 @@ detail: "@cosmicdrift/kumiko-renderer/flow-diagram" exports renderFlow(spec) and
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: cap-counter
 type: fix
 title: Stock caps are atomic under parallel writes
 detail: withStockCap now takes a transaction-scoped advisory lock per tenant and cap, so concurrent creates cannot both pass the check and exceed the cap.
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: template-resolver
 type: improvement
 title: send-test-status query for the template test mail
 detail: template-resolver:query:send-test-status answers whether a test mail can be sent (canSend) and, if not, why (no_channel or no_address), so clients can disable the action instead of failing on send.
@@ -86,7 +86,7 @@ detail: ctx.db.advisoryXactLock(namespace, key) takes a transaction-scoped pg_ad
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: cap-counter
 type: improvement
 title: withStockCap no longer widens the handler's grants
 detail: withStockCap serialises through TenantDb.advisoryXactLock instead of ctx.db.unsafeRaw(), so wrapped handlers no longer receive an implicit unsafeRaw grant.
