@@ -303,6 +303,22 @@ describe("hooks/pre-push shim", () => {
     expect(output).toContain("kumiko-pre-push not found");
   });
 
+  test("a world-writable node_modules/.bin is skipped in favor of a trusted ancestor's bin", () => {
+    const parentDir = join(tmp, "parent");
+    const repoDir = join(parentDir, "repo");
+    initGitRepo(repoDir);
+    writeStubBin(join(parentDir, "node_modules", ".bin"), stubBinScript());
+    const plantedBinDir = join(repoDir, "node_modules", ".bin");
+    writeStubBin(plantedBinDir, 'echo "PLANTED_RAN"\n');
+    chmodSync(plantedBinDir, 0o777);
+
+    const { output, exitCode } = runHook(repoDir, tmp);
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("BIN_RAN");
+    expect(output).not.toContain("PLANTED_RAN");
+  });
+
   test("the walk ignores a bin above $HOME", () => {
     const homeDir = join(tmp, "home");
     const repoDir = join(homeDir, "a", "repo");

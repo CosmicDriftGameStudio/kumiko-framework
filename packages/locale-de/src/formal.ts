@@ -9,6 +9,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "documentDesigner.editor.origin.system":
     "Sie sehen das System-Layout. Speichern legt eine Anpassung für Ihren Mandanten an.",
   "documentDesigner.editor.diff.identical": "Ihr Layout entspricht dem System-Layout.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "Für Sie ist keine E-Mail-Adresse hinterlegt, daher kann keine Test-Mail gesendet werden.",
   "documentDesigner.editor.reset.description":
     "Ihr eigenes Layout wird entfernt, danach gilt wieder das System-Layout.",
   "documentDesigner.editor.dirtySwitch.description":

@@ -3,12 +3,11 @@
 // only per-app variable was the Caps shape and how to resolve it for a
 // tenant, so both are now factory parameters.
 
-import {
-  acquireNamespacedAdvisoryLock,
-  type EntityTableMeta,
-  type SchemaTable,
-  type TenantDb,
-  type WhereObject,
+import type {
+  EntityTableMeta,
+  SchemaTable,
+  TenantDb,
+  WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -28,8 +27,6 @@ export type CapLimitContext = {
 // pg_advisory_xact_lock namespace (int4): 'scap' as ASCII, disjoint from the
 // framework's other fixed advisory-lock keys.
 const STOCK_CAP_LOCK_NAMESPACE = 0x73636170;
-const STOCK_CAP_LOCK_REASON =
-  "serialises count-then-write per tenant and cap so parallel writes cannot both pass the stock-cap check; TenantDb has no lock API";
 
 // What the cap guards need from a write handler's ctx.
 export type CapGuardContext = CapLimitContext & { readonly db: TenantDb };
@@ -80,19 +77,11 @@ export function createStockCapGuard<TCaps>(
   function withStockCap(handler: WriteHandlerDef, spec: StockCapSpec<TCaps>): WriteHandlerDef {
     return {
       ...handler,
-      escapeHatch: {
-        grants: [...new Set([...(handler.escapeHatch?.grants ?? []), "unsafeRaw" as const])],
-        reason: [handler.escapeHatch?.reason, STOCK_CAP_LOCK_REASON].filter(Boolean).join("; "),
-      },
       handler: async (event, ctx) => {
         // ctx.db is the handler's transaction, so the xact lock releases with its commit or
         // rollback. A handler wrapped in several caps must list them in the same order
         // everywhere; Postgres aborts one side of an inverse order with a deadlock error.
-        await acquireNamespacedAdvisoryLock(
-          ctx.db.unsafeRaw(),
-          STOCK_CAP_LOCK_NAMESPACE,
-          `${ctx.db.tenantId}:${spec.code}`,
-        );
+        await ctx.db.advisoryXactLock(STOCK_CAP_LOCK_NAMESPACE, spec.code);
         const failure = await checkStockCap(ctx.db, spec, { config: ctx.config });
         return failure ?? handler.handler(event, ctx);
       },

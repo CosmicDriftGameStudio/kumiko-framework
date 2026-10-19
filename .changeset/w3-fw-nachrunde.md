@@ -77,3 +77,32 @@ title: Renderer stylesheet no longer scans the document designer
 detail: The renderer stylesheet stopped scanning the document designer sources by relative path, which broke in isolated installs.
 migration: Apps that embed the document designer add `@import "@cosmicdrift/kumiko-document-designer/web/styles.css";` after the renderer stylesheet import in their styles.css.
 -->
+
+<!-- kumiko-changes
+feature: framework
+type: improvement
+title: TenantDb.advisoryXactLock
+detail: ctx.db.advisoryXactLock(namespace, key) takes a transaction-scoped pg_advisory_xact_lock keyed on the handle's own tenantId plus key, so tenants never contend and the caller cannot pick another tenant. It needs no unsafeRaw grant.
+-->
+
+<!-- kumiko-changes
+feature: bundled-features
+type: improvement
+title: withStockCap no longer widens the handler's grants
+detail: withStockCap serialises through TenantDb.advisoryXactLock instead of ctx.db.unsafeRaw(), so wrapped handlers no longer receive an implicit unsafeRaw grant.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: Boot check for projectionList writeHandler actions
+detail: Boot now rejects projectionList rowActions and toolbarActions of kind writeHandler whose handler is not a registered write-handler QN. Such actions only failed on click before.
+migration: Fix the handler QN to "<feature>:write:<short>" of a handler declared via r.writeHandler(...), or remove the action. Apps that fail to boot name the screen and action id in the error.
+-->
+
+<!-- kumiko-changes
+feature: guards
+type: fix
+title: Pre-push shim also vets node_modules/.bin
+detail: The shim now requires node_modules/.bin itself to be owned by the user and not group or world writable before executing kumiko-pre-push from it, in the guards hook and the dev-server husky template.
+-->

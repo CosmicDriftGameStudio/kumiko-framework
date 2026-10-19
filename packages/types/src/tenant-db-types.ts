@@ -79,6 +79,11 @@ export type TenantDb = {
     where: WhereObject,
   ): Promise<T | undefined>;
   count(table: SchemaTable | EntityTableMeta, where?: WhereObject): Promise<number>;
+  /**
+   * Transaction-scoped advisory lock keyed on (namespace, this handle's tenantId + key); released at
+   * commit or rollback. Keys of different tenants never contend. Only serialises inside a transaction.
+   */
+  advisoryXactLock(namespace: number, key: string): Promise<void>;
   aggregate(
     table: SchemaTable | EntityTableMeta,
     spec: AggregateSpec,

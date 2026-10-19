@@ -1695,6 +1695,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Ressources",
   "documentDesigner.mail.resource.upload": "+ Téléverser",
   "documentDesigner.mail.resource.saveFirst": "Enregistrez d'abord, puis téléversez.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "Les téléversements nécessitent la fonctionnalité de fichiers, que cette application n'a pas intégrée.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Les e-mails de test nécessitent le canal e-mail, que cette application n'a pas intégré.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "Aucune adresse e-mail n'est enregistrée pour vous, donc aucun e-mail de test ne peut être envoyé.",
   "documentDesigner.mail.resource.inline": "En ligne",
   "documentDesigner.mail.resource.attachment": "Pièce jointe",
   "documentDesigner.mail.resource.fromPdf": "Pièce jointe · issue de « {title} »",

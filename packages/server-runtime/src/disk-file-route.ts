@@ -5,7 +5,8 @@ export type DiskFileRouteOptions = {
   /** Route path containing the `:file` parameter, e.g. `/fonts/:file`. */
   readonly path: string;
   /** Maps a plain file name to an absolute disk path, or null to answer 404. Only one
-   *  segment without a leading dot or separator gets here; anything else is 404 already. */
+   *  segment without a leading dot or separator gets here; anything else is 404 already.
+   *  Must return fixed, allowlisted paths, never `join(dir, name)`: symlinks are not checked. */
   readonly resolveFile: (requestedFile: string) => string | null;
 };
 

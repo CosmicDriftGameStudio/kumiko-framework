@@ -2188,13 +2188,17 @@ export function validateScreens(
             );
           } else if (action.kind === "clientAction") {
             validateClientActionName(feature.name, screenId, "projectionList", "rowAction", action);
+          } else if (!allWriteHandlerQns.has(action.handler)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) rowAction "${action.id}" ` +
+                `handler "${action.handler}" is not a registered write-handler. Check the QN spelling ` +
+                `(expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+            );
           }
         }
         validateAtMostOneRowClick(feature.name, screenId, "projectionList", screen.rowActions);
       }
-      // Only drawer-kind and navigate actions that set tab are validated
-      // here — plain navigate (no tab) and writeHandler toolbarActions on
-      // projectionList have no boot check yet (pre-existing gap).
+      // Plain navigate toolbarActions (no tab) have no boot check yet.
       if (screen.toolbarActions !== undefined) {
         for (const action of screen.toolbarActions) {
           if (action.kind === "drawer") {
@@ -2205,6 +2209,12 @@ export function validateScreens(
               "toolbarAction",
               action,
               feature.screens,
+            );
+          } else if (action.kind === "writeHandler" && !allWriteHandlerQns.has(action.handler)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) toolbarAction "${action.id}" ` +
+                `handler "${action.handler}" is not a registered write-handler. Check the QN spelling ` +
+                `(expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
             );
           }
           if (action.kind === "navigate" && action.tab !== undefined) {

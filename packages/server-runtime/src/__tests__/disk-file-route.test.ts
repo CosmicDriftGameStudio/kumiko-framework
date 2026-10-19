@@ -81,7 +81,7 @@ describe("diskFileRoute", () => {
     expect(res.status).toBe(404);
   });
 
-  test.each(["..%2Fx", "..%5Cx", ".env", "..", "inter.woff2%00"])(
+  test.each(["..%2Fx", "..%5Cx", ".env", "..", "inter.woff2%00", "a%2Fb", "a%5Cb", "a%00b"])(
     "rejects %s before resolveFile runs",
     async (name) => {
       const res = await mountedApp().request(`/fonts/${name}`);

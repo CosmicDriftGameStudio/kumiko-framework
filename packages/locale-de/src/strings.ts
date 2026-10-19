@@ -1678,6 +1678,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Ressourcen",
   "documentDesigner.mail.resource.upload": "+ Hochladen",
   "documentDesigner.mail.resource.saveFirst": "Erst speichern, dann hochladen.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "Uploads brauchen das Files-Feature, das diese App nicht eingebunden hat.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Test-Mails brauchen den E-Mail-Kanal, den diese App nicht eingebunden hat.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "Für dich ist keine E-Mail-Adresse hinterlegt, daher kann keine Test-Mail gesendet werden.",
   "documentDesigner.mail.resource.inline": "Inline",
   "documentDesigner.mail.resource.attachment": "Anhang",
   "documentDesigner.mail.resource.fromPdf": "Anhang · aus „{title}“",
