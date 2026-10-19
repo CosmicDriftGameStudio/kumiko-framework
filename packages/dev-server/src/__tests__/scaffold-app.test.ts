@@ -76,6 +76,22 @@ describe("scaffoldApp", () => {
     }
   });
 
+  test("infraRef is written to kumiko.deploy", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest, infraRef: "infra-v1" });
+
+    const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8"));
+    expect(pkg.kumiko.deploy.infraRef).toBe("infra-v1");
+  });
+
+  test("without an infraRef the package.json sets none", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8"));
+    expect(pkg.kumiko?.deploy?.infraRef).toBeUndefined();
+  });
+
   test("CLAUDE.md imports the framework guide and AGENTS.md points at it", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });

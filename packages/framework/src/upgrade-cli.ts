@@ -18,6 +18,7 @@ import {
   sortEntries,
 } from "./engine/index.ts";
 import { ensureTemporalPolyfill } from "./time/index.ts";
+import { mergeUpgradeSection, type UpgradeChangelogManual } from "./upgrade-changelog.ts";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const SEMVER_CORE_RE = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;
@@ -422,6 +423,21 @@ function carryOverManual(
   };
 }
 
+// The marker records every codemod ever applied, not just the last bump's, so the
+// CI guard and a resumed run see the whole history.
+function accumulateCodemods(
+  previous: readonly UpgradeMarkerCodemod[],
+  ran: readonly UpgradeMarkerCodemod[],
+): UpgradeMarkerCodemod[] {
+  const seen = new Set<string>();
+  return [...previous, ...ran].filter((entry) => {
+    const key = `${entry.version}\0${entry.codemod}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
   const dir = join(targetDir, ".kumiko");
   mkdirSync(dir, { recursive: true });
@@ -429,6 +445,7 @@ function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
 }
 
 type MarkerCarry = {
+  readonly codemods: readonly UpgradeMarkerCodemod[];
   readonly pendingManual: readonly UpgradeMarkerManual[];
   readonly resolvedManual: readonly UpgradeMarkerResolvedManual[];
 };
@@ -444,7 +461,7 @@ type MarkerRead =
   | { readonly kind: "invalid" }
   | { readonly kind: "ok"; readonly version: string; readonly marker: StoredMarker };
 
-const NO_CARRY: MarkerCarry = { pendingManual: [], resolvedManual: [] };
+const NO_CARRY: MarkerCarry = { codemods: [], pendingManual: [], resolvedManual: [] };
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -526,15 +543,79 @@ function printable(text: string): string {
   return text.replace(/\p{Cc}/gu, "");
 }
 
-function logOpenManual(out: UpgradeCliOut, open: readonly UpgradeMarkerManual[]): void {
+// Detail and migration text of the changelog entries behind the open manual items, keyed by manual id.
+type ManualDetails = ReadonlyMap<string, Pick<ChangelogEntry, "detail" | "migration">>;
+
+function manualDetailsOf(entries: readonly ChangelogEntry[]): ManualDetails {
+  return new Map(
+    entries.map((entry) => [
+      manualEntryId(entry.version, entry.title),
+      { detail: entry.detail, migration: entry.migration },
+    ]),
+  );
+}
+
+function logOpenManual(
+  out: UpgradeCliOut,
+  open: readonly UpgradeMarkerManual[],
+  details?: ManualDetails,
+): void {
   // skip: no open manual migrations, nothing to report
   if (open.length === 0) return;
   out.log(`  ⚠ ${open.length} manual migration(s) still open:`);
   for (const entry of open) {
     out.log(`    ${printable(entry.id)} · ${printable(entry.version)} · ${printable(entry.title)}`);
+    const entryDetails = details?.get(entry.id);
+    if (entryDetails?.detail)
+      out.log(`      ${printable(entryDetails.detail.replace(/\s*\n\s*/g, " "))}`);
+    if (entryDetails?.migration) out.log(`      → Migration: ${printable(entryDetails.migration)}`);
   }
   out.log(
     '  Migrate them by hand, then mark them done: kumiko-upgrade --resolve <id|version> --reason "<what you did>" [--not-applicable]',
+  );
+}
+
+function manualWithStatus(
+  manualEntries: readonly ChangelogEntry[],
+  previous: MarkerCarry,
+): readonly UpgradeChangelogManual[] {
+  return manualEntries.map((entry) => {
+    const id = manualEntryId(entry.version, entry.title);
+    const resolved = previous.resolvedManual.find((candidate) => candidate.id === id);
+    return {
+      id,
+      version: entry.version,
+      title: entry.title,
+      status: resolved === undefined ? "open" : resolved.resolution,
+    };
+  });
+}
+
+// Runs only for a real bump: an app that is already current keeps its CHANGELOG.md untouched.
+function writeUpgradeChangelog(
+  targetDir: string,
+  bump: {
+    readonly from: string;
+    readonly to: string;
+    readonly pending: readonly ChangelogEntry[];
+    readonly manualEntries: readonly ChangelogEntry[];
+    readonly ran: readonly UpgradeMarkerCodemod[];
+    readonly previous: MarkerCarry;
+  },
+): void {
+  const path = join(targetDir, "CHANGELOG.md");
+  const existing = existsSync(path) ? readFileSync(path, "utf-8") : undefined;
+  writeFileSync(
+    path,
+    mergeUpgradeSection(existing, {
+      from: bump.from,
+      to: bump.to,
+      date: Temporal.Now.instant().toString().slice(0, 10),
+      breaking: bump.pending.filter((entry) => entry.type === "breaking"),
+      manual: manualWithStatus(bump.manualEntries, bump.previous),
+      codemods: bump.ran,
+    }),
+    "utf-8",
   );
 }
 
@@ -563,7 +644,7 @@ function writePartialMarker(
   writeUpgradeMarker(targetDir, {
     version,
     appliedAt: Temporal.Now.instant().toString(),
-    codemods: ran,
+    codemods: accumulateCodemods(previous.codemods, ran),
     ...carryOverManual(previous, manualEntries.map(toMarkerManual)),
   });
   out.err(
@@ -589,6 +670,8 @@ async function applyCodemods(
   // codemods once the CI guard compares against the fake marker).
   markerVersion: string,
   previous: MarkerCarry,
+  fromVersion: string,
+  manualDetails: ManualDetails | undefined,
 ): Promise<number> {
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
@@ -597,11 +680,11 @@ async function applyCodemods(
       writeUpgradeMarker(targetDir, {
         version: markerVersion,
         appliedAt: Temporal.Now.instant().toString(),
-        codemods: [],
+        codemods: previous.codemods,
         ...carried,
       });
       out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
-      logOpenManual(out, carried.pendingManual ?? []);
+      logOpenManual(out, carried.pendingManual ?? [], manualDetails);
     }
     return 0;
   }
@@ -633,11 +716,19 @@ async function applyCodemods(
       writeUpgradeMarker(targetDir, {
         version: markerVersion,
         appliedAt: Temporal.Now.instant().toString(),
-        codemods: [],
+        codemods: previous.codemods,
         ...carried,
       });
+      writeUpgradeChangelog(targetDir, {
+        from: fromVersion,
+        to: markerVersion,
+        pending,
+        manualEntries,
+        ran: [],
+        previous,
+      });
       out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
-      logOpenManual(out, carried.pendingManual ?? []);
+      logOpenManual(out, carried.pendingManual ?? [], manualDetails);
     }
     return 0;
   }
@@ -680,13 +771,21 @@ async function applyCodemods(
   writeUpgradeMarker(targetDir, {
     version: markerVersion,
     appliedAt: Temporal.Now.instant().toString(),
-    codemods: ran,
+    codemods: accumulateCodemods(previous.codemods, ran),
     ...carried,
+  });
+  writeUpgradeChangelog(targetDir, {
+    from: fromVersion,
+    to: markerVersion,
+    pending,
+    manualEntries,
+    ran,
+    previous,
   });
   out.log(
     `  ✓ Applied ${ran.length} codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`,
   );
-  logOpenManual(out, carried.pendingManual ?? []);
+  logOpenManual(out, carried.pendingManual ?? [], manualDetails);
   return 0;
 }
 
@@ -911,6 +1010,8 @@ export async function runUpgradeCli(
       dryRun,
       markerVersion ?? currentVersion,
       carryOf(markerRead),
+      currentVersion,
+      verbose ? manualDetailsOf(allEntries) : undefined,
     );
     out.log("");
     return code;
@@ -944,7 +1045,7 @@ export async function runUpgradeCli(
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
     out.log("");
-    logOpenManual(out, openManual);
+    logOpenManual(out, openManual, verbose ? manualDetailsOf(allEntries) : undefined);
     return 0;
   }
 
@@ -994,6 +1095,6 @@ export async function runUpgradeCli(
     out.log("");
   }
 
-  logOpenManual(out, openManual);
+  logOpenManual(out, openManual, verbose ? manualDetailsOf(allEntries) : undefined);
   return 0;
 }

@@ -24,13 +24,6 @@
 # Extension point: a tracked, executable scripts/pre-push-extra.sh runs
 # before the main check in every branch above, with KUMIKO_PUSH_REPO_ROOT
 # and KUMIKO_PUSH_PARENT_DIR available inline (never exported).
-#
-# Override: set PRE_PUSH_SKIP=1 to bypass (use sparingly).
-
-if [ "${PRE_PUSH_SKIP:-0}" = "1" ]; then
-  echo "[pre-push] PRE_PUSH_SKIP=1 — hook skipped"
-  exit 0
-fi
 
 # Git exports GIT_DIR & co. to hooks; nothing this hook starts may inherit them,
 # or a test's fixture git calls write into this repo.
@@ -142,7 +135,9 @@ fi
 # canonical sibling path instead of this worktree — checking the wrong
 # code. Run the worktree-local check only when scripts/check-wt.sh is
 # tracked and executable (untracked/symlink stubs must not hijack push).
-if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
+# A check-wt.sh that wraps this hook sets KUMIKO_CHECK_WT=1 so it is not re-entered.
+if [ "${KUMIKO_CHECK_WT:-0}" != "1" ] \
+   && [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
    && git -C "$REPO_ROOT" ls-files --error-unmatch scripts/check-wt.sh >/dev/null 2>&1 \
    && [ -x "$REPO_ROOT/scripts/check-wt.sh" ]; then
   echo "[pre-push] worktree detected — worktree check (see scripts/check-wt.sh)…"
@@ -178,7 +173,7 @@ if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] 
   echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom) and guards (guards, checks, comment-lang)…"
   if ! has_package_script test; then
     echo "[pre-push] FATAL: worktree without a package.json \"test\" script — nothing to run, refusing push." >&2
-    echo "Add a \"test\" script to package.json, or set PRE_PUSH_SKIP=1 to bypass (use sparingly)." >&2
+    echo "Add a \"test\" script to package.json." >&2
     exit 1
   fi
   FAILED=""
@@ -218,7 +213,7 @@ else
   # "Script not found" — check it up front with a clear, actionable message.
   if ! has_package_script test; then
     echo "[pre-push] FATAL: standalone clone without a package.json \"test\" script — nothing to run, refusing push." >&2
-    echo "Add a \"test\" script to package.json, or set PRE_PUSH_SKIP=1 to bypass (use sparingly)." >&2
+    echo "Add a \"test\" script to package.json." >&2
     exit 1
   fi
   cd "$REPO_ROOT" && bun run test

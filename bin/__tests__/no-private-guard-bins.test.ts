@@ -14,7 +14,7 @@ function readRepoFile(relativePath: string): string {
 }
 
 describe("no dependency on the private guards package", () => {
-  for (const source of ["bin/kumiko-legacy.ts", "scripts/check-wt.sh"]) {
+  for (const source of ["bin/kumiko-legacy.ts", "scripts/check-wt.sh", "scripts/pre-push-extra.sh"]) {
     test(`${source} only runs the workspace's own kumiko-guards through bunx`, () => {
       expect(readRepoFile(source).match(NON_WORKSPACE_KUMIKO_BIN) ?? []).toEqual([]);
     });

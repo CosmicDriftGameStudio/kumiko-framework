@@ -43,6 +43,7 @@ const {
   // The hook sets these itself; inherited from a run under this repo's own
   // pre-push they would leak into the fixture and break "must be unset"
   // assertions below.
+  KUMIKO_CHECK_WT,
   KUMIKO_CLI_SCOPE,
   KUMIKO_PUSH_REPO_ROOT,
   KUMIKO_PUSH_PARENT_DIR,
@@ -289,14 +290,14 @@ describe("kumiko-pre-push", () => {
       expect(exitCode).toBe(0);
     });
 
-    test("PRE_PUSH_SKIP=1 skips the hook before any check runs and exits 0", () => {
+    test("PRE_PUSH_SKIP=1 is no bypass: the main check still runs", () => {
       const { repoDir } = writeParentWorkspace(tmp);
       initGitRepo(repoDir);
 
       const { output, exitCode } = runHook(repoDir, tmp, { PRE_PUSH_SKIP: "1" });
 
-      expect(output).toContain("hook skipped");
-      expect(output).not.toContain("MAIN_CHECK_RAN");
+      expect(output).not.toContain("hook skipped");
+      expect(output).toContain("MAIN_CHECK_RAN");
       expect(exitCode).toBe(0);
     });
 
@@ -386,6 +387,26 @@ describe("kumiko-pre-push", () => {
       expect(output).not.toContain("CHECKWT_RAN");
       expect(output).toContain("worktree without scripts/check-wt.sh");
       expect(output).not.toContain("MAIN_CHECK_RAN");
+    });
+  });
+
+  describe("KUMIKO_CHECK_WT=1 (hook wrapped by check-wt.sh)", () => {
+    test("a tracked check-wt.sh is not re-entered; the worktree package.json scripts run", () => {
+      const { parentDir, repoDir } = writeParentWorkspace(tmp);
+      initGitRepo(repoDir);
+      const worktreeDir = join(parentDir, ".wt", "fw-3152");
+      runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
+      writeTracked(worktreeDir, "scripts/check-wt.sh", checkWtScript(), tmp);
+      writeWorktreePackageJson(worktreeDir, WORKTREE_MARKER_SCRIPTS);
+
+      const { output, exitCode } = runHook(worktreeDir, tmp, { KUMIKO_CHECK_WT: "1" });
+
+      expect(output).not.toContain("worktree detected");
+      expect(existsSync(join(worktreeDir, HOOK_LOG_NAME))).toBe(false);
+      expect(readFileSync(join(worktreeDir, "marker-typecheck.txt"), "utf-8")).toContain(
+        "MARKER_TYPECHECK",
+      );
+      expect(exitCode).toBe(0);
     });
   });
 

@@ -265,6 +265,12 @@ const DB_IDENTIFIER_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$/;
 // generated release workflow, so nothing outside this charset may pass.
 const K8S_NAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
+// The ref lands in `uses: org/infra/...@<ref>` lines of generated workflows.
+const INFRA_REF_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$/;
+
+export const DEPLOY_VISIBILITIES = ["private", "public"] as const;
+export type DeployVisibility = (typeof DEPLOY_VISIBILITIES)[number];
+
 const kumikoDeployConfigSchema = z
   .object({
     dbUser: z.string().regex(DB_IDENTIFIER_RE).optional(),
@@ -273,6 +279,12 @@ const kumikoDeployConfigSchema = z
     namespace: z.string().regex(K8S_NAME_RE).optional(),
     /** Name of the prod Deployment; default = appName. */
     deployment: z.string().regex(K8S_NAME_RE).optional(),
+    /** Tag or branch of cosmicdriftgamestudio/infra that ci.yml and release.yml pin their reusable workflows to. */
+    infraRef: z.string().regex(INFRA_REF_RE).optional(),
+    /** A public repo cannot call the private infra workflows; default "private". */
+    visibility: z.enum(DEPLOY_VISIBILITIES).optional(),
+    /** `false` turns the doc-status guard off in ci.yml; default on. */
+    docStatusGuard: z.boolean().optional(),
     // "directory" is the only behaviour left; the key stays valid so existing
     // package.json files keep scaffolding.
     stackNetwork: z
@@ -308,7 +320,14 @@ function parseDeployConfig(raw: unknown): KumikoDeployConfig {
   );
 }
 
-export type KumikoReleaseTarget = { readonly namespace: string; readonly deployment: string };
+export type KumikoReleaseTarget = {
+  readonly namespace: string;
+  readonly deployment: string;
+  readonly visibility: DeployVisibility;
+  /** Unset until the app pins an infra tag; templates render `main` then. */
+  readonly infraRef: string | undefined;
+  readonly docStatusGuard: boolean;
+};
 
 /** Release target from `package.json#kumiko.deploy`; throws on an invalid deploy config. */
 export function readReleaseTarget(sourceDir: string, appName: string): KumikoReleaseTarget {
@@ -329,7 +348,13 @@ export function readReleaseTarget(sourceDir: string, appName: string): KumikoRel
       );
     }
   }
-  return { namespace, deployment };
+  return {
+    namespace,
+    deployment,
+    visibility: config.visibility ?? "private",
+    infraRef: config.infraRef,
+    docStatusGuard: config.docStatusGuard ?? true,
+  };
 }
 
 function resolveDbIdentifier(

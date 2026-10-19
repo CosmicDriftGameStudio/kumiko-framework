@@ -1,127 +1,14 @@
 #!/usr/bin/env bash
-# check-wt.sh — Worktree-local validation. Run from the worktree cwd.
+# check-wt.sh — the pre-push hook run on demand from the worktree root.
 #
-#   cd ../kumiko-framework-issue-<n>
+#   cd .wt/<name>
 #   ./scripts/check-wt.sh
 #
-# Runs checks that are reliable in a worktree: tsc + sample typecheck + Biome
-# + unit tests. These need no cross-repo import resolution and are correct in
-# the worktree.
-#
-# The AST guard suite runs through the same entry as CI's `kumiko check`
-# "guards" step (runGuardsCli([])), so every guard in GUARDS — complexity
-# included — is covered without a list here. The changeset-required check is
-# the CI script itself against origin/main.
-#
-# comment-lang scans the cwd directly (no sibling/cross-repo resolution), so
-# it is safe to run here scoped to the worktree. The public kumiko-guards
-# bundles (guards/ui/checks) are NOT wired in: this repo's own CI does not run
-# them as separate steps (only the private kumiko-guard-no-logic-in-views,
-# unrelated to the public bundle), so there is nothing more to mirror locally.
+# One form: the full hook (packages/guards/src/pre-push.sh) plus this repo's
+# extras from scripts/pre-push-extra.sh, which the hook runs first. The hook
+# does not re-enter this script when KUMIKO_CHECK_WT=1.
 set -uo pipefail
 
-echo "── Worktree check · $(pwd) ──"
 [ -f tsconfig.json ] || { echo "✗ no tsconfig.json in cwd — are you in the worktree root?"; exit 2; }
 
-fail=0
-
-# Merge-base against origin/main, not @{u}: after the first push, @{u} points
-# at this branch's own remote, which drifts from the diff CI actually checks.
-BASE="origin/main"
-git rev-parse --verify --quiet "$BASE" >/dev/null || BASE="main"
-MERGE_BASE="$(git merge-base "$BASE" HEAD)"
-
-echo
-echo "→ typecheck (bun run typecheck — repo-owned tsc runs)"
-# Root `tsc -b` fails with TS18003 when root tsconfig is include:[] only
-# (kumiko-platform#528). The root "typecheck" script builds real projects.
-bun run typecheck || fail=1
-
-echo
-# samples/apps/** aren't in the root tsc -b references chain (see
-# check-app-tsc.ts header), so the step above never touches them. CI runs
-# this separately as "TypeScript (framework + samples)" — mirror it here so
-# sample type errors surface locally instead of only in CI (#2679).
-echo "→ typecheck samples (bun scripts/check-app-tsc.ts — CI parity)"
-bun scripts/check-app-tsc.ts || fail=1
-
-echo
-echo "→ biome check"
-bunx biome check . || fail=1
-
-echo
-echo "→ AST guards (bun packages/guards/src/run-guards.ts — CI entry runGuardsCli)"
-bun packages/guards/src/run-guards.ts || fail=1
-
-# CI's `kumiko check` runs this baseline check next to the AST guards; it is not part of run-guards.ts.
-echo "→ Runtime isolation (bun packages/guards/src/check-runtime-isolation.ts)"
-bun packages/guards/src/check-runtime-isolation.ts || fail=1
-
-echo
-echo "→ integration mock guard (bun integration.guard.ts)"
-bun integration.guard.ts || fail=1
-
-echo
-echo "→ changeset required (scripts/changeset-required-check.sh — CI script, BASE_REF=main)"
-BASE_REF=main bash scripts/changeset-required-check.sh || fail=1
-
-echo
-echo "→ changes-json guard (kumiko-changes blocks, CI parity, base=$MERGE_BASE)"
-GITHUB_BASE_SHA="$MERGE_BASE" bun scripts/guard-changes-json.ts || fail=1
-
-echo
-echo "→ comment-lang guard --touched (base=$MERGE_BASE)"
-bun packages/guards/src/cli.ts comment-lang --touched --base="$MERGE_BASE" || fail=1
-
-echo
-echo "→ public-exports-changelog guard (ratchet against the baseline at base=$MERGE_BASE)"
-bun packages/guards/src/cli.ts public-exports-changelog --base="$MERGE_BASE" || fail=1
-
-echo
-# Packs and imports every published dist package under Node and Bun; a missing
-# .js in a compiled subpath otherwise only shows up in CI.
-echo "→ dist packages (bun run check:dist — CI parity)"
-bun run check:dist || fail=1
-
-echo
-echo "→ bun test (unit suite)"
-cfg=(); [ -f bunfig.ci.toml ] && cfg=(--config=bunfig.ci.toml)
-
-# Prefer parent-workspace .env (sibling worktree or .wt/<name> layout).
-PARENT_ROOT=""
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-while [ "$DIR" != "/" ]; do
-  if [ -f "$DIR/package.json" ] \
-    && grep -q '"name": *"cosmicdriftgamestudio"' "$DIR/package.json" 2>/dev/null; then
-    PARENT_ROOT="$DIR"
-    break
-  fi
-  DIR="$(dirname "$DIR")"
-done
-
-env=()
-if [ -n "$PARENT_ROOT" ] && [ -f "$PARENT_ROOT/.env" ]; then
-  env=(--env-file="$PARENT_ROOT/.env")
-elif [ -f ../.env ]; then
-  env=(--env-file=../.env)
-fi
-bun "${cfg[@]}" "${env[@]}" test --dots || fail=1
-
-ran_test_dom=0
-if grep -q '"test:dom"' package.json 2>/dev/null; then
-  ran_test_dom=1
-  echo
-  echo "→ bun run test:dom (component tests — not under bunfig.ci.toml)"
-  bun run test:dom || fail=1
-fi
-
-echo
-if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + dist packages + unit tests + component tests."
-elif [ "$fail" = 0 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + dist packages + unit tests."
-else
-  echo "✗ Worktree check red — see above. Do not commit until green."
-fi
-echo "  guards checked against $MERGE_BASE (merge-base with $BASE)"
-exit "$fail"
+exec env KUMIKO_CHECK_WT=1 packages/guards/src/pre-push.sh

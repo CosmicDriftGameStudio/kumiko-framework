@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { SCHEMA_ENV_DEFAULTS } from "../preload/schema-env-defaults-values";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import { PROVIDER_ENV_KEYS, scrubProviderEnv } from "../provider-env-keys";
@@ -19,6 +22,7 @@ function runWithPreload(
   preload: string,
   env: Record<string, string>,
   probe: string = PROBE,
+  cwd?: string,
 ): PreloadRun {
   const inherited = { ...process.env };
   for (const key of [
@@ -31,8 +35,16 @@ function runWithPreload(
     delete inherited[key];
   }
   const result = Bun.spawnSync(
-    ["bun", "--preload", `@cosmicdrift/kumiko-testing/preload/${preload}`, "-e", probe],
-    { env: { ...inherited, ...env }, stdout: "pipe", stderr: "pipe" },
+    [
+      "bun",
+      "--preload",
+      cwd === undefined
+        ? `@cosmicdrift/kumiko-testing/preload/${preload}`
+        : join(import.meta.dir, "..", "preload", `${preload}.ts`),
+      "-e",
+      probe,
+    ],
+    { env: { ...inherited, ...env }, stdout: "pipe", stderr: "pipe", ...(cwd ? { cwd } : {}) },
   );
   return {
     exitCode: result.exitCode,
@@ -69,6 +81,51 @@ describe("preload/env", () => {
       expect(env[key]).toBe(value);
     }
     for (const [key, value] of Object.entries(SCHEMA_ENV_DEFAULTS)) expect(env[key]).toBe(value);
+  });
+});
+
+describe("preload/env MEILI_URL from the app config", () => {
+  let appRoot: string;
+  beforeEach(() => {
+    appRoot = mkdtempSync(join(tmpdir(), "kumiko-preload-app-"));
+  });
+  afterEach(() => {
+    rmSync(appRoot, { recursive: true, force: true });
+  });
+
+  function writeConfig(infra: string): void {
+    writeFileSync(
+      join(appRoot, "kumiko.config.ts"),
+      `export default defineAppConfig({ features: [], client: { entries: ["src/client.tsx"] }, ports: { dev: 4400, e2e: 4401, infra: ${infra} } });\n`,
+    );
+  }
+
+  test("uses ports.infra.meilisearch of the app in the working directory", () => {
+    writeConfig("{ meilisearch: 17710 }");
+
+    const env = envOf(runWithPreload("env", {}, PROBE, appRoot));
+
+    expect(env["MEILI_URL"]).toBe("http://localhost:17710");
+  });
+
+  test("keeps a MEILI_URL the environment already carries", () => {
+    writeConfig("{ meilisearch: 17710 }");
+
+    const env = envOf(runWithPreload("env", { MEILI_URL: "http://meili:7700" }, PROBE, appRoot));
+
+    expect(env["MEILI_URL"]).toBe("http://meili:7700");
+  });
+
+  test("falls back to the fixed port without a declared meilisearch port or config", () => {
+    writeConfig("{ postgres: 15440 }");
+    expect(envOf(runWithPreload("env", {}, PROBE, appRoot))["MEILI_URL"]).toBe(
+      SERVICE_ENV_DEFAULTS.MEILI_URL,
+    );
+
+    rmSync(join(appRoot, "kumiko.config.ts"));
+    expect(envOf(runWithPreload("env", {}, PROBE, appRoot))["MEILI_URL"]).toBe(
+      SERVICE_ENV_DEFAULTS.MEILI_URL,
+    );
   });
 });
 

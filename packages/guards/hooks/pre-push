@@ -1,10 +1,4 @@
 #!/usr/bin/env sh
-# PRE_PUSH_SKIP is checked here too so the bypass works even without node_modules.
-if [ "${PRE_PUSH_SKIP:-0}" = "1" ]; then
-  echo "[pre-push] PRE_PUSH_SKIP=1 — hook skipped"
-  exit 0
-fi
-
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 if [ -z "$REPO_ROOT" ]; then
   echo "[pre-push] FATAL: git rev-parse --show-toplevel failed — refusing push" >&2
@@ -33,7 +27,7 @@ done
 
 if [ -z "$BIN" ]; then
   echo "[pre-push] kumiko-pre-push not found in any node_modules/.bin above $REPO_ROOT." >&2
-  echo "Run \`bun install\`, or set PRE_PUSH_SKIP=1 to bypass this hook." >&2
+  echo "Run \`bun install\`." >&2
   exit 1
 fi
 

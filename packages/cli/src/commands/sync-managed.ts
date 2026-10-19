@@ -26,6 +26,7 @@ export async function runSyncManaged(ctx: CliCommandContext): Promise<number> {
     appRoot: ctx.cwd,
     uiRoots: manifest.uiRoots ?? [],
   });
+  for (const warning of managed.listManagedWarnings(facts)) ctx.out.err(`  ! ${warning}`);
   const actions = managed.syncManagedFiles(facts, { write, adopt: ctx.argv.includes("--adopt") });
   ctx.out.log("");
   for (const entry of actions) {

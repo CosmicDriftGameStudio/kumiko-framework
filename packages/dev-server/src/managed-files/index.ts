@@ -1,4 +1,14 @@
-export { listAppPorts } from "@cosmicdrift/kumiko-framework/config";
+export {
+  findPortCollisions,
+  listAppPorts,
+  type PortClaim,
+  type PortCollision,
+  parseStaticAppConfig,
+  readStaticAppConfig,
+  type ScannedApp,
+  type StaticAppConfig,
+  scanWorkspaceApps,
+} from "@cosmicdrift/kumiko-repo-manifest/app-ports";
 export {
   type AppScriptsReport,
   checkAppScripts,
@@ -21,15 +31,9 @@ export {
   stripManagedMarker,
 } from "./marker.ts";
 export {
-  findPortCollisions,
-  type PortClaim,
-  type PortCollision,
-  type ScannedApp,
-  scanWorkspaceApps,
-} from "./port-registry.ts";
-export {
   BIOME_PRESET,
   listManagedFiles,
+  listManagedWarnings,
   type ManagedAppFacts,
   type ManagedAppInput,
   type ManagedFile,
@@ -41,9 +45,4 @@ export {
   resolveManagedAppFacts,
   TSCONFIG_PRESET,
 } from "./registry.ts";
-export {
-  parseStaticAppConfig,
-  readStaticAppConfig,
-  type StaticAppConfig,
-} from "./static-app-config.ts";
 export { type SyncAction, type SyncManagedOptions, syncManagedFiles } from "./sync.ts";

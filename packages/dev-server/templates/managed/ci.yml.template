@@ -1,6 +1,6 @@
 # CI for {{appName}}: a thin orchestrator over the reusable workflows in
-# cosmicdriftgamestudio/infra. Jobs only this app needs go into an unmanaged
-# workflow next to this one (e.g. ci-extra.yml).
+# cosmicdriftgamestudio/infra. Jobs only this app needs: name them `app-<name>`
+# in this file (they survive `kumiko sync-managed`) or use an unmanaged workflow.
 
 name: CI
 
@@ -19,16 +19,19 @@ env:
 
 jobs:
   test:
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-test.yml@main
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-test.yml@{{infraRef}}
     with:
       ui-guards: {{uiGuards}}
       # The boot gate in kumiko-schema validate demands a provider for file
       # fields; CI only checks that one is configured.
       file-storage-provider: "inmemory"
+{{#docStatusGuardOff}}
+      doc-status-guard: false
+{{/docStatusGuardOff}}
     secrets: inherit
 
   integration:
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-integration.yml@main
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-integration.yml@{{infraRef}}
 {{#minio}}
     with:
       minio: true
@@ -39,7 +42,7 @@ jobs:
   # otherwise never report and block the merge.
   e2e:
     if: contains(fromJSON('["pull_request","merge_group"]'), github.event_name)
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-e2e.yml@main
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-e2e.yml@{{infraRef}}
 {{#e2eInputs}}
     with:
 {{/e2eInputs}}
@@ -58,7 +61,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_docker-build-push.yml@main
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_docker-build-push.yml@{{infraRef}}
     with:
       image-name: {{appName}}
       dockerfile: deploy/Dockerfile

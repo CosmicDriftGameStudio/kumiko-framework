@@ -38,6 +38,10 @@ export type AppConfig = {
   readonly features: readonly FeatureDefinition[];
   /** Features mounted only in production on top of `features`. */
   readonly prodFeatures?: readonly FeatureDefinition[];
+  /** Whether the app boots with the bundled auth features (config/user/tenant/auth-email-password)
+   *  that composeFeatures adds; the schema tooling needs their tables. Unset: derived from the
+   *  feature list. */
+  readonly includeBundled?: boolean;
   readonly client: AppClientConfig;
   readonly ports: AppPorts;
   /** Passed to validateBoot by `kumiko check` and, via the app's bin files, by the runners. */

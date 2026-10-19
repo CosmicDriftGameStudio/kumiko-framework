@@ -147,7 +147,7 @@ describe("hooks/pre-push shim", () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  test("no node_modules anywhere above the repo fails closed with the bun install / PRE_PUSH_SKIP hint", () => {
+  test("no node_modules anywhere above the repo fails closed with the bun install hint", () => {
     // The upward walk in the shim goes all the way to "/"; this only holds
     // if no real ancestor of the tmp fixture happens to carry the bin.
     let dir = tmp;
@@ -166,7 +166,7 @@ describe("hooks/pre-push shim", () => {
     const lines = output.trim().split("\n");
     expect(lines).toEqual([
       `[pre-push] kumiko-pre-push not found in any node_modules/.bin above ${repoDir}.`,
-      "Run `bun install`, or set PRE_PUSH_SKIP=1 to bypass this hook.",
+      "Run `bun install`.",
     ]);
   });
 
@@ -180,14 +180,15 @@ describe("hooks/pre-push shim", () => {
     expect(output).toContain("FATAL");
   });
 
-  test("PRE_PUSH_SKIP=1 with no bin anywhere exits 0", () => {
+  test("PRE_PUSH_SKIP=1 is no bypass: with no bin anywhere the hook still fails closed", () => {
     const repoDir = join(tmp, "repo");
     initGitRepo(repoDir);
 
     const { output, exitCode } = runHook(repoDir, tmp, [], "", { PRE_PUSH_SKIP: "1" });
 
-    expect(exitCode).toBe(0);
-    expect(output).toContain("PRE_PUSH_SKIP=1");
+    expect(exitCode).not.toBe(0);
+    expect(output).toContain("kumiko-pre-push not found");
+    expect(output).not.toContain("skipped");
   });
 
   test("repo-local bin is invoked from REPO_ROOT with args and stdin forwarded", () => {

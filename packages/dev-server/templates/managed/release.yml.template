@@ -44,12 +44,28 @@ jobs:
             exit 1
           fi
 
+{{#privateDeploy}}
   deploy:
     needs: verify
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-deploy.yml@main
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_app-deploy.yml@{{infraRef}}
     with:
       namespace: {{namespace}}
       deployment: {{deployment}}
       image-name: {{appName}}
       git_sha: ${{ inputs.sha }}
     secrets: inherit
+{{/privateDeploy}}
+{{#publicRollout}}
+  # A public repo cannot call the private infra workflows; the rollout runs from infra.
+  rollout-hint:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Print rollout command
+        env:
+          SHA: ${{ inputs.sha }}
+        run: |
+          echo "SHA verified. Roll out from a machine with access to the infra repo:"
+          echo "gh workflow run public-app-rollout.yml --repo cosmicdriftgamestudio/infra -f app={{appName}} -f git_sha=$SHA"
+{{/publicRollout}}

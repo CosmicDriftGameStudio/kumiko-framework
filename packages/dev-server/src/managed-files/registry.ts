@@ -5,11 +5,19 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import {
+  readStaticAppConfig,
+  type StaticAppConfig,
+} from "@cosmicdrift/kumiko-repo-manifest/app-ports";
 import { BUNFIG_FILES, type BunfigOptions, renderBunfig } from "@cosmicdrift/kumiko-testing/bunfig";
 import { isKebabSegment } from "../kebab.ts";
-import { readReleaseTarget, render, renderDeployFiles } from "../scaffold-deploy.ts";
+import {
+  type KumikoReleaseTarget,
+  readReleaseTarget,
+  render,
+  renderDeployFiles,
+} from "../scaffold-deploy.ts";
 import { addManagedMarker, type MarkerCommentStyle } from "./marker.ts";
-import { readStaticAppConfig, type StaticAppConfig } from "./static-app-config.ts";
 
 export const BIOME_PRESET = "@cosmicdrift/kumiko-framework/biome";
 export const TSCONFIG_PRESET = "@cosmicdrift/kumiko-framework/tsconfig.app.json";
@@ -27,7 +35,11 @@ export type ManagedAppFacts = {
   readonly appName: string;
   readonly hasUi: boolean;
   readonly config: StaticAppConfig;
+  readonly deploy: KumikoReleaseTarget;
 };
+
+/** Ref used in the workflow templates while `kumiko.deploy.infraRef` is unset. */
+export const DEFAULT_INFRA_REF = "main";
 
 /** Byte-compared after the marker lines are stripped. */
 export type ManagedTemplateFile = {
@@ -91,7 +103,18 @@ export function resolveManagedAppFacts(input: ManagedAppInput): ManagedAppFacts 
     appName,
     hasUi: input.uiRoots.length > 0,
     config: readStaticAppConfig(input.appRoot),
+    deploy: readReleaseTarget(input.appRoot, appName),
   };
+}
+
+/** Findings that do not fail `kumiko check managed`. */
+export function listManagedWarnings(facts: ManagedAppFacts): readonly string[] {
+  if (facts.deploy.visibility === "private" && facts.deploy.infraRef === undefined) {
+    return [
+      `package.json#kumiko.deploy.infraRef is not set: ci.yml and release.yml call the infra workflows at @${DEFAULT_INFRA_REF}. Set it to an infra tag; a missing value will fail this check in a later release.`,
+    ];
+  }
+  return [];
 }
 
 function marked(
@@ -107,10 +130,40 @@ function renderCiWorkflow(facts: ManagedAppFacts): string {
   const infra = facts.config.kind === "defined" ? facts.config.ports.infra : undefined;
   const minio = infra?.s3 !== undefined;
   const meilisearch = infra?.meilisearch !== undefined;
+  if (facts.deploy.visibility === "public") {
+    return render(
+      readTemplate("ci-public.yml.template"),
+      { appName: facts.appName },
+      { uiGuards: facts.hasUi, meilisearch },
+    );
+  }
   return render(
     readTemplate("ci.yml.template"),
-    { appName: facts.appName, uiGuards: String(facts.hasUi) },
-    { minio, meilisearch, e2eInputs: minio || meilisearch },
+    {
+      appName: facts.appName,
+      uiGuards: String(facts.hasUi),
+      infraRef: facts.deploy.infraRef ?? DEFAULT_INFRA_REF,
+    },
+    {
+      minio,
+      meilisearch,
+      e2eInputs: minio || meilisearch,
+      docStatusGuardOff: !facts.deploy.docStatusGuard,
+    },
+  );
+}
+
+function renderReleaseWorkflow(facts: ManagedAppFacts): string {
+  const { namespace, deployment, visibility, infraRef } = facts.deploy;
+  return render(
+    readTemplate("release.yml.template"),
+    {
+      appName: facts.appName,
+      namespace,
+      deployment,
+      infraRef: infraRef ?? DEFAULT_INFRA_REF,
+    },
+    { privateDeploy: visibility === "private", publicRollout: visibility === "public" },
   );
 }
 
@@ -120,18 +173,13 @@ export function renderManagedTemplates(facts: ManagedAppFacts): readonly Managed
     destination: facts.appRoot,
     ensuredRegistryConfigFiles: [BUNFIG_FILES.unit],
   });
-  const target = readReleaseTarget(facts.appRoot, facts.appName);
   return [
     ...deploy.files.map((file) =>
       marked(`deploy/${file.output}`, file.content, "#", file.output.endsWith(".sh")),
     ),
     marked(".husky/pre-push", readTemplate("husky-pre-push.template"), "#", true),
     marked(".github/workflows/cache-cleanup.yml", readTemplate("cache-cleanup.yml.template"), "#"),
-    marked(
-      ".github/workflows/release.yml",
-      render(readTemplate("release.yml.template"), { appName: facts.appName, ...target }, {}),
-      "#",
-    ),
+    marked(".github/workflows/release.yml", renderReleaseWorkflow(facts), "#"),
     marked(".github/workflows/ci.yml", renderCiWorkflow(facts), "#"),
     marked("kumiko/schema.ts", readTemplate("kumiko-schema.ts.template"), "//"),
   ];
