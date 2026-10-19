@@ -12,7 +12,7 @@ import type { EditorOrigin } from "./editor-header.tsx";
 import { EditorBody, EditorInfoBar } from "./editor-shell.tsx";
 import { formatKilobytes } from "./mail-draft.ts";
 import { PreviewSide, type TestMailControls } from "./mail-preview-side.tsx";
-import type { MailPreview, MailValidation, PreviewAttachment } from "./mail-types.ts";
+import type { MailPreview, MailValidation, PickedValues, PreviewAttachment } from "./mail-types.ts";
 import type { OwnAddress } from "./use-own-address.ts";
 
 type PreviewFormat = "html" | "text";
@@ -25,6 +25,7 @@ export type PreviewPayload = {
   readonly content: string;
   readonly meta: Readonly<Record<string, unknown>>;
   readonly variableSchema: unknown;
+  readonly variables?: PickedValues;
 };
 
 function attachmentText(
@@ -153,7 +154,11 @@ export function MailPreviewMode({
   controls,
   origin,
   testMail,
+  picked,
+  onPick,
 }: {
+  readonly picked: PickedValues | null;
+  readonly onPick: (values: PickedValues) => void;
   readonly payload: PreviewPayload;
   readonly validation: MailValidation | null;
   readonly slug: string;
@@ -235,6 +240,8 @@ export function MailPreviewMode({
             locale={locale}
             own={own}
             testMail={testMail}
+            picked={picked}
+            onPick={onPick}
           />
         }
       />

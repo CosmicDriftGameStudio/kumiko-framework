@@ -5,7 +5,7 @@ import { useNav, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/ku
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useState } from "react";
 import { displayValue } from "./mail-draft.ts";
-import type { MailPreview, MailValidation, PreviewCheck } from "./mail-types.ts";
+import type { MailPreview, MailValidation, PickedValues, PreviewCheck } from "./mail-types.ts";
 import { usePreviewRecordPicker } from "./preview-record-picker.tsx";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 import type { OwnAddress } from "./use-own-address.ts";
@@ -171,23 +171,26 @@ export function PreviewSide({
   locale,
   own,
   testMail,
+  picked,
+  onPick,
 }: {
   readonly preview: MailPreview | null;
   readonly validation: MailValidation | null;
   readonly slug: string;
   readonly locale: string;
+  readonly picked: PickedValues | null;
+  readonly onPick: (values: PickedValues) => void;
   readonly own: OwnAddress;
   readonly testMail: TestMailControls;
 }): ReactNode {
   const t = useTranslation();
   const { Button, Field, Input, Text } = usePrimitives();
   const hasAttachments = preview?.attachments.some((a) => a.kind !== "inline") === true;
-  const [picked, setPicked] = useState<Readonly<Record<string, unknown>> | null>(null);
   return (
     <div data-testid="mail-preview-side">
       <RailSection
         title={t("documentDesigner.mail.preview.samples")}
-        action={<RecordPickerLink slug={slug} locale={locale} onPick={setPicked} />}
+        action={<RecordPickerLink slug={slug} locale={locale} onPick={onPick} />}
       >
         <SampleValues preview={preview} validation={validation} picked={picked} locale={locale} />
         <RailHint>{t("documentDesigner.mail.preview.samplesHint")}</RailHint>

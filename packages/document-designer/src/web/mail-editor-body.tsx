@@ -47,7 +47,7 @@ import {
   PropertiesSection,
   UsageSection,
 } from "./mail-right-rail.tsx";
-import type { MailDraft, MailValidation, TemplateRowView } from "./mail-types.ts";
+import type { MailDraft, MailValidation, PickedValues, TemplateRowView } from "./mail-types.ts";
 import { UploadModal } from "./mail-upload-modal.tsx";
 import { VersionsSection } from "./mail-versions.tsx";
 import { useInsertTargets } from "./use-insert-targets.ts";
@@ -104,6 +104,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   const [editorEpoch, setEditorEpoch] = useState(0);
   const [includeAttachments, setIncludeAttachments] = useState(true);
   const [prefixSubject, setPrefixSubject] = useState(true);
+  const [picked, setPicked] = useState<PickedValues | null>(null);
 
   const insert = useInsertTargets();
   const persistence = useMailPersistence({
@@ -205,6 +206,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
       variableSchema,
       includeAttachments,
       prefixSubject,
+      ...(picked !== null && { variables: picked }),
     });
   };
 
@@ -363,7 +365,10 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
             content: settled.body,
             meta: buildMeta(settled),
             variableSchema,
+            ...(picked !== null && { variables: picked }),
           }}
+          picked={picked}
+          onPick={setPicked}
           validation={validation ?? null}
           slug={slug}
           locale={locale}
