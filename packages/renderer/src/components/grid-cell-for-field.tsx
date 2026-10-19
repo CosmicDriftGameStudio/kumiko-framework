@@ -30,6 +30,8 @@ export type GridCellForFieldProps = {
   readonly flow?: boolean;
   readonly layout?: FieldProps["layout"];
   readonly accent?: boolean;
+  /** Passed through to RenderField — see RenderFieldProps.fillDisabled. */
+  readonly fillDisabled?: boolean;
 };
 
 const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
@@ -81,6 +83,7 @@ export function GridCellForField({
   flow,
   layout,
   accent,
+  fillDisabled,
 }: GridCellForFieldProps): ReactNode {
   // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
   if (!field.visible) return null;
@@ -104,6 +107,7 @@ export function GridCellForField({
         {...(changed === true && { changed })}
         {...(layout !== undefined && { layout })}
         {...(accent === true && { accent })}
+        {...(fillDisabled === true && { fillDisabled })}
       />
     </GridCell>
   );

@@ -1,6 +1,8 @@
 import type {
   EditFieldSpec,
   EditSectionSpec,
+  FieldAffix,
+  FieldFillAction,
   FieldIconKey,
   FieldRenderer,
   IconKey,
@@ -293,6 +295,12 @@ export type EditFieldViewModel = {
   readonly icon?: FieldIconKey;
   /** From EditFieldSpec.placeholder, already translated — hint shown while the input is empty. */
   readonly placeholder?: string;
+  /** From EditFieldSpec.prefix / suffix. A string affix is already translated;
+   *  a `{ field }` affix stays a reference, the renderer reads it from the live form values. */
+  readonly prefix?: FieldAffix;
+  readonly suffix?: FieldAffix;
+  /** From EditFieldSpec.fillAction, `label` already translated. */
+  readonly fillAction?: FieldFillAction;
   /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
    *  metadata the renderer needs to draw each column/cell. Absent for a
    *  plain (non-list) embedded field. */

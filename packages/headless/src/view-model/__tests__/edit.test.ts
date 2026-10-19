@@ -390,6 +390,43 @@ describe("computeEditViewModel", () => {
     expect(fields[0]?.placeholder).toBe("t:orders.hint.name");
     expect(fields[1]?.placeholder).toBeUndefined();
   });
+
+  test("prefix, suffix and fillAction reach the view model: strings and the label translated, a field reference kept", () => {
+    const fillAction = {
+      label: "orders.fill.roll",
+      query: "orders:query:suggest",
+      field: "suggestion",
+      params: { pick: ["notes"] },
+    };
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            title: "x",
+            fields: [
+              {
+                field: "customerName",
+                prefix: "orders.affix.https",
+                suffix: { field: "notes" },
+                fillAction,
+              },
+              "notes",
+            ],
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate: (key) => `t:${key}`,
+      featureName: "orders",
+    });
+    const fields = asFields(vm.sections[0]).fields;
+    expect(fields[0]?.prefix).toBe("t:orders.affix.https");
+    expect(fields[0]?.suffix).toEqual({ field: "notes" });
+    expect(fields[0]?.fillAction).toEqual({ ...fillAction, label: "t:orders.fill.roll" });
+    expect(fields[1]?.prefix).toBeUndefined();
+    expect(fields[1]?.fillAction).toBeUndefined();
+  });
 });
 
 describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => {

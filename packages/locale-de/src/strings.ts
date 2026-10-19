@@ -755,6 +755,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.file-upload.failed": "Upload fehlgeschlagen",
   "kumiko.field.file-upload.remove": "Entfernen",
   "kumiko.field.file-upload.upload": "Hochladen",
+  "kumiko.field.fillAction.failed": "Vorschlag konnte nicht geladen werden.",
   "kumiko.field.locatedTzHint": "Zeit lokal am angegebenen Ort",
   "kumiko.field.multiSelect.deselect-all": "Alle abwählen",
   "kumiko.field.multiSelect.select-all": "Alle auswählen",

@@ -2214,6 +2214,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     allIssues={snapshot.errors}
                     valueDisplay={valueDisplay}
                     row={snapshot.values}
+                    {...(disabled && { fillDisabled: true })}
                     {...((!isCreate || markChangedFields) &&
                       field.field in snapshot.changes && { changed: true })}
                   />

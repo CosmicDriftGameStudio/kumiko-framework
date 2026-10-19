@@ -48,6 +48,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.reference-created-no-id":
       "Record was created but could not be selected automatically. Please select it manually.",
     "kumiko.field.unsupported": "This field type can't be edited here yet.",
+    "kumiko.field.fillAction.failed": "Could not fetch a suggestion.",
     "kumiko.field.writeOnly.remove": "Remove stored value",
     "kumiko.field.writeOnly.set": "Set",
     "kumiko.pii.erased": "Deleted",

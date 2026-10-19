@@ -254,6 +254,7 @@ export type {
   GridCellProps,
   GridProps,
   HeadingProps,
+  InputFillAction,
   InputProps,
   JsonViewProps,
   LightboxImage,

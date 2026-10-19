@@ -761,6 +761,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.field.file-upload.failed": "Échec du téléversement",
   "kumiko.field.file-upload.remove": "Supprimer",
   "kumiko.field.file-upload.upload": "Téléverser",
+  "kumiko.field.fillAction.failed": "Impossible de récupérer une suggestion.",
   "kumiko.field.locatedTzHint": "Heure locale du lieu indiqué",
   "kumiko.field.multiSelect.deselect-all": "Tout désélectionner",
   "kumiko.field.multiSelect.select-all": "Tout sélectionner",

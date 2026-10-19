@@ -1308,6 +1308,18 @@ export type EditFieldSpec =
       /** Input placeholder (i18n key, falls back to the literal). Only for
        *  single-line text, number and textarea inputs; other kinds ignore it. */
       readonly placeholder?: string;
+      /** Static text shown before the input (i18n key, falls back to the
+       *  literal), or `{ field }` for the current form value of another field
+       *  (a hidden field carrying e.g. a base domain). Only for single-line
+       *  text and number inputs; other kinds ignore it. */
+      readonly prefix?: FieldAffix;
+      /** Same as `prefix`, shown after the input. */
+      readonly suffix?: FieldAffix;
+      /** Button beside the input that runs a query and writes one scalar of
+       *  its result into this field. Also offered on a readOnly field, where
+       *  the value can only come from the suggestion. Only for single-line
+       *  text and number inputs; other kinds ignore it. */
+      readonly fillAction?: FieldFillAction;
       /** Marks this field as a reference lookup instead of a plain value —
        *  for projectionDetail fields, which have no `EntityDefinition` to
        *  carry a real `reference` field type. Same target convention as
@@ -1326,6 +1338,20 @@ export type EditFieldSpec =
        *  field `default`, it is not applied server-side. */
       readonly prefill?: EditFieldPrefill;
     };
+
+export type FieldAffix = string | { readonly field: string };
+
+export type FieldFillAction = {
+  /** i18n key (falls back to the literal) of the button label. */
+  readonly label: string;
+  /** Qualified query name, run with the current form values picked by `params`. */
+  readonly query: string;
+  /** Key in the query result written into the field; the value must be a
+   *  string or a number, anything else counts as a failed fill. */
+  readonly field: string;
+  /** Form fields sent as the query payload (none: an empty payload). */
+  readonly params?: RowFieldExtractor;
+};
 
 export type EmbeddedListEditSpec = {
   /** Sub-fields shown as read-only cells; every other cell stays editable. */

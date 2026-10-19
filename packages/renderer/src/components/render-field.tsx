@@ -1,5 +1,7 @@
 import {
   type EntityEditScreenDefinition,
+  type FieldAffix,
+  type FieldFillAction,
   type FieldIconKey,
   type FieldRenderer,
   isFormatSpec,
@@ -19,7 +21,9 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
@@ -27,13 +31,15 @@ import { useColumnRenderer } from "../app/column-renderers.tsx";
 import { extensionSectionName } from "../app/extension-sections.tsx";
 import { toKebab } from "../app/qn.ts";
 import { useReferenceLinkResolver } from "../app/reference-link.ts";
+import { evalRowExtractor } from "../app/row-actions.ts";
 import { screenAccessAllows } from "../app/screen-access.ts";
+import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
-import { type FieldProps, usePrimitives } from "../primitives.tsx";
+import { type FieldProps, type InputFillAction, usePrimitives } from "../primitives.tsx";
 import {
   AvailabilityOptionsMultiSelect,
   AvailabilityOptionsSelect,
@@ -97,6 +103,9 @@ export type RenderFieldProps = {
   readonly changed?: boolean;
   readonly layout?: FieldProps["layout"];
   readonly accent?: boolean;
+  /** The surrounding form is locked as a whole: the fill button stays visible
+   *  but inert, unlike a single readOnly field whose fill button keeps working. */
+  readonly fillDisabled?: boolean;
 };
 
 const AllFieldsRequiredContext = createContext(false);
@@ -119,6 +128,7 @@ export function RenderField({
   changed,
   layout,
   accent,
+  fillDisabled,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text, JsonView } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
@@ -204,6 +214,31 @@ export function RenderField({
         onChange={onChange}
         changed={changed === true}
       />
+    ) : field.fillAction !== undefined ? (
+      <FillActionControl
+        field={field}
+        fillAction={field.fillAction}
+        row={row ?? { [field.field]: field.value }}
+        onChange={onChange}
+        disabled={fillDisabled === true}
+        Banner={Banner}
+        renderControl={(fill) =>
+          renderInput({
+            field,
+            id,
+            hasError,
+            onChange,
+            Input,
+            appLocale,
+            Banner,
+            Text,
+            JsonView,
+            t,
+            row,
+            fill,
+          })
+        }
+      />
     ) : (
       renderInput({
         field,
@@ -238,6 +273,90 @@ export function RenderField({
     >
       {control}
     </Field>
+  );
+}
+
+const NUMERIC_FIELD_TYPES: ReadonlySet<string> = new Set(["number", "bigInt", "decimal"]);
+
+// A text field takes a number as its string form; a numeric field takes only a
+// number — a string would be sent as a wrong-typed value.
+function fillValueFor(fieldType: string, result: unknown): string | number | undefined {
+  if (NUMERIC_FIELD_TYPES.has(fieldType)) return typeof result === "number" ? result : undefined;
+  if (typeof result === "string") return result;
+  return typeof result === "number" ? String(result) : undefined;
+}
+
+// Owns the query state of a fill button. A separate component because RenderField
+// returns early for hidden fields and the dispatcher hook must not be conditional.
+function FillActionControl({
+  field,
+  fillAction,
+  row,
+  onChange,
+  disabled,
+  Banner,
+  renderControl,
+}: {
+  readonly field: EditFieldViewModel;
+  readonly fillAction: FieldFillAction;
+  readonly row: Readonly<Record<string, unknown>>;
+  readonly onChange: (value: unknown) => void;
+  readonly disabled: boolean;
+  readonly Banner: ReturnType<typeof usePrimitives>["Banner"];
+  readonly renderControl: (fill: InputFillAction) => ReactNode;
+}): ReactNode {
+  const dispatcher = useOptionalDispatcher();
+  const t = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  // A newer click or an unmount cancels the in-flight query so a late answer
+  // cannot overwrite a value the user has since typed.
+  const activeRun = useRef<AbortController | null>(null);
+  useEffect(() => () => activeRun.current?.abort(), []);
+
+  const run = async (): Promise<void> => {
+    if (dispatcher === undefined) {
+      setFailed(true);
+      return;
+    }
+    activeRun.current?.abort();
+    const ctrl = new AbortController();
+    activeRun.current = ctrl;
+    setBusy(true);
+    setFailed(false);
+    const payload = fillAction.params === undefined ? {} : evalRowExtractor(fillAction.params, row);
+    const result = await dispatcher.query<unknown>(fillAction.query, payload, {
+      signal: ctrl.signal,
+    });
+    if (ctrl.signal.aborted) return;
+    setBusy(false);
+    if (!result.isSuccess) {
+      setFailed(true);
+      return;
+    }
+    const value = fillValueFor(field.type, propertyOf(result.data, fillAction.field));
+    if (value === undefined) {
+      setFailed(true);
+      return;
+    }
+    onChange(value);
+  };
+
+  return (
+    <>
+      {renderControl({
+        label: fillAction.label,
+        onPress: () => void run(),
+        busy,
+        disabled,
+        testId: `field-fill-${field.field}`,
+      })}
+      {failed && (
+        <Banner variant="error" testId={`field-fill-error-${field.field}`}>
+          {t("kumiko.field.fillAction.failed")}
+        </Banner>
+      )}
+    </>
   );
 }
 
@@ -691,6 +810,7 @@ function renderInput({
   JsonView,
   t,
   row,
+  fill,
 }: {
   readonly field: EditFieldViewModel;
   readonly id: string;
@@ -703,6 +823,7 @@ function renderInput({
   readonly JsonView: ReturnType<typeof usePrimitives>["JsonView"];
   readonly t: ReturnType<typeof useTranslation>;
   readonly row?: Readonly<Record<string, unknown>>;
+  readonly fill?: InputFillAction;
 }): ReactNode {
   const common = {
     id,
@@ -713,6 +834,13 @@ function renderInput({
   } as const;
 
   const placeholderProp = field.placeholder !== undefined ? { placeholder: field.placeholder } : {};
+  const prefix = resolveAffix(field.prefix, row);
+  const suffix = resolveAffix(field.suffix, row);
+  const affixProps = {
+    ...(prefix !== undefined && { prefix }),
+    ...(suffix !== undefined && { suffix }),
+    ...(fill !== undefined && { fill }),
+  };
 
   switch (field.type) {
     // decimal/bigInt are both plain numbers on the wire (fieldToZod:
@@ -733,6 +861,7 @@ function renderInput({
           {...(field.grouping !== undefined && { grouping: field.grouping })}
           {...(field.type === "bigInt" && { integer: true })}
           {...placeholderProp}
+          {...affixProps}
           {...(icon !== undefined && { icon })}
           {...(unit !== undefined && { unit })}
         />
@@ -749,6 +878,7 @@ function renderInput({
           locale={appLocale}
           {...(field.grouping !== undefined && { grouping: field.grouping })}
           {...placeholderProp}
+          {...affixProps}
           {...(icon !== undefined && { icon })}
         />
       );
@@ -969,6 +1099,7 @@ function renderInput({
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
           {...placeholderProp}
+          {...affixProps}
           {...(icon !== undefined && { icon })}
           {...(field.autoComplete !== undefined && { autoComplete: field.autoComplete })}
         />
@@ -1029,6 +1160,19 @@ function resolveNumberUnit(
   if (typeof sibling !== "string") return undefined;
   const trimmed = sibling.trim();
   return trimmed.length > 0 && trimmed.length <= MAX_SIBLING_UNIT_LENGTH ? trimmed : undefined;
+}
+
+// String affix → used as-is (the view model already translated it). Field
+// affix → the live form value; missing, empty or non-scalar means no affix.
+function resolveAffix(
+  affix: FieldAffix | undefined,
+  row: Readonly<Record<string, unknown>> | undefined,
+): string | undefined {
+  if (affix === undefined) return undefined;
+  if (typeof affix === "string") return affix;
+  const value = row?.[affix.field];
+  const text = typeof value === "number" ? String(value) : value;
+  return typeof text === "string" && text.trim().length > 0 ? text.trim() : undefined;
 }
 
 function stringArrayOf(value: unknown): readonly string[] {

@@ -248,6 +248,18 @@ export type FieldProps = {
 /** Discriminated union — jede Input-Sorte hat ihre eigene value/onChange
  *  Signatur. Custom-Impls dispatchen intern, rendern anders (Toggle
  *  statt Checkbox), oder nur einzelne kinds unterschiedlich. */
+/** Button beside a single-line text/number input that fills it with a
+ *  suggestion. Stays usable on a `disabled` input (the readOnly+fill case). */
+export type InputFillAction = {
+  readonly label: string;
+  readonly onPress: () => void;
+  /** A suggestion is being fetched: the button shows a spinner and is inert. */
+  readonly busy?: boolean;
+  /** The surrounding form is locked as a whole. */
+  readonly disabled?: boolean;
+  readonly testId?: string;
+};
+
 export type TrailingInputAction = {
   readonly icon: "clear" | "undo";
   readonly label: string;
@@ -288,6 +300,10 @@ export type InputProps =
       readonly readOnly?: boolean;
       /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
       readonly icon?: FieldIconKey;
+      /** Resolved inline text before/after the input (EditFieldSpec.prefix/suffix). */
+      readonly prefix?: string;
+      readonly suffix?: string;
+      readonly fill?: InputFillAction;
       readonly dataAttributes?: DataAttributes;
       /** Raw keydown access (e.g. Enter-to-submit at the field instead of
        *  the surrounding Form). Web forwards it, native impls ignore it
@@ -356,6 +372,9 @@ export type InputProps =
       /** Resolved display suffix (static or from a sibling field) — never
        *  part of the numeric value. */
       readonly unit?: string;
+      readonly prefix?: string;
+      readonly suffix?: string;
+      readonly fill?: InputFillAction;
     }
   | {
       readonly kind: "range";

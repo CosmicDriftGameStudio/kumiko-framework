@@ -49,6 +49,7 @@ import {
   type GridCellProps,
   type GridProps,
   type HeadingProps,
+  type InputFillAction,
   type InputProps,
   InsideDrawerProvider,
   type LinkProps,
@@ -648,6 +649,51 @@ function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
+type InputAddonProps = {
+  readonly name: string;
+  readonly prefix?: string | undefined;
+  readonly suffix?: string | undefined;
+  readonly fill?: InputFillAction | undefined;
+};
+
+const INPUT_AFFIX_CLASS =
+  "inline-flex shrink-0 items-center text-sm text-muted-foreground max-md:min-h-11";
+
+// Prefix/suffix text and the fill button sit beside the input, not inside it,
+// so the input keeps its own padding contract (icon, unit). The wrapper is
+// only added when an addon exists — a plain input keeps its tree shape.
+function withInputAddons(addons: InputAddonProps, input: ReactNode): ReactNode {
+  const { name, prefix, suffix, fill } = addons;
+  if (prefix === undefined && suffix === undefined && fill === undefined) return input;
+  return (
+    <div data-slot="input-addons" className="flex items-center gap-2">
+      {prefix !== undefined && (
+        <span data-testid={`input-prefix-${name}`} className={INPUT_AFFIX_CLASS}>
+          {prefix}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">{input}</div>
+      {suffix !== undefined && (
+        <span data-testid={`input-suffix-${name}`} className={INPUT_AFFIX_CLASS}>
+          {suffix}
+        </span>
+      )}
+      {fill !== undefined && (
+        <DefaultButton
+          variant="secondary"
+          size="sm"
+          onClick={fill.onPress}
+          loading={fill.busy === true}
+          disabled={fill.disabled === true}
+          testId={fill.testId ?? `input-fill-${name}`}
+        >
+          {fill.label}
+        </DefaultButton>
+      )}
+    </div>
+  );
+}
+
 // The unit changes the meaning of the value ("58 mi" vs "58 km"), so it is
 // exposed as the input's description rather than hidden from assistive tech.
 function unitSuffixId(inputId: string): string {
@@ -850,21 +896,24 @@ function DefaultInput(props: InputProps): ReactNode {
   } as const;
   switch (props.kind) {
     case "text":
-      return withFieldIcon(
-        props.icon,
-        <UiInput
-          type="text"
-          {...common}
-          {...props.dataAttributes}
-          data-testid={props.testId}
-          readOnly={props.readOnly}
-          value={props.value}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
-          onKeyDown={props.onKeyDown}
-          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
-          {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
-          className={cn(fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined)}
-        />,
+      return withInputAddons(
+        props,
+        withFieldIcon(
+          props.icon,
+          <UiInput
+            type="text"
+            {...common}
+            {...props.dataAttributes}
+            data-testid={props.testId}
+            readOnly={props.readOnly}
+            value={props.value}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+            onKeyDown={props.onKeyDown}
+            {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
+            {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
+            className={cn(fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined)}
+          />,
+        ),
       );
     case "email":
       return (
@@ -898,7 +947,7 @@ function DefaultInput(props: InputProps): ReactNode {
       // Icon, input and unit share this one box, and the grid cell sizes the
       // box rather than the bare input: anchored to a wider wrapper, the unit
       // would sit next to a narrower input instead of inside it.
-      return (
+      const numberField = (
         <div data-slot="number-field" className="relative">
           {NumberIcon !== undefined && (
             <NumberIcon aria-hidden="true" className={FIELD_ICON_CLASS} />
@@ -932,6 +981,7 @@ function DefaultInput(props: InputProps): ReactNode {
           )}
         </div>
       );
+      return withInputAddons(props, numberField);
     }
     case "range":
       return (
