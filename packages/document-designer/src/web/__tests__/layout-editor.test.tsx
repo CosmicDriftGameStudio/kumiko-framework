@@ -12,7 +12,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import { LayoutEditor } from "../layout-editor.tsx";

@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { TagsQueries } from "../../constants.ts";
@@ -150,4 +150,9 @@ describe("TagPicker — open/confirm/cancel sync", () => {
     fireEvent.click(screen.getByTestId("tag-picker-dialog-confirm"));
     await waitFor(() => expect(screen.getByTestId("host-applied").textContent).toBe("t1"));
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
 });

@@ -240,7 +240,7 @@ export type RunDevAppOptions = {
    *  through `runDevApp` show the same resolved head prod does. See
    *  `CreateKumikoServerOptions.resolvePageHead` for the full contract. */
   readonly resolvePageHead?: PageHeadResolver;
-  /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer-web/styles.css`
+  /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer/web/styles.css`
    *  wenn ein client-Entry gesetzt ist. `false` deaktiviert die CSS-Pipeline. */
   readonly stylesheet?: string | false;
   /** Tailwind `--watch` process on/off, see `CreateKumikoServerOptions.stylesheetWatch`. */

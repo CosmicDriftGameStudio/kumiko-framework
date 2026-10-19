@@ -1,14 +1,15 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../i18n.ts";
 
+const realModule0 = await import("qrcode/lib/browser.js");
 mock.module("qrcode/lib/browser.js", () => ({
   default: { toString: mock(async () => "<svg></svg>") },
 }));
@@ -372,4 +373,9 @@ describe("MfaSetupPreauthScreen", () => {
     }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("qrcode/lib/browser.js", () => realModule0);
 });

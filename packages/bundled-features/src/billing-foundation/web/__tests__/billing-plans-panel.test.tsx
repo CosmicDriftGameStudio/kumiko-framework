@@ -1,5 +1,5 @@
 // @runtime test
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
@@ -7,7 +7,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { BillingPlanActions, SubscriptionFoundationHandlers } from "../../constants.ts";
@@ -646,4 +646,9 @@ describe("BillingPlansPanel", () => {
       expect(refetchPlans).toHaveBeenCalledTimes(1);
     });
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
 });

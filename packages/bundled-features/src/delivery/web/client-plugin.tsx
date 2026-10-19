@@ -1,6 +1,6 @@
 // @runtime client
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import {
   DELIVERY_CHANNEL_CELL_COMPONENT,
   DELIVERY_ERROR_CELL_COMPONENT,

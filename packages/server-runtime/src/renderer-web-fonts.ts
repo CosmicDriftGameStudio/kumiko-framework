@@ -22,7 +22,7 @@ export function resolveRendererWebFontsDir(searchFrom: readonly string[]): strin
   if (!hasBun) return undefined;
   for (const from of searchFrom) {
     try {
-      const stylesheet = Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", from);
+      const stylesheet = Bun.resolveSync("@cosmicdrift/kumiko-renderer/web/styles.css", from);
       return join(dirname(stylesheet), "fonts");
     } catch {
       // try the next search root

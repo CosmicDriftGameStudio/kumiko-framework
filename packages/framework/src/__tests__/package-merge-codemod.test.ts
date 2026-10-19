@@ -92,6 +92,41 @@ describe("package-merge codemod: sources", () => {
   }
 });
 
+describe("package-merge codemod: css", () => {
+  const CSS_FILE = "/repo/apps/demo/src/styles.css";
+  const WEB = "@cosmicdrift/kumiko-renderer-web";
+
+  it("rewrites @import and @plugin specifiers and leaves other packages alone", () => {
+    const input = [
+      `@import "${WEB}/styles.css";`,
+      `@plugin '${WEB}/theme-plugin';`,
+      `@import url("${WEB}/styles.css");`,
+      `@import "@cosmicdrift/kumiko-renderer-mail-html/x.css";`,
+      ``,
+    ].join("\n");
+    const result = transformPackageMergeSource(input, CSS_FILE);
+    expect(result.output).toBe(
+      [
+        `@import "@cosmicdrift/kumiko-renderer/web/styles.css";`,
+        `@plugin '@cosmicdrift/kumiko-renderer/web/theme-plugin';`,
+        `@import url("@cosmicdrift/kumiko-renderer/web/styles.css");`,
+        `@import "@cosmicdrift/kumiko-renderer-mail-html/x.css";`,
+        ``,
+      ].join("\n"),
+    );
+    expect(result.rewrites.map((site) => site.line)).toEqual([1, 2, 3]);
+    expect(transformPackageMergeSource(result.output, CSS_FILE).rewrites).toHaveLength(0);
+  });
+
+  it("reports a @source path into the old package as manual", () => {
+    const input = `@source "../node_modules/${WEB}/src/**/*.tsx";\n`;
+    const result = transformPackageMergeSource(input, CSS_FILE);
+    expect(result.output).toBe(input);
+    expect(result.rewrites).toHaveLength(0);
+    expect(result.manual).toHaveLength(1);
+  });
+});
+
 describe("package-merge codemod: package.json", () => {
   const PKG_FILE = "/repo/apps/demo/package.json";
 
@@ -203,6 +238,17 @@ describe("package-merge codemod: mapping table", () => {
       "@cosmicdrift/kumiko-renderer/live",
     );
     expect(mergedSpecifier("@cosmicdrift/kumiko-renderer")).toBeUndefined();
+  });
+
+  it("maps renderer-web onto the renderer web subpath without touching its siblings", () => {
+    expect(mergedSpecifier("@cosmicdrift/kumiko-renderer-web")).toBe(
+      "@cosmicdrift/kumiko-renderer/web",
+    );
+    expect(mergedSpecifier("@cosmicdrift/kumiko-renderer-web/styles.css")).toBe(
+      "@cosmicdrift/kumiko-renderer/web/styles.css",
+    );
+    expect(mergedSpecifier("@cosmicdrift/kumiko-renderer-mail-html")).toBeUndefined();
+    expect(mergedSpecifier("@cosmicdrift/kumiko-renderer/web")).toBeUndefined();
   });
 
   it("replaces the headless and dispatcher-live dependencies with renderer once", () => {

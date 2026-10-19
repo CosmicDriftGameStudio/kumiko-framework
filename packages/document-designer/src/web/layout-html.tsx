@@ -1,5 +1,5 @@
 // @runtime client
-import { cn } from "@cosmicdrift/kumiko-renderer-web";
+import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import { createElement, type ReactNode, useMemo } from "react";
 
 // Layout regions arrive server-sanitised, but the preview still renders them

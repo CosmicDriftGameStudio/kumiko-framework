@@ -30,7 +30,7 @@ describe("renderer-web theme plugin in a real Tailwind build", () => {
       try {
         await writeFile(
           join(dir, "theme.ts"),
-          `import { createThemePlugin, defineAppTheme } from "@cosmicdrift/kumiko-renderer-web/theme-plugin";
+          `import { createThemePlugin, defineAppTheme } from "@cosmicdrift/kumiko-renderer/web/theme-plugin";
 export default createThemePlugin(defineAppTheme({
   colors: {
     primary: { light: "#0a7d5a", dark: "#34d399" },
@@ -47,7 +47,7 @@ export default createThemePlugin(defineAppTheme({
         );
         await writeFile(
           join(dir, "styles.css"),
-          `@import "@cosmicdrift/kumiko-renderer-web/styles.css";\n@plugin "./theme.ts";\n@source "./probe.tsx";\n`,
+          `@import "@cosmicdrift/kumiko-renderer/web/styles.css";\n@plugin "./theme.ts";\n@source "./probe.tsx";\n`,
         );
 
         const css = await runTailwindOnce(join(dir, "styles.css"), dir);

@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-04
-evidence: "packages/renderer-web/src/primitives/lightbox.tsx (actions, showPosition); packages/renderer-web/src/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer-web/src/widgets/charts.tsx; packages/renderer-web/src/widgets/mode-switch.tsx; packages/renderer-web/src/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx"
+evidence: "packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx"
 ---
 
 # Renderer widget options
@@ -23,7 +23,7 @@ const stats = useQuery<RowStats>("metrics:query:row-stats", { rowId }, { concurr
 
 ## `TimeseriesChart`: `height`, `yAxis`, `xAxis`
 
-`TimeseriesChart` from `@cosmicdrift/kumiko-renderer-web` takes three layout options on top of `points`, `windowStartMs` and `windowEndMs`.
+`TimeseriesChart` from `@cosmicdrift/kumiko-renderer/web` takes three layout options on top of `points`, `windowStartMs` and `windowEndMs`.
 
 | Prop | Type | Effect |
 |---|---|---|

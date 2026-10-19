@@ -169,7 +169,7 @@ export function hasDetailScreen(features: readonly FeatureSchema[], entity: stri
 
 // Resolves a NavTarget to the ScreenTarget form navigate/replace/hrefFor
 // operate on. Pure — no context, no I/O — so callers can use it outside
-// React too (see resolve-at-NavApi-build alternative in renderer-web).
+// React too (see resolve-at-NavApi-build alternative in renderer/web).
 export function resolveTarget(features: readonly FeatureSchema[], target: NavTarget): ScreenTarget {
   if ("screenId" in target) return target;
 
@@ -283,7 +283,7 @@ export function useNav(): NavApi {
   const api = useContext(NavContext);
   if (api === undefined) {
     throw new Error(
-      "useNav: no <NavProvider> mounted above this component. Plattform-Packages (z.B. @cosmicdrift/kumiko-renderer-web) liefern eine Default-Impl über createKumikoApp.",
+      "useNav: no <NavProvider> mounted above this component. Plattform-Packages (z.B. @cosmicdrift/kumiko-renderer/web) liefern eine Default-Impl über createKumikoApp.",
     );
   }
   return api;

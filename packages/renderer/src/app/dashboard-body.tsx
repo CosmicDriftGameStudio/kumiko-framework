@@ -1,6 +1,6 @@
 // Dashboard-Body-Injection: der KumikoScreen-Switch ist plattform-agnostisch,
 // die Dashboard-Panels (StatCard, Charts) sind es nicht — die Implementierung
-// kommt vom Platform-Package (renderer-web registriert seine Web-Variante in
+// kommt vom Platform-Package (renderer/web registriert seine Web-Variante in
 // createKumikoApp). Gleiches Muster wie CustomScreensProvider.
 
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";

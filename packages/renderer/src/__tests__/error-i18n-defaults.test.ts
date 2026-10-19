@@ -52,7 +52,7 @@ describe("kumikoDefaultTranslations covers every error i18nKey", () => {
     });
   }
 
-  // Client-emitted (renderer-web download helper) — not thrown by a class, but
+  // Client-emitted (renderer/web download helper) — not thrown by a class, but
   // rendered through the same last-resort bundle. Gap #5 named it explicitly.
   test("errors.download.urlMissing has de+en default", () => {
     expect(de?.["errors.download.urlMissing"]).toBeTruthy();

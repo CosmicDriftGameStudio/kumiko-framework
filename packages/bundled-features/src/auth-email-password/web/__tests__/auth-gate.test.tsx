@@ -4,7 +4,7 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../../i18n.ts";

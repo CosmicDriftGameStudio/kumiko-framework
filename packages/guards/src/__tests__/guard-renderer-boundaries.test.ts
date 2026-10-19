@@ -137,4 +137,38 @@ describe("check.run — RepoCheck seam", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("web subtree is not scanned, but the shared root and headless must not import it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      const webDir = join(dir, "packages/renderer/src/web");
+      const appDir = join(dir, "packages/renderer/src/app");
+      const headlessDir = join(dir, "packages/renderer/src/headless");
+      mkdirSync(webDir, { recursive: true });
+      mkdirSync(appDir, { recursive: true });
+      mkdirSync(headlessDir, { recursive: true });
+      writeFileSync(
+        join(webDir, "root.tsx"),
+        'import { createRoot } from "react-dom/client";\nexport const App = () => <div onClick={() => window.alert(1)} />;\n',
+      );
+      writeFileSync(join(appDir, "leak.ts"), 'import { createApp } from "../web/index.ts";\n');
+      writeFileSync(
+        join(headlessDir, "leak.ts"),
+        'import { a } from "@cosmicdrift/kumiko-renderer/web";\n',
+      );
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations.map((v) => v.file).sort()).toEqual([
+        "packages/renderer/src/app/leak.ts",
+        "packages/renderer/src/headless/leak.ts",
+      ]);
+      expect(outcome.violations.every((v) => v.message.includes("forbidden-import"))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

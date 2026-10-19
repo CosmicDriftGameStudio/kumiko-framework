@@ -17,7 +17,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
+import { postWithDownload } from "@cosmicdrift/kumiko-renderer/web";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
 import {

@@ -5,7 +5,7 @@ import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { tenantClient } from "@cosmicdrift/kumiko-bundled-features/tenant/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 import { HomeScreen } from "./home-screen";
 import { AppShell } from "./shell";
 

@@ -280,26 +280,6 @@
     "packages/guards/src/guard-write-handler-qns.ts": {
       "{ readonly features?: ReadonlyArray<{ readonly writeHandlers": 1
     },
-    "packages/renderer-web/src/app/create-app.tsx": {
-      "string | undefined": 1
-    },
-    "packages/renderer-web/src/layout/shell-header.tsx": {
-      "HTMLElement": 1
-    },
-    "packages/renderer-web/src/primitives/index.tsx": {
-      "(v: unknown, r?: Readonly<Record<string, unknown>>) => strin": 1,
-      "{ format: string; locale?: string } & Record<string, unknown": 1,
-      "{ readonly children?: ReactNode }": 1,
-      "{ readonly type?: string } & StickyPrimaryActionMarker": 1,
-      "FieldIconKey": 1
-    },
-    "packages/renderer-web/src/sse/live-events.ts": {
-      "LiveEvent[\"data\"]": 1
-    },
-    "packages/renderer-web/src/widgets/query-table.tsx": {
-      "readonly Readonly<Record<string, unknown>>[]": 1,
-      "TData": 1
-    },
     "packages/renderer/src/app/action-form-shim.ts": {
       "EntityDefinition": 1
     },
@@ -350,6 +330,26 @@
     },
     "packages/renderer/src/tokens.tsx": {
       "Tokens": 1
+    },
+    "packages/renderer/src/web/app/create-app.tsx": {
+      "string | undefined": 1
+    },
+    "packages/renderer/src/web/layout/shell-header.tsx": {
+      "HTMLElement": 1
+    },
+    "packages/renderer/src/web/primitives/index.tsx": {
+      "(v: unknown, r?: Readonly<Record<string, unknown>>) => strin": 1,
+      "{ format: string; locale?: string } & Record<string, unknown": 1,
+      "{ readonly children?: ReactNode }": 1,
+      "{ readonly type?: string } & StickyPrimaryActionMarker": 1,
+      "FieldIconKey": 1
+    },
+    "packages/renderer/src/web/sse/live-events.ts": {
+      "LiveEvent[\"data\"]": 1
+    },
+    "packages/renderer/src/web/widgets/query-table.tsx": {
+      "readonly Readonly<Record<string, unknown>>[]": 1,
+      "TData": 1
     },
     "packages/testing/src/helpers/db-cleanup.ts": {
       "EntityTableMeta": 1

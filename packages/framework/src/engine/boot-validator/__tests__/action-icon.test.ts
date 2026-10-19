@@ -64,7 +64,7 @@ describe("validateActionHasIcon", () => {
   // project graph. Samples and external consumers aren't in it, so an
   // unregistered literal (a typo, or a value copied from a different icon
   // set) can reach here as plain runtime data. The renderer's actionIconFor
-  // (renderer-web/src/primitives/index.tsx) already falls back to "no icon"
+  // (renderer/src/web/primitives/index.tsx) already falls back to "no icon"
   // for such a value instead of crashing — this must throw here instead of
   // silently accepting it, or the renderer/validator resolvers diverge.
   test("rejects a declared icon that is not a registered NAV_ICON key, even though it resolves to a value", () => {

@@ -103,7 +103,7 @@ describe("CI output formatting", () => {
     const noiseLine = "Warning: An update to Component inside a test was not wrapped in act(...).";
     const before = Array.from({ length: 300 }, () => noiseLine);
     const failureBlock = [
-      "packages/renderer-web/src/__tests__/zz-probe.test.tsx:",
+      "packages/renderer/src/web/__tests__/zz-probe.test.tsx:",
       '1 | import { expect, test } from "bun:test";',
       '2 | test("zz probe fails", () => {',
       "3 |   expect({ a: 1 }).toEqual({ a: 2 });",

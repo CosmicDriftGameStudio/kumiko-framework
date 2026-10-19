@@ -8,7 +8,7 @@ import {
   PDF_FOOTER_MARGIN_MM,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { cn } from "@cosmicdrift/kumiko-renderer-web";
+import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useCallback } from "react";
 import { LayoutHtml } from "./layout-html.tsx";
 import { MARGIN_SIDES, type PdfMetaDraft } from "./pdf-meta.ts";

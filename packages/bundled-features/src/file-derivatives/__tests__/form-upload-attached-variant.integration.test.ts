@@ -5,7 +5,7 @@
 // pending uploads. Attached files are readable by everyone who may read the
 // record; a pending upload only by its uploader and privileged roles. Upload
 // bodies are built from the real edit view model's hints and the real
-// renderer-web form-data builder.
+// renderer/web form-data builder.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -34,7 +34,7 @@ import {
   type EditFieldViewModel,
   type EditViewModel,
 } from "@cosmicdrift/kumiko-renderer/headless";
-import { buildFileUploadFormData } from "@cosmicdrift/kumiko-renderer-web";
+import { buildFileUploadFormData } from "@cosmicdrift/kumiko-renderer/web";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,

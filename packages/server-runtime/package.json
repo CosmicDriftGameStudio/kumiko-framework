@@ -92,7 +92,6 @@
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
     "bun-types": "^1.3.13",
     "ioredis": "^5.10.1",

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 // mock.module replaces imports for all consumers — static imports before
 // mock.module still see the mocked version because Bun intercepts at the
 // loader level (same pattern as editor-read-only.test.tsx).
@@ -13,12 +13,13 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives, PlainContentEditor } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives, PlainContentEditor } from "@cosmicdrift/kumiko-renderer/web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { textBlocksClient } from "../client-plugin.tsx";
 import { defaultTranslations } from "../i18n.ts";
 
+const realModule0 = await import("@cosmicdrift/kumiko-bundled-features/auth-email-password/web");
 mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
   useShellUser: mock(),
 }));
@@ -397,4 +398,10 @@ describe("textBlocksClient — document editor block set follows the collection 
     expect(await screen.findByRole("button", { name: "Button" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Page break" })).toBeNull();
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => realModule0);
+  mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
 });

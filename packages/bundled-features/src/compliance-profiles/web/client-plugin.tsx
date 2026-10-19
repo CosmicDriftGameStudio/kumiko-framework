@@ -1,6 +1,6 @@
 // @runtime client
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import {
   COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME,
   COMPLIANCE_PROFILES_FEATURE,

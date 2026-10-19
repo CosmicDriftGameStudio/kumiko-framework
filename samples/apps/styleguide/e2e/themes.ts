@@ -41,7 +41,7 @@ const STYLE_ID = "sg-theme-override";
 // Wird NACH dem Mount aufgerufen (die App liest beim Boot localStorage; das
 // löschen wir per addInitScript, siehe spec). Setzt deterministisch den Mode
 // und injiziert das Brand-Override mit gleicher Selektor-Spezifität wie der
-// renderer-web Light-Block — als letztes <style> gewinnt es bei Gleichstand.
+// renderer/web Light-Block — als letztes <style> gewinnt es bei Gleichstand.
 export async function applyTheme(page: Page, theme: ThemeId): Promise<void> {
   await applyDefaultTheme(page, (theme === "brand" ? "default-light" : theme) as DefaultThemeId);
   await page.evaluate(

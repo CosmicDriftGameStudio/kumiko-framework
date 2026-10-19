@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { TagsQueries } from "../../constants.ts";
@@ -121,4 +121,9 @@ describe("TagFilter", () => {
     expect(setFilterSpy).toHaveBeenCalledWith("id", []);
     expect(screen.queryByText("urgent")).toBeNull();
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
 });

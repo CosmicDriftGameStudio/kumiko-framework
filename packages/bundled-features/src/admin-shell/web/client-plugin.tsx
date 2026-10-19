@@ -1,6 +1,6 @@
 // @runtime client
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { ADMIN_SHELL_FEATURE } from "../constants.ts";
 import { defaultTranslations } from "./i18n.ts";
 

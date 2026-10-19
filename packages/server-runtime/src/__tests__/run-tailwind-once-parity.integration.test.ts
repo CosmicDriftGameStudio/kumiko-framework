@@ -9,7 +9,7 @@ import { resolveTailwindCli } from "../resolve-tailwind-cli.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(here, "../../../..");
-const RENDERER_WEB_STYLES = resolve(here, "../../../renderer-web/src/styles.css");
+const RENDERER_WEB_STYLES = resolve(here, "../../../renderer/src/web/styles.css");
 
 async function runTailwindCli(entry: string, cwd: string): Promise<string> {
   const cliPath = resolveTailwindCli({ bun: Bun, cwd });

@@ -1,4 +1,4 @@
-import { formatMoney } from "@cosmicdrift/kumiko-renderer-web";
+import { formatMoney } from "@cosmicdrift/kumiko-renderer/web";
 
 // `locale` comes from useLocale(), whose default resolver reads it
 // unvalidated from localStorage/navigator.language — a structurally invalid

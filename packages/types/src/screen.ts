@@ -45,7 +45,7 @@ export type UnitKey = "m2" | "km" | "m" | "kg" | "percent" | "mi";
 //   declare module "@cosmicdrift/kumiko-framework/engine/types" {
 //     interface FieldFormatRegistry { myFormat: { myOption?: string } }
 //   }
-// renderer-web handles all built-in keys; unknown app-specific keys fall back
+// renderer/web handles all built-in keys; unknown app-specific keys fall back
 // to String(value).
 export interface FieldFormatRegistry {
   timestamp: {
@@ -307,7 +307,7 @@ export type RowActionWriteHandler = {
   readonly style?: "primary" | "secondary" | "danger";
   /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
-   *  (renderer-web), analogous to EditFieldSpec.icon. */
+   *  (renderer/web), analogous to EditFieldSpec.icon. */
   readonly icon?: IconKey;
   /** Inline render form in the row-action column — see `RowActionDisplay`. */
   readonly display?: RowActionDisplay;
@@ -352,7 +352,7 @@ export type RowActionNavigateBase = {
   readonly rowClick?: boolean;
   /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
-   *  (renderer-web), analogous to EditFieldSpec.icon. */
+   *  (renderer/web), analogous to EditFieldSpec.icon. */
   readonly icon?: IconKey;
   /** Inline render form in the row-action column — see `RowActionDisplay`. */
   readonly display?: RowActionDisplay;
@@ -396,7 +396,7 @@ export type RowActionDrawer = {
   readonly style?: "primary" | "secondary" | "danger";
   /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
-   *  (renderer-web), analogous to EditFieldSpec.icon. */
+   *  (renderer/web), analogous to EditFieldSpec.icon. */
   readonly icon?: IconKey;
   /** Inline render form in the row-action column — see `RowActionDisplay`. */
   readonly display?: RowActionDisplay;
@@ -1391,7 +1391,7 @@ export type EditFieldSpec =
        *  rendering are unchanged. */
       readonly submit?: false;
       /** Prefix icon on the input — closed FieldIconKey vocabulary into
-       *  the FIELD_ICONS registry (renderer-web), analogous to
+       *  the FIELD_ICONS registry (renderer/web), analogous to
        *  `ScreenNavSugar.icon` / NavIconKey. Only takes effect for
        *  single-line `type: "text"` and `"number"` — a `text` field with
        *  `multiline` routes to a textarea (no icon slot), and other input
@@ -1502,7 +1502,7 @@ export type EditFieldsSection = {
     readonly columns?: number;
   }[];
   /** Rendered left of the section title, `text-muted-foreground` — closed
-   *  IconKey vocabulary into the ICONS registry (renderer-web), analogous
+   *  IconKey vocabulary into the ICONS registry (renderer/web), analogous
    *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives
    *  one from the title (titles are free i18n strings). */
   readonly icon?: IconKey;
@@ -1747,7 +1747,7 @@ export type EditWriteFormSection = {
   readonly actions?: readonly RowAction[];
 };
 
-// Max width of the form container (see FormScreenShell in renderer-web).
+// Max width of the form container (see FormScreenShell in renderer/web).
 export type FormWidth = "3xl" | "4xl" | "full";
 
 export type EditLayout = {

@@ -1,6 +1,6 @@
 // Column-Renderer-Map: client-side Lookup für ListColumn-Spalten die im
 // Schema einen PlatformComponent-Renderer (`{ react: { __component: "Name" } }`)
-// statt einer String-Funktion angeben. createKumikoApp im renderer-web sammelt
+// statt einer String-Funktion angeben. createKumikoApp im renderer/web sammelt
 // alle clientFeatures.columnRenderers und mountet den Provider; der DataTable-
 // Cell-Renderer schlägt den Component über `useColumnRenderer(name)` nach.
 //

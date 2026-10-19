@@ -1,0 +1,309 @@
+import { Maximize2Icon, Minimize2Icon } from "lucide-react";
+import { type ReactNode, useState } from "react";
+import { useTranslation } from "../../index.ts";
+import { clamp } from "../lib/clamp.ts";
+import { cn } from "../lib/cn.ts";
+import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.ts";
+import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet.tsx";
+import { DrawerSheetContent } from "./sheet-parts.tsx";
+import { arrowKeyDelta, usePointerDrag } from "./use-pointer-drag.ts";
+
+// Mirrors primitives/index.tsx's cardFooter + cardFooterBorder (row layout,
+// end-justified actions, top border, panel surface instead of the card
+// footer's bg-muted/30) — those two consts aren't exported, so the
+// equivalent classes are inlined here rather than growing the vendored
+// SheetFooter's own default className with panel-specific styling.
+const DRAWER_FOOTER_CLASS =
+  "flex-row flex-wrap items-center justify-end border-t bg-background px-[var(--card-padding)] py-4";
+
+export type DrawerProps = {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly side?: "left" | "right" | "top" | "bottom";
+  readonly title?: ReactNode;
+  readonly description?: ReactNode;
+  readonly footer?: ReactNode;
+  readonly children: ReactNode;
+  readonly testId?: string;
+  /** Header close (X). Default `true`. Turn off when the caller's own
+   *  footer already has a dedicated close/cancel action, so there is only
+   *  one way to dismiss the drawer. */
+  readonly showCloseButton?: boolean;
+  /** Panel treatment. `"flush"` (default) docks the panel against the edge —
+   *  full extent, no radius, and a border only on the edge facing the app
+   *  content. `"floating"` gives the detached-panel look (margin to the
+   *  viewport edge, full corner radius). Ignored in the narrow-viewport
+   *  fullscreen layout. */
+  readonly variant?: "floating" | "flush";
+  /** `variant="flush"` only: dock the panel below the app's ShellHeader
+   *  (offset top by `--shell-header-height`, height shrunk to match)
+   *  instead of covering it. Default `false` is edge-to-edge. No ShellHeader
+   *  mounted → the variable is `0`, so this is a no-op. Ignored in the
+   *  narrow-viewport fullscreen layout, which already takes over the whole
+   *  screen including the header. */
+  readonly belowHeader?: boolean;
+  /** Panel width for `side="left"|"right"` (ignored for top/bottom and in
+   *  the narrow-viewport layout). A number is pixels, a string any CSS
+   *  length. Superseded by `resize` when that's set. Default matches the
+   *  panel's built-in `max(600px, 37.5vw)`. */
+  readonly width?: number | string;
+  /** Opt-in drag-to-resize + maximize toggle (left/right sides only). */
+  readonly resize?: {
+    readonly defaultWidthPx?: number;
+    readonly minWidthPx?: number;
+    readonly maxWidthPx?: number;
+  };
+  /** Backdrop behind the panel. A drawer exists so the content behind it
+   *  stays readable, so the blur is off by default. Ignored when
+   *  `modal={false}` — there is no overlay to style then. */
+  readonly backdrop?: {
+    readonly blurPx?: number;
+    readonly dimPercent?: number;
+  };
+  /** `false` runs the drawer as a panel beside the page instead of over it:
+   *  no overlay, no focus trap, and the page behind stays interactive, so
+   *  text there can be selected and copied. Escape closes in both modes, a
+   *  click beside the panel only in the modal one — the non-modal case
+   *  exists to be used next to the page content, where a stray click must
+   *  not dismiss it. With `showCloseButton={false}` and no footer action
+   *  that leaves Escape as the only way out, so keep one of the two.
+   *  Default `true`. */
+  readonly modal?: boolean;
+  /** Extra classes for the panel, merged over the built-in ones. Not applied
+   *  in the narrow-viewport fullscreen layout. */
+  readonly panelClassName?: string;
+  /** The body becomes a plain flex column with no padding or scrolling of its
+   *  own, for children that bring their own scroll area and pinned footer. */
+  readonly fillBody?: boolean;
+};
+
+const MIN_WIDTH_PX = 320;
+const MAX_WIDTH_PX = 1000;
+// Must match the static `max(600px,37.5vw)` in floatingSideClass — Tailwind's
+// JIT can't read these at runtime, so the two are kept in sync by hand.
+// 600px (vs. the old 520px floor) gives a two-column field row (e.g.
+// street/number, zip/city) room to breathe, while staying well under half
+// of a 1280px viewport so a narrow window isn't dominated by the drawer.
+// 37.5vw (vs. the old 25vw) keeps that same 600px on a 1280–1600px window
+// (25vw was still under the floor there, making the ratio dead weight up
+// to 2400px) but actually grows past the floor by ~1600px, so a 1920px
+// window — where the two-column row is cramped just as often — lands
+// around 720px instead of being stuck at 600px alongside a 1280px window.
+const DEFAULT_WIDTH_MIN_PX = 600;
+const DEFAULT_WIDTH_VIEWPORT_RATIO = 0.375;
+const DEFAULT_BLUR_PX = 0;
+const DEFAULT_DIM_PERCENT = 20;
+
+function defaultWidthFromViewport(): number {
+  return typeof window === "undefined"
+    ? DEFAULT_WIDTH_MIN_PX
+    : Math.max(DEFAULT_WIDTH_MIN_PX, Math.round(window.innerWidth * DEFAULT_WIDTH_VIEWPORT_RATIO));
+}
+
+function normalizeWidth(width: number | string): string {
+  return typeof width === "number" ? `${width}px` : width;
+}
+
+// Must match the static `max(600px,37.5vw)` in sidePanelClass — Tailwind's
+// JIT can't read DEFAULT_WIDTH_MIN_PX/DEFAULT_WIDTH_VIEWPORT_RATIO at
+// runtime, so the two are kept in sync by hand.
+// Same cap as WIDTH_CLASS: an explicit `width` must not outgrow the viewport.
+const MAX_VIEWPORT_WIDTH = "85vw";
+const WIDTH_CLASS = "w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)]";
+
+// "floating": 32px margin + 32px radius so the panel reads as detached from
+// the viewport edge, unlike the sheet primitive's flush-edge default.
+// "flush" docks it back to that flush-edge default instead, borrowing the
+// vendored Sheet's per-side border (only the edge facing the app content).
+// Below the narrow-viewport breakpoint neither treatment fits — the JS hook
+// decides, not a `sm:` Tailwind prefix, since the resize width below already
+// comes from JS and two decision sources is the bug this avoids.
+function sidePanelClass(
+  side: "left" | "right" | "top" | "bottom",
+  narrow: boolean,
+  variant: "floating" | "flush",
+  belowHeader: boolean,
+): string {
+  if (narrow) return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
+  if (variant === "flush") {
+    switch (side) {
+      // h-full would pin height to 100vh despite the shifted top; h-auto lets inset-y-0 size it.
+      case "left":
+        return `inset-y-0 left-0 ${belowHeader ? "h-auto" : "h-full"} ${WIDTH_CLASS} border-r shadow-2xl overflow-hidden`;
+      case "top":
+        return `inset-x-0 ${belowHeader ? "top-(--shell-header-height)" : "top-0"} h-auto max-h-[80vh] border-b shadow-2xl overflow-hidden`;
+      case "bottom":
+        return "inset-x-0 bottom-0 h-auto max-h-[80vh] border-t shadow-2xl overflow-hidden";
+      default:
+        return `inset-y-0 right-0 ${belowHeader ? "h-auto" : "h-full"} ${WIDTH_CLASS} border-l shadow-2xl overflow-hidden`;
+    }
+  }
+  switch (side) {
+    case "left":
+      return `inset-y-8 left-8 h-auto ${WIDTH_CLASS} rounded-[2rem] border shadow-2xl overflow-hidden`;
+    case "top":
+      return "inset-x-8 top-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
+    case "bottom":
+      return "inset-x-8 bottom-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
+    default:
+      return `inset-y-8 right-8 h-auto ${WIDTH_CLASS} rounded-[2rem] border shadow-2xl overflow-hidden`;
+  }
+}
+
+/** Slide-in panel beside a list (e.g. mail reader next to the inbox) —
+ *  thin wrapper over the Sheet primitive with header/body/footer slots
+ *  so screens skip per-route Radix boilerplate. */
+export function Drawer({
+  open,
+  onOpenChange,
+  side = "right",
+  title,
+  description,
+  footer,
+  children,
+  testId,
+  showCloseButton = true,
+  variant = "flush",
+  belowHeader = false,
+  width,
+  resize,
+  backdrop,
+  modal = true,
+  panelClassName,
+  fillBody = false,
+}: DrawerProps): ReactNode {
+  const t = useTranslation();
+  const narrow = useIsNarrowViewport();
+  const canResize = resize !== undefined && (side === "left" || side === "right");
+  const customWidthStyle =
+    !canResize && !narrow && (side === "left" || side === "right") && width !== undefined
+      ? { width: normalizeWidth(width), maxWidth: MAX_VIEWPORT_WIDTH }
+      : undefined;
+  const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
+  const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
+  const effectiveMaxWidthPx = () =>
+    typeof window === "undefined"
+      ? maxWidthPx
+      : Math.min(maxWidthPx, Math.round(window.innerWidth * 0.9));
+  const [resizedWidthPx, setResizedWidthPx] = useState(() =>
+    clamp(resize?.defaultWidthPx ?? defaultWidthFromViewport(), minWidthPx, effectiveMaxWidthPx()),
+  );
+  const [maximized, setMaximized] = useState(false);
+  const blurPx = backdrop?.blurPx ?? DEFAULT_BLUR_PX;
+  const dimPercent = backdrop?.dimPercent ?? DEFAULT_DIM_PERCENT;
+  const overlayStyle: React.CSSProperties = {
+    backgroundColor: `rgb(0 0 0 / ${dimPercent}%)`,
+    ...(blurPx > 0 ? { backdropFilter: `blur(${blurPx}px)` } : {}),
+  };
+
+  const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : resizedWidthPx;
+
+  // Inline style because tailwind-merge doesn't dedupe `top-*`/`bottom-*` against the base `inset-y-0`;
+  // style wins over class regardless of generated CSS order.
+  const verticalOffsetStyle: React.CSSProperties | undefined =
+    belowHeader && variant === "flush" && !narrow && (side === "left" || side === "right")
+      ? { top: "var(--shell-header-height)", bottom: 0 }
+      : undefined;
+
+  const widthStyle =
+    canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : customWidthStyle;
+  const sheetStyle: React.CSSProperties | undefined =
+    widthStyle === undefined && verticalOffsetStyle === undefined
+      ? undefined
+      : { ...widthStyle, ...verticalOffsetStyle };
+
+  const handleDrag = usePointerDrag({
+    onStart: () => {
+      setMaximized(false);
+      return { startWidth: effectiveWidthPx };
+    },
+    onMove: ({ startWidth }, { dx }) => {
+      const signedDelta = side === "right" ? -dx : dx;
+      setResizedWidthPx(clamp(startWidth + signedDelta, minWidthPx, effectiveMaxWidthPx()));
+    },
+  });
+  const onHandleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    const keyDelta = arrowKeyDelta(event);
+    if (keyDelta === undefined || keyDelta.dx === 0) return;
+    event.preventDefault();
+    setMaximized(false);
+    const delta = side === "right" ? -keyDelta.dx : keyDelta.dx;
+    // Seed from the currently visible width, not the stale `resizedWidthPx`
+    // state — while maximized, it still holds the pre-maximize value, so a
+    // key press would otherwise jump the drawer back to that old size
+    // instead of resizing relative to what's on screen.
+    setResizedWidthPx((current) =>
+      clamp((maximized ? effectiveWidthPx : current) + delta, minWidthPx, effectiveMaxWidthPx()),
+    );
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
+      <DrawerSheetContent
+        side={side}
+        data-testid={testId}
+        overlayStyle={overlayStyle}
+        // Radix already drops the overlay and the focus trap for a
+        // non-modal Root; only the dismiss-on-outside-interaction is left
+        // to suppress, so a click into the page behind keeps the panel open.
+        onInteractOutside={modal ? undefined : (event) => event.preventDefault()}
+        showCloseButton={showCloseButton}
+        closeLabel={t("kumiko.dialog.close")}
+        className={cn(
+          sidePanelClass(side, narrow, variant, belowHeader),
+          fillBody && "gap-0",
+          !narrow && panelClassName,
+        )}
+        style={sheetStyle}
+      >
+        {canResize && !narrow && (
+          <button
+            type="button"
+            onClick={() => setMaximized((m) => !m)}
+            aria-pressed={maximized}
+            aria-label={
+              maximized ? t("kumiko.widget.drawer.restore") : t("kumiko.widget.drawer.maximize")
+            }
+            className="absolute top-4 right-14 z-10 rounded-xs p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
+          >
+            {maximized ? (
+              <Minimize2Icon className="size-4" />
+            ) : (
+              <Maximize2Icon className="size-4" />
+            )}
+          </button>
+        )}
+        {(title !== undefined || description !== undefined) && (
+          <SheetHeader>
+            {title !== undefined && <SheetTitle>{title}</SheetTitle>}
+            {description !== undefined && <SheetDescription>{description}</SheetDescription>}
+          </SheetHeader>
+        )}
+        <div className={fillBody ? "flex min-h-0 flex-1 flex-col" : "flex-1 overflow-y-auto px-4"}>
+          {children}
+        </div>
+        {footer !== undefined && (
+          <SheetFooter className={DRAWER_FOOTER_CLASS}>{footer}</SheetFooter>
+        )}
+        {canResize && !narrow && (
+          // biome-ignore lint/a11y/useSemanticElements: <hr> can't carry pointer/keyboard drag interaction or a live width value — a draggable separator needs a div with the ARIA role.
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("kumiko.widget.drawer.resize")}
+            aria-valuenow={effectiveWidthPx}
+            aria-valuemin={minWidthPx}
+            aria-valuemax={effectiveMaxWidthPx()}
+            tabIndex={0}
+            {...handleDrag}
+            onKeyDown={onHandleKeyDown}
+            className={cn(
+              "absolute inset-y-0 z-10 w-1 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 hover:bg-border",
+              side === "right" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2",
+            )}
+          />
+        )}
+      </DrawerSheetContent>
+    </Sheet>
+  );
+}

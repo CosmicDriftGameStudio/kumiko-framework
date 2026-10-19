@@ -2,7 +2,7 @@
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { formatWhen, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ListColumnViewModel, ListRowViewModel } from "@cosmicdrift/kumiko-renderer/headless";
-import { Drawer, EmptyState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
+import { Drawer, EmptyState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useMemo, useState } from "react";
 import { DiffView } from "./origin-bar.tsx";
 import {

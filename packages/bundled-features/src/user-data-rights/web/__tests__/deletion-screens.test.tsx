@@ -7,7 +7,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { ConfirmAccountDeletionScreen } from "../confirm-deletion-screen.tsx";

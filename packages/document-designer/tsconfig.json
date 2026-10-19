@@ -13,7 +13,6 @@
     { "path": "../framework" },
     { "path": "../types" },
     { "path": "../renderer" },
-    { "path": "../renderer-web" },
     { "path": "../bundled-features" },
     { "path": "../renderer-puppeteer-client" }
   ]

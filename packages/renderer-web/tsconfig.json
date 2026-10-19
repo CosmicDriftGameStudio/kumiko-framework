@@ -1,14 +1,11 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "composite": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
-    "composite": true,
-    "emitDeclarationOnly": true,
-    "rewriteRelativeImportExtensions": false
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "references": [{ "path": "../renderer" }, { "path": "../locale-de" }],
-  "include": ["./src/**/*"]
+  "references": [{ "path": "../renderer" }],
+  "include": ["./src"]
 }

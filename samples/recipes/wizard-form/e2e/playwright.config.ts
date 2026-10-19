@@ -1,12 +1,12 @@
 // Playwright config for wizard-form/e2e. Boots the minimal build-server
 // (see e2e/build-server.ts) — a real browser + real React bundle against
 // a MockDispatcher, no full Kumiko stack. Pattern copied from
-// packages/renderer-web/playwright.config.ts.
+// packages/renderer/playwright.config.ts.
 //
 // Port 4188: see the build-server.ts comment for the port allocation
 // overview of the other samples/apps ports.
 //
-// Unlike the renderer-web blueprint (config sits at the package root, e2e/
+// Unlike the renderer/web blueprint (config sits at the package root, e2e/
 // is only testDir), this config lives IN e2e/ itself — Playwright's
 // webServer.command runs by default with cwd = the config's directory,
 // i.e. relative to e2e/ itself (not to the package root). testDir

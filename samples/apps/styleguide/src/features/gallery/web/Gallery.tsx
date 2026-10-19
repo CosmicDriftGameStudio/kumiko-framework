@@ -3,7 +3,7 @@ import {
   PageSection,
   ResultTable,
   usePrimitives,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 

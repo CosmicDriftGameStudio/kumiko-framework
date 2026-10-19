@@ -41,7 +41,7 @@ export function stripControlChars(value: string): string {
 }
 
 // http(s)/mailto or scheme-less (relative/anchor) allowed; javascript:,
-// data:, vbscript:, etc. rejected. Shared between renderer-web's Link
+// data:, vbscript:, etc. rejected. Shared between renderer/web's Link
 // primitive and page-render's server-side markdown renderer (both take
 // untrusted tenant-authored hrefs) — no sanitizer dependency needed for a
 // four-line regex check.

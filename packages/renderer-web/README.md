@@ -1,17 +1,9 @@
 # @cosmicdrift/kumiko-renderer-web
 
-Web bindings for `@cosmicdrift/kumiko-renderer`: HTML default primitives, history-based navigation, EventSource live events and a one-call `createKumikoApp`.
+Deprecated: import from `@cosmicdrift/kumiko-renderer/web` (and
+`@cosmicdrift/kumiko-renderer/web/styles.css` for the default theme). This package only
+re-exports it and is removed after wave 4.
 
-## Install
-
-```bash
-bun add @cosmicdrift/kumiko-renderer-web
+```sh
+bun kumiko codemod package-merge . --write
 ```
-
-```ts
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
-```
-
-Import `@cosmicdrift/kumiko-renderer-web/styles.css` for the default theme.
-
-Documentation: https://kumiko.rocks

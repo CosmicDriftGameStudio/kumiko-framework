@@ -1,0 +1,119 @@
+// Update-Awareness — default an, kein Flag. Ein offener Tab erfährt sonst
+// nie von einem neuen Deploy (SPA bleibt geladen, index.html wird nicht neu
+// geholt → "muss hart reloaden"). Statt Service-Worker (der ist die *Ursache*
+// von "hängt auf alter Version") pollt diese Komponente die statische
+// build-info.json beim Tab-Fokus und zeigt ein Reload-Banner bei Drift.
+//
+// Versionsquelle ist build-info.json (Hash über die Asset-URLs, vom Prod-Build
+// geschrieben) — NICHT /api/version (live leer/404, Env-/Dockerfile-Falle).
+// Banner-Strings über kumikoDefaultTranslations (kumiko.version.*, de/en).
+
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { type ReactNode, useEffect, useState } from "react";
+import { useTranslation } from "../../index.ts";
+import { cn } from "../lib/cn.ts";
+
+// Build that was active at page load, baked into index.html by the prod build
+// as <meta name="kumiko-build"> (build-prod-bundle injectAssetTags). Missing in
+// dev and in old bundles, and then the checker does nothing (fail-safe).
+export type KumikoBuild = {
+  readonly id: string;
+  readonly builtAt: string;
+};
+
+export function readLoadedBuild(): KumikoBuild | undefined {
+  if (typeof document === "undefined") return undefined;
+  const meta = document.querySelector('meta[name="kumiko-build"]');
+  const id = meta?.getAttribute("content");
+  if (!id) return undefined;
+  return { id, builtAt: meta?.getAttribute("data-built-at") ?? "" };
+}
+
+// Korrektheitsgrenze der Update-Erkennung: ein Banner NUR bei echtem
+// ID-Drift. Kein geladener Stand (Dev/altes Bundle) oder kein Server-Stand
+// (Fetch-Fehler/kaputtes JSON → null) → nie ein Fake-Banner.
+export function shouldShowUpdate(
+  loadedId: string | undefined,
+  server: KumikoBuild | null,
+): boolean {
+  if (!loadedId || !server) return false;
+  return server.id !== loadedId;
+}
+
+export function isKumikoBuild(v: unknown): v is Pick<KumikoBuild, "id"> {
+  return (
+    typeof v === "object" && v !== null && "id" in v && typeof v.id === "string" && v.id !== ""
+  );
+}
+
+async function fetchServerBuild(): Promise<KumikoBuild | null> {
+  try {
+    const res = await fetch("/build-info.json", { cache: "no-store" });
+    if (!res.ok) return null;
+    const raw: unknown = await res.json();
+    if (!isKumikoBuild(raw)) return null;
+    const builtAt = propertyOf(raw, "builtAt");
+    return { id: raw.id, builtAt: typeof builtAt === "string" ? builtAt : "" };
+  } catch {
+    // Netzwerkfehler / kaputtes JSON → kein Banner. Nie ein Fake-Update zeigen.
+    return null;
+  }
+}
+
+export function UpdateChecker(): ReactNode {
+  const t = useTranslation();
+  const loaded = readLoadedBuild();
+  const [hasUpdate, setHasUpdate] = useState(false);
+
+  useEffect(() => {
+    const loadedId = loaded?.id;
+    if (!loadedId) return; // Dev / altes Bundle → keine Awareness.
+
+    let cancelled = false;
+    const checking = { current: false };
+    const check = async (): Promise<void> => {
+      if (document.visibilityState !== "visible") return;
+      if (checking.current) return; // visibilitychange + focus fire together on tab-return
+      checking.current = true;
+      try {
+        const server = await fetchServerBuild();
+        if (!cancelled && shouldShowUpdate(loadedId, server)) setHasUpdate(true);
+      } finally {
+        checking.current = false;
+      }
+    };
+
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    void check();
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [loaded?.id]);
+
+  if (!hasUpdate) return null;
+
+  return (
+    <div
+      role="status"
+      className={cn(
+        "fixed inset-x-0 top-0 z-[200] flex items-center justify-center gap-3",
+        "border-b bg-background px-4 py-2 text-sm text-foreground shadow-md",
+      )}
+    >
+      <span>{t("kumiko.version.update-available")}</span>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className={cn(
+          "rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground",
+          "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring",
+        )}
+      >
+        {t("kumiko.actions.reload")}
+      </button>
+    </div>
+  );
+}

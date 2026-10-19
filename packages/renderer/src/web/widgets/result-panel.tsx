@@ -1,0 +1,251 @@
+import type { ReactNode } from "react";
+import { usePrimitives } from "../../index.ts";
+import { cn } from "../lib/cn.ts";
+import { DetailList } from "./detail-list.tsx";
+import { SectionCard } from "./section-card.tsx";
+
+/** Ergebnis-Sektion eines Rechners: SectionCard mit Empty-Zustand (Banner)
+ *  oder Kennzahl-Liste (DetailList) + optionalen Extras (Tabelle, Hinweise).
+ *  Ersetzt die handgebauten `<dl>`/Banner-Blöcke in Custom-Screens. */
+export function ResultPanel({
+  title,
+  subtitle,
+  empty,
+  emptyText,
+  rows,
+  footer,
+  children,
+  testId,
+}: {
+  readonly title: string;
+  readonly subtitle?: string;
+  readonly empty?: boolean;
+  readonly emptyText?: ReactNode;
+  readonly rows?: readonly {
+    readonly label: string;
+    readonly value: ReactNode;
+    readonly emphasize?: boolean;
+  }[];
+  /** Action-Slot am Karten-Fuß (z.B. „In Finanzierung übernehmen"). */
+  readonly footer?: ReactNode;
+  readonly children?: ReactNode;
+  readonly testId?: string;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  return (
+    <SectionCard title={title} subtitle={subtitle} footer={footer} testId={testId}>
+      {empty === true ? (
+        <Banner variant="info" padded>
+          {emptyText}
+        </Banner>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {rows !== undefined && rows.length > 0 && <DetailList rows={rows} />}
+          {children}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+export interface ResultColumn<Row> {
+  readonly header: string;
+  readonly align?: "left" | "right";
+  readonly cell: (row: Row) => ReactNode;
+}
+
+export interface ResultTableFooterRow {
+  readonly label: string;
+  readonly value: ReactNode;
+  readonly emphasize?: boolean;
+}
+
+/** Statische, prop-getriebene Ergebnistabelle für berechnete Zeilen (Tranchen,
+ *  Szenarien). Nimmt dem Screen die `<table>`+tabular-nums-Ketten ab.
+ *  ponytail: bewusst die minimale Read-only-Tabelle — für Sort/Pager/Facets
+ *  stattdessen usePrimitives().DataTable bzw. QueryTable nutzen. */
+export function ResultTable<Row>({
+  columns,
+  rows,
+  rowKey,
+  testId,
+  className,
+  card,
+  footer,
+}: {
+  readonly columns: readonly ResultColumn<Row>[];
+  readonly rows: readonly Row[];
+  readonly rowKey: (row: Row, index: number) => string;
+  readonly testId?: string;
+  readonly className?: string;
+  /** Rahmen-Look wie die CRUD-Liste (DataTable): gerundeter Border-Container +
+   *  bg-muted-Header-Band. Default = bare (nur die Tabelle, ohne Container). */
+  readonly card?: boolean;
+  /** Summary rows (Subtotal/Tax/Total) rendered as real `<tr>`s in the same
+   *  `<table>` instead of a separate flex-div next to it — guarantees
+   *  column-alignment to the last (typically "Amount") column instead of
+   *  approximating it with an independent layout. */
+  readonly footer?: readonly ResultTableFooterRow[];
+}): ReactNode {
+  const table = (
+    <div className="overflow-x-auto">
+      <table data-testid={testId} className={cn("w-full text-sm", className)}>
+        <thead className={cn(card === true && "bg-muted")}>
+          <tr className="border-b text-left text-muted-foreground">
+            {columns.map((col) => (
+              <th
+                key={col.header}
+                className={cn(
+                  "py-1.5 font-medium",
+                  card === true && "px-3",
+                  col.align === "right" && "text-right",
+                )}
+              >
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={rowKey(row, i)} className="border-b last:border-0">
+              {columns.map((col) => (
+                <td
+                  key={col.header}
+                  className={cn(
+                    "py-1.5",
+                    card === true && "px-3",
+                    col.align === "right" && "text-right tabular-nums",
+                  )}
+                >
+                  {col.cell(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {footer?.map((row, i) => (
+            <tr
+              key={row.label}
+              className={cn(i === 0 && "border-t", row.emphasize === true && "font-semibold")}
+            >
+              <td
+                colSpan={columns.length > 1 ? Math.max(columns.length - 1, 1) : undefined}
+                className={cn(
+                  "py-1.5 text-muted-foreground",
+                  card === true && "px-3",
+                  row.emphasize === true && "text-foreground",
+                  columns.length === 1 && "flex items-center justify-between gap-4",
+                )}
+              >
+                {row.label}
+                {columns.length === 1 && (
+                  <span
+                    className={cn(
+                      "text-right tabular-nums",
+                      row.emphasize === true && "text-foreground",
+                    )}
+                  >
+                    {row.value}
+                  </span>
+                )}
+              </td>
+              {columns.length > 1 && (
+                <td className={cn("py-1.5 text-right tabular-nums", card === true && "px-3")}>
+                  {row.value}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+  return card === true ? (
+    <div className="overflow-hidden rounded-lg border bg-card">{table}</div>
+  ) : (
+    table
+  );
+}
+
+export interface ComparisonMetric<Col> {
+  readonly label: string;
+  readonly value: (col: Col, index: number) => ReactNode;
+  /** Index der besten Spalte für diese Zeile (hervorgehoben); -1 = keine. */
+  readonly bestIndex?: (cols: readonly Col[]) => number;
+}
+
+/** Transponierte Vergleichstabelle: Zeile = Kennzahl, Spalte = Variante, je
+ *  Kennzahl optional die beste Spalte hervorgehoben. Für Szenario-/Angebots-
+ *  Vergleiche, wo ResultTable (Zeile=Datensatz) nicht passt. */
+export function ComparisonTable<Col>({
+  columns,
+  columnHeader,
+  columnKey,
+  metrics,
+  metricLabel,
+  testId,
+  className,
+  card,
+}: {
+  readonly columns: readonly Col[];
+  readonly columnHeader: (col: Col, index: number) => string;
+  readonly columnKey: (col: Col, index: number) => string;
+  readonly metrics: readonly ComparisonMetric<Col>[];
+  readonly metricLabel: string;
+  readonly testId?: string;
+  readonly className?: string;
+  /** Rahmen-Look wie die CRUD-Liste (DataTable): gerundeter Border-Container +
+   *  bg-muted-Header-Band. Default = bare. */
+  readonly card?: boolean;
+}): ReactNode {
+  const table = (
+    <div className="overflow-x-auto">
+      <table data-testid={testId} className={cn("w-full min-w-[24rem] text-sm", className)}>
+        <thead className={cn(card === true && "bg-muted")}>
+          <tr className="border-b text-left text-muted-foreground">
+            <th className={cn("py-1.5 font-medium", card === true && "px-3")}>{metricLabel}</th>
+            {columns.map((col, i) => (
+              <th
+                key={columnKey(col, i)}
+                className={cn("py-1.5 text-right font-medium", card === true && "px-3")}
+              >
+                {columnHeader(col, i)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((metric) => {
+            const best = metric.bestIndex !== undefined ? metric.bestIndex(columns) : -1;
+            return (
+              <tr key={metric.label} className="border-b last:border-0">
+                <td className={cn("py-1.5 text-muted-foreground", card === true && "px-3")}>
+                  {metric.label}
+                </td>
+                {columns.map((col, i) => (
+                  <td
+                    key={columnKey(col, i)}
+                    className={cn("py-1.5 text-right tabular-nums", card === true && "px-3")}
+                  >
+                    {i === best ? (
+                      <span className="inline-block rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                        {metric.value(col, i)}
+                      </span>
+                    ) : (
+                      metric.value(col, i)
+                    )}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+  return card === true ? (
+    <div className="overflow-hidden rounded-lg border bg-card">{table}</div>
+  ) : (
+    table
+  );
+}

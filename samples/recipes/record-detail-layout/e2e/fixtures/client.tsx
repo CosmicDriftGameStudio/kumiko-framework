@@ -23,7 +23,7 @@
 
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
 import { ExtensionSectionsProvider } from "@cosmicdrift/kumiko-renderer";
-import { createKumikoApp, DefaultAppShell, KumikoScreen } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp, DefaultAppShell, KumikoScreen } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { createMockDispatcher } from "./mock-dispatcher";
 

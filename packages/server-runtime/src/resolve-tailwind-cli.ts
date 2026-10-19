@@ -30,7 +30,7 @@ export function resolveTailwindCli(deps: ResolveTailwindCliDeps): string | undef
 /** Tailwind v4 resolves `@import "tailwindcss"` relative to the entry
  *  CSS file. Skip renderer-web fallback (or fail build) when peer deps
  *  aren't resolvable from that directory — e.g. Bun cache copies of
- *  `@cosmicdrift/kumiko-renderer-web` outside a hoisted node_modules tree. */
+ *  `@cosmicdrift/kumiko-renderer/web` outside a hoisted node_modules tree. */
 export function canResolveTailwindStylesheet(
   entryCss: string,
   deps: ResolveTailwindCliDeps,

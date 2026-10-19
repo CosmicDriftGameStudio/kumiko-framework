@@ -1,5 +1,5 @@
 // Pure format utilities — no web or platform dependencies.
-// Shared between renderer-web, renderer-native, and server-side tests.
+// Shared between renderer/web, renderer-native, and server-side tests.
 
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";

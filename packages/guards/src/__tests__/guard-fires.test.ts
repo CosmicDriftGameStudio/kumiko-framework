@@ -376,7 +376,7 @@ describe("every registered guard catches its own violation", () => {
   const WARNING_ONLY_FIXTURES: Record<string, Violating> = {
     "Raw-Interactive-Elements Guard (App-Repos)": {
       path: `${APP}/features/x/web/link.tsx`,
-      code: 'import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";\nexport const X = () => <a href="/x">go</a>;',
+      code: 'import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";\nexport const X = () => <a href="/x">go</a>;',
       expectedMessage: /.*/,
       execute: (sf) =>
         withTmpDir("fires-raw-interactive-baseline-", (baselineRoot) =>

@@ -13,7 +13,7 @@ into them. Rebuilding any of these blocks in app code is an anti-pattern: the
 framework versions carry the tokens, safe-area handling, accessibility and
 tests.
 
-Everything below is exported from `@cosmicdrift/kumiko-renderer-web` unless
+Everything below is exported from `@cosmicdrift/kumiko-renderer/web` unless
 noted. The prop types of the primitives live in `@cosmicdrift/kumiko-renderer`.
 
 ## Theme with `defineAppTheme`
@@ -26,7 +26,7 @@ variables that beat the framework's palette.
 import {
   createThemePlugin,
   defineAppTheme,
-} from "@cosmicdrift/kumiko-renderer-web/theme-plugin";
+} from "@cosmicdrift/kumiko-renderer/web/theme-plugin";
 
 export default createThemePlugin(
   defineAppTheme({
@@ -42,7 +42,7 @@ export default createThemePlugin(
 
 ```css illustration
 /* styles.css */
-@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+@import "@cosmicdrift/kumiko-renderer/web/styles.css";
 @plugin "./theme.ts";
 @source "./src";
 ```
@@ -59,8 +59,8 @@ Source: `packages/server-runtime/src/__tests__/renderer-web-theme-plugin.integra
 - Use tokens in components (`bg-primary`, `text-status-ok`), never hex values
   or palette classes.
 
-Source: `packages/renderer-web/src/theme-plugin.ts`, tested in
-`packages/renderer-web/src/__tests__/theme-plugin.test.ts`
+Source: `packages/renderer/src/web/theme-plugin.ts`, tested in
+`packages/renderer/src/web/__tests__/theme-plugin.test.ts`
 
 ### Migrating from `@theme` / unlayered `:root`/`.dark`
 
@@ -76,7 +76,7 @@ in two modes by hand.
 2. Move `--radius`, font families and the card shadow/padding into `radius`,
    `fonts`, `shadows.card`, `spacing.card`.
 3. Delete those blocks from `styles.css`; keep only
-   `@import "@cosmicdrift/kumiko-renderer-web/styles.css";` and add
+   `@import "@cosmicdrift/kumiko-renderer/web/styles.css";` and add
    `@plugin "./theme.ts";`.
 4. Colors the app invented (not in the framework list) stay in `colors`; the
    plugin generates their utilities, so no extra `@theme` entry is needed.
@@ -94,7 +94,7 @@ public page behind login.
 ```tsx illustration
 import { emailPasswordClient, SignupScreen } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { createStaticLocaleResolver } from "@cosmicdrift/kumiko-renderer";
-import { createPublicSurface } from "@cosmicdrift/kumiko-renderer-web";
+import { createPublicSurface } from "@cosmicdrift/kumiko-renderer/web";
 
 createPublicSurface({
   locale: createStaticLocaleResolver({ locale: "en" }),
@@ -104,7 +104,7 @@ createPublicSurface({
 });
 ```
 
-Source: `packages/renderer-web/e2e/fixtures/signup-page.tsx`
+Source: `packages/renderer/e2e/fixtures/signup-page.tsx`
 
 Options: `routes`, `fallback`, `shell`, `formality`, `clientFeatures`, `locale`,
 `primitives`, `dispatcher`, `rootId`. Pass `shell` to wrap every page in the
@@ -134,7 +134,7 @@ One header and footer for anonymous pages. `variant` picks the layout:
 </PublicShell>
 ```
 
-Source: `packages/renderer-web/src/widgets/__tests__/public-shell.test.tsx`
+Source: `packages/renderer/src/web/widgets/__tests__/public-shell.test.tsx`
 
 Hook it up through the surface, so each route does not repeat it:
 
@@ -149,9 +149,9 @@ createPublicSurface({
 });
 ```
 
-Source: option shape from `packages/renderer-web/src/app/create-public-surface.tsx`
+Source: option shape from `packages/renderer/src/web/app/create-public-surface.tsx`
 
-Web only: `PublicShell` is a renderer-web widget; there is no native version in
+Web only: `PublicShell` is a renderer/web widget; there is no native version in
 this repo.
 
 ## StepBar with back navigation
@@ -172,11 +172,11 @@ forward jumps). On narrow viewports the bar shows `compactLabel`; with
 />
 ```
 
-Source: `packages/renderer-web/src/widgets/__tests__/widgets.test.tsx`
+Source: `packages/renderer/src/web/widgets/__tests__/widgets.test.tsx`
 
 Further props: `doneSteps`, `narrowLayout` (`"label"` or `"steps"`),
 `orientation` (`"horizontal"` or `"vertical"`, with `heading`, `description`,
-`subtitles`). Web only (renderer-web widget).
+`subtitles`). Web only (renderer/web widget).
 
 ## StickyActionBar
 
@@ -194,9 +194,9 @@ The safe-area inset is `0` unless the page's viewport meta contains
 </StickyActionBar>
 ```
 
-Source: `packages/renderer-web/src/primitives/__tests__/public-page-primitives.test.tsx`
+Source: `packages/renderer/src/web/primitives/__tests__/public-page-primitives.test.tsx`
 
-Web implementation: `packages/renderer-web/src/primitives/sticky-action-bar.tsx`.
+Web implementation: `packages/renderer/src/web/primitives/sticky-action-bar.tsx`.
 It is an optional entry of `PrimitivesRegistry`, so access it through
 `usePrimitives()` and narrow the `undefined`; the web default registry ships it.
 
@@ -233,10 +233,10 @@ It is an optional entry of `PrimitivesRegistry`, so access it through
 <CopyButton text={"Zeile 1\nZeile 2"} label="Text kopieren" copiedLabel="Kopiert" />
 ```
 
-Source: `packages/renderer-web/src/primitives/__tests__/public-page-primitives.test.tsx`
+Source: `packages/renderer/src/web/primitives/__tests__/public-page-primitives.test.tsx`
 
 Clipboard and share sheet are browser APIs implemented in
-`packages/renderer-web/src/primitives/share-actions.tsx`. `CopyButton` and
+`packages/renderer/src/web/primitives/share-actions.tsx`. `CopyButton` and
 `ShareButton` are optional `PrimitivesRegistry` entries (use `usePrimitives()`);
 `className` is merged on web only (the prop docs say native implementations
 ignore it). This repo has no native implementation of them.
@@ -262,8 +262,8 @@ the slot's `previewUrl`. Images are resized in the browser before `onUpload`.
 />
 ```
 
-Source: props from `packages/renderer-web/src/widgets/photo-slots.tsx`, behavior
-in `packages/renderer-web/src/widgets/__tests__/photo-slots.test.tsx`
+Source: props from `packages/renderer/src/web/widgets/photo-slots.tsx`, behavior
+in `packages/renderer/src/web/widgets/__tests__/photo-slots.test.tsx`
 
 Web only (`<input type="file">`, browser-side resize). `capture` opens the camera
 directly on phones. The first slot spans the full row unless
@@ -288,10 +288,10 @@ link (`href`) or a button (`onClick`). Restyle it through the promo tokens in
 </PromoPanel>
 ```
 
-Source: `packages/renderer-web/src/primitives/__tests__/public-page-primitives.test.tsx`
+Source: `packages/renderer/src/web/primitives/__tests__/public-page-primitives.test.tsx`
 
 Optional `PrimitivesRegistry` entry; implementation in
-`packages/renderer-web/src/primitives/promo-panel.tsx`. No native
+`packages/renderer/src/web/primitives/promo-panel.tsx`. No native
 implementation in this repo.
 
 ## Formality (Sie/Du per locale)
@@ -319,7 +319,7 @@ createPublicSurface({
 });
 ```
 
-Source: `packages/renderer-web/src/__tests__/create-public-surface.test.tsx`
+Source: `packages/renderer/src/web/__tests__/create-public-surface.test.tsx`
 
 An app override of a framework key in `"de"` also needs a `"de-x-formal"`
 entry. Otherwise the framework's formal text wins in formal mode, because the
@@ -336,9 +336,9 @@ or all-good state; do not recolor with `className`.
 <ProgressBar value={done / total} tone={done === total ? "success" : "default"} ariaLabel="Fortschritt" />
 ```
 
-Source: props from `packages/renderer-web/src/widgets/progress-bar.tsx`
+Source: props from `packages/renderer/src/web/widgets/progress-bar.tsx`
 
-`size="thin"` gives a quiet 4px inline bar. Web only (renderer-web widget).
+`size="thin"` gives a quiet 4px inline bar. Web only (renderer/web widget).
 
 ## `excludeFields` on generic create/update
 
@@ -367,7 +367,7 @@ or users can still edit it there.
 | `FormalityProvider` | Sie/Du wording for a subtree | `formality` (`"formal"` \| `"informal"`) |
 | `ProgressBar` | Progress 0..1 | `value`, `tone`, `size`, `ariaLabel` |
 
-Platform: every block above is implemented in `@cosmicdrift/kumiko-renderer-web`
+Platform: every block above is implemented in `@cosmicdrift/kumiko-renderer/web`
 only. The prop contracts for `StepBar`, `StickyActionBar`, `CopyButton`,
 `ShareButton` and `PromoPanel` live in `@cosmicdrift/kumiko-renderer`, so a
 native renderer can implement them; none exists in this repo.

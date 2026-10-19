@@ -11,7 +11,7 @@
 //     } },
 //   ]}
 
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { CUSTOM_FIELDS_FEATURE_NAME, CUSTOM_FIELDS_FORM_EXTENSION_NAME } from "../constants.ts";
 import { CustomFieldsFormSection } from "./custom-fields-form-section.tsx";
 import { defaultTranslations } from "./i18n.ts";

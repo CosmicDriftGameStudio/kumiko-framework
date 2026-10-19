@@ -1,5 +1,5 @@
 // TargetRef — runtime-Repräsentation eines typed buildTarget-Outputs.
-// Wird vom Visual-Tree-Component (renderer-web) an einen Target-Resolver
+// Wird vom Visual-Tree-Component (renderer/web) an einen Target-Resolver
 // dispatcht; der Resolver findet die Editor-Maske via featureId.
 //
 // **Compile-time-Safety:** TargetRef wird niemals hand-getippt. Stattdessen

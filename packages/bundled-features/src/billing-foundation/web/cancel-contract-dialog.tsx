@@ -7,7 +7,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { toInstant } from "@cosmicdrift/kumiko-renderer/headless";
-import { ModeSwitch } from "@cosmicdrift/kumiko-renderer-web";
+import { ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { SubscriptionFoundationHandlers } from "../constants.ts";
 import type { ContractTerminationDeclarationType, ContractTerminationKind } from "../events.ts";

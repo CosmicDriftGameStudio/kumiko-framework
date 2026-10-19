@@ -10,7 +10,7 @@
 //                round-tripping the float amount through /100·*100.
 //                `amountMinor` stays as a @deprecated alias of the same
 //                value until #1976/4 and #1976/5 migrate their remaining
-//                consumers (renderer-web/primitives/index.tsx,
+//                consumers (renderer/web/primitives/index.tsx,
 //                renderer/components/render-field.tsx) off the old name.
 //
 // table-builder.ts's moneyAmount column has always documented BIGINT as

@@ -9,7 +9,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { EMPTY_VALUE_PLACEHOLDER, toInstant } from "@cosmicdrift/kumiko-renderer/headless";
-import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { type OverviewRowView, parseOverviewRow } from "./overview-row.ts";
 import { statusLabel, statusTone } from "./status-label.ts";

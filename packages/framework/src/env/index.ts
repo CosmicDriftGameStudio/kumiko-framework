@@ -464,7 +464,9 @@ function formatBootError(errors: readonly EnvError[]): string {
     }
   }
   lines.push("");
-  lines.push("See: kumiko-platform/docs/runbooks/standard-deploy-app.md#step-1-boot-dry-run-lokal");
+  lines.push(
+    "See: https://github.com/CosmicDriftGameStudio/infra/blob/main/docs/runbooks/standard-deploy-app.md#schritt-1--env-vertrag-lokal-ausgeben",
+  );
   return lines.join("\n");
 }
 

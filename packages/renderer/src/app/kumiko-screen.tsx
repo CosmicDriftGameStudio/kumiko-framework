@@ -543,7 +543,7 @@ function renderScreenBody({
 
 // Injection-Body für dashboard-Screens: die Panel-Implementierung (StatCard,
 // Charts) ist plattform-spezifisch und kommt aus dem DashboardBody-Context
-// (renderer-web registriert die Web-Variante in createKumikoApp).
+// (renderer/web registriert die Web-Variante in createKumikoApp).
 function DashboardScreenBody({
   featureName,
   screen,
@@ -558,8 +558,9 @@ function DashboardScreenBody({
   if (Body === undefined) {
     return (
       <Banner padded variant="info" testId="kumiko-screen-dashboard-placeholder">
-        Dashboard screen <Text variant="code">{screen.id}</Text> — kein Dashboard-Body registriert
-        (createKumikoApp aus <Text variant="code">kumiko-renderer-web</Text> wired ihn automatisch).
+        Dashboard screen <Text variant="code">{screen.id}</Text> — no dashboard body registered
+        (createKumikoApp from <Text variant="code">kumiko-renderer/web</Text> wires it
+        automatically).
       </Banner>
     );
   }
@@ -2601,7 +2602,7 @@ function EntityListBody({
     (action: RowActionNavigate, row: ListRowViewModel) => {
       if (action.entity !== undefined) {
         // Entity-Targets (fw#2228) lösen sich erst in der NavApi-Impl gegen
-        // ALLE Features auf (resolveTarget in renderer-web/nav.tsx) — dieses
+        // ALLE Features auf (resolveTarget in renderer/web/nav.tsx) — dieses
         // Package kennt nur `schema` (das eine aufrufende Feature) und kann
         // detailFor cross-feature nicht selbst nachschlagen.
         const explicit =

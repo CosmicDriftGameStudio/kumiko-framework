@@ -47,7 +47,7 @@ handler as above. Register `notesHistoryClient()` once (for its component +
 i18n), then mount it either way:
 
 ```tsx illustration
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 import { notesHistoryClient, NotesSection, NOTES_SECTION_EXTENSION_NAME } from "@cosmicdrift/kumiko-bundled-features/notes-history/web";
 
 // once, at app boot — required even for standalone use (registers i18n):

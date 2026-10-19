@@ -3,7 +3,7 @@
 // so a typo (`"mial"`) is a compile error at the screen-def / view-model
 // call site instead of a silent missing-icon at runtime.
 //
-// The renderer-web FIELD_ICONS map (packages/renderer-web/src/primitives/
+// The renderer/web FIELD_ICONS map (packages/renderer/src/web/primitives/
 // index.tsx) is checked against this same union via `satisfies`, so the
 // two can't drift — add a key here only together with its lucide-react
 // entry there, and vice versa.

@@ -587,7 +587,7 @@ jobs:
           set +e
           configs=(
             e2e/hero-demos/playwright.config.ts
-            packages/renderer-web/playwright.config.ts
+            packages/renderer/playwright.config.ts
             packages/testing/e2e/playwright.config.ts
             samples/apps/admin-console/playwright.config.ts
             samples/apps/config-demo/playwright.config.ts

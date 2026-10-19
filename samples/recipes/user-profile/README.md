@@ -46,7 +46,7 @@ itself needs no client registration):
 ```tsx illustration
 import { userProfileClient } from "@cosmicdrift/kumiko-bundled-features/user-profile/web";
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 
 createKumikoApp({
   clientFeatures: [emailPasswordClient(), userProfileClient()],

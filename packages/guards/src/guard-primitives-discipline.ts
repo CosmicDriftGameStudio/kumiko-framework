@@ -17,7 +17,7 @@
  *   <select>                                →  <ComboboxInput>
  *   <textarea>                              →  <Input kind="textarea">
  *   <dialog>                                →  <DefaultDialog>
- *   alert() / window.alert()               →  <DefaultDialog> from @cosmicdrift/kumiko-renderer-web
+ *   alert() / window.alert()               →  <DefaultDialog> from @cosmicdrift/kumiko-renderer/web
  *   className "bg-card" (hand-rolled card) →  <Card> (slots/options)
  *   className "mx-auto" + "max-w-*" (hand-rolled screen container)
  *                                           →  <PageSection maxWidth> (3xl/4xl/full)
@@ -60,7 +60,7 @@ const FORBIDDEN_TAGS: ReadonlyArray<{
 const FORBIDDEN_CALLS: ReadonlyArray<{
   readonly call: string;
   readonly counterpart: string;
-}> = [{ call: "alert", counterpart: "<DefaultDialog> from @cosmicdrift/kumiko-renderer-web" }];
+}> = [{ call: "alert", counterpart: "<DefaultDialog> from @cosmicdrift/kumiko-renderer/web" }];
 
 // Forbidden className tokens: an allowed tag (`<div>`), but the class gives
 // away hand-rolled primitive chrome. `bg-card` is the dedicated card-surface

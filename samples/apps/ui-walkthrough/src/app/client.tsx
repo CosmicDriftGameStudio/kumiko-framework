@@ -5,7 +5,7 @@ import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-e
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { documentDesignerClient } from "@cosmicdrift/kumiko-document-designer/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 import { billingClient } from "../features/billing/web";
 import { rentalClient } from "../features/rental/web";
 import { tasksClient } from "../features/tasks/web";

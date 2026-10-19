@@ -4,7 +4,7 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, type RenderResult, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { installFetchMock } from "../../../auth-email-password/web/__tests__/fetch-mock.ts";

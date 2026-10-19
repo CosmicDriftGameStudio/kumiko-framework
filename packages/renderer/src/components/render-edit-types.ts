@@ -74,7 +74,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   /** Copy-link action (issue #912) — only set in update mode (create mode
    *  has no entity id yet, hence no permalink). The callback is already fully
    *  bound (URL building + clipboard happen outside, in
-   *  `@cosmicdrift/kumiko-renderer-web`'s RoutedScreen — this platform-neutral
+   *  `@cosmicdrift/kumiko-renderer/web`'s RoutedScreen — this platform-neutral
    *  package must not touch `navigator`/`window`, see
    *  guard-renderer-boundaries). undefined = no button. */
   readonly onCopyLink?: () => Promise<void> | void;

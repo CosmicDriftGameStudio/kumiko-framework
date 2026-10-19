@@ -26,7 +26,7 @@ function mainLocator(page: Page) {
 // Structural, not class-name-coupled: FormScreenShell renders exactly one
 // wrapping div holding [headerRegion-wrapper?, card] as direct children —
 // the card (cardSurface()) is always the last of those (see DefaultForm in
-// packages/renderer-web/src/primitives/index.tsx).
+// packages/renderer/src/web/primitives/index.tsx).
 function cardLocator(page: Page) {
   return page.locator('[data-testid="render-edit-form"] > div > div').last();
 }

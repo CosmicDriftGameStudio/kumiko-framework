@@ -14,7 +14,7 @@ import {
   PlanCard,
   type PlanCardActionSlot,
   PlanGrid,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import {
   BillingPlanActions,

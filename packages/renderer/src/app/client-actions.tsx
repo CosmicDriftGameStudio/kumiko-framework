@@ -25,7 +25,7 @@ export type ActionNotice = {
 };
 
 /** Shows the outcome of a client action. The platform layer provides it
- *  (renderer-web: a toast); without one a failure is thrown to the action
+ *  (renderer/web: a toast); without one a failure is thrown to the action
  *  host's own error surface and a success stays silent. */
 export type ActionNotifier = (notice: ActionNotice) => void;
 

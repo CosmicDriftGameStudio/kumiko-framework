@@ -13,7 +13,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { cn, ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer-web";
+import { cn, ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { BRANDING_QUERY_QN } from "../constants.ts";
 import { composeLayoutHtml } from "./compose-layout.ts";

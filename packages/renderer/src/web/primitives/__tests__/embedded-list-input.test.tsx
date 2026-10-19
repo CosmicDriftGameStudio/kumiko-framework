@@ -1,0 +1,1186 @@
+// embedded-list-input Tests — happy-dom + @testing-library/react. Every
+// test interacts with the rendered DOM (click/type/paste) and asserts on
+// the outcome; none merely check that the component mounts.
+
+import { describe, expect, mock, spyOn, test } from "bun:test";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, type ReactElement, useState } from "react";
+import type { FieldIssue } from "../../../headless/index.ts";
+import type { EmbeddedListColumn, EmbeddedListInputProps } from "../../../index.ts";
+import {
+  createStaticLocaleResolver,
+  kumikoDefaultTranslations,
+  LocaleProvider,
+} from "../../../index.ts";
+import { computeScrollAffordance, EmbeddedListInput } from "../embedded-list-input.tsx";
+
+function setViewportWidth(width: number): void {
+  (
+    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
+  ).happyDOM.setInnerWidth(width);
+}
+
+function renderWithLocale(ui: ReactElement) {
+  return render(
+    <LocaleProvider
+      resolver={createStaticLocaleResolver()}
+      fallbackBundles={[kumikoDefaultTranslations]}
+    >
+      {ui}
+    </LocaleProvider>,
+  );
+}
+
+const COLUMNS: readonly EmbeddedListColumn[] = [
+  { field: "description", label: "Description", type: "text", required: true, derived: false },
+  { field: "quantity", label: "Qty", type: "number", required: true, derived: false },
+  {
+    field: "amount",
+    label: "Amount",
+    type: "money",
+    required: false,
+    derived: true,
+  },
+];
+
+const LABELS = {
+  addLabel: "Add row",
+  actionsLabel: "Actions",
+  removeLabel: "Remove row",
+  duplicateLabel: "Duplicate row",
+  moveUpLabel: "Move up",
+  moveDownLabel: "Move down",
+  emptyLabel: "No lines yet",
+  emptyCtaLabel: "Add first line",
+};
+
+function baseProps(overrides: Partial<EmbeddedListInputProps> = {}): EmbeddedListInputProps {
+  return {
+    id: "lines",
+    columns: COLUMNS,
+    rows: [],
+    onCellChange: () => {},
+    onAddRow: () => {},
+    onRemoveRow: () => {},
+    onDuplicateRow: () => {},
+    onMoveRow: () => {},
+    testId: "lines",
+    ...LABELS,
+    ...overrides,
+  };
+}
+
+// A real onAddRow that appends a row via useState, wired to the same
+// pendingFocusCellId batching #1839 relies on — a mock onAddRow that
+// never actually grows `rows` can't reproduce the auto-focus effect,
+// since it targets a cell in a row that doesn't exist yet.
+function ControlledFocusHarness({
+  columns,
+  initialRows,
+}: {
+  readonly columns: readonly EmbeddedListColumn[];
+  readonly initialRows: ReadonlyArray<Record<string, unknown>>;
+}) {
+  const [rows, setRows] = useState(initialRows);
+  return (
+    <EmbeddedListInput
+      {...baseProps({
+        columns,
+        rows,
+        onAddRow: () => setRows((current) => [...current, {}]),
+      })}
+    />
+  );
+}
+
+describe("EmbeddedListInput — header + rows", () => {
+  test("renders one header cell per column and one row per data row, with values", () => {
+    const rows = [
+      { description: "Widget A", quantity: 2, amount: 1000 },
+      { description: "Widget B", quantity: 5, amount: 2500 },
+    ];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect(desktop.getByText("Description")).toBeTruthy();
+    expect(desktop.getByText("Qty")).toBeTruthy();
+    expect(desktop.getByText("Amount")).toBeTruthy();
+
+    const row0 = within(desktop.getByTestId("lines-row-0"));
+    expect((row0.getByDisplayValue("Widget A") as HTMLInputElement).value).toBe("Widget A");
+    expect((row0.getByDisplayValue("2") as HTMLInputElement).value).toBe("2");
+
+    const row1 = within(desktop.getByTestId("lines-row-1"));
+    expect((row1.getByDisplayValue("Widget B") as HTMLInputElement).value).toBe("Widget B");
+  });
+});
+
+describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1854)", () => {
+  const rows = [{ description: "Widget A", quantity: 2, amount: 1000 }];
+
+  test("desktop viewport mounts only the table, not the card layout", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    expect(screen.getByTestId("lines-desktop")).toBeTruthy();
+    expect(screen.queryByTestId("lines-mobile")).toBeNull();
+    expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
+  });
+
+  test("mobile viewport mounts only the card layout, not the table", () => {
+    const originalWidth = window.innerWidth;
+    setViewportWidth(500);
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
+    } finally {
+      setViewportWidth(originalWidth);
+    }
+  });
+
+  test("mobile viewport at mount never creates the desktop table — no mount-then-discard flicker (fw#1868)", () => {
+    // The old useIsMobile hook only set its value in a useEffect, so the
+    // very first render always mounted the desktop table (isMobile=false)
+    // before an effect swapped in the mobile cards — even on a phone. Since
+    // effects flush synchronously inside render()'s act(), a plain post-
+    // render DOM assertion can't tell the two implementations apart (both
+    // end up correct); spying on document.createElement across the whole
+    // render call is the only way to prove a <table> was never built at all.
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    const createElementSpy = spyOn(document, "createElement");
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(createElementSpy.mock.calls.some(([tag]) => tag === "table")).toBe(false);
+    } finally {
+      window.innerWidth = originalWidth;
+      createElementSpy.mockRestore();
+    }
+  });
+
+  test("resizing past the breakpoint after mount swaps the table for the card layout", async () => {
+    const originalWidth = window.innerWidth;
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+      expect(screen.getByTestId("lines-desktop")).toBeTruthy();
+
+      await act(async () => {
+        window.innerWidth = 500;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
+    } finally {
+      window.innerWidth = originalWidth;
+    }
+  });
+});
+
+describe("EmbeddedListInput — row mutation callbacks", () => {
+  const rows = [
+    { description: "A", quantity: 1, amount: 100 },
+    { description: "B", quantity: 2, amount: 200 },
+    { description: "C", quantity: 3, amount: 300 },
+  ];
+
+  test("duplicate/remove/move fire with the clicked row's index", () => {
+    const onDuplicateRow = mock((_i: number) => {});
+    const onRemoveRow = mock((_i: number) => {});
+    const onMoveRow = mock((_from: number, _to: number) => {});
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ rows, onDuplicateRow, onRemoveRow, onMoveRow })} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+
+    fireEvent.click(desktop.getByTestId("lines-row-1-duplicate"));
+    expect(onDuplicateRow).toHaveBeenLastCalledWith(1);
+
+    fireEvent.click(desktop.getByTestId("lines-row-1-move-up"));
+    expect(onMoveRow).toHaveBeenLastCalledWith(1, 0);
+
+    fireEvent.click(desktop.getByTestId("lines-row-1-move-down"));
+    expect(onMoveRow).toHaveBeenLastCalledWith(1, 2);
+
+    fireEvent.click(desktop.getByTestId("lines-row-1-remove"));
+    expect(onRemoveRow).toHaveBeenLastCalledWith(1);
+  });
+
+  test("onCellChange fires with rowIndex/field/value on edit", () => {
+    const onCellChange = mock((_r: number, _f: string, _v: unknown) => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onCellChange })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const input = within(desktop.getByTestId("lines-row-0")).getByDisplayValue("A");
+    fireEvent.change(input, { target: { value: "Updated" } });
+    expect(onCellChange).toHaveBeenCalledWith(0, "description", "Updated");
+  });
+});
+
+describe("EmbeddedListInput — min/max item limits", () => {
+  const rows = [
+    { description: "A", quantity: 1, amount: 100 },
+    { description: "B", quantity: 2, amount: 200 },
+  ];
+
+  test("add row is disabled once maxItems is reached", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, maxItems: 2 })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect((desktop.getByTestId("lines-add") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test("add row stays enabled below maxItems", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, maxItems: 5 })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect((desktop.getByTestId("lines-add") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  test("remove is disabled once row count would drop below minItems", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, minItems: 2 })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect((desktop.getByTestId("lines-row-0-remove") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test("remove stays enabled above minItems", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, minItems: 1 })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect((desktop.getByTestId("lines-row-0-remove") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("EmbeddedListInput — derived cells", () => {
+  test("a derived column renders its cell disabled", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const amountCell = desktop.getByTestId("lines-cell-0-amount");
+    const input = amountCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the amount cell");
+    expect(input.disabled).toBe(true);
+  });
+});
+
+describe("EmbeddedListInput — issue rendering", () => {
+  function issue(path: string, message: string): FieldIssue {
+    return { path, code: "custom", i18nKey: message };
+  }
+
+  test("cellIssues render under the matching cell", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          rows,
+          cellIssues: { "0.description": [issue("lines.0.description", "Required")] },
+        })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect(
+      within(desktop.getByTestId("lines-cell-0-description-errors")).getByText("Required"),
+    ).toBeTruthy();
+  });
+
+  // #1876: a long validation message in a narrow cell must wrap instead of
+  // widening the column into horizontal scroll.
+  test("cellIssues in the desktop table are width-constrained and wrap", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          rows,
+          cellIssues: {
+            "0.description": [
+              issue(
+                "lines.0.description",
+                "This is a deliberately long validation message that must wrap instead of widening the table",
+              ),
+            ],
+          },
+        })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const container = desktop.getByTestId("lines-cell-0-description-errors");
+    expect(container.className).toContain("max-w-[16rem]");
+    expect(container.className).toContain("whitespace-normal");
+    expect(container.className).toContain("break-words");
+  });
+
+  test("rowIssues render under the matching row", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          rows,
+          rowIssues: { 0: [issue("lines.0", "Row incomplete")] },
+        })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect(
+      within(desktop.getByTestId("lines-row-0-issues")).getByText("Row incomplete"),
+    ).toBeTruthy();
+  });
+
+  test("listIssues render at the list level", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          rows,
+          listIssues: [issue("lines", "Too few lines")],
+        })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect(
+      within(desktop.getByTestId("lines-list-issues")).getByText("Too few lines"),
+    ).toBeTruthy();
+  });
+});
+
+describe("EmbeddedListInput — empty state", () => {
+  test("shows emptyLabel + CTA button, click fires onAddRow", () => {
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows: [], onAddRow })} />);
+    expect(screen.getByText("No lines yet")).toBeTruthy();
+    const cta = screen.getByTestId("lines-empty-add");
+    expect(within(cta).getByText("Add first line")).toBeTruthy();
+    fireEvent.click(cta);
+    expect(onAddRow).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EmbeddedListInput — totals", () => {
+  test("renders each total's label and value", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 1234 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          rows,
+          totals: [{ field: "amount", label: "Grand total", value: 1234 }],
+        })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const totals = desktop.getByTestId("lines-totals");
+    expect(within(totals).getByText("Grand total")).toBeTruthy();
+    // Money total formats via Intl.NumberFormat (EUR) — assert the digits
+    // it must contain rather than pinning the exact locale/space glyphs.
+    expect(totals.textContent).toContain("12");
+    expect(totals.textContent).toContain("34");
+  });
+
+  test("a plain number total renders as a locale-formatted number", () => {
+    const rows = [{ description: "A", quantity: 7, amount: 100 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          rows,
+          columns: [
+            {
+              field: "description",
+              label: "Description",
+              type: "text",
+              required: true,
+              derived: false,
+            },
+            { field: "quantity", label: "Qty", type: "number", required: true, derived: false },
+          ],
+          totals: [{ field: "quantity", label: "Total qty", value: 7 }],
+        })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const totals = desktop.getByTestId("lines-totals");
+    expect(within(totals).getByText("7")).toBeTruthy();
+  });
+});
+
+describe("EmbeddedListInput — tab-to-add-row", () => {
+  // COLUMNS' last column ("amount") is derived, so its control is rendered
+  // disabled and never focusable/keydown-reachable in a real browser — the
+  // append-row handler must live on "quantity", the last EDITABLE column.
+  test("Tab on the last editable cell of the last row (no maxItems limit) fires onAddRow and prevents default", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
+
+    // fireEvent returns false when the event's default was prevented —
+    // same return-value convention as native dispatchEvent.
+    const notPrevented = fireEvent.keyDown(input, { key: "Tab", code: "Tab" });
+    expect(onAddRow).toHaveBeenCalledTimes(1);
+    expect(notPrevented).toBe(false);
+  });
+
+  test("Tab does not fire onAddRow once maxItems is reached", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow, maxItems: 1 })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
+
+    fireEvent.keyDown(input, { key: "Tab", code: "Tab" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+
+  // Regression: a derived trailing column (e.g. "amount") used to be treated
+  // as the last cell (columns.length - 1), but its control is disabled and
+  // unreachable via Tab/Enter in a real browser — the handler must attach
+  // to "quantity" (last editable), not "amount" (last, but derived).
+  test("Tab on the derived trailing cell ('amount') does not fire onAddRow — it isn't the last editable column", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const derivedCell = desktop.getByTestId("lines-cell-0-amount");
+    const input = derivedCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the derived cell");
+
+    fireEvent.keyDown(input, { key: "Tab", code: "Tab" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+});
+
+describe("EmbeddedListInput — paste", () => {
+  test("a two-row, two-column tab-separated paste fires onPasteCells with the parsed grid", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onPasteCells = mock(
+      (_r: number, _c: number, _grid: readonly (readonly string[])[]) => {},
+    );
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onPasteCells })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const cell = desktop.getByTestId("lines-cell-0-description");
+    const input = cell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the cell");
+
+    const clipboardData = {
+      getData: (format: string) => (format === "text" ? "Widget\t5\nGadget\t9" : ""),
+    };
+    fireEvent.paste(input, { clipboardData });
+
+    expect(onPasteCells).toHaveBeenCalledTimes(1);
+    const [rowIndex, columnIndex, grid] = onPasteCells.mock.calls[0] as [
+      number,
+      number,
+      readonly (readonly string[])[],
+    ];
+    expect(rowIndex).toBe(0);
+    expect(columnIndex).toBe(0);
+    expect(grid).toEqual([
+      ["Widget", "5"],
+      ["Gadget", "9"],
+    ]);
+  });
+
+  test("a single-value paste does not call onPasteCells", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onPasteCells = mock(
+      (_r: number, _c: number, _grid: readonly (readonly string[])[]) => {},
+    );
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onPasteCells })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const cell = desktop.getByTestId("lines-cell-0-description");
+    const input = cell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the cell");
+
+    const clipboardData = { getData: (format: string) => (format === "text" ? "Solo" : "") };
+    fireEvent.paste(input, { clipboardData });
+    expect(onPasteCells).not.toHaveBeenCalled();
+  });
+});
+
+describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
+  test("Enter on a select trigger in the last cell does not append a row", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      {
+        field: "status",
+        label: "Status",
+        type: "select",
+        required: false,
+        derived: false,
+        options: ["open"],
+      },
+    ];
+    const rows = [{ status: "open" }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows, onAddRow })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const trigger = desktop.getByTestId("lines-cell-0-status").querySelector("button");
+    if (trigger === null) throw new Error("expected a select trigger button");
+    fireEvent.keyDown(trigger, { key: "Enter", code: "Enter" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+
+  test("Enter on the last editable cell of the last row fires onAddRow and prevents default, same as Tab", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
+
+    const notPrevented = fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(onAddRow).toHaveBeenCalledTimes(1);
+    // false = event.preventDefault() was called — same convention the
+    // existing Tab test relies on. A form wrapping this field must not see
+    // Enter as a submit trigger.
+    expect(notPrevented).toBe(false);
+  });
+
+  test("Enter does not fire onAddRow once maxItems is reached", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow, maxItems: 1 })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
+
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+});
+
+describe("EmbeddedListInput — auto-focus into wrapped cell types (#1839)", () => {
+  test("a date first-column focuses the inner DateField input, not the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "due", label: "Due", type: "date", required: false, derived: false },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ due: "", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newDueCell = desktop.getByTestId("lines-cell-1-due");
+    expect(newDueCell.tagName).not.toBe("INPUT");
+    const focusable = newDueCell.querySelector("input");
+    expect(focusable).not.toBeNull();
+    expect(document.activeElement).toBe(focusable);
+  });
+
+  test("a readOnly leading column is skipped: focus lands on the first editable cell of the new row", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      {
+        field: "label",
+        label: "Label",
+        type: "text",
+        required: false,
+        derived: false,
+        readOnly: true,
+      },
+      { field: "note", label: "Note", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ label: "A", note: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-note").querySelector("input");
+    const lastControl = lastInput ?? desktop.getByTestId("lines-cell-0-note");
+    fireEvent.keyDown(lastControl, { key: "Tab", code: "Tab" });
+
+    const newNoteCell = desktop.getByTestId("lines-cell-1-note");
+    const focusable =
+      newNoteCell.tagName === "INPUT" ? newNoteCell : newNoteCell.querySelector("input");
+    expect(document.activeElement).toBe(focusable);
+  });
+
+  test("a timestamp first-column focuses the inner TimestampInput date field, not the wrapper div (#1839)", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "loggedAt", label: "Logged at", type: "timestamp", required: false, derived: false },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ loggedAt: "", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newLoggedAtCell = desktop.getByTestId("lines-cell-1-loggedAt");
+    expect(newLoggedAtCell.tagName).not.toBe("INPUT");
+    const focusable = newLoggedAtCell.querySelector("input");
+    expect(focusable).not.toBeNull();
+    expect(document.activeElement).toBe(focusable);
+  });
+
+  test("a money first-column focuses the inner MoneyInput input, not the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ amount: 0, desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newAmountCell = desktop.getByTestId("lines-cell-1-amount");
+    const focusable = newAmountCell.querySelector("input");
+    expect(focusable).not.toBeNull();
+    expect(document.activeElement).toBe(focusable);
+  });
+
+  test("a select first-column focuses the combobox trigger button, not the hidden name-input or the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      {
+        field: "unit",
+        label: "Unit",
+        type: "select",
+        required: false,
+        derived: false,
+        options: ["hour", "day"],
+      },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ unit: "hour", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newUnitCell = desktop.getByTestId("lines-cell-1-unit");
+    const hiddenInput = newUnitCell.querySelector('input[type="hidden"]');
+    const trigger = newUnitCell.querySelector("button");
+    expect(hiddenInput).not.toBeNull();
+    expect(trigger).not.toBeNull();
+    // Must not land on the hidden input (a no-op focus target) — must be
+    // the actual combobox trigger the user can operate.
+    expect(document.activeElement).not.toBe(hiddenInput);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  test("a reference first-column focuses the combobox trigger button, not the hidden name-input or the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      {
+        field: "product",
+        label: "Product",
+        type: "reference",
+        required: false,
+        derived: false,
+        referenceOptions: [{ value: "p1", label: "Widget" }],
+      },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ product: "p1", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newProductCell = desktop.getByTestId("lines-cell-1-product");
+    const hiddenInput = newProductCell.querySelector('input[type="hidden"]');
+    const trigger = newProductCell.querySelector("button");
+    expect(hiddenInput).not.toBeNull();
+    expect(trigger).not.toBeNull();
+    expect(document.activeElement).not.toBe(hiddenInput);
+    expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe("EmbeddedListInput — currency (#1839)", () => {
+  const currencyColumns: readonly EmbeddedListColumn[] = [
+    { field: "description", label: "Description", type: "text", required: true, derived: false },
+    { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+  ];
+
+  test("currency prop formats the totals row in that currency instead of the EUR default", () => {
+    const rows = [{ description: "A", amount: 150000 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          columns: currencyColumns,
+          rows,
+          currency: "USD",
+          totals: [{ field: "amount", label: "Total", value: 150000 }],
+        })}
+      />,
+    );
+    const totals = within(screen.getByTestId("lines-desktop")).getByTestId("lines-totals");
+    expect(totals.textContent).toContain("$");
+    expect(totals.textContent).not.toContain("€");
+  });
+
+  test("currency prop is passed through to money-cell MoneyInput", () => {
+    const rows = [{ description: "A", amount: 150000 }];
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns: currencyColumns, rows, currency: "USD" })} />,
+    );
+    const cell = within(screen.getByTestId("lines-desktop")).getByTestId("lines-cell-0-amount");
+    const input = cell.querySelector("input") as HTMLInputElement;
+    expect(input.value).toBe("1,500.00");
+    expect(cell.textContent).toContain("$");
+  });
+
+  test("without a currency prop, totals row still formats as EUR (backward-compatible default)", () => {
+    const rows = [{ description: "A", amount: 150000 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          columns: currencyColumns,
+          rows,
+          totals: [{ field: "amount", label: "Total", value: 150000 }],
+        })}
+      />,
+    );
+    const totals = within(screen.getByTestId("lines-desktop")).getByTestId("lines-totals");
+    expect(totals.textContent).toContain("€");
+  });
+});
+
+describe("EmbeddedListInput — totals follow the app locale, not the browser locale", () => {
+  test("a de-DE app locale formats both the money total and a plain number total with '.' thousands / ',' decimal", () => {
+    const rows = [{ description: "A", quantity: 1234.5, amount: 150099 }];
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "de-DE" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <EmbeddedListInput
+          {...baseProps({
+            rows,
+            currency: "EUR",
+            totals: [
+              { field: "amount", label: "Sum", value: 150099 },
+              { field: "quantity", label: "Qty total", value: 1234.5 },
+            ],
+          })}
+        />
+      </LocaleProvider>,
+    );
+    const totals = within(screen.getByTestId("lines-desktop")).getByTestId("lines-totals");
+    // de-DE: money "1.500,99 €", plain number "1.234,5" — both use "." as
+    // the thousands separator and "," as the decimal separator.
+    expect(totals.textContent).toContain("1.500,99");
+    expect(totals.textContent).toContain("1.234,5");
+  });
+});
+
+describe("EmbeddedListInput — desktop table width (solon#107)", () => {
+  const columns: readonly EmbeddedListColumn[] = [
+    { field: "description", label: "Description", type: "text", required: true, derived: false },
+    { field: "quantity", label: "Qty", type: "number", required: true, derived: false },
+    { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+    { field: "from", label: "From", type: "date", required: false, derived: false },
+    { field: "kind", label: "Kind", type: "select", required: false, derived: false },
+  ];
+
+  test("the table is fixed-layout, fills its container and never shrinks below the column sum", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const table = screen.getByTestId("lines-desktop").querySelector("table");
+    if (table === null) throw new Error("expected a <table> in the desktop layout");
+    expect(table.className).toContain("w-full");
+    expect(table.className).toContain("table-fixed");
+    expect(table.className).not.toContain("min-w-max");
+    // text 12 + number 7.5 + money 10 + date 10 + select 12 + actions 8.5
+    expect(table.style.minWidth).toBe("60rem");
+  });
+
+  test("header labels truncate inside their fixed column instead of overlapping the neighbour", () => {
+    const longLabel = "Vorauszahlungsbetrag";
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          columns: [
+            { field: "quantity", label: longLabel, type: "number", required: true, derived: false },
+          ],
+          rows: [{}],
+        })}
+      />,
+    );
+    const header = within(screen.getByTestId("lines-desktop")).getByText(longLabel);
+    expect(header.className).toContain("truncate");
+    expect(header.getAttribute("title")).toBe(longLabel);
+  });
+
+  test("the minimum width omits the actions column when the list is disabled", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}], disabled: true })} />);
+    const table = screen.getByTestId("lines-desktop").querySelector("table");
+    expect(table?.style.minWidth).toBe("51.5rem");
+  });
+
+  test("short-value columns get a fixed <col> width, text columns none, scroll container scrolls", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const desktop = screen.getByTestId("lines-desktop");
+    const cols = desktop.querySelectorAll("col");
+    expect(cols).toHaveLength(columns.length + 1);
+    expect(cols[0]?.style.width).toBe("");
+    expect(cols[1]?.style.width).toBe("7.5rem");
+    expect(cols[2]?.style.width).toBe("10rem");
+    expect(cols[3]?.style.width).toBe("10rem");
+    expect(cols[4]?.style.width).toBe("12rem");
+    expect(cols[columns.length]?.style.width).toBe("8.5rem");
+    for (const header of desktop.querySelectorAll("th")) expect(header.style.width).toBe("");
+    expect(screen.getByTestId("lines-desktop-scroll").className).toContain("overflow-x-auto");
+  });
+
+  test("the table minimum width is the sum of every column floor, so narrow containers scroll", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const table = screen.getByTestId("lines-desktop").querySelector("table");
+    const colWidths = Array.from(screen.getByTestId("lines-desktop").querySelectorAll("col")).map(
+      (col) => Number.parseFloat(col.style.width || "12"),
+    );
+    const floor = colWidths.reduce((sum, rem) => sum + rem, 0);
+    expect(Number.parseFloat(table?.style.minWidth ?? "0")).toBeGreaterThanOrEqual(floor);
+  });
+
+  test("the actions column sticks to the right edge in header and body", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const desktop = screen.getByTestId("lines-desktop");
+    const headers = desktop.querySelectorAll("th");
+    expect(headers[columns.length]?.className).toContain("sticky");
+    expect(headers[columns.length]?.className).toContain("right-0");
+    const actionsCell = screen.getByTestId("lines-row-0-remove").closest("td");
+    expect(actionsCell?.className).toContain("sticky");
+    expect(actionsCell?.className).toContain("right-0");
+    expect(actionsCell?.className).toContain("bg-card");
+  });
+
+  test("cell controls may shrink below their intrinsic width", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const cell = screen.getByTestId("lines-cell-0-kind");
+    expect(cell.querySelector("[data-cell-id]")?.className).toContain("min-w-0");
+  });
+});
+
+// happy-dom performs no layout — scrollWidth/clientWidth/getBoundingClientRect
+// always read 0, so the affordance decision itself (computeScrollAffordance)
+// is the only piece of fw#2159 a unit test can actually exercise; the rest
+// of this describe block covers what's left: that the DOM only exposes one
+// real scroll container, and that a fresh table always opens scrolled left.
+describe("EmbeddedListInput — horizontal scroll (fw#2159)", () => {
+  describe("computeScrollAffordance", () => {
+    test("no affordance when content fits (scrollWidth <= clientWidth)", () => {
+      expect(computeScrollAffordance(0, 500, 500)).toEqual({
+        canScrollLeft: false,
+        canScrollRight: false,
+      });
+    });
+
+    test("scrolled fully left: only the right affordance shows", () => {
+      expect(computeScrollAffordance(0, 1200, 700)).toEqual({
+        canScrollLeft: false,
+        canScrollRight: true,
+      });
+    });
+
+    test("scrolled to the middle: both affordances show", () => {
+      expect(computeScrollAffordance(250, 1200, 700)).toEqual({
+        canScrollLeft: true,
+        canScrollRight: true,
+      });
+    });
+
+    test("scrolled fully right: only the left affordance shows", () => {
+      expect(computeScrollAffordance(500, 1200, 700)).toEqual({
+        canScrollLeft: true,
+        canScrollRight: false,
+      });
+    });
+
+    test("sub-pixel rounding at the right edge (499.7px) does not falsely report more to scroll", () => {
+      expect(computeScrollAffordance(499.7, 1200, 700)).toEqual({
+        canScrollLeft: true,
+        canScrollRight: false,
+      });
+    });
+  });
+
+  test("the desktop table has exactly one horizontally-scrollable container, and it neutralizes the vendored table wrapper's own overflow", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const desktop = screen.getByTestId("lines-desktop");
+
+    const scrollContainers = desktop.querySelectorAll('[data-testid="lines-desktop-scroll"]');
+    expect(scrollContainers.length).toBe(1);
+    const scrollContainer = scrollContainers[0] as HTMLElement;
+    expect(scrollContainer.className).toContain("overflow-x-auto");
+    // Guards the fw#2159 trap: without this, ui/table.tsx's own
+    // `data-slot=table-container` wrapper (also overflow-x-auto) would
+    // absorb the actual scrolling, leaving our ref permanently at
+    // scrollLeft=0 and the affordance/reset logic silently dead.
+    expect(scrollContainer.className).toContain(
+      "[&_[data-slot=table-container]]:overflow-x-visible",
+    );
+
+    const nestedTableContainers = scrollContainer.querySelectorAll('[data-slot="table-container"]');
+    expect(nestedTableContainers.length).toBe(1);
+  });
+
+  test("the add-row button sits outside the scroll container so it stays visible while the columns scroll", () => {
+    const onAddRow = mock(() => {});
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
+    const add = screen.getByTestId("lines-add");
+    expect(screen.getByTestId("lines-desktop-scroll").contains(add)).toBe(false);
+    expect(screen.getByTestId("lines-desktop").contains(add)).toBe(true);
+    fireEvent.click(add);
+    expect(onAddRow).toHaveBeenCalledTimes(1);
+  });
+
+  test("a fresh desktop table always mounts scrolled fully left", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const scrollContainer = screen.getByTestId("lines-desktop-scroll");
+    expect(scrollContainer.scrollLeft).toBe(0);
+  });
+
+  test("a scrolled-right container never carries its position into the next mount (e.g. a reopened dialog)", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const { unmount } = renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const firstContainer = screen.getByTestId("lines-desktop-scroll");
+    firstContainer.scrollLeft = 200;
+    expect(firstContainer.scrollLeft).toBe(200);
+    unmount();
+
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const secondContainer = screen.getByTestId("lines-desktop-scroll");
+    expect(secondContainer.scrollLeft).toBe(0);
+  });
+});
+
+describe("EmbeddedListInput — accessible names", () => {
+  const ALL_TYPE_COLUMNS: readonly EmbeddedListColumn[] = [
+    { field: "text", label: "Description", type: "text", required: false, derived: false },
+    { field: "num", label: "Qty", type: "number", required: false, derived: false },
+    { field: "flag", label: "Billable", type: "boolean", required: false, derived: false },
+    { field: "day", label: "Day", type: "date", required: false, derived: false },
+    { field: "at", label: "Starts", type: "timestamp", required: false, derived: false },
+    { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+    {
+      field: "kind",
+      label: "Kind",
+      type: "select",
+      required: false,
+      derived: false,
+      options: ["a", "b"],
+    },
+    {
+      field: "owner",
+      label: "Owner",
+      type: "reference",
+      required: false,
+      derived: false,
+      referenceOptions: [{ value: "u1", label: "Una" }],
+    },
+  ];
+  const ROWS = [{ text: "x" }];
+
+  function expectEveryCellControlNamed(container: HTMLElement): void {
+    expect(within(container).getByRole("textbox", { name: "Description, row 1" })).toBeDefined();
+    expect(within(container).getByRole("spinbutton", { name: "Qty, row 1" })).toBeDefined();
+    expect(within(container).getByRole("checkbox", { name: "Billable, row 1" })).toBeDefined();
+    expect(within(container).getByRole("textbox", { name: "Day, row 1" })).toBeDefined();
+    expect(within(container).getByRole("textbox", { name: "Starts, row 1" })).toBeDefined();
+    expect(within(container).getByRole("textbox", { name: "Amount, row 1" })).toBeDefined();
+    expect(within(container).getByRole("button", { name: "Kind, row 1" })).toBeDefined();
+    expect(within(container).getByRole("button", { name: "Owner, row 1" })).toBeDefined();
+  }
+
+  test("every desktop cell control carries the column label and row number as its name", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns: ALL_TYPE_COLUMNS, rows: ROWS })} />,
+    );
+    expectEveryCellControlNamed(screen.getByTestId("lines-desktop"));
+  });
+
+  test("every mobile card cell control is named too", () => {
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      renderWithLocale(
+        <EmbeddedListInput {...baseProps({ columns: ALL_TYPE_COLUMNS, rows: ROWS })} />,
+      );
+      expectEveryCellControlNamed(screen.getByTestId("lines-mobile"));
+    } finally {
+      window.innerWidth = originalWidth;
+    }
+  });
+
+  test("the row-actions column header uses the translated actionsLabel", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ rows: ROWS, actionsLabel: "Aktionen" })} />,
+    );
+    expect(
+      within(screen.getByTestId("lines-desktop")).getByRole("columnheader", { name: "Aktionen" }),
+    ).toBeDefined();
+  });
+});
+
+describe("EmbeddedListInput — read-only cells, fixed rows, segmented select", () => {
+  const checkColumns: readonly EmbeddedListColumn[] = [
+    {
+      field: "text",
+      label: "Checkpoint",
+      type: "text",
+      required: true,
+      derived: false,
+      readOnly: true,
+    },
+    {
+      field: "result",
+      label: "Result",
+      type: "select",
+      required: false,
+      derived: false,
+      options: ["ok", "bad"],
+      optionLabels: { ok: "OK", bad: "Defect" },
+      display: "radio",
+    },
+    { field: "note", label: "Note", type: "text", required: false, derived: false },
+  ];
+  const checkRows = [{ text: "Brakes", result: "", note: "" }];
+
+  test("a readOnly cell is plain text while its sibling cells stay editable", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns: checkColumns, rows: checkRows })} />,
+    );
+    const row = within(screen.getByTestId("lines-desktop")).getByTestId("lines-row-0");
+    expect(within(row).queryByDisplayValue("Brakes")).toBeNull();
+    expect(within(row).getByText("Brakes")).toBeTruthy();
+    const note = row.querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
+    expect(note.disabled).toBe(false);
+  });
+
+  test("fixedRows removes add, remove, duplicate and move but keeps cells editable", () => {
+    const onCellChange = mock((_r: number, _f: string, _v: unknown) => {});
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({ columns: checkColumns, rows: checkRows, fixedRows: true, onCellChange })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect(screen.queryByTestId("lines-add")).toBeNull();
+    expect(desktop.queryByTestId("lines-row-0-remove")).toBeNull();
+    expect(desktop.queryByTestId("lines-row-0-duplicate")).toBeNull();
+    expect(desktop.queryByTestId("lines-row-0-move-up")).toBeNull();
+    const note = desktop
+      .getByTestId("lines-row-0")
+      .querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
+    fireEvent.change(note, { target: { value: "worn" } });
+    expect(onCellChange).toHaveBeenCalledWith(0, "note", "worn");
+  });
+
+  test("fixedRows: Tab in the last editable cell does not append a row", () => {
+    const onAddRow = mock(() => {});
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({ columns: checkColumns, rows: checkRows, fixedRows: true, onAddRow })}
+      />,
+    );
+    const note = within(screen.getByTestId("lines-desktop"))
+      .getByTestId("lines-row-0")
+      .querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
+    fireEvent.keyDown(note, { key: "Tab" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+
+  test("a select cell with display radio renders segments and reports the chosen option", () => {
+    const onCellChange = mock((_r: number, _f: string, _v: unknown) => {});
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({ columns: checkColumns, rows: checkRows, onCellChange })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const group = desktop.getByTestId("segmented-lines-0-result");
+    expect(group.getAttribute("aria-label")).toContain("Result");
+    fireEvent.click(desktop.getByTestId("segmented-lines-0-result-bad"));
+    expect(onCellChange).toHaveBeenCalledWith(0, "result", "bad");
+  });
+
+  test("a select cell without display stays a dropdown", () => {
+    const columns = checkColumns.map((c) =>
+      c.field === "result" ? { ...c, display: undefined } : c,
+    );
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: checkRows })} />);
+    expect(screen.queryByTestId("segmented-lines-0-result")).toBeNull();
+  });
+
+  test("a readOnly radio cell renders the option label as plain text", () => {
+    const columns = checkColumns.map((c) => (c.field === "result" ? { ...c, readOnly: true } : c));
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: checkRows })} />);
+    expect(screen.queryByTestId("segmented-lines-0-result-ok")).toBeNull();
+  });
+});
+
+describe("EmbeddedListInput — readOnly cells as plain text", () => {
+  const longText = "Schutzeinrichtungen auf Funktion pruefen und dokumentieren";
+  const columns: readonly EmbeddedListColumn[] = [
+    {
+      field: "label",
+      label: "Check",
+      type: "text",
+      required: false,
+      derived: false,
+      readOnly: true,
+    },
+    {
+      field: "kind",
+      label: "Kind",
+      type: "select",
+      required: false,
+      derived: false,
+      readOnly: true,
+      options: ["a", "b"],
+      optionLabels: { a: "Alpha", b: "Beta" },
+    },
+    { field: "due", label: "Due", type: "date", required: false, derived: false, readOnly: true },
+    { field: "note", label: "Note", type: "text", required: false, derived: false },
+  ];
+  const rows = [{ label: longText, kind: "b", due: "2026-04-25", note: "n1" }];
+
+  test("renders formatted text without input or disabled control; neighbor stays an input", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
+    const row = within(within(screen.getByTestId("lines-desktop")).getByTestId("lines-row-0"));
+    const textCell = row.getByTestId("lines-cell-0-label");
+    expect(textCell.textContent).toBe(longText);
+    expect(textCell.querySelector("input, button")).toBeNull();
+    expect(row.getByTestId("lines-cell-0-kind").textContent).toBe("Beta");
+    expect(row.getByTestId("lines-cell-0-due").textContent).toContain("2026");
+    expect(row.getByTestId("lines-cell-0-due").textContent).not.toContain("2026-04-25");
+    expect((row.getByDisplayValue("n1") as HTMLInputElement).disabled).toBe(false);
+  });
+
+  test("an empty readOnly cell renders empty text", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns, rows: [{ label: "", note: "x" }] })} />,
+    );
+    const cell = screen.getByTestId("lines-cell-0-label");
+    expect(cell.textContent).toBe("");
+    expect(cell.querySelector("input")).toBeNull();
+  });
+
+  test("mobile card layout also renders plain text", () => {
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
+      const mobile = within(screen.getByTestId("lines-mobile"));
+      expect(mobile.getByText(longText).tagName).toBe("DIV");
+      expect(mobile.queryByDisplayValue(longText)).toBeNull();
+    } finally {
+      window.innerWidth = originalWidth;
+    }
+  });
+});

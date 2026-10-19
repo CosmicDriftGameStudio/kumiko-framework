@@ -88,7 +88,7 @@ const TestBanner: ComponentType<BannerProps> = ({ children, testId }) => (
 // Minimal overflow-menu double (A7): a toggle button reveals the items as
 // plain buttons, own testid per item so a test can assert an item is
 // reachable only after the menu opens — no dropdown/portal machinery, this
-// package doesn't test the real (renderer-web) widget.
+// package doesn't test the real (renderer/web) widget.
 const TestActionOverflowMenu: ComponentType<ActionOverflowMenuProps> = ({
   items,
   label,

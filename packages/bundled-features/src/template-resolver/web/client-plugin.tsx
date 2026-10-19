@@ -32,7 +32,7 @@ import {
   type ClientFeatureDefinition,
   PlainContentEditor,
   RichContentEditor,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
 import {

@@ -15,7 +15,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { type Dispatcher, formatMoney } from "@cosmicdrift/kumiko-renderer/headless";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";

@@ -51,14 +51,14 @@ describe("classifyByPath — test-runtime patterns", () => {
   });
 
   test("matches Playwright *.spec.ts", () => {
-    expect(classifyByPath("packages/renderer-web/e2e/smoke.spec.ts")).toBe("test");
+    expect(classifyByPath("packages/renderer/e2e/smoke.spec.ts")).toBe("test");
   });
 });
 
 describe("classifyByPath — Playwright e2e directories", () => {
   test("e2e/ at the repo root, in a package or in a sample is test", () => {
     expect(classifyByPath("e2e/fixtures/login.ts")).toBe("test");
-    expect(classifyByPath("packages/renderer-web/e2e/helpers.ts")).toBe("test");
+    expect(classifyByPath("packages/renderer/e2e/helpers.ts")).toBe("test");
     expect(classifyByPath("samples/apps/use-all-bundled/e2e/pages.ts")).toBe("test");
   });
 

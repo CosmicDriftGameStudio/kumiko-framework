@@ -147,7 +147,7 @@ describe("tenant members screen + handler access alignment", () => {
 
   // The generic drawer-open/submit/close/refetch mechanics for kind:"drawer"
   // toolbar actions are already covered end-to-end with a synthetic screen in
-  // renderer-web's projection-list-actions.test.tsx — this only proves OUR
+  // renderer/web's projection-list-actions.test.tsx — this only proves OUR
   // wiring (which screen, which handler, which fields) is correct. The
   // "submit creates the invitation, list shows it afterward" behavior is
   // proven at the backend layer in tenant-security.integration.test.ts.

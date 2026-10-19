@@ -25,6 +25,6 @@
     "bin",
     "src",
     "kumiko",
-    "../packages/renderer-web/src/qrcode-browser.d.ts"
+    "../packages/renderer/src/web/qrcode-browser.d.ts"
   ]
 }

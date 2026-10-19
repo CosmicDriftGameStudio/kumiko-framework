@@ -1,6 +1,6 @@
 // Active-locale header transport for the live dispatcher.
 //
-// @cosmicdrift/kumiko-renderer-web's DocumentLangSync (mounted by
+// @cosmicdrift/kumiko-renderer/web's DocumentLangSync (mounted by
 // createKumikoApp/createPublicSurface) sets dataset.kumikoLocale from the
 // LocaleResolver. This module reads that marker back so every outgoing
 // request carries the language the user is ACTUALLY using — not a static

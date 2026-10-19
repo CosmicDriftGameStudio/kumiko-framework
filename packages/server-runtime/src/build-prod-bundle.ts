@@ -14,7 +14,7 @@
 // Convention for everything else (all optional, missing → skipped):
 //
 //   src/styles.css                   →  Tailwind one-shot
-//                                       (oder fallback auf @cosmicdrift/kumiko-renderer-web/styles.css
+//                                       (oder fallback auf @cosmicdrift/kumiko-renderer/web/styles.css
 //                                        wenn nur clientEntry da ist und kein eigenes CSS)
 //   public/                          →  rsync 1:1 (kein Hash — User-bewusste URLs)
 //   public/index.html | index.html   →  Template, Placeholder-Tags ersetzt:
@@ -80,9 +80,9 @@ export type BuildProdBundleOptions = {
   readonly cwd?: string;
   /** Output-Folder relativ zu cwd. Default: "dist". */
   readonly outDir?: string;
-  /** Stylesheet-Override. Default: erst src/styles.css, dann
-   *  @cosmicdrift/kumiko-renderer-web/styles.css wenn clientEntry da ist.
-   *  `false` deaktiviert die CSS-Pipeline explizit. */
+  /** Stylesheet override. Default: src/styles.css first, then
+   *  @cosmicdrift/kumiko-renderer/web/styles.css when a clientEntry exists.
+   *  `false` disables the CSS pipeline explicitly. */
   readonly stylesheet?: string | false;
 } & ClientEntriesConfig;
 
@@ -638,7 +638,7 @@ function resolveStylesheetEntry(
 
   if (!hasBun) return undefined;
   try {
-    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", cwd);
+    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer/web/styles.css", cwd);
     if (!canResolveTailwindStylesheet(resolved, { bun: Bun, cwd })) {
       return undefined;
     }
@@ -662,8 +662,8 @@ export function assertRendererWebShellPresent(css: string, stylesheet: ResolvedS
   throw new Error(
     `[kumiko build] renderer-web-Fallback-CSS ohne Shell-Klasse "${RENDERER_WEB_SHELL_SENTINEL}" — ` +
       "die DefaultAppShell/WorkspaceShell-Styles fehlen, prod würde unstyled rendern. Meist ist " +
-      "@cosmicdrift/kumiko-renderer-web nicht dort installiert wo Tailwind seine Source scannt. " +
-      'Fix: src/styles.css anlegen mit `@import "@cosmicdrift/kumiko-renderer-web/styles.css";` ' +
+      "@cosmicdrift/kumiko-renderer/web nicht dort installiert wo Tailwind seine Source scannt. " +
+      'Fix: src/styles.css anlegen mit `@import "@cosmicdrift/kumiko-renderer/web/styles.css";` ' +
       '(+ `@source "./**/*.{ts,tsx}";` um auch eigene Komponenten zu scannen).',
   );
 }

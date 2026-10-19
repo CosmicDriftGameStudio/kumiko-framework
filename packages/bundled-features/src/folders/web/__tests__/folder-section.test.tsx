@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FoldersHandlers, FoldersQueries } from "../../constants.ts";
@@ -194,4 +194,9 @@ describe("FolderSection", () => {
     expect(screen.getByTestId("folder-section-create-mode")).toBeTruthy();
     expect(screen.queryByTestId("folder-section")).toBeNull();
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
 });

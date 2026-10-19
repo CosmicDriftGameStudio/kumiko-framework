@@ -81,7 +81,6 @@
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",

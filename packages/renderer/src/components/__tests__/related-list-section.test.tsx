@@ -33,8 +33,8 @@ const testSection: ComponentType<SectionProps> = ({ testId, children }) => (
 // RelatedListSection wires rowActions through to a real dispatch, without
 // needing the production DataTable's sorting/paging/kebab-menu chrome.
 // The isVisible filter mirrors the production DataTable's own row-action
-// filter (renderer-web primitives/index.tsx); the production filter itself is
-// covered in renderer-web's primitives.test.tsx, and the isVisible contract
+// filter (renderer/web primitives/index.tsx); the production filter itself is
+// covered in renderer/web's primitives.test.tsx, and the isVisible contract
 // RelatedListSection hands to it is asserted directly below.
 const testDataTable: ComponentType<DataTableProps> = ({ rows, rowActions }) => (
   <table>

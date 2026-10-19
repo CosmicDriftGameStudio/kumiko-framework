@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { CLI_KMS_SLOTS } from "../kms-wiring";
 import { loadAppConfig } from "../load-app-config";
 import type { CliCommandContext } from "../types";
 
@@ -85,8 +86,6 @@ export function selectPiiProjections<
 }
 
 const LOG_PREFIX = "[backfill-pii]";
-
-const KMS_SLOTS = ["PLATFORM_KEK", "PLATFORM_KEK_PREVIOUS", "KUMIKO_BLIND_INDEX_KEY"] as const;
 
 const BIGINT_SAFE = (_key: string, value: unknown): unknown =>
   typeof value === "bigint" ? String(value) : value;
@@ -213,7 +212,7 @@ export async function runBackfillPii(ctx: CliCommandContext): Promise<number> {
   try {
     wiring = await crypto.requireKmsWiringAsync(process.env, {
       logPrefix: LOG_PREFIX,
-      slots: KMS_SLOTS,
+      slots: CLI_KMS_SLOTS,
       log: (line) => ctx.out.log(line),
     });
   } catch (e) {

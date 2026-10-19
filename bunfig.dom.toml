@@ -25,7 +25,7 @@ preload = [
 # run sequentially anyway.
 
 # Coverage für den Badge-Merge — der dom-Lauf ist der EINZige, der die
-# tsx-abgedeckten UI-Dateien (renderer-web, widgets, bundled-features web)
+# tsx-abgedeckten UI-Dateien (renderer/web, widgets, bundled-features web)
 # ausführt; ohne dieses lcov fehlen sie im Badge (waren vor #1330 im
 # unit-lcov enthalten). coverage-badge.ts merged coverage/dom als dritte
 # Quelle neben unit+integration.

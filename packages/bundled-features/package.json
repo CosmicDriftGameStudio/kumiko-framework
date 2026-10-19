@@ -155,7 +155,6 @@
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
     "@mollie/api-client": "^4.5.0",
     "@node-rs/argon2": "^2.0.2",

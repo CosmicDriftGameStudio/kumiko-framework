@@ -1,5 +1,5 @@
 // @runtime test
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   type ExtensionSectionProps,
@@ -7,7 +7,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { CapOverviewQueries } from "../../constants.ts";
@@ -38,8 +38,8 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
 // The real StatusBadge bakes `tone` into a computed Tailwind class string and
 // exposes it nowhere in the DOM — asserting TONE_TO_STATUS through it would
 // mean matching class substrings. Surface the prop as data-tone instead.
-const actualRendererWeb = await import("@cosmicdrift/kumiko-renderer-web");
-mock.module("@cosmicdrift/kumiko-renderer-web", () => ({
+const actualRendererWeb = await import("@cosmicdrift/kumiko-renderer/web");
+mock.module("@cosmicdrift/kumiko-renderer/web", () => ({
   ...actualRendererWeb,
   StatusBadge: ({
     tone,
@@ -295,4 +295,10 @@ describe("CapCardsPanel", () => {
     expect(screen.getByText("cap-overview.cards.loading")).toBeTruthy();
     expect(screen.queryByTestId("cap-cards-panel-empty")).toBeNull();
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
+  mock.module("@cosmicdrift/kumiko-renderer/web", () => actualRendererWeb);
 });

@@ -1,7 +1,7 @@
 /* PublicStatus Theme — App-level Override des Renderer-Web-Defaults.
 
    Das Pattern: erst @import des Renderer-CSS (bringt shadcn-Token-Schema
-   + @source für renderer + renderer-web + samples mit), dann unsere
+   + @source für renderer + renderer/web + samples mit), dann unsere
    Brand-Tokens als App-Theme-Override.
 
    Light/Cream als Default — passt zum Marketing-Look (kumiko.rocks +
@@ -14,7 +14,7 @@
    der Public-Page direkt referenziert via text-[var(--color-status-ok)]
    — die bleiben unabhängig vom Light/Dark-Mode. */
 
-@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+@import "@cosmicdrift/kumiko-renderer/web/styles.css";
 
 /* Inter + JetBrains Mono — Marketing-Familie. Google Fonts CDN ist
    für DACH-on-prem-Kunden suboptimal (DSGVO-Scoring); Self-Host-

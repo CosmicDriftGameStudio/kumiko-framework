@@ -7,7 +7,7 @@
 // computeEditViewModel (headless) → RenderField → simulated widget
 // onChange → buildInsertSchema/buildUpdateSchema (framework/engine). The
 // widget's own minor-units math (MoneyInput) is pinned separately in
-// packages/renderer-web/src/primitives/__tests__/money-input.test.tsx —
+// packages/renderer/src/web/primitives/__tests__/money-input.test.tsx —
 // this test starts one step in, at the value RenderField hands to/from the
 // widget contract (`number | ""` minor units).
 

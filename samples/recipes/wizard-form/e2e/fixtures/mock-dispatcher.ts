@@ -1,6 +1,6 @@
 // In-memory dispatcher for wizard-form/e2e. Implements the dispatcher
 // interface from @cosmicdrift/kumiko-renderer/headless without the HTTP layer, its
-// own lean variant (no import from renderer-web/e2e — its fixtures are
+// own lean variant (no import from renderer/web/e2e — its fixtures are
 // package-internal, not exported).
 //
 // Serves two QN formats:

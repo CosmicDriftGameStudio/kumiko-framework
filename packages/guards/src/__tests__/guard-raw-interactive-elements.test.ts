@@ -53,7 +53,7 @@ const RELATIVE_TARGET_FILE = "src/features/demo/web/ui.tsx";
 describe("guard-raw-interactive-elements", () => {
   test("flags a raw <a> with the Link replacement, when the file has primitives access", () => {
     const { warnings } = runFor(
-      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 export function Nav() { return <a href="/x">go</a>; }`,
     );
     expect(warnings.some((w) => w.includes("raw <a>") && w.includes("usePrimitives().Link"))).toBe(
@@ -88,7 +88,7 @@ export function ToolCard() {
 
   test("a tag in a string literal or comment does not fire", () => {
     const { warnings } = runFor(
-      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 // a <details> tag mentioned only in a comment
 export function Snippet() {
 	const label = "<a href=\\"x\\">not jsx</a>";
@@ -100,7 +100,7 @@ export function Snippet() {
 
   test("allows the framework Link primitive itself", () => {
     const { warnings } = runFor(
-      `import { Link } from "@cosmicdrift/kumiko-renderer-web";
+      `import { Link } from "@cosmicdrift/kumiko-renderer/web";
 export function Nav() { return <Link href="/x">go</Link>; }`,
     );
     expect(warnings).toHaveLength(0);
@@ -108,7 +108,7 @@ export function Nav() { return <Link href="/x">go</Link>; }`,
 
   test("ignore tag on the JSX element suppresses the finding", () => {
     const { warnings } = runFor(
-      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 export function Nav() {
 	// kumiko-lint-ignore raw-interactive-elements Migration folgt in enterprise#xyz
 	return <a href="/x">go</a>;
@@ -119,7 +119,7 @@ export function Nav() {
 
   test("test files are skipped", () => {
     const { warnings } = runFor(
-      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 export function Nav() { return <a href="/x">go</a>; }`,
       "src/features/demo/__tests__/ui.test.tsx",
     );
@@ -128,7 +128,7 @@ export function Nav() { return <a href="/x">go</a>; }`,
 
   test("without a baseline file, a finding stays warning-only", () => {
     const { warnings, violations } = runFor(
-      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 export function Nav() { return <a href="/x">go</a>; }`,
     );
     expect(warnings.length).toBeGreaterThan(0);
@@ -138,7 +138,7 @@ export function Nav() { return <a href="/x">go</a>; }`,
   test("with a baseline, a new finding fails as a regression", () => {
     writeBaseline({});
     const { violations } = runFor(
-      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 export function Nav() { return <a href="/x">go</a>; }`,
     );
     expect(violations).toBeGreaterThan(0);
@@ -147,7 +147,7 @@ export function Nav() { return <a href="/x">go</a>; }`,
   test("with a baseline covering the existing count, no new violations", () => {
     writeBaseline({ [RELATIVE_TARGET_FILE]: 1 });
     const { violations } = runFor(
-      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+      `import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 export function Nav() { return <a href="/x">go</a>; }`,
     );
     expect(violations).toBe(0);

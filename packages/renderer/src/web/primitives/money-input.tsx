@@ -1,0 +1,216 @@
+// MoneyInput — type=text mit focus-aware Locale-Format. Canonical-Wert
+// bleiben Minor-Units (Cents) wie auf der Wire; während Focus zeigt das
+// Input einen rohen, editierbaren Decimal-String. Bei Blur formatiert
+// Intl.NumberFormat mit `style: "currency"` — das liefert Currency-
+// Symbol (€/$/¥) UND Tausender-Trenner UND korrekte Decimals in einem
+// Aufruf.
+//
+// Warum nicht type=number: number-Inputs lehnen formatierte Strings
+// ("1.234,56 €") ab — kein Browser akzeptiert Locale-Decimals (Komma)
+// in number-Inputs. inputMode="decimal" gibt mobiles Numpad-Keyboard
+// trotzdem.
+
+import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { currencyDecimals, formatMoney as formatMoneyForLocale } from "../../headless/index.ts";
+import { cn } from "../lib/cn.ts";
+import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";
+
+// Re-exported for backward compat — callers used to import this from here
+// before it moved to headless (shared with RenderField, kumiko-framework#1923).
+export { currencyDecimals, parseLocaleNumber };
+
+export type MoneyInputProps = {
+  readonly id: string;
+  readonly name: string;
+  readonly value: number | "";
+  readonly onChange: (v: number | undefined) => void;
+  readonly currency: string;
+  readonly locale?: string;
+  readonly disabled?: boolean;
+  readonly required?: boolean;
+  readonly hasError?: boolean;
+  readonly ariaLabel?: string;
+};
+
+// The border and focus ring live on the wrapper so the currency symbol can be
+// a flex sibling of the input: a symbol of any width ("€", "CHF", "R$") takes
+// its own space instead of overlapping the digits.
+const wrapperClass =
+  "flex h-9 w-full items-center rounded-md border border-input bg-transparent text-sm shadow-sm " +
+  "transition-colors focus-within:ring-1 focus-within:ring-ring";
+
+const inputClass =
+  "h-full min-w-0 flex-1 bg-transparent px-3 placeholder:text-muted-foreground " +
+  "focus-visible:outline-none disabled:cursor-not-allowed " +
+  // Numerische Inputs rechtsbündig — wie native type=number — damit
+  // Beträge unter Listen-Spalten an den Tausender-Stellen alignen.
+  "text-right tabular-nums";
+
+export function MoneyInput({
+  id,
+  name,
+  value,
+  onChange,
+  currency,
+  locale,
+  disabled,
+  required,
+  hasError,
+  ariaLabel,
+}: MoneyInputProps): ReactNode {
+  const decimals = currencyDecimals(currency);
+  const factor = 10 ** decimals;
+  const resolvedLocale = resolveSafeLocale(locale);
+  const [focused, setFocused] = useState(false);
+  // Raw-Edit-Buffer während Focus. Sonst würde jeder Tipp-Step durch
+  // Math.round → format-Roundtrip jagen und der Cursor würde springen.
+  const [draft, setDraft] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const major = value === "" ? null : value / factor;
+  const { symbol, symbolPosition, formatNumber } = useMemo(
+    () => moneyFormatParts(currency, resolvedLocale),
+    [currency, resolvedLocale],
+  );
+  const formatted = value === "" ? "" : formatNumber(value / factor);
+
+  // Edit-Mode: Decimal-String ohne Tausender-Trenner.
+  const toEditable = (m: number | null): string =>
+    m === null
+      ? ""
+      : m.toLocaleString(resolvedLocale, {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+          useGrouping: false,
+        });
+
+  const handleFocus = (): void => {
+    setDraft(toEditable(major));
+    setFocused(true);
+  };
+
+  // Select-all-on-focus: deliberate, not just a Playwright accommodation.
+  // Focus always swaps the displayed value from the formatted string
+  // ("1.234,56 €") to the raw editable one ("1234,56"). Measured in a real
+  // browser: on this kind of value swap, the browser collapses the cursor
+  // to the *end* of the new value rather than preserving position — so
+  // without an explicit re-select, typing right after focus appends
+  // instead of replacing. That's what silently corrupted values set via
+  // Playwright's `.fill()` (framework#1856). It also matches standard
+  // money-input UX (immediate overtype on click), and sidesteps mapping a
+  // click position from the formatted view to the editable one, which has
+  // no well-defined equivalent once separators and the currency symbol
+  // are stripped.
+  useLayoutEffect(() => {
+    if (focused) inputRef.current?.select();
+  }, [focused]);
+
+  const handleBlur = (): void => {
+    setFocused(false);
+    if (draft.trim() === "") {
+      onChange(undefined);
+      return;
+    }
+    const parsed = parseLocaleNumber(draft, resolvedLocale);
+    if (Number.isNaN(parsed)) return;
+    onChange(Math.round(parsed * factor));
+  };
+
+  const symbolEl =
+    symbol !== "" ? (
+      <span
+        id={`${id}-currency`}
+        data-testid={`${id}-currency`}
+        className={cn(
+          "shrink-0 select-none text-muted-foreground",
+          symbolPosition === "prefix" ? "pl-3" : "pr-3",
+        )}
+      >
+        {symbol}
+      </span>
+    ) : null;
+
+  return (
+    <div
+      className={cn(
+        wrapperClass,
+        hasError === true && "border-destructive focus-within:ring-destructive",
+        disabled === true && "cursor-not-allowed opacity-50",
+      )}
+    >
+      {symbolPosition === "prefix" && symbolEl}
+      <input
+        ref={inputRef}
+        id={id}
+        name={name}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        disabled={disabled}
+        aria-required={required}
+        aria-invalid={hasError === true ? true : undefined}
+        aria-label={ariaLabel}
+        aria-describedby={symbol !== "" ? `${id}-currency` : undefined}
+        value={focused ? draft : formatted}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onChange={(e) => setDraft(e.target.value)}
+        className={cn(inputClass, symbolPosition === "prefix" ? "pl-2" : "pr-2")}
+      />
+      {symbolPosition === "suffix" && symbolEl}
+    </div>
+  );
+}
+
+// Shared with defaultCellRender (index.tsx) so both formatting paths stay
+// identical. Resolves the browser locale here; headless stays navigator-free.
+export function formatMoney(
+  amountMinor: number,
+  currency: string,
+  locale?: string,
+  fractionDigits?: number,
+): string {
+  return formatMoneyForLocale(amountMinor, currency, resolveSafeLocale(locale), fractionDigits);
+}
+
+// The currency symbol is rendered as a separate adornment, so the field
+// value shows only the grouped number. Position follows the locale's pattern.
+function moneyFormatParts(
+  currency: string,
+  locale: string,
+): {
+  readonly symbol: string;
+  readonly symbolPosition: "prefix" | "suffix";
+  readonly formatNumber: (major: number) => string;
+} {
+  if (!/^[A-Za-z]{3}$/.test(currency)) {
+    return { symbol: "", symbolPosition: "suffix", formatNumber: String };
+  }
+  const decimals = currencyDecimals(currency);
+  try {
+    const formatter = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    const sample = formatter.formatToParts(1);
+    const symbolIndex = sample.findIndex((p) => p.type === "currency");
+    const integerIndex = sample.findIndex((p) => p.type === "integer");
+    return {
+      symbol: sample[symbolIndex]?.value ?? currency,
+      symbolPosition: symbolIndex !== -1 && symbolIndex < integerIndex ? "prefix" : "suffix",
+      formatNumber: (major) =>
+        formatter
+          .formatToParts(major)
+          .filter((p) => p.type !== "currency")
+          .map((p) => p.value)
+          .join("")
+          .trim(),
+    };
+  } catch {
+    // An invalid locale tag makes Intl throw a RangeError; without an
+    // ErrorBoundary that would take down the page over a display adornment.
+    return { symbol: "", symbolPosition: "suffix", formatNumber: String };
+  }
+}

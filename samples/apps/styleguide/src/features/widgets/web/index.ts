@@ -1,5 +1,5 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { WIDGETS_I18N } from "../i18n";
 import { DashboardFilterEcho } from "./DashboardFilterEcho";
 import { DashboardKpiIcon } from "./DashboardKpiIcon";

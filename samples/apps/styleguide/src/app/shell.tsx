@@ -1,5 +1,5 @@
 import { useNav } from "@cosmicdrift/kumiko-renderer";
-import type { AppSchema } from "@cosmicdrift/kumiko-renderer-web";
+import type { AppSchema } from "@cosmicdrift/kumiko-renderer/web";
 import {
   DefaultAppShell,
   EditorPanel,
@@ -7,7 +7,7 @@ import {
   SidebarBrand,
   SidebarUser,
   useResolvers,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { GalleryVerticalEnd } from "lucide-react";
 import type { ReactNode } from "react";
 

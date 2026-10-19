@@ -1,18 +1,18 @@
-import { parseArgs, getFlag, getNumberFlag } from "./arg-parser";
+import { parseArgs, getFlag, getNumberFlag, getStringFlag } from "./arg-parser";
 import { defineCommand } from "./registry";
 
 export const eventsCommand = defineCommand({
   id: "events",
   label: "events",
-  description: "Manage the events table (prune [--older-than <days>] [--dry-run])",
-  help: "Subcommand:\n  prune [--older-than <days>] [--dry-run]\n    Default: 30 days. Guards against consumer lag via ConsumerLagError.",
+  description: "Manage the events table (prune --aggregate-types <a,b> [--older-than <days>] [--dry-run])",
+  help: "Subcommand:\n  prune --aggregate-types <a,b> [--older-than <days>] [--dry-run]\n    Default: 30 days. Pruning is destructive, so the aggregate types to delete must be named. Guards against consumer lag via ConsumerLagError.",
   category: "ops",
   roles: ["maintainer"],
   run: async (ctx) => {
     const sub = ctx.argv[0];
     if (sub !== "prune") {
       ctx.out.log("");
-      ctx.out.log("  Usage: kumiko events prune [--older-than <days>] [--dry-run]");
+      ctx.out.log("  Usage: kumiko events prune --aggregate-types <a,b> [--older-than <days>] [--dry-run]");
       ctx.out.log("");
       return 1;
     }
@@ -23,6 +23,17 @@ export const eventsCommand = defineCommand({
     if (!Number.isFinite(olderThanDays) || olderThanDays <= 0) {
       ctx.out.err("");
       ctx.out.err("  --older-than requires a positive number (days)");
+      ctx.out.err("");
+      return 1;
+    }
+
+    const aggregateTypes = (getStringFlag(args, "aggregate-types") ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (aggregateTypes.length === 0) {
+      ctx.out.err("");
+      ctx.out.err("  --aggregate-types <a,b> is required (pruning the event log is destructive)");
       ctx.out.err("");
       return 1;
     }
@@ -42,7 +53,7 @@ export const eventsCommand = defineCommand({
 
     const { db, close } = createDbConnection({ url: databaseUrl });
     try {
-      const result = await pruneEvents(db, { olderThanDays, dryRun });
+      const result = await pruneEvents(db, { olderThanDays, dryRun, aggregateTypes });
       const verb = dryRun ? "would delete" : "deleted";
       ctx.out.log("");
       ctx.out.log(

@@ -60,9 +60,9 @@ export function RefinanceCreditCard() { return <div />; }`,
   });
 
   describe("raw form HTML (infra#748)", () => {
-    test("flags <input> when the file imports from kumiko-renderer-web", () => {
+    test("flags <input> when the file imports from kumiko-renderer/web", () => {
       const sf = parse(
-        `import { Field } from "@cosmicdrift/kumiko-renderer-web";
+        `import { Field } from "@cosmicdrift/kumiko-renderer/web";
 export function ClarifyForm() { return <Field><input value="x" /></Field>; }`,
       );
       const violations = guard.run([sf]).violations;
@@ -70,9 +70,17 @@ export function ClarifyForm() { return <Field><input value="x" /></Field>; }`,
       expect(violations[0]?.message).toContain("raw form HTML");
     });
 
-    test("flags <select>, <textarea> and <label> in a file with primitives access", () => {
+    test("the deprecated kumiko-renderer-web shim import still counts as primitives access", () => {
       const sf = parse(
         `import { Field } from "@cosmicdrift/kumiko-renderer-web";
+export function ClarifyForm() { return <Field><input value="x" /></Field>; }`,
+      );
+      expect(guard.run([sf]).violations).toHaveLength(1);
+    });
+
+    test("flags <select>, <textarea> and <label> in a file with primitives access", () => {
+      const sf = parse(
+        `import { Field } from "@cosmicdrift/kumiko-renderer/web";
 export function ClarifyForm() {
 	return (
 		<Field>
@@ -119,7 +127,7 @@ export function PatternForm() { return <input value="x" />; }`,
 
     test("ignore tag on the JSX element suppresses the finding", () => {
       const sf = parse(
-        `import { Field } from "@cosmicdrift/kumiko-renderer-web";
+        `import { Field } from "@cosmicdrift/kumiko-renderer/web";
 export function LegacyBridgeForm() {
 	// kumiko-lint-ignore no-custom-primitives Migration folgt in mh#219
 	return <input value="x" />;

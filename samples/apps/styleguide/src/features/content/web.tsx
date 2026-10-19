@@ -13,7 +13,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { useDispatcher, usePrimitives, useQuery } from "@cosmicdrift/kumiko-renderer";
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 
 type Page = { readonly id: string; readonly slug: string; readonly title: string };

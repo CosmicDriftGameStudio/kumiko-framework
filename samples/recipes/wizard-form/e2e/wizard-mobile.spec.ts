@@ -39,8 +39,8 @@ async function assertNoOverlap(a: Locator, b: Locator): Promise<void> {
   expect(rectsOverlap(rectA, rectB)).toBe(false);
 }
 
-// Guard against a vacuously-green run: cardFooter (packages/renderer-web/
-// src/primitives/index.tsx) sets "flex" on the actions footer. Without
+// Guard against a vacuously-green run: cardFooter (packages/renderer/
+// src/web/primitives/index.tsx) sets "flex" on the actions footer. Without
 // compiled Tailwind CSS this would stay the browser default "block" — the
 // following layout assertions would then run against unstyled markup
 // instead of the real chrome.

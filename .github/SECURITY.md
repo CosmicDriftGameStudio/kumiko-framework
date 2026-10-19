@@ -28,8 +28,8 @@ Older versions are not maintained.
 In scope:
 
 - Code under `packages/framework`, `packages/bundled-features`,
-  `packages/dev-server`, `packages/renderer` (including its headless and live
-  subpaths), `packages/renderer-web`, and the shims `packages/headless` and
+  `packages/dev-server`, `packages/renderer` (including its headless, live and web
+  subpaths), and the shims `packages/renderer-web`, `packages/headless` and
   `packages/dispatcher-live`.
 - Default-on security mechanisms (auth, tenant scoping, field-level access,
   secret encryption, audit trail).

@@ -6,7 +6,7 @@
 // [managedPagesClient()] }), damit die Admin-Labels übersetzt rendern.
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { defaultTranslations } from "./i18n.ts";
 
 export type ManagedPagesClientOptions = {

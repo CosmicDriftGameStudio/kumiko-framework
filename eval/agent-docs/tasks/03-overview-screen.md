@@ -37,6 +37,6 @@ You are done when `bun run typecheck`, `bun run lint`, `bun run test`,
 
 Review by hand: the screen uses a declarative screen type (for example
 `dashboard`) or, in a custom screen, only widgets from
-`@cosmicdrift/kumiko-renderer-web` and `usePrimitives()`; data comes through
+`@cosmicdrift/kumiko-renderer/web` and `usePrimitives()`; data comes through
 `useQuery`, not `useEffect` plus `fetch`; no inline styles or palette
 classes. The UI guards in `check-project.sh` cover part of this.

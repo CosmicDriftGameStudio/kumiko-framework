@@ -3,19 +3,21 @@
  * Guard: prevents `@cosmicdrift/kumiko-renderer` (shared, platform-neutral)
  * from touching DOM- or platform-specific APIs. As soon as window/document/
  * EventSource/react-dom show up, the separation is broken and the code
- * belongs in `@cosmicdrift/kumiko-renderer-web` instead.
+ * belongs in `src/web` instead.
  *
- * `src/headless/**` and `src/live/**` only get the import rules: the apex
- * page builder emits HTML strings and the live dispatcher is a fetch client,
- * so the symbol and JSX-tag rules would be noise there. They stay free of
- * react-dom, jsdom and renderer-web.
+ * `src/web/**` is the browser layer and not scanned at all: it may import
+ * everything. `src/headless/**` and `src/live/**` only get the import rules:
+ * the apex page builder emits HTML strings and the live dispatcher is a fetch
+ * client, so the symbol and JSX-tag rules would be noise there. They stay free
+ * of react-dom, jsdom and any import of `src/web`.
  *
  * Deliberately simple: a regex scan over the source text. False positives
  * (e.g. "window" in a string literal) are possible but rare — the guard is a
  * maintenance alarm, not a semantic proof.
  *
  * Checked:
- *   - Imports:  react-dom/*, jsdom, @cosmicdrift/kumiko-renderer-web, and the deprecated
+ *   - Imports:  react-dom/*, jsdom, `src/web` (relative or as
+ *               @cosmicdrift/kumiko-renderer/web), and the deprecated renderer-web /
  *               headless / dispatcher-live shims (they depend on this package)
  *   - Symbols:  window., document., location., history., localStorage,
  *               sessionStorage, navigator., EventSource, fetch(
@@ -32,7 +34,9 @@ import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 const FORBIDDEN_IMPORTS = [
   /from ["']react-dom(?:\/.*)?["']/,
   /from ["']jsdom["']/,
-  /from ["']@cosmicdrift\/kumiko-renderer-web["']/,
+  /from ["']@cosmicdrift\/kumiko-renderer-web(?:\/.*)?["']/,
+  /from ["']@cosmicdrift\/kumiko-renderer\/web(?:\/.*)?["']/,
+  /from ["'](?:\.\.?\/)+web(?:\/.*)?["']/,
   /from ["']@cosmicdrift\/kumiko-headless(?:\/.*)?["']/,
   /from ["']@cosmicdrift\/kumiko-dispatcher-live["']/,
 ];
@@ -68,6 +72,9 @@ const FORBIDDEN_JSX_TAG = /(^|\s|>|\()<([a-z][a-zA-Z0-9-]*)(?=[\s/>])/g;
 // Subtrees of packages/renderer/src that carry only the import rules.
 const IMPORT_RULES_ONLY_DIRS = ["headless", "live"] as const;
 
+// The browser layer may import anything, so it is not scanned.
+const UNSCANNED_TOP_LEVEL_DIRS = ["web"] as const;
+
 type Violation = {
   readonly file: string;
   readonly line: number;
@@ -75,13 +82,14 @@ type Violation = {
   readonly excerpt: string;
 };
 
-function walk(dir: string): string[] {
+function walk(dir: string, skippedDirs: readonly string[] = []): string[] {
   const out: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === "__tests__") continue;
       if (entry.name === "node_modules" || entry.name === "dist") continue;
+      if (skippedDirs.includes(entry.name)) continue;
       out.push(...walk(full));
       continue;
     }
@@ -146,7 +154,7 @@ function isImportRulesOnly(file: string): boolean {
 
 export const check: RepoCheck = {
   name: "Renderer-Boundaries Guard",
-  hint: "@cosmicdrift/kumiko-renderer must not use DOM/browser/platform APIs. Platform-specific code belongs in @cosmicdrift/kumiko-renderer-web.",
+  hint: "@cosmicdrift/kumiko-renderer must not use DOM/browser/platform APIs. Platform-specific code belongs in packages/renderer/src/web.",
   run(roots) {
     const frameworkRoots = roots.filter((r) => r.kind === "framework");
     const scanDirs = frameworkRoots
@@ -156,7 +164,7 @@ export const check: RepoCheck = {
       return { violations: [], matchedFiles: 0, notApplicable: true };
     }
     const files: string[] = [];
-    for (const dir of scanDirs) files.push(...walk(dir));
+    for (const dir of scanDirs) files.push(...walk(dir, UNSCANNED_TOP_LEVEL_DIRS));
     const root = frameworkRoots[0]?.absPath ?? process.cwd();
     const violations = files.flatMap((file) =>
       findViolations(file, root, isImportRulesOnly(file)).map((v) => ({

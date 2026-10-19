@@ -2,10 +2,9 @@
 /**
  * Guard: `className` string-literal tokens under kumiko-framework's
  * `packages/bundled-features/src/**` must already be reachable through the
- * real Tailwind `@source` scan surface (`packages/renderer-web/src` +
- * `packages/renderer/src` + `samples/**\/src`, see
- * `packages/renderer-web/src/styles.css`). bundled-features itself is NOT
- * part of that scan surface (infra#654, follow-up to
+ * real Tailwind `@source` scan surface (`packages/renderer/src` +
+ * `samples/**\/src`, see `packages/renderer/src/web/styles.css`).
+ * bundled-features itself is NOT part of that scan surface (infra#654, follow-up to
  * kumiko-framework#2498/#2496): expanding `@source` there was verified to
  * work in the monorepo build but makes the standalone npm-consumer case
  * (no monorepo-relative scan path — #359) falsely green. A class used only
@@ -33,7 +32,7 @@
  *   bun guards/guard-tailwind-scan-surface.ts --write-baseline # (re)write the baseline
  *   bun guards/guard-tailwind-scan-surface.ts --no-baseline    # skip the comparison
  */
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { Glob } from "bun";
 import { type SourceFile, SyntaxKind } from "ts-morph";
@@ -64,7 +63,6 @@ const SCAN: ScanSpec = {
   kinds: ["framework"],
   frameworkWithin: [
     "packages/bundled-features/src/**/*.tsx",
-    "packages/renderer-web/src/**",
     "packages/renderer/src/**",
     "samples/**/src/**",
   ],
@@ -75,7 +73,7 @@ const IGNORE_TAG = "kumiko-lint-ignore tailwind-scan-surface";
 // The allow-set mirrors what Tailwind's own scanner sees over the real
 // @source surface: every string/template-literal text in the file, not
 // just JSX className attributes — cn(...) calls, variant maps and shared
-// class constants in renderer-web/renderer/samples legitimately emit
+// class constants in renderer/samples legitimately emit
 // classes too. No EXCLUDE filter here on purpose: the @source globs
 // themselves scan __tests__/*.test.tsx just the same, so excluding them
 // from the allow-set would manufacture false positives.
@@ -148,7 +146,7 @@ function scan(
         if (token.length === 0 || allowed.has(token)) continue;
         findings.push({ file, line, token });
         console.warn(
-          `  [tailwind-scan-surface WARN] ${file}:${line}  class "${token}" is outside the Tailwind scan surface (renderer-web/src, renderer/src, samples/**/src)`,
+          `  [tailwind-scan-surface WARN] ${file}:${line}  class "${token}" is outside the Tailwind scan surface (renderer/src, samples/**/src)`,
         );
       }
     }
@@ -173,8 +171,8 @@ const tailwindScanSurfaceBaseline = (baselineRoot: string) =>
 // Second, independent rule: a consuming app repo (studio,
 // publicstatus, …) imports Framework AND Enterprise packages by npm name
 // (@cosmicdrift/* resp. @cosmicdriftgamestudio/*). Every one of them that
-// ships .tsx with `className` under its own scan surface (renderer-web +
-// renderer + samples/**/src) needs its own `@source` entry in the app's
+// ships .tsx with `className` under its own scan surface (renderer/src +
+// samples/**/src) needs its own `@source` entry in the app's
 // styles.css — nothing else scans it. Missed cases so far: kumiko-designer
 // in studio (studio#289), kumiko-ai-agent in publicstatus (publicstatus#442)
 // — both fixed by hand, both silent (no build/lint error) until noticed
@@ -244,11 +242,26 @@ function classNameExampleIn(pkgDir: string): string | undefined {
 }
 
 // Resolves `@import "spec";` specifiers in a CSS file to the imported file's
-// absolute path — a bare/package specifier (`@cosmicdrift/kumiko-renderer-
+// absolute path — a bare/package specifier (`@cosmicdrift/kumiko-renderer/
 // web/styles.css`) resolves through the SAME node_modules hop search as a
 // package dependency (it IS one); a relative specifier (`./x.css`) resolves
 // against the importing file's own directory. Unresolvable imports (e.g.
 // Tailwind's own `"tailwindcss"`) are dropped, not thrown on.
+// A subpath like "@scope/name/web/styles.css" only exists as a file through
+// the package's `exports` map ("./web/styles.css" -> "./src/web/styles.css").
+function resolveThroughPackageExports(appRoot: string, spec: string): string | undefined {
+  const [scope, name, ...rest] = spec.split("/");
+  if (scope === undefined || name === undefined || rest.length === 0) return undefined;
+  const pkgDir = resolvePackageDir(appRoot, `${scope}/${name}`);
+  if (pkgDir === undefined) return undefined;
+  const exportsField = readJsonSafe(path.join(pkgDir, "package.json"))?.["exports"];
+  if (typeof exportsField !== "object" || exportsField === null) return undefined;
+  const target = Object.entries(exportsField).find(([key]) => key === `./${rest.join("/")}`)?.[1];
+  if (typeof target !== "string") return undefined;
+  const abs = path.join(pkgDir, target);
+  return existsSync(abs) ? abs : undefined;
+}
+
 function resolveCssImports(cssAbsPath: string, css: string, appRoot: string): string[] {
   const specifiers = [...css.matchAll(/@import\s+["']([^"']+)["']/g)].map((m) => m[1]);
   const resolved: string[] = [];
@@ -262,7 +275,8 @@ function resolveCssImports(cssAbsPath: string, css: string, appRoot: string): st
     // Package-style specifier including its subpath (e.g. "@scope/name/
     // styles.css") — resolvePackageDir's node_modules hop search works
     // unchanged since it only checks existence, file or directory alike.
-    const candidate = resolvePackageDir(appRoot, spec);
+    const candidate =
+      resolvePackageDir(appRoot, spec) ?? resolveThroughPackageExports(appRoot, spec);
     if (candidate !== undefined) resolved.push(candidate);
   }
   return resolved;
@@ -297,8 +311,22 @@ function realpathOrSelf(p: string): string {
   }
 }
 
+// The deprecated renderer-web stylesheet only `@import`s the renderer's, so the
+// chain has to be followed past the first hop.
+function resolveCssImportsTransitively(cssAbsPath: string, css: string, appRoot: string): string[] {
+  const seen = new Set<string>();
+  const queue = resolveCssImports(cssAbsPath, css, appRoot);
+  for (let imported = queue.shift(); imported !== undefined; imported = queue.shift()) {
+    if (seen.has(imported)) continue;
+    seen.add(imported);
+    if (!existsSync(imported) || statSync(imported).isDirectory()) continue;
+    queue.push(...resolveCssImports(imported, readFileSync(imported, "utf-8"), appRoot));
+  }
+  return [...seen];
+}
+
 // A package is covered if an `@source` entry — in the app's own styles.css
-// OR in a CSS file it `@import`s (e.g. renderer-web's, which ships its own
+// OR in a CSS file it `@import`s (e.g. the renderer's web stylesheet, which ships its own
 // @source lines for the framework's scan surface) — resolves, in THIS
 // install layout, to a directory on the same branch as the package's own
 // directory (either one nested inside the other: the entry could scan the
@@ -314,7 +342,7 @@ function isCoveredByImportChain(
   pkgDir: string,
 ): boolean {
   const realPkgDir = realpathOrSelf(pkgDir);
-  for (const imported of resolveCssImports(stylesAbs, css, appRoot)) {
+  for (const imported of resolveCssImportsTransitively(stylesAbs, css, appRoot)) {
     for (const staticDir of sourceStaticDirsFromCss(imported)) {
       const realStaticDir = realpathOrSelf(staticDir);
       if (
@@ -329,6 +357,12 @@ function isCoveredByImportChain(
   return false;
 }
 
+function isRendererWebStylesheetImport(css: string): boolean {
+  return (
+    css.includes("kumiko-renderer/web/styles.css") || css.includes("kumiko-renderer-web/styles.css")
+  );
+}
+
 export function scanSourceCoverage(roots: readonly RepoRoot[]): SourceCoverageFinding[] {
   const findings: SourceCoverageFinding[] = [];
   for (const root of roots) {
@@ -336,14 +370,14 @@ export function scanSourceCoverage(roots: readonly RepoRoot[]): SourceCoverageFi
     const stylesAbs = path.join(root.absPath, APP_STYLES_REL);
     if (!existsSync(stylesAbs)) continue;
     const css = readFileSync(stylesAbs, "utf-8");
-    // Only apps on the renderer-web @source convention are in scope — an
+    // Only apps on the renderer web @source convention are in scope — an
     // app without that @import never had a scan surface to extend.
-    if (!css.includes("kumiko-renderer-web/styles.css")) continue;
+    if (!isRendererWebStylesheetImport(css)) continue;
     const pkg = readJsonSafe(path.join(root.absPath, "package.json"));
     if (!pkg) continue;
     const file = path.relative(ROOT, stylesAbs);
     for (const name of dependencyNames(pkg)) {
-      if (css.includes(name)) continue; // already @source'd (or @import'd, e.g. renderer-web itself)
+      if (css.includes(name)) continue; // already @source'd (or @import'd, e.g. the renderer's web stylesheet itself)
       const dir = resolvePackageDir(root.absPath, name);
       if (dir === undefined) continue;
       const example = classNameExampleIn(dir);
@@ -531,7 +565,7 @@ function checkBaseline(findings: readonly Finding[], baselineRoot: string): Guar
   const resolveLine = (file: string): number => findings.find((f) => f.file === file)?.line ?? 1;
   return tailwindScanSurfaceBaseline(baselineRoot).check(
     baselineCounts(findings),
-    "Class outside the @source scan surface (renderer-web/src, renderer/src, samples/**/src) — reuse a class already emitted there, or move the styling into renderer-web.",
+    "Class outside the @source scan surface (renderer/src, samples/**/src) — reuse a class already emitted there, or move the styling into renderer/src/web.",
     {
       formatDriftRemediation:
         "Run `bun guards/guard-tailwind-scan-surface.ts --write-baseline` once.",
@@ -569,8 +603,8 @@ export function createGuard(options: { readonly baselineRoot?: string } = {}): A
     name: "Tailwind-Scan-Surface Guard",
     scan: SCAN,
     hint:
-      "Tailwind class in bundled-features outside the @source scan surface (renderer-web/src, renderer/src, samples/**/src) " +
-      `— reuse a class already emitted there, or move the styling into renderer-web. Justified exception: // ${IGNORE_TAG} <reason>. ` +
+      "Tailwind class in bundled-features outside the @source scan surface (renderer/src, samples/**/src) " +
+      `— reuse a class already emitted there, or move the styling into renderer/src/web. Justified exception: // ${IGNORE_TAG} <reason>. ` +
       "Package without @source coverage in an app: add an @source entry for both install layouts. " +
       "@source with a node_modules/<pkg>/<segment> path: check whether <pkg> even publishes that segment (package.json files).",
     run: (files, roots = resolveRepoRoots()) => analyse(files, true, roots, baselineRoot),

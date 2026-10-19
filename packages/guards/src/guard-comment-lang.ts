@@ -266,6 +266,23 @@ function gitOrFail(args: readonly string[], cwd: string, message: string): strin
 
 const REWRITE_HINT = `Translate new German comments to English (why, not what), or if deliberate:\n    // ${IGNORE_TAG} <reason>`;
 
+// A path-limited diff cannot pair a rename, so every comment of a moved file would read as added.
+function readRenamedFrom(gitToplevel: string, mergeBase: string): Map<string, readonly string[]> {
+  const renamedFrom = new Map<string, readonly string[]>();
+  const fields = gitOrFail(
+    ["diff", "--name-status", "-z", "-M", "--diff-filter=R", mergeBase, "HEAD"],
+    gitToplevel,
+    "Touched mode: git diff --name-status failed. Check the git error below.",
+  )
+    .split("\0")
+    .filter(Boolean);
+  for (let i = 0; i + 2 < fields.length; i += 3) {
+    const [, oldPath, newPath] = fields.slice(i, i + 3);
+    if (oldPath !== undefined && newPath !== undefined) renamedFrom.set(newPath, [oldPath]);
+  }
+  return renamedFrom;
+}
+
 function runTouchedMode(
   argv: readonly string[],
   root: string,
@@ -304,6 +321,8 @@ function runTouchedMode(
     .split("\0")
     .filter(Boolean);
 
+  const renamedFrom = readRenamedFrom(gitToplevel, mergeBase);
+
   // The commits being pushed are checked, not the working tree: contents come from
   // HEAD so line numbers match the `mergeBase..HEAD` diff. Scan scope is keyed
   // relative to root, git output relative to the toplevel.
@@ -321,7 +340,17 @@ function runTouchedMode(
     if (candidates.length === 0) continue;
     const addedLines = parseAddedLineRanges(
       gitOrFail(
-        ["--literal-pathspecs", "diff", "--unified=0", mergeBase, "HEAD", "--", file],
+        [
+          "--literal-pathspecs",
+          "diff",
+          "-M",
+          "--unified=0",
+          mergeBase,
+          "HEAD",
+          "--",
+          file,
+          ...(renamedFrom.get(file) ?? []),
+        ],
         gitToplevel,
         `Touched mode: git diff --unified=0 failed for ${file}. Check the git error below.`,
       ),

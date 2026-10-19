@@ -124,7 +124,7 @@
       "path": "./packages/testing/e2e"
     },
     {
-      "path": "./packages/renderer-web/e2e"
+      "path": "./packages/renderer/e2e"
     },
     {
       "path": "./packages/create-kumiko-app"

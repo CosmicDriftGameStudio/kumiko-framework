@@ -147,7 +147,7 @@ test.describe("desktop (>= md)", () => {
     expect(boxScrolledFull?.x).toBeCloseTo(boxAtRest?.x ?? Number.NaN, 1);
   });
 
-  // Root cause: the vendored SidebarInset (packages/renderer-web/src/ui/
+  // Root cause: the vendored SidebarInset (packages/renderer/src/web/ui/
   // sidebar.tsx) is `flex-1` with no min-width override — a flex row child
   // never shrinks below its content's intrinsic width by default. A wide
   // screen (like item-list-wide's table) then grows the inset, and with it

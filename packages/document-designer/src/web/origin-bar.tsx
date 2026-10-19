@@ -11,7 +11,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
-import { EmptyState, ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
+import { EmptyState, ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { originOf } from "./editor-header.tsx";
 import { EditorInfoBar } from "./editor-shell.tsx";
