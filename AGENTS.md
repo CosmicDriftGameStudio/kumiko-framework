@@ -88,5 +88,6 @@ is no fixed release day. See [stability policy](docs/reference/stability-policy.
 - [Golden path](docs/golden-path.md): entity to tested screen in one recipe
 - [App feature structure](docs/reference/app-feature-structure.md)
 - [Stability policy](docs/reference/stability-policy.md)
+- [Design decisions](docs/reference/decisions.md): read before design or architecture changes; append new lasting decisions at the bottom
 - [Feature manifest](packages/create-kumiko-app/feature-manifest.json): bundled features, config and dependencies
 - [App-facing agent guide](packages/framework/AGENTS.md)
