@@ -383,10 +383,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "cap-overview.cards.loading": "Loading usage…",
   "cap-overview.errors.filterFieldUnsupported":
     "Filtering by this field is not supported, or tier was filtered more than once.",
-  "cap-overview.errors.invalidCursor": "The pagination cursor is invalid.",
   "cap-overview.errors.progressPrimitiveMissing":
     "Usage bar unavailable — Progress primitive is not registered.",
-  "cap-overview.errors.sortFieldUnsupported": "Sorting by this field is not supported.",
   "cap-overview.errors.tenantOverrideRequiresSystemAdmin":
     "Only SystemAdmin may query another tenant's data.",
   "cap-overview.errors.tierFilterOpUnsupported": "This filter operator is not supported for tier.",

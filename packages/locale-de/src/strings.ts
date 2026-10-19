@@ -401,9 +401,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "cap-overview.cards.loading": "Lade Nutzungsdaten …",
   "cap-overview.errors.filterFieldUnsupported":
     "Filtern nach diesem Feld wird nicht unterstützt, oder Tier wurde mehrfach gefiltert.",
-  "cap-overview.errors.invalidCursor": "Der Paginierungs-Cursor ist ungültig.",
   "cap-overview.errors.progressPrimitiveMissing": "Nutzungsbalken nicht verfügbar.",
-  "cap-overview.errors.sortFieldUnsupported": "Sortierung nach diesem Feld wird nicht unterstützt.",
   "cap-overview.errors.tenantOverrideRequiresSystemAdmin":
     "Nur SystemAdmin darf Daten eines anderen Mandanten abfragen.",
   "cap-overview.errors.tierFilterOpUnsupported":

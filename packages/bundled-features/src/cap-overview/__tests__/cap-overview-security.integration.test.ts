@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { type DbConnection, encodeCursor } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -180,16 +180,34 @@ describe("cap-overview tenant isolation", () => {
     expect(byTenant.get(TENANT_B)?.[batchField]).toMatchObject({ used: null, fraction: 0 });
   });
 
-  test("tenant-caps:list rejects a malformed cursor instead of returning a wrong page", async () => {
+  test("tenant-caps:list pages by offset: page 2 holds the next tenants and total counts all", async () => {
     const sysAdmin = createTestUser({ id: 90017, tenantId: TENANT_A, roles: ["SystemAdmin"] });
-    for (const raw of ["-1", "abc", "1.5"]) {
-      const res = await stack.http.query(
-        CapOverviewQueries.tenantCapsList,
-        { cursor: encodeCursor(raw) },
-        sysAdmin,
-      );
-      expect(res.status).toBe(400);
-    }
+    type Page = {
+      rows: readonly { tenantId: string; name: string }[];
+      nextCursor: string | null;
+      total?: number;
+    };
+    const first = await stack.http.queryOk<Page>(
+      CapOverviewQueries.tenantCapsList,
+      { sort: "name", limit: 2, offset: 0, totalCount: true },
+      sysAdmin,
+    );
+    const second = await stack.http.queryOk<Page>(
+      CapOverviewQueries.tenantCapsList,
+      { sort: "name", limit: 2, offset: 2, totalCount: true },
+      sysAdmin,
+    );
+    expect(first.rows.map((row) => row.tenantId)).toEqual([TENANT_A, TENANT_B]);
+    expect(second.rows.map((row) => row.tenantId)).toEqual([TENANT_C]);
+    expect(first.total).toBe(3);
+    expect(second.total).toBe(3);
+    expect(second.nextCursor).toBeNull();
+    const withoutTotal = await stack.http.queryOk<Page>(
+      CapOverviewQueries.tenantCapsList,
+      { limit: 2 },
+      sysAdmin,
+    );
+    expect(withoutTotal.total).toBeUndefined();
   });
 
   test("tenant-caps:list rejects unsupported and repeated filters instead of ignoring them", async () => {
@@ -211,6 +229,16 @@ describe("cap-overview tenant isolation", () => {
       sysAdmin,
     );
     expect(twoTierFilters.status).toBe(400);
+  });
+
+  test("tenant-caps:list rejects a cursor instead of serving page one", async () => {
+    const sysAdmin = createTestUser({ id: 90019, tenantId: TENANT_A, roles: ["SystemAdmin"] });
+    const res = await stack.http.query(
+      CapOverviewQueries.tenantCapsList,
+      { cursor: "NTA=" },
+      sysAdmin,
+    );
+    expect(res.status).toBe(400);
   });
 });
 
