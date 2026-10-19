@@ -1,5 +1,297 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.377.0
+
+### Minor Changes
+
+- 60a29a8: HandlerContext cleanup and persistence docs. `outsideTransaction` is deprecated in favour of `runInOwnTransaction(ctx.dbOutsideTransaction, fn)`. `JobContext._userId` is gone. `ProviderPluginContext` is the public context for provider plugins, built with `providerPluginContextFromHandler` or `providerPluginContextFromJob`; `configAccessorFactory` replaces `_configAccessorFactory`. The migration splitter and the replay parser handle dollar-quoted bodies, RENAME, CREATE TABLE AS and DO blocks. A new guard flags `unsafeAppendEvent` outside migrations, upcasters and tests.
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: outsideTransaction deprecated, ProviderPluginContext added
+  detail: HandlerContext.outsideTransaction is marked deprecated; use runInOwnTransaction(ctx.dbOutsideTransaction, fn). ProviderPluginContext is a Pick of HandlerContext for provider plugins. SharedContextFields gains configAccessorFactory; _configAccessorFactory stays as a deprecated alias. dbOutsideTransaction stays TenantDb | undefined (undefined only in the member-resolution and before-transaction denial phases and in platform-metering tenant mode); hasOutsideTransactionDb(ctx) narrows it and requireOutsideTransactionDb(ctx) throws when it is missing.
+  migration: Replace ctx.outsideTransaction(fn) with runInOwnTransaction(ctx.dbOutsideTransaction, fn). Read configAccessorFactory instead of _configAccessorFactory.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: JobContext._userId removed
+  detail: The job runner never set JobContext._userId; only user-data-rights read it, falling back to SYSTEM_USER_ID. Hand-built JobContext objects that still set it fail to type-check, and code that read it must use SYSTEM_USER_ID or the job's system user.
+  migration: Drop _userId from hand-built JobContext objects (tests, job helpers) and replace reads of ctx._userId with SYSTEM_USER_ID. Known hits - money-horse data-export integration test, offlot-app channel-text generate-texts.job.ts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Replay parser and migration splitter cover dollar quotes, RENAME, CREATE TABLE AS and DO
+  detail: splitSqlStatements keeps dollar-quoted bodies whole and throws on an unterminated one. The replay parser follows RENAME TO, RENAME COLUMN, CREATE TABLE AS and DO blocks; tables with columns it cannot derive are skipped in the schema diff. The Bun.SQL wording in db/query.ts errors and logger names now says postgres-js.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: providerPluginContextFromHandler and providerPluginContextFromJob
+  detail: Build a ProviderPluginContext from a HandlerContext or JobContext (jobs use the system user and have no dbOutsideTransaction).
+  -->
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: migrateLegacyWaitlist no longer replays legacy events on rebuild
+  detail: The legacy event stream of each migrated row is archived, so a projection rebuild does not resurrect the old id next to the imported entry. The report gains archivedStreams.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: guard-unsafe-append-event
+  detail: Flags ctx.unsafeAppendEvent outside migrations/, upcasters/ and tests. Existing call sites are frozen per file in .kumiko-unsafe-append-event-baseline.json and the count may only shrink; repos without the file get a warning only.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: hasOutsideTransactionDb and requireOutsideTransactionDb
+  detail: Public helpers in the db barrel. hasOutsideTransactionDb(ctx) narrows ctx.dbOutsideTransaction to TenantDb; requireOutsideTransactionDb(ctx) returns it or throws an InternalError.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Provider contexts expose auditUserId instead of _userId
+  detail: FileProviderContext, MailTransportContext, InboundMailContext and the context read by requireSecretsContext name the audit identity auditUserId. The old underscore field is gone.
+  migration: Rename _userId to auditUserId wherever a provider context is built by hand (tests, custom resolvers, worker wiring). requireSecretsContext still falls back to ctx.user.id when it is unset.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot always sets configAccessorFactory and overrides an app value
+  detail: addConfigAccessorFactory writes configAccessorFactory and the _configAccessorFactory alias from the effective configResolver, replacing any app-supplied factory. The replay parser also rejects DO blocks without a dollar-quoted body and accepts tags like $do1$.
+  -->
+- 9400d43: kumiko-http moves into kumiko-framework and kumiko-repo-manifest into kumiko-guards. The old packages stay as deprecated re-export shims until the consumer pass of wave 4. The new `package-merge` codemod rewrites imports and package.json dependencies.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: http moved into framework
+  detail: egress(), the host policy helpers and their errors are implemented in @cosmicdrift/kumiko-framework/http. @cosmicdrift/kumiko-http now only re-exports that subpath and is removed after the consumer pass of wave 4.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-http to @cosmicdrift/kumiko-framework/http and replaces the kumiko-http dependency in package.json with kumiko-framework.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: repo-manifest moved into guards
+  detail: The kumiko.json schema and loader are exported from @cosmicdrift/kumiko-guards/repo-manifest, the app port reader from @cosmicdrift/kumiko-guards/repo-manifest/app-ports. @cosmicdrift/kumiko-repo-manifest now only re-exports them and is removed after the consumer pass of wave 4. @cosmicdrift/kumiko-framework is an optional peer for the app-ports subpath.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-repo-manifest (and its /app-ports subpath) to @cosmicdrift/kumiko-guards/repo-manifest and replaces the dependency in package.json with kumiko-guards.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: http
+  type: improvement
+  title: kumiko-http is a deprecated shim over kumiko-framework/http
+  detail: The package only re-exports @cosmicdrift/kumiko-framework/http and is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-framework/http, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: repo-manifest
+  type: improvement
+  title: kumiko-repo-manifest is a deprecated shim over kumiko-guards/repo-manifest
+  detail: The package only re-exports @cosmicdrift/kumiko-guards/repo-manifest and its app-ports subpath and is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-guards/repo-manifest, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko codemod lists package-merge
+  detail: kumiko codemod package-merge rewrites imports and package.json dependencies of merged packages.
+  -->
+- c00af64: kumiko-headless moves into kumiko-renderer as `@cosmicdrift/kumiko-renderer/headless` and kumiko-dispatcher-live as `@cosmicdrift/kumiko-renderer/live`. The old packages stay as deprecated re-export shims until the consumer pass of wave 4. The `package-merge` codemod rewrites imports and package.json dependencies for both moves.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: headless and the live dispatcher moved into renderer
+  detail: The headless UI logic is exported from @cosmicdrift/kumiko-renderer/headless (with /headless/apex, /headless/dispatcher and /headless/locale-routing), the HTTP dispatcher from @cosmicdrift/kumiko-renderer/live. @cosmicdrift/kumiko-headless and @cosmicdrift/kumiko-dispatcher-live now only re-export these subpaths and are removed after the consumer pass of wave 4.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-headless (and its subpaths) to @cosmicdrift/kumiko-renderer/headless and imports of @cosmicdrift/kumiko-dispatcher-live to @cosmicdrift/kumiko-renderer/live, and replaces both dependencies in package.json with kumiko-renderer.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: package-merge codemod covers headless and dispatcher-live
+  detail: The mapping table of the package-merge codemod gained the headless and dispatcher-live moves into kumiko-renderer.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: kumiko-headless is a deprecated shim over kumiko-renderer/headless
+  detail: The package only re-exports @cosmicdrift/kumiko-renderer/headless and its subpaths and is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-renderer/headless, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dispatcher-live
+  type: improvement
+  title: kumiko-dispatcher-live is a deprecated shim over kumiko-renderer/live
+  detail: The package only re-exports @cosmicdrift/kumiko-renderer/live and is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-renderer/live, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: renderer-boundaries guard scans headless and live for imports only
+  detail: The headless and live subtrees of kumiko-renderer must not import react-dom, jsdom or renderer-web; the symbol and JSX rules of the shared layer no longer apply to them. The section-fields-raw scope follows the moved headless sources.
+  -->
+- c00af64: kumiko-renderer-web moves into kumiko-renderer as `@cosmicdrift/kumiko-renderer/web` (with `/web/styles.css` and `/web/theme-plugin`). The old package stays as a deprecated re-export shim until the consumer pass of wave 4. The `package-merge` codemod rewrites imports, package.json dependencies and, new, CSS `@import`/`@plugin`/`@config` specifiers.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: renderer-web moved into renderer
+  detail: The web bindings are exported from @cosmicdrift/kumiko-renderer/web, the stylesheet from @cosmicdrift/kumiko-renderer/web/styles.css and the Tailwind theme plugin from @cosmicdrift/kumiko-renderer/web/theme-plugin. @cosmicdrift/kumiko-renderer-web now only re-exports these and is removed after the consumer pass of wave 4.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports and CSS @import lines of @cosmicdrift/kumiko-renderer-web (including /styles.css and /theme-plugin) to @cosmicdrift/kumiko-renderer/web and replaces the dependency in package.json with kumiko-renderer.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: package-merge codemod covers renderer-web and CSS files
+  detail: The mapping table of the package-merge codemod gained the renderer-web move into kumiko-renderer/web, and the codemod now also rewrites .css files (@import, @plugin, @config). A @source path into the old package is reported for manual follow-up.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: kumiko-renderer-web is a deprecated shim over kumiko-renderer/web
+  detail: The package only re-exports @cosmicdrift/kumiko-renderer/web and its theme-plugin, and its styles.css imports the new stylesheet. It is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-renderer/web, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: renderer-boundaries guard leaves the web subtree unscanned
+  detail: renderer/src/web may use the DOM and every web dependency; the shared renderer root and headless/live must not import it. The tailwind-scan-surface guard follows the new stylesheet location through package exports and shim imports.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: comment-lang touched mode pairs renames
+  detail: The touched mode diffs a moved file against its old path, so moving a file no longer counts every German comment in it as new.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: project rebuild keeps blind indexes and aborts without crypto, events prune names its aggregate types
+  detail: `kumiko project rebuild` now wires the subject KMS and blind-index key from the env like `schema apply` and `ops backfill-pii`, so rebuilding a PII projection no longer nulls its bidx columns. Without the crypto env an app with PII fields aborts the rebuild unless `--allow-plaintext-pii <reason>` is passed. `kumiko events prune` takes the required `--aggregate-types <a,b>` flag; before, it always failed because pruneEvents needs explicit aggregate types.
+  -->
+- fd450c2: Screens out of one mould: actionForm result figures, month field, multi-reference links, mailbox screens, document time zone and smaller list, form and GDPR fixes
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm shows key figures from the handler's success payload
+  detail: ActionFormScreenDefinition gets successFacts, a list of { field, label } entries read from the success payload and shown in the success box next to successLinks while the screen stays put. A number or string is one value, an array a comma-separated list of numbers, strings or { label } objects, a missing field is hidden. Mutually exclusive with redirect (boot validator). Default behaviour is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A text field with format month renders a native month input
+  detail: createTextField({ format: "month" }) renders <input type="month"> and carries YYYY-MM. The schema builder validates the pattern server-side (an empty string is accepted for optional fields). New InputProps kind "month" for custom Input primitives.
+  migration: Only custom CorePrimitives.Input implementations with an exhaustive switch over kind need a "month" branch; a text fallback is fine.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Array reference fields render as links in lists
+  detail: A reference column over an array field renders one link per entry, labelled from the eagerloaded record or the label lookup, like single references. New CellLinkItem and RuntimeCellLinkItems exports from the headless view model; DataTableCell accepts linkItems.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: List empty state, sidebar rail cursor, toolbar description spacing and root form errors
+  detail: The empty list no longer shows a second Create button when Create is already in the page header. The sidebar rail edge, which only toggles open and closed, shows a pointer cursor instead of a resize cursor. toolbarDescription always gets the standard bottom spacing, not only with fillsHeight. A server error without a field reference (path "(root)") shows once in the form banner instead of also at a field.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: improvement
+  title: Document dates can print the time in the tenant time zone
+  detail: The date helper accepts time=true ({{date value time=true}}). Instants print date and time in the tenant's configured IANA zone (tenant timezone config, UTC without one), offset date-times keep their own wall clock, date-only values print no time. Without time=true nothing changes. formatDocumentDate takes an optional { time, timeZone } argument, DocumentFormat gets timeZone, and TENANT_TIMEZONE_CONFIG_KEY is exported from framework/pipeline.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: tenantName in the document context falls back to the tenant record
+  detail: Without managed-pages there is no branding title, so tenantName was empty. It now falls back to the decrypted name of the tenant record when the tenant feature is mounted.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: seedSystemTemplateBundle sets a title per template
+  detail: Bundle locale entries accept an optional title, written to the template resource and exported again by the bundle export. SeedSystemTemplateOptions gets title. The template overview shows it instead of the slug.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Declarative mailbox list and rename screens
+  detail: The feature registers the projectionList mail-accounts (name, address, provider, status, connected; row actions rename and disconnect) and the actionForm mail-account-edit, both restricted to SystemAdmin and TenantAdmin like the handlers. The list shows several mailboxes per tenant, never a credential. Screens are dormant, so the app places the list in its own nav. MAIL_ACCOUNT_LIST_SCREEN_ID and MAIL_ACCOUNT_EDIT_SCREEN_ID are exported.
+  migration: Place mail-accounts in the app nav with r.nav; no other change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: Forgetting a user also removes their unbound pending uploads
+  detail: forget-subject for a user deleted only files bound to a record. Uploads the user made but never attached (file refs without an entity id) stayed behind. They are now removed with their bytes, except refs a record still names in a single-file column.
+  -->
+
+### Patch Changes
+
+- e552c13: Adds docs/reference/decisions.md, a log of lasting design decisions, and links it from AGENTS.md.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: design decisions log
+  detail: docs/reference/decisions.md records lasting design decisions with their reasons. It is documentation only and changes no behavior.
+  -->
+- c00af64: Docs: package set reference, runbooks for event rebuild, dead letters and event-store restore, and the framework plans moved from kumiko-platform. The env dry-run hint now links to the infra deploy runbook.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Env hint links to the infra deploy runbook
+  detail: The boot env report ends with a link to docs/runbooks/standard-deploy-app.md in the infra repo instead of a path in kumiko-platform that no longer exists.
+  -->
+- Updated dependencies [60a29a8]
+- Updated dependencies [c00af64]
+- Updated dependencies [c00af64]
+- Updated dependencies [fd450c2]
+  - @cosmicdrift/kumiko-types@0.377.0
+
 ## 0.376.0
 
 ### Minor Changes

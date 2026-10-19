@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "Declarative mailbox list and rename screens",
+    "detail": "The feature registers the projectionList mail-accounts (name, address, provider, status, connected; row actions rename and disconnect) and the actionForm mail-account-edit, both restricted to SystemAdmin and TenantAdmin like the handlers. The list shows several mailboxes per tenant, never a credential. Screens are dormant, so the app places the list in its own nav. MAIL_ACCOUNT_LIST_SCREEN_ID and MAIL_ACCOUNT_EDIT_SCREEN_ID are exported.",
+    "migration": "Place mail-accounts in the app nav with r.nav; no other change."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated inboundMailFoundationFeature constant is removed",

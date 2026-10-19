@@ -1,5 +1,199 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.377.0
+
+### Minor Changes
+
+- ae10fa6: The billing plan catalog accepts an optional contact card, such as "Enterprise · Contact us", rendered as the last plan card without a price. PlanCard gains a ctaLink slot that renders a link instead of the cta button.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Optional contact card in the billing plan catalog
+  detail: catalog.contact takes labelKey, benefits, actionLabelKey and an absolute https: or mailto: href. The billing-plans query returns it as contact, the billing-plans panel renders it as the last card without a price for every viewRole, also when the caller cannot purchase or billing is off. Boot validation rejects empty keys and any other href.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: PlanCard ctaLink
+  detail: PlanCard takes ctaLink ({ label, href, target? }) and renders it as a full-width link button in the footer instead of the cta button. The PlanCardLinkSlot type is exported from @cosmicdrift/kumiko-renderer/web next to PlanCardActionSlot.
+  -->
+- c00af64: kumiko-headless moves into kumiko-renderer as `@cosmicdrift/kumiko-renderer/headless` and kumiko-dispatcher-live as `@cosmicdrift/kumiko-renderer/live`. The old packages stay as deprecated re-export shims until the consumer pass of wave 4. The `package-merge` codemod rewrites imports and package.json dependencies for both moves.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: headless and the live dispatcher moved into renderer
+  detail: The headless UI logic is exported from @cosmicdrift/kumiko-renderer/headless (with /headless/apex, /headless/dispatcher and /headless/locale-routing), the HTTP dispatcher from @cosmicdrift/kumiko-renderer/live. @cosmicdrift/kumiko-headless and @cosmicdrift/kumiko-dispatcher-live now only re-export these subpaths and are removed after the consumer pass of wave 4.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-headless (and its subpaths) to @cosmicdrift/kumiko-renderer/headless and imports of @cosmicdrift/kumiko-dispatcher-live to @cosmicdrift/kumiko-renderer/live, and replaces both dependencies in package.json with kumiko-renderer.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: package-merge codemod covers headless and dispatcher-live
+  detail: The mapping table of the package-merge codemod gained the headless and dispatcher-live moves into kumiko-renderer.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: kumiko-headless is a deprecated shim over kumiko-renderer/headless
+  detail: The package only re-exports @cosmicdrift/kumiko-renderer/headless and its subpaths and is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-renderer/headless, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dispatcher-live
+  type: improvement
+  title: kumiko-dispatcher-live is a deprecated shim over kumiko-renderer/live
+  detail: The package only re-exports @cosmicdrift/kumiko-renderer/live and is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-renderer/live, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: renderer-boundaries guard scans headless and live for imports only
+  detail: The headless and live subtrees of kumiko-renderer must not import react-dom, jsdom or renderer-web; the symbol and JSX rules of the shared layer no longer apply to them. The section-fields-raw scope follows the moved headless sources.
+  -->
+- c00af64: kumiko-renderer-web moves into kumiko-renderer as `@cosmicdrift/kumiko-renderer/web` (with `/web/styles.css` and `/web/theme-plugin`). The old package stays as a deprecated re-export shim until the consumer pass of wave 4. The `package-merge` codemod rewrites imports, package.json dependencies and, new, CSS `@import`/`@plugin`/`@config` specifiers.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: renderer-web moved into renderer
+  detail: The web bindings are exported from @cosmicdrift/kumiko-renderer/web, the stylesheet from @cosmicdrift/kumiko-renderer/web/styles.css and the Tailwind theme plugin from @cosmicdrift/kumiko-renderer/web/theme-plugin. @cosmicdrift/kumiko-renderer-web now only re-exports these and is removed after the consumer pass of wave 4.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports and CSS @import lines of @cosmicdrift/kumiko-renderer-web (including /styles.css and /theme-plugin) to @cosmicdrift/kumiko-renderer/web and replaces the dependency in package.json with kumiko-renderer.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: package-merge codemod covers renderer-web and CSS files
+  detail: The mapping table of the package-merge codemod gained the renderer-web move into kumiko-renderer/web, and the codemod now also rewrites .css files (@import, @plugin, @config). A @source path into the old package is reported for manual follow-up.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: kumiko-renderer-web is a deprecated shim over kumiko-renderer/web
+  detail: The package only re-exports @cosmicdrift/kumiko-renderer/web and its theme-plugin, and its styles.css imports the new stylesheet. It is removed after the consumer pass of wave 4.
+  migration: Import from @cosmicdrift/kumiko-renderer/web, or run bun kumiko codemod package-merge . --write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: renderer-boundaries guard leaves the web subtree unscanned
+  detail: renderer/src/web may use the DOM and every web dependency; the shared renderer root and headless/live must not import it. The tailwind-scan-surface guard follows the new stylesheet location through package exports and shim imports.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: comment-lang touched mode pairs renames
+  detail: The touched mode diffs a moved file against its old path, so moving a file no longer counts every German comment in it as new.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: project rebuild keeps blind indexes and aborts without crypto, events prune names its aggregate types
+  detail: `kumiko project rebuild` now wires the subject KMS and blind-index key from the env like `schema apply` and `ops backfill-pii`, so rebuilding a PII projection no longer nulls its bidx columns. Without the crypto env an app with PII fields aborts the rebuild unless `--allow-plaintext-pii <reason>` is passed. `kumiko events prune` takes the required `--aggregate-types <a,b>` flag; before, it always failed because pruneEvents needs explicit aggregate types.
+  -->
+- fd450c2: Screens out of one mould: actionForm result figures, month field, multi-reference links, mailbox screens, document time zone and smaller list, form and GDPR fixes
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm shows key figures from the handler's success payload
+  detail: ActionFormScreenDefinition gets successFacts, a list of { field, label } entries read from the success payload and shown in the success box next to successLinks while the screen stays put. A number or string is one value, an array a comma-separated list of numbers, strings or { label } objects, a missing field is hidden. Mutually exclusive with redirect (boot validator). Default behaviour is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A text field with format month renders a native month input
+  detail: createTextField({ format: "month" }) renders <input type="month"> and carries YYYY-MM. The schema builder validates the pattern server-side (an empty string is accepted for optional fields). New InputProps kind "month" for custom Input primitives.
+  migration: Only custom CorePrimitives.Input implementations with an exhaustive switch over kind need a "month" branch; a text fallback is fine.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Array reference fields render as links in lists
+  detail: A reference column over an array field renders one link per entry, labelled from the eagerloaded record or the label lookup, like single references. New CellLinkItem and RuntimeCellLinkItems exports from the headless view model; DataTableCell accepts linkItems.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: List empty state, sidebar rail cursor, toolbar description spacing and root form errors
+  detail: The empty list no longer shows a second Create button when Create is already in the page header. The sidebar rail edge, which only toggles open and closed, shows a pointer cursor instead of a resize cursor. toolbarDescription always gets the standard bottom spacing, not only with fillsHeight. A server error without a field reference (path "(root)") shows once in the form banner instead of also at a field.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: improvement
+  title: Document dates can print the time in the tenant time zone
+  detail: The date helper accepts time=true ({{date value time=true}}). Instants print date and time in the tenant's configured IANA zone (tenant timezone config, UTC without one), offset date-times keep their own wall clock, date-only values print no time. Without time=true nothing changes. formatDocumentDate takes an optional { time, timeZone } argument, DocumentFormat gets timeZone, and TENANT_TIMEZONE_CONFIG_KEY is exported from framework/pipeline.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: tenantName in the document context falls back to the tenant record
+  detail: Without managed-pages there is no branding title, so tenantName was empty. It now falls back to the decrypted name of the tenant record when the tenant feature is mounted.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: seedSystemTemplateBundle sets a title per template
+  detail: Bundle locale entries accept an optional title, written to the template resource and exported again by the bundle export. SeedSystemTemplateOptions gets title. The template overview shows it instead of the slug.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Declarative mailbox list and rename screens
+  detail: The feature registers the projectionList mail-accounts (name, address, provider, status, connected; row actions rename and disconnect) and the actionForm mail-account-edit, both restricted to SystemAdmin and TenantAdmin like the handlers. The list shows several mailboxes per tenant, never a credential. Screens are dormant, so the app places the list in its own nav. MAIL_ACCOUNT_LIST_SCREEN_ID and MAIL_ACCOUNT_EDIT_SCREEN_ID are exported.
+  migration: Place mail-accounts in the app nav with r.nav; no other change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: Forgetting a user also removes their unbound pending uploads
+  detail: forget-subject for a user deleted only files bound to a record. Uploads the user made but never attached (file refs without an entity id) stayed behind. They are now removed with their bytes, except refs a record still names in a single-file column.
+  -->
+
+### Patch Changes
+
+- e3ecf83: The entityEdit discard-confirm test waits for the form's mount effects before it types and clicks
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The entityEdit discard-confirm test waits for the form's mount effects before it types and clicks
+  detail: The test rendered outside act and only waited for the input to appear. Under CPU load the form's mount effects (store subscription, dirty reporting) ran after the click, so the header action still had no discard confirm and the test failed. The render now runs inside act, so the detail query, the commit and the effects settle first. Test-only change, no runtime behavior changes.
+  -->
+- Updated dependencies [e552c13]
+- Updated dependencies [c00af64]
+- Updated dependencies [60a29a8]
+- Updated dependencies [9400d43]
+- Updated dependencies [c00af64]
+- Updated dependencies [c00af64]
+- Updated dependencies [fd450c2]
+  - @cosmicdrift/kumiko-framework@0.377.0
+  - @cosmicdrift/kumiko-types@0.377.0
+
 ## 0.376.0
 
 ### Patch Changes

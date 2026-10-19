@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "kumiko-renderer-web is a deprecated shim over kumiko-renderer/web",
+    "detail": "The package only re-exports @cosmicdrift/kumiko-renderer/web and its theme-plugin, and its styles.css imports the new stylesheet. It is removed after the consumer pass of wave 4.",
+    "migration": "Import from @cosmicdrift/kumiko-renderer/web, or run bun kumiko codemod package-merge . --write."
+  },
+  {
     "version": "0.374.0",
     "type": "improvement",
     "title": "ClientFeatureDefinition.clientActions",

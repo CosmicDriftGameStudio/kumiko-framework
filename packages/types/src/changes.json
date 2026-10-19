@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "outsideTransaction deprecated, ProviderPluginContext added",
+    "detail": "HandlerContext.outsideTransaction is marked deprecated; use runInOwnTransaction(ctx.dbOutsideTransaction, fn). ProviderPluginContext is a Pick of HandlerContext for provider plugins. SharedContextFields gains configAccessorFactory; _configAccessorFactory stays as a deprecated alias. dbOutsideTransaction stays TenantDb | undefined (undefined only in the member-resolution and before-transaction denial phases and in platform-metering tenant mode); hasOutsideTransactionDb(ctx) narrows it and requireOutsideTransactionDb(ctx) throws when it is missing.",
+    "migration": "Replace ctx.outsideTransaction(fn) with runInOwnTransaction(ctx.dbOutsideTransaction, fn). Read configAccessorFactory instead of _configAccessorFactory."
+  },
+  {
+    "version": "0.377.0",
+    "type": "breaking",
+    "title": "JobContext._userId removed",
+    "detail": "The job runner never set JobContext._userId; only user-data-rights read it, falling back to SYSTEM_USER_ID. Hand-built JobContext objects that still set it fail to type-check, and code that read it must use SYSTEM_USER_ID or the job's system user.",
+    "migration": "Drop _userId from hand-built JobContext objects (tests, job helpers) and replace reads of ctx._userId with SYSTEM_USER_ID. Known hits - money-horse data-export integration test, offlot-app channel-text generate-texts.job.ts."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "StackBootRequirement severity and the featureToggles option name",

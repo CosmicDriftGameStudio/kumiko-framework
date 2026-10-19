@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "Optional contact card in the billing plan catalog",
+    "detail": "catalog.contact takes labelKey, benefits, actionLabelKey and an absolute https: or mailto: href. The billing-plans query returns it as contact, the billing-plans panel renders it as the last card without a price for every viewRole, also when the caller cannot purchase or billing is off. Boot validation rejects empty keys and any other href."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "Billing webhook sync exposes afterSync",

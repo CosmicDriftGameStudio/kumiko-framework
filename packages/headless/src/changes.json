@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "kumiko-headless is a deprecated shim over kumiko-renderer/headless",
+    "detail": "The package only re-exports @cosmicdrift/kumiko-renderer/headless and its subpaths and is removed after the consumer pass of wave 4.",
+    "migration": "Import from @cosmicdrift/kumiko-renderer/headless, or run bun kumiko codemod package-merge . --write."
+  },
+  {
     "version": "0.372.0",
     "type": "improvement",
     "title": "resolvePageHead gets preferredLocales (?lang= first, then Accept-Language by q) so resolvers can pick a content locale",

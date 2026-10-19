@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.377.0",
+    "type": "fix",
+    "title": "migrateLegacyWaitlist no longer replays legacy events on rebuild",
+    "detail": "The legacy event stream of each migrated row is archived, so a projection rebuild does not resurrect the old id next to the imported entry. The report gains archivedStreams."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "Waitlist gets linkOnSignup, a configurable submit rate limit, export and purge handlers and a status provisioned",

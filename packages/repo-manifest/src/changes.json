@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "kumiko-repo-manifest is a deprecated shim over kumiko-guards/repo-manifest",
+    "detail": "The package only re-exports @cosmicdrift/kumiko-guards/repo-manifest and its app-ports subpath and is removed after the consumer pass of wave 4.",
+    "migration": "Import from @cosmicdrift/kumiko-guards/repo-manifest, or run bun kumiko codemod package-merge . --write."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "App port reader moves to repo-manifest/app-ports",

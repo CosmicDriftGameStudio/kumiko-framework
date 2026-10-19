@@ -1,5 +1,70 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "design decisions log",
+    "detail": "docs/reference/decisions.md records lasting design decisions with their reasons. It is documentation only and changes no behavior."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "Env hint links to the infra deploy runbook",
+    "detail": "The boot env report ends with a link to docs/runbooks/standard-deploy-app.md in the infra repo instead of a path in kumiko-platform that no longer exists."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "Replay parser and migration splitter cover dollar quotes, RENAME, CREATE TABLE AS and DO",
+    "detail": "splitSqlStatements keeps dollar-quoted bodies whole and throws on an unterminated one. The replay parser follows RENAME TO, RENAME COLUMN, CREATE TABLE AS and DO blocks; tables with columns it cannot derive are skipped in the schema diff. The Bun.SQL wording in db/query.ts errors and logger names now says postgres-js."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "providerPluginContextFromHandler and providerPluginContextFromJob",
+    "detail": "Build a ProviderPluginContext from a HandlerContext or JobContext (jobs use the system user and have no dbOutsideTransaction)."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "hasOutsideTransactionDb and requireOutsideTransactionDb",
+    "detail": "Public helpers in the db barrel. hasOutsideTransactionDb(ctx) narrows ctx.dbOutsideTransaction to TenantDb; requireOutsideTransactionDb(ctx) returns it or throws an InternalError."
+  },
+  {
+    "version": "0.377.0",
+    "type": "breaking",
+    "title": "Provider contexts expose auditUserId instead of _userId",
+    "detail": "FileProviderContext, MailTransportContext, InboundMailContext and the context read by requireSecretsContext name the audit identity auditUserId. The old underscore field is gone.",
+    "migration": "Rename _userId to auditUserId wherever a provider context is built by hand (tests, custom resolvers, worker wiring). requireSecretsContext still falls back to ctx.user.id when it is unset."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "Boot always sets configAccessorFactory and overrides an app value",
+    "detail": "addConfigAccessorFactory writes configAccessorFactory and the _configAccessorFactory alias from the effective configResolver, replacing any app-supplied factory. The replay parser also rejects DO blocks without a dollar-quoted body and accepts tags like $do1$."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "http moved into framework",
+    "detail": "egress(), the host policy helpers and their errors are implemented in @cosmicdrift/kumiko-framework/http. @cosmicdrift/kumiko-http now only re-exports that subpath and is removed after the consumer pass of wave 4.",
+    "migration": "Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-http to @cosmicdrift/kumiko-framework/http and replaces the kumiko-http dependency in package.json with kumiko-framework.",
+    "codemod": "scripts/codemod/package-merge.ts"
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "package-merge codemod covers headless and dispatcher-live",
+    "detail": "The mapping table of the package-merge codemod gained the headless and dispatcher-live moves into kumiko-renderer.",
+    "codemod": "scripts/codemod/package-merge.ts"
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "package-merge codemod covers renderer-web and CSS files",
+    "detail": "The mapping table of the package-merge codemod gained the renderer-web move into kumiko-renderer/web, and the codemod now also rewrites .css files (@import, @plugin, @config). A @source path into the old package is reported for manual follow-up.",
+    "codemod": "scripts/codemod/package-merge.ts"
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "kumiko-upgrade writes CHANGELOG.md and shows manual entries with --verbose",

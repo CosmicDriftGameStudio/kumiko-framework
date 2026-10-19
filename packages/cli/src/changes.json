@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "kumiko codemod lists package-merge",
+    "detail": "kumiko codemod package-merge rewrites imports and package.json dependencies of merged packages."
+  },
+  {
+    "version": "0.377.0",
+    "type": "fix",
+    "title": "project rebuild keeps blind indexes and aborts without crypto, events prune names its aggregate types",
+    "detail": "`kumiko project rebuild` now wires the subject KMS and blind-index key from the env like `schema apply` and `ops backfill-pii`, so rebuilding a PII projection no longer nulls its bidx columns. Without the crypto env an app with PII fields aborts the rebuild unless `--allow-plaintext-pii <reason>` is passed. `kumiko events prune` takes the required `--aggregate-types <a,b>` flag; before, it always failed because pruneEvents needs explicit aggregate types."
+  },
+  {
     "version": "0.376.0",
     "type": "fix",
     "title": "kumiko ports and sync-managed use the shared port reader and print managed warnings",
