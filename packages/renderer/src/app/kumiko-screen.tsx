@@ -100,9 +100,12 @@ import {
   synthesizeActionFormScreen,
 } from "./action-form-shim.ts";
 import {
+  ActionFormLoadStatus,
   ActionFormSuccessBanner,
   type ActionFormSuccessState,
   type ResolvedSuccessLink,
+  resolveActionFormRecordId,
+  useActionFormLoad,
 } from "./action-form-support.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import {
@@ -164,9 +167,11 @@ import {
   buildProjectionToolbarActions,
   buildRecordActions,
   evalRowExtractor,
+  findRowClickAction,
   isWriteHandlerRowAction,
   navigateActionSearchParams,
   refetchAfterWrite,
+  runDrawerRowAction,
   runProjectionRowNavigate,
 } from "./row-actions.ts";
 import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access.ts";
@@ -516,7 +521,14 @@ function renderScreenBody({
         />
       );
     case "actionForm":
-      return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
+      return (
+        <ActionFormBody
+          schema={schema}
+          screen={screen}
+          translate={translate}
+          {...(entityId !== undefined && { entityId })}
+        />
+      );
     case "secretMint":
       return <SecretMintBody schema={schema} screen={screen} translate={translate} />;
     case "configEdit":
@@ -2817,11 +2829,12 @@ function EntityListBody({
   // gewinnt (deklarierte Author-Absicht "Klick auf die Zeile tut X"). Ohne Flag
   // bleibt der Pfad unverändert — create-app's entityEdit-Default bzw. ein vom
   // App-Author gesetztes onRowClick.
-  const rowClickAction = screen.rowActions?.find(
-    (a): a is RowActionNavigate => a.kind === "navigate" && a.rowClick === true,
-  );
+  const rowClickAction = findRowClickAction(screen.rowActions);
   const wrappedOnRowClick = rowClickAction
-    ? (row: ListRowViewModel) => runNavigate(rowClickAction, row)
+    ? (row: ListRowViewModel) =>
+        rowClickAction.kind === "drawer"
+          ? runDrawerRowAction(rowClickAction, openDrawer, row)
+          : runNavigate(rowClickAction, row)
     : onRowClick !== undefined
       ? (row: ListRowViewModel) => onRowClick(row, screen.entity)
       : undefined;
@@ -3201,11 +3214,12 @@ function ProjectionListBody({
     );
   }
 
-  const rowClickAction = screen.rowActions?.find(
-    (a): a is RowActionNavigate => a.kind === "navigate" && a.rowClick === true,
-  );
+  const rowClickAction = findRowClickAction(screen.rowActions);
   const wrappedOnRowClick = rowClickAction
-    ? (row: ListRowViewModel) => runNavigate(rowClickAction, row)
+    ? (row: ListRowViewModel) =>
+        rowClickAction.kind === "drawer"
+          ? runDrawerRowAction(rowClickAction, openDrawer, row)
+          : runNavigate(rowClickAction, row)
     : onRowClick !== undefined
       ? (row: ListRowViewModel) => onRowClick(row, listScreen.entity)
       : undefined;
@@ -4142,9 +4156,9 @@ function ProjectionDetailBody({
 }
 // ---- actionForm (Tier 2.7d) ----
 
-function redirectScreenTarget(
-  redirect: NonNullable<ActionFormScreenDefinition["redirect"]>,
-): string {
+type RedirectSpec = string | ActionFormRedirect | ActionFormSuccessLink;
+
+function redirectScreenTarget(redirect: RedirectSpec): string {
   return typeof redirect === "string" ? redirect : redirect.screen;
 }
 
@@ -4187,7 +4201,7 @@ function isEntityEditScreenOfOtherEntity(
 // schema first (own screen wins), then every mounted feature. A named feature
 // that isn't mounted (no provider / isolated test) falls back to this schema.
 function findRedirectTargetScreen(
-  redirect: string | ActionFormRedirect,
+  redirect: RedirectSpec,
   schema: FeatureSchema,
   appFeatures: readonly FeatureSchema[],
 ): ScreenDefinition | undefined {
@@ -4210,7 +4224,7 @@ function findRedirectTargetScreen(
 // A redirect to a record screen ("show the result") is a deliberate forward
 // navigation and keeps precedence over returnTo.
 function redirectTargetsRecord(
-  redirect: string | ActionFormRedirect,
+  redirect: RedirectSpec,
   schema: FeatureSchema,
   appFeatures: readonly FeatureSchema[],
 ): boolean {
@@ -4242,14 +4256,14 @@ function returnToWinsOverRedirect(
 // form values — both of which carry fields (e.g. a parent FK) the CRUD
 // write executor's success payload doesn't flatly expose.
 function resolveRedirectTarget(
-  redirect: string | ActionFormRedirect,
+  redirect: RedirectSpec,
   submittedData: unknown,
   schema: FeatureSchema,
   appFeatures: readonly FeatureSchema[],
   fallbackRecord?: Readonly<Record<string, unknown>>,
 ): ResolvedRedirectTarget {
   const redirectScreen = redirectScreenTarget(redirect);
-  const idField = typeof redirect === "string" ? "id" : redirect.idFrom;
+  const idField = typeof redirect === "string" ? "id" : (redirect.idFrom ?? "id");
   const targetId = lastSegment(redirectScreen);
   const target = findRedirectTargetScreen(redirect, schema, appFeatures);
   const carriesId =
@@ -4283,6 +4297,7 @@ function navigateToRedirectTarget(nav: NavApi, target: ResolvedRedirectTarget): 
 // Links of the success box. Targets resolve like `redirect`; a link whose target
 // needs a record id (entityEdit, projectionDetail) but whose payload field holds
 // no string id is dropped instead of navigating to an id-less record screen.
+// A link without idFrom to a non-record screen always navigates id-less.
 function resolveSuccessLinks(
   links: readonly ActionFormSuccessLink[] | undefined,
   data: unknown,
@@ -4361,6 +4376,7 @@ function ActionFormBody({
   schema,
   screen,
   translate,
+  entityId,
   initialOverrides,
   onSuccess,
   onCancelOverride,
@@ -4370,6 +4386,8 @@ function ActionFormBody({
   readonly schema: FeatureSchema;
   readonly screen: ActionFormScreenDefinition;
   readonly translate?: Translate;
+  /** Record id from the route path; the source of the `load` query's id. */
+  readonly entityId?: string;
   /** Row-drawer usage (RowAction kind:"drawer", fw#2710): prefill extracted
    *  from the clicked row, applied on top of searchParams through the same
    *  renderableFields/sensitive gates (see mergeSearchParamsIntoInitial). */
@@ -4419,26 +4437,50 @@ function ActionFormBody({
     loading: currencyLoading,
     unresolved: currencyUnresolved,
   } = useMoneyCurrencyOverrides(screen.fields, tenantCurrencyFieldNames, undefined);
-  const initial = useMemo(
-    () =>
-      mergeSearchParamsIntoInitial(submittableFields, {
-        searchParams: nav.searchParams,
-        urlPrefillFields: screen.urlPrefillFields,
+  const submittableFieldNames = useMemo(() => Object.keys(submittableFields), [submittableFields]);
+  const loadState = useActionFormLoad(
+    screen.load,
+    screen.load !== undefined
+      ? resolveActionFormRecordId({
+          routeEntityId: entityId,
+          drawerOverrides: initialOverrides,
+          searchParams: nav.searchParams,
+        })
+      : undefined,
+    submittableFieldNames,
+  );
+  const loadedValues = loadState?.status === "ready" ? loadState.values : undefined;
+  const initial = useMemo(() => {
+    // With `load` the loaded record is the only source of values: a crafted link
+    // or a row's params must not seed fields the record would otherwise own.
+    const prefillSources =
+      screen.load !== undefined
+        ? { searchParams: {}, urlPrefillFields: undefined }
+        : {
+            searchParams: nav.searchParams,
+            urlPrefillFields: screen.urlPrefillFields,
+            ...(initialOverrides !== undefined && { drawerOverrides: initialOverrides }),
+            ...(handoffValues !== undefined && { handoffValues }),
+          };
+    return {
+      ...mergeSearchParamsIntoInitial(submittableFields, {
+        ...prefillSources,
         renderableFields: layoutFieldNames(synthScreen),
         ...(moneyCurrencyOverrides !== undefined && { moneyCurrencyOverrides }),
-        ...(initialOverrides !== undefined && { drawerOverrides: initialOverrides }),
-        ...(handoffValues !== undefined && { handoffValues }),
       }),
-    [
-      submittableFields,
-      screen.urlPrefillFields,
-      nav.searchParams,
-      synthScreen,
-      moneyCurrencyOverrides,
-      initialOverrides,
-      handoffValues,
-    ],
-  );
+      ...loadedValues,
+    };
+  }, [
+    submittableFields,
+    screen.load,
+    screen.urlPrefillFields,
+    nav.searchParams,
+    synthScreen,
+    moneyCurrencyOverrides,
+    initialOverrides,
+    handoffValues,
+    loadedValues,
+  ]);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const summary = useMemo(
@@ -4560,6 +4602,11 @@ function ActionFormBody({
       <Banner padded variant="error" testId="kumiko-screen-currency-unresolved">
         The tenant currency could not be loaded, so this form cannot be submitted.
       </Banner>
+    );
+  }
+  if (loadState !== undefined && loadState.status !== "ready") {
+    return (
+      <ActionFormLoadStatus state={loadState} screenId={screen.id} translate={effectiveTranslate} />
     );
   }
   return (

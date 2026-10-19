@@ -208,6 +208,13 @@ function checkScreenQueryRefs(
     screen.type === "secretMint"
   ) {
     checkEditLayoutQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.layout);
+    if (screen.type === "actionForm" && screen.load !== undefined) {
+      checkQueryRef(
+        queryHandlers,
+        screen.load.query,
+        () => `[Feature ${featureName}] Screen "${screenId}" (actionForm) load`,
+      );
+    }
     if (screen.type !== "entityEdit") {
       checkFormFieldQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.fields);
     }

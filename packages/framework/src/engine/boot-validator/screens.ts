@@ -43,6 +43,7 @@ import { metricField } from "../types/index.ts";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
+  ActionFormSuccessLink,
   ConfigEditScreenDefinition,
   DashboardChartMarkerKind,
   DashboardChartPanel,
@@ -76,6 +77,10 @@ import type {
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
 import { isSelectOptionTone } from "./select-option-tone.ts";
 
+function isRowClickAction(action: RowAction): boolean {
+  return (action.kind === "navigate" || action.kind === "drawer") && action.rowClick === true;
+}
+
 // entityList and projectionList both allow a rowAction to double as the
 // row-body click target (rowClick: true, fw#1708/#2164) — at most one per
 // screen, or the renderer can't tell which one should fire.
@@ -85,7 +90,7 @@ function validateAtMostOneRowClick(
   screenType: "entityList" | "projectionList",
   rowActions: readonly RowAction[],
 ): void {
-  const rowClickActions = rowActions.filter((a) => a.kind === "navigate" && a.rowClick === true);
+  const rowClickActions = rowActions.filter(isRowClickAction);
   if (rowClickActions.length > 1) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has ${rowClickActions.length} ` +
@@ -669,6 +674,8 @@ export function validateDrawerPrefillKeys(
       renderedFieldNames.add(normalizeEditField(spec).field);
   }
   for (const fieldName of rowFieldExtractorKeys(params)) {
+    // A `load` form reads only the record id from these params, never a value.
+    if (fieldName === "id" && target.type === "actionForm" && target.load !== undefined) continue;
     if (!Object.hasOwn(target.fields, fieldName)) {
       throw new Error(
         `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" does not declare as a ` +
@@ -1202,18 +1209,62 @@ function validateRedirectTarget(
     );
   }
   if (typeof redirect !== "string" && redirect.tab !== undefined) {
-    const targetQn = resolveScreenTargetQn(feature.name, redirectTarget);
-    const target = lookups.screensByShortId
-      .get(targetQn.slice(targetQn.lastIndexOf(":") + 1))
-      ?.find(
-        (entry) => qualifyEntityName(entry.featureName, "screen", entry.screen.id) === targetQn,
-      );
     validateRowActionNavigateTab(
       feature.name,
       screenId,
       screenKind,
       propertyPath,
       { kind: "navigate", id: redirectTarget, label: redirectTarget, tab: redirect.tab },
+      findNavTargetEntry(feature, redirectTarget, lookups),
+    );
+  }
+}
+
+function findNavTargetEntry(
+  feature: FeatureDefinition,
+  target: string,
+  lookups: NavigateTargetLookups,
+) {
+  const targetQn = resolveScreenTargetQn(feature.name, target);
+  return lookups.screensByShortId
+    .get(targetQn.slice(targetQn.lastIndexOf(":") + 1))
+    ?.find((entry) => qualifyEntityName(entry.featureName, "screen", entry.screen.id) === targetQn);
+}
+
+// A success link without idFrom navigates without an id, so its target must not
+// be a record screen (entityEdit/projectionDetail need one).
+function validateIdlessSuccessLink(
+  feature: FeatureDefinition,
+  screenId: string,
+  screenKind: "actionForm",
+  link: ActionFormSuccessLink,
+  lookups: NavigateTargetLookups,
+  propertyPath: string,
+): void {
+  validateScreenNavTarget(
+    feature.name,
+    screenId,
+    screenKind,
+    propertyPath,
+    link.screen,
+    lookups.allScreenQns,
+    feature.screens,
+  );
+  const target = findNavTargetEntry(feature, link.screen, lookups);
+  const targetType = target?.screen.type;
+  if (targetType === "entityEdit" || targetType === "projectionDetail") {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath} targets "${link.screen}" ` +
+        `(${targetType}), a record screen — set ${propertyPath}.idFrom to the success-payload field carrying the record id.`,
+    );
+  }
+  if (link.tab !== undefined) {
+    validateRowActionNavigateTab(
+      feature.name,
+      screenId,
+      screenKind,
+      propertyPath,
+      { kind: "navigate", id: link.screen, label: link.screen, tab: link.tab },
       target,
     );
   }
@@ -1350,7 +1401,19 @@ function validateInlineFormNavTargets(
       );
     }
     screen.successLinks.forEach((link, index) => {
-      validateRedirectTarget(feature, screenId, kind, link, lookups, `successLinks[${index}]`);
+      const propertyPath = `successLinks[${index}]`;
+      if (link.idFrom === undefined) {
+        validateIdlessSuccessLink(feature, screenId, "actionForm", link, lookups, propertyPath);
+      } else {
+        validateRedirectTarget(
+          feature,
+          screenId,
+          kind,
+          { ...link, idFrom: link.idFrom },
+          lookups,
+          propertyPath,
+        );
+      }
     });
   }
   if (typeof screen.cancelTarget === "string") {
@@ -1737,9 +1800,7 @@ function validateRelatedListRowActions(
   // marked rowClick:true both claim the row-body click — same
   // at-most-one constraint as entityList/projectionList's
   // validateAtMostOneRowClick, just spanning two fields instead of one.
-  const rowClickActionCount = rowActions.filter(
-    (a) => a.kind === "navigate" && a.rowClick === true,
-  ).length;
+  const rowClickActionCount = rowActions.filter(isRowClickAction).length;
   const legacyRowClickCount = section.rowClick !== undefined ? 1 : 0;
   if (rowClickActionCount + legacyRowClickCount > 1) {
     throw new Error(
@@ -2429,7 +2490,7 @@ export function validateScreens(
             action,
             navigateLookups,
           );
-          if (action.kind === "navigate" && action.rowClick === true) {
+          if (isRowClickAction(action)) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
                 `(projectionDetail) action "${action.id}" sets rowClick: true — there is no row to ` +
@@ -3098,7 +3159,7 @@ export function validateScreens(
       if (screen.actions !== undefined) {
         for (const action of screen.actions) {
           validateRecordActionRedirect(feature, screenId, "entityEdit", action, navigateLookups);
-          if (action.kind === "navigate" && action.rowClick === true) {
+          if (isRowClickAction(action)) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
                 `(entityEdit) action "${action.id}" sets rowClick: true — there is no row to click ` +

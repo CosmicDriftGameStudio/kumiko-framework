@@ -4,7 +4,6 @@ import type {
   RelatedListGroupBy,
   RelatedListRowTone,
   RowActionDrawer,
-  RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
@@ -37,6 +36,8 @@ import {
   buildProjectionRowActions,
   buildProjectionToolbarActions,
   buildRecordActions,
+  findRowClickAction,
+  runDrawerRowAction,
   runProjectionRowNavigate,
 } from "../app/row-actions.ts";
 import { findEditScreenFor } from "../app/screen-access.ts";
@@ -368,9 +369,7 @@ export function RelatedListSection({
   // A row-body click target comes from EITHER the legacy `rowClick` field OR
   // a `rowActions` entry marked rowClick:true — the boot-validator rejects
   // both being set, so this order is just a fallback, not a precedence rule.
-  const rowClickAction = section.rowActions?.find(
-    (a): a is RowActionNavigate => a.kind === "navigate" && a.rowClick === true,
-  );
+  const rowClickAction = findRowClickAction(section.rowActions);
   const onRowClick =
     rowClick !== undefined
       ? (row: ListRowViewModel) => {
@@ -379,7 +378,13 @@ export function RelatedListSection({
           navigateWithReturnTo(nav, { entity: rowClick.entity, id }, host);
         }
       : rowClickAction !== undefined
-        ? (row: ListRowViewModel) => runProjectionRowNavigate(nav, rowClickAction, row, host)
+        ? (row: ListRowViewModel) => {
+            if (rowClickAction.kind === "navigate") {
+              runProjectionRowNavigate(nav, rowClickAction, row, host);
+            } else if (onOpenDrawer !== undefined) {
+              runDrawerRowAction(rowClickAction, onOpenDrawer, row);
+            }
+          }
         : undefined;
 
   // Same execution path as projectionList's rowActions (kumiko-screen.tsx) —

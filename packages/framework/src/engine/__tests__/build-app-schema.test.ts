@@ -12,6 +12,8 @@ import * as z from "zod";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema.ts";
 import { access, createSystemConfig, createTenantConfig } from "../config-helpers.ts";
 import { defineFeature } from "../define-feature.ts";
+import { defineEntityListHandler } from "../entity-handlers.ts";
+import { createEntity, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";
 import type { EntityDefinition, MultiSelectFieldDef } from "../types/fields.ts";
 import type { ProjectionListScreenDefinition } from "../types/screen.ts";
@@ -1319,6 +1321,47 @@ describe("buildAppSchema", () => {
     expect(screen.searchable).toBe(false);
     expect(screen.sortable).toBe(false);
     expect(screen.paginated).toBe(false);
+  });
+
+  describe("projectionList over an entity-convention list query", () => {
+    const listAccess = {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    };
+    const plainEntity = createEntity({
+      table: "plain_things",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    });
+    const searchableEntity = createEntity({
+      table: "searchable_things",
+      fields: {
+        name: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
+      },
+    });
+
+    function derivedSearchable(entityName: string, entity: EntityDefinition): boolean | undefined {
+      const f = defineFeature("ledger", (r) => {
+        r.entity({ name: entityName, ...entity });
+        r.queryHandler(defineEntityListHandler(entityName, entity, listAccess));
+        r.screen({
+          id: "thing-list",
+          type: "projectionList",
+          query: `ledger:query:${entityName}:list`,
+          columns: ["name"],
+        });
+      });
+      const screen = buildAppSchema(createRegistry([f])).features[0]?.screens.find(
+        (s) => s.id === "thing-list",
+      ) as ProjectionListScreenDefinition | undefined;
+      return screen?.searchable;
+    }
+
+    test("an entity without searchable fields derives searchable: false (no search box)", () => {
+      expect(derivedSearchable("plain", plainEntity)).toBe(false);
+    });
+
+    test("an entity with a searchable field still derives searchable: true", () => {
+      expect(derivedSearchable("searchable", searchableEntity)).toBe(true);
+    });
   });
 
   test("projectionList: a non-ZodObject query schema (z.union) derives no capability and doesn't throw", () => {

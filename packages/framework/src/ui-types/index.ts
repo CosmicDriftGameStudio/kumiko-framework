@@ -75,6 +75,7 @@ export { isOpenToAllGranted, isUiAccessGranted } from "../engine/types/handlers.
 export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav.ts";
 export type {
   ActionFormFooterAction,
+  ActionFormLoad,
   ActionFormRedirect,
   ActionFormScreenDefinition,
   ActionFormSuccessLink,

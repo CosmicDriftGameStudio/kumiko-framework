@@ -18,7 +18,7 @@ const CREATE_PAIR = {
   successLinks: [
     { screen: "customer-edit", idFrom: "customerId", label: "demo.link.customer" },
     { screen: "order-edit", idFrom: "orderId", label: "demo.link.order" },
-    { screen: "pair-list", idFrom: "unused", label: "demo.link.list" },
+    { screen: "pair-list", label: "demo.link.list" },
   ],
 } as unknown as ActionFormScreenDefinition;
 
@@ -132,6 +132,18 @@ describe("actionForm successLinks", () => {
     await userEvent.setup().click(screen.getByTestId("action-form-success-link-1"));
 
     expect(navigate).toHaveBeenCalledWith({ screenId: "order-edit", entityId: "o-1" }, undefined);
+  });
+
+  test("a link to a list screen without idFrom is shown and navigates without an id", async () => {
+    const navigate = mock(() => {});
+    renderScreen(CREATE_PAIR, { isSuccess: true, data: {} }, navigate);
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await typeNameAndSubmit();
+    await waitFor(() => expect(screen.getByTestId("action-form-success-link-2")).toBeTruthy());
+
+    await userEvent.setup().click(screen.getByTestId("action-form-success-link-2"));
+
+    expect(navigate).toHaveBeenCalledWith({ screenId: "pair-list" }, undefined);
   });
 
   test("hides a link to a record screen when the payload carries no string id", async () => {

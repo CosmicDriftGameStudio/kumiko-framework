@@ -2722,7 +2722,7 @@ describe("boot-validator", () => {
       readonly redirect?: string | { readonly screen: string; readonly idFrom: string };
       readonly successLinks?: ReadonlyArray<{
         readonly screen: string;
-        readonly idFrom: string;
+        readonly idFrom?: string;
         readonly label: string;
       }>;
       readonly cancelTarget?: string | false;
@@ -3119,6 +3119,36 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/successLinks\[0\]\.idFrom is set but target screen "overview" \(custom\)/);
+    });
+
+    test("successLinks without idFrom → screen that carries no id → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successLinks: [{ screen: "overview", label: "shop.link.overview" }],
+            extraScreens: ["overview"],
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("successLinks without idFrom → record screen → Throw naming the link", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successLinks: [{ screen: "after-form", label: "shop.link.lease" }],
+            extraDetailScreens: ["after-form"],
+          }),
+        ]),
+      ).toThrow(/successLinks\[0\] targets "after-form" \(projectionDetail\), a record screen/);
+    });
+
+    test("successLinks without idFrom → unknown screen → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({ successLinks: [{ screen: "ghost-screen", label: "shop.link.ghost" }] }),
+        ]),
+      ).toThrow(/successLinks\[0\] "ghost-screen" does not resolve to a registered screen/);
     });
 
     // --- field prefix / suffix / fillAction ---
@@ -5908,6 +5938,90 @@ describe("boot-validator", () => {
       expect(() =>
         validateBoot([makeFeature({ params: { map: { qty: "productQty" } } })]),
       ).not.toThrow();
+    });
+  });
+
+  describe("actionForm load", () => {
+    function makeLoadFeature(opts: {
+      readonly loadQuery: string;
+      readonly submitPrefilled?: boolean;
+      readonly drawerParams?: RowFieldExtractor;
+    }) {
+      return defineFeature("shop", (r) => {
+        r.queryHandler({
+          name: "products",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.queryHandler({
+          name: "product:detail",
+          schema: z.object({ id: z.string() }),
+          handler: async () => ({ id: "p1", name: "Pen" }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.writeHandler({
+          name: "rename",
+          schema: z.object({ id: z.string(), name: z.string() }),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access: { roles: ["Admin"] },
+        });
+        r.screen({
+          id: "product-projection",
+          type: "projectionList",
+          query: "shop:query:products",
+          columns: ["name"],
+          rowActions: [
+            {
+              kind: "drawer",
+              id: "rename",
+              label: "actions.rename",
+              screen: "rename-form",
+              params: opts.drawerParams ?? { pick: ["id"] },
+            },
+          ],
+        });
+        r.screen({
+          id: "rename-form",
+          type: "actionForm",
+          handler: "shop:write:rename",
+          fields: { id: { type: "text", required: true }, name: { type: "text", required: true } },
+          layout: { sections: [{ fields: [{ field: "id", visible: false }, "name"] }] },
+          load: { query: opts.loadQuery },
+          ...(opts.submitPrefilled !== undefined && { submitPrefilled: opts.submitPrefilled }),
+        });
+      });
+    }
+
+    test("a registered load query passes boot", () => {
+      expect(() =>
+        validateBoot([makeLoadFeature({ loadQuery: "shop:query:product:detail" })]),
+      ).not.toThrow();
+    });
+
+    test("an unknown load query is rejected", () => {
+      expect(() => validateBoot([makeLoadFeature({ loadQuery: "shop:query:nope" })])).toThrow(
+        /Screen "rename-form" \(actionForm\) load query "shop:query:nope"/,
+      );
+    });
+
+    test("a load form with submitPrefilled needs no navigate source for a hidden required field", () => {
+      expect(() =>
+        validateBoot([
+          makeLoadFeature({ loadQuery: "shop:query:product:detail", submitPrefilled: true }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("a drawer passes only the row id: other params keys still need a form field", () => {
+      expect(() =>
+        validateBoot([
+          makeLoadFeature({
+            loadQuery: "shop:query:product:detail",
+            drawerParams: { pick: ["id", "nope"] },
+          }),
+        ]),
+      ).toThrow(/params prefills "nope"/);
     });
   });
 
