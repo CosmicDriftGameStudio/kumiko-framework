@@ -412,6 +412,18 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Save first, then upload.",
     de: "Erst speichern, dann hochladen.",
   },
+  "documentDesigner.mail.resource.noFilesFeature": {
+    en: "Uploads need the files feature, which this app has not mounted.",
+    de: "Uploads brauchen das Files-Feature, das diese App nicht eingebunden hat.",
+  },
+  "documentDesigner.mail.testMail.unavailable.noChannel": {
+    en: "Test mails need the email channel, which this app has not mounted.",
+    de: "Test-Mails brauchen den E-Mail-Kanal, den diese App nicht eingebunden hat.",
+  },
+  "documentDesigner.mail.testMail.unavailable.noAddress": {
+    en: "No email address is stored for you, so no test mail can be sent.",
+    de: "Für dich ist keine E-Mail-Adresse hinterlegt, daher kann keine Test-Mail gesendet werden.",
+  },
   "documentDesigner.mail.resource.inline": {
     en: "Inline",
     de: "Inline",

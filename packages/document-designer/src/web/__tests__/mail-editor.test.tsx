@@ -118,6 +118,7 @@ function fakeDispatcher(
   validationAnswer = validation,
   previewAnswer = preview,
   storedMeta: Readonly<Record<string, string>> = STORED_META,
+  sendTestStatus: unknown = { canSend: true, reason: null },
 ): Dispatcher {
   const answer = (type: string, payload: unknown): unknown => {
     switch (type) {
@@ -146,6 +147,8 @@ function fakeDispatcher(
         return previewAnswer;
       case "template-resolver:query:usage":
         return { usedBy: [] };
+      case "template-resolver:query:send-test-status":
+        return sendTestStatus;
       case "user:query:user:me":
         return { email: "editor@example.org" };
       case ConfigQueries.values:
@@ -198,6 +201,8 @@ function withTenantTransportUsage(base: Dispatcher): Dispatcher {
 }
 
 // Only the screen list matters to the sender hint's link check.
+const FILES_FEATURE = { featureName: "files", screens: [] } as unknown as FeatureSchema;
+
 const MAIL_SENDING_FEATURE = {
   name: "mail-foundation",
   screens: [{ id: TENANT_MAIL_SENDING_SCREEN_ID }],
@@ -683,5 +688,42 @@ describe("MailEditor", () => {
         calls.find((call) => call.type === "template-resolver:write:send-test")?.payload,
       ).toMatchObject({ variables: pickedValues }),
     );
+  });
+  test("the test mail button stays off with a hint when the server has no address for the user", async () => {
+    const noAddress = { canSend: false, reason: "no_address" };
+    renderEditor(fakeDispatcher("draft", [], validation, preview, STORED_META, noAddress));
+    await openPreview();
+    expect(
+      await screen.findByText("No email address is stored for you, so no test mail can be sent."),
+    ).toBeTruthy();
+    expect((screen.getByTestId("mail-test-send") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test("the test mail button is enabled when the server can send", async () => {
+    renderEditor(fakeDispatcher("draft", []));
+    await openPreview();
+    await waitFor(() =>
+      expect((screen.getByTestId("mail-test-send") as HTMLButtonElement).disabled).toBe(false),
+    );
+  });
+
+  test("upload is disabled with a hint when the files feature is not mounted", async () => {
+    renderEditor(fakeDispatcher("draft", []));
+    const upload = await screen.findByTestId("mail-resource-upload-open");
+    expect((upload as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      screen.getByText("Uploads need the files feature, which this app has not mounted."),
+    ).toBeTruthy();
+    cleanup();
+
+    renderEditor(fakeDispatcher("draft", []), (children) => (
+      <AppFeaturesProvider features={[FILES_FEATURE]}>{children}</AppFeaturesProvider>
+    ));
+    await waitFor(() =>
+      expect((screen.getByTestId("mail-resource-upload-open") as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    expect(screen.queryByText(/Uploads need the files feature/)).toBeNull();
   });
 });

@@ -17,6 +17,10 @@
       "types": "./src/headless/index.ts",
       "default": "./src/headless/index.ts"
     },
+    "./flow-diagram": {
+      "types": "./src/flow-diagram/index.ts",
+      "default": "./src/flow-diagram/index.ts"
+    },
     "./headless/apex": {
       "types": "./src/headless/apex/index.ts",
       "default": "./src/headless/apex/index.ts"
@@ -117,6 +121,10 @@
       "./headless": {
         "types": "./dist/headless/index.d.ts",
         "default": "./dist/headless/index.js"
+      },
+      "./flow-diagram": {
+        "types": "./dist/flow-diagram/index.d.ts",
+        "default": "./dist/flow-diagram/index.js"
       },
       "./headless/apex": {
         "types": "./dist/headless/apex/index.d.ts",

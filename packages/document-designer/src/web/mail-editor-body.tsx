@@ -50,6 +50,7 @@ import {
 import type { MailDraft, MailValidation, PickedValues, TemplateRowView } from "./mail-types.ts";
 import { UploadModal } from "./mail-upload-modal.tsx";
 import { VersionsSection } from "./mail-versions.tsx";
+import { useFilesCapability } from "./use-files-capability.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useMailPersistence } from "./use-mail-persistence.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
@@ -116,6 +117,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   });
   const testMail = useTestMail();
   const own = useOwnAddress();
+  const filesAvailable = useFilesCapability();
   const resourceRemove = useMutation(TemplateResolverHandlers.resourceRemove);
   const layouts = useOverviewRows("mail-layout");
   const pdfTemplates = useOverviewRows("document-pdf");
@@ -297,6 +299,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
                 resources={resources}
                 pdfTitles={pdfTitles}
                 canUpload={uploadTemplateId !== null}
+                filesAvailable={filesAvailable}
                 onUpload={() => setUploadOpen(true)}
                 onInsert={insert.insertResource}
                 onRemove={(key) => setDialog({ kind: "remove", key })}
@@ -377,6 +380,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           origin={origin}
           controls={controls}
           testMail={{
+            availability: testMail.availability,
             pending: testMail.pending,
             onSend: sendTestMail,
             includeAttachments,

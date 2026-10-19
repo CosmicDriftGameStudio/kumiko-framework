@@ -6,9 +6,9 @@
  * belongs in `src/web` instead.
  *
  * `src/web/**` is the browser layer and not scanned at all: it may import
- * everything. `src/headless/**` and `src/live/**` only get the import rules:
- * the apex page builder emits HTML strings and the live dispatcher is a fetch
- * client, so the symbol and JSX-tag rules would be noise there. They stay free
+ * everything. `src/headless/**`, `src/flow-diagram/**` and `src/live/**` only get
+ * the import rules: the apex page builder emits HTML strings, the flow diagram
+ * emits SVG strings and the live dispatcher is a fetch client, so the symbol and JSX-tag rules would be noise there. They stay free
  * of react-dom, jsdom and any import of `src/web`.
  *
  * Deliberately simple: a regex scan over the source text. False positives
@@ -70,7 +70,7 @@ const FORBIDDEN_SYMBOLS = [
 const FORBIDDEN_JSX_TAG = /(^|\s|>|\()<([a-z][a-zA-Z0-9-]*)(?=[\s/>])/g;
 
 // Subtrees of packages/renderer/src that carry only the import rules.
-const IMPORT_RULES_ONLY_DIRS = ["headless", "live"] as const;
+const IMPORT_RULES_ONLY_DIRS = ["headless", "flow-diagram", "live"] as const;
 
 // The browser layer may import anything, so it is not scanned.
 const UNSCANNED_TOP_LEVEL_DIRS = ["web"] as const;

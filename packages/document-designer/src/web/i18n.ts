@@ -51,6 +51,8 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.preview.renderFailed": "The PDF could not be displayed.",
     "documentDesigner.preview.stale": "The preview is out of date. Generate the PDF again.",
     "documentDesigner.resources.empty": "No images yet.",
+    "documentDesigner.resources.noFilesFeature":
+      "Uploads need the files feature, which this app has not mounted.",
     "documentDesigner.resources.saveFirst": "Save the template first, then you can upload images.",
     "documentDesigner.resources.title": "Resources",
     "documentDesigner.resources.upload": "+ Upload",
@@ -137,6 +139,8 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.preview.renderFailed": "Das PDF konnte nicht angezeigt werden.",
     "documentDesigner.preview.stale": "Die Vorschau ist veraltet. Bitte das PDF neu erzeugen.",
     "documentDesigner.resources.empty": "Noch keine Bilder.",
+    "documentDesigner.resources.noFilesFeature":
+      "Uploads brauchen das Files-Feature, das diese App nicht eingebunden hat.",
     "documentDesigner.resources.saveFirst":
       "Speichere die Vorlage zuerst, danach können Bilder hochgeladen werden.",
     "documentDesigner.resources.title": "Ressourcen",
@@ -226,6 +230,8 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.preview.stale":
       "La vista previa está desactualizada. Vuelve a generar el PDF.",
     "documentDesigner.resources.empty": "Todavía no hay imágenes.",
+    "documentDesigner.resources.noFilesFeature":
+      "Las subidas necesitan la función de archivos, que esta app no ha montado.",
     "documentDesigner.resources.saveFirst":
       "Guarda primero la plantilla; después podrás subir imágenes.",
     "documentDesigner.resources.title": "Recursos",

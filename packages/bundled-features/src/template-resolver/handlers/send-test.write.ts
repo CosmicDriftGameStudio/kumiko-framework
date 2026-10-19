@@ -1,22 +1,17 @@
-import { defineWriteHandler, type Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import {
-  collectChannels,
-  createEmailAttachmentReader,
-  EMAIL_CHANNEL_NAME,
-} from "../../delivery/index.ts";
-import { fileContextForTenant } from "../../file-foundation/index.ts";
 import { TEST_MAIL_SUBJECT_PREFIX } from "../constants.ts";
 import { TemplateResolverErrors } from "../qualified-names.ts";
 import { renderTemplatePreview } from "../template-preview.ts";
+import {
+  emailChannelOf,
+  resolveTestMailAddress,
+  testMailChannelContext,
+} from "./send-test-shared.ts";
 import { localeSchema, templateSlugSchema } from "./shared.ts";
 
 const TEST_MAIL_RATE_LIMIT = { limit: 10, windowSeconds: 3600 } as const;
-
-function emailChannelOf(registry: Registry) {
-  return collectChannels(registry).find((channel) => channel.name === EMAIL_CHANNEL_NAME);
-}
 
 // Transport errors can carry provider responses or the address, so the client only gets a fixed code.
 function testMailFailed(code: "channel_error" | "not_sent") {
@@ -70,22 +65,8 @@ export const sendTestWrite = defineWriteHandler({
         }),
       );
     }
-    const channelContext = {
-      db: ctx.db,
-      registry: ctx.registry,
-      sseBroker: undefined,
-      tenantId: event.user.tenantId,
-      secrets: ctx.secrets,
-      config: ctx.config,
-      readAttachment: createEmailAttachmentReader(
-        ctx.db,
-        ctx.registry,
-        event.user.tenantId,
-        ctx.config,
-        (tenantId) => fileContextForTenant(ctx, ctx.user.tenantId, tenantId),
-      ),
-    };
-    const address = (await channel.resolve?.(event.user.id, channelContext)) ?? null;
+    const channelContext = testMailChannelContext(ctx, event.user);
+    const address = await resolveTestMailAddress(channel, channelContext, event.user);
     if (address === null) {
       return writeFailure(
         new UnprocessableError(TemplateResolverErrors.testMailNoAddress, {

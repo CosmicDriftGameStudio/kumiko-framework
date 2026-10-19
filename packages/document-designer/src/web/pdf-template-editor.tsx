@@ -51,6 +51,7 @@ import {
   type ValidationResult,
   type VariableInfo,
 } from "./types.ts";
+import { useFilesCapability } from "./use-files-capability.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
 import { templateTitle } from "./used-by-label.ts";
@@ -102,6 +103,7 @@ export function PdfTemplateEditor({
   const dispatcher = useDispatcher();
   const { Button, Banner, Dialog } = usePrimitives();
   const insert = useInsertTargets();
+  const filesAvailable = useFilesCapability();
   const overview = useOverviewRows(DOCUMENT_PDF_KIND);
   const roles = useUserRoles();
   const scope: TemplateScope = roles?.includes("SystemAdmin") === true ? "system" : "tenant";
@@ -516,6 +518,7 @@ export function PdfTemplateEditor({
               <PdfResourceSection
                 resourceKeys={resourceKeys}
                 canUpload={detail.scope === scope}
+                filesAvailable={filesAvailable}
                 layoutName={layoutName}
                 onInsert={insert.insertResource}
                 onUpload={uploadResource}

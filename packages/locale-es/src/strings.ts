@@ -1671,6 +1671,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Recursos",
   "documentDesigner.mail.resource.upload": "+ Subir",
   "documentDesigner.mail.resource.saveFirst": "Primero guarda, luego sube.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "Las subidas necesitan la función de archivos, que esta app no ha incluido.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Los correos de prueba necesitan el canal de correo electrónico, que esta app no ha incluido.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "No hay ninguna dirección de correo guardada para ti, así que no se puede enviar un correo de prueba.",
   "documentDesigner.mail.resource.inline": "En línea",
   "documentDesigner.mail.resource.attachment": "Adjunto",
   "documentDesigner.mail.resource.fromPdf": "Adjunto · de «{title}»",

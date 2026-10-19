@@ -9,6 +9,7 @@ import {
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -36,6 +37,8 @@ export const APP_FEATURES = [
   // serves no public pages, so no host resolves to a tenant.
   createManagedPagesFeature({ resolveApexTenant: () => null }),
   createDocumentDesignerFeature(),
+  // The mail editor offers uploads only when the files feature is mounted.
+  createFilesFeature(),
   // Mounted individually: composeRendererStack() would add a second template-resolver.
   createRendererFoundationFeature(),
   createRendererMailHtmlFeature({

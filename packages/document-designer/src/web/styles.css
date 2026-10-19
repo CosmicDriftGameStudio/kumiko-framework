@@ -1,0 +1,12 @@
+/* Tailwind v4 resolves relative @source paths against the REALPATH of the
+   imported CSS file, so only the package itself knows where its sources live
+   in every install layout (workspace, node_modules, isolated or pnpm stores);
+   a path from the renderer's stylesheet would point at a sibling that is not
+   there. `./` is this package's src/web, `../../dist` its compiled twin
+   (class names survive as string literals in the .js). An app imports this
+   file after `@cosmicdrift/kumiko-renderer/web/styles.css`. */
+@source "./**/*.{ts,tsx}";
+@source "../../dist/**/*.js";
+/* `tsc --build` emits compiled tests into dist in the monorepo; published dist has none. */
+@source not "./**/__tests__/**";
+@source not "../../dist/**/__tests__/**";

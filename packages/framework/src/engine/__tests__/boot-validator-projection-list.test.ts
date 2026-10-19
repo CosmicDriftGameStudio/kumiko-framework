@@ -320,6 +320,67 @@ describe("validateBoot — projectionList screens", () => {
     });
   });
 
+  describe("projectionList writeHandler actions point at a registered write-handler", () => {
+    function makeFeature(
+      placement: "rowAction" | "toolbarAction",
+      handlerQn: string,
+      register: boolean,
+    ) {
+      const action = {
+        kind: "writeHandler" as const,
+        id: "sync",
+        label: "actions.sync",
+        handler: handlerQn,
+      };
+      return defineFeature("ledger", (r) => {
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        if (register) {
+          r.writeHandler({
+            name: "sync",
+            schema: z.object({}),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
+        }
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["description"],
+          ...(placement === "rowAction" ? { rowActions: [action] } : { toolbarActions: [action] }),
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+    }
+
+    test.each(["rowAction", "toolbarAction"] as const)(
+      "%s with a registered handler passes boot",
+      (placement) => {
+        expect(() =>
+          validateBoot([makeFeature(placement, "ledger:write:sync", true)]),
+        ).not.toThrow();
+      },
+    );
+
+    test.each(["rowAction", "toolbarAction"] as const)(
+      "%s with an unknown handler is a boot error",
+      (placement) => {
+        expect(() => validateBoot([makeFeature(placement, "ledger:write:ghost", false)])).toThrow(
+          new RegExp(
+            `\\(projectionList\\) ${placement} "sync" handler "ledger:write:ghost" is not a registered write-handler`,
+          ),
+        );
+      },
+    );
+  });
+
   // fw#2224: filter/facets are new on ProjectionListScreenDefinition — no
   // entity to check field-existence against, so validation is either
   // structural (filter) or checked against the declared columns (facets),

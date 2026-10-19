@@ -8,15 +8,35 @@ fi
 # Walk up so a worktree without its own node_modules resolves via the parent
 # install, but not past an enclosing repository: a bin above that boundary
 # belongs to another project. `[ -x ]` also skips a broken (uninstalled) symlink.
+# A bin in an ancestor that is owned by someone else or group/world-writable
+# (/tmp, /Users/Shared) is attacker-plantable and must never be exec'd, and
+# $HOME is the upper trust boundary (inclusive), compared by physical path
+# because git prints REPO_ROOT resolved: a trailing slash or a symlinked home
+# would otherwise never match and the walk would continue to /.
+HOME_BOUND=""
+if [ -n "$HOME" ] && [ -d "$HOME" ]; then
+  HOME_BOUND="$(cd "$HOME" 2>/dev/null && pwd -P)"
+fi
 BIN=""
 DIR="$REPO_ROOT"
 while true; do
-  CANDIDATE="$DIR/node_modules/.bin/kumiko-pre-push"
-  if [ -x "$CANDIDATE" ]; then
-    BIN="$CANDIDATE"
-    break
+  TRUSTED=1
+  if [ "$DIR" != "$REPO_ROOT" ]; then
+    if [ ! -O "$DIR" ] || [ -n "$(find "$DIR" -maxdepth 0 \( -perm -0020 -o -perm -0002 \) -print 2>/dev/null)" ]; then
+      TRUSTED=0
+    fi
   fi
-  if [ "$DIR" = "/" ]; then
+  if [ "$TRUSTED" = 1 ]; then
+    BIN_DIR="$DIR/node_modules/.bin"
+    CANDIDATE="$BIN_DIR/kumiko-pre-push"
+    # The bin dir itself must be user-owned and not group/world-writable, or a
+    # planted entry could replace the real bin.
+    if [ -x "$CANDIDATE" ] && [ -O "$BIN_DIR" ] && [ -z "$(find "$BIN_DIR" -maxdepth 0 \( -perm -0020 -o -perm -0002 \) -print 2>/dev/null)" ]; then
+      BIN="$CANDIDATE"
+      break
+    fi
+  fi
+  if [ "$DIR" = "/" ] || { [ -n "$HOME_BOUND" ] && [ "$DIR" = "$HOME_BOUND" ]; }; then
     break
   fi
   if [ "$DIR" != "$REPO_ROOT" ] && [ -e "$DIR/.git" ]; then

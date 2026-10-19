@@ -136,6 +136,7 @@ export function ResourceSection({
   resources,
   pdfTitles,
   canUpload,
+  filesAvailable,
   onUpload,
   onInsert,
   onRemove,
@@ -143,6 +144,7 @@ export function ResourceSection({
   readonly resources: readonly LinkedResourceView[];
   readonly pdfTitles: ReadonlyMap<string, string>;
   readonly canUpload: boolean;
+  readonly filesAvailable: boolean;
   readonly onUpload: () => void;
   readonly onInsert: (key: string) => void;
   readonly onRemove: (key: string) => void;
@@ -156,7 +158,7 @@ export function ResourceSection({
       action={
         <Button
           variant="link"
-          disabled={!canUpload}
+          disabled={!canUpload || !filesAvailable}
           onClick={onUpload}
           testId="mail-resource-upload-open"
         >
@@ -164,7 +166,10 @@ export function ResourceSection({
         </Button>
       }
     >
-      {!canUpload && <RailHint>{t("documentDesigner.mail.resource.saveFirst")}</RailHint>}
+      {!filesAvailable && <RailHint>{t("documentDesigner.mail.resource.noFilesFeature")}</RailHint>}
+      {filesAvailable && !canUpload && (
+        <RailHint>{t("documentDesigner.mail.resource.saveFirst")}</RailHint>
+      )}
       {resources.map((resource) => {
         const row = resourceRow(t, resource, pdfTitles);
         return (

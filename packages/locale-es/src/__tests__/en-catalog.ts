@@ -1636,6 +1636,12 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Resources",
   "documentDesigner.mail.resource.upload": "+ Upload",
   "documentDesigner.mail.resource.saveFirst": "Save first, then upload.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "Uploads need the files feature, which this app has not mounted.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Test mails need the email channel, which this app has not mounted.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "No email address is stored for you, so no test mail can be sent.",
   "documentDesigner.mail.resource.inline": "Inline",
   "documentDesigner.mail.resource.attachment": "Attachment",
   "documentDesigner.mail.resource.fromPdf": 'Attachment · from "{title}"',
