@@ -72,12 +72,12 @@ function stubSecrets(
   };
 }
 
-/** Minimaler HandlerContext-Stub mit nur den Feldern, die die ctx-
- *  Resolution liest (secrets, _userId für audit, config). */
+/** Minimal HandlerContext stub with only the fields the ctx resolution
+ *  reads (secrets, auditUserId for the audit, config). */
 function stubCtx(opts: { secrets?: SecretsContext; billingLive?: boolean }): HandlerContext {
   return {
     secrets: opts.secrets,
-    _userId: "tester",
+    auditUserId: "tester",
     // Key-aware: antwortet NUR auf das billing-live-Handle. Liest
     // assertBillingLive versehentlich einen anderen Config-Key, kommt undefined
     // zurück → Gate schließt → der "passes when true"-Test schlägt fehl (#421/3).

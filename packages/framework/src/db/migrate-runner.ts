@@ -142,10 +142,20 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
       current += ch;
       continue;
     }
-    if (ch === "$" && /^\$([A-Za-z_]\w*)?\$/.test(sqlText.slice(i))) {
-      throw new Error(
-        "splitSqlStatements: unsupported dollar-quoted body — migration SQL is malformed, refusing to split",
-      );
+    if (ch === "$") {
+      const opening = /^\$([A-Za-z_]\w*)?\$/.exec(sqlText.slice(i))?.[0];
+      if (opening !== undefined) {
+        // Body is copied verbatim: `;` and quotes inside a DO/function body belong to it.
+        const closeAt = sqlText.indexOf(opening, i + opening.length);
+        if (closeAt === -1) {
+          throw new Error(
+            `splitSqlStatements: unterminated dollar-quoted body ${opening} — migration SQL is malformed, refusing to split`,
+          );
+        }
+        current += sqlText.slice(i, closeAt + opening.length);
+        i = closeAt + opening.length - 1;
+        continue;
+      }
     }
     if (ch === ";") {
       statements.push(current);
@@ -155,8 +165,6 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
     current += ch;
   }
   if (state === "blockComment" || state === "singleQuote" || state === "doubleQuote") {
-    // Does not track dollar-quoted (`$$...$$`) bodies — none of this repo's
-    // migrations use them; add that state if one ever does.
     throw new Error(
       `splitSqlStatements: unterminated ${state} — migration SQL is malformed, refusing to split`,
     );

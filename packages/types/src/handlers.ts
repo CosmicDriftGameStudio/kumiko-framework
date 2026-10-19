@@ -557,6 +557,9 @@ type SharedContextFields = {
    * absent for r.systemScope() handlers and without a db.
    */
   readonly forTenant?: (tenantId: TenantId) => TenantWriteTarget;
+  /** Mints the per-request `ctx.config`; set by the boot (`addConfigAccessorFactory`) from the effective `configResolver`, overriding an app-supplied value. */
+  readonly configAccessorFactory?: ConfigAccessorFactory;
+  /** @deprecated Use `configAccessorFactory`; the underscore name is removed in the next major. */
   readonly _configAccessorFactory?: ConfigAccessorFactory;
   // Encryption round-trip partner for the config feature. Separate from
   // configResolver so the read-only resolver contract stays clean — the
@@ -708,13 +711,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // only for system handlers (isSystem is a runtime-only registry lookup),
   // so a system handler must reach for `systemDb` below.
   readonly db: TenantDb;
-  // Same tenant scoping as `db`, but never bound to the handler's tx: writes
-  // through it survive a rollback, for side effects that already happened
-  // outside the DB. `undefined` when the pipeline has no outside-tx source
-  // for this dispatch (see dispatch-shared.ts) — callers must check before
-  // use. For r.systemScope() handlers this is fail-closed instead, same as
-  // `db` above — a truthy Proxy that throws on first property read, so a
-  // system handler must reach for `systemDb.outsideTransaction` below.
+  /**
+   * Same tenant scoping as `db`, but never bound to the handler's tx: writes through it survive
+   * a rollback. `undefined` only in the denial phases (member-resolution, before-transaction)
+   * and in platform-metering tenant mode; narrow with `hasOutsideTransactionDb(ctx)` or take it
+   * via `requireOutsideTransactionDb(ctx)` (`@cosmicdrift/kumiko-framework/db`). For
+   * r.systemScope() handlers it is a fail-closed Proxy; use `systemDb.outsideTransaction`.
+   */
   readonly dbOutsideTransaction: TenantDb | undefined;
   // Runs `fn` in its own transaction, committed on return regardless of how the
   // handler ends: event and projection writes stay atomic (unlike writing through
@@ -722,6 +725,10 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // `fn` must not touch rows the handler's own tx has locked, it would wait on them
   // forever. Undefined where `dbOutsideTransaction` is unavailable, and for
   // r.systemScope() handlers (use `systemDb.outsideTransaction` there).
+  /**
+   * @deprecated Use `runInOwnTransaction(ctx.dbOutsideTransaction, fn)` from
+   * `@cosmicdrift/kumiko-framework/db`; removed in the next major.
+   */
   readonly outsideTransaction?: <T>(fn: (db: TenantDb) => Promise<T>) => Promise<T>;
   // Only present for r.systemScope() handlers. Non-system handlers never
   // receive this — reach for `db` instead, which is fail-closed for them.
@@ -784,27 +791,23 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // stale `false`.
   readonly hasFeature: (featureName: string) => Promise<boolean>;
 
-  // Append a domain event to a specific aggregate stream in the current tx.
-  // Marten-aligned: every event belongs to exactly one aggregate. The runtime
-  // reads the current stream version, bumps it, and fires projections that
-  // match the event type in the same transaction. Use it when a write-handler
-  // wants to record a domain event alongside the auto-generated CRUD events
-  // (e.g. "invoice.approved" on the same invoice stream that already carries
-  // "invoice.created" + "invoice.updated").
+  /**
+   * Default append: a typed domain event on one aggregate stream in the current tx. The runtime
+   * bumps the stream version and fires matching projections in the same transaction. A version
+   * conflict throws and poisons the transaction.
+   */
   readonly appendEvent: AppendEventFn<TMap>;
 
-  // Escape-hatch for runtime-pluggable features without a compile-time
-  // augmentation. See UnsafeAppendEventFn — same runtime as appendEvent,
-  // but the type-surface is `payload: unknown`. Use only when the event-
-  // type is not knowable at compile-time; otherwise the strict path
-  // (appendEvent) is the contract Designer/AI rely on.
+  /**
+   * Untyped append (`payload: unknown`) with the same runtime as `appendEvent`. Only for
+   * migrations and upcasters, where the event type is not knowable at compile time.
+   */
   readonly unsafeAppendEvent: UnsafeAppendEventFn;
 
-  // Savepoint-scoped append. Use when the handler must gracefully continue
-  // after losing a race against a concurrent writer on the same aggregate
-  // stream (e.g. two idempotent ingest calls racing the same dedup key) —
-  // see TryAppendEventFn for why this doesn't poison the transaction the
-  // way a caught unsafeAppendEvent throw would.
+  /**
+   * Optimistic append: runs in a savepoint and returns a version conflict as a result instead of
+   * throwing, so the handler can continue after losing a race on the same aggregate stream.
+   */
   readonly tryAppendEvent: TryAppendEventFn;
 
   // Marten FetchForWriting equivalent: load the current stream, optionally
@@ -1011,12 +1014,28 @@ export type JobContext = SharedContextFields & {
   // an idempotency key — at-least-once delivery can run the same trigger
   // more than once.
   readonly triggerEvent?: JobTriggerEvent;
-  // Fallback tenant/user when systemUser doesn't carry it (tenant-less cron
-  // jobs). Mirrors AppContext._tenantId/_userId — see the tenant-scoping
-  // footgun above.
+  // Fallback tenant when systemUser doesn't carry it (tenant-less cron
+  // jobs). Mirrors AppContext._tenantId — see the tenant-scoping footgun above.
   readonly _tenantId?: TenantId;
-  readonly _userId?: string | undefined;
 };
+
+/**
+ * What a provider plugin (`build`, `capabilitiesFor`, ...) may read. Both write/query handlers
+ * and jobs can produce one (`providerPluginContextFromHandler`, `providerPluginContextFromJob`),
+ * so a plugin never depends on a request-bound field.
+ */
+export type ProviderPluginContext = Pick<
+  HandlerContext,
+  | "db"
+  | "dbOutsideTransaction"
+  | "systemDb"
+  | "registry"
+  | "user"
+  | "log"
+  | "triggeredBy"
+  | "config"
+  | "secrets"
+>;
 
 // --- Handler Functions ---
 

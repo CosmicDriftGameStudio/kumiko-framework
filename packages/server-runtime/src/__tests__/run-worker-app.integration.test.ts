@@ -279,7 +279,7 @@ describe("runWorkerApp", () => {
           const providerCtx = {
             registry: deps.registry,
             secrets: deps.secrets,
-            _userId: SYSTEM_USER_ID,
+            auditUserId: SYSTEM_USER_ID,
           };
           // The path the IMAP provider takes to read an account credential.
           const secrets = requireSecretsContext(providerCtx, "run-worker-app-test");

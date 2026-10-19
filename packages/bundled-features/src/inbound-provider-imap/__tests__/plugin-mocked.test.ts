@@ -180,7 +180,7 @@ const account: MailAccountRecord = {
 
 function ctxWithDoc(doc: string | null): InboundMailContext {
   return {
-    _userId: "imap-plugin-mocked",
+    auditUserId: "imap-plugin-mocked",
     secrets: {
       get: async () => (doc === null ? null : createSecret(doc)),
       has: async () => doc !== null,

@@ -84,7 +84,7 @@ describeMailTransportContract(
   "mail-transport-smtp",
   () => ({
     plugin: registeredPlugin(),
-    ctx: { config: fakeConfig(), secrets: fakeSecrets(), _userId: "contract-test-user" },
+    ctx: { config: fakeConfig(), secrets: fakeSecrets(), auditUserId: "contract-test-user" },
     tenantId: "contract-test-tenant",
   }),
   // send() needs a live SMTP server — can't assert real delivery here.
@@ -96,7 +96,7 @@ describe("mailTransportSmtpFeature — build error path", () => {
     const ctx = {
       config: fakeConfig({ host: "" }),
       secrets: fakeSecrets(),
-      _userId: "contract-test-user",
+      auditUserId: "contract-test-user",
     };
     await expect(registeredPlugin().build(ctx, "contract-test-tenant")).rejects.toThrow(/host/);
   });
@@ -109,7 +109,11 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
   });
 
   test("a private IP-literal host is rejected as unconfigured, naming 'host'", async () => {
-    const ctx = { config: fakeConfig({ host: "10.0.0.5" }), secrets: fakeSecrets(), _userId: "x" };
+    const ctx = {
+      config: fakeConfig({ host: "10.0.0.5" }),
+      secrets: fakeSecrets(),
+      auditUserId: "x",
+    };
     try {
       await registeredPlugin().build(ctx, "contract-test-tenant");
       expect.unreachable("expected build to throw");
@@ -127,7 +131,7 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
     const blockedCtx = {
       config: fakeConfig({ host: "10.0.0.5" }),
       secrets: fakeSecrets(),
-      _userId: "x",
+      auditUserId: "x",
     };
     let blockedMessage: string | undefined;
     try {
@@ -144,7 +148,7 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
     const unresolvableCtx = {
       config: fakeConfig({ host: "nowhere.test" }),
       secrets: fakeSecrets(),
-      _userId: "x",
+      auditUserId: "x",
     };
     let unresolvableMessage: string | undefined;
     try {
@@ -167,7 +171,7 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
     const ctx = {
       config: fakeConfig({ host: "internal-relay.test" }),
       secrets: fakeSecrets(),
-      _userId: "x",
+      auditUserId: "x",
     };
     await expect(registeredPlugin().build(ctx, "contract-test-tenant")).rejects.toBeInstanceOf(
       UnconfiguredError,
@@ -182,7 +186,7 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
     const ctx = {
       config: fakeConfig({ host: "nowhere.test" }),
       secrets: fakeSecrets(),
-      _userId: "x",
+      auditUserId: "x",
     };
     await expect(registeredPlugin().build(ctx, "contract-test-tenant")).rejects.toBeInstanceOf(
       HostResolutionError,
@@ -194,7 +198,7 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
     const ctx = {
       config: fakeConfig({ host: "relay.internal" }),
       secrets: fakeSecrets(),
-      _userId: "x",
+      auditUserId: "x",
     };
     const transport = await registeredPlugin().build(ctx, "contract-test-tenant");
     expect(typeof transport.send).toBe("function");

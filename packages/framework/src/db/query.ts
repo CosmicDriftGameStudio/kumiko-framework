@@ -89,7 +89,7 @@ export type RawClientWithBegin = RawClient & {
 };
 
 export function hasBegin(client: RawClient): client is RawClientWithBegin {
-  // Bun.SQL tx/savepoint handles keep a begin() that throws; only savepoint() tells them apart from a pool.
+  // Tx/savepoint handles can keep a begin() that throws; only savepoint() tells them apart from a pool.
   return typeof client.begin === "function" && typeof client.savepoint !== "function";
 }
 
@@ -127,7 +127,7 @@ export function runnerCanBeginTransaction(db: unknown): boolean {
   return hasBegin(asRawClient(db));
 }
 
-// postgres.js / Bun.SQL reject the WHOLE begin() when any statement inside
+// postgres.js rejects the WHOLE begin() when any statement inside
 // it errored — even if the JS error was caught (the driver tracks per-block
 // query failures). Error confinement therefore must go through the driver's
 // own savepoint(), not manual SAVEPOINT statements. The callback receives
@@ -136,7 +136,7 @@ export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promis
   const raw = asRawClient(tx);
   if (typeof raw.savepoint !== "function") {
     throw new Error(
-      "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (postgres.js TransactionSql / Bun.SQL).",
+      "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (postgres.js TransactionSql).",
     );
   }
   return raw.savepoint(fn);
@@ -318,7 +318,7 @@ export function extractTableInfo(table: TableLike): TableInfo {
   const meta = asEntityTableMeta(table);
   if (!meta) {
     throw new Error(
-      "bun-db.extractTableInfo: table is not a kumiko EntityTableMeta — " +
+      "extractTableInfo: table is not a kumiko EntityTableMeta — " +
         "build it via buildEntityTable / deriveEntityTableMeta / table().",
     );
   }
@@ -421,7 +421,7 @@ function isTemporalPlainDateTimeLike(v: unknown): v is { toPlainDate(): Temporal
   );
 }
 
-// Verified empirically against Bun.SQL (kumiko-framework#1924): a `date`
+// Verified empirically (kumiko-framework#1924): a `date`
 // column comes back as a native JS Date, but ALWAYS anchored at UTC
 // midnight regardless of process TZ — epochMilliseconds is stable across
 // zones, only the local wall-clock read of that Date would drift the day
@@ -435,7 +435,7 @@ function isTemporalPlainDateTimeLike(v: unknown): v is { toPlainDate(): Temporal
 // the day, so say so once per column instead of returning the wrong day quietly.
 const warnedNonMidnightDateColumns = new Set<string>();
 const MS_PER_DAY = 86_400_000;
-const dateColumnDriftLog = createFallbackLogger("bun-db");
+const dateColumnDriftLog = createFallbackLogger("postgres-js");
 
 function warnIfNotDateColumn(epochMs: number, column: string): void {
   // skip: midnight value is a correct date column, and an already-warned column is deduped
@@ -522,7 +522,7 @@ function coerceDriverRow(row: Record<string, unknown>, info: TableInfo): Record<
       (pgType === "integer" || pgType === "int4" || pgType === "smallint" || pgType === "int2") &&
       (typeof value === "bigint" || typeof value === "string")
     ) {
-      // Bun.SQL / some drivers return int4 as bigint or numeric string.
+      // Drivers may return int4 as bigint or numeric string.
       // Drizzle coerced to number for numberField columns — match that.
       const n = Number(value);
       if (!Number.isNaN(n)) coerced = n;
@@ -622,8 +622,8 @@ const INTEGER_PG_TYPES: ReadonlySet<string> = new Set([
   "bigserial",
 ]);
 
-// postgres.js truncates timestamptz params to ms via Date; Bun.SQL sends µs and Postgres
-// rounds into timestamptz(3). Truncating here keeps both drivers storing the same instant.
+// Postgres rounds sub-millisecond params into timestamptz(3); truncating to ms here keeps the
+// stored instant identical across drivers and equal to what postgres.js sends via Date.
 export function instantToTimestamptzParam(instant: Temporal.Instant): string {
   return Temporal.Instant.fromEpochMilliseconds(instant.epochMilliseconds).toString();
 }
@@ -635,7 +635,7 @@ function prepareDriverNeutralScalar(
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
     return { kind: "param", sql: "", bound: instantToTimestamptzParam(value) };
   }
-  // Bun.SQL binds JS numbers typed, so Postgres would round 3.5 into an integer column; postgres.js sends text and rejects it.
+  // postgres.js sends text, so Postgres rejects 3.5 for an integer column instead of rounding it.
   if (typeof value === "number" && pgType !== undefined && INTEGER_PG_TYPES.has(pgType)) {
     return { kind: "param", sql: "", bound: String(value) };
   }
@@ -647,7 +647,7 @@ function prepareValue(value: unknown, pgType: string | undefined): PreparedValue
     return { kind: "literal", literal: value.text };
   }
   // A PII-encrypted jsonb field is a JSON string scalar; a raw string bound to
-  // ::jsonb would be parsed as JSON text (or double-encoded under Bun.SQL).
+  // ::jsonb would be parsed as JSON text (or double-encoded).
   if (pgType === "jsonb" && isPiiCiphertext(value)) {
     return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
   }
@@ -894,7 +894,7 @@ function isPooledClient(raw: unknown): boolean {
   );
 }
 
-const closedConnectionLog = createFallbackLogger("bun-db");
+const closedConnectionLog = createFallbackLogger("postgres-js");
 
 // The driver rejects in-flight queries with this AbortError (no code) when the
 // pool closes under them, so isClosedConnectionError can't see it.
@@ -992,7 +992,7 @@ function logClosedConnection(
 }
 
 // Write and other non-retried paths: log when a closed-connection error leaves
-// bun-db, rethrow unchanged.
+// the db layer, rethrow unchanged.
 async function unsafeLoggingClosedConnection<TRow = unknown>(
   db: AnyDb,
   sqlText: string,
@@ -1015,7 +1015,7 @@ function poolMaxOf(raw: unknown): number {
   return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : DEFAULT_POOL_MAX;
 }
 
-// Exported so raw-SQL query modules outside bun-db (e.g. bundled-features'
+// Exported so raw-SQL query modules outside the db layer (e.g. bundled-features'
 // db/queries/*.ts) can opt into the same closed-connection retry instead of
 // calling asRawClient(db).unsafe(...) directly and losing it.
 // READS ONLY — retry re-executes the statement; never pass INSERT/UPDATE/DELETE.

@@ -21,7 +21,7 @@ import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "
  *   config   — tenant config reads (host/port/... of the plugins)
  *   registry — extension lookup in the factory (not plugin-internal)
  *   secrets  — tenant secret reads (IMAP password, OAuth refresh token)
- *   _userId  — audit identity for secret reads. Handler path: the dispatcher
+ *   auditUserId  — audit identity for secret reads. Handler path: the dispatcher
  *              sets the caller user ID; worker path: system identity.
  *   metricsFor — metrics handle of a feature by name, same behavior as
  *              HandlerContext.metricsFor: unregistered metrics are a silent
@@ -31,7 +31,7 @@ export type InboundMailContext = {
   readonly config?: ConfigAccessor;
   readonly registry?: Registry;
   readonly secrets?: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext;
-  readonly _userId?: string | undefined;
+  readonly auditUserId?: string | undefined;
   readonly metricsFor?: (featureName: string) => MetricsHandle;
 };
 

@@ -110,6 +110,7 @@ import { isPlainObject } from "../utils/is-plain-object.ts";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
 import { appendDomainEventCore } from "./append-event-core.ts";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.ts";
+import { configAccessorFactoryOf } from "./config-accessor-factory.ts";
 import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
 import { executeQuery } from "./dispatch-query.ts";
 import { executeWrite } from "./dispatch-write.ts";
@@ -637,9 +638,10 @@ export async function buildHandlerContext(
     });
   }
   // Mirror notify: only built when the config feature wired its factory.
+  const configFactory = configAccessorFactoryOf(context);
   const config =
-    context._configAccessorFactory && db
-      ? context._configAccessorFactory({
+    configFactory && db
+      ? configFactory({
           user: { id: user.id, tenantId: user.tenantId },
           db,
           secrets: context.secrets,
@@ -649,7 +651,6 @@ export async function buildHandlerContext(
   // identity is the target tenant's system user so the caller's own user-scope
   // values never resolve into another tenant's config; the db is tenant-mode
   // scoped to the target.
-  const configFactory = context._configAccessorFactory;
   const configFor =
     configFactory && dbSource
       ? (targetTenantId: TenantId): ConfigAccessor => {
@@ -1716,8 +1717,9 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
       projectionRegistry: ctx.registry,
     },
   });
-  const configAccessor = context._configAccessorFactory
-    ? context._configAccessorFactory({
+  const authClaimsConfigFactory = configAccessorFactoryOf(context);
+  const configAccessor = authClaimsConfigFactory
+    ? authClaimsConfigFactory({
         user: { id: user.id, tenantId: user.tenantId },
         db,
         secrets: context.secrets,

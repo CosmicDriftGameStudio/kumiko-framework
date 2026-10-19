@@ -8,6 +8,7 @@ import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { requireOutsideTransactionDb } from "../../db/tenant-db.ts";
 import {
   access,
   createEntity,
@@ -153,11 +154,11 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
-      const outsideTx = ctx.dbOutsideTransaction;
-      if (!outsideTx) {
-        throw new Error("bag:create-outside-tx-then-fail requires ctx.dbOutsideTransaction");
-      }
-      await crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, outsideTx);
+      await crud.create(
+        { label: `${event.payload.label}-outside-tx` },
+        event.user,
+        requireOutsideTransactionDb(ctx),
+      );
       return writeFailure(new UnprocessableError("intentional_failure"));
     },
     access: { roles: ["Admin"] },

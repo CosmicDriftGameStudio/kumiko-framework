@@ -8,6 +8,7 @@ import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { requireOutsideTransactionDb, runInOwnTransaction } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
@@ -50,24 +51,22 @@ const poolFeature = defineFeature("outsidepool", (r) => {
     handler: async (event, ctx) => {
       await crud.create({ label: `${event.payload.label}-inside` }, event.user, ctx.db);
       await waitForAllWrites();
-      if (!ctx.dbOutsideTransaction) throw new Error("ctx.dbOutsideTransaction missing");
       return crud.create(
         { label: `${event.payload.label}-outside` },
         event.user,
-        ctx.dbOutsideTransaction,
+        requireOutsideTransactionDb(ctx),
       );
     },
     access: { roles: ["Admin"] },
   });
 
   r.writeHandler({
-    name: "note:via-outside-transaction",
+    name: "note:via-run-in-own-transaction",
     schema: z.object({ label: z.string() }),
     handler: async (event, ctx) => {
       await crud.create({ label: `${event.payload.label}-inside` }, event.user, ctx.db);
       await waitForAllWrites();
-      if (!ctx.outsideTransaction) throw new Error("ctx.outsideTransaction missing");
-      return ctx.outsideTransaction((txDb) =>
+      return runInOwnTransaction(requireOutsideTransactionDb(ctx), (txDb) =>
         crud.create({ label: `${event.payload.label}-outside` }, event.user, txDb),
       );
     },
@@ -93,7 +92,7 @@ afterAll(async () => {
 describe("outside-transaction access with a saturated main pool", () => {
   test.each([
     "outsidepool:write:note:via-db-outside-transaction",
-    "outsidepool:write:note:via-outside-transaction",
+    "outsidepool:write:note:via-run-in-own-transaction",
   ])("%s: concurrent writes holding a tx all complete", async (qualifiedName) => {
     waitForAllWrites = createBarrier(CONCURRENT_WRITES);
     const label = qualifiedName.split(":").at(-1) ?? qualifiedName;

@@ -853,7 +853,7 @@ export function mergeConfigResolverDefault(
       ...(cipher && { cipher }),
     }),
   };
-  // ctx.config wird per-Request aus _configAccessorFactory geminted (siehe
+  // ctx.config wird per-Request aus configAccessorFactory geminted (siehe
   // addConfigAccessorFactory) — sonst bleibt ctx.config undefined und Handler
   // die es lesen (createFileProviderForTenant) werfen. Aus dem EFFEKTIVEN
   // Resolver (Caller-Override gewinnt) gebaut, symmetrisch zu runProdApp.

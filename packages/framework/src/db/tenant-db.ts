@@ -199,7 +199,7 @@ function buildUncheckedSystemDb(
   // AccessDeniedError) because this is a dispatch wiring fault, not a
   // tenant-access denial — mirrors the "no database connection configured"
   // case in dispatch-shared.ts's appendDomainEvent.
-  function requireOutsideTransactionDb(): TenantDb {
+  function requireSystemOutsideTransactionDb(): TenantDb {
     if (!dbOutsideTransaction) {
       throw new InternalError({
         message:
@@ -281,14 +281,14 @@ function buildUncheckedSystemDb(
             message: `systemScope() outsideTransaction tenant self-check failed: expected "${db.tenantId}", got "${tenantId}"`,
           });
         }
-        return requireOutsideTransactionDb();
+        return requireSystemOutsideTransactionDb();
       },
 
       acknowledgeCrossTenant(reason) {
         if (reason.trim().length === 0) {
           throw new Error("acknowledgeCrossTenant requires a non-empty reason");
         }
-        const result = requireOutsideTransactionDb();
+        const result = requireSystemOutsideTransactionDb();
         report("acknowledge-cross-tenant", reason);
         return result;
       },
@@ -481,6 +481,24 @@ type OwnTransactionRunner = <T>(fn: (txDb: TenantDb) => Promise<T>) => Promise<T
 
 const ownTransactionRebinders = new WeakMap<TenantDb, OwnTransactionRunner>();
 
+export type OutsideTransactionContext = { readonly dbOutsideTransaction: TenantDb | undefined };
+
+export function hasOutsideTransactionDb(
+  ctx: OutsideTransactionContext,
+): ctx is OutsideTransactionContext & { readonly dbOutsideTransaction: TenantDb } {
+  return ctx.dbOutsideTransaction !== undefined;
+}
+
+export function requireOutsideTransactionDb(ctx: OutsideTransactionContext): TenantDb {
+  if (!hasOutsideTransactionDb(ctx)) {
+    throw new InternalError({
+      message:
+        "ctx.dbOutsideTransaction is not available in this dispatch phase (member-resolution, before-transaction denial) or metering tenant mode.",
+    });
+  }
+  return ctx.dbOutsideTransaction;
+}
+
 export async function runInOwnTransaction<T>(
   tenantDb: TenantDb,
   fn: (txDb: TenantDb) => Promise<T>,
@@ -489,8 +507,9 @@ export async function runInOwnTransaction<T>(
   if (!rebind) {
     throw new InternalError({
       message:
-        "runInOwnTransaction received a TenantDb not built by createTenantDb — " +
-        "no transaction rebinder bound.",
+        "runInOwnTransaction received a TenantDb without a transaction rebinder: either it was not " +
+        "built by createTenantDb, or it is the fail-closed ctx.db/ctx.dbOutsideTransaction of an " +
+        "r.systemScope() handler (use ctx.systemDb.outsideTransaction there).",
     });
   }
   return rebind(fn);

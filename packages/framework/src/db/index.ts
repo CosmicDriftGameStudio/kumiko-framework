@@ -212,6 +212,7 @@ export {
 } from "./table-builder.ts";
 export type {
   CreateTenantDbOptions,
+  OutsideTransactionContext,
   TenantDb,
   TenantDbGrants,
   TenantDbMode,
@@ -221,6 +222,8 @@ export {
   castTenantRows,
   createSystemDbView,
   createTenantDb,
+  hasOutsideTransactionDb,
+  requireOutsideTransactionDb,
   runInOwnTransaction,
   SYSTEM_SCOPE_CHECK_BRAND,
   scopeTenantDbToTenant,

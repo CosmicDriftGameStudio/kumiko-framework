@@ -31,7 +31,12 @@ function expandDestructiveMarkers(sqlText: string): string {
 
 export type ReplayedTable = {
   readonly columns: ReadonlySet<string>;
+  // CREATE TABLE ... AS SELECT * from a source the replay can't resolve: the column set is
+  // unknown, so only the table's presence is compared.
+  readonly columnsUnknown?: boolean;
 };
+
+type MutableReplayedTable = { columns: Set<string>; columnsUnknown?: boolean };
 
 export type ReplayedSchema = ReadonlyMap<string, ReplayedTable>;
 
@@ -75,26 +80,124 @@ function parseColumnNames(body: string): Set<string> {
 // Clauses that can appear inside an ALTER TABLE body which do NOT change the
 // table/column shape this replay tracks (presence only, not types/
 // constraints/RLS/ownership) — recognized explicitly so they don't fall
-// through to the fail-loud check as "unparsed". Deliberately does NOT
-// include RENAME TO / RENAME COLUMN: those DO change identity in a way this
-// replay can't track, so they must keep failing loud.
+// through to the fail-loud check as "unparsed". RENAME TO / RENAME COLUMN
+// are not listed here: they change identity and are applied explicitly.
 const SHAPE_NEUTRAL_ALTER_CLAUSE_RE = new RegExp(
   [
     `ALTER COLUMN\\s+${IDENT}\\s+TYPE\\b`, // #1085 int/bigint-catchup fixes
     `ALTER COLUMN\\s+${IDENT}\\s+(SET|DROP)\\s+NOT NULL\\b`,
     `ALTER COLUMN\\s+${IDENT}\\s+(SET DEFAULT\\b|DROP DEFAULT\\b)`,
     `(ADD|DROP)\\s+CONSTRAINT\\s+${IDENT}`,
+    `RENAME\\s+CONSTRAINT\\s+${IDENT}\\s+TO\\s+${IDENT}`,
     `\\b(ENABLE|DISABLE|(NO\\s+)?FORCE)\\s+ROW LEVEL SECURITY\\b`,
     `^OWNER TO\\b`,
   ].join("|"),
   "gi",
 );
 
+function lastIdentifierSegment(expression: string): string | undefined {
+  const match = expression.trim().match(new RegExp(`(?:^|\\.)${IDENT}$`));
+  return match?.[1];
+}
+
+// Column names of a `SELECT <list> FROM <table>` as CREATE TABLE AS materializes them: the
+// alias, else the last segment of a plain column reference. `*` copies the single FROM table
+// when the replay knows it; anything else makes the column set unknown.
+function selectListColumns(
+  schema: ReadonlyMap<string, MutableReplayedTable>,
+  query: string,
+): { readonly columns: Set<string>; readonly columnsUnknown: boolean } {
+  const columns = new Set<string>();
+  let columnsUnknown = false;
+  const select = query.match(/^\s*SELECT\s+(?:DISTINCT\s+)?([\s\S]*)$/i);
+  if (!select?.[1]) return { columns, columnsUnknown: true };
+  let list = select[1];
+  const fromAt = topLevelKeywordIndex(list, "FROM");
+  const fromClause = fromAt === -1 ? "" : list.slice(fromAt + 4);
+  if (fromAt !== -1) list = list.slice(0, fromAt);
+  for (const item of splitTopLevel(list)) {
+    const trimmed = item.trim();
+    if (/(^|\.)\*$/.test(trimmed)) {
+      const source = fromClause.match(new RegExp(`^\\s*${IDENT}\\s*(?:;|$)`))?.[1];
+      const sourceTable = source === undefined ? undefined : schema.get(source);
+      if (sourceTable && !sourceTable.columnsUnknown) {
+        for (const column of sourceTable.columns) columns.add(column);
+      } else {
+        columnsUnknown = true;
+      }
+      continue;
+    }
+    const alias = trimmed.match(new RegExp(`\\bAS\\s+${IDENT}\\s*$`, "i"))?.[1];
+    const name = alias ?? lastIdentifierSegment(trimmed);
+    if (name === undefined) columnsUnknown = true;
+    else columns.add(name);
+  }
+  return { columns, columnsUnknown };
+}
+
+function topLevelKeywordIndex(text: string, keyword: string): number {
+  let depth = 0;
+  const keywordRe = new RegExp(`^${keyword}\\b`, "i");
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charAt(i);
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (depth === 0 && /\s/.test(text.charAt(i - 1) || " ") && keywordRe.test(text.slice(i))) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// A DO block's conditions can't be evaluated here; its table DDL is applied as written, since
+// guarded blocks (IF NOT EXISTS ... THEN ALTER TABLE ...) express the intended end state.
+function doBlockTableStatements(statement: string, file: string): readonly string[] {
+  const body = statement.match(
+    /^DO\s+(?:LANGUAGE\s+\w+\s+)?(\$(?:[A-Za-z_]\w*)?\$)([\s\S]*)\1/i,
+  )?.[2];
+  if (body === undefined) {
+    throw new Error(
+      `${file}: DO block without a recognizable dollar-quoted body — refusing to guess its table DDL`,
+    );
+  }
+  return body
+    .split(";")
+    .map((chunk) => chunk.match(/\b(?:CREATE|ALTER|DROP)\s+TABLE\b[\s\S]*$/i)?.[0])
+    .filter((ddl): ddl is string => ddl !== undefined)
+    .map((ddl) => `${ddl.trim()};`);
+}
+
 function applyStatement(
-  schema: Map<string, { columns: Set<string> }>,
+  schema: Map<string, MutableReplayedTable>,
   statement: string,
   context: { readonly file: string },
 ): void {
+  if (/^DO\b/i.test(statement)) {
+    for (const nested of doBlockTableStatements(statement, context.file))
+      applyStatement(schema, nested, context);
+    // skip: DO block fully handled above
+    return;
+  }
+
+  const createAs = statement.match(
+    new RegExp(
+      `^CREATE\\s+(?:UNLOGGED\\s+)?TABLE\\s+(IF NOT EXISTS\\s+)?${IDENT}\\s*(?:\\(([^)]*)\\)\\s*)?AS\\b([\\s\\S]*)$`,
+      "i",
+    ),
+  );
+  if (createAs?.[2] !== undefined && createAs[4] !== undefined) {
+    if (!(createAs[1] !== undefined && schema.has(createAs[2]))) {
+      const explicitColumns = createAs[3] === undefined ? undefined : parseColumnNames(createAs[3]);
+      const selected = selectListColumns(schema, createAs[4]);
+      schema.set(createAs[2], {
+        columns: explicitColumns ?? selected.columns,
+        ...(explicitColumns === undefined && selected.columnsUnknown && { columnsUnknown: true }),
+      });
+    }
+    // skip: CREATE TABLE AS fully handled above
+    return;
+  }
+
   const create = statement.match(
     new RegExp(`^CREATE TABLE\\s+(IF NOT EXISTS\\s+)?${IDENT}\\s*\\(([\\s\\S]*)\\);?\\s*$`, "i"),
   );
@@ -135,6 +238,25 @@ function applyStatement(
   const alterTableName = alterTable?.[1];
   const alterBody = alterTable?.[2];
   if (alterTableName !== undefined && alterBody !== undefined) {
+    const renameTable = alterBody.match(new RegExp(`^RENAME\\s+TO\\s+${IDENT}\\s*;?$`, "i"));
+    if (renameTable?.[1] !== undefined) {
+      const renamed = schema.get(alterTableName) ?? { columns: new Set<string>() };
+      schema.delete(alterTableName);
+      schema.set(renameTable[1], renamed);
+      // skip: ALTER TABLE RENAME TO fully handled above
+      return;
+    }
+    const renameColumn = alterBody.match(
+      new RegExp(`^RENAME\\s+(?:COLUMN\\s+)?${IDENT}\\s+TO\\s+${IDENT}\\s*;?$`, "i"),
+    );
+    if (renameColumn?.[1] !== undefined && renameColumn[2] !== undefined) {
+      const renamedIn = schema.get(alterTableName) ?? { columns: new Set<string>() };
+      schema.set(alterTableName, renamedIn);
+      renamedIn.columns.delete(renameColumn[1]);
+      renamedIn.columns.add(renameColumn[2]);
+      // skip: ALTER TABLE RENAME COLUMN fully handled above
+      return;
+    }
     const table = schema.get(alterTableName) ?? { columns: new Set<string>() };
     schema.set(alterTableName, table);
     const clauseRe = new RegExp(
@@ -154,8 +276,8 @@ function applyStatement(
     // (which only tracks column presence) correctly has nothing to do for them.
     if (alterBody.match(SHAPE_NEUTRAL_ALTER_CLAUSE_RE)) matchedAClause = true;
     // An ALTER TABLE that matched the outer "ALTER TABLE <name> <body>" shape
-    // but whose body contains no recognized clause (e.g. RENAME TO/RENAME
-    // COLUMN, which DO change identity) would otherwise silently no-op here
+    // but whose body contains no recognized clause (e.g. SET SCHEMA)
+    // would otherwise silently no-op here
     // — fall through to the fail-loud check below instead of returning, so
     // it's reported rather than vanishing.
     // skip: at least one recognized clause matched — this ALTER TABLE is
@@ -166,9 +288,7 @@ function applyStatement(
   // shape this replay tracks — but a statement that clearly INTENDED to
   // touch a table's shape (starts with CREATE/ALTER/DROP TABLE) and matched
   // none of the recognized patterns above must fail loud, not vanish
-  // silently. Concretely this is RENAME TO / RENAME COLUMN (identity change
-  // this replay can't track) or genuinely unparsed hand-written DDL — either
-  // way a misleading missing-table/column-drift report is worse than
+  // silently. Concretely this is genuinely unparsed hand-written DDL — a misleading missing-table/column-drift report is worse than
   // pointing at the actual unparsed statement.
   if (/^(CREATE|ALTER|DROP)\s+TABLE\b/i.test(statement)) {
     const prefix = statement.slice(0, 200).replace(/\s+/g, " ").trim();
@@ -176,10 +296,9 @@ function applyStatement(
       `replayMigrationsDir: unparsed table-DDL statement in ${context.file} — ` +
         `starts with CREATE/ALTER/DROP TABLE but matched none of the replay's ` +
         `recognized patterns (CREATE TABLE, DROP TABLE, ALTER TABLE ADD/DROP ` +
-        `COLUMN, ALTER COLUMN ... TYPE, SET/DROP NOT NULL, SET/DROP DEFAULT, ` +
+        `COLUMN, RENAME TO/COLUMN, CREATE TABLE AS, DO blocks, ALTER COLUMN ... TYPE, SET/DROP NOT NULL, SET/DROP DEFAULT, ` +
         `ADD/DROP CONSTRAINT, ENABLE/DISABLE/[NO] FORCE ROW LEVEL SECURITY, OWNER TO — ` +
-        `optionally-quoted identifiers). Likely RENAME TO/RENAME COLUMN (real ` +
-        `identity change, not trackable here) or genuinely unparsed hand-written ` +
+        `optionally-quoted identifiers). Likely genuinely unparsed hand-written ` +
         `DDL. Statement: ${prefix}${statement.length > 200 ? "…" : ""}`,
     );
   }
@@ -192,7 +311,7 @@ function applyStatement(
 // sub-directory handling, numeric sort order, or the .sql filter can't
 // silently drift between the runner and this replay (#1522/9).
 export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
-  const schema = new Map<string, { columns: Set<string> }>();
+  const schema = new Map<string, MutableReplayedTable>();
   const migrations = loadMigrationsFromDir(migrationsDir, expandDestructiveMarkers);
   for (const migration of migrations) {
     for (const statement of migration.statements) {
@@ -228,6 +347,7 @@ export function diffReplayAgainstSnapshot(
       });
       continue;
     }
+    if (table.columnsUnknown) continue;
     const expected = new Set(meta.columns.map((c) => c.name));
     const missing = [...expected].filter((c) => !table.columns.has(c));
     const extra = [...table.columns].filter((c) => !expected.has(c));

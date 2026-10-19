@@ -86,7 +86,7 @@ function credentialDoc(password: string): string {
 function ctxWithCredentials(doc: string): InboundMailContext {
   return {
     // Worker-Identity fürs Secret-Read-Audit (requireSecretsContext).
-    _userId: "imap-live-test",
+    auditUserId: "imap-live-test",
     secrets: {
       get: async () => createSecret(doc),
       has: async () => true,

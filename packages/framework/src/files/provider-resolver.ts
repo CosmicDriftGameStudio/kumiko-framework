@@ -33,30 +33,30 @@ import { withUploadLedger } from "./upload-ledger.ts";
 const FEATURE_NAME = "file-foundation";
 
 /**
- * Schmaler Surface-Type fuer Provider-Plugins. HandlerContext ist zu fett
- * (haelt tx, actor, signal etc.) — Provider sollen sich auf die read-Felder
- * beschraenken die fuer Tenant-Config + Secret-Lookup gebraucht werden.
+ * Narrow surface type for provider plugins. HandlerContext carries tx, actor,
+ * signal and more; providers only get the read fields needed for tenant config
+ * and secret lookup.
  *
- * **Warum nicht voller HandlerContext?** Im Worker-Pfad (r.job) gibt es keinen
- * request-bezogenen `tx`/`actor`/`signal`. Wenn ein Provider `ctx.tx` lesen
- * wuerde, wuerde der ganze Worker-Pfad zur Runtime brechen — und das wuerde NUR
- * mit S3 und nur in production auffallen. Die schmale Surface zwingt Provider
- * zur expliziten Erweiterung statt silent ctx-feld-ausnutzen.
+ * **Why not the full HandlerContext?** On the worker path (r.job) there is no
+ * request-bound `tx`/`actor`/`signal`. A provider reading `ctx.tx` would break
+ * the whole worker path at runtime, and that would only show up with S3 in
+ * production. The narrow surface forces providers to extend it explicitly
+ * instead of quietly relying on extra ctx fields.
  *
- * **Felder:**
- *   config  — fuer tenant-config-reads (bucket/region/endpoint/...)
- *   registry — fuer extension-Lookup in der Factory (nicht Plugin-intern)
- *   secrets — fuer tenant-secret-reads (s3.secretAccessKey)
- *   _userId — Audit-/Authority-Identity fuer secret-reads. Der Framework-
- *             Resolver setzt das auf SYSTEM_USER_ID — der s3-Provider liest
- *             `s3.secretAccessKey`, was Nicht-Admin-Request-User nicht duerfen;
- *             die Request-User-Autorisierung bleibt am Route-accessGuard.
+ * **Fields:**
+ *   config      — tenant config reads (bucket/region/endpoint/...)
+ *   registry    — extension lookup in the factory (not plugin-internal)
+ *   secrets     — tenant secret reads (s3.secretAccessKey)
+ *   auditUserId — audit and authority identity for secret reads. The framework
+ *                 resolver sets SYSTEM_USER_ID because the s3 provider reads
+ *                 `s3.secretAccessKey`, which non-admin request users may not;
+ *                 request-user authorization stays on the route accessGuard.
  */
 export type FileProviderContext = {
   readonly config?: ConfigAccessor;
   readonly registry?: Registry;
   readonly secrets?: SecretsContext;
-  readonly _userId?: string | undefined;
+  readonly auditUserId?: string | undefined;
 };
 
 /**
@@ -201,7 +201,7 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
         secrets: deps.secrets,
       });
       return createFileProviderForTenant(
-        { config, registry: deps.registry, secrets: deps.secrets, _userId: SYSTEM_USER_ID },
+        { config, registry: deps.registry, secrets: deps.secrets, auditUserId: SYSTEM_USER_ID },
         tenantId,
       );
     })();

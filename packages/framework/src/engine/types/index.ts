@@ -236,6 +236,7 @@ export type {
   PayloadBucketNormalization,
   PayloadRateLimitOption,
   PreparedWriteEvent,
+  ProviderPluginContext,
   QualifiedEventName,
   QueryEvent,
   QueryHandlerDef,

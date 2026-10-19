@@ -32,8 +32,9 @@ describe("mergeExtraContext", () => {
     const result = (merged as (deps: typeof fakeDeps) => Record<string, unknown>)(fakeDeps);
     expect(result["foo"]).toBe("bar");
     expect(result["configResolver"]).toBeDefined();
-    // buildHandlerContext derives ctx.config from _configAccessorFactory, not configResolver (fw#3313).
-    expect(result["_configAccessorFactory"]).toBeDefined();
+    // buildHandlerContext derives ctx.config from the factory, not configResolver (fw#3313).
+    expect(result["configAccessorFactory"]).toBeDefined();
+    expect(result["_configAccessorFactory"]).toBe(result["configAccessorFactory"]);
   });
 
   test("config preset merges configResolver + _configAccessorFactory, keeping base-fn fields", () => {
@@ -50,6 +51,14 @@ describe("mergeExtraContext", () => {
     const result = (merged as (deps: typeof fakeDeps) => Record<string, unknown>)(fakeDeps);
     expect(result["configResolver"]).toBe(ownResolver);
     expect(result["_configAccessorFactory"]).toBeDefined();
+  });
+
+  test("config preset overrides an app-supplied configAccessorFactory", () => {
+    const appFactory = () => async () => "app";
+    const merged = mergeExtraContext({ configAccessorFactory: appFactory }, ["config"]);
+    const result = (merged as (deps: typeof fakeDeps) => Record<string, unknown>)(fakeDeps);
+    expect(result["configAccessorFactory"]).not.toBe(appFactory);
+    expect(result["_configAccessorFactory"]).toBe(result["configAccessorFactory"]);
   });
 
   test("config preset rejects a configResolver that is not a resolver instance", () => {
