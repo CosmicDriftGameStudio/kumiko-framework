@@ -40,7 +40,7 @@
 //     resolveRowActionNavigateTarget; kind:"drawer" resolves same-feature
 //     only, mirroring validateDrawerTargetAction)
 //   - projectionDetail header actions + metrics[].navigate
-//   - entityEdit/actionForm/secretMint redirect + actionForm cancelTarget
+//   - entityEdit/actionForm/secretMint redirect + actionForm successLinks and cancelTarget
 //     (resolveScreenTargetQn: same-feature short id or cross-feature QN)
 //   - dashboard DashboardScreenPanel.screen (resolveScreenTargetQn)
 //   - every EditSectionSpec kind's own `actions` (fields/extension/writeForm/
@@ -770,13 +770,18 @@ function projectActionFormScreen(
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): ScreenDefinition {
-  const { redirect, cancelTarget, layout, listScreenId, ...rest } = screen;
+  const { redirect, successLinks, cancelTarget, layout, listScreenId, ...rest } = screen;
   const nextRedirect = projectRedirect(feature.featureName, redirect, keptScreenQns);
+  const keptSuccessLinks = successLinks?.filter((link) =>
+    isRedirectTargetKept(feature.featureName, link, keptScreenQns),
+  );
+  const nextSuccessLinks = keptSuccessLinks?.length === 0 ? undefined : keptSuccessLinks;
   const nextCancelTarget = projectCancelTarget(feature.featureName, cancelTarget, keptScreenQns);
   const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
   const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
   const unchanged =
     nextRedirect === redirect &&
+    nextSuccessLinks?.length === successLinks?.length &&
     nextCancelTarget === cancelTarget &&
     nextLayout === layout &&
     nextListScreenId === listScreenId;
@@ -785,6 +790,7 @@ function projectActionFormScreen(
     ...rest,
     layout: nextLayout,
     ...(nextRedirect !== undefined && { redirect: nextRedirect }),
+    ...(nextSuccessLinks !== undefined && { successLinks: nextSuccessLinks }),
     ...(nextCancelTarget !== undefined && { cancelTarget: nextCancelTarget }),
     ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
   };

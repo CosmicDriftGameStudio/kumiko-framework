@@ -370,6 +370,26 @@ describe("computeEditViewModel", () => {
     expect(fields[0]?.icon).toBe("user");
     expect(fields[1]?.icon).toBeUndefined();
   });
+
+  test("field.placeholder is translated into the view model; absent stays undefined", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            title: "x",
+            fields: [{ field: "customerName", placeholder: "orders.hint.name" }, "notes"],
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate: (key) => `t:${key}`,
+      featureName: "orders",
+    });
+    const fields = asFields(vm.sections[0]).fields;
+    expect(fields[0]?.placeholder).toBe("t:orders.hint.name");
+    expect(fields[1]?.placeholder).toBeUndefined();
+  });
 });
 
 describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => {

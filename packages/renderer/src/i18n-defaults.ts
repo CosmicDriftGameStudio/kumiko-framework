@@ -17,6 +17,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.delete": "Delete",
     "kumiko.actions.delete-confirm": "Confirm delete?",
     "kumiko.actions.reload": "Reload",
+    "kumiko.actionForm.success": "Done.",
     "kumiko.actions.retry": "Try again",
     "kumiko.actions.create": "New",
     "kumiko.actions.edit": "Edit",

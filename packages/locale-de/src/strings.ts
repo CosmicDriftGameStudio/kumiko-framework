@@ -632,6 +632,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "jobs:entity:__action-form__:field:jobName": "Job-Name",
   "jobs:entity:__action-form__:field:payload": "JSON-Payload",
   "jobs:nav.jobRuns": "Jobs",
+  "kumiko.actionForm.success": "Fertig.",
   "kumiko.actions.back": "Zurück",
   "kumiko.actions.cancel": "Abbrechen",
   "kumiko.actions.copyLink": "Link kopieren",

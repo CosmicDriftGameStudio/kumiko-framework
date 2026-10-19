@@ -743,6 +743,9 @@ export function computeEditViewModel<
           ...referenceHints,
           ...fileHints,
           ...(normalized.icon !== undefined && { icon: normalized.icon }),
+          ...(normalized.placeholder !== undefined && {
+            placeholder: translate(normalized.placeholder),
+          }),
           ...embeddedListHints,
         };
         return view;

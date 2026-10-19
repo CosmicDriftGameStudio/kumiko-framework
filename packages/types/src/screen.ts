@@ -1305,6 +1305,9 @@ export type EditFieldSpec =
        *  `multiline` routes to a textarea (no icon slot), and other input
        *  kinds (select, combobox, date, …) silently ignore the key. */
       readonly icon?: FieldIconKey;
+      /** Input placeholder (i18n key, falls back to the literal). Only for
+       *  single-line text, number and textarea inputs; other kinds ignore it. */
+      readonly placeholder?: string;
       /** Marks this field as a reference lookup instead of a plain value —
        *  for projectionDetail fields, which have no `EntityDefinition` to
        *  carry a real `reference` field type. Same target convention as
@@ -1883,6 +1886,15 @@ export type ActionFormScreenDefinition = {
    *  the handler creates a child record but the target screen is the
    *  parent's detail screen (fw#2670). */
   readonly redirect?: string | ActionFormRedirect;
+  /** Links shown in the success box after a successful submit while the
+   *  screen stays put. Targets resolve like `redirect` (the id comes from the
+   *  handler's success payload); a link without a string id is hidden.
+   *  Mutually exclusive with `redirect`. */
+  readonly successLinks?: readonly ActionFormSuccessLink[];
+  /** Reset the form to its initial values after a successful submit (prefill
+   *  kept, typed values cleared). Only applies while the screen stays put,
+   *  i.e. without `redirect`. */
+  readonly resetOnSuccess?: boolean;
   /** Target of the Cancel button. Default: `redirect` (historical
    *  behavior — Cancel and the submit-redirect then land in the same
    *  place). `false` = no Cancel button; correct for single-action
@@ -1934,6 +1946,12 @@ export type ActionFormRedirect = {
    *  "tabs"` (the `tab` search param, same as `ToolbarAction` navigate `tab`).
    *  Boot rejects other targets and unknown section ids. */
   readonly tab?: string;
+};
+
+/** A redirect target rendered as a link in the success box. */
+export type ActionFormSuccessLink = ActionFormRedirect & {
+  /** Link text (i18n key). */
+  readonly label: string;
 };
 
 /** Author-declared field shown once after a mint-form submit — API token,

@@ -77,6 +77,7 @@ export type {
   ActionFormFooterAction,
   ActionFormRedirect,
   ActionFormScreenDefinition,
+  ActionFormSuccessLink,
   ConfigEditScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
