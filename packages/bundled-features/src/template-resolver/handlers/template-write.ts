@@ -11,6 +11,7 @@ import {
 import {
   AccessDeniedError,
   ValidationError,
+  VersionConflictError,
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -57,6 +58,8 @@ export type TemplateRowWrite = {
   readonly status: "draft" | "active";
   readonly variables: TemplateVariables;
   readonly payload: TemplateRowPayload;
+  /** The row version the edit was made against; null means no own row may exist yet. */
+  readonly expectedVersion?: number | null;
 };
 
 // The tenant-scope-under-system-tenant ban lives here so no write path can
@@ -151,6 +154,21 @@ function updateChanges(
     : { draft };
 }
 
+function versionConflictFor(
+  expectedVersion: number | null | undefined,
+  existing: TemplateResourceRow | undefined,
+  slug: string,
+): WriteFailure | null {
+  if (expectedVersion === undefined || (existing?.version ?? null) === expectedVersion) return null;
+  return writeFailure(
+    new VersionConflictError({
+      entityId: existing?.id ?? slug,
+      expectedVersion: expectedVersion ?? 0,
+      currentVersion: existing?.version ?? 0,
+    }),
+  );
+}
+
 // Shared by every template write: validate through the one pipeline, then
 // create or update the (tenant, slug, kind, locale) row via the event-store
 // executor. linkedResources is never part of an update; resources are attached
@@ -201,11 +219,14 @@ export async function writeTemplateRow(
     status,
   };
 
+  const conflict = versionConflictFor(args.expectedVersion, existing, payload.slug);
+  if (conflict !== null) return conflict;
+
   if (existing) {
     const result = await executor.update(
       {
         id: existing.id,
-        version: existing.version,
+        version: args.expectedVersion ?? existing.version,
         changes: updateChanges(existing, status, fields),
       },
       user,

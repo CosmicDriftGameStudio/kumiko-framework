@@ -1,6 +1,6 @@
 // @runtime client
 import type { JSONContent } from "@tiptap/core";
-import { isDocumentReferenceName } from "../document-schema.ts";
+import { isDocumentReferenceName } from "./document-schema.ts";
 
 const PLACEHOLDER_TOKEN = /\{\{([^{}]*)\}\}/g;
 

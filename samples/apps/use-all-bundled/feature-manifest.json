@@ -2644,6 +2644,7 @@
         "template-resolver:write:discard-draft-system",
         "template-resolver:write:import-bundle",
         "template-resolver:write:import-bundle-system",
+        "template-resolver:write:patch-draft",
         "template-resolver:write:publish",
         "template-resolver:write:publish-system",
         "template-resolver:write:reply-snippets-set",

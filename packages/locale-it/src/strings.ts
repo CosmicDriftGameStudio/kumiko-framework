@@ -1200,6 +1200,31 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.sizeUnderCap": "L'e-mail rispetta il limite di dimensione di 10 MiB",
   "templateResolver.checks.requiredPlaceholders": "Tutti i segnaposto obbligatori sono utilizzati",
   "templateResolver.errors.preview.renderFailed": "Non è stato possibile generare l'anteprima.",
+  "templateResolver.errors.patch.unknownBlock": "Il blocco {blockId} non esiste nel modello.",
+  "templateResolver.errors.patch.blockRemoved":
+    "Il blocco {blockId} è già stato rimosso da un passaggio precedente.",
+  "templateResolver.errors.patch.textNotFound": "Il testo {find} non è stato trovato nel blocco.",
+  "templateResolver.errors.patch.textAmbiguous":
+    "Il testo {find} compare {count} volte nel blocco; usare un testo più lungo.",
+  "templateResolver.errors.patch.blockNotAllowed":
+    "Il tipo di blocco {type} non è disponibile nei modelli {kind}.",
+  "templateResolver.errors.patch.blockTypeMismatch":
+    "Questo passaggio richiede un blocco di tipo {expected}, ma il blocco è di tipo {actual}.",
+  "templateResolver.errors.patch.invalidResourceKey":
+    "La chiave dell'immagine {resource} non è valida.",
+  "templateResolver.errors.patch.invalidButtonHref":
+    "La destinazione di un pulsante deve essere un segnaposto tra doppie parentesi graffe.",
+  "templateResolver.errors.patch.invalidVariableName":
+    "Il nome della variabile {name} non è valido.",
+  "templateResolver.errors.patch.invalidVariableDefinition":
+    "La definizione della variabile {name} non è valida.",
+  "templateResolver.errors.patch.invalidDocument":
+    "La modifica produrrebbe un documento non valido.",
+  "templateResolver.errors.patch.invalidMetaKey": "La chiave dei metadati {key} non è consentita.",
+  "templateResolver.errors.patch.variablesDeclaredByFeature":
+    "Le variabili di {slug} sono definite dall'applicazione e non possono essere modificate.",
+  "templateResolver.errors.patch.requiredPlaceholderRemoved":
+    "La modifica rimuove segnaposto obbligatori: {names}",
   "templateResolver.errors.testMail.noChannel":
     "Non è configurato alcun canale e-mail, quindi non è possibile inviare un'e-mail di prova.",
   "templateResolver.errors.testMail.noAddress":

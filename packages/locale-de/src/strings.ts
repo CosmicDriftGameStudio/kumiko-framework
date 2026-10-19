@@ -1206,6 +1206,30 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.sizeUnderCap": "Die Mail liegt unter dem Größenlimit von 10 MiB",
   "templateResolver.checks.requiredPlaceholders": "Alle Pflicht-Platzhalter werden verwendet",
   "templateResolver.errors.preview.renderFailed": "Die Vorschau konnte nicht erzeugt werden.",
+  "templateResolver.errors.patch.unknownBlock":
+    "Der Block {blockId} existiert in der Vorlage nicht.",
+  "templateResolver.errors.patch.blockRemoved":
+    "Der Block {blockId} wurde von einem früheren Schritt bereits entfernt.",
+  "templateResolver.errors.patch.textNotFound": "Der Text {find} wurde im Block nicht gefunden.",
+  "templateResolver.errors.patch.textAmbiguous":
+    "Der Text {find} kommt {count}-mal im Block vor; verwenden Sie einen längeren Text.",
+  "templateResolver.errors.patch.blockNotAllowed":
+    "Der Blocktyp {type} ist in {kind}-Vorlagen nicht verfügbar.",
+  "templateResolver.errors.patch.blockTypeMismatch":
+    "Dieser Schritt braucht einen Block vom Typ {expected}, der Block ist aber vom Typ {actual}.",
+  "templateResolver.errors.patch.invalidResourceKey": "Der Bildschlüssel {resource} ist ungültig.",
+  "templateResolver.errors.patch.invalidButtonHref":
+    "Ein Button-Ziel muss ein Platzhalter in doppelten geschweiften Klammern sein.",
+  "templateResolver.errors.patch.invalidVariableName": "Der Variablenname {name} ist ungültig.",
+  "templateResolver.errors.patch.invalidVariableDefinition":
+    "Die Definition der Variable {name} ist ungültig.",
+  "templateResolver.errors.patch.invalidDocument":
+    "Die Änderung würde ein ungültiges Dokument erzeugen.",
+  "templateResolver.errors.patch.invalidMetaKey": "Der Meta-Schlüssel {key} ist nicht erlaubt.",
+  "templateResolver.errors.patch.variablesDeclaredByFeature":
+    "Die Variablen von {slug} sind von der Anwendung festgelegt und können nicht geändert werden.",
+  "templateResolver.errors.patch.requiredPlaceholderRemoved":
+    "Die Änderung entfernt Pflicht-Platzhalter: {names}",
   "templateResolver.errors.testMail.noChannel":
     "Es ist kein E-Mail-Kanal eingerichtet, daher kann keine Testmail gesendet werden.",
   "templateResolver.errors.testMail.noAddress":
