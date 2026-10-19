@@ -220,6 +220,7 @@ export type {
   PhotoSlotSpec,
   PhotoSlotsProps,
   PlanCardActionSlot,
+  PlanCardLinkSlot,
   PlanCardPrice,
   PlanCardProps,
   PlanGridProps,

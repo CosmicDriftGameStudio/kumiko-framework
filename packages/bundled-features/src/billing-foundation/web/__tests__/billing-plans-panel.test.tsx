@@ -173,6 +173,59 @@ afterEach(() => {
   window.location.assign = originalAssign;
 });
 
+describe("BillingPlansPanel — contact card", () => {
+  const contact = {
+    labelKey: "plan.enterprise.label",
+    benefits: [{ labelKey: "plan.enterprise.benefit" }],
+    actionLabelKey: "plan.enterprise.action",
+    href: "mailto:sales@example.com",
+  };
+
+  function showResult(overrides: Partial<BillingPlansResult>): void {
+    queryState = { data: result(overrides), loading: false, error: null };
+    renderPanel();
+  }
+
+  test("renders as the last card without a price row, with benefits and a link", () => {
+    showResult({ contact });
+    const grid = screen.getByTestId("billing-plans-grid");
+    expect(grid.lastElementChild).toBe(screen.getByTestId("billing-plan-card-contact"));
+    expect(screen.queryByTestId("billing-plan-card-contact-price-unavailable")).toBeNull();
+    expect(screen.getByText("plan.enterprise.benefit")).toBeTruthy();
+    const link = screen.getByTestId("billing-plan-card-contact-cta");
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe("mailto:sales@example.com");
+    expect(link.getAttribute("target")).toBeNull();
+  });
+
+  test("an https link opens in a new tab with noopener", () => {
+    showResult({ contact: { ...contact, href: "https://example.com/contact" } });
+    const link = screen.getByTestId("billing-plan-card-contact-cta");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  test("stays visible when the caller cannot purchase", () => {
+    showResult({ contact, canPurchase: false });
+    expect(screen.getByTestId("billing-plan-card-contact")).toBeTruthy();
+  });
+
+  test("stays visible when billing is disabled", () => {
+    showResult({ contact, enabled: false });
+    expect(screen.getByTestId("billing-plan-card-contact")).toBeTruthy();
+  });
+
+  test("renders no card without contact", () => {
+    showResult({});
+    expect(screen.queryByTestId("billing-plan-card-contact")).toBeNull();
+  });
+
+  test("renders no card for an unsafe href", () => {
+    showResult({ contact: { ...contact, href: "javascript:alert(1)" } });
+    expect(screen.queryByTestId("billing-plan-card-contact")).toBeNull();
+  });
+});
+
 describe("BillingPlansPanel", () => {
   test("shows a loading banner while the catalog query is in flight", () => {
     queryState = { data: null, loading: true, error: null };

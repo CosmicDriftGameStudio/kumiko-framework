@@ -38,6 +38,27 @@ describe("PlanCard", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  test("ctaLink renders a link with href, and target/rel for _blank", () => {
+    render(
+      <PlanCard
+        title="Enterprise"
+        ctaLink={{ label: "Contact us", href: "https://example.com/contact", target: "_blank" }}
+        testId="plan-card-ent"
+      />,
+    );
+    const link = screen.getByTestId("plan-card-ent-cta");
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe("https://example.com/contact");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  test("ctaLink without target sets no target", () => {
+    render(<PlanCard title="Enterprise" ctaLink={{ label: "Mail", href: "mailto:a@b.co" }} />);
+    expect(screen.getByText("Mail").getAttribute("target")).toBeNull();
+  });
+
   test("secondaryAction renders alongside cta", () => {
     const onManage = mock(() => {});
     render(

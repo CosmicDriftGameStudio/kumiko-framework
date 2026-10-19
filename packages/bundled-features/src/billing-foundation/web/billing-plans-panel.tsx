@@ -23,8 +23,10 @@ import {
   SubscriptionStatuses,
 } from "../constants.ts";
 import type { BillingPlansResult, BillingPlanView } from "../types.ts";
+import { BillingContactPlanCard } from "./billing-contact-plan-card.tsx";
 import { CancelContractDialog } from "./cancel-contract-dialog.tsx";
 import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.tsx";
+import { localizedParams } from "./localized-params.ts";
 
 type UseTranslation = ReturnType<typeof useTranslation>;
 
@@ -40,19 +42,6 @@ function renewalKey(price: BillingPlanView["price"]): string | undefined {
   return price.intervalCount !== null && price.intervalCount > 1
     ? `billing-foundation.consent.renewsEvery.${price.interval}`
     : `billing-foundation.consent.renews.${price.interval}`;
-}
-
-function localizedParams(
-  params: Readonly<Record<string, string | number>> | undefined,
-  locale: string,
-): Readonly<Record<string, string>> | undefined {
-  if (params === undefined) return undefined;
-  const localized: Record<string, string> = {};
-  for (const [key, value] of Object.entries(params)) {
-    localized[key] =
-      typeof value === "number" ? new Intl.NumberFormat(locale).format(value) : value;
-  }
-  return localized;
 }
 
 /** Which action the plan "would" offer if it weren't blocked — mirrors
@@ -329,6 +318,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             {...toCardProps(plan)}
           />
         ))}
+        {result.contact !== undefined && <BillingContactPlanCard contact={result.contact} />}
       </PlanGrid>
       {consumerProtection !== undefined &&
         consentPlan !== undefined &&

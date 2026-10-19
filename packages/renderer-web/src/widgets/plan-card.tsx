@@ -13,6 +13,12 @@ export type PlanCardActionSlot = {
   readonly disabled?: boolean;
 };
 
+export type PlanCardLinkSlot = {
+  readonly label: string;
+  readonly href: string;
+  readonly target?: "_blank";
+};
+
 export type PlanCardProps = {
   readonly title: string;
   readonly description?: string;
@@ -21,6 +27,8 @@ export type PlanCardProps = {
   readonly features?: readonly ReactNode[];
   readonly current?: boolean;
   readonly cta?: PlanCardActionSlot;
+  /** Link-styled cta (e.g. contact sales); wins over `cta` when both are set. */
+  readonly ctaLink?: PlanCardLinkSlot;
   readonly secondaryAction?: PlanCardActionSlot;
   /** compact: one-off purchases (e.g. credit packs) — title+price in one row, no feature emphasis, smaller padding. */
   readonly variant?: "default" | "compact";
@@ -39,18 +47,30 @@ export function PlanCard({
   features,
   current = false,
   cta,
+  ctaLink,
   secondaryAction,
   variant = "default",
   testId,
 }: PlanCardProps): ReactNode {
-  const { Card, Button } = usePrimitives();
+  const { Card, Button, Link } = usePrimitives();
   const t = useTranslation();
   const compact = variant === "compact";
 
   const footer =
-    cta !== undefined || secondaryAction !== undefined ? (
+    cta !== undefined || ctaLink !== undefined || secondaryAction !== undefined ? (
       <div className="flex w-full flex-col gap-2">
-        {cta !== undefined && (
+        {ctaLink !== undefined && (
+          <Link
+            href={ctaLink.href}
+            variant="button"
+            target={ctaLink.target}
+            className="w-full justify-center"
+            testId={testId !== undefined ? `${testId}-cta` : "plan-card-cta"}
+          >
+            {ctaLink.label}
+          </Link>
+        )}
+        {ctaLink === undefined && cta !== undefined && (
           <Button
             width="full"
             disabled={cta.disabled}

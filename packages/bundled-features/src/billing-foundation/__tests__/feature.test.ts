@@ -235,6 +235,54 @@ describe("createBillingFoundationFeature — factory validation", () => {
   });
 });
 
+describe("createBillingFoundationFeature — catalog.contact validation", () => {
+  const contact = {
+    labelKey: "plan.enterprise.label",
+    benefits: [{ labelKey: "plan.enterprise.benefit" }],
+    actionLabelKey: "plan.enterprise.action",
+    href: "https://example.com/contact",
+  };
+
+  function mountWith(overrides: Partial<typeof contact>): void {
+    createBillingFoundationFeature({
+      baseUrl: "https://example.com",
+      catalog: catalog({ contact: { ...contact, ...overrides } }),
+    });
+  }
+
+  test.each(["https://example.com/contact", "mailto:sales@example.com"])(
+    "mounts with %s",
+    (href) => {
+      expect(() => mountWith({ href })).not.toThrow();
+    },
+  );
+
+  test.each([
+    "javascript:alert(1)",
+    "http://example.com/contact",
+    "data:text/html,x",
+    " https://example.com",
+    "/contact",
+    "mailto:",
+  ])("rejects href %p", (href) => {
+    expect(() => mountWith({ href })).toThrow(
+      `catalog.contact.href "${href}" must be an absolute https: or mailto: URL.`,
+    );
+  });
+
+  test("rejects an empty labelKey", () => {
+    expect(() => mountWith({ labelKey: "  " })).toThrow(
+      /catalog\.contact\.labelKey must not be empty/,
+    );
+  });
+
+  test("rejects an empty actionLabelKey", () => {
+    expect(() => mountWith({ actionLabelKey: "" })).toThrow(
+      /catalog\.contact\.actionLabelKey must not be empty/,
+    );
+  });
+});
+
 describe("billingFoundationFeature — dormant billing-plans screen (#3316 P9)", () => {
   test("not registered without a catalog", () => {
     const feature = createBillingFoundationFeature({ baseUrl: "https://example.com" });
