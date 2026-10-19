@@ -7,7 +7,7 @@ import { isContactCardHref } from "../contact-card.ts";
 import type { BillingPlanContactCard } from "../types.ts";
 import { localizedParams } from "./localized-params.ts";
 
-export function BillingContactPlanCard({
+export function BillingContactPlan({
   contact,
 }: {
   readonly contact: BillingPlanContactCard;

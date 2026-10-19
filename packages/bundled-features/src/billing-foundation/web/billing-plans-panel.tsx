@@ -23,7 +23,7 @@ import {
   SubscriptionStatuses,
 } from "../constants.ts";
 import type { BillingPlansResult, BillingPlanView } from "../types.ts";
-import { BillingContactPlanCard } from "./billing-contact-plan-card.tsx";
+import { BillingContactPlan } from "./billing-contact-plan.tsx";
 import { CancelContractDialog } from "./cancel-contract-dialog.tsx";
 import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.tsx";
 import { localizedParams } from "./localized-params.ts";
@@ -318,7 +318,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             {...toCardProps(plan)}
           />
         ))}
-        {result.contact !== undefined && <BillingContactPlanCard contact={result.contact} />}
+        {result.contact !== undefined && <BillingContactPlan contact={result.contact} />}
       </PlanGrid>
       {consumerProtection !== undefined &&
         consentPlan !== undefined &&
