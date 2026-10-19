@@ -117,6 +117,31 @@ describe("fileStorage option", () => {
     );
     expect(resolved.features.map((f) => f.name)).toEqual(["file-provider-s3-env"]);
   });
+
+  const resolveWithNamed = (names: readonly string[]) =>
+    resolveFileStorageOption(
+      {
+        provider: "s3-env",
+        providers: names.map((name) => ({ name, envPrefix: "REL_S3_", lazy: true })),
+      },
+      { mountedFeatureNames: noMountedFeatures, isProduction: true, envSource: S3_ENV },
+    );
+
+  test.each(["s3-env", "s3", "inmemory"])("a named provider called %s is refused", (name) => {
+    expect(() => resolveWithNamed([name])).toThrow(/reserved/);
+  });
+
+  test("a named provider listed twice is refused", () => {
+    expect(() => resolveWithNamed(["releases", "releases"])).toThrow(/listed twice/);
+  });
+
+  test("distinct named providers mount", () => {
+    expect(resolveWithNamed(["releases", "archive"]).features.map((f) => f.name)).toEqual([
+      "file-provider-s3-env",
+      "file-provider-s3-env-releases",
+      "file-provider-s3-env-archive",
+    ]);
+  });
 });
 
 describe("billing option", () => {
@@ -182,6 +207,28 @@ describe("resolveBootOptionWiring feature checks", () => {
     await expect(
       resolveBootOptionWiring({ features: [], fileStorage: { provider: "inmemory" } }, {}),
     ).rejects.toThrow(/file-foundation/);
+  });
+
+  test("the removed effectiveFeatures option aborts instead of dropping the kill-switch", async () => {
+    const removedOption = { effectiveFeatures: () => new Set<string>() };
+    await expect(resolveBootOptionWiring({ features: [], ...removedOption }, {})).rejects.toThrow(
+      /featureToggles: true/,
+    );
+  });
+
+  test("feature-toggles mounted without the featureToggles option is refused", async () => {
+    await expect(
+      resolveBootOptionWiring({ features: [stubFeature("feature-toggles")] }, {}),
+    ).rejects.toThrow(/featureToggles.*is not set/);
+  });
+
+  test("featureToggles next to a mounted feature-toggles is refused", async () => {
+    await expect(
+      resolveBootOptionWiring(
+        { features: [stubFeature("feature-toggles")], featureToggles: true },
+        {},
+      ),
+    ).rejects.toThrow(/mounts feature-toggles itself/);
   });
 
   test("no option set yields an empty wiring", async () => {

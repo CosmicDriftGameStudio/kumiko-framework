@@ -19,9 +19,18 @@ export type {
   FileStorageProviderName,
 } from "./boot-options/file-storage-option.ts";
 export type { KmsMode } from "./boot-options/kms-mode.ts";
-export type { MailBootOption } from "./boot-options/mail-option.ts";
+export type { MailBootOption, MailRecipientScope } from "./boot-options/mail-option.ts";
+export { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.ts";
 export type { SignalsOption } from "./boot-options/process-signals.ts";
+export {
+  type BootOptionFields,
+  type BootOptionWiring,
+  isSeedFnList,
+  rejectRemovedEffectiveFeatures,
+  resolveBootOptionWiring,
+} from "./boot-options/resolve-boot-options.ts";
 export type { ProdSeedsConfig, ProdSeedTenant } from "./boot-options/seed-shortcuts.ts";
+export { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 export {
   type BundledAssetDeclaration,
   type BundledAssetOptions,

@@ -275,6 +275,10 @@ export type CreateKumikoServerOptions = {
    *  ships unchanged with status 200 — never a 500. `systemQuery` inside
    *  the resolver runs as the anonymous role, same as prod. */
   readonly resolvePageHead?: PageHeadResolver;
+  /** Wraps the request handler before it reaches Bun.serve and `handle.fetch`, e.g. the demo read-only gate. */
+  readonly wrapFetch?: (
+    handler: (req: Request, socketAddress?: string) => Promise<Response>,
+  ) => (req: Request, socketAddress?: string) => Promise<Response>;
 };
 
 export type KumikoServerHandle = {
@@ -1148,7 +1152,7 @@ export async function createKumikoServer(
   // not have renderer-web installed, e.g. a fixture dir).
   const rendererWebFontsDir = resolveRendererWebFontsDir([process.cwd(), import.meta.dir]);
 
-  const handleFetch = async (req: Request, socketAddress?: string): Promise<Response> => {
+  const routeFetch = async (req: Request, socketAddress?: string): Promise<Response> => {
     const url = new URL(req.url);
 
     // Specific routes first — assets, reload-SSE, API.
@@ -1314,6 +1318,7 @@ export async function createKumikoServer(
     // header-hygiene note).
     return stripNoRouteMatchHeader(await stack.app.fetch(req, socketAddress));
   };
+  const handleFetch = options.wrapFetch ? options.wrapFetch(routeFetch) : routeFetch;
 
   // --- HTTP server (Bun only) ---
   // Under Node/vitest we skip Bun.serve entirely — the handle's

@@ -2,6 +2,7 @@ import type { SystemDispatchArgs } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
+import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 
 export type { SystemDispatchArgs } from "@cosmicdrift/kumiko-framework/api";
@@ -25,6 +26,10 @@ export type SystemWireDeps = {
   /** Feature-registry — e.g. for plugin-lookups via
    *  `registry.getExtensionUsages("subscriptionProvider")`. */
   readonly registry: Registry;
+  /** The boot's master key keyring; absent when no `KUMIKO_SECRETS_MASTER_KEY_V<n>` is set. */
+  readonly masterKeyProvider?: MasterKeyProvider;
+  /** Cipher for `encrypted: true` config keys, same instance and DEK cache as the handlers use. */
+  readonly configEncryption?: EnvelopeCipher;
   /** Same contract as `ctx.metricsFor`: unregistered metric names no-op. */
   readonly metricsFor: (featureName: string) => MetricsHandle;
   /** Writes through the /api/*-command-dispatcher (same idempotency/job

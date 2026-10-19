@@ -81,11 +81,25 @@ import {
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { type ComposedEnvSchema, parseEnv } from "@cosmicdrift/kumiko-framework/env";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { PageHeadResolver } from "@cosmicdrift/kumiko-headless/apex";
+import {
+  assertStackBootRequirements,
+  type BillingBootOption,
+  type DemoModeOption,
+  type FileStorageBootOption,
+  isSeedFnList,
+  type KmsMode,
+  type MailBootOption,
+  type ProdSeedsConfig,
+  rejectRemovedEffectiveFeatures,
+  resolveBootOptionWiring,
+  withBootOptionEnvBlocks,
+} from "@cosmicdrift/kumiko-server-runtime";
 import { applyBootSeeds } from "@cosmicdrift/kumiko-server-runtime/boot/apply-boot-seeds";
 import { resolveBootCrypto } from "@cosmicdrift/kumiko-server-runtime/boot/boot-crypto";
 import {
@@ -101,7 +115,11 @@ import {
   type KumikoServerHandle,
   logInfo,
 } from "./create-kumiko-server.ts";
-import { captureEphemeralDevPiiKms, resolveDevPiiKms } from "./resolve-dev-pii-kms.ts";
+import {
+  captureEphemeralDevPiiKms,
+  type DevPiiKmsResolution,
+  resolveDevPiiKms,
+} from "./resolve-dev-pii-kms.ts";
 import { renderWelcomeBanner } from "./welcome-banner.ts";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
@@ -194,6 +212,11 @@ export type RunDevAppAuthOptions = {
  *  admin (when auth is active) in declared order. */
 export type SeedFn = (stack: TestStack) => Promise<void>;
 
+/** Dev counterpart of `ProdSeedsConfig`: the declarative shortcuts plus free seeds that get the test stack. */
+export type RunDevAppSeedsConfig = Omit<ProdSeedsConfig, "run"> & {
+  readonly run?: readonly SeedFn[];
+};
+
 export type RunDevAppOptions = {
   /** App-spezifische Features. Im auth-mode werden config/user/tenant/
    *  auth-email-password automatisch dazu gemischt — KEIN doppeltes
@@ -238,7 +261,7 @@ export type RunDevAppOptions = {
   readonly auth?: RunDevAppAuthOptions;
   /** Eigene Seed-Funktionen, laufen nach dem Admin (wenn auth) in
    *  Array-Reihenfolge. */
-  readonly seeds?: readonly SeedFn[];
+  readonly seeds?: readonly SeedFn[] | RunDevAppSeedsConfig;
   /** Extra-AppContext-Keys. `templateResolver` (immer) + `secrets` (wenn das
    *  secrets-Feature gemountet ist) + `configResolver` (auth-mode) werden
    *  automatisch ergänzt — App-Werte gewinnen. Symmetrisch zu runProdApp. */
@@ -283,13 +306,23 @@ export type RunDevAppOptions = {
   /** Hook for app-wired co-running components — symmetric to
    *  runProdApp.wire (kumiko-framework#3050). */
   readonly wire?: CreateKumikoServerOptions["wire"];
-  /** Feature-toggle resolver — durchgereicht an createKumikoServer →
-   *  setupTestStack. Sprint-8 Tier-Composition: per-Tenant unterschied-
-   *  liche features aktiv via globalFeatureToggleRuntime. Pattern in
-   *  bin/server.ts: createLateBoundHolder + post-boot runtime.initialize
-   *  in einem seed-fn, weil die runtime stack.db braucht und die seed-
-   *  Funktionen nach setupTestStack laufen. */
-  readonly effectiveFeatures?: CreateKumikoServerOptions["effectiveFeatures"];
+  /** Same as `RunProdAppOptions["mail"]`: mounts `channel-email` and wires the auth mail flows. */
+  readonly mail?: MailBootOption;
+  /** Same as `RunProdAppOptions["fileStorage"]`. */
+  readonly fileStorage?: FileStorageBootOption;
+  /** Same as `RunProdAppOptions["kmsMode"]`; replaces the dev KMS default and cannot be combined
+   *  with `kms` / `blindIndexKey`. */
+  readonly kmsMode?: KmsMode;
+  /** Same as `RunProdAppOptions["billing"]`. */
+  readonly billing?: BillingBootOption;
+  /** Same as `RunProdAppOptions["featureToggles"]`: global operator switches over the tier resolver. */
+  readonly featureToggles?: boolean;
+  /** Same as `RunProdAppOptions["demoMode"]`. */
+  readonly demoMode?: DemoModeOption;
+  /** Composed env schema (see `RunProdAppOptions["envSchema"]`). When set, the env is validated
+   *  against it plus the blocks the boot options above need, and a violation throws a
+   *  `KumikoBootError`. Dev does not run the dry-run modes. */
+  readonly envSchema?: ComposedEnvSchema;
   /** Print a first-run banner after the server starts (URL, admin login,
    *  hot-reload hint, docs link). Default: off — apps that already log
    *  their own startup shouldn't get double-printed. The scaffold template
@@ -313,12 +346,61 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // source of truth — auch runProdApp und der per-app drizzle-Schema-
   // Generator nutzen denselben Helper, damit Migration und Runtime nie
   // auseinanderdriften können).
-  const envSource = options.envSource ?? process.env;
+  const rawEnvSource = options.envSource ?? process.env;
+  const seedsConfig =
+    options.seeds !== undefined && !isSeedFnList(options.seeds) ? options.seeds : undefined;
+  const stackSeeds =
+    options.seeds === undefined
+      ? []
+      : isSeedFnList(options.seeds)
+        ? options.seeds
+        : (options.seeds.run ?? []);
+  if (options.envSchema) {
+    // Free dev seeds take the test stack; the env blocks only read the declarative part.
+    const { seeds: _devSeeds, kms: devKms, ...bootFields } = options;
+    const composed = withBootOptionEnvBlocks(options.envSchema, {
+      ...bootFields,
+      ...(devKms && { kms: devKms }),
+      ...(seedsConfig && { seeds: { ...seedsConfig, run: [] } }),
+      features: options.features,
+    });
+    parseEnv(composed.schema, rawEnvSource, { sources: composed.sources });
+  }
+  rejectRemovedEffectiveFeatures(options);
+  const wiring = await resolveBootOptionWiring(
+    {
+      features: options.features,
+      ...(options.mail && { mail: options.mail }),
+      ...(options.fileStorage && { fileStorage: options.fileStorage }),
+      ...(options.kmsMode !== undefined && { kmsMode: options.kmsMode }),
+      ...(options.billing && { billing: options.billing }),
+      ...(options.featureToggles && { featureToggles: true }),
+      ...(options.demoMode && { demoMode: options.demoMode }),
+      ...(seedsConfig && { seeds: { ...seedsConfig, run: [] } }),
+      ...(options.kms && { kms: options.kms }),
+      ...(options.blindIndexKey !== undefined && { blindIndexKey: options.blindIndexKey }),
+      ...(options.auth && { auth: options.auth }),
+    },
+    rawEnvSource,
+  );
+  const envSource: Record<string, string | undefined> =
+    Object.keys(wiring.envDefaults).length > 0
+      ? { ...wiring.envDefaults, ...rawEnvSource }
+      : rawEnvSource;
+  assertStackBootRequirements(
+    {
+      features: options.features,
+      ...(options.featureToggles && { featureToggles: true }),
+    },
+    ["featureToggles"],
+  );
   // auth.mail → normalisiert in die expliziten Flow-Felder (symmetrisch zu
   // runProdApp). hmacSecret = JWT_SECRET-env (fail-fast, symmetrisch zu
   // runProdApp). Ab hier IMMER effectiveAuth statt options.auth.
   const effectiveAuth = options.auth
-    ? resolveAuthMail(options.auth, requireEnv("JWT_SECRET", envSource, "runDevApp"), envSource)
+    ? resolveAuthMail(options.auth, requireEnv("JWT_SECRET", envSource, "runDevApp"), envSource, {
+        mailConfigured: wiring.mailConfigured,
+      })
     : undefined;
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   const { unsubscribeLinks, unsubscribeRoutes } = resolveUnsubscribeWiring({
@@ -329,10 +411,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     warn: (message) => createFallbackLogger("runDevApp").warn(message),
   });
   const extraRoutes =
-    unsubscribeRoutes.length === 0
+    unsubscribeRoutes.length === 0 && wiring.extraRoutes.length === 0
       ? options.extraRoutes
-      : [...(options.extraRoutes ?? []), ...unsubscribeRoutes];
-  const features = composeFeatures(options.features, {
+      : [...(options.extraRoutes ?? []), ...unsubscribeRoutes, ...wiring.extraRoutes];
+  const features = composeFeatures([...options.features, ...wiring.features], {
     includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
@@ -341,14 +423,20 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // FILE_STORAGE_PROVIDER boot gate. Passed via the validateBoot env option
   // instead of mutating process.env, so nothing leaks into later runDevApp
   // calls in the same process.
-  const baseBootEnv = options.validateBootOptions?.env ?? process.env;
+  const baseBootEnv = {
+    ...wiring.envDefaults,
+    ...(options.validateBootOptions?.env ?? process.env),
+  };
+  const hasBootEnvDefaults = Object.keys(wiring.envDefaults).length > 0;
   const bootOptions: ValidateBootOptions | undefined =
     options.files !== undefined && baseBootEnv[FILE_STORAGE_PROVIDER_ENV] === undefined
       ? {
           ...options.validateBootOptions,
           env: { ...baseBootEnv, [FILE_STORAGE_PROVIDER_ENV]: FILE_STORAGE_PROVIDER_BOOT_SENTINEL },
         }
-      : options.validateBootOptions;
+      : hasBootEnvDefaults
+        ? { ...options.validateBootOptions, env: baseBootEnv }
+        : options.validateBootOptions;
 
   // Boot-Validation als allererstes — vor dem Server. Dieselbe
   // Fehlerklasse (unqualifizierte nav-/handler-QNs, screen-access etc.),
@@ -366,18 +454,17 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
-  // tenantTierResolver-extension. If found AND user didn't supply own
-  // effectiveFeatures, we wire a late-bound wrapper here and fill it
-  // in onAfterSetup (where stack.db + stack.registry are available).
+  // tenantTierResolver-extension and wire a late-bound wrapper here; it is
+  // filled in onAfterSetup (where stack.db + stack.registry are available).
+  // The global operator toggles layer over the same wrapper.
   // App-Author sees nothing — `createTierEngineFeature(opts)` mounts +
   // framework auto-wires.
-  const tierResolverUsage = options.effectiveFeatures ? undefined : findTierResolverUsage(features);
+  const tierResolverUsage = findTierResolverUsage(features);
   const tierResolverHolder: { resolver: EffectiveFeaturesResolver | undefined } = {
     resolver: undefined,
   };
   const finalEffectiveFeatures: EffectiveFeaturesResolver | undefined =
-    options.effectiveFeatures ??
-    (tierResolverUsage
+    tierResolverUsage || wiring.featureToggles
       ? Object.assign(
           (tenantId: TenantId) => {
             // Defensive: Server starts AFTER onAfterSetup completes, so the
@@ -400,7 +487,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
               Promise.resolve(false),
           },
         )
-      : undefined);
+      : undefined;
 
   // configResolver-default fürs config-feature — im auth-mode immer
   // hinzufügen, im no-auth-mode dem Caller überlassen. Factory-form
@@ -416,10 +503,22 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // Subject-KMS + Blind-Index (symmetrisch zu runProdApp). Dev warnt bei
   // Klartext-PII statt zu failen; kms+lookupable ohne blindIndexKey bricht
   // auch hier (Lookups wären in jedem Modus kaputt).
-  const piiKms = resolveDevPiiKms(options);
+  const piiKms: DevPiiKmsResolution =
+    options.kmsMode !== undefined
+      ? {
+          kms: wiring.kms.kms,
+          blindIndexKey: wiring.kms.blindIndexKey,
+          generatedBlindIndexKey: false,
+          mode: wiring.kms.kms ? "app-kms" : "plaintext",
+        }
+      : resolveDevPiiKms(options);
   configurePiiSubjectKms(piiKms.kms);
   configureBlindIndexKey(piiKms.blindIndexKey);
   const releaseEphemeralPiiKms = captureEphemeralDevPiiKms(piiKms);
+  const releasePiiKms = async (): Promise<void> => {
+    releaseEphemeralPiiKms();
+    await wiring.kms.close();
+  };
   assertPiiBootInvariants(features, {
     kms: piiKms.kms,
     blindIndexKey: piiKms.blindIndexKey,
@@ -562,6 +661,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(extraRoutes !== undefined && { extraRoutes }),
     ...(options.wire !== undefined && { wire: options.wire }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
+    ...(options.demoMode && { wrapFetch: wiring.wrapFetch }),
     ...(finalEffectiveFeatures !== undefined && {
       effectiveFeatures: finalEffectiveFeatures,
     }),
@@ -644,6 +744,15 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           cacheSync: stack.cacheSync,
         });
       }
+      if (wiring.featureToggles) {
+        const bound = await wiring.featureToggles.bind({
+          db: stack.db,
+          registry: stack.registry,
+          cacheSync: stack.cacheSync,
+          tierResolver: tierResolverHolder.resolver,
+        });
+        tierResolverHolder.resolver = bound.resolver;
+      }
       if (effectiveAuth && stack.registry.getExtensionUsages(EXT_SESSION_STORE).length > 0) {
         // Secure-by-default (#1372): resolve sessionStore provider; bind
         // password-change mass-revoke + MFA revokeAllOthers.
@@ -681,17 +790,20 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       // Runs before user-supplied seed callbacks so those can read /
       // override the deploy-defaults. The helper indirection is what
       // config-seed-boot.integration.ts pins — keep it as a single call.
+      for (const seed of wiring.shortcutSeeds) {
+        await seed(stack.db);
+      }
       await applyBootSeeds({
         registry: stack.registry,
         db: stack.db,
         ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
       });
-      for (const seed of options.seeds ?? []) {
+      for (const seed of stackSeeds) {
         await seed(stack);
       }
     },
-  }).catch((error: unknown) => {
-    releaseEphemeralPiiKms();
+  }).catch(async (error: unknown) => {
+    await releasePiiKms().catch(() => {});
     throw error;
   });
 
@@ -719,7 +831,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       try {
         await handle.stop();
       } finally {
-        releaseEphemeralPiiKms();
+        await releasePiiKms();
       }
     },
   };

@@ -43,7 +43,10 @@ import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
 import { createDocumentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
-import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import {
+  createFeatureTogglesFeature,
+  FEATURE_TOGGLES_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
@@ -404,6 +407,12 @@ export const APP_FEATURES = [
   createDocumentIngestFoundationFeature(),
   createAgentToolsFeature(),
 ] as const;
+
+// runProdApp / runDevApp mount feature-toggles themselves with `featureToggles: true`
+// and reject a second copy in `features`; APP_FEATURES keeps it for schema and coverage tooling.
+export const BOOT_FEATURES = APP_FEATURES.filter(
+  (feature) => feature.name !== FEATURE_TOGGLES_FEATURE,
+);
 
 // Smoke signup — enables createAuthSelfRegistrationToggleFeature via
 // composeFeatures when passed as authOptions (#1521 Option A). Same shape

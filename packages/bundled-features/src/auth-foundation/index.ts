@@ -1,5 +1,6 @@
 // Public API of the auth-foundation bundled-feature.
 
+export { authEnvSchema } from "./env.ts";
 export {
   createAuthFoundationFeature,
   type ResolvedTenantResolver,

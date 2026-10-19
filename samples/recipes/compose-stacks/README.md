@@ -36,22 +36,25 @@ the option.
 | `composeGdprStack` | `kmsMode` | `kms` or `allowPlaintextPii` |
 | `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail` | a mounted `channel-email` |
 | `composeSecurityStack` | `kmsMode`, `rateLimit` not `false` | `kms` or `allowPlaintextPii` |
-| `composeSaasStack({ billing: "stripe" })` | `billing` | a mounted subscription provider |
+| `composeSaasStack({ billing: "stripe" })` | `billing` (warning only) | a mounted subscription provider |
 
 A missing option fails the boot with:
 
 ```
 [runProdApp] stacks in `features` need boot options that are not set:
-  - composeSaasStack needs the boot option `billing`: set billing: { stripe: { priceToTier }, defaultTier }
+  - composeGdprStack needs the boot option `kmsMode`: set kmsMode: "required" (or { plaintextReason } for a demo)
 ```
+
+A stripe `composeSaasStack` without `billing` boots and logs the same line as a warning, so an
+app can go live before its prices exist.
 
 ## Flow
 
 1. `src/app.ts` lists the stacks and the boot options they need.
 2. The test boots with `KUMIKO_DRY_RUN_ENV=boot`, which runs the whole
    validation and stops before any DB or Redis connection: with the options
-   the boot passes, without `billing` or `kmsMode` it fails and names the
-   stacks.
+   the boot passes, without `kmsMode` it fails and names the stacks, and
+   without `billing` it warns.
 
 ## Tests
 

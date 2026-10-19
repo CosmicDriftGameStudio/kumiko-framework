@@ -19,12 +19,12 @@ import type { ServerOptions } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type {
-  EffectiveFeaturesResolver,
   FeatureDefinition,
   Registry,
   ValidateBootOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { WorkerEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
+import type { ComposedEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import {
@@ -34,14 +34,25 @@ import {
 } from "@cosmicdrift/kumiko-framework/observability";
 import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
+import { runEnvGate } from "./boot/env-gate.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
-import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.ts";
+import {
+  bootWorkerProcess,
+  resolveWorkerEnvSource,
+  type WorkerBootResult,
+} from "./boot/worker-boot-core.ts";
 import {
   startWorkerMetricsServer,
   type WorkerMetricsOptions,
   type WorkerMetricsServer,
 } from "./boot/worker-metrics-server.ts";
+import type { BillingBootOption } from "./boot-options/billing-option.ts";
+import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
+import type { KmsMode } from "./boot-options/kms-mode.ts";
+import type { MailBootOption } from "./boot-options/mail-option.ts";
+import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
+import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 import {
   makeDispatchSystemQuery,
   makeDispatchSystemWrite,
@@ -121,8 +132,22 @@ export type RunWorkerAppOptions = {
    *  `entrypoint.start()` — the hook itself is responsible for starting
    *  its component and registering a shutdown hook on `lifecycle`. */
   readonly wireComponents?: (deps: WorkerWireDeps) => Promise<void> | void;
-  /** Feature-toggle resolver (see RunProdAppOptions["effectiveFeatures"]). */
-  readonly effectiveFeatures?: EffectiveFeaturesResolver;
+  /** Same as RunProdAppOptions["mail"]: mounts channel-email so the worker delivers what the API queues. */
+  readonly mail?: MailBootOption;
+  /** Same as RunProdAppOptions["fileStorage"]: mounts the file providers the worker's file jobs use. */
+  readonly fileStorage?: FileStorageBootOption;
+  /** Same as RunProdAppOptions["kmsMode"]; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
+  readonly kmsMode?: KmsMode;
+  /** Same as RunProdAppOptions["billing"]: mounts subscription-stripe so the registry matches the API. The webhook route belongs to the API process. */
+  readonly billing?: BillingBootOption;
+  /** Same as RunProdAppOptions["featureToggles"]: mounts feature-toggles and layers the operator switches over the tier resolver. */
+  readonly featureToggles?: boolean;
+  /** Composed env schema (see RunProdAppOptions["envSchema"]). With it the worker validates its env,
+   *  derives the KMS slots from it (`kmsSlots` is ignored) and understands every `KUMIKO_DRY_RUN_ENV`
+   *  mode. Without it only `KUMIKO_DRY_RUN_ENV=boot` is available. */
+  readonly envSchema?: ComposedEnvSchema;
+  readonly pulumiPrefix?: string;
+  readonly bootErrorReporter?: (err: KumikoBootError) => void;
   /** Override `process.env` for env-validation (see
    *  RunProdAppOptions["envSource"]). */
   readonly envSource?: Record<string, string | undefined>;
@@ -157,14 +182,63 @@ function makeBootModeHandle(): WorkerAppHandle {
   };
 }
 
+// undefined: a dry-run mode already produced its output and the worker must not boot.
+async function resolveGatedEnvSource(
+  options: RunWorkerAppOptions,
+): Promise<Record<string, string | undefined> | undefined> {
+  if (!options.envSchema) return resolveWorkerEnvSource(options, "runWorkerApp");
+  const envGate = await runEnvGate({ ...options, envSchema: options.envSchema }, "runWorkerApp");
+  return envGate.kind === "stopped" ? undefined : envGate.decryptedEnvSource;
+}
+
+// The API enforces the same requirement; a worker that skipped it would keep running
+// jobs and event handlers of features an operator switched off.
+function assertWorkerStackRequirements(options: RunWorkerAppOptions): void {
+  assertStackBootRequirements(
+    { features: options.features, ...(options.featureToggles && { featureToggles: true }) },
+    ["featureToggles"],
+  );
+}
+
 export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   assertSeedModeNotInProduction();
-  const envSource = await resolveWorkerEnvSource(options, "runWorkerApp");
+  const resolvedEnvSource = await resolveGatedEnvSource(options);
+  if (resolvedEnvSource === undefined) return makeBootModeHandle();
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log("[runWorkerApp] booting Kumiko worker…");
 
-  const boot = await bootWorkerProcess(options, envSource, { processName: "runWorkerApp" });
-  if (boot.kind === "dry-run") return makeBootModeHandle();
+  assertWorkerStackRequirements(options);
+  const wiring = await resolveBootOptionWiring(options, resolvedEnvSource);
+  const envSource =
+    Object.keys(wiring.envDefaults).length > 0
+      ? { ...wiring.envDefaults, ...resolvedEnvSource }
+      : resolvedEnvSource;
+  let boot: WorkerBootResult;
+  try {
+    boot = await bootWorkerProcess(
+      {
+        ...options,
+        features: [...options.features, ...wiring.features],
+        ...(wiring.kms.kms && { kms: wiring.kms.kms }),
+        ...(wiring.kms.blindIndexKey !== undefined && { blindIndexKey: wiring.kms.blindIndexKey }),
+        ...(wiring.kms.allowPlaintextPii !== undefined && {
+          allowPlaintextPii: wiring.kms.allowPlaintextPii,
+        }),
+      },
+      envSource,
+      {
+        processName: "runWorkerApp",
+        ...(wiring.featureToggles && { featureToggles: wiring.featureToggles }),
+      },
+    );
+  } catch (error) {
+    await wiring.kms.close().catch(() => {});
+    throw error;
+  }
+  if (boot.kind === "dry-run") {
+    await wiring.kms.close();
+    return makeBootModeHandle();
+  }
   const { db, redis, registry, entrypoint } = boot;
 
   // Metrics first: a port clash must fail the boot before start() begins
@@ -180,11 +254,15 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     // The boot failure is the actionable error; a close failure on a
     // half-started worker must not replace it.
     await boot.close().catch(() => {});
+    await wiring.kms.close().catch(() => {});
     throw error;
   }
   const handle: WorkerAppHandle = {
     entrypoint,
-    stop: boot.close,
+    stop: async () => {
+      await boot.close();
+      await wiring.kms.close();
+    },
     ...(metricsServer && { metricsServer }),
   };
   await recordAppStartedOnBoot({ db, envSource });

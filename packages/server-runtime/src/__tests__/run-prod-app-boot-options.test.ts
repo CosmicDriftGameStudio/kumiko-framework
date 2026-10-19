@@ -116,6 +116,13 @@ describe("runProdApp boot options", () => {
     ).rejects.toThrow(/createTierEngineFeature/);
   });
 
+  test("the removed effectiveFeatures option aborts the boot", async () => {
+    const removedOption = { effectiveFeatures: () => new Set<string>() };
+    await expect(bootValidate({ autoListen: false, ...removedOption })).rejects.toThrow(
+      /featureToggles: true/,
+    );
+  });
+
   test('kmsMode "required" without the KMS env aborts', async () => {
     await expect(bootValidate({ kmsMode: "required" })).rejects.toThrow(/kmsMode "required"/);
   });

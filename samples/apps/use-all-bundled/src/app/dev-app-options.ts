@@ -13,7 +13,7 @@
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { RunDevAppOptions } from "@cosmicdrift/kumiko-dev-server";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
+import { AUTH_COMPOSE_OPTIONS, BOOT_FEATURES } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { notesFeature } from "./notes-feature";
 import { appScreensFeature } from "./screens-feature";
@@ -24,10 +24,11 @@ import { seedScreenshotData } from "./seed";
 // würde den Resolver auf jedem Write aktivieren (inkl. Login) und braucht
 // per-Tenant Tier-Assignments — disproportional für einen Preview-Screenshot.
 
-export const devAppOptions: RunDevAppOptions = {
+export const devAppOptions = {
   // notesFeature is dev-only (app-owned tag host) — see notes-feature.ts for why
   // it stays out of APP_FEATURES. appScreensFeature places the user-profile screen.
-  features: [...APP_FEATURES, appScreensFeature, notesFeature],
+  features: [...BOOT_FEATURES, appScreensFeature, notesFeature],
+  featureToggles: true,
   port: Number.parseInt(process.env["PORT"] ?? "4186", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
@@ -72,4 +73,4 @@ export const devAppOptions: RunDevAppOptions = {
     emailVerification: AUTH_COMPOSE_OPTIONS.emailVerification,
     accountUnlock: AUTH_COMPOSE_OPTIONS.accountUnlock,
   },
-};
+} satisfies RunDevAppOptions;

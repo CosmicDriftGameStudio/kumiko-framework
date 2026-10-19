@@ -1,5 +1,5 @@
 // A prod seed gets the same file-provider context and dispatcher options as the HTTP
-// path: it can store files directly, sees handler failures, and honours effectiveFeatures.
+// path: it can store files directly, sees handler failures, and honours the feature gate.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -7,10 +7,11 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import { globalFeatureStateTable } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 
-import { createDbConnection, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createDbConnection, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
@@ -46,6 +47,7 @@ const TEST_DB_URL = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 seeded");
 
 const seedFilesProbeFeature = defineFeature("seed-files-probe", (r) => {
+  r.toggleable({ default: true });
   r.writeHandler({
     name: "explode",
     schema: z.object({}),
@@ -83,7 +85,16 @@ beforeAll(async () => {
     await createArchivedStreamsTable(db);
     await createProjectionStateTable(db);
     await createEventConsumerStateTable(db);
-    await unsafePushTables(db, { configValuesTable, fileRefsTable, fileUploadLedgerTable });
+    await unsafePushTables(db, {
+      configValuesTable,
+      fileRefsTable,
+      fileUploadLedgerTable,
+      globalFeatureStateTable,
+    });
+    await insertOne(db, globalFeatureStateTable, {
+      featureName: "seed-files-probe",
+      enabled: false,
+    });
   } finally {
     await close();
   }
@@ -197,7 +208,7 @@ describe("runProdApp seeds with file storage", () => {
     expect(message).toContain("handler blew up on purpose");
   });
 
-  test("the seed dispatcher honours the app's effectiveFeatures like the entrypoint dispatcher", async () => {
+  test("the seed dispatcher honours the operator's global toggles like the entrypoint dispatcher", async () => {
     let code: string | undefined;
     await bootWithSeed(
       async ({ dispatcher }) => {
@@ -208,7 +219,7 @@ describe("runProdApp seeds with file storage", () => {
         );
         code = result.isSuccess ? undefined : result.error.code;
       },
-      { effectiveFeatures: () => new Set(["config"]) },
+      { featureToggles: true },
     );
 
     expect(code).toBe("feature_disabled");

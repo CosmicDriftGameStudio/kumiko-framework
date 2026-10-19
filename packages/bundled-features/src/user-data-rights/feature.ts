@@ -25,6 +25,7 @@ import {
   USER_ME_QUERY,
   UserDataRightsHandlers,
 } from "./constants.ts";
+import { deletionTokenSecretEnvSchema } from "./env.ts";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.ts";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write.ts";
 import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query.ts";
@@ -198,6 +199,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       recommended: false,
     });
     r.requires({ features: ["user", "data-retention", "compliance-profiles", "sessions"] });
+    r.envSchema(deletionTokenSecretEnvSchema);
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
     // S2.U6 — restrict-account ruft sessions.revokeAllForUser cross-feature.

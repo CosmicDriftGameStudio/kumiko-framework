@@ -51,6 +51,10 @@ const OPTION_CHECKS: { readonly [K in BootOptionName]: OptionCheck } = {
       options.billing !== undefined || mountsExtension(mounted, SUBSCRIPTION_PROVIDER_EXTENSION),
     hint: "set billing: { stripe: { priceToTier }, defaultTier }",
   },
+  featureToggles: {
+    isSatisfied: (options) => options.featureToggles === true,
+    hint: "set featureToggles: true",
+  },
   demoMode: {
     isSatisfied: (options) => options.demoMode !== undefined,
     hint: "set demoMode: { readOnly }",
@@ -69,23 +73,42 @@ const OPTION_CHECKS: { readonly [K in BootOptionName]: OptionCheck } = {
   },
 };
 
-/** Reads `bootRequires` from the raw feature list: dedupe may later drop the
- *  tagged copy of a feature two stacks share. */
-export function assertStackBootRequirements(options: StackBootOptionFields): void {
-  const gaps = new Set<string>();
+function unsatisfiedRequirements(
+  options: StackBootOptionFields,
+  severity: "error" | "warn",
+  scope?: readonly BootOptionName[],
+): string[] {
+  const lines = new Set<string>();
   for (const feature of options.features) {
     const requirement = feature.bootRequires;
-    if (requirement === undefined) continue;
+    if (requirement === undefined || (requirement.severity ?? "error") !== severity) continue;
     for (const option of requirement.options) {
+      if (scope !== undefined && !scope.includes(option)) continue;
       const check = OPTION_CHECKS[option];
       if (!check.isSatisfied(options, options.features)) {
-        gaps.add(`  - ${requirement.stack} needs the boot option \`${option}\`: ${check.hint}`);
+        lines.add(`  - ${requirement.stack} needs the boot option \`${option}\`: ${check.hint}`);
       }
     }
   }
-  if (gaps.size > 0) {
+  return [...lines];
+}
+
+/** Reads `bootRequires` from the raw feature list: dedupe may later drop the
+ *  tagged copy of a feature two stacks share. `scope` limits the check to the
+ *  options the calling boot function can set at all (runDevApp has no `signals`). */
+export function assertStackBootRequirements(
+  options: StackBootOptionFields,
+  scope?: readonly BootOptionName[],
+): void {
+  const gaps = unsatisfiedRequirements(options, "error", scope);
+  if (gaps.length > 0) {
     throw new Error(
-      `[runProdApp] stacks in \`features\` need boot options that are not set:\n${[...gaps].join("\n")}`,
+      `[runProdApp] stacks in \`features\` need boot options that are not set:\n${gaps.join("\n")}`,
     );
   }
+}
+
+/** Requirements a stack marked `severity: "warn"`: logged at boot, never fatal. */
+export function stackBootWarnings(options: StackBootOptionFields): string[] {
+  return unsatisfiedRequirements(options, "warn");
 }
