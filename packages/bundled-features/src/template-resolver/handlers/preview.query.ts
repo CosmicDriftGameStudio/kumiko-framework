@@ -13,10 +13,11 @@ export const previewQuery = defineQueryHandler({
     content: z.string().max(200_000).optional(),
     meta: z.unknown().optional(),
     variableSchema: z.record(z.string(), z.unknown()).default({}),
+    variables: z.record(z.string(), z.unknown()).optional(),
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Renders a template draft, or the stored template when no content is given, with sample values taken from the declared variable examples, without saving or sending anything: returns the mail subject, html and plain text with its inline images (a PDF template returns its body and layout regions instead), the sample values used, and checks for unresolved images, missing plain text, mail size and unused required placeholders; a draft that fails the write rules is rejected with the same problems as a save.",
+    "Renders a template draft, or the stored template when no content is given, with sample values taken from the declared variable examples (values passed in variables replace them and are checked against the variable schema), without saving or sending anything: returns the mail subject, html and plain text with its inline images (a PDF template returns its body and layout regions instead), the sample values used, and checks for unresolved images, missing plain text, mail size and unused required placeholders; a draft that fails the write rules is rejected with the same problems as a save.",
   handler: async (query, ctx) => {
     const outcome = await renderTemplatePreview(ctx, query.user, query.payload);
     if (!outcome.ok) throw outcome.error;

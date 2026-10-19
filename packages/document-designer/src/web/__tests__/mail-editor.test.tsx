@@ -647,4 +647,41 @@ describe("MailEditor", () => {
       "Pick invoice",
     );
   });
+
+  test("picked record values go into the preview query and the test mail, and not before", async () => {
+    const calls: Call[] = [];
+    const previewCalls = (): Call[] =>
+      calls.filter((call) => call.type === "template-resolver:query:preview");
+    const pickedValues = { invoiceNumber: "RE-PICKED-1" };
+    renderEditor(fakeDispatcher("draft", calls), (children) => (
+      <PreviewRecordPickerProvider
+        value={{
+          label: "Pick invoice",
+          renderPicker: ({ onPick }) => (
+            <button type="button" data-testid="fake-pick" onClick={() => onPick(pickedValues)}>
+              pick
+            </button>
+          ),
+        }}
+      >
+        {children}
+      </PreviewRecordPickerProvider>
+    ));
+    await openPreview();
+    await waitFor(() => expect(previewCalls().length).toBeGreaterThan(0));
+    expect(previewCalls().every((call) => !("variables" in (call.payload as object)))).toBe(true);
+
+    fireEvent.click(await screen.findByTestId("mail-record-picker-open"));
+    fireEvent.click(await screen.findByTestId("fake-pick"));
+    await waitFor(() =>
+      expect(previewCalls().at(-1)?.payload).toMatchObject({ variables: pickedValues }),
+    );
+
+    fireEvent.click(screen.getByTestId("mail-test-send"));
+    await waitFor(() =>
+      expect(
+        calls.find((call) => call.type === "template-resolver:write:send-test")?.payload,
+      ).toMatchObject({ variables: pickedValues }),
+    );
+  });
 });

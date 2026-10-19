@@ -1,20 +1,23 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type {
-  HandlerContext,
-  SessionUser,
-  TemplateListVariableDef,
-  TemplateScalarVariableDef,
-  TemplateVariables,
+import {
+  type HandlerContext,
+  type SessionUser,
+  type TemplateListVariableDef,
+  type TemplateScalarVariableDef,
+  type TemplateVariables,
+  templateVariablesToZod,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type KumikoError,
   NotFoundError,
   UnprocessableError,
   ValidationError,
+  validationErrorFromZod,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml } from "@cosmicdrift/kumiko-headless";
+import * as z from "zod";
 import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.ts";
 import { fileContextForTenant } from "../file-foundation/index.ts";
 import {
@@ -177,6 +180,8 @@ export type TemplatePreviewInput = {
   readonly content?: string | undefined;
   readonly meta?: unknown;
   readonly variableSchema: Readonly<Record<string, unknown>>;
+  /** Replaces the declared example values for the named variables. */
+  readonly variables?: Readonly<Record<string, unknown>> | undefined;
 };
 
 type ValidationResponse = Awaited<ReturnType<typeof validateTemplateDraft>>["response"];
@@ -197,6 +202,7 @@ export type TemplatePreview = {
     readonly scope: TemplateScope;
     readonly version: number;
   } | null;
+  /** The values the preview was actually rendered with: examples plus any overrides. */
   readonly sampleValues: Readonly<Record<string, unknown>>;
   readonly checks: readonly PreviewCheck[];
   readonly validation: ValidationResponse;
@@ -689,7 +695,17 @@ export async function renderTemplatePreview(
 
   const content = evaluation.content ?? "";
   const meta = parseTemplateMeta(input.kind, parseStoredJson(evaluation.metaJson));
-  const sampleValues = sampleValuesFor(validation.variables, labelTextFor(ctx, input.locale));
+  const exampleValues = sampleValuesFor(validation.variables, labelTextFor(ctx, input.locale));
+  let sampleValues = exampleValues;
+  if (input.variables !== undefined) {
+    const overrides = z.object({
+      variables: templateVariablesToZod(validation.variables).partial().strict(),
+    });
+    const checked = overrides.safeParse({ variables: input.variables });
+    if (!checked.success) return failed(validationErrorFromZod(checked.error));
+    // Original values, not the parse result: parsing would strip keys inside list rows.
+    sampleValues = { ...exampleValues, ...input.variables };
+  }
 
   if (input.kind === "document-pdf") {
     return renderDocumentPreview(ctx, user, {

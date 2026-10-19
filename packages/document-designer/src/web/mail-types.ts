@@ -120,3 +120,5 @@ export type LinkedResourceView =
 export type UpsertResponse = { readonly id: string };
 
 export type SendTestResponse = { readonly subject: string };
+
+export type PickedValues = Readonly<Record<string, unknown>>;

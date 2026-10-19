@@ -337,6 +337,62 @@ describe("template-resolver :: preview query", () => {
     expect(preview.layout?.regions.footer).toContain("PDF_FOOTER");
   });
 
+  test("variables override the sample values and the rest keep their examples", async () => {
+    const preview = await stack.http.queryOk<Preview & { sampleValues: Record<string, unknown> }>(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE, variables: { invoiceNumber: "RE-OVERRIDE-7" } },
+      adminOf(61),
+    );
+    expect(preview.subject).toBe("Rechnung RE-OVERRIDE-7");
+    expect(preview.html).toContain("RE-OVERRIDE-7");
+    expect(preview.html).toContain("15. März 2026");
+    expect(preview.html).toContain("Beratung");
+    expect(preview.sampleValues["invoiceNumber"]).toBe("RE-OVERRIDE-7");
+    expect(preview.sampleValues["dueDate"]).toBe("2026-03-15");
+  });
+
+  test("a text override is escaped in the html", async () => {
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      {
+        slug: SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        variables: { invoiceNumber: "<script>alert(1)</script>" },
+      },
+      adminOf(62),
+    );
+    expect(preview.html).not.toContain("<script>alert(1)");
+    expect(preview.html).toContain("&lt;script&gt;");
+  });
+
+  test("an override that breaks the variable schema is a validation error on variables.<name>", async () => {
+    const admin = adminOf(63);
+    const money = await stack.http.queryErr(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE, variables: { total: "viel" } },
+      admin,
+    );
+    expect(money.code).toBe("validation_error");
+    expectErrorIncludes(money, "variables.total");
+    const date = await stack.http.queryErr(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE, variables: { dueDate: "morgen" } },
+      admin,
+    );
+    expect(date.code).toBe("validation_error");
+    expectErrorIncludes(date, "variables.dueDate");
+  });
+
+  test("an override for an undeclared variable is rejected", async () => {
+    const err = await stack.http.queryErr(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE, variables: { nope: "x" } },
+      adminOf(64),
+    );
+    expect(err.code).toBe("validation_error");
+  });
+
   test("the role User is refused", async () => {
     const user = createTestUser({ id: 28, roles: ["User"], tenantId: testTenantId(28) });
     const res = await stack.http.query(
@@ -362,6 +418,26 @@ describe("template-resolver :: send-test write", () => {
     expect(message?.to).toBe(addressOf(admin.id));
     expect(message?.subject).toBe("[TEST] Entwurf RE-2026-001");
     expect(message?.html).toContain("ENTWURF RE-2026-001");
+  });
+
+  test("variables override the sample values in the sent test mail", async () => {
+    const result = await stack.http.writeOk<{ subject: string }>(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE, variables: { invoiceNumber: "RE-OVERRIDE-9" } },
+      adminOf(65),
+    );
+    expect(result.subject).toBe("[TEST] Rechnung RE-OVERRIDE-9");
+    expect(emailTransport.sent[0]?.html).toContain("RE-OVERRIDE-9");
+  });
+
+  test("an invalid override sends no test mail", async () => {
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE, variables: { total: "viel" } },
+      adminOf(66),
+    );
+    expect(err.code).toBe("validation_error");
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("a test mail fills a translated text example in the language of the edited tab", async () => {
