@@ -495,7 +495,7 @@ function validateWizardLayout(
 // typed IconKey, a closed union — but that only protects call sites this
 // repo's own `tsc --build` actually covers (samples and external consumers
 // aren't in that project graph). The renderer's actionIconFor
-// (renderer-web/src/primitives/index.tsx) already falls back to "no icon"
+// (renderer/src/web/primitives/index.tsx) already falls back to "no icon"
 // for an unregistered key instead of crashing — this check makes the same
 // gap fail loudly at boot instead of silently at render.
 function isRegisteredIcon(icon: IconKey): boolean {

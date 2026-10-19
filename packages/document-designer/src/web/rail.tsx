@@ -1,5 +1,5 @@
 // @runtime client
-import { cn } from "@cosmicdrift/kumiko-renderer-web";
+import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 
 export function RailSection({

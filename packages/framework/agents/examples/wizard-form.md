@@ -338,11 +338,11 @@ export const listingsFeature = defineFeature("listings", (r) => {
 // A `kind: "extension"` section only resolves through
 // clientFeatures.extensionSectionComponents (createKumikoApp → ExtensionSectionsProvider)
 // — never imported directly from feature.ts, which keeps the server file
-// free of the renderer-web graph. Without registering this export, an app
+// free of the renderer/web graph. Without registering this export, an app
 // mounting this recipe gets RenderEdit's fallback placeholder instead of
 // the real review step.
 
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { ListingReviewSection } from "./listing-review-section";
 
 export const listingsClient: ClientFeatureDefinition = {
@@ -355,13 +355,13 @@ export const listingsClient: ClientFeatureDefinition = {
 
 ```tsx
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
-import { DetailList } from "@cosmicdrift/kumiko-renderer-web";
+import { DetailList } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 
 // Registered under the `__component` name the feature's review section
 // points at (see feature.ts) — never imported by feature.ts itself, the
 // string name is the only link so the server file stays free of the
-// renderer-web graph.
+// renderer/web graph.
 export function ListingReviewSection({ values }: ExtensionSectionProps): ReactNode {
   return (
     <DetailList

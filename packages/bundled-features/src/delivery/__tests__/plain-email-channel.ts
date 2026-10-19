@@ -1,5 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { escapeHtml } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { createEmailChannel, type EmailChannelOptions } from "../../channel-email/email-channel.ts";
 import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
 

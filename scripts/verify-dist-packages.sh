@@ -112,7 +112,7 @@ deps="$(jq -n --arg t "file:$scratch/$testing_tarball" --arg g "file:$scratch/$g
 for i in "${!names[@]}"; do
   deps="$(jq --arg n "${names[$i]}" --arg t "file:${tarballs[$i]}" '.[$n] = $t' <<<"$deps")"
 done
-# A real consumer installs the required peers itself (e.g. tailwindcss for renderer-web/theme-plugin) and @types/react for its own JSX.
+# A real consumer installs the required peers itself (e.g. tailwindcss for renderer/web/theme-plugin) and @types/react for its own JSX.
 peers='{}'
 for pkg_dir in "${dirs[@]}"; do
   peers="$(jq --argjson peers "$peers" '$peers + ((.peerDependencies // {}) as $p | (.peerDependenciesMeta // {}) as $m | $p | with_entries(select($m[.key].optional != true)))' "$pkg_dir/package.json")"
@@ -141,26 +141,32 @@ for installed in "$consumer"/node_modules/@cosmicdrift/*; do
   done
 done
 
-# server-runtime resolves renderer-web's stylesheet from its own location; this must work from the installed layout.
-if [ -d "$consumer/node_modules/@cosmicdrift/kumiko-server-runtime" ] && [ -d "$consumer/node_modules/@cosmicdrift/kumiko-renderer-web" ]; then
-  (cd "$consumer" && bun -e 'import { existsSync } from "node:fs"; const p = Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", "./node_modules/@cosmicdrift/kumiko-server-runtime"); if (!existsSync(p)) process.exit(1)') \
-    || problems+=("server-runtime: @cosmicdrift/kumiko-renderer-web/styles.css does not resolve from the installed package")
+# server-runtime resolves the renderer's web stylesheet from its own location; this must work from the installed layout.
+if [ -d "$consumer/node_modules/@cosmicdrift/kumiko-server-runtime" ] && [ -d "$consumer/node_modules/@cosmicdrift/kumiko-renderer" ]; then
+  (cd "$consumer" && bun -e 'import { existsSync } from "node:fs"; const p = Bun.resolveSync("@cosmicdrift/kumiko-renderer/web/styles.css", "./node_modules/@cosmicdrift/kumiko-server-runtime"); if (!existsSync(p)) process.exit(1)') \
+    || problems+=("server-runtime: @cosmicdrift/kumiko-renderer/web/styles.css does not resolve from the installed package")
 fi
 
-# The published stylesheet finds class names only through its @source lines; a wrong path in the installed layout compiles fine but ships unstyled UI. Compile it from the installed package and look for one class from renderer-web and one that exists only in the renderer's compiled dist.
-renderer_web="$consumer/node_modules/@cosmicdrift/kumiko-renderer-web"
-if [ -d "$renderer_web" ] && [ -d "$consumer/node_modules/@cosmicdrift/kumiko-renderer/dist" ]; then
+# The published stylesheet finds class names only through its @source lines; a wrong path in the installed layout compiles fine but ships unstyled UI. Compile it from the installed package and look for one class from the web layer and one that exists only in the renderer's compiled dist. The deprecated kumiko-renderer-web shim stylesheet must compile to the same classes.
+renderer_pkg="$consumer/node_modules/@cosmicdrift/kumiko-renderer"
+renderer_web_shim="$consumer/node_modules/@cosmicdrift/kumiko-renderer-web"
+if [ -d "$renderer_pkg/dist" ]; then
   tailwind_bin="$repo_root/node_modules/.bin/tailwindcss"
   compiled_css="$scratch/compiled-styles.css"
   if [ ! -x "$tailwind_bin" ]; then
     problems+=("published styles.css: $tailwind_bin is missing, @source check did not run")
-  elif ! "$tailwind_bin" -i "$renderer_web/src/styles.css" -o "$compiled_css" >/dev/null 2>&1; then
+  elif ! "$tailwind_bin" -i "$renderer_pkg/src/web/styles.css" -o "$compiled_css" >/dev/null 2>&1; then
     problems+=("published styles.css: tailwind failed to compile the installed stylesheet")
   else
     grep -qF '.min-h-screen' "$compiled_css" \
-      || problems+=("published styles.css: class from renderer-web (min-h-screen) missing after compile")
+      || problems+=("published styles.css: class from the web layer (min-h-screen) missing after compile")
     grep -qF 'first-child\]\:pb-2' "$compiled_css" \
       || problems+=("published styles.css: class that only exists in kumiko-renderer/dist is missing, @source does not reach the installed renderer dist")
+  fi
+  if [ -d "$renderer_web_shim" ]; then
+    shim_css="$scratch/compiled-shim-styles.css"
+    "$tailwind_bin" -i "$renderer_web_shim/src/styles.css" -o "$shim_css" >/dev/null 2>&1 && grep -qF '.min-h-screen' "$shim_css" \
+      || problems+=("kumiko-renderer-web shim: src/styles.css does not compile to the renderer web stylesheet")
   fi
 fi
 

@@ -12,7 +12,7 @@ import {
   useTranslation,
   VariableChips,
 } from "@cosmicdrift/kumiko-renderer";
-import { cn } from "@cosmicdrift/kumiko-renderer-web";
+import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";

@@ -2,7 +2,7 @@
 /**
  * Guard: raw interactive HTML elements in feature UI. <a>, <details> and
  * <summary> each have a framework replacement (usePrimitives().Link,
- * CollapsibleSection from @cosmicdrift/kumiko-renderer-web) but nothing was
+ * CollapsibleSection from @cosmicdrift/kumiko-renderer/web) but nothing was
  * checking for them — turn-cards.tsx/agent-layer.tsx (raw <details>/<summary>)
  * and agent-settings.tsx (raw <a href>) shipped past CI in kumiko-enterprise.
  *
@@ -56,8 +56,8 @@ type BannedTag = "a" | "details" | "summary";
 
 const REPLACEMENT: Readonly<Record<BannedTag, string>> = {
   a: "usePrimitives().Link",
-  details: "CollapsibleSection (@cosmicdrift/kumiko-renderer-web)",
-  summary: "CollapsibleSection (@cosmicdrift/kumiko-renderer-web)",
+  details: "CollapsibleSection (@cosmicdrift/kumiko-renderer/web)",
+  summary: "CollapsibleSection (@cosmicdrift/kumiko-renderer/web)",
 };
 
 function isBannedTag(tag: string): tag is BannedTag {
@@ -110,7 +110,7 @@ const createBaseline = (baselineRoot: string) =>
 
 const REMEDIATION =
   "Framework replacement: <a> → usePrimitives().Link, <details>/<summary> → CollapsibleSection " +
-  `(@cosmicdrift/kumiko-renderer-web). Genuine exception: // ${IGNORE_TAG} <reason>`;
+  `(@cosmicdrift/kumiko-renderer/web). Genuine exception: // ${IGNORE_TAG} <reason>`;
 
 function analyse(
   files: readonly SourceFile[],

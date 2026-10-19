@@ -13,7 +13,7 @@
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
-import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
+import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 
 // createKumikoApp's shell option only injects schema + children, so brand is supplied here.

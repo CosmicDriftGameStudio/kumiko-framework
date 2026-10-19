@@ -66,7 +66,7 @@ describe("canResolveTailwindStylesheet", () => {
 
   test("tailwindcss not resolvable from entry dir → false", () => {
     const out = canResolveTailwindStylesheet(
-      "/cache/@cosmicdrift/kumiko-renderer-web/src/styles.css",
+      "/cache/@cosmicdrift/kumiko-renderer/src/web/styles.css",
       {
         bun: {
           resolveSync: () => {

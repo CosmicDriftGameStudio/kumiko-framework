@@ -3,11 +3,11 @@
 // A `kind: "extension"` section only resolves through
 // clientFeatures.extensionSectionComponents (createKumikoApp → ExtensionSectionsProvider)
 // — never imported directly from feature.ts, which keeps the server file
-// free of the renderer-web graph. Without registering this export, an app
+// free of the renderer/web graph. Without registering this export, an app
 // mounting this recipe gets RenderEdit's fallback placeholder instead of
 // the real review step.
 
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { ListingReviewSection } from "./listing-review-section";
 
 export const listingsClient: ClientFeatureDefinition = {

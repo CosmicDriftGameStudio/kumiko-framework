@@ -12,9 +12,7 @@
   "references": [
     { "path": "../framework" },
     { "path": "../types" },
-    { "path": "../headless" },
     { "path": "../renderer" },
-    { "path": "../renderer-web" },
     { "path": "../bundled-features" },
     { "path": "../renderer-puppeteer-client" }
   ]

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { composeLayoutHtml } from "../compose-layout.ts";
 import { parseOverviewRow } from "../overview-row.ts";
 import { templateTitle, usedByLabel } from "../used-by-label.ts";

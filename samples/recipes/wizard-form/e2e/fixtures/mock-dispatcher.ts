@@ -1,6 +1,6 @@
 // In-memory dispatcher for wizard-form/e2e. Implements the dispatcher
-// interface from @cosmicdrift/kumiko-headless without the HTTP layer, its
-// own lean variant (no import from renderer-web/e2e — its fixtures are
+// interface from @cosmicdrift/kumiko-renderer/headless without the HTTP layer, its
+// own lean variant (no import from renderer/web/e2e — its fixtures are
 // package-internal, not exported).
 //
 // Serves two QN formats:
@@ -31,7 +31,7 @@ import type {
   Store,
   WriteOpts,
   WriteResult,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 
 type Row = Record<string, unknown> & { id: string };
 

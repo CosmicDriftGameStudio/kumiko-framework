@@ -4,10 +4,10 @@
 // und reichen ihre konkreten Primitives/Nav/SSE-Impls via Provider
 // in diesen Baum.
 //
-// Wer diesen Layer direkt konsumiert: andere Renderer-Packages
-// (@cosmicdrift/kumiko-renderer-web, später -native) oder eine App die ihren
-// eigenen Bootstrap schreiben will. Normale Samples gehen über
-// @cosmicdrift/kumiko-renderer-web/createKumikoApp, das alle Provider verdrahtet.
+// Direct consumers of this layer: platform bindings
+// (@cosmicdrift/kumiko-renderer/web) or an app writing its own bootstrap.
+// Normal samples go through createKumikoApp from
+// @cosmicdrift/kumiko-renderer/web, which wires all providers.
 
 export { type Formality, formalLocaleTag } from "@cosmicdrift/kumiko-framework/ui-types";
 export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim.ts";

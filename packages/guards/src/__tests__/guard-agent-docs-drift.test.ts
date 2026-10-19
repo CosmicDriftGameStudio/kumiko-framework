@@ -33,7 +33,7 @@ const BASE_FILES: Record<string, string> = {
   "samples/recipes/demo/package.json": JSON.stringify({ description: "Demo recipe." }),
   "samples/recipes/demo/README.md": "# Demo\n\nReadme body.\n",
   [RECIPE_FEATURE_PATH]: "export const demo = 1;\n",
-  "packages/renderer-web/src/index.ts": [
+  "packages/renderer/src/web/index.ts": [
     "/** Shows a card. Second sentence is dropped. */",
     "export function DemoCard(): null {",
     "  return null;",

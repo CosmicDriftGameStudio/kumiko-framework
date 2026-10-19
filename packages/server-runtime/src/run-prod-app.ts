@@ -155,7 +155,7 @@ import type {
   PageHeadMeta,
   PageHeadResolver,
   PageHeadSystemQuery,
-} from "@cosmicdrift/kumiko-headless/apex";
+} from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { Redis } from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds.ts";
 import { resolveBootCrypto } from "./boot/boot-crypto.ts";
@@ -512,7 +512,7 @@ export type HostDispatchFn = (
 ) => HostDispatchResult | Promise<HostDispatchResult>;
 
 // PageHeadMeta/PageHeadResolver/PageHeadSystemQuery moved to
-// @cosmicdrift/kumiko-headless/apex (kumiko-framework#3026) — runDevApp needs
+// @cosmicdrift/kumiko-renderer/headless/apex (kumiko-framework#3026) — runDevApp needs
 // the same types and the same resolve+inject function runProdApp uses, and
 // headless is where renderApexHeadTags already lives. Re-exported here so
 // existing subpath-imports (`@cosmicdrift/kumiko-server-runtime/run-prod-app`)

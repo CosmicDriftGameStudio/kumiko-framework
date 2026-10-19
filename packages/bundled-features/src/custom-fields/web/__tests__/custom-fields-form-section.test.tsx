@@ -1,11 +1,11 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   ExtensionFormRegistryProvider,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -31,7 +31,7 @@ const useQuerySpy = mock((_type: string, _params: unknown, _options?: { enabled?
   refetch: mock(),
 }));
 
-const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
+const actual_renderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actual_renderer,
   useDispatcher: mock(() => ({
@@ -414,4 +414,10 @@ describe("CustomFieldsFormSection — composed mode (Bug-Bash 3 #1)", () => {
     // … aber KEIN standalone-Save-Button (composed: ein Save im Haupt-Form).
     expect(screen.queryByTestId("custom-fields-form-save")).toBeNull();
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+// The restore source is a spread copy: mock.module patches an already imported namespace in place.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
 });

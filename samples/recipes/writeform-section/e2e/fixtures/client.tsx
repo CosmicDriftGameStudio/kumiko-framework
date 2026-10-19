@@ -9,12 +9,12 @@
 // to a second, independently mounted `note-detail` projectionDetail screen
 // (its writeForm section) — that's what makes the layout-parity comparison
 // between the two form kinds possible in one page load. Per
-// packages/renderer-web/src/app/create-app.tsx, shell renders inside every
+// packages/renderer/src/web/app/create-app.tsx, shell renders inside every
 // provider createKumikoApp sets up (dispatcher, primitives, locale, nav,
 // tokens), so the second KumikoScreen works without any provider of its own.
 
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
-import { createKumikoApp, KumikoScreen } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp, KumikoScreen } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { createMockDispatcher } from "./mock-dispatcher";
 

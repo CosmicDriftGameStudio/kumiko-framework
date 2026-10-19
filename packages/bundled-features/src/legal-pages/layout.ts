@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { type PublicPageWrapLayout, TENANT_CONTENT_ATTR } from "../page-render/index.ts";
 
 export type LegalPagesLayoutOptions = {

@@ -10,7 +10,7 @@ not exist in your version:
 | File | What it holds |
 | --- | --- |
 | `agents/features.md` | Every bundled feature: name, purpose, config keys, dependencies |
-| `agents/widgets.md` | Every value export of `@cosmicdrift/kumiko-renderer-web` with its short description |
+| `agents/widgets.md` | Every value export of `@cosmicdrift/kumiko-renderer/web` with its short description |
 | `agents/examples.md` | Index of the worked examples, one per concept |
 | `agents/examples/<name>.md` | One tested sample app: README plus every source and test file |
 
@@ -238,7 +238,7 @@ produces code that compiles and then fails in production.
 - Never write your own JSX for a list, form, detail page or dashboard.
   Declare a screen. Use `type: "custom"` only when no screen type fits.
 - Inside a custom screen, never build your own card, table, badge, button or
-  chart. Use the widgets from `@cosmicdrift/kumiko-renderer-web`
+  chart. Use the widgets from `@cosmicdrift/kumiko-renderer/web`
   (`agents/widgets.md`) and the primitives from `usePrimitives()`.
 - Never fetch data with `useEffect` plus `fetch`. Use `useQuery`
   (`live: true` for server-sent updates) and `useMutation`.

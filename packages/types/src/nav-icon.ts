@@ -4,7 +4,7 @@
 // r.nav()/r.screen()/config-mask/button call site instead of a silent
 // missing-icon at runtime.
 //
-// The renderer-web NAV_ICONS map (packages/renderer-web/src/icons.tsx) is
+// The renderer/web NAV_ICONS map (packages/renderer/src/web/icons.tsx) is
 // checked against this same union via `satisfies`, so the two can't drift —
 // add a key here only together with its lucide-react entry there, and vice
 // versa.

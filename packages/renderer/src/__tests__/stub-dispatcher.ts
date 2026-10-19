@@ -1,4 +1,4 @@
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import type { Dispatcher } from "../headless/index.ts";
 
 export type RecordedWrite = { readonly type: string; readonly payload: unknown };
 

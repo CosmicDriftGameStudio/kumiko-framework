@@ -1,4 +1,4 @@
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
+import type { DispatcherError } from "../headless/index.ts";
 
 // dispatcher.write wirft bei Server-Fehlern NICHT — es returnt
 // { isSuccess: false, error }. Action-Wiring das das Result verwirft,

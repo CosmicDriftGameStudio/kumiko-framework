@@ -1,0 +1,479 @@
+import type {
+  EditFieldSpec,
+  EditSectionSpec,
+  FieldAffix,
+  FieldFillAction,
+  FieldIconKey,
+  FieldRenderer,
+  IconKey,
+  ListColumnSpec,
+  ListFacetSpec,
+  ListSortSpec,
+  OptionsQueryPayload,
+  PlatformComponent,
+  RelatedListGroupBy,
+  RelatedListRowTone,
+  RelatedListToolbarAction,
+  RowAction,
+  RowActionMode,
+  ScreenSlots,
+  SelectOptionTone,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+
+// Runtime-only renderer — function form allowed here because the renderer
+// layer (render-list) injects reference-column lookup closures at mount time.
+// Never serialized to JSON.
+export type RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unknown>>) => string;
+
+/** Where a cell's text links to. `href` comes from NavApi.hrefFor (new-tab and
+ *  copy-link work); `onPress` is the in-app navigation for a plain click. */
+export type CellLink = { readonly href: string; readonly onPress: () => void };
+
+/** Runtime-only like RuntimeRenderer; undefined means the cell stays plain text. */
+export type RuntimeCellLink = (
+  value: unknown,
+  row?: Readonly<Record<string, unknown>>,
+) => CellLink | undefined;
+
+// View-Models — plain data structures produced by computeListViewModel and
+// computeEditViewModel. They flatten the combined [screen-def + entity-def
+// + row-data + user] inputs into a shape the renderer draws directly,
+// without re-resolving conditions or re-reading the entity field map.
+//
+// The renderer's render-list.tsx / render-edit.tsx are essentially
+//   (viewModel) => JSX   // on web
+//   (viewModel) => <View/Text>  // on native
+// so everything the renderer needs to render one frame must be in here.
+//
+// Why pre-compute instead of resolving at render-time: predicates
+// (visible/readonly/required) are arbitrary JS closures — running them
+// inside React's render is wasteful (happens on every re-render, even
+// when values haven't changed) and mixes side-effect-free view code
+// with business logic. Computing once on form-state-change gives the
+// renderer pure data and keeps render paths trivial.
+
+// --- list view model ---
+
+// One column, fully resolved. `label` is the localized string the
+// renderer puts in the column header; view-model builder runs it through
+// LocaleResolver.translate() from the i18nKey wired onto the field.
+// `renderer` passes through ScreenDefinition's FieldRenderer verbatim; the
+// renderer layer may also inject a RuntimeRenderer closure (reference lookups).
+/** How a list cell shows a FileRef value (id or id array). */
+export type ListColumnFileDisplay =
+  | { readonly kind: "image"; readonly variant?: string }
+  | { readonly kind: "file" };
+
+export type ListColumnViewModel = {
+  readonly field: string;
+  readonly label: string;
+  readonly type: string; // field-type ("text", "number", "money", ...)
+  readonly renderer?: FieldRenderer | RuntimeRenderer;
+  readonly linkFor?: RuntimeCellLink;
+  readonly sortable: boolean;
+  /** Only for `type: "select"` or `type: "multiSelect"` — translated option
+   *  labels keyed by raw value. The renderer renders `optionLabels[value]`
+   *  instead of humanizeSlug when present. Convention key:
+   *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
+  readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Only for `type: "select"` — declared tone per raw option value. */
+  readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+  /** Only for `type: "reference"` — referenced entity name for the bulk
+   *  lookup in the renderer (`<refFeature>:query:<refEntity>:list`). */
+  readonly refEntity?: string;
+  /** Only for `type: "reference"` — name of the feature the referenced
+   *  entity lives in. Default = current feature. Cross-feature via the
+   *  qualified form ("feature:entity") on ReferenceFieldDef. */
+  readonly refFeature?: string;
+  /** Only for `type: "reference"` — which field of the referenced entity
+   *  appears as the display value in the cell (default "id"). */
+  readonly refLabelField?: string;
+  /** Set by the caller at runtime (not schema-derived) to emphasize one
+   *  column — e.g. the currently selected base-year column in a
+   *  multi-year statement grid. DataTable renders it with a distinct
+   *  header/cell background. */
+  readonly highlighted?: boolean;
+  /** Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column. */
+  readonly hideOnNarrow?: boolean;
+  /** Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default
+   *  `true`). `false` renders without thousands-separators (e.g. a model
+   *  year). */
+  readonly grouping?: boolean;
+  /** Set for file/image columns: from the entity field type, or from a
+   *  `{ format: "image" | "file" }` renderer. The cell shows a thumbnail or the
+   *  file name instead of the FileRef UUID. */
+  readonly fileDisplay?: ListColumnFileDisplay;
+};
+
+export type ListRowViewModel = {
+  readonly id: string;
+  readonly values: Readonly<Record<string, unknown>>;
+};
+
+export type ListViewModel = {
+  readonly screenId: string;
+  readonly entityName: string;
+  readonly columns: readonly ListColumnViewModel[];
+  readonly rows: readonly ListRowViewModel[];
+  readonly slots?: ScreenSlots;
+  // Flags for the renderer to decide what kind of container to draw.
+  readonly isEmpty: boolean;
+};
+
+// --- edit view model ---
+
+// Per-cell metadata for one sub-field of an embedded-LIST field
+// (`multiple: true`) — the column/cell shape a renderer needs to draw an
+// invoice-positions-style table. One entry per key of the source
+// EmbeddedFieldDef's `schema`.
+export type EmbeddedListCellViewModel = {
+  readonly field: string;
+  readonly label: string;
+  readonly type:
+    | "text"
+    | "number"
+    | "boolean"
+    | "date"
+    | "money"
+    | "decimal"
+    | "select"
+    | "reference"
+    | "timestamp";
+  readonly required: boolean;
+  /** Only for `type: "select"`. */
+  readonly options?: readonly string[];
+  readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Only for `type: "select"`; `"radio"` renders segmented buttons instead of a dropdown. */
+  readonly display?: "radio" | "dropdown";
+  /** Cell is shown but not editable (`EditFieldSpec.embeddedList.readOnlyCells`). */
+  readonly readOnly?: boolean;
+  /** Only for `type: "reference"`. */
+  readonly refEntity?: string;
+  readonly refFeature?: string;
+  readonly refLabelField?: string;
+  readonly refOptionsQuery?: string;
+  /** Only for `type: "decimal"`. */
+  readonly scale?: number;
+};
+
+// Resolved field — all predicates evaluated, labels translated. The
+// renderer reads `{ visible, readonly, required }` directly without
+// re-running any predicate.
+export type EditFieldViewModel = {
+  readonly field: string;
+  readonly label: string;
+  readonly type: string;
+  readonly value: unknown;
+  readonly visible: boolean;
+  // `readOnly` (camelCase) matches the spec-side name on EditFieldSpec —
+  // one convention through the stack. The TS property modifier `readonly`
+  // (lowercase) only collides as a key name in type declarations of the
+  // spec; here in the view-model we could have used either, but symmetric
+  // naming beats clever ergonomics. Parallel-agent chose `readOnly` on
+  // the input; we honour it on the output.
+  readonly readOnly: boolean;
+  readonly required: boolean;
+  readonly span?: number;
+  readonly renderer?: FieldRenderer;
+  /** Set for `type: "select"` and `type: "multiSelect"` — the allowed
+   *  values. The renderer uses these as dropdown/combobox options.
+   *  Source is SelectFieldDef.options / MultiSelectFieldDef.options on
+   *  the EntityDefinition. */
+  readonly options?: readonly string[];
+  /** Set for `type: "select"` and `type: "multiSelect"` — translated
+   *  labels per option, keyed by raw value. The renderer shows
+   *  `optionLabels[value]` as the dropdown/combobox label instead of the
+   *  raw value. Convention key:
+   *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
+  readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Set for `type: "select"` when SelectFieldDef.optionsQuery is set: the
+   *  renderer loads the options from this query (`{ rows: { value, label,
+   *  description?, group? }[] }`, labels verbatim) instead of `options`. `payload`
+   *  is optionsQueryPayload (`{ field }` refs are resolved by the renderer against
+   *  the live form values), `{}` when absent. */
+  readonly selectOptionsQuery?: {
+    readonly query: string;
+    readonly payload: OptionsQueryPayload;
+  };
+  /** Set for `type: "select"` / `"multiSelect"` when optionsAvailabilityQuery is set:
+   *  the renderer loads `{ rows: { value, disabled?, hint? }[] }` from this query and
+   *  merges it onto `options`. `payload` is optionsQueryPayload, `{}` when absent
+   *  (always `{}` for multiSelect). */
+  readonly selectOptionsAvailabilityQuery?: {
+    readonly query: string;
+    readonly payload: OptionsQueryPayload;
+  };
+  /** Set for `type: "multiSelect"` when MultiSelectFieldDef.display is
+   *  "checkboxes" — the renderer shows a checkbox grid with a select-all
+   *  toggle instead of the default combobox dropdown. Set for
+   *  `type: "select"` when SelectFieldDef.display is "radio" or "dropdown" —
+   *  the renderer then skips its own radio-vs-dropdown heuristic. */
+  readonly display?: "checkboxes" | "dropdown" | "radio";
+  /** Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is
+   *  defined — column count for the checkbox grid at the widest breakpoint.
+   *  Ignored unless `display` is "checkboxes". */
+  readonly columns?: 1 | 2 | 3 | 4;
+  /** Set for `type: "multiSelect"` when MultiSelectFieldDef.maxRows is
+   *  defined — grid rows visible before the checkbox grid becomes
+   *  scrollable. Ignored unless `display` is "checkboxes". */
+  readonly maxRows?: number;
+  /** For `type: "text"`, set when TextFieldDef.multiline is true — the
+   *  renderer then renders a textarea instead of a single-line input.
+   *  `type: "longText"` always renders a textarea regardless of this
+   *  value; here it only carries an optional `{ rows }` override.
+   *  `true` = default rows, `{ rows }` = explicit height. */
+  readonly multiline?: boolean | { readonly rows?: number };
+  /** From TextFieldDef.format — `password` makes the renderer mask the input. */
+  readonly format?: "email" | "url" | "phone" | "password";
+  /** From TextFieldDef.autoComplete — HTML autocomplete token for the text input. */
+  readonly autoComplete?: string;
+  /** From TextFieldDef.writeOnly — value is `true` (set) / `null` (empty), never plaintext. */
+  readonly writeOnly?: true;
+  /** From the field's `sensitive: true` — the value must not leave the form (drafts, URL prefill). */
+  readonly sensitive?: true;
+  /** Only set for `type: "timestamp"` when TimestampFieldDef.locatedBy
+   *  exists — wall-clock time without offset. The renderer then emits
+   *  local time without `Z` instead of a UTC instant. */
+  readonly wallClock?: boolean;
+  /** Only for `type: "date" | "timestamp"` — date bounds (ISO) and
+   *  format/locale override from the FieldDefinition. The renderer limits
+   *  the picker with them; write validation runs separately via Zod. */
+  readonly min?: string;
+  readonly max?: string;
+  readonly dateLocale?: string;
+  /** Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default
+   *  `true`). `false` renders without thousands-separators (e.g. a model
+   *  year). */
+  readonly grouping?: boolean;
+  /** Only set for `type: "reference"`.
+   *  The referenced entity (short, without feature prefix). The renderer
+   *  builds the query QN as `<refFeature>:query:<refEntity>:list`. */
+  readonly refEntity?: string;
+  /** Only set for `type: "reference"` — name of the feature the
+   *  referenced entity lives in. Same-feature default = current
+   *  feature. Cross-feature is detected via "feature:entity" on
+   *  ReferenceFieldDef.entity. */
+  readonly refFeature?: string;
+  /** Only set for `type: "reference"` — which field of the referenced
+   *  entity appears as the display label in the dropdown. Default: "id". */
+  readonly refLabelField?: string;
+  /** Only for `type: "reference"` — query handler QN the picker sources its
+   *  options from (fw#2780), replacing the referenced entity's list handler.
+   *  Rows carry `{ id, label }`; `refLabelField` is then unused for the
+   *  picker but still drives list cells. */
+  readonly refOptionsQuery?: string;
+  /** Only for `type: "reference"` — multi mode:
+   *  the value is a UUID array, the renderer mounts a multi-combobox with tags. */
+  readonly refMultiple?: boolean;
+  /** Only for `type: "file" | "image"` — allowed extensions/MIME (e.g.
+   *  ["jpg","png"]) + max size ("5mb"). The renderer sets the `accept`
+   *  attribute and shows the limit; validation runs server-side in the
+   *  upload endpoint against the field def. */
+  readonly accept?: readonly string[];
+  readonly maxSize?: string;
+  /** Only for `type: "files" | "images"` — upper bound on list length. */
+  readonly maxCount?: number;
+  /** Only for `type: "file" | "image"` — entity name + field name for the
+   *  upload POST (`/api/files`), so the endpoint can check maxSize/accept
+   *  against the right field def. */
+  readonly entityType?: string;
+  readonly fieldName?: string;
+  /** Record being edited (update mode only). Sent with the upload so the
+   *  FileRef is attached to the record. */
+  readonly entityId?: string;
+  /** Only for `type: "image"` and `"images"` — the variant name the preview requests
+   *  (`/api/files/:id/variant/:name`) instead of the original. The FIRST
+   *  variant declared on the field def wins; a spec may legitimately carry
+   *  neither `size` nor `maxEdge` (format-/blur-only), so "the smallest one"
+   *  is not a rule that always has an answer. Absent when the field declares
+   *  no variants — the preview then loads the original. */
+  readonly imageVariant?: string;
+  /** Only for `type: "image"` — forwarded to the file input's `capture`
+   *  attribute so a phone opens the camera instead of the file picker. */
+  readonly capture?: "environment" | "user";
+  /** Closed FieldIconKey from EditFieldSpec.icon (FIELD_ICONS registry). */
+  readonly icon?: FieldIconKey;
+  /** From EditFieldSpec.placeholder, already translated — hint shown while the input is empty. */
+  readonly placeholder?: string;
+  /** From EditFieldSpec.prefix / suffix. A string affix is already translated;
+   *  a `{ field }` affix stays a reference, the renderer reads it from the live form values. */
+  readonly prefix?: FieldAffix;
+  readonly suffix?: FieldAffix;
+  /** From EditFieldSpec.fillAction, `label` already translated. */
+  readonly fillAction?: FieldFillAction;
+  /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
+   *  metadata the renderer needs to draw each column/cell. Absent for a
+   *  plain (non-list) embedded field. */
+  readonly embeddedListCells?: readonly EmbeddedListCellViewModel[];
+  /** Minimum row count for the embedded list. From EmbeddedFieldDef.minItems. */
+  readonly embeddedListMinItems?: number;
+  /** Maximum row count for the embedded list. From EmbeddedFieldDef.maxItems. */
+  readonly embeddedListMaxItems?: number;
+  /** Sub-field name → how to compute its cell from other sub-fields of the
+   *  same row. From EmbeddedFieldDef.derived. */
+  readonly embeddedListDerived?: Readonly<
+    Record<
+      string,
+      { readonly op: "multiply" | "sum" | "subtract"; readonly from: readonly string[] }
+    >
+  >;
+  /** Numeric sub-field names to sum in a totals row. From EmbeddedFieldDef.totals. */
+  readonly embeddedListTotals?: readonly string[];
+  /** No add, remove, duplicate or move; cells stay editable. From
+   *  EditFieldSpec.embeddedList.fixedRows. */
+  readonly embeddedListFixedRows?: boolean;
+  /** Currency for the whole embedded list's money cells and totals row —
+   *  currency lives on the head aggregate (EntityDefinition.defaultCurrency),
+   *  not per row. Falls back to "EUR" when the entity has no defaultCurrency. */
+  readonly embeddedListCurrency?: string;
+  /** Only set for a plain (non-list, non-embedded) `type: "money"` field —
+   *  same source as embeddedListCurrency (EntityDefinition.defaultCurrency,
+   *  falls back to "EUR"). The renderer needs this to build the payload's
+   *  `{amount, currency}` shape (kumiko-framework#1923). */
+  readonly currency?: string;
+  /** Only set for `type: "number"` when NumberFieldDef.unit is set — a static
+   *  suffix string, or a sibling-field reference the renderer resolves against
+   *  the live row values. Display-only, never converts the stored number. */
+  readonly unit?: string | { readonly field: string };
+};
+
+// Discriminated by `kind` — mirrors EditSectionSpec on the engine side.
+// The builder always emits `kind` explicitly (no defaulting), so the
+// renderer narrows with a strict equality check.
+export type EditSectionViewModel =
+  | EditFieldsSectionViewModel
+  | EditExtensionSectionViewModel
+  | EditRelatedListSectionViewModel
+  | EditWriteFormSectionViewModel;
+
+export type EditFieldsSectionViewModel = {
+  readonly kind: "fields";
+  /** From `EditFieldsSection.id`. The boot-validator makes it mandatory under
+   *  `layout.mode: "tabs"` so the tab strip has a stable key per tab; other
+   *  layouts leave it unset. */
+  readonly id?: string;
+  /** False when the section has fields but none of them is visible.
+   *  The renderer then draws nothing, but the section stays in the array
+   *  (key stability). */
+  readonly visible: boolean;
+  /** Set when every declared field was hidden by the create handler's
+   *  `excludeFields`. Unlike a declared-empty section (review step), the
+   *  renderer must not give it a tab or wizard step. */
+  readonly emptiedByWriteExclusion?: boolean;
+  /** Optional — eine titellose Section rendert nur ihre Felder (flache Form). */
+  readonly title?: string;
+  /** Translated help text under the block heading, from
+   *  `EditFieldsSection.description`. Renders even without `title`. */
+  readonly description?: string;
+  /** Translated `EditFieldsSection.subtitle` (wizard step rail / up-next box). */
+  readonly subtitle?: string;
+  readonly columns: number;
+  readonly fields: readonly EditFieldViewModel[];
+  /** From `EditFieldsSection.groups` — each entry's `fields` are the same
+   *  view-model objects as `fields` above, re-grouped (not recomputed). */
+  readonly groups?: readonly {
+    readonly title: string;
+    readonly columns: number;
+    readonly fields: readonly EditFieldViewModel[];
+  }[];
+  /** From `EditFieldsSection.icon` — closed IconKey vocabulary, renders
+   *  left of the title. No effect without `title`. */
+  readonly icon?: IconKey;
+  /** From `EditFieldsSection.actions` — rendered in the Section's
+   *  title row, same slot as the projectionDetail head card's actions. */
+  readonly actions?: readonly RowAction[];
+};
+
+export type EditExtensionSectionViewModel = {
+  readonly kind: "extension";
+  /** From `EditExtensionSection.id` — same tab-strip role as on a "fields"
+   *  section, see EditFieldsSectionViewModel.id. */
+  readonly id?: string;
+  readonly title: string;
+  readonly component: PlatformComponent;
+  readonly contributesToFormSubmit: boolean;
+  /** Section-declared override — see `EditExtensionSection.entityName`. */
+  readonly entityName?: string;
+  /** From `EditExtensionSection.actions`. */
+  readonly actions?: readonly RowAction[];
+};
+
+// Mirrors EditRelatedListSection verbatim — no per-row/query resolution
+// happens in the view-model builder, the renderer's RelatedListSection
+// runs the query itself (fw#2166).
+export type EditRelatedListSectionViewModel = {
+  readonly kind: "relatedList";
+  readonly title: string;
+  readonly query: string;
+  readonly parentParam?: string;
+  readonly parentFilter?: { readonly field: string };
+  readonly columns: readonly ListColumnSpec[];
+  readonly entity?: string;
+  readonly description?: string;
+  /** Untranslated plural-forms key, resolved with the row count by the list footer. */
+  readonly itemNoun?: string;
+  readonly pageSize?: number;
+  readonly defaultSort?: ListSortSpec;
+  readonly searchable?: boolean;
+  readonly facets?: readonly ListFacetSpec[];
+  readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
+  readonly rowActions?: readonly RowAction[];
+  readonly rowActionMode?: RowActionMode;
+  readonly groupBy?: RelatedListGroupBy;
+  readonly rowTone?: RelatedListRowTone;
+  readonly toolbarActions?: readonly RelatedListToolbarAction[];
+  /** From `EditRelatedListSection.actions` — rendered in the
+   *  Section's title row, distinct from `toolbarActions` (which render
+   *  above the table itself). */
+  readonly actions?: readonly RowAction[];
+  /** From `EditRelatedListSection.emptyState` — forwarded to the
+   *  DataTable's `emptyState` prop when the section has zero rows. */
+  readonly emptyState?: {
+    readonly title: string;
+    readonly description?: string;
+    readonly action?: RowAction;
+  };
+};
+
+// Mirrors EditWriteFormSection, except `fields` is already resolved through
+// the same per-field pipeline as EditFieldsSectionViewModel (computed via a
+// recursive computeEditViewModel call against the section's own fieldDefs —
+// see edit.ts) — the renderer needs no second field-resolution path.
+export type EditWriteFormSectionViewModel = {
+  readonly kind: "writeForm";
+  readonly title?: string;
+  readonly description?: string;
+  readonly columns: number;
+  readonly fields: readonly EditFieldViewModel[];
+  readonly icon?: IconKey;
+  readonly handler: string;
+  readonly submitLabel?: string;
+  /** From `EditWriteFormSection.actions`. */
+  readonly actions?: readonly RowAction[];
+};
+
+export type EditViewModel = {
+  readonly screenId: string;
+  readonly entityName: string;
+  readonly id: string | null; // null on create (no existing row)
+  readonly sections: readonly EditSectionViewModel[];
+  readonly slots?: ScreenSlots;
+};
+
+// --- resolver interfaces (host-injected) ---
+
+// The view-model builder calls this to translate i18n keys into strings.
+// Normally the host passes the renderer's LocaleResolver.translate
+// directly — keeping the interface narrow here avoids dragging the full
+// LocaleResolver (with subscribe) into a pure compute path.
+export type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
+
+// Optional condition context forwarded to field visibility/readonly/required
+// predicates. Same ctx the form-controller uses in conditional-fields — so
+// a predicate that gated "admin-only" there keeps working here.
+export type FieldConditionCtx = unknown;
+
+// Re-export the ScreenDef spec halves we don't want ui-core callers to
+// import from @cosmicdrift/kumiko-framework separately. Renderer packages expect a
+// single import surface.
+export type { EditFieldSpec, EditSectionSpec, FieldRenderer, ListColumnSpec, ScreenSlots };

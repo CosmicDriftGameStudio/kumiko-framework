@@ -68,7 +68,7 @@ const SCAN: ScanSpec = {
     "packages/framework/src/engine/**",
     "packages/framework/src/i18n/**",
     "packages/testing/src/helpers/**",
-    "packages/headless/src/**",
+    "packages/renderer/src/headless/**",
     "packages/renderer/src/app/**",
   ],
 };

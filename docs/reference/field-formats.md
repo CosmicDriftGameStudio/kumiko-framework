@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-12
-evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/headless/src/format; packages/headless/src/view-model/list-file-display.ts (format image/file)"
+evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/renderer/src/headless/format; packages/headless/src/view-model/list-file-display.ts (format image/file)"
 ---
 
 # Field-Formats: deklarative Wert-Formatierung (`FormatSpec`)

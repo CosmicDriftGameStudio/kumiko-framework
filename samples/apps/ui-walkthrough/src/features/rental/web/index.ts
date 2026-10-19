@@ -1,4 +1,4 @@
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { rentalTranslations } from "../i18n";
 import { LeaseHubHeader, LeaseHubHistory } from "./lease-hub-components";
 

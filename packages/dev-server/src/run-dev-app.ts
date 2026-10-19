@@ -86,7 +86,7 @@ import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
-import type { PageHeadResolver } from "@cosmicdrift/kumiko-headless/apex";
+import type { PageHeadResolver } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import {
   assertStackBootRequirements,
   type BillingBootOption,
@@ -240,7 +240,7 @@ export type RunDevAppOptions = {
    *  through `runDevApp` show the same resolved head prod does. See
    *  `CreateKumikoServerOptions.resolvePageHead` for the full contract. */
   readonly resolvePageHead?: PageHeadResolver;
-  /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer-web/styles.css`
+  /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer/web/styles.css`
    *  wenn ein client-Entry gesetzt ist. `false` deaktiviert die CSS-Pipeline. */
   readonly stylesheet?: string | false;
   /** Tailwind `--watch` process on/off, see `CreateKumikoServerOptions.stylesheetWatch`. */

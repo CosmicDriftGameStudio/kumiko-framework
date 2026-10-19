@@ -3,11 +3,10 @@
 // visually separate lines, the author must never be the raw authorId, and the
 // timestamp must be human-formatted — not the concatenated single-line dump
 // this test guards against (see notes-section.tsx for the fix).
-// Provider wrapper is local — renderer-web → bundled-features forbids importing
-// renderer-web test-utils from here.
+// Provider wrapper is local — renderer/web → bundled-features forbids importing
+// renderer/web test-utils from here.
 
 import { describe, expect, test } from "bun:test";
-import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -19,7 +18,12 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  createStore,
+  type Dispatcher,
+  type DispatcherStatus,
+} from "@cosmicdrift/kumiko-renderer/headless";
+import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.ts";

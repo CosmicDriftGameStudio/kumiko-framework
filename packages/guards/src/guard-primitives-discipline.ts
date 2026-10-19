@@ -3,13 +3,10 @@
  * Guard: enforces that app-/feature-web code uses UI building blocks from
  * the framework primitives, not hand-rolled Tailwind on raw HTML tags.
  *
- * Why: hand-rolled Tailwind in `web/` folders costs twice:
- *   1. Style drift — every renderer/theme update then has to be re-applied
- *      to each hand-tailwound screen individually.
- *   2. Multi-platform lock-out — native (renderer-native) has no
- *      `<table>`, `<form>`, `<button>`. Direct DOM tags bind the code to
- *      web. Framework primitives (`<DataTable>`, `<Form>`, `<Button>`) are
- *      contractually platform-neutral.
+ * Why: hand-rolled Tailwind in `web/` folders costs twice: every
+ * renderer/theme update then has to be re-applied to each hand-tailwound
+ * screen individually (style drift), and direct DOM tags bypass the
+ * primitives contract (`<DataTable>`, `<Form>`, `<Button>`).
  *
  * Forbidden in app-/feature-web code:
  *
@@ -20,7 +17,7 @@
  *   <select>                                →  <ComboboxInput>
  *   <textarea>                              →  <Input kind="textarea">
  *   <dialog>                                →  <DefaultDialog>
- *   alert() / window.alert()               →  <DefaultDialog> from @cosmicdrift/kumiko-renderer-web
+ *   alert() / window.alert()               →  <DefaultDialog> from @cosmicdrift/kumiko-renderer/web
  *   className "bg-card" (hand-rolled card) →  <Card> (slots/options)
  *   className "mx-auto" + "max-w-*" (hand-rolled screen container)
  *                                           →  <PageSection maxWidth> (3xl/4xl/full)
@@ -63,7 +60,7 @@ const FORBIDDEN_TAGS: ReadonlyArray<{
 const FORBIDDEN_CALLS: ReadonlyArray<{
   readonly call: string;
   readonly counterpart: string;
-}> = [{ call: "alert", counterpart: "<DefaultDialog> from @cosmicdrift/kumiko-renderer-web" }];
+}> = [{ call: "alert", counterpart: "<DefaultDialog> from @cosmicdrift/kumiko-renderer/web" }];
 
 // Forbidden className tokens: an allowed tag (`<div>`), but the class gives
 // away hand-rolled primitive chrome. `bg-card` is the dedicated card-surface

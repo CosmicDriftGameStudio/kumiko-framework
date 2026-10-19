@@ -14,7 +14,7 @@
 // the shipped registration actually resolves ListingReviewSection.
 
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
-import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { listingsClient } from "../../src/web";
 import { createMockDispatcher } from "./mock-dispatcher";

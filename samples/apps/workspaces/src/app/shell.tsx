@@ -5,7 +5,7 @@ import {
   DefaultTopbarActions,
   useShellUser,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
-import { type AppSchema, WorkspaceShell } from "@cosmicdrift/kumiko-renderer-web";
+import { type AppSchema, WorkspaceShell } from "@cosmicdrift/kumiko-renderer/web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 

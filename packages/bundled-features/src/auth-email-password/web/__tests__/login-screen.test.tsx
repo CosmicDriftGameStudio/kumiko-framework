@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { LoginScreen } from "../login-screen.tsx";
@@ -6,7 +6,7 @@ import type { SessionApi } from "../session.tsx";
 import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
 
 const requestEmailVerificationMock = mock<() => Promise<unknown>>(() => Promise.resolve());
-const actual_authClient = await import("../auth-client.ts");
+const actual_authClient = { ...(await import("../auth-client.ts")) };
 mock.module("../auth-client", () => ({
   ...actual_authClient,
   requestEmailVerification: requestEmailVerificationMock,
@@ -402,4 +402,9 @@ describe("LoginScreen", () => {
     const link = screen.getByRole("link", { name: "Create account" });
     expect(link.getAttribute("href")).toBe("/signup");
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+afterAll(() => {
+  mock.module("../auth-client", () => actual_authClient);
 });

@@ -1,9 +1,18 @@
 {
   "name": "@cosmicdrift/kumiko-renderer-web",
   "version": "0.376.0",
-  "description": "Web-platform bindings for @cosmicdrift/kumiko-renderer. HTML default-primitives, browser history-based navigation, EventSource-backed live events, and a one-call createKumikoApp that mounts the whole stack via react-dom.",
+  "description": "Deprecated shim: re-exports @cosmicdrift/kumiko-renderer/web. Removed after wave 4.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/renderer-web"
+  },
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "homepage": "https://kumiko.rocks",
   "type": "module",
   "kumiko": {
     "runtime": "client"
@@ -20,68 +29,7 @@
     }
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
-    "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-headless": "workspace:*",
-    "@cosmicdrift/kumiko-renderer": "workspace:*",
-    "@cosmicdrift/kumiko-types": "workspace:*",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-popover": "^1.1.15",
-    "@radix-ui/react-select": "^2.2.6",
-    "@radix-ui/react-separator": "^1.1.7",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@radix-ui/react-toast": "^1.2.15",
-    "@radix-ui/react-tooltip": "^1.2.8",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "lucide-react": "^1.14.0",
-    "qrcode": "^1.5.4",
-    "@types/qrcode": "^1.5.5",
-    "radix-ui": "^1.4.3",
-    "react": "^19.2.6",
-    "react-day-picker": "^10.0.0",
-    "react-dom": "^19.2.6",
-    "react-resizable-panels": "^4.12.2",
-    "tailwind-merge": "^3.6.0",
-    "temporal-polyfill": "^0.3.2",
-    "@tiptap/core": "^3.30.5",
-    "@tiptap/pm": "^3.30.5",
-    "@tiptap/react": "^3.30.5",
-    "@tiptap/starter-kit": "^3.30.5"
-  },
-  "peerDependencies": {
-    "@tailwindcss/cli": "^4.3.0",
-    "tailwindcss": "^4.3.0"
-  },
-  "peerDependenciesMeta": {
-    "@tailwindcss/cli": {
-      "optional": false
-    },
-    "tailwindcss": {
-      "optional": false
-    }
-  },
-  "devDependencies": {
-    "@tailwindcss/cli": "^4.3.0",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^4.3.0",
-    "@cosmicdrift/kumiko-locale-de": "workspace:*"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
-    "directory": "packages/renderer-web"
-  },
-  "homepage": "https://kumiko.rocks",
-  "bugs": {
-    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+    "@cosmicdrift/kumiko-renderer": "workspace:*"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
@@ -102,7 +50,6 @@
     "dist",
     "src/changes.json",
     "src/styles.css",
-    "src/fonts",
     "README.md",
     "LICENSE"
   ]

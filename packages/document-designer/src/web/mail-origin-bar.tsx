@@ -1,6 +1,5 @@
 // @runtime client
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import {
   dispatcherErrorText,
   formatWhen,
@@ -8,6 +7,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
 import { originOf } from "./editor-header.tsx";
 import { EditorInfoBar } from "./editor-shell.tsx";

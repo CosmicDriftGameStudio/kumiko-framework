@@ -1,7 +1,7 @@
 import type {
   ClientFeatureDefinition,
   TranslationsByLocale,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { Gallery } from "./Gallery";
 
 const labels: Record<string, string> = {

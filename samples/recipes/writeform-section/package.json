@@ -10,7 +10,6 @@
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "react": "^19.2.6"
   },
   "devDependencies": {

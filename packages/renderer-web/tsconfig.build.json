@@ -3,6 +3,7 @@
   "compilerOptions": {
     "composite": false,
     "emitDeclarationOnly": false,
+    "jsx": "react-jsx",
     "rewriteRelativeImportExtensions": true,
     "incremental": false,
     "declaration": true,

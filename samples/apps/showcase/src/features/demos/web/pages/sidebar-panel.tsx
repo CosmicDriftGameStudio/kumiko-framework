@@ -1,5 +1,5 @@
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
-import { SidebarPanel } from "@cosmicdrift/kumiko-renderer-web";
+import { SidebarPanel } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
 

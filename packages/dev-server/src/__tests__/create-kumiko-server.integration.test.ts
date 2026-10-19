@@ -799,7 +799,7 @@ describe("createKumikoServer — hot-reload broadcast", () => {
 });
 
 // kumiko-framework#3026: runDevApp gains resolvePageHead parity with
-// runProdApp — both now call the same @cosmicdrift/kumiko-headless/apex
+// runProdApp — both now call the same @cosmicdrift/kumiko-renderer/headless/apex
 // resolveAndInjectPageHead, so a resolver produces the same tags in the
 // same order under dev as under prod (see run-prod-app-static-files.test.ts's
 // "resolver meta → og-tags appear" case for the prod-side equivalent). The
@@ -1186,8 +1186,8 @@ describe("createKumikoServer — public/ static files", () => {
   });
 });
 
-describe("createKumikoServer — renderer-web fonts under /assets/kumiko/fonts", () => {
-  const FONTS_SOURCE_DIR = join(import.meta.dir, "../../../renderer-web/src/fonts");
+describe("createKumikoServer — renderer/web fonts under /assets/kumiko/fonts", () => {
+  const FONTS_SOURCE_DIR = join(import.meta.dir, "../../../renderer/src/web/fonts");
 
   async function withFixtureCwd(run: () => Promise<void>): Promise<void> {
     const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-fonts-")));

@@ -1,5 +1,5 @@
 import type { RendererContext } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { mailChromeText } from "./mail-strings.ts";
 
 /** Without a label the imprint and privacy links use the framework's text in the mail locale. */

@@ -949,12 +949,15 @@ const commands = {
   },
 
   events: {
-    description: "Events-Tabelle verwalten (prune [--older-than <days>] [--dry-run])",
+    description:
+      "Events-Tabelle verwalten (prune --aggregate-types <a,b> [--older-than <days>] [--dry-run])",
     run: async () => {
       const subCommand = Bun.argv[3];
 
       if (subCommand !== "prune") {
-        console.log("\n  Usage: bun kumiko events prune [--older-than <days>] [--dry-run]\n");
+        console.log(
+          "\n  Usage: bun kumiko events prune --aggregate-types <a,b> [--older-than <days>] [--dry-run]\n",
+        );
         process.exit(1);
       }
 
@@ -962,6 +965,7 @@ const commands = {
       // in any order.
       let olderThanDays = 30;
       let dryRun = false;
+      let aggregateTypes: string[] = [];
       for (let i = 4; i < Bun.argv.length; i++) {
         const flag = Bun.argv[i];
         if (flag === "--older-than") {
@@ -972,7 +976,21 @@ const commands = {
           }
         } else if (flag === "--dry-run") {
           dryRun = true;
+        } else if (flag === "--aggregate-types") {
+          const value = Bun.argv[++i];
+          if (value === undefined || value.startsWith("--")) {
+            console.error("\n  --aggregate-types requires a value (comma-separated list)\n");
+            process.exit(1);
+          }
+          aggregateTypes = value
+            .split(",")
+            .map((name) => name.trim())
+            .filter(Boolean);
         }
+      }
+      if (aggregateTypes.length === 0) {
+        console.error("\n  --aggregate-types <a,b> is required (pruning the event log is destructive)\n");
+        process.exit(1);
       }
 
       const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
@@ -991,7 +1009,7 @@ const commands = {
       const reset = "\x1b[0m";
 
       try {
-        const result = await pruneEvents(db, { olderThanDays, dryRun });
+        const result = await pruneEvents(db, { olderThanDays, dryRun, aggregateTypes });
         const verb = dryRun ? "would delete" : "deleted";
         const mark = dryRun ? yellow : green;
         console.log(

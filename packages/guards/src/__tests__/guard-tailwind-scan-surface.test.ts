@@ -254,7 +254,7 @@ describe("scanSourceCoverage", () => {
     writeFileSync(
       path.join(appRoot, "src/styles.css"),
       [
-        '@import "@cosmicdrift/kumiko-renderer-web/styles.css";',
+        '@import "@cosmicdrift/kumiko-renderer/web/styles.css";',
         '@source "./**/*.{ts,tsx}";',
         opts.extraSourceEntry ?? "",
       ].join("\n"),
@@ -314,7 +314,7 @@ describe("scanSourceCoverage", () => {
       mkdirSync(path.join(appRoot, "src"), { recursive: true });
       writeFileSync(
         path.join(appRoot, "src/styles.css"),
-        '@import "@cosmicdrift/kumiko-renderer-web/styles.css";\n@source "./**/*.{ts,tsx}";\n',
+        '@import "@cosmicdrift/kumiko-renderer/web/styles.css";\n@source "./**/*.{ts,tsx}";\n',
       );
       const pkgSrc = path.join(appRoot, "node_modules/@cosmicdrift/kumiko-headless/src");
       mkdirSync(pkgSrc, { recursive: true });
@@ -326,7 +326,7 @@ describe("scanSourceCoverage", () => {
     }
   });
 
-  test("an app without the renderer-web @source convention is out of scope", () => {
+  test("an app without the renderer web @source convention is out of scope", () => {
     const { root, cleanup } = makeAppFixture({
       dependencyName: "@cosmicdriftgamestudio/kumiko-designer",
     });
@@ -357,11 +357,14 @@ describe("scanSourceCoverage", () => {
 
 // Follow-up: coverage can also come through the app's `@import` chain — the
 // imported CSS's OWN @source lines, resolved relative to where it actually
-// lives on disk in this install layout (e.g. renderer-web ships @source
+// lives on disk in this install layout (e.g. the renderer's web stylesheet ships @source
 // entries for the framework's scan surface; once it adds one for
 // bundled-features, apps that only @import it need no line of their own).
 describe("scanSourceCoverage — @import chain resolution", () => {
-  function makeImportChainFixture(rendererWebSourceEntry: string): {
+  function makeImportChainFixture(
+    rendererWebSourceEntry: string,
+    appImport = "@cosmicdrift/kumiko-renderer/web/styles.css",
+  ): {
     readonly root: RepoRoot;
     readonly cleanup: () => void;
   } {
@@ -378,9 +381,7 @@ describe("scanSourceCoverage — @import chain resolution", () => {
     mkdirSync(path.join(appRoot, "src"), { recursive: true });
     writeFileSync(
       path.join(appRoot, "src/styles.css"),
-      ['@import "@cosmicdrift/kumiko-renderer-web/styles.css";', '@source "./**/*.{ts,tsx}";'].join(
-        "\n",
-      ),
+      [`@import "${appImport}";`, '@source "./**/*.{ts,tsx}";'].join("\n"),
     );
     const designerSrc = path.join(
       appRoot,
@@ -391,11 +392,25 @@ describe("scanSourceCoverage — @import chain resolution", () => {
       path.join(designerSrc, "pattern-form.tsx"),
       'export function PatternForm() { return <div className="min-w-[16rem]" />; }',
     );
-    const rendererWebDir = path.join(appRoot, "node_modules/@cosmicdrift/kumiko-renderer-web");
-    mkdirSync(rendererWebDir, { recursive: true });
+    const rendererDir = path.join(appRoot, "node_modules/@cosmicdrift/kumiko-renderer");
+    mkdirSync(path.join(rendererDir, "src/web"), { recursive: true });
     writeFileSync(
-      path.join(rendererWebDir, "styles.css"),
+      path.join(rendererDir, "package.json"),
+      JSON.stringify({ exports: { "./web/styles.css": "./src/web/styles.css" } }),
+    );
+    writeFileSync(
+      path.join(rendererDir, "src/web/styles.css"),
       `@source "./**/*.{ts,tsx}";\n${rendererWebSourceEntry}\n`,
+    );
+    const shimDir = path.join(appRoot, "node_modules/@cosmicdrift/kumiko-renderer-web");
+    mkdirSync(path.join(shimDir, "src"), { recursive: true });
+    writeFileSync(
+      path.join(shimDir, "package.json"),
+      JSON.stringify({ exports: { "./styles.css": "./src/styles.css" } }),
+    );
+    writeFileSync(
+      path.join(shimDir, "src/styles.css"),
+      '@import "@cosmicdrift/kumiko-renderer/web/styles.css";\n',
     );
     const root = fixtureRoot("studio-fixture", appRoot, FLAT_APP_MANIFEST);
     return {
@@ -406,7 +421,22 @@ describe("scanSourceCoverage — @import chain resolution", () => {
 
   test("(a) an @source line in the imported CSS that resolves to the package's real dir clears the finding", () => {
     const { root, cleanup } = makeImportChainFixture(
-      '@source "../../@cosmicdriftgamestudio/kumiko-designer/src/**/*.{ts,tsx}";',
+      '@source "../../../../@cosmicdriftgamestudio/kumiko-designer/src/**/*.{ts,tsx}";',
+    );
+    try {
+      const findings = scanSourceCoverage([root]);
+      expect(findings.some((f) => f.packageName === "@cosmicdriftgamestudio/kumiko-designer")).toBe(
+        false,
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("(a2) the deprecated renderer-web stylesheet counts through its own @import", () => {
+    const { root, cleanup } = makeImportChainFixture(
+      '@source "../../../../@cosmicdriftgamestudio/kumiko-designer/src/**/*.{ts,tsx}";',
+      "@cosmicdrift/kumiko-renderer-web/styles.css",
     );
     try {
       const findings = scanSourceCoverage([root]);
@@ -432,7 +462,7 @@ describe("scanSourceCoverage — @import chain resolution", () => {
 
   test("(c) an @source line whose resolved path does not exist in this layout does not count as coverage", () => {
     const { root, cleanup } = makeImportChainFixture(
-      '@source "../../@cosmicdriftgamestudio/kumiko-designer-does-not-exist/src/**/*.{ts,tsx}";',
+      '@source "../../../../@cosmicdriftgamestudio/kumiko-designer-does-not-exist/src/**/*.{ts,tsx}";',
     );
     try {
       const findings = scanSourceCoverage([root]);

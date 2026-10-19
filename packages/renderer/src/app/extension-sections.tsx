@@ -7,7 +7,7 @@
 // The entityEdit footer slot (`screen.slots.footer`) mounts through it too.
 //
 // Mounting analog zu CustomScreensProvider — createKumikoApp im
-// renderer-web sammelt alle clientFeatures.extensionSectionComponents und
+// renderer/web sammelt alle clientFeatures.extensionSectionComponents und
 // mountet den Provider; Tests die einzelne Sections prüfen wollen
 // mounten den Provider direkt.
 

@@ -1,5 +1,5 @@
 // In-memory dispatcher for writeform-section/e2e. Implements the dispatcher
-// interface from @cosmicdrift/kumiko-headless without the HTTP layer — no
+// interface from @cosmicdrift/kumiko-renderer/headless without the HTTP layer — no
 // form-draft, no batch state, just the QNs this recipe's two screens need:
 //
 //   - "note-desk:query:note:summary" — the projectionDetail screen's own
@@ -24,7 +24,7 @@ import type {
   Store,
   WriteOpts,
   WriteResult,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 import { NOTE_DETAIL_FIELDS } from "../../src/note-fixture";
 
 const QUERY_NOTE_DETAIL = "note-desk:query:note:summary";

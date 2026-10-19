@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-09
-evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema); framework#2606; framework#3381 (Heuristik nach Optionszahl und Labellänge, radioVariant card, optionTones); optionsQuery: packages/renderer-web/src/__tests__/select-options-query.test.tsx, packages/framework/src/engine/__tests__/boot-validator-select-options-query.test.ts; description/group: packages/renderer-web/src/__tests__/select-options-description-group.test.tsx; conditionalOptions: packages/framework/src/__tests__/select-conditional-options.integration.test.ts, packages/framework/src/engine/__tests__/select-conditional-options.test.ts"
+evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema); framework#2606; framework#3381 (Heuristik nach Optionszahl und Labellänge, radioVariant card, optionTones); optionsQuery: packages/renderer/src/web/__tests__/select-options-query.test.tsx, packages/framework/src/engine/__tests__/boot-validator-select-options-query.test.ts; description/group: packages/renderer/src/web/__tests__/select-options-description-group.test.tsx; conditionalOptions: packages/framework/src/__tests__/select-conditional-options.integration.test.ts, packages/framework/src/engine/__tests__/select-conditional-options.test.ts"
 ---
 
 # Select-Feld: Segmente, Radio-Liste oder Dropdown

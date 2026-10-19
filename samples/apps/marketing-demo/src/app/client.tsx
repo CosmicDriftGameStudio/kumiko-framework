@@ -2,7 +2,7 @@
 // shared shell, alles aus dem Framework-Default.
 
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 import { assetsClient } from "../features/assets/web";
 import { helpdeskClient } from "../features/helpdesk/web";
 import { AppShell } from "./shell";

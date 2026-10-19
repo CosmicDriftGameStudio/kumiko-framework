@@ -4,7 +4,7 @@
 // (subject, preheader). The stored value stays plain text; placeholders show
 // as chips while editing. Lives in the same lazy chunk as the document editor.
 
-import { cn } from "@cosmicdrift/kumiko-renderer-web";
+import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import { Extension, Node } from "@tiptap/core";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";

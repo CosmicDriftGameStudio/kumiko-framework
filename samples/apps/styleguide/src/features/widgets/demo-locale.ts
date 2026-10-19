@@ -1,5 +1,5 @@
 // Server-side locale helpers for the dashboard demo queries. Not shared with
-// renderer-web's format.ts: server code must not import renderer-web.
+// renderer/web's format.ts: server code must not import renderer/web.
 
 import { WIDGETS_I18N } from "./i18n";
 

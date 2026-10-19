@@ -5,7 +5,7 @@
 // projectionList renderer — only this one cell stays TSX.
 
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { StatusBadge, type StatusTone } from "@cosmicdrift/kumiko-renderer-web";
+import { StatusBadge, type StatusTone } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { translateOrRaw } from "../../shared/web/translate-or-raw.ts";
 

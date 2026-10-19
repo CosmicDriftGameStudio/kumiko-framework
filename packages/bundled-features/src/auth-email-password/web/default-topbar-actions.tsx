@@ -6,7 +6,7 @@
 // importieren weiter die Einzelkomponenten direkt — DefaultTopbarActions
 // ist Convenience, kein Muss.
 
-import { ThemeToggle } from "@cosmicdrift/kumiko-renderer-web";
+import { ThemeToggle } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { TenantSwitcher } from "./tenant-switcher.tsx";
 import { UserMenu } from "./user-menu.tsx";

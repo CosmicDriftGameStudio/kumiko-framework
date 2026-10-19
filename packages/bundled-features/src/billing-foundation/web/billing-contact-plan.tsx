@@ -1,7 +1,7 @@
 // @runtime client
 
 import { useLocale, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { PlanCard } from "@cosmicdrift/kumiko-renderer-web";
+import { PlanCard } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { isContactCardHref } from "../contact-card.ts";
 import type { BillingPlanContactCard } from "../types.ts";

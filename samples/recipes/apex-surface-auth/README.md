@@ -34,7 +34,7 @@ import {
 import {
   RequestAccountDeletionScreen, ConfirmAccountDeletionScreen,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
-import { createPublicSurface } from "@cosmicdrift/kumiko-renderer-web";
+import { createPublicSurface } from "@cosmicdrift/kumiko-renderer/web";
 
 // createLoginRoute, not a raw LoginScreen render — it owns the challenge-
 // swap for a second factor, so mounting auth-mfa later doesn't need this

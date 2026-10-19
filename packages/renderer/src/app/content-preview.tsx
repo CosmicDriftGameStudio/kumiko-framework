@@ -4,9 +4,9 @@
 // renders formatted HTML and "plain"/"markdown" render as text through the
 // exact same component, no separate render path per format.
 
-import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type ReactNode, useId } from "react";
+import { escapeHtmlAttr } from "../headless/index.ts";
 import { useContentEditor } from "./content-editors.tsx";
 
 const VARIABLE_PATTERN = /\{\{\s*(\w+)\s*\}\}/g;

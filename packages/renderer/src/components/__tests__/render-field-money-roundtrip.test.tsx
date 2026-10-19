@@ -7,7 +7,7 @@
 // computeEditViewModel (headless) → RenderField → simulated widget
 // onChange → buildInsertSchema/buildUpdateSchema (framework/engine). The
 // widget's own minor-units math (MoneyInput) is pinned separately in
-// packages/renderer-web/src/primitives/__tests__/money-input.test.tsx —
+// packages/renderer/src/web/primitives/__tests__/money-input.test.tsx —
 // this test starts one step in, at the value RenderField hands to/from the
 // widget contract (`number | ""` minor units).
 
@@ -18,10 +18,10 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { computeEditViewModel, type EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { buildInitialValues } from "../../app/kumiko-screen.tsx";
+import { computeEditViewModel, type EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { RenderField } from "../render-field.tsx";

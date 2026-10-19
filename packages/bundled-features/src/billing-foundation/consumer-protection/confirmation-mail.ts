@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { Marked } from "marked";
 import {

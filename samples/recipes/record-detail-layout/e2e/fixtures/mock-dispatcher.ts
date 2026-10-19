@@ -23,7 +23,7 @@ import type {
   Store,
   WriteOpts,
   WriteResult,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 
 const QUERY_ORDER_DETAIL = "order-desk:query:order:detail";
 const QUERY_ORDER_ITEMS = "order-desk:query:order:items";

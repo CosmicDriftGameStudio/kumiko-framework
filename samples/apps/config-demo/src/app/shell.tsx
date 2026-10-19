@@ -1,5 +1,5 @@
-import type { AppSchema } from "@cosmicdrift/kumiko-renderer-web";
-import { DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
+import type { AppSchema } from "@cosmicdrift/kumiko-renderer/web";
+import { DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 
 // Logo-Kachel + Wortmarke — wie SidebarBrand (sidebar-brand.tsx). Die

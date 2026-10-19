@@ -1,5 +1,5 @@
-import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext } from "react";
+import type { Dispatcher, DispatcherError } from "../headless/index.ts";
 
 // Only auth-layer 401s end a session. Handlers never throw 401 otherwise and
 // 403 means "authenticated but not allowed", which must not log the user out.

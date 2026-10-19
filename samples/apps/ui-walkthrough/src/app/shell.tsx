@@ -15,7 +15,7 @@ import {
   ThemeMenuItem,
   ThemeToggle,
   useTranslation,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { AssistantAction } from "./assistant-action";

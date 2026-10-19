@@ -1,6 +1,6 @@
-import type { CellLink } from "@cosmicdrift/kumiko-headless";
 import { useCallback } from "react";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import type { CellLink } from "../headless/index.ts";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useOptionalNav } from "./nav.tsx";
 import { navigateWithReturnTo, useReturnHost } from "./return-to.tsx";

@@ -1,13 +1,13 @@
 // @runtime test
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-headless";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { BillingPlanActions, SubscriptionFoundationHandlers } from "../../constants.ts";
@@ -71,7 +71,7 @@ const useMutationSpy = mock((type: string) => {
   return { mutate, pending: false, error: null, data: null, reset: mock(() => {}) };
 });
 
-const actualRenderer = await import("@cosmicdrift/kumiko-renderer");
+const actualRenderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actualRenderer,
   useQuery: useQuerySpy,
@@ -699,4 +699,10 @@ describe("BillingPlansPanel", () => {
       expect(refetchPlans).toHaveBeenCalledTimes(1);
     });
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+// The restore source is a spread copy: mock.module patches an already imported namespace in place.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
 });

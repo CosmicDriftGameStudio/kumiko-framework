@@ -1,5 +1,5 @@
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
-import { type ApexHead, renderApexHeadTags } from "@cosmicdrift/kumiko-headless/apex";
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
+import { type ApexHead, renderApexHeadTags } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { type BrandingTokens, brandingHeaderHtml, brandingStyleBlock } from "./branding.ts";
 import { sanitizeTenantCss } from "./css-sanitize.ts";
 

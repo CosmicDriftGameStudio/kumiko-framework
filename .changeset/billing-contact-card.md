@@ -1,6 +1,6 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": minor
-"@cosmicdrift/kumiko-renderer-web": minor
+"@cosmicdrift/kumiko-renderer": minor
 ---
 
 The billing plan catalog accepts an optional contact card, such as "Enterprise · Contact us", rendered as the last plan card without a price. PlanCard gains a ctaLink slot that renders a link instead of the cta button.
@@ -13,8 +13,8 @@ detail: catalog.contact takes labelKey, benefits, actionLabelKey and an absolute
 -->
 
 <!-- kumiko-changes
-feature: renderer-web
+feature: renderer
 type: improvement
 title: PlanCard ctaLink
-detail: PlanCard takes ctaLink ({ label, href, target? }) and renders it as a full-width link button in the footer instead of the cta button. The PlanCardLinkSlot type is exported next to PlanCardActionSlot.
+detail: PlanCard takes ctaLink ({ label, href, target? }) and renders it as a full-width link button in the footer instead of the cta button. The PlanCardLinkSlot type is exported from @cosmicdrift/kumiko-renderer/web next to PlanCardActionSlot.
 -->

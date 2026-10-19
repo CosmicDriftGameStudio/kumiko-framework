@@ -5,8 +5,8 @@
 // provider directly.
 
 import type { RowActionClientAction } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
+import type { Translate } from "../headless/index.ts";
 
 export type ClientActionOutcome =
   | { readonly ok: true }
@@ -25,7 +25,7 @@ export type ActionNotice = {
 };
 
 /** Shows the outcome of a client action. The platform layer provides it
- *  (renderer-web: a toast); without one a failure is thrown to the action
+ *  (renderer/web: a toast); without one a failure is thrown to the action
  *  host's own error surface and a success stays silent. */
 export type ActionNotifier = (notice: ActionNotice) => void;
 

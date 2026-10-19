@@ -3,6 +3,6 @@
    Das Brand-Theme der Doku injiziert der Screenshot-Runner zur Laufzeit
    (e2e/themes.ts), nicht die App. */
 
-@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+@import "@cosmicdrift/kumiko-renderer/web/styles.css";
 
 @source "./**/*.{ts,tsx}";

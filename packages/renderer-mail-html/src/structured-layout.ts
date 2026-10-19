@@ -8,7 +8,7 @@ import {
   mailLayoutAppearance,
   readLayoutRegions,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { headerRowHtml, type ToneColors } from "./mail-chrome.ts";
 
 // The logo of a mail layout and of a mail body is capped here; the editors show the same width.

@@ -16,7 +16,7 @@
 // money-horse) must carry the option over at feature setup.
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { EXPORT_SECTION_EXTENSION_NAME, USER_DATA_RIGHTS_FEATURE } from "../constants.ts";
 import { defaultTranslations } from "./i18n.ts";
 import { ExportSection } from "./privacy-center-screen.tsx";

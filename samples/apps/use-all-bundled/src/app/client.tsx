@@ -37,7 +37,7 @@ import { documentDesignerClient } from "@cosmicdrift/kumiko-document-designer/we
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine/types";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import { type ClientFeatureDefinition, createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { type ClientFeatureDefinition, createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 import { AppShell } from "./shell";
 
 const APP_TRANSLATIONS: TranslationsByLocale = {

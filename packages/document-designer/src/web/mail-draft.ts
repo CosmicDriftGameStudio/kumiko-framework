@@ -4,7 +4,7 @@ import {
   formatDocumentDate,
   formatDocumentMoney,
   formatDocumentPercent,
-} from "@cosmicdrift/kumiko-headless";
+} from "@cosmicdrift/kumiko-renderer/headless";
 import type {
   LinkedResourceView,
   MailCategory,

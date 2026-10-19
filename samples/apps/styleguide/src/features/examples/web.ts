@@ -1,7 +1,7 @@
 import type {
   ClientFeatureDefinition,
   TranslationsByLocale,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 
 import { toClientTranslations } from "../shared-i18n";
 import { EXAMPLES_I18N } from "./i18n";

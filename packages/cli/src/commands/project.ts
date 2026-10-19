@@ -1,4 +1,6 @@
 import { join } from "node:path";
+import { getStringFlag, parseArgs } from "@cosmicdrift/kumiko-framework/arg-parser";
+import { wireKmsFromEnv } from "./kms-wiring";
 import { loadAppConfig } from "./load-app-config";
 import type { CliCommand, CliCommandContext } from "./types";
 
@@ -12,10 +14,18 @@ function isProjectSubcommand(value: string | undefined): value is ProjectSubcomm
 export const projectCommand: CliCommand = {
   id: "project",
   description: "Manage projections (list | status <name> | rebuild <name>)",
-  help: "Reads kumiko.config.ts in cwd, builds the registry, dispatches against the\nprojection-state table in DATABASE_URL.\n\nSubcommands:\n  list                 List all projections and their state\n  status <name>        Show detail state for one projection\n  rebuild <name>       Full rebuild + report",
+  help: "Reads kumiko.config.ts in cwd, builds the registry, dispatches against the\nprojection-state table in DATABASE_URL.\n\nSubcommands:\n  list                 List all projections and their state\n  status <name>        Show detail state for one projection\n  rebuild <name> [--allow-plaintext-pii <reason>]\n                       Full rebuild + report; needs the crypto env for PII apps",
   run: async (ctx) => {
     const sub = ctx.argv[0];
-    const arg = ctx.argv[1];
+    const rest = parseArgs(ctx.argv.slice(1));
+    const arg = rest.positional[0];
+    const allowPlaintextPii = getStringFlag(rest, "allow-plaintext-pii");
+    if (rest.flags.has("allow-plaintext-pii") && !allowPlaintextPii?.trim()) {
+      ctx.out.err("");
+      ctx.out.err("  --allow-plaintext-pii requires a non-empty reason");
+      ctx.out.err("");
+      return 1;
+    }
 
     if (!isProjectSubcommand(sub)) {
       ctx.out.err("");
@@ -58,8 +68,17 @@ export const projectCommand: CliCommand = {
 
     const registry = createRegistry(config.features);
     const { db, close } = createDbConnection({ url: databaseUrl });
+    let wiring: Awaited<ReturnType<typeof wireKmsFromEnv>> | undefined;
 
     try {
+      if (sub === "rebuild") {
+        wiring = await wireKmsFromEnv({
+          logPrefix: "[kumiko project rebuild]",
+          log: (line) => ctx.out.log(line),
+          features: config.features,
+          allowPlaintextPii,
+        });
+      }
       await createProjectionStateTable(db);
       switch (sub) {
         case "list":
@@ -75,6 +94,7 @@ export const projectCommand: CliCommand = {
       ctx.out.err("");
       return 1;
     } finally {
+      await wiring?.close();
       await close();
     }
   },

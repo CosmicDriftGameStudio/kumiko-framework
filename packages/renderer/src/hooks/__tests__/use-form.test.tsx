@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { Dispatcher, WriteResult } from "@cosmicdrift/kumiko-headless";
 import { act, renderHook } from "@testing-library/react";
+import type { Dispatcher, WriteResult } from "../../headless/index.ts";
 import { useForm } from "../use-form.ts";
 
 function makeDispatcher(response?: WriteResult): Dispatcher & {

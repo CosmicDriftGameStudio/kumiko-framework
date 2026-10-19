@@ -22,7 +22,7 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { Building2, ChevronDown } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { useSession } from "./session.tsx";

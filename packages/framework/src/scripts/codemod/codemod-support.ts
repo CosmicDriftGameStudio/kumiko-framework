@@ -264,6 +264,8 @@ export interface CodemodCliConfig {
   readonly isSkippedPath: (file: string) => boolean;
   // Exact file names (e.g. package.json) handed to transform next to the .ts/.tsx sources.
   readonly extraFileNames?: readonly string[];
+  // File extensions (e.g. ".css") handed to transform next to the .ts/.tsx sources.
+  readonly extraExtensions?: readonly string[];
 }
 
 function parseArgsOrExit(codemodName: string, argv: readonly string[]): CliOptions {
@@ -313,7 +315,9 @@ export async function runCodemodCli(
   const options = parseArgsOrExit(config.name, argv);
   const files = collectSourceFiles(options.paths, {
     isMigratableFile: (name) =>
-      isSourceFileName(name) || (config.extraFileNames?.includes(name) ?? false),
+      isSourceFileName(name) ||
+      (config.extraFileNames?.includes(name) ?? false) ||
+      (config.extraExtensions?.some((extension) => name.endsWith(extension)) ?? false),
   }).filter((file) => !(file.includes("/__tests__/fixtures/") || config.isSkippedPath(file)));
   const { rewrites, manual, changedFiles } = transformFiles(config, files, options.mode);
   console.log(

@@ -1,4 +1,4 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 // @runtime client
 import { DEFAULT_LAYOUT_SLUG } from "../constants.ts";
 import type { OverviewRowView, OverviewUsageView } from "./overview-row.ts";

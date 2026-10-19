@@ -1,6 +1,6 @@
 # @cosmicdrift/kumiko-renderer
 
-Platform-agnostic React renderer for Kumiko screens: primitives contract, hooks, `KumikoScreen`, navigation and SSE abstractions. No DOM, no `EventSource`, no `react-dom`.
+React renderer for Kumiko screens: primitives contract, hooks, `KumikoScreen`, navigation and SSE abstractions. The root entry has no DOM and no `EventSource`; the subpaths add the web bindings (`/web`), UI logic (`/headless`) and the HTTP dispatcher (`/live`).
 
 ## Install
 
@@ -8,6 +8,6 @@ Platform-agnostic React renderer for Kumiko screens: primitives contract, hooks,
 bun add @cosmicdrift/kumiko-renderer
 ```
 
-Pair it with `@cosmicdrift/kumiko-renderer-web` for the browser.
+Import the browser bindings from `@cosmicdrift/kumiko-renderer/web`.
 
 Documentation: https://kumiko.rocks

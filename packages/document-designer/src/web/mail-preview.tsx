@@ -6,7 +6,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { LoadingState, ModeSwitch } from "@cosmicdrift/kumiko-renderer-web";
+import { LoadingState, ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import type { EditorOrigin } from "./editor-header.tsx";
 import { EditorBody, EditorInfoBar } from "./editor-shell.tsx";

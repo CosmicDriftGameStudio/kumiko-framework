@@ -4,7 +4,7 @@
 // via clientFeatures.components.
 
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 import { demosClient } from "../features/demos/web";
 import { itemsClient } from "../features/items/web";
 import { AppShell } from "./shell";

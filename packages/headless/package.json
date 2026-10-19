@@ -1,7 +1,7 @@
 {
   "name": "@cosmicdrift/kumiko-headless",
   "version": "0.376.0",
-  "description": "Headless UI logic for Kumiko — Dispatcher contract, Form-Controller, View-Model, Nav-Resolver. Plattform- und React-frei; jeder Renderer (renderer, renderer-web, renderer-native, …) komponiert darauf.",
+  "description": "Deprecated shim: re-exports @cosmicdrift/kumiko-renderer/headless. Removed after wave 4.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -36,10 +36,7 @@
     }
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-types": "workspace:*",
-    "temporal-polyfill": "^0.3.2",
-    "zod": "^4.4.3"
+    "@cosmicdrift/kumiko-renderer": "workspace:*"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

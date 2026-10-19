@@ -1,18 +1,17 @@
-// Relocation-Test für den @source-Layout-Fix (#359).
+// Relocation test for the @source layout fix (#359).
 //
-// Der Bug: renderer-web/src/styles.css scannte seine eigenen Shell-Klassen
-// über einen MONOREPO-relativen @source (`../../renderer-web/src`). Im
-// Workspace löst der via Symlink auf (grün), in einem Standalone-Consumer
-// (echtes node_modules ohne Monorepo-Geschwister) findet er nichts → unstyled
-// prod (15KB statt 48KB). Der Fix macht die Zeile self-relativ (`./`), weil
-// das Paket `src` shippt.
+// The bug: styles.css scanned its own shell classes through a MONOREPO-relative
+// @source. In the workspace that resolves through the symlink (green), in a
+// standalone consumer (real node_modules without monorepo siblings) it finds
+// nothing and prod ships unstyled (15KB instead of 48KB). The fix makes the line
+// self-relative (`./`), because the package ships `src/web`.
 //
-// Am REALEN Ort der styles.css sind `./` und `../../renderer-web/src`
-// identisch — ein Test dort wäre grün mit Bug UND Fix. Der Diskriminator ist
-// RELOCATION: wir kopieren die echte styles.css an einen Ort, an dem der alte
-// Pfad tot ist und nur `./` greift. Der Ort liegt unter dem Repo-Root, damit
-// `@import "tailwindcss"` / `react-day-picker` weiter über node_modules
-// auflösen. Braucht Bun (Bun.spawn im Tailwind-One-Shot) — sonst silent skip.
+// At the REAL location of styles.css, `./` and the monorepo path are
+// identical, so a test there would be green with the bug AND the fix. The
+// discriminator is RELOCATION: copy the real styles.css to a place where the
+// old path is dead and only `./` works. The place sits under the repo root so
+// that `@import "tailwindcss"` / `react-day-picker` still resolve through
+// node_modules. Needs Bun (Bun.spawn in the Tailwind one-shot), else a skip.
 
 import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
@@ -23,9 +22,10 @@ import { runTailwindOnce } from "../build-prod-bundle.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../../../..");
-const RENDERER_WEB_STYLES = resolve(__dirname, "../../../renderer-web/src/styles.css");
+const RENDERER_WEB_STYLES = resolve(__dirname, "../../../renderer/src/web/styles.css");
 const SELF_SOURCE = '@source "./**/*.{ts,tsx}";';
-const MONOREPO_SOURCE = '@source "../../renderer-web/src/**/*.{ts,tsx}";';
+const PARENT_SOURCE = '@source "../**/*.{ts,tsx}";';
+const MONOREPO_SOURCE = '@source "../../../renderer/src/web/**/*.{ts,tsx}";';
 
 function bunAvailable(): boolean {
   try {
@@ -59,6 +59,7 @@ describe("renderer-web styles.css @source relocation (#359)", () => {
         const realCss = await readFile(RENDERER_WEB_STYLES, "utf8");
         // Guard: der Fix MUSS in der Quelle stehen, sonst testet die Relocation nichts.
         expect(realCss).toContain(SELF_SOURCE);
+        expect(realCss).toContain(PARENT_SOURCE);
 
         await mkdir(buildCwd, { recursive: true });
         await mkdir(join(pkgSrc, "layout"), { recursive: true });
@@ -74,7 +75,11 @@ describe("renderer-web styles.css @source relocation (#359)", () => {
         // Diskriminator: mit dem ALTEN monorepo-relativen @source ist die Probe
         // an diesem relozierten Ort unerreichbar → Sentinel fehlt. Beweist, dass
         // der Fix kein No-op ist (der Test würde bei einem Revert rot).
-        await writeFile(join(pkgSrc, "styles.css"), realCss.replace(SELF_SOURCE, MONOREPO_SOURCE));
+        // The parent line is dropped too: relocated, `../` would reach the probe.
+        await writeFile(
+          join(pkgSrc, "styles.css"),
+          realCss.replace(SELF_SOURCE, MONOREPO_SOURCE).replace(PARENT_SOURCE, ""),
+        );
         const buggy = await runTailwindOnce(join(pkgSrc, "styles.css"), buildCwd);
         expect(buggy).not.toContain("min-h-screen");
       } finally {

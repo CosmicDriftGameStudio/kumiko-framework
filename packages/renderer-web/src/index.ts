@@ -1,221 +1,68 @@
-// Public entry für @cosmicdrift/kumiko-renderer-web. Re-exportiert die shared-
-// API aus @cosmicdrift/kumiko-renderer damit Samples nur ein Paket importieren
-// müssen, und fügt die Web-spezifischen Helpers dazu: createKumikoApp
-// (react-dom-bootstrap), defaultPrimitives (HTML), useBrowserNavApi
-// (window.history), createEventSourceLiveEvents, KumikoLink.
-
-// --- Shared re-exports (Components, Hooks, Types, Contexts) ---
 export type {
+  ActionMenuProps,
+  AiTextAreaProps,
+  AiTextFieldProps,
+  AppLayoutProps,
   AppPrimitives,
   AppSchema,
   AppTokens,
+  AvatarProps,
+  AvatarSize,
   BannerProps,
+  BooleanFieldProps,
   ButtonProps,
   CardProps,
+  ClientFeatureDefinition,
   ColorTokens,
+  ComparisonMetric,
   CorePrimitives,
   CoreTokens,
+  CreateBrowserDraftStorageOptions,
+  CreateBrowserLocaleResolverOptions,
+  CreateEventSourceLiveEventsOptions,
+  CreateKumikoAppOptions,
+  CreatePublicSurfaceOptions,
   DataTableProps,
+  DateFieldProps,
+  DefaultAppShellProps,
   DispatcherProviderProps,
+  DrawerProps,
+  EditorPanelProps,
   FeatureSchema,
+  FeedRow,
   FieldProps,
+  FileFieldProps,
+  FileRefTarget,
+  FloatingPanelGeometry,
+  FloatingPanelProps,
   FontTokens,
   FormProps,
   GridCellProps,
   GridProps,
+  HeaderActionGroupProps,
   HeadingProps,
+  InfinityListProps,
+  InfinityListSelection,
   InputProps,
+  KumikoBuild,
+  KumikoLinkProps,
   KumikoScreenProps,
+  LanguageMenuItemsProps,
+  LanguageSwitcherProps,
   LiveEvent,
   LiveEventSubscriber,
   LiveEventsProviderProps,
+  LocaleOption,
   LocaleProviderProps,
+  MenuItemDef,
+  ModeSwitchVariant,
   NavApi,
+  NavIconKey,
   NavProviderProps,
+  NavReparentOverride,
   NavRoute,
   NavTarget,
-  PrimitivesProviderProps,
-  PrimitivesRegistry,
-  RadiusTokens,
-  RenderEditChangeState,
-  RenderEditControls,
-  RenderEditProps,
-  RenderFieldProps,
-  RenderListProps,
-  SectionProps,
-  ShadowTokens,
-  SpacingTokens,
-  TextProps,
-  ThemeMode,
-  ThemePreference,
-  Tokens,
-  TokensApi,
-  TokensProviderProps,
-  TranslationBundle,
-  TranslationsByLocale,
-  UseFormOptions,
-  UseFormResult,
-  UseQueryOptions,
-  UseQueryResult,
-  UserRolesProviderProps,
-  WorkspaceSchema,
-} from "@cosmicdrift/kumiko-renderer";
-export {
-  createStaticLocaleResolver,
-  cssVarTokens,
-  DispatcherProvider,
-  formatPath,
-  KumikoScreen,
-  LiveEventsProvider,
-  LocaleProvider,
-  NavProvider,
-  PrimitivesProvider,
-  parsePath,
-  qualifyScreenId,
-  RenderEdit,
-  RenderField,
-  RenderList,
-  synthesizeActionFormEntity,
-  synthesizeActionFormScreen,
-  TokensProvider,
-  UserRolesProvider,
-  useDispatcher,
-  useDispatcherStatus,
-  useForm,
-  useLiveEvents,
-  useLocale,
-  useNav,
-  usePrimitives,
-  useQuery,
-  useStore,
-  useStoreSelector,
-  useTokenController,
-  useTokens,
-  useTranslation,
-  useUserRoles,
-} from "@cosmicdrift/kumiko-renderer";
-// --- Web-platform specifics ---
-export {
-  BROWSER_LOCALE_STORAGE_KEY,
-  type CreateBrowserLocaleResolverOptions,
-  createBrowserLocaleResolver,
-} from "./app/browser-locale.ts";
-export type { ClientFeatureDefinition } from "./app/client-plugin.tsx";
-export type { CreateKumikoAppOptions } from "./app/create-app.tsx";
-export { createKumikoApp } from "./app/create-app.tsx";
-export type { CreatePublicSurfaceOptions, PublicRoute } from "./app/create-public-surface.tsx";
-export { createPublicSurface } from "./app/create-public-surface.tsx";
-export type { CreateBrowserDraftStorageOptions } from "./app/draft-storage.ts";
-export { createBrowserDraftStorage } from "./app/draft-storage.ts";
-export type { KumikoLinkProps } from "./app/nav.tsx";
-export { KumikoLink, useBrowserNavApi } from "./app/nav.tsx";
-export { PlainContentEditor } from "./app/plain-content-editor.tsx";
-export { useResolvers } from "./app/resolvers-context.tsx";
-export { RichContentEditor } from "./app/rich-content-editor.tsx";
-export type { NavIconKey } from "./icons.tsx";
-export { Icon } from "./icons.tsx";
-export type { AppLayoutProps } from "./layout/app-layout.tsx";
-export { AppLayout } from "./layout/app-layout.tsx";
-export type { AvatarProps, AvatarSize } from "./layout/avatar.tsx";
-export { Avatar } from "./layout/avatar.tsx";
-export type { DefaultAppShellProps } from "./layout/default-app-shell.tsx";
-export { DefaultAppShell } from "./layout/default-app-shell.tsx";
-export type { EditorPanelProps, ResolverComponent } from "./layout/editor-panel.tsx";
-export { EditorPanel } from "./layout/editor-panel.tsx";
-export type { NavReparentOverride } from "./layout/filter-app-schema-navs.ts";
-export {
-  filterAppSchemaNavsByAllowlist,
-  reparentAppSchemaNavs,
-} from "./layout/filter-app-schema-navs.ts";
-export type { HeaderActionGroupProps } from "./layout/header-action-group.tsx";
-export { HeaderActionGroup } from "./layout/header-action-group.tsx";
-export type { LanguageMenuItemsProps } from "./layout/language-menu-items.tsx";
-export { LanguageMenuItems } from "./layout/language-menu-items.tsx";
-export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher.tsx";
-export { LanguageSwitcher } from "./layout/language-switcher.tsx";
-export type { NavTreeProps } from "./layout/nav-tree.tsx";
-export { buildNavRegistrySlice, buildNavRegistrySliceForApp, NavTree } from "./layout/nav-tree.tsx";
-export type { ProfileMenuItem, ProfileMenuProps } from "./layout/profile-menu.tsx";
-export { ProfileMenu } from "./layout/profile-menu.tsx";
-export type { SidebarProps } from "./layout/sidebar.tsx";
-export { Sidebar } from "./layout/sidebar.tsx";
-export type { SidebarBrandProps } from "./layout/sidebar-brand.tsx";
-export { SidebarBrand } from "./layout/sidebar-brand.tsx";
-export { SidebarPanel } from "./layout/sidebar-panel.tsx";
-export type { SidebarUserProps } from "./layout/sidebar-user.tsx";
-export { SidebarUser } from "./layout/sidebar-user.tsx";
-export { parseTargetFromSearchParams } from "./layout/target-url.ts";
-export type { ThemeMenuItemProps } from "./layout/theme-menu-item.tsx";
-export { ThemeMenuItem } from "./layout/theme-menu-item.tsx";
-export type { ThemeToggleProps } from "./layout/theme-toggle.tsx";
-export { ThemeToggle } from "./layout/theme-toggle.tsx";
-export type { TopbarProps } from "./layout/topbar.tsx";
-export { Topbar } from "./layout/topbar.tsx";
-export type { WorkspaceShellProps, WorkspaceShellUser } from "./layout/workspace-shell.tsx";
-export { filterByAccess, resolveDefaultId, WorkspaceShell } from "./layout/workspace-shell.tsx";
-export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher.tsx";
-export { WorkspaceSwitcher } from "./layout/workspace-switcher.tsx";
-export { cn } from "./lib/cn.ts";
-export { postWithDownload } from "./lib/download.ts";
-export {
-  downloadFileRef,
-  FileDownloadFailedError,
-  fetchFileRefBlob,
-  fileNameFromContentDisposition,
-  saveBlobAsFile,
-} from "./lib/file-ref-download.ts";
-export { buildFileUploadFormData } from "./lib/file-upload-form-data.ts";
-export { type FileRefTarget, FileUploadFailedError, uploadFileRef } from "./lib/upload-file-ref.ts";
-export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu.tsx";
-export { ActionMenu } from "./primitives/action-menu.tsx";
-export {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuPortal,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./primitives/dropdown-menu.tsx";
-export {
-  BareFormProvider,
-  DefaultCard as Card,
-  defaultPrimitives,
-  FormScreenShell,
-  ScreenWidthProvider,
-} from "./primitives/index.tsx";
-export { PageSection, Stack } from "./primitives/layout.tsx";
-export { formatMoney } from "./primitives/money-input.tsx";
-export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast.tsx";
-export { ToastProvider, useToast } from "./primitives/toast.tsx";
-export { useIsNarrowViewport, useIsViewportBelow } from "./primitives/use-narrow-viewport.ts";
-export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events.ts";
-export { createEventSourceLiveEvents } from "./sse/live-events.ts";
-export {
-  applyTokensToCssVars,
-  defaultTokens,
-  lightTokens,
-  useBrowserTokensApi,
-} from "./tokens.ts";
-export { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable.tsx";
-export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar.tsx";
-export type { KumikoBuild } from "./version/update-checker.tsx";
-export { readLoadedBuild } from "./version/update-checker.tsx";
-export type {
-  AiTextAreaProps,
-  AiTextFieldProps,
-  BooleanFieldProps,
-  ComparisonMetric,
-  DateFieldProps,
-  DrawerProps,
-  FeedRow,
-  FileFieldProps,
-  FloatingPanelGeometry,
-  FloatingPanelProps,
-  InfinityListProps,
-  InfinityListSelection,
-  ModeSwitchVariant,
+  NavTreeProps,
   NumberFieldProps,
   PhotoSlotSpec,
   PhotoSlotsProps,
@@ -224,17 +71,35 @@ export type {
   PlanCardPrice,
   PlanCardProps,
   PlanGridProps,
+  PrimitivesProviderProps,
+  PrimitivesRegistry,
+  ProfileMenuItem,
+  ProfileMenuProps,
   ProgressListRow,
+  PublicRoute,
   PublicShellProps,
   PublicShellVariant,
   QueryTableColumn,
   QueryTableProps,
+  RadiusTokens,
   RangeFieldProps,
+  RenderEditChangeState,
+  RenderEditControls,
+  RenderEditProps,
+  RenderFieldProps,
+  RenderListProps,
+  ResolverComponent,
   ResultColumn,
+  SectionProps,
   SelectFieldProps,
+  ShadowTokens,
   SideBySideTableCell,
   SideBySideTableColumn,
   SideBySideTableRow,
+  SidebarBrandProps,
+  SidebarProps,
+  SidebarUserProps,
+  SpacingTokens,
   StatDelta,
   StatTone,
   StatusBadgeTone,
@@ -242,57 +107,192 @@ export type {
   StatusTone,
   TextareaFieldProps,
   TextFieldProps,
+  TextProps,
+  ThemeMenuItemProps,
+  ThemeMode,
+  ThemePreference,
+  ThemeToggleProps,
   TimeseriesHeight,
   TimeseriesPoint,
   TimeseriesReferenceLine,
   TimeseriesXAxis,
   TimeseriesYAxis,
+  ToastOptions,
+  ToastProviderProps,
+  ToastVariant,
+  Tokens,
+  TokensApi,
+  TokensProviderProps,
+  TopbarProps,
+  TranslationBundle,
+  TranslationsByLocale,
   UploadZoneProps,
-} from "./widgets/index.ts";
+  UseFormOptions,
+  UseFormResult,
+  UseQueryOptions,
+  UseQueryResult,
+  UserRolesProviderProps,
+  WorkspaceSchema,
+  WorkspaceShellProps,
+  WorkspaceShellUser,
+  WorkspaceSwitcherProps,
+} from "@cosmicdrift/kumiko-renderer/web";
 export {
+  ActionMenu,
   AiTextArea,
   AiTextField,
+  AppLayout,
+  Avatar,
+  applyTokensToCssVars,
+  BareFormProvider,
   BooleanField,
+  BROWSER_LOCALE_STORAGE_KEY,
+  buildFileUploadFormData,
+  buildNavRegistrySlice,
+  buildNavRegistrySliceForApp,
+  Card,
   CollapsibleSection,
   ComparisonTable,
+  cn,
+  createBrowserDraftStorage,
+  createBrowserLocaleResolver,
+  createEventSourceLiveEvents,
+  createKumikoApp,
+  createPublicSurface,
+  createStaticLocaleResolver,
+  cssVarTokens,
   DateField,
+  DefaultAppShell,
   DetailList,
+  DispatcherProvider,
   Drawer,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  defaultPrimitives,
+  defaultTokens,
+  downloadFileRef,
+  EditorPanel,
   EmptyState,
   ErrorState,
   FeedList,
+  FileDownloadFailedError,
   FileField,
+  FileUploadFailedError,
   FloatingPanel,
+  FormScreenShell,
+  fetchFileRefBlob,
+  fileNameFromContentDisposition,
+  filterAppSchemaNavsByAllowlist,
+  filterByAccess,
+  formatMoney,
+  formatPath,
+  HeaderActionGroup,
+  Icon,
   InfinityList,
+  KumikoLink,
+  KumikoScreen,
+  LanguageMenuItems,
+  LanguageSwitcher,
+  LiveEventsProvider,
   LoadingState,
+  LocaleProvider,
+  lightTokens,
   MiniStat,
   ModeSwitch,
   MoneyField,
+  NavProvider,
+  NavTree,
   NumberField,
+  PageSection,
   PercentField,
   PhotoSlots,
+  PlainContentEditor,
   PlanCard,
   PlanGrid,
+  PrimitivesProvider,
+  ProfileMenu,
   ProgressBar,
   ProgressList,
   PublicShell,
+  parsePath,
+  parseTargetFromSearchParams,
+  postWithDownload,
   QueryTable,
+  qualifyScreenId,
   RangeField,
+  RenderEdit,
+  RenderField,
+  RenderList,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
   ResultPanel,
   ResultTable,
+  RichContentEditor,
+  readLoadedBuild,
+  reparentAppSchemaNavs,
+  resolveDefaultId,
+  ScreenWidthProvider,
   SectionCard,
   SelectField,
   SideBySideTable,
+  Sidebar,
+  SidebarBrand,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarPanel,
+  SidebarProvider,
+  SidebarUser,
   Sparkline,
   STATUS_TONE_TEXT,
+  Stack,
   StatCard,
   StatusBadge,
   StatusBarChart,
   StepBar,
+  saveBlobAsFile,
   smoothPath,
+  synthesizeActionFormEntity,
+  synthesizeActionFormScreen,
   TextareaField,
   TextField,
+  ThemeMenuItem,
+  ThemeToggle,
   TimeseriesChart,
+  ToastProvider,
+  TokensProvider,
+  Topbar,
   UploadZone,
+  UserRolesProvider,
+  uploadFileRef,
+  useBrowserNavApi,
+  useBrowserTokensApi,
+  useDispatcher,
+  useDispatcherStatus,
   useDraft,
-} from "./widgets/index.ts";
+  useForm,
+  useIsNarrowViewport,
+  useIsViewportBelow,
+  useLiveEvents,
+  useLocale,
+  useNav,
+  usePrimitives,
+  useQuery,
+  useResolvers,
+  useStore,
+  useStoreSelector,
+  useToast,
+  useTokenController,
+  useTokens,
+  useTranslation,
+  useUserRoles,
+  WorkspaceShell,
+  WorkspaceSwitcher,
+} from "@cosmicdrift/kumiko-renderer/web";

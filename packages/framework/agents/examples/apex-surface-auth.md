@@ -42,7 +42,7 @@ import {
 import {
   RequestAccountDeletionScreen, ConfirmAccountDeletionScreen,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
-import { createPublicSurface } from "@cosmicdrift/kumiko-renderer-web";
+import { createPublicSurface } from "@cosmicdrift/kumiko-renderer/web";
 
 // createLoginRoute, not a raw LoginScreen render — it owns the challenge-
 // swap for a second factor, so mounting auth-mfa later doesn't need this
@@ -252,7 +252,7 @@ describe("apex-surface-auth recipe", () => {
 //   2. Client (Kommentar unten + README): wie createPublicSurface + AuthShell
 //      die Screens in der Apex-Chrome mounten.
 //
-// CLIENT-WIRING (apex.tsx der App — renderer-web, hier nur als Referenz, da
+// CLIENT-WIRING (apex.tsx der App — renderer/web, hier nur als Referenz, da
 // Recipes keine Browser-Deps ziehen):
 //
 //   import {
@@ -263,7 +263,7 @@ describe("apex-surface-auth recipe", () => {
 //     RequestAccountDeletionScreen, ConfirmAccountDeletionScreen,
 //     defaultTranslations as deletionI18n,
 //   } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
-//   import { createPublicSurface } from "@cosmicdrift/kumiko-renderer-web";
+//   import { createPublicSurface } from "@cosmicdrift/kumiko-renderer/web";
 //
 //   // AuthShell: die Auth-Card rendert in der Marketing-Chrome statt
 //   // Fullscreen. Default (ohne Provider) bleibt der Fullscreen-Wrapper.

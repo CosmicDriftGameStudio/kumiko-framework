@@ -2,11 +2,10 @@
 // screen, sonst durch zu children. Bewusst SYNCHRON (kein fireEvent/waitFor) —
 // der #457-CI-Flake trifft nur await-Assertions auf dem geteilten happy-dom-
 // document; ein Render + Sync-Assert im selben Tick ist nicht exponiert.
-// Provider-Wrapper lokal (Dependency-Richtung renderer-web → bundled-features
+// Provider-Wrapper lokal (Dependency-Richtung renderer/web → bundled-features
 // verbietet test-utils-Import).
 
 import { afterEach, describe, expect, test } from "bun:test";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -14,7 +13,8 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../i18n.ts";
