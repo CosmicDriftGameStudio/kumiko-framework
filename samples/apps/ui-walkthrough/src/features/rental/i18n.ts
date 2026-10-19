@@ -4,6 +4,11 @@ export const rentalTranslations: TranslationsByLocale = {
   de: {
     "rental.nav.contracts": "Verträge",
     "rental.nav.leases": "Mietverträge",
+    "screen:lease-unterlagen.title": "Unterlagen",
+    "rental.unterlagen.label": "Dateien",
+    "rental.unterlagen.section": "Mietvertragsunterlagen",
+    "rental.unterlagen.sectionDescription":
+      "Hochgeladene Rechnungen und Belege zum Download und zur Ansicht.",
     "rental.nav.upload": "Belege hochladen",
     "screen:upload-standard-layout.title": "Belege hochladen",
     "rental.upload.description":
@@ -133,6 +138,11 @@ export const rentalTranslations: TranslationsByLocale = {
   en: {
     "rental.nav.contracts": "Contracts",
     "rental.nav.leases": "Leases",
+    "screen:lease-unterlagen.title": "Documents",
+    "rental.unterlagen.label": "Files",
+    "rental.unterlagen.section": "Lease documents",
+    "rental.unterlagen.sectionDescription":
+      "Uploaded invoices and receipts to download or preview.",
     "rental.nav.upload": "Upload receipts",
     "screen:upload-standard-layout.title": "Upload receipts",
     "rental.upload.description":

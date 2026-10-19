@@ -70,6 +70,7 @@ export {
   type InfinityListSelection,
 } from "./infinity-list.tsx";
 export { ModeSwitch, type ModeSwitchVariant } from "./mode-switch.tsx";
+export { PdfPreview, type PdfPreviewSource } from "./pdf-preview.tsx";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots.tsx";
 export {
   PlanCard,

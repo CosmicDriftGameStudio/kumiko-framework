@@ -518,3 +518,23 @@ export const leaseSuccessionListScreen: EntityListScreenDefinition = {
   rowActions: [openLeaseDetail],
   access: OPEN_ACCESS,
 };
+
+export const leaseUnterlagenScreen: ProjectionDetailScreenDefinition = {
+  id: "lease-unterlagen",
+  type: "projectionDetail",
+  dormant: true,
+  query: RENTAL_QUERIES.leaseUnterlagen,
+  recordTitleField: "titel",
+  fieldLabels: { unterlagen: "rental.unterlagen.label" },
+  layout: {
+    sections: [
+      {
+        title: "rental.unterlagen.section",
+        description: "rental.unterlagen.sectionDescription",
+        icon: "file",
+        fields: [{ field: "unterlagen", renderer: { format: "file" } }],
+      },
+    ],
+  },
+  access: OPEN_ACCESS,
+};

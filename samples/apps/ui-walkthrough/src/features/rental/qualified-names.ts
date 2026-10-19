@@ -1,5 +1,6 @@
 export const RENTAL_QUERIES = {
   leaseAkte: "rental:query:lease:akte",
+  leaseUnterlagen: "rental:query:lease:unterlagen",
   partyList: "rental:query:lease-party:list",
   positionList: "rental:query:lease:positions",
   kennzahlen: "rental:query:lease:kennzahlen",

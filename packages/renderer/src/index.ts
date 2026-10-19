@@ -264,6 +264,7 @@ export type {
   EmbeddedListTotal,
   FieldCellWidth,
   FieldProps,
+  FileValueListProps,
   FillContainerProps,
   FooterActionMarker,
   FooterActionRole,
