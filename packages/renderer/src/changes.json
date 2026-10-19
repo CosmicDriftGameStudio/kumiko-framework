@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Success box with links, form reset and field placeholder",
+    "detail": "The actionForm success box shows the default text \"Done.\" (kumiko.actionForm.success) next to successMessage links, resetOnSuccess remounts the form with its initial values, and EditFieldSpec.placeholder reaches text, number and textarea inputs."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Client action registry for row actions",
+    "detail": "ClientActionsProvider, ActionNoticeProvider and runClientAction execute clientAction row actions on list, related list and record actions, with confirm, toast feedback and refetch."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "actionForm load states and drawer row click",
+    "detail": "An actionForm with load queries by the route, drawer or URL id and shows loading, error, not-found and missing-id states; loaded values count as prefill for submitPrefilled. A row click fires a rowClick drawer action in entityList, projectionList and relatedList."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Input prefix, suffix and fill button",
+    "detail": "Text and number inputs show prefix and suffix text, and a fillAction renders a button that fetches a suggestion into the field, also for a readOnly field. The Input primitive takes prefix, suffix and fill; renderer-web draws them beside the input."
+  },
+  {
     "version": "0.372.0",
     "type": "fix",
     "title": "Empty values use one placeholder everywhere",

@@ -1,5 +1,66 @@
 [
   {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "actionForm successLinks and resetOnSuccess",
+    "detail": "successLinks keeps the actionForm open after a successful submit and lists links resolved like redirect; boot rejects it together with redirect, with an unknown target or with a record target without idFrom. resetOnSuccess clears typed values after success. Role projection drops links to screens the role cannot reach."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "clientAction row actions",
+    "detail": "RowAction gains kind \"clientAction\" with a client-registered handler name; boot rejects a name that is not <feature>:<kebab>, and the surface keys include its confirm, confirmLabel and successMessage."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Boot validation for screen-panel fallback and text panels",
+    "detail": "DashboardScreenPanel.fallback needs visibleWhen and a registered, embeddable target without its own visibleWhen. DashboardTextPanel (kind \"text\", exported with DashboardTextBlock) rejects empty blocks and empty lists; its text keys are required translation keys. Extension-selector panels qualify a short fallback ref, and role projection drops a fallback the role cannot reach."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Dashboard record binding, header actions, refresh and relative time",
+    "detail": "Dashboards take record, actions and refresh; stat panels and text params gain a relativeTime format; the surface keys include kumiko.dashboard.record.missing."
+  },
+  {
+    "version": "0.374.0",
+    "type": "breaking",
+    "title": "DashboardChartPanel.valueFormat only takes the currency format",
+    "detail": "DashboardValueFormat is now a union of DashboardCurrencyFormat and DashboardRelativeTimeFormat. Stat panels take both, chart panels only the currency one, and boot rejects relativeTime on a chart.",
+    "migration": "A chart panel that declares valueFormat keeps working with { kind: \"currency\", currency }. Code that types a chart's valueFormat as DashboardValueFormat should use DashboardCurrencyFormat instead; relativeTime on a chart was never meaningful and now fails boot."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Derived list searchability, actionForm load and drawer rowClick",
+    "detail": "projectionList searchable is derived false for entity-convention lists without searchable fields (searchable true is rejected at boot), actionForm.load registers a query checked at boot, and a drawer row action may set rowClick, counted with navigate rowClick and rejected on projectionDetail header actions."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Boot checks for field affixes and fillAction",
+    "detail": "Boot fails when a fillAction query is not a registered query handler, or when a { field } affix or a fillAction params source is not a field of the same form."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "pagedListSchema and pageRows for in-memory list queries",
+    "detail": "pagedListSchema(sortableFields) and pageRows(rows, request, { searchFields, defaultSort }) cover search, sort (missing values last, ties by id), offset paging and an optional total for projectionList queries over merged rows. PagedListRequest and PagedListRowValue are exported; nextCursor is always null."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "DashboardProgressTone type and unlimited label key",
+    "detail": "New exported type DashboardProgressTone for progress-list row tones. The default translations gain kumiko.dashboard.progress.unlimited."
+  },
+  {
+    "version": "0.374.0",
+    "type": "improvement",
+    "title": "Dashboard chart panels take a y-axis unit",
+    "detail": "DashboardChartPanel.unit (i18n key) is shown once on the y axis of a timeseries chart, with or without valueFormat. The boot validator rejects unit on other chart kinds; an untranslated unit key fails the required-surface key check."
+  },
+  {
     "version": "0.373.0",
     "type": "improvement",
     "title": "loadPendingFileRef and bindPendingFileRef bind a caller's own pending upload from a custom handler",
