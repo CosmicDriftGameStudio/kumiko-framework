@@ -3,7 +3,7 @@ import {
   findPortCollisions,
   listAppPorts,
   scanWorkspaceApps,
-} from "@cosmicdrift/kumiko-repo-manifest/app-ports";
+} from "@cosmicdrift/kumiko-guards/repo-manifest/app-ports";
 import type { CliCommand, CliCommandContext } from "./types";
 
 // Fixed column order so the table reads the same in every run.

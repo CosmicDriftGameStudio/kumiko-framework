@@ -10,7 +10,7 @@
   "references": [
     { "path": "../framework" },
     { "path": "../bundled-features" },
-    { "path": "../repo-manifest" },
+    { "path": "../guards" },
     { "path": "../server-runtime" },
     { "path": "../testing" }
   ],

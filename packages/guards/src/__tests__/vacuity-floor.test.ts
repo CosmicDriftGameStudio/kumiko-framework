@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
 import {
   type AstGuard,
   buildSharedProject,
@@ -13,6 +12,7 @@ import {
 } from "../_lib/guard-kit";
 import type { ScanSpec } from "../_lib/scan-scope";
 import { guard as adminApi } from "../guard-admin-api";
+import type { RepoManifest } from "../repo-manifest/index.ts";
 import { GUARDS } from "../run-guards";
 import { fixtureRoot, writeRepo } from "./parent-workspace-fixture";
 

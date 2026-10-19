@@ -1,13 +1,13 @@
-export { listAppPorts } from "@cosmicdrift/kumiko-framework/config";
+export type {
+  PortClaim,
+  PortCollision,
+  ScannedApp,
+  StaticAppConfig,
+} from "@cosmicdrift/kumiko-guards/repo-manifest/app-ports";
 export {
   findPortCollisions,
-  type PortClaim,
-  type PortCollision,
-  type ScannedApp,
-  scanWorkspaceApps,
-} from "./port-registry.ts";
-export {
+  listAppPorts,
   parseStaticAppConfig,
   readStaticAppConfig,
-  type StaticAppConfig,
-} from "./static-app-config.ts";
+  scanWorkspaceApps,
+} from "@cosmicdrift/kumiko-guards/repo-manifest/app-ports";

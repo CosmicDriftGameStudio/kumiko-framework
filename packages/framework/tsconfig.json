@@ -11,5 +11,5 @@
     "./src/**/*.test.ts",
     "./src/**/*.test.tsx"
   ],
-  "references": [{ "path": "../types" }, { "path": "../http" }]
+  "references": [{ "path": "../types" }]
 }

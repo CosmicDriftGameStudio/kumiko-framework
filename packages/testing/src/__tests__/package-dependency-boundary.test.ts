@@ -111,10 +111,10 @@ function collectImportGraph(keys: readonly string[]): { files: Set<string>; viol
 }
 
 describe("kumiko-testing package manifest", () => {
-  test("regular dependencies are only framework, repo-manifest, types and zod", () => {
+  test("regular dependencies are only framework, guards, types and zod", () => {
     expect(Object.keys(manifest.dependencies).sort()).toEqual([
       "@cosmicdrift/kumiko-framework",
-      "@cosmicdrift/kumiko-repo-manifest",
+      "@cosmicdrift/kumiko-guards",
       "@cosmicdrift/kumiko-types",
       "zod",
     ]);

@@ -83,7 +83,6 @@ const ALLOWLIST: readonly AllowEntry[] = [
 
   // Guard runner + repo-manifest loader: read the scanned repo tree at dev/CI time, no request input as path.
   { repo: "kumiko-framework", pattern: /^packages\/guards\/src\// },
-  { repo: "kumiko-framework", pattern: /^packages\/repo-manifest\/src\// },
 
   // CLI (@cosmicdrift/kumiko-cli): local dev/CI tooling reading the repo tree, no request input as path.
   { repo: "kumiko-framework", pattern: /^packages\/cli\/src\// },

@@ -1,6 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { type ImportDeclaration, type ImportSpecifier, Node, type SourceFile } from "ts-morph";
+import {
+  type ImportDeclaration,
+  type ImportSpecifier,
+  Node,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { collectSourceFiles } from "./collect-source-files.ts";
 
 export interface CodemodSite {
@@ -46,6 +52,47 @@ export function relativeSpecifier(
 ): string {
   const path = relative(dirname(fromFile), join(root, module)).split("\\").join("/");
   return `${path.startsWith(".") ? path : `./${path}`}${extension}`;
+}
+
+function stringLiteralOf(node: Node | undefined): Node | undefined {
+  return node !== undefined && Node.isStringLiteral(node) ? node : undefined;
+}
+
+export interface TextEdit {
+  readonly start: number;
+  readonly end: number;
+  readonly text: string;
+}
+
+export function applyEdits(source: string, edits: readonly TextEdit[]): string {
+  let output = source;
+  for (const edit of [...edits].sort((x, y) => y.start - x.start)) {
+    output = output.slice(0, edit.start) + edit.text + output.slice(edit.end);
+  }
+  return output;
+}
+
+export function moduleSpecifierLiterals(sourceFile: SourceFile): Node[] {
+  const literals: Node[] = [];
+  for (const declaration of [
+    ...sourceFile.getImportDeclarations(),
+    ...sourceFile.getExportDeclarations(),
+  ]) {
+    const literal = declaration.getModuleSpecifier();
+    if (literal !== undefined) literals.push(literal);
+  }
+  for (const importType of sourceFile.getDescendantsOfKind(SyntaxKind.ImportType)) {
+    const argument = importType.getArgument();
+    if (Node.isLiteralTypeNode(argument)) literals.push(argument.getLiteral());
+  }
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const callee = call.getExpression();
+    const isModuleLoad =
+      callee.getKind() === SyntaxKind.ImportKeyword || callee.getText() === "mock.module";
+    const literal = stringLiteralOf(call.getArguments()[0]);
+    if (isModuleLoad && literal !== undefined) literals.push(literal);
+  }
+  return literals;
 }
 
 export function isPlainNamedImport(declaration: Node): boolean {
@@ -202,7 +249,7 @@ function parseArgs(argv: readonly string[]): CliOptions {
   return { mode: mode ?? "write", format, paths };
 }
 
-function isMigratableFile(name: string): boolean {
+function isSourceFileName(name: string): boolean {
   return /\.(ts|tsx)$/.test(name) && !name.endsWith(".d.ts");
 }
 
@@ -215,6 +262,8 @@ export interface CodemodCliConfig {
   readonly name: string;
   readonly transform: (source: string, filePath: string) => CodemodResult;
   readonly isSkippedPath: (file: string) => boolean;
+  // Exact file names (e.g. package.json) handed to transform next to the .ts/.tsx sources.
+  readonly extraFileNames?: readonly string[];
 }
 
 function parseArgsOrExit(codemodName: string, argv: readonly string[]): CliOptions {
@@ -262,15 +311,20 @@ export async function runCodemodCli(
   argv: readonly string[],
 ): Promise<void> {
   const options = parseArgsOrExit(config.name, argv);
-  const files = collectSourceFiles(options.paths, { isMigratableFile }).filter(
-    (file) => !(file.includes("/__tests__/fixtures/") || config.isSkippedPath(file)),
-  );
+  const files = collectSourceFiles(options.paths, {
+    isMigratableFile: (name) =>
+      isSourceFileName(name) || (config.extraFileNames?.includes(name) ?? false),
+  }).filter((file) => !(file.includes("/__tests__/fixtures/") || config.isSkippedPath(file)));
   const { rewrites, manual, changedFiles } = transformFiles(config, files, options.mode);
   console.log(
     `\n[${config.name}] ${options.mode === "write" ? "rewritten" : "rewritable"}: ${rewrites.length} site(s) in ${new Set(rewrites.map((site) => site.file)).size} file(s); manual: ${manual.length}`,
   );
   if (options.mode === "write" && options.format && changedFiles.length > 0) {
-    await formatWithBiome(config.name, changedFiles, resolve(options.paths[0] ?? "."));
+    await formatWithBiome(
+      config.name,
+      changedFiles.filter((file) => isSourceFileName(file)),
+      resolve(options.paths[0] ?? "."),
+    );
   }
   process.exit(options.mode === "check" && rewrites.length + manual.length > 0 ? 1 : 0);
 }

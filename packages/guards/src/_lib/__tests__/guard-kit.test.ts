@@ -2,8 +2,8 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RepoKind } from "@cosmicdrift/kumiko-repo-manifest";
 import { Project } from "ts-morph";
+import type { RepoKind } from "../../repo-manifest/index.ts";
 import {
   type AstGuard,
   buildGuardKitInventory,

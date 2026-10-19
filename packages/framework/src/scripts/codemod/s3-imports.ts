@@ -10,17 +10,20 @@
 // Without a mode flag it writes (kumiko-upgrade --apply calls it that way). --check exits 1
 // while any rewritable or manual site is left; --dry-run only reports.
 
-import { type ImportDeclaration, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import { type ImportDeclaration, Node, Project, type SourceFile } from "ts-morph";
 import {
+  applyEdits,
   type CodemodResult,
   type CodemodSite,
   ensureNamedImport,
   hasImportBinding,
+  moduleSpecifierLiterals,
   relativeSpecifier,
   removeNamedImport,
   runCodemodCli,
   type SiteLists,
   sourceRelativeModule,
+  type TextEdit,
 } from "./codemod-support.ts";
 
 const BUNDLED_PACKAGE = "@cosmicdrift/kumiko-bundled-features";
@@ -77,47 +80,6 @@ function envModuleReplacement(specifier: string, filePath: string): string | und
 
 function site(file: string, node: Node, description: string): CodemodSite {
   return { file, line: node.getStartLineNumber(), description };
-}
-
-function stringLiteralOf(node: Node | undefined): Node | undefined {
-  return node !== undefined && Node.isStringLiteral(node) ? node : undefined;
-}
-
-interface TextEdit {
-  readonly start: number;
-  readonly end: number;
-  readonly text: string;
-}
-
-function applyEdits(source: string, edits: readonly TextEdit[]): string {
-  let output = source;
-  for (const edit of [...edits].sort((x, y) => y.start - x.start)) {
-    output = output.slice(0, edit.start) + edit.text + output.slice(edit.end);
-  }
-  return output;
-}
-
-function moduleSpecifierLiterals(sourceFile: SourceFile): Node[] {
-  const literals: Node[] = [];
-  for (const declaration of [
-    ...sourceFile.getImportDeclarations(),
-    ...sourceFile.getExportDeclarations(),
-  ]) {
-    const literal = declaration.getModuleSpecifier();
-    if (literal !== undefined) literals.push(literal);
-  }
-  for (const importType of sourceFile.getDescendantsOfKind(SyntaxKind.ImportType)) {
-    const argument = importType.getArgument();
-    if (Node.isLiteralTypeNode(argument)) literals.push(argument.getLiteral());
-  }
-  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const callee = call.getExpression();
-    const isModuleLoad =
-      callee.getKind() === SyntaxKind.ImportKeyword || callee.getText() === "mock.module";
-    const literal = stringLiteralOf(call.getArguments()[0]);
-    if (isModuleLoad && literal !== undefined) literals.push(literal);
-  }
-  return literals;
 }
 
 function rewriteLibSpecifiers(

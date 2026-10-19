@@ -1,7 +1,7 @@
 import type { CliCommand, CliCommandContext } from "./types";
 
 // The shipped codemods that share the `<dir...> [--check | --dry-run | --write]` CLI of codemod-support.
-const CODEMODS = ["feature-factory", "import-extensions", "s3-imports"] as const;
+const CODEMODS = ["feature-factory", "import-extensions", "package-merge", "s3-imports"] as const;
 type CodemodName = (typeof CODEMODS)[number];
 
 function isCodemodName(value: string | undefined): value is CodemodName {

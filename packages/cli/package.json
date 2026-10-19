@@ -38,7 +38,6 @@
   "dependencies": {
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
-    "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
     "marked": "^18.0.3",
     "zod": "^4.4.3"

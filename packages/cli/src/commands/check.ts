@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { REPO_MANIFEST_FILE, type RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
+import { REPO_MANIFEST_FILE, type RepoManifest } from "@cosmicdrift/kumiko-guards/repo-manifest";
 import type { CliCommand, CliCommandContext } from "./types";
 
 const APP_SCHEMA_FILE = "kumiko/schema.ts";

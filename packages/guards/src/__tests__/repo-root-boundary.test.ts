@@ -6,13 +6,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
 import {
   buildSharedProject,
   isExternalSourcePath,
   isOutsideRepoRoot,
   runGuards,
 } from "../_lib/guard-kit";
+import type { RepoManifest } from "../repo-manifest/index.ts";
 import { UI_GUARDS } from "../run-ui-guards";
 import { writeRepo } from "./parent-workspace-fixture";
 

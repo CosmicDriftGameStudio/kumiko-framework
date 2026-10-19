@@ -95,7 +95,12 @@ testing_tarball="$(cd "$testing_dir" && bun pm pack --quiet | grep -E '\.tgz$' |
 [ -n "$testing_tarball" ] || fail "pack produced no tarball for $testing_dir"
 mv "$testing_dir/$testing_tarball" "$scratch/$testing_tarball"
 
-# kumiko-repo-manifest is source-only too and a dependency of dev-server (managed-files port reader) and testing (preload).
+# kumiko-guards is source-only too (dev-server managed-files, testing preload and the repo-manifest shim reach it); kumiko-repo-manifest is a source-only shim over guards.
+guards_dir="$repo_root/packages/guards"
+guards_tarball="$(cd "$guards_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)"
+[ -n "$guards_tarball" ] || fail "pack produced no tarball for $guards_dir"
+mv "$guards_dir/$guards_tarball" "$scratch/$guards_tarball"
+
 manifest_dir="$repo_root/packages/repo-manifest"
 manifest_tarball="$(cd "$manifest_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)"
 [ -n "$manifest_tarball" ] || fail "pack produced no tarball for $manifest_dir"
@@ -103,7 +108,7 @@ mv "$manifest_dir/$manifest_tarball" "$scratch/$manifest_tarball"
 
 consumer="$scratch/consumer"
 mkdir -p "$consumer"
-deps="$(jq -n --arg t "file:$scratch/$testing_tarball" --arg m "file:$scratch/$manifest_tarball" '{"@cosmicdrift/kumiko-testing": $t, "@cosmicdrift/kumiko-repo-manifest": $m}')"
+deps="$(jq -n --arg t "file:$scratch/$testing_tarball" --arg g "file:$scratch/$guards_tarball" --arg m "file:$scratch/$manifest_tarball" '{"@cosmicdrift/kumiko-testing": $t, "@cosmicdrift/kumiko-guards": $g, "@cosmicdrift/kumiko-repo-manifest": $m}')"
 for i in "${!names[@]}"; do
   deps="$(jq --arg n "${names[$i]}" --arg t "file:${tarballs[$i]}" '.[$n] = $t' <<<"$deps")"
 done
@@ -209,11 +214,11 @@ else
 fi
 # Only diagnostics located in third-party node_modules are ignored (unscoped and
 # scoped alike, e.g. @types/*); every other error counts: entry file, config/option
-# errors without a path, and @cosmicdrift .d.ts. kumiko-testing and kumiko-repo-manifest ship TS source (bun-types, .ts specifiers), so their own diagnostics are covered by the repo typecheck instead.
+# errors without a path, and @cosmicdrift .d.ts. kumiko-testing, kumiko-guards and kumiko-repo-manifest ship TS source (bun-types, .ts specifiers), so their own diagnostics are covered by the repo typecheck instead.
 diagnostics="$(grep -E 'error TS[0-9]+' <<<"$typecheck_output" || true)"
 own_errors="$({
   grep -v 'node_modules/' <<<"$diagnostics" || true
-  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" | grep -vE '^[^(]*node_modules/@cosmicdrift/kumiko-(testing|repo-manifest)/[^(]*\([0-9]+,[0-9]+\): error TS' || true
+  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" | grep -vE '^[^(]*node_modules/@cosmicdrift/kumiko-(testing|guards|repo-manifest)/[^(]*\([0-9]+,[0-9]+\): error TS' || true
 } | sed '/^$/d')"
 if [ -n "$own_errors" ]; then
   sed -n "1,40p" <<<"$own_errors" | sed -E 's#^.*node_modules/##' >&2

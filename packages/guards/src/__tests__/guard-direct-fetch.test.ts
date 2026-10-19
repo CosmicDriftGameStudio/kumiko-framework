@@ -166,7 +166,7 @@ describe("Direct-Fetch Guard", () => {
   });
 
   test.skipIf(!frameworkRoot)("allows the egress() implementation itself", () => {
-    const path = join(frameworkRoot!.absPath, "packages/http/src/egress.ts");
+    const path = join(frameworkRoot!.absPath, "packages/framework/src/http/egress.ts");
     const project = new Project({
       skipAddingFilesFromTsConfig: true,
       useInMemoryFileSystem: true,
@@ -207,7 +207,7 @@ describe("Direct-Fetch Guard", () => {
   test.skipIf(!frameworkRoot)(
     "allows globalThis.fetch() inside the egress() implementation itself",
     () => {
-      const path = join(frameworkRoot!.absPath, "packages/http/src/egress.ts");
+      const path = join(frameworkRoot!.absPath, "packages/framework/src/http/egress.ts");
       const project = new Project({
         skipAddingFilesFromTsConfig: true,
         useInMemoryFileSystem: true,
@@ -298,7 +298,7 @@ describe("Direct-Fetch Guard", () => {
   test("in-memory path with no matching root is not allowlistable", () => {
     const project = new Project({ skipAddingFilesFromTsConfig: true, useInMemoryFileSystem: true });
     project.createSourceFile(
-      "/nowhere/packages/http/src/egress.ts",
+      "/nowhere/packages/framework/src/http/egress.ts",
       "export async function x() { return fetch('x'); }",
     );
     expect(guard.run(project.getSourceFiles()).violations).toHaveLength(1);

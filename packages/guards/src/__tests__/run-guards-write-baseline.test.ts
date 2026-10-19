@@ -6,8 +6,8 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
 import type { AstGuard } from "../_lib/guard-kit";
+import type { RepoManifest } from "../repo-manifest/index.ts";
 import { GUARDS, runGuardsCli } from "../run-guards";
 import { fixtureRoot, writeRepo } from "./parent-workspace-fixture";
 
