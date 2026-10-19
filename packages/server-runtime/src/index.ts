@@ -5,6 +5,7 @@
 
 export { type BillingBootOption, resolveBillingOption } from "./boot-options/billing-option.ts";
 export type {
+  DemoAccountEntry,
   DemoAccountRole,
   DemoModeNotice,
   DemoModeOption,

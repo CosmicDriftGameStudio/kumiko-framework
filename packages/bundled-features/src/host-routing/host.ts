@@ -19,6 +19,8 @@ export type HostClass =
   | { readonly kind: "fixed"; readonly surface: HostRoutingSurface }
   | { readonly kind: "apex" }
   | { readonly kind: "subdomain"; readonly key: string }
+  // tenantBy resolver mode: any host that is neither fixed nor apex.
+  | { readonly kind: "resolved"; readonly hostname: string }
   | { readonly kind: "unknown" };
 
 export function classifyHost(host: string, options: HostRoutingOptions): HostClass {
@@ -31,12 +33,37 @@ export function classifyHost(host: string, options: HostRoutingOptions): HostCla
       ? options.hosts[hostname]
       : undefined;
   if (fixed !== undefined) return { kind: "fixed", surface: fixed };
+  if (isApexHostname(hostname, options.baseDomain)) return { kind: "apex" };
   const baseDomain = options.baseDomain.toLowerCase();
-  if (hostname === baseDomain || hostname === `www.${baseDomain}`) return { kind: "apex" };
+  if (typeof options.tenantBy === "function") return { kind: "resolved", hostname };
   const suffix = `.${baseDomain}`;
   if (!hostname.endsWith(suffix)) return { kind: "unknown" };
   const label = hostname.slice(0, -suffix.length);
   // Exactly one label: "a.b.<baseDomain>" is not a tenant host.
   if (!isTenantKeyCandidate(label)) return { kind: "unknown" };
   return { kind: "subdomain", key: label };
+}
+
+export function splitFirstSegment(path: string): {
+  readonly segment: string;
+  readonly rest: string;
+} {
+  const withoutLeading = path.replace(/^\/+/, "");
+  const slash = withoutLeading.indexOf("/");
+  if (slash === -1) return { segment: withoutLeading, rest: "/" };
+  return { segment: withoutLeading.slice(0, slash), rest: withoutLeading.slice(slash) };
+}
+
+// undefined: path is outside the prefix; null: bare prefix without a key.
+export function tenantKeyFromPath(prefix: string, path: string): string | null | undefined {
+  if (path !== prefix && !path.startsWith(`${prefix}/`)) return undefined;
+  const { segment } = splitFirstSegment(path.slice(prefix.length));
+  return segment === "" ? null : segment;
+}
+
+// Apex hostnames are the only ones that may carry a path-named tenant or an
+// anonymous anchor tenant.
+export function isApexHostname(hostname: string, baseDomain: string): boolean {
+  const base = baseDomain.toLowerCase();
+  return hostname === base || hostname === `www.${base}`;
 }

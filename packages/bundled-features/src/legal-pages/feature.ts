@@ -90,6 +90,17 @@ export type LegalPagesOptions = {
   readonly terms?: boolean;
 };
 
+// Only slugs served in more than one language get alternates.
+function alternatesBySlugOf(
+  routes: readonly LegalPageRoute[],
+): ReadonlyMap<string, Readonly<Record<string, string>>> {
+  const bySlug = new Map<string, Record<string, string>>();
+  for (const route of routes) {
+    bySlug.set(route.slug, { ...bySlug.get(route.slug), [route.lang]: route.path });
+  }
+  return new Map([...bySlug].filter(([, byLang]) => Object.keys(byLang).length > 1));
+}
+
 export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDefinition {
   const wrapLayout = opts.wrapLayout ?? wrapInLayout;
   const routes: readonly LegalPageRoute[] = [
@@ -108,6 +119,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
       );
     }
   }
+  const alternatesBySlug = alternatesBySlugOf(routes);
   return defineFeature("legal-pages", (r) => {
     r.describe(
       "Opt-in wrapper around `template-resolver` text-blocks that registers public HTML routes (default: `/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required blocks (default: `imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Both are configurable via `routes`/`requiredBlocks` for apps with a different default language or additional pages. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.templateResolver` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `template-resolver:query:by-slug` directly.",
@@ -189,6 +201,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
               : renderedBody,
             lang: route.lang,
             slug: route.slug,
+            alternates: alternatesBySlug.get(route.slug),
           });
 
           return cachedSecurePageResponse(c.req.raw, {

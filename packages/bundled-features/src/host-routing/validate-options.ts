@@ -1,8 +1,43 @@
+import { isApexHostname } from "./host.ts";
 import type { HostRoutingOptions } from "./options.ts";
 
 const DOMAIN_PATTERN = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
 const PATH_PREFIX_PATTERN = /^\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
 const LOCALE_PATTERN = /^[a-z]{2}(?:-[a-z]{2})?$/;
+
+const REDIRECT_PATH_PATTERN = /^\/[A-Za-z0-9._~/-]*$/;
+// A redirect target is either a same-origin path or an https URL; neither may
+// carry a query or fragment, because the request's query string is appended.
+const REDIRECT_TARGET_PATTERN =
+  /^(?:\/(?!\/)[A-Za-z0-9._~/-]*|https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[A-Za-z0-9._~/-]*)?)$/;
+
+function validateRedirects(options: HostRoutingOptions): void {
+  for (const rule of options.redirects ?? []) {
+    if (!REDIRECT_PATH_PATTERN.test(rule.from)) {
+      throw new Error(`host-routing: redirect from must be a path like "/old", got "${rule.from}"`);
+    }
+    if (!REDIRECT_TARGET_PATTERN.test(rule.to)) {
+      throw new Error(
+        `host-routing: redirect to must be a same-origin path or an https URL without query, got "${rule.to}"`,
+      );
+    }
+    if (rule.host !== undefined && !DOMAIN_PATTERN.test(rule.host)) {
+      throw new Error(
+        `host-routing: redirect host must be a lowercase hostname, got "${rule.host}"`,
+      );
+    }
+  }
+}
+
+function validateAnonymousQueryAllowlist(options: HostRoutingOptions): void {
+  for (const host of Object.keys(options.apexAnonymousQueryAllowlist ?? {})) {
+    if (!isApexHostname(host, options.baseDomain)) {
+      throw new Error(
+        `host-routing: apexAnonymousQueryAllowlist key must be the apex or www.<apex> hostname, got "${host}"`,
+      );
+    }
+  }
+}
 
 // Checked once when the app composes its features, so a config typo fails
 // the boot instead of routing every request to a 404.
@@ -17,11 +52,16 @@ export function validateHostRoutingOptions(options: HostRoutingOptions): void {
       throw new Error(`host-routing: hosts key must be a lowercase hostname, got "${host}"`);
     }
   }
-  if (options.tenantBy === "path" && !PATH_PREFIX_PATTERN.test(options.tenantPathPrefix)) {
+  if (
+    options.tenantPathPrefix !== undefined &&
+    !PATH_PREFIX_PATTERN.test(options.tenantPathPrefix)
+  ) {
     throw new Error(
       `host-routing: tenantPathPrefix must look like "/app" (leading slash, no trailing slash), got "${options.tenantPathPrefix}"`,
     );
   }
+  validateRedirects(options);
+  validateAnonymousQueryAllowlist(options);
   const { locales } = options;
   if (locales !== undefined) {
     for (const locale of [locales.default, ...locales.prefixed]) {

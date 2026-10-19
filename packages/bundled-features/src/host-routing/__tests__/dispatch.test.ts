@@ -226,3 +226,79 @@ describe("normalizeHostname", () => {
     expect(normalizeHostname("acme.example.test:99999999")).toBeNull();
   });
 });
+
+describe("createHostDispatch — redirects", () => {
+  const dispatch = createHostDispatch({
+    ...hostMode,
+    redirects: [
+      { from: "/legacy", to: "/new", host: "admin.example.test" },
+      { from: "/moved", to: "https://other.example.test/landing", status: 302 },
+    ],
+  });
+
+  test("a rule on a host redirects with the remainder and query appended", async () => {
+    expect(
+      await dispatch(request("admin.example.test", "/legacy/acme/x", "?a=1"), keyLookup()),
+    ).toEqual({ kind: "redirect", to: "/new/acme/x?a=1", status: 301 });
+  });
+
+  test("the rule does not apply on other hosts or to similar prefixes", async () => {
+    expect((await dispatch(request("example.test", "/legacy"), keyLookup())).kind).toBe("html");
+    expect((await dispatch(request("admin.example.test", "/legacy-other"), keyLookup())).kind).toBe(
+      "html",
+    );
+  });
+
+  test("absolute https targets keep their fixed origin", async () => {
+    expect(await dispatch(request("example.test", "/moved//evil.test"), keyLookup())).toEqual({
+      kind: "redirect",
+      to: "https://other.example.test/landing//evil.test",
+      status: 302,
+    });
+  });
+
+  test("a relative target never becomes protocol-relative", async () => {
+    const root = createHostDispatch({ ...hostMode, redirects: [{ from: "/old", to: "/" }] });
+    expect(await root(request("example.test", "/old//evil.test"), keyLookup())).toEqual({
+      kind: "redirect",
+      to: "/evil.test",
+      status: 301,
+    });
+  });
+
+  test("invalid redirect targets fail at boot", () => {
+    for (const to of ["//evil.test", "http://evil.test", "/a?x=1", "javascript:alert(1)"]) {
+      expect(() => createHostDispatch({ ...hostMode, redirects: [{ from: "/a", to }] })).toThrow(
+        "redirect to",
+      );
+    }
+  });
+});
+
+describe("createHostDispatch — apex path tenants in host mode", () => {
+  const dispatch = createHostDispatch({ ...hostMode, tenantPathPrefix: "/a" });
+
+  test("the apex serves tenants under the prefix next to subdomain tenants", async () => {
+    const lookup = keyLookup();
+    expect(await dispatch(request("example.test", "/a/acme/home"), lookup)).toEqual({
+      kind: "html",
+      file: "tenant.html",
+      csp: TENANT_CSP,
+    });
+    expect(await dispatch(request("globex.example.test", "/"), lookup)).toEqual({
+      kind: "html",
+      file: "tenant.html",
+      csp: TENANT_CSP,
+    });
+    expect((await dispatch(request("example.test", "/a/nope"), lookup)).kind).toBe("not-found");
+    expect((await dispatch(request("example.test", "/pricing"), lookup)).kind).toBe("html");
+  });
+});
+
+describe("host-routing option validation", () => {
+  test("an allowlist key must be an apex hostname", () => {
+    expect(() =>
+      createHostDispatch({ ...hostMode, apexAnonymousQueryAllowlist: { "other.test": [] } }),
+    ).toThrow("apexAnonymousQueryAllowlist");
+  });
+});
