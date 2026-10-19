@@ -1,5 +1,5 @@
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "../../index.ts";
 import { clamp } from "../lib/clamp.ts";
 import { cn } from "../lib/cn.ts";
@@ -150,6 +150,45 @@ function sidePanelClass(
   }
 }
 
+const DRAWER_INSET_PROPERTY = {
+  left: "--kumiko-drawer-inset-left",
+  right: "--kumiko-drawer-inset-right",
+} as const;
+
+// Publishes the width a non-modal side drawer occupies so the shell content (styles.css) can
+// narrow instead of sitting underneath it. Read from the layout box (offsetLeft/offsetWidth), not
+// getBoundingClientRect: the slide-in animation moves the painted rect, and the observer would
+// not fire again once it settles.
+// ponytail: one owner per side, so two non-modal drawers open on the same side overwrite each
+// other's value; a registry that takes the max is needed once a screen stacks them.
+function usePublishDrawerInset(
+  sheet: HTMLElement | null,
+  side: "left" | "right" | "top" | "bottom",
+  active: boolean,
+): void {
+  useEffect(() => {
+    if (!active || sheet === null || (side !== "left" && side !== "right")) return;
+    const property = DRAWER_INSET_PROPERTY[side];
+    const root = document.documentElement;
+    const publish = (): void => {
+      const inset =
+        side === "right"
+          ? window.innerWidth - sheet.offsetLeft
+          : sheet.offsetLeft + sheet.offsetWidth;
+      root.style.setProperty(property, `${Math.max(0, Math.round(inset))}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(sheet);
+    window.addEventListener("resize", publish);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", publish);
+      root.style.removeProperty(property);
+    };
+  }, [sheet, side, active]);
+}
+
 /** Slide-in panel beside a list (e.g. mail reader next to the inbox) —
  *  thin wrapper over the Sheet primitive with header/body/footer slots
  *  so screens skip per-route Radix boilerplate. */
@@ -189,6 +228,8 @@ export function Drawer({
     clamp(resize?.defaultWidthPx ?? defaultWidthFromViewport(), minWidthPx, effectiveMaxWidthPx()),
   );
   const [maximized, setMaximized] = useState(false);
+  const [sheet, setSheet] = useState<HTMLElement | null>(null);
+  usePublishDrawerInset(sheet, side, open && !modal && !narrow);
   const blurPx = backdrop?.blurPx ?? DEFAULT_BLUR_PX;
   const dimPercent = backdrop?.dimPercent ?? DEFAULT_DIM_PERCENT;
   const overlayStyle: React.CSSProperties = {
@@ -240,6 +281,7 @@ export function Drawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
       <DrawerSheetContent
+        ref={setSheet}
         side={side}
         data-testid={testId}
         overlayStyle={overlayStyle}
