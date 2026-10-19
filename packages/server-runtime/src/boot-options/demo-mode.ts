@@ -2,6 +2,11 @@ import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
 
 export type DemoAccountRole = "admin" | "sysadmin";
 
+/** A role alone, or a role with the label the banner shows next to the login. */
+export type DemoAccountEntry =
+  | DemoAccountRole
+  | { readonly role: DemoAccountRole; readonly label?: Readonly<Record<string, string>> };
+
 /** What `GET /demo-mode` tells the client to show. Every field is optional. */
 export type DemoModeNotice = {
   /** Banner text per locale, e.g. `{ de: "…", en: "…" }`. */
@@ -13,7 +18,7 @@ export type DemoModeNotice = {
   /** Demo logins to publish, read from `DEMO_ADMIN_*` / `DEMO_SYSADMIN_*`.
    *  Published only while `readOnly` is true. Default: none — the route is
    *  anonymous, so listing an account hands its password to every visitor. */
-  readonly accounts?: readonly DemoAccountRole[];
+  readonly accounts?: readonly DemoAccountEntry[];
 };
 
 /** Live-demo switch. `readOnly: true` answers every mutating request
@@ -59,6 +64,7 @@ export type DemoModePayload = {
     readonly links?: DemoModeNotice["links"];
     readonly accounts: readonly {
       readonly role: DemoAccountRole;
+      readonly label?: Readonly<Record<string, string>>;
       readonly email: string;
       readonly password: string;
     }[];
@@ -70,11 +76,15 @@ export function buildDemoModePayload(
   envSource: Record<string, string | undefined>,
 ): DemoModePayload {
   const accounts = demoMode.readOnly
-    ? (demoMode.notice?.accounts ?? []).flatMap((role) => {
+    ? (demoMode.notice?.accounts ?? []).flatMap((entry) => {
+        const { role, label } =
+          typeof entry === "string" ? { role: entry, label: undefined } : entry;
         const keys = ACCOUNT_ENV_KEYS[role];
         const email = envSource[keys.email];
         const password = envSource[keys.password];
-        return email && password ? [{ role, email, password }] : [];
+        return email && password
+          ? [{ role, ...(label !== undefined && { label }), email, password }]
+          : [];
       })
     : [];
   return {

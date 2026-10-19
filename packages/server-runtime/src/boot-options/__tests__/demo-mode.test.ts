@@ -84,6 +84,18 @@ describe("buildDemoModePayload", () => {
     expect(buildDemoModePayload({ readOnly: false, ...listed }, ENV).notice.accounts).toEqual([]);
   });
 
+  test("carries the label of an account entry into the payload", () => {
+    const label = { de: "Verwalter", en: "Property manager" };
+    const payload = buildDemoModePayload(
+      { readOnly: true, notice: { accounts: [{ role: "admin", label }, "sysadmin"] } },
+      ENV,
+    );
+    expect(payload.notice.accounts).toEqual([
+      { role: "admin", label, email: ENV.DEMO_ADMIN_EMAIL, password: ENV.DEMO_ADMIN_PASSWORD },
+      { role: "sysadmin", email: ENV.DEMO_SYSADMIN_EMAIL, password: ENV.DEMO_SYSADMIN_PASSWORD },
+    ]);
+  });
+
   test("passes text and links through", () => {
     const payload = buildDemoModePayload(
       {

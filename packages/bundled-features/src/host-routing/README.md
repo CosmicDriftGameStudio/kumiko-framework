@@ -87,3 +87,10 @@ default applies. Options are validated when the feature or dispatch is built.
 
 Custom domains per tenant, legacy host redirects and app-specific query
 allowlists stay in the app: wrap the dispatch function and fall through to it.
+
+## Resolver, redirects and allowlist
+
+- `tenantBy: (host, db) => TenantId | null` resolves every host that is neither the apex nor a fixed host (profile subdomains, custom domains). The tenant must be enabled and active; null means 404 for pages and `tenant_required` for the API. `createHostTenantIdResolver(options, db)` exposes the same mapping for managed-pages' `resolveApexTenant`.
+- `tenantPathPrefix` is optional in host and resolver mode and serves `<prefix>/<key>` on the apex. The API half still takes the apex anchor there; an app that needs a path-named tenant on API calls resolves it itself.
+- `redirects: [{ from, to, host?, status? }]` run before host classification. `to` is configured, never derived from the request.
+- `apexAnonymousQueryAllowlist: { "example.com": ["feature:query:x"] }` limits the anonymous apex anchor to the listed query types on that host, for `/api/query` and `/api/stream`; other paths keep the anchor. `example.com` and `www.example.com` share one entry (a host without its own uses the other's). Combined with `tenantBy: "path"` it throws at boot, because the client names its tenant there (X-Tenant wins over the resolver) and would bypass the allowlist.

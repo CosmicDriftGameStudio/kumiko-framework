@@ -3,8 +3,9 @@ import { RateLimitError, ValidationError } from "@cosmicdrift/kumiko-framework/e
 import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
 import * as z from "zod";
 import { HostRoutingQueries, isPathTenantKeyCandidate, isTenantKeyCandidate } from "./constants.ts";
-import { classifyHost } from "./host.ts";
+import { classifyHost, splitFirstSegment, tenantKeyFromPath } from "./host.ts";
 import type { HostRoutingOptions, HostRoutingSurface } from "./options.ts";
+import { matchRedirect, sameOriginPath } from "./redirects.ts";
 import { validateHostRoutingOptions } from "./validate-options.ts";
 
 // Structurally identical to server-runtime's HostDispatchResult. Defined here
@@ -43,6 +44,21 @@ async function isTenantKeyKnown(systemQuery: PageHeadSystemQuery, key: string): 
   return tenantKeyExistsResultSchema.parse(result).exists;
 }
 
+async function isHostKnown(systemQuery: PageHeadSystemQuery, host: string): Promise<boolean> {
+  let result: unknown;
+  try {
+    result = await systemQuery(HostRoutingQueries.hostTenantExists, { host }, SYSTEM_TENANT_ID);
+  } catch (error) {
+    if (error instanceof ValidationError) return false;
+    // The shell is harmless: the API resolver is authoritative and answers
+    // tenant_required for unknown hosts, while a 404 would hit visitors behind
+    // a shared NAT under load.
+    if (error instanceof RateLimitError) return true;
+    throw error;
+  }
+  return tenantKeyExistsResultSchema.parse(result).exists;
+}
+
 function serve(
   surface: HostRoutingSurface,
   file: string = surface.file,
@@ -57,20 +73,6 @@ function notFound(surface: HostRoutingSurface | undefined): HostRoutingDispatchR
   return surface.csp === undefined
     ? { kind: "not-found", file: surface.file }
     : { kind: "not-found", file: surface.file, csp: surface.csp };
-}
-
-// Redirect targets are always same-origin paths. Collapsing leading slashes
-// and backslashes keeps "/de//evil.example" from turning into the
-// protocol-relative "//evil.example".
-function sameOriginPath(path: string): string {
-  return `/${path.replace(/^[/\\]+/, "")}`;
-}
-
-function splitFirstSegment(path: string): { readonly segment: string; readonly rest: string } {
-  const withoutLeading = path.replace(/^\/+/, "");
-  const slash = withoutLeading.indexOf("/");
-  if (slash === -1) return { segment: withoutLeading, rest: "/" };
-  return { segment: withoutLeading.slice(0, slash), rest: withoutLeading.slice(slash) };
 }
 
 function apexPage(options: HostRoutingOptions, req: HostRoutingRequest): HostRoutingDispatchResult {
@@ -88,27 +90,25 @@ async function tenantPage(
   options: HostRoutingOptions,
   key: string | null,
   systemQuery: PageHeadSystemQuery,
+  keySource: "path" | "subdomain",
 ): Promise<HostRoutingDispatchResult> {
   // No key (bare tenant prefix): the shell handles login and tenant choice.
   if (key === null) return serve(options.tenant);
-  const isCandidate = options.tenantBy === "path" ? isPathTenantKeyCandidate : isTenantKeyCandidate;
+  const isCandidate = keySource === "path" ? isPathTenantKeyCandidate : isTenantKeyCandidate;
   if (!isCandidate(key)) return notFound(options.unknownTenant);
   return (await isTenantKeyKnown(systemQuery, key))
     ? serve(options.tenant)
     : notFound(options.unknownTenant);
 }
 
-function tenantKeyFromPath(prefix: string, path: string): string | null | undefined {
-  if (path !== prefix && !path.startsWith(`${prefix}/`)) return undefined;
-  const { segment } = splitFirstSegment(path.slice(prefix.length));
-  return segment === "" ? null : segment;
-}
-
 // The routing decision for runProdApp's `hostDispatch` (and, via
 // toDevHostDispatch, the dev server). Unknown hosts fail closed with 404.
 export function createHostDispatch(options: HostRoutingOptions): HostRoutingDispatchFn {
   validateHostRoutingOptions(options);
+  const redirects = options.redirects ?? [];
   return async (req, { systemQuery }) => {
+    const redirect = matchRedirect(redirects, req.host, req.path, req.search);
+    if (redirect !== undefined) return { kind: "redirect", ...redirect };
     const host = classifyHost(req.host, options);
     switch (host.kind) {
       case "fixed":
@@ -117,11 +117,19 @@ export function createHostDispatch(options: HostRoutingOptions): HostRoutingDisp
         return notFound(undefined);
       case "subdomain":
         if (options.tenantBy !== "host") return notFound(undefined);
-        return tenantPage(options, host.key, systemQuery);
+        return tenantPage(options, host.key, systemQuery, "subdomain");
+      case "resolved": {
+        if (await isHostKnown(systemQuery, host.hostname)) return serve(options.tenant);
+        return notFound(
+          host.hostname.endsWith(`.${options.baseDomain.toLowerCase()}`)
+            ? options.unknownTenant
+            : undefined,
+        );
+      }
       case "apex": {
-        if (options.tenantBy === "path") {
+        if (options.tenantPathPrefix !== undefined) {
           const key = tenantKeyFromPath(options.tenantPathPrefix, req.path);
-          if (key !== undefined) return tenantPage(options, key, systemQuery);
+          if (key !== undefined) return tenantPage(options, key, systemQuery, "path");
         }
         return apexPage(options, req);
       }

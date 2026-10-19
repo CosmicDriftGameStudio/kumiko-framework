@@ -137,6 +137,7 @@
     "./template-resolver/web": "./src/template-resolver/web/index.ts",
     "./renderer-foundation": "./src/renderer-foundation/index.ts",
     "./account-security": "./src/account-security/index.ts",
+    "./account-security/constants": "./src/account-security/constants.ts",
     "./host-routing": "./src/host-routing/index.ts",
     "./legal-pages": "./src/legal-pages/index.ts",
     "./legal-pages/constants": "./src/legal-pages/constants.ts",
@@ -655,6 +656,10 @@
       "./account-security": {
         "types": "./dist/account-security/index.d.ts",
         "default": "./dist/account-security/index.js"
+      },
+      "./account-security/constants": {
+        "types": "./dist/account-security/constants.d.ts",
+        "default": "./dist/account-security/constants.js"
       },
       "./host-routing": {
         "types": "./dist/host-routing/index.d.ts",

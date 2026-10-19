@@ -8,8 +8,8 @@ export type LegalPagesLayoutOptions = {
   readonly css?: string;
   readonly stylesheetHrefs?: readonly string[];
   // Trusted app chrome per language; the feature passes the route's `lang`.
-  readonly headerHtml?: (lang: string) => string;
-  readonly footerHtml?: (lang: string) => string;
+  readonly headerHtml?: (lang: string, alternates?: Readonly<Record<string, string>>) => string;
+  readonly footerHtml?: (lang: string, alternates?: Readonly<Record<string, string>>) => string;
   readonly contentClass?: string;
 };
 
@@ -22,9 +22,9 @@ export function createLegalPagesLayout(options: LegalPagesLayoutOptions): Public
   const contentClass = options.contentClass
     ? ` class="${escapeHtmlAttr(options.contentClass)}"`
     : "";
-  return ({ title, bodyHtml, lang }) => {
-    const headerHtml = options.headerHtml?.(lang) ?? "";
-    const footerHtml = options.footerHtml?.(lang) ?? "";
+  return ({ title, bodyHtml, lang, alternates }) => {
+    const headerHtml = options.headerHtml?.(lang, alternates) ?? "";
+    const footerHtml = options.footerHtml?.(lang, alternates) ?? "";
     return `<!doctype html>
 <html lang="${escapeHtmlAttr(lang)}">
 <head>

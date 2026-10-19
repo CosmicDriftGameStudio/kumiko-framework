@@ -29,7 +29,10 @@ beforeAll(async () => {
         wrapLayout: createLegalPagesLayout({
           siteName: "Test <App>",
           css: ".prose{max-width:40rem}",
-          headerHtml: (lang) => `<header data-lang="${lang}">nav</header>`,
+          headerHtml: (lang, alternates) =>
+            `<header data-lang="${lang}">nav</header><nav>${Object.entries(alternates ?? {})
+              .map(([locale, path]) => `<a hreflang="${locale}" href="${path}">${locale}</a>`)
+              .join("")}</nav>`,
           contentClass: "prose",
         }),
       }),
@@ -54,6 +57,13 @@ describe("legal-pages terms routes with seeded content", () => {
     expect(body).toContain('<header data-lang="de">nav</header>');
     expect(body).toContain('<main data-tenant-content class="prose">');
     expect(body).toContain("<strong>Testanwendung</strong>");
+  });
+
+  test("hands the other-language path of the same page to the layout", async () => {
+    const body = await (await stack.app.request("/legal/nutzungsbedingungen")).text();
+    expect(body).toContain(
+      `<a hreflang="de" href="${LEGAL_TERMS_ROUTES[0]?.path}">de</a><a hreflang="en" href="${LEGAL_TERMS_ROUTES[1]?.path}">en</a>`,
+    );
   });
 
   test("serves the seeded English terms", async () => {

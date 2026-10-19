@@ -2,6 +2,7 @@ export const HOST_ROUTING_FEATURE = "host-routing";
 
 export const HostRoutingQueries = {
   tenantKeyExists: `${HOST_ROUTING_FEATURE}:query:tenant-key-exists`,
+  hostTenantExists: `${HOST_ROUTING_FEATURE}:query:host-tenant-exists`,
 } as const;
 
 // Matches tenant:write:create's key limit; keeps lookups for absurd keys out
@@ -22,3 +23,6 @@ const PATH_TENANT_KEY_PATTERN = /^[A-Za-z0-9._~-]+$/;
 export function isPathTenantKeyCandidate(value: string): boolean {
   return value.length <= TENANT_KEY_MAX_LENGTH && PATH_TENANT_KEY_PATTERN.test(value);
 }
+
+// Longest Host header value a hostname plus port can take.
+export const HOST_HEADER_MAX_LENGTH = 260;
