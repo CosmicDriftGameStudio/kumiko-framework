@@ -23,6 +23,12 @@
 export { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 export type { DerivedCellRoundingTarget } from "../engine/embedded-derived.ts";
 export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived.ts";
+export type { FormDerivationScreen } from "../engine/form-derivations.ts";
+export {
+  applyFormDerivations,
+  isFormDerivationInputMode,
+  isUnusedFallbackOperand,
+} from "../engine/form-derivations.ts";
 export type { ParsedRefTarget } from "../engine/parse-ref-target.ts";
 export { parseRefTarget } from "../engine/parse-ref-target.ts";
 export type { FieldsOrGroupsSection, UnavailableSelectOption } from "../engine/screen-helpers.ts";

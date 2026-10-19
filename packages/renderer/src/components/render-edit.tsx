@@ -28,6 +28,7 @@ import {
   relevantFieldIssues,
   zodErrorToFieldIssues,
 } from "../headless/index.ts";
+import { changedDerivedValues } from "./form-derivation-patch.ts";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import type { RenderEditProps } from "./render-edit-types.ts";
 import { AllFieldsRequiredProvider } from "./render-field.tsx";
@@ -499,6 +500,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     buildSectionActions,
     leadContent,
     submitBlocked = false,
+    formDerivation,
   } = props;
   // View mode is a locked form, so everything keyed on `disabled` follows.
   const disabled = disabledProp || viewMode;
@@ -670,6 +672,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     ...(ctx !== undefined && { ctx }),
     ...(submitConfig !== undefined && { submit: submitConfig }),
   });
+
+  // Derived fields are written into form state (not only displayed) so required
+  // validation and the submit payload carry them; only a real change is set, which
+  // keeps this from looping.
+  useEffect(() => {
+    if (formDerivation === undefined) return;
+    const patch = changedDerivedValues(snapshot.values, formDerivation);
+    if (patch !== undefined) controller.setValues(patch as Partial<TValues>); // @cast-boundary form-values
+  }, [snapshot.values, formDerivation, controller]);
 
   // Wired at the user-input boundary, not in controller.setField: computed
   // fields, prefill, draft restore and action patches also call setValues
@@ -972,8 +983,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         featureName,
         mode: writeVerb,
         ...(!isCreateMode && entityIdProp != null && { entityId: entityIdProp }),
+        ...(formDerivation !== undefined && { derivation: formDerivation }),
       }),
     [
+      formDerivation,
       screen,
       entity,
       snapshot.values,

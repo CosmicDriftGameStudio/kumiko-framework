@@ -856,6 +856,11 @@ function validateEmbeddedDerivedCells(
         `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" that is not a sub-field in its schema. Add the sub-field to the schema or remove the derived cell.`,
       );
     }
+    if (derivedDef.op === "percent" && derivedDef.from.length !== 2) {
+      throw new Error(
+        `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" with op "percent", which needs exactly two sources (base, rate).`,
+      );
+    }
     for (const sourceName of derivedDef.from) {
       if (!(sourceName in field.schema)) {
         throw new Error(

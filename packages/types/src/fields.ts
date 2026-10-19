@@ -740,7 +740,8 @@ export type EmbeddedSubFieldDef =
  *  precision its target sub-field in `schema` declares (money → integer,
  *  decimal → `scale`) before it's validated. */
 export type EmbeddedDerivedCellDef = {
-  readonly op: "multiply" | "sum" | "subtract";
+  /** `percent` = `from[0] * from[1] / 100` (exactly two sources, e.g. amount and rate). */
+  readonly op: "multiply" | "sum" | "subtract" | "percent";
   readonly from: readonly string[];
 };
 

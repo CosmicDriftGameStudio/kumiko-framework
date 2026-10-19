@@ -328,7 +328,7 @@ export type EditFieldViewModel = {
   readonly embeddedListDerived?: Readonly<
     Record<
       string,
-      { readonly op: "multiply" | "sum" | "subtract"; readonly from: readonly string[] }
+      { readonly op: "multiply" | "sum" | "subtract" | "percent"; readonly from: readonly string[] }
     >
   >;
   /** Numeric sub-field names to sum in a totals row. From EmbeddedFieldDef.totals. */
