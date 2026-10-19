@@ -74,7 +74,7 @@ function MailFrame({
   const attachments = preview.attachments.flatMap((a) => attachmentText(t, a) ?? []);
   return (
     <div
-      className="mx-auto flex w-full max-w-[680px] flex-col border bg-card shadow-md"
+      className="mx-auto flex min-h-0 w-full max-w-[680px] flex-1 flex-col border bg-card shadow-md"
       data-testid="mail-preview-frame"
     >
       <div className="grid grid-cols-[80px_minmax(0,1fr)] gap-y-1 border-b px-5 py-3.5 text-sm">
@@ -113,12 +113,12 @@ function MailFrame({
           title={t("documentDesigner.mail.preview.frameTitle")}
           sandbox=""
           srcDoc={preview.displayHtml ?? preview.html}
-          className={`h-[560px] border-0 bg-background ${width === "mobile" ? "w-[375px] self-center" : "w-full"}`}
+          className={`min-h-[420px] flex-1 border-0 bg-background ${width === "mobile" ? "w-[375px] self-center" : "w-full"}`}
           data-testid="mail-preview-iframe"
         />
       ) : (
         <pre
-          className="h-[560px] overflow-auto whitespace-pre-wrap p-4 font-mono text-sm"
+          className="min-h-[420px] flex-1 overflow-auto whitespace-pre-wrap p-4 font-mono text-sm"
           data-testid="mail-preview-text"
         >
           {preview.text ?? ""}
