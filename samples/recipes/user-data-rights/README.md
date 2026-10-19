@@ -75,6 +75,28 @@ Step-by-step proof:
 2. Deletion + expired grace → `runForgetCleanup` removes all notes
 3. Strategy `anonymize` → `authorId=null`, title/body remain
 
+## Retention with files
+
+`runRetentionCleanup` is exported for app tests. A `hardDelete` entity with a file field loses
+its bytes (and derivatives), its `file_refs` row and then the row itself; a storage error keeps
+the row and reports `file_delete_failed` in `skipped`. `src/retained-docs.ts` holds the entity,
+`src/__tests__/retention-files.integration.test.ts` drives the run with only public imports:
+
+```ts illustration
+import { runRetentionCleanup } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createFileContext } from "@cosmicdrift/kumiko-framework/files";
+
+const result = await runRetentionCleanup({
+  db: stack.db,
+  registry: stack.registry,
+  tenantId,
+  preloadedTenantPreset: null,
+  now: getTemporal().Now.instant().add({ hours: 31 * 24 }), // keepFor 30d + 1 day
+  files: createFileContext(() => Promise.resolve(provider)), // the stack's storage provider
+});
+// result.hardDeleted === 1, bytes and file_refs row gone
+```
+
 ## Full app vs this recipe
 
 | | This recipe | [user-data-rights-demo](/en/samples/apps-user-data-rights-demo/) |

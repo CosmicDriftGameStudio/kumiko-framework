@@ -23,6 +23,16 @@ import type {
 // Never serialized to JSON.
 export type RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unknown>>) => string;
 
+/** Where a cell's text links to. `href` comes from NavApi.hrefFor (new-tab and
+ *  copy-link work); `onPress` is the in-app navigation for a plain click. */
+export type CellLink = { readonly href: string; readonly onPress: () => void };
+
+/** Runtime-only like RuntimeRenderer; undefined means the cell stays plain text. */
+export type RuntimeCellLink = (
+  value: unknown,
+  row?: Readonly<Record<string, unknown>>,
+) => CellLink | undefined;
+
 // View-Models — plain data structures produced by computeListViewModel and
 // computeEditViewModel. They flatten the combined [screen-def + entity-def
 // + row-data + user] inputs into a shape the renderer draws directly,
@@ -57,6 +67,7 @@ export type ListColumnViewModel = {
   readonly label: string;
   readonly type: string; // field-type ("text", "number", "money", ...)
   readonly renderer?: FieldRenderer | RuntimeRenderer;
+  readonly linkFor?: RuntimeCellLink;
   readonly sortable: boolean;
   /** Only for `type: "select"` or `type: "multiSelect"` — translated option
    *  labels keyed by raw value. The renderer renders `optionLabels[value]`

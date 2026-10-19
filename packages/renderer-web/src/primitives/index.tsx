@@ -16,8 +16,13 @@ import type {
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { ListColumnFileDisplay, ListRowViewModel } from "@cosmicdrift/kumiko-headless";
-import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
+import type {
+  CellLink,
+  ListColumnFileDisplay,
+  ListRowViewModel,
+  RuntimeCellLink,
+} from "@cosmicdrift/kumiko-headless";
+import { applyFormatSpec, EMPTY_VALUE_PLACEHOLDER, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
   DataTableRowAction,
   DataTableRowActionMode,
@@ -1763,6 +1768,11 @@ function DefaultDataTable({
                             {...(onCellChange !== undefined && {
                               onChange: (value: unknown) => onCellChange(row.id, col.field, value),
                             })}
+                            {...cellLinkProp(
+                              col,
+                              row,
+                              !(colIndex === 0 && opensOnClick && onCellChange === undefined),
+                            )}
                           />
                         </FirstCellLink>
                       </TableCell>
@@ -1853,6 +1863,7 @@ function DefaultDataTable({
         {...(onCellChange !== undefined && {
           onChange: (value: unknown) => onCellChange(row.id, col.field, value),
         })}
+        {...cellLinkProp(col, row, !(rowIsLink && !rowClickIsHidden(row)))}
       />
     );
   }
@@ -2409,7 +2420,7 @@ function BooleanCell({
         <Check aria-hidden="true" className="h-4 w-4" />
       ) : (
         <span aria-hidden="true" className="text-muted-foreground">
-          {EMPTY_CELL_PLACEHOLDER}
+          {EMPTY_VALUE_PLACEHOLDER}
         </span>
       )}
       <span className="sr-only">{label}</span>
@@ -3243,9 +3254,19 @@ type DataTableCellProps = {
   readonly grouping?: boolean;
   readonly fileDisplay?: ListColumnFileDisplay;
   readonly compactFile?: boolean;
+  readonly link?: CellLink;
 };
 
-const EMPTY_CELL_PLACEHOLDER = "–";
+// A link nested in the clickable first-cell button or card button would be an
+// <a> inside a <button>, so those cells stay plain text.
+function cellLinkProp(
+  col: { readonly field: string; readonly linkFor?: RuntimeCellLink | undefined },
+  row: ListRowViewModel,
+  allowed: boolean,
+): { readonly link?: CellLink } {
+  const link = allowed ? col.linkFor?.(row.values[col.field], row.values) : undefined;
+  return link === undefined ? {} : { link };
+}
 
 type TableItem =
   | {
@@ -3300,6 +3321,31 @@ const TABULAR_COLUMN_TYPES: ReadonlySet<string> = new Set([
   "locatedTimestamp",
 ]);
 
+// A plain <a>, not DefaultLink: the click must not reach the row's own click
+// handler, which opens the same record's row action.
+function CellTextLink({
+  link,
+  children,
+}: {
+  readonly link: CellLink;
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <a
+      href={isSafeHref(link.href) ? link.href : "#"}
+      className="text-primary underline-offset-4 hover:underline"
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!isPlainPrimaryClick(event)) return;
+        event.preventDefault();
+        link.onPress();
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 // Cell-Renderer als Component (statt reiner Funktion) damit der
 // useColumnRenderer-Hook aus dem Provider lesen kann. Die vier Pfade:
 //   1. FormatSpec (`{ format: "timestamp" }` etc.) → applyFormatSpec.
@@ -3323,6 +3369,7 @@ function DataTableCell({
   grouping = true,
   fileDisplay,
   compactFile = false,
+  link,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
@@ -3330,7 +3377,7 @@ function DataTableCell({
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">
-        {EMPTY_CELL_PLACEHOLDER}
+        {EMPTY_VALUE_PLACEHOLDER}
       </span>
     );
   }
@@ -3347,7 +3394,7 @@ function DataTableCell({
   if (isUnlabeledFalse(type, value, renderer)) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">
-        {EMPTY_CELL_PLACEHOLDER}
+        {EMPTY_VALUE_PLACEHOLDER}
       </span>
     );
   }
@@ -3367,7 +3414,8 @@ function DataTableCell({
   }
   if (typeof renderer === "function") {
     const fn = renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
-    return fn(value, row);
+    const text = fn(value, row);
+    return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
   }
   if (componentRef !== undefined) {
     if (ResolvedComponent !== undefined) {
@@ -4594,6 +4642,11 @@ function DefaultText({ variant = "body", decorative, children, testId }: TextPro
 // der Standard für „weiter zu"-Navigationen nach Success-States (ehem.
 // authButtonClass), `muted` der dezente Sekundär-Link (ehem.
 // authMutedLinkClass).
+// Modified and middle clicks keep the browser default (new tab/window).
+function isPlainPrimaryClick(event: MouseEvent): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
 function DefaultLink({
   href,
   variant = "default",
@@ -4623,15 +4676,7 @@ function DefaultLink({
         onPress === undefined
           ? undefined
           : (event) => {
-              if (
-                event.button !== 0 ||
-                event.metaKey ||
-                event.ctrlKey ||
-                event.shiftKey ||
-                event.altKey
-              ) {
-                return;
-              }
+              if (!isPlainPrimaryClick(event)) return;
               event.preventDefault();
               onPress();
             }

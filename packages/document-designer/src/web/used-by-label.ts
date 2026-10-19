@@ -1,3 +1,4 @@
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 import { DEFAULT_LAYOUT_SLUG } from "../constants.ts";
 import type { OverviewRowView, OverviewUsageView } from "./overview-row.ts";
@@ -49,7 +50,6 @@ export function usageLabel(t: Translate, usage: OverviewUsageView): string {
 }
 
 export function usedByLabel(t: Translate, row: OverviewRowView): string {
-  const emptyMark = "–";
   if (row.kind === "mail-layout" || row.kind === "pdf-layout") {
     if (row.slug === DEFAULT_LAYOUT_SLUG) {
       return t(
@@ -59,9 +59,9 @@ export function usedByLabel(t: Translate, row: OverviewRowView): string {
       );
     }
     return row.usedByCount === 0
-      ? emptyMark
+      ? EMPTY_VALUE_PLACEHOLDER
       : t("documentDesigner.usedBy.templates", { count: row.usedByCount });
   }
   const first = row.usedBy[0];
-  return first === undefined ? emptyMark : usageLabel(t, first);
+  return first === undefined ? EMPTY_VALUE_PLACEHOLDER : usageLabel(t, first);
 }

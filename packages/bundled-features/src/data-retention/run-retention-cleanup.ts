@@ -74,7 +74,13 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { runInSubTransaction } from "../shared/index.ts";
+import {
+  collectSingleFileHolders,
+  planFileFields,
+  purgeRowFileRefs,
+  runInSubTransaction,
+  type SingleFileHolder,
+} from "../shared/index.ts";
 import { computeCutoff, type Instant } from "./keep-for.ts";
 import type { RetentionPresetKey } from "./presets.ts";
 import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant.ts";
@@ -264,130 +270,6 @@ async function forgetRowAndEraseKeys(args: {
 
 // --- hardDelete + file-fields (kumiko-framework#3089) ---
 
-type FileFieldPlan = {
-  /** type file|image — stores the fileRef-id directly in the entity column. */
-  readonly singleFields: readonly string[];
-  /** type files|images — resolved via file_refs (bound by entityType/entityId/fieldName). */
-  readonly multiFields: readonly string[];
-};
-
-const NO_FILE_FIELDS: FileFieldPlan = { singleFields: [], multiFields: [] };
-
-// file/image = single-column fields (fileRef-id lives directly in the entity
-// row); files/images = plural, resolved via file_refs. Same set
-// as boot-validator/entity-handler.ts FILE_FIELD_TYPES and engine's
-// isFileField — inlined here rather than importing across the package
-// barrel since this module already needs the single/multi split, not just
-// membership.
-function planFileFields(fields: Readonly<Record<string, unknown>>): FileFieldPlan {
-  const singleFields: string[] = [];
-  const multiFields: string[] = [];
-  for (const [name, field] of Object.entries(fields)) {
-    const type = (field as { readonly type?: unknown }).type; // @cast-boundary schema-walk
-    if (type === "file" || type === "image") singleFields.push(name);
-    else if (type === "files" || type === "images") multiFields.push(name);
-  }
-  return singleFields.length > 0 || multiFields.length > 0
-    ? { singleFields, multiFields }
-    : NO_FILE_FIELDS;
-}
-
-// Every fileRef-id a row's file/image/files/images-fields reference: single
-// fields hold the id in their own column, plural fields resolve
-// via file_refs (tenantId, entityType, entityId, fieldName).
-async function collectFileRefIds(
-  db: DbRunner,
-  tenantId: TenantId,
-  entityName: string,
-  row: Record<string, unknown>,
-  plan: FileFieldPlan,
-): Promise<readonly string[]> {
-  const ids = new Set<string>();
-  for (const field of plan.singleFields) {
-    const value = row[field];
-    if (typeof value === "string" && value.length > 0) ids.add(value);
-  }
-  if (plan.multiFields.length > 0) {
-    const refRows = await selectMany<{ id: string }>(db, fileRefsTable, {
-      tenantId,
-      entityType: entityName,
-      entityId: String(row["id"]),
-      fieldName: { in: plan.multiFields },
-    });
-    for (const r of refRows) ids.add(r.id);
-  }
-  return Array.from(ids);
-}
-
-// A fileRef is bound to a DIFFERENT entity/record than the row currently
-// being purged — its binding (entityType/entityId), not the row's own
-// single-field column, decides ownership. A single-field value can point at
-// a fileRef uploaded/attached elsewhere; that fileRef's bytes belong to
-// whatever it's actually bound to, not to this row.
-function isFileRefBoundElsewhere(
-  fileRef: Record<string, unknown>,
-  entityName: string,
-  rowId: string,
-): boolean {
-  const entityType = fileRef["entityType"];
-  const entityId = fileRef["entityId"];
-  if (typeof entityType === "string" && entityType !== entityName) return true;
-  if (typeof entityId === "string" && entityId !== rowId) return true;
-  return false;
-}
-
-type SingleFileHolder = {
-  readonly table: Parameters<typeof selectMany>[1];
-  readonly tableHasTenantId: boolean;
-  readonly singleFields: readonly string[];
-};
-
-// Every implicit entity table with file/image fields: an unbound fileRef
-// (POST /files without entityType/entityId) can sit in single fields of
-// several entity types, so the sharing check must look beyond the purged
-// row's own table.
-function collectSingleFileHolders(registry: Registry): readonly SingleFileHolder[] {
-  const holders: SingleFileHolder[] = [];
-  for (const proj of registry.getAllProjections().values()) {
-    if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
-    const entity = registry.getEntity(proj.source);
-    if (!entity) continue;
-    const { singleFields } = planFileFields(entity.fields);
-    if (singleFields.length === 0) continue;
-    holders.push({
-      table: proj.table,
-      tableHasTenantId: propertyOf(proj.table, "tenantId") !== undefined,
-      singleFields,
-    });
-  }
-  return holders;
-}
-
-// A single-field fileRef-id can be shared by more than one row, in the SAME
-// table (e.g. a stock-photo re-picked across records) or in another entity's
-// table. Purging its bytes would corrupt the row that isn't being deleted.
-// Bounded by batchLimit rows per run and holderFields queries per fileRef —
-// the same per-row event-cost tradeoff as the rest of this cron (see header).
-async function isFileRefSharedByOtherRow(
-  db: DbRunner,
-  holders: readonly SingleFileHolder[],
-  ownTable: Parameters<typeof selectMany>[1],
-  tenantId: TenantId,
-  rowId: string,
-  fileRefId: string,
-): Promise<boolean> {
-  for (const holder of holders) {
-    for (const field of holder.singleFields) {
-      const where: WhereObject = { [field]: fileRefId };
-      if (holder.table === ownTable) where["id"] = { ne: rowId };
-      if (holder.tableHasTenantId) where["tenantId"] = tenantId;
-      const others = await selectMany(db, holder.table, where, { limit: 1 });
-      if (others.length > 0) return true;
-    }
-  }
-  return false;
-}
-
 // Throws (unsafe key, missing list permission) must fail this row closed,
 // not abort the whole tenant run.
 async function deleteFileFailingClosed(
@@ -407,11 +289,8 @@ async function deleteFileFailingClosed(
 }
 
 // hardDelete for ONE row of an entity that has file/image/files/images
-// fields: delete the un-shared fileRefs' bytes (+ derivatives) first, then
-// their fileRef rows, then the entity row itself — bytes before rows so a
-// crash mid-way leaves an orphaned fileRef pointing at already-gone bytes
-// (safe: a later run's provider.delete is idempotent) rather than a gone
-// fileRef whose bytes leak forever.
+// fields: purge the un-shared fileRefs (bytes + derivatives, then the fileRef
+// rows), then the entity row itself.
 async function purgeHardDeleteRowWithFiles(args: {
   readonly db: DbRunner;
   readonly table: Parameters<typeof selectMany>[1];
@@ -420,7 +299,6 @@ async function purgeHardDeleteRowWithFiles(args: {
   readonly entityName: string;
   readonly entity: EntityDefinition;
   readonly row: Record<string, unknown>;
-  readonly plan: FileFieldPlan;
   readonly files: FileContext | undefined;
   readonly entityExecutor: ReturnType<typeof createEventStoreExecutor>;
   readonly fileRefExecutor: ReturnType<typeof createEventStoreExecutor>;
@@ -431,8 +309,32 @@ async function purgeHardDeleteRowWithFiles(args: {
   readonly onSkip: (reason: "missing_file_storage" | "file_delete_failed") => void;
 }): Promise<boolean> {
   const rowId = String(args.row["id"]);
-  const forgetEntityRow = () =>
-    forgetRowAndEraseKeys({
+  const logContext = `tenant=${args.tenantId} entity=${args.entityName} row=${rowId}`;
+  const files = args.files;
+  const outcome = await purgeRowFileRefs({
+    db: args.db,
+    tenantId: args.tenantId,
+    entityName: args.entityName,
+    entity: args.entity,
+    table: args.table,
+    fileHolders: args.fileHolders,
+    row: args.row,
+    deleteBytes: files ? (key) => deleteFileFailingClosed(key, files, logContext) : undefined,
+    fileRefForget: async (fileRefId) =>
+      (await args.fileRefExecutor.forget({ id: fileRefId }, args.systemUser, args.tdb)).isSuccess,
+    onBytesDeleteFailed: (failedKeys) => {
+      // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
+      console.warn(
+        `[data-retention:hardDelete] ${logContext} storage delete failed keys=${failedKeys.join(",")}`,
+      );
+    },
+  });
+  if (outcome !== "purged") {
+    args.onSkip(outcome);
+    return false;
+  }
+  return (
+    await forgetRowAndEraseKeys({
       db: args.db,
       executor: args.entityExecutor,
       entity: args.entity,
@@ -442,83 +344,8 @@ async function purgeHardDeleteRowWithFiles(args: {
       row: args.row,
       kms: args.kms,
       registry: args.registry,
-    });
-  const fileRefIds = await collectFileRefIds(
-    args.db,
-    args.tenantId,
-    args.entityName,
-    args.row,
-    args.plan,
-  );
-  if (fileRefIds.length === 0) {
-    return (await forgetEntityRow()).isSuccess;
-  }
-
-  const fileRefRows = await selectMany<Record<string, unknown>>(args.db, fileRefsTable, {
-    id: { in: fileRefIds },
-    tenantId: args.tenantId,
-  });
-
-  const toDelete: Record<string, unknown>[] = [];
-  for (const fileRef of fileRefRows) {
-    if (isFileRefBoundElsewhere(fileRef, args.entityName, rowId)) continue;
-    const shared = await isFileRefSharedByOtherRow(
-      args.db,
-      args.fileHolders,
-      args.table,
-      args.tenantId,
-      rowId,
-      String(fileRef["id"]),
-    );
-    if (shared) continue;
-    toDelete.push(fileRef);
-  }
-
-  if (toDelete.length === 0) {
-    return (await forgetEntityRow()).isSuccess;
-  }
-
-  if (!args.files) {
-    args.onSkip("missing_file_storage");
-    return false;
-  }
-  const files = args.files;
-
-  let anyFailed = false;
-  for (const fileRef of toDelete) {
-    const key = fileRef["storageKey"];
-    if (typeof key !== "string" || key.length === 0) continue;
-    const failedKeys = await deleteFileFailingClosed(
-      key,
-      files,
-      `tenant=${args.tenantId} entity=${args.entityName} row=${rowId}`,
-    );
-    if (failedKeys.length > 0) {
-      anyFailed = true;
-      // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
-      console.warn(
-        `[data-retention:hardDelete] tenant=${args.tenantId} entity=${args.entityName} row=${rowId} storage delete failed keys=${failedKeys.join(",")}`,
-      );
-    }
-  }
-  if (anyFailed) {
-    args.onSkip("file_delete_failed");
-    return false;
-  }
-
-  for (const fileRef of toDelete) {
-    const res = await args.fileRefExecutor.forget(
-      { id: fileRef["id"] as EntityId },
-      args.systemUser,
-      args.tdb,
-    );
-    if (!res.isSuccess) {
-      args.onSkip("file_delete_failed");
-      return false;
-    }
-  }
-
-  return (await forgetEntityRow()).isSuccess;
+    })
+  ).isSuccess;
 }
 
 // hardDelete page for an entity WITH file/image/files/images fields — loads
@@ -534,7 +361,6 @@ async function purgeHardDeleteRowsWithFiles(args: {
   readonly tenantId: TenantId;
   readonly entityName: string;
   readonly entity: EntityDefinition;
-  readonly plan: FileFieldPlan;
   readonly files: FileContext | undefined;
   readonly entityExecutor: ReturnType<typeof createEventStoreExecutor>;
   readonly fileRefExecutor: ReturnType<typeof createEventStoreExecutor>;
@@ -575,7 +401,6 @@ async function purgeHardDeleteRowsWithFiles(args: {
         entityName: args.entityName,
         entity: args.entity,
         row,
-        plan: args.plan,
         files: args.files,
         entityExecutor: args.entityExecutor,
         fileRefExecutor: args.fileRefExecutor,
@@ -753,7 +578,6 @@ export async function runRetentionCleanup(
           tenantId,
           entityName,
           entity,
-          plan: filePlan,
           files: args.files,
           entityExecutor: executor,
           fileRefExecutor,

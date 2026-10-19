@@ -19,6 +19,7 @@ export const leaseEntity = createEntity({
     liegenschaft: createTextField({ ...DEMO_DATA, searchable: true, sortable: true }),
     beginn: createDateField({ required: true, sortable: true, filterable: true }),
     ende: createDateField({ sortable: true }),
+    vorgaenger: { type: "reference", entity: "lease", labelField: "einheit" },
     status: createSelectField({
       options: LEASE_STATUSES,
       optionTones: { active: "ok", terminated: "bad" },

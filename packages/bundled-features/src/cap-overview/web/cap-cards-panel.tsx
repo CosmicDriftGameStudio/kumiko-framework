@@ -1,3 +1,4 @@
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
 import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
@@ -102,7 +103,7 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
             label={t(cap.label)}
             value={
               !isMeasured(cap)
-                ? "—"
+                ? EMPTY_VALUE_PLACEHOLDER
                 : cap.limit === null
                   ? String(cap.used)
                   : `${cap.used} / ${cap.limit}`

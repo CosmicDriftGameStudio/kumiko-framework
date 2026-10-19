@@ -1,3 +1,4 @@
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
 import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
 
@@ -65,7 +66,7 @@ function Cell({
     );
   }
   if (column.display === "badge") {
-    if (raw === undefined || raw === null || raw === "") return "—";
+    if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
     const toneKey = column.badgeToneField !== undefined ? row[column.badgeToneField] : undefined;
     const tone = (typeof toneKey === "string" ? BADGE_TONE[toneKey] : undefined) ?? "muted";
     return <StatusBadge tone={tone}>{String(raw)}</StatusBadge>;
@@ -73,11 +74,11 @@ function Cell({
   if (column.display === "datetime") {
     const atMs =
       typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
-    if (!Number.isFinite(atMs)) return "—";
+    if (!Number.isFinite(atMs)) return EMPTY_VALUE_PLACEHOLDER;
     return <span className="tabular-nums">{formatDateTime(atMs)}</span>;
   }
   if (typeof raw === "number") return <span className="tabular-nums">{formatNumber(raw)}</span>;
-  if (raw === undefined || raw === null || raw === "") return "—";
+  if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
   const text = String(raw);
   return I18N_KEY_SHAPE.test(text) ? translate(text) : text;
 }

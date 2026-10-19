@@ -62,6 +62,7 @@ export {
 export {
   applyFormatSpec,
   currencyDecimals,
+  EMPTY_VALUE_PLACEHOLDER,
   escapeHtml,
   escapeHtmlAttr,
   escapeXml,
@@ -86,6 +87,7 @@ export { resolveNavigation } from "./nav/index.ts";
 export type { Store, WritableStore } from "./store/index.ts";
 export { createStore, shallowEqual } from "./store/index.ts";
 export type {
+  CellLink,
   ComputeEditViewModelInput,
   ComputeListViewModelInput,
   DerivedCellRoundingTarget,
@@ -109,6 +111,7 @@ export type {
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
+  RuntimeCellLink,
   RuntimeRenderer,
   ScreenSlots,
   Translate,

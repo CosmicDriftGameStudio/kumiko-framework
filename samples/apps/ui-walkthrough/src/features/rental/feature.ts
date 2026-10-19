@@ -31,6 +31,7 @@ import {
   leaseListEmptyScreen,
   leaseListScreen,
   leaseListShortScreen,
+  leaseSuccessionListScreen,
   partyEditScreen,
   positionEditScreen,
   recordPositionsScreen,
@@ -70,6 +71,28 @@ export const rentalFeature = defineFeature("rental", (r) => {
 
   r.crud("lease", leaseEntity, { write: open, read: open });
   r.crud("leasePosition", leasePositionEntity, { write: open, read: open });
+  // Only the interactive create path is guarded; recordPositions and adjustRent
+  // write through the executor and compute their own date ranges.
+  r.hook({
+    type: "validation",
+    target: "lease-position:create",
+    handler: (data) => {
+      const { gueltigVon, gueltigBis } = data;
+      if (
+        typeof gueltigVon === "string" &&
+        typeof gueltigBis === "string" &&
+        gueltigBis < gueltigVon
+      ) {
+        // The "(root)" issue has no rendered field, so the form also shows its
+        // error banner next to the field error.
+        return [
+          { field: "gueltigBis", error: "valid_until_before_valid_from" },
+          { field: "(root)", error: "position_period_invalid" },
+        ];
+      }
+      return null;
+    },
+  });
   r.crud("leaseParty", leasePartyEntity, { write: open, read: open });
 
   r.queryHandler({
@@ -99,6 +122,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
         einheit: lease.einheit ?? "",
         liegenschaft: lease.liegenschaft ?? "",
         ende: "",
+        vorgaenger: lease.vorgaenger ?? "",
         kontostand: "0,00 €",
         notizen: "",
         partyCount: await countChildren(partyExecutor),
@@ -242,6 +266,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(leaseHubScreen);
   r.screen(leaseDetailGapsScreen);
   r.screen(leaseListEmptyScreen);
+  r.screen(leaseSuccessionListScreen);
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
   r.screen(recordPositionsScreen);

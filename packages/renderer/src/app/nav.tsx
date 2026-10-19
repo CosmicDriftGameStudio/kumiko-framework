@@ -273,6 +273,12 @@ export function useInitialValuesHandoff(
   return values;
 }
 
+/** Like useNav, but undefined without a provider, for views that only offer
+ *  links when navigation exists. */
+export function useOptionalNav(): NavApi | undefined {
+  return useContext(NavContext);
+}
+
 export function useNav(): NavApi {
   const api = useContext(NavContext);
   if (api === undefined) {

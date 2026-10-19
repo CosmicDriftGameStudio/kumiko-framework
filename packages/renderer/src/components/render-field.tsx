@@ -9,14 +9,24 @@ import {
   applyFormatSpec,
   currencyDecimals,
   type EditFieldViewModel,
+  EMPTY_VALUE_PLACEHOLDER,
   type FieldIssue,
 } from "@cosmicdrift/kumiko-headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  Fragment,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useColumnRenderer } from "../app/column-renderers.tsx";
 import { extensionSectionName } from "../app/extension-sections.tsx";
 import { toKebab } from "../app/qn.ts";
+import { useReferenceLinkResolver } from "../app/reference-link.ts";
 import { screenAccessAllows } from "../app/screen-access.ts";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
@@ -559,8 +569,9 @@ function ReadOnlyReferenceValue({
   readonly field: EditFieldViewModel;
   readonly featureName: string;
 }): ReactNode {
-  const { Text } = usePrimitives();
+  const { Text, Link } = usePrimitives();
   const t = useTranslation();
+  const resolveReferenceLink = useReferenceLinkResolver();
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
   const isMultiple = field.refMultiple === true;
@@ -573,19 +584,42 @@ function ReadOnlyReferenceValue({
     : typeof field.value === "string" && field.value !== ""
       ? [field.value]
       : [];
-  if (ids.length === 0) return <Text testId={`field-value-${field.field}`}>—</Text>;
+  if (ids.length === 0)
+    return <Text testId={`field-value-${field.field}`}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
   const rows = queryResult.data?.rows ?? [];
   // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row —
   // same central fallback as useReferenceLookup (render-list.tsx), so a
   // reference field showing one on the detail path also gets a label
   // instead of the raw id.
   const systemLabel = SYSTEM_REFERENCE_LABELS[`${refFeature}:${refEntity}`];
-  const labels = ids.map((id) => {
-    if (systemLabel !== undefined && id === systemLabel.id) return t(systemLabel.labelKey);
+  const parts = ids.map((id) => {
+    if (systemLabel !== undefined && id === systemLabel.id) {
+      return { id, label: t(systemLabel.labelKey), link: undefined };
+    }
     const row = rows.find((r) => String(r["id"] ?? "") === id);
-    return row !== undefined ? String(row[labelKey] ?? id) : id;
+    if (row === undefined) return { id, label: id, link: undefined };
+    return { id, label: String(row[labelKey] ?? id), link: resolveReferenceLink(refEntity, id) };
   });
-  return <Text testId={`field-value-${field.field}`}>{labels.join(", ")}</Text>;
+  return (
+    <Text testId={`field-value-${field.field}`}>
+      {parts.map(({ id, label, link }, index) => (
+        <Fragment key={id}>
+          {index > 0 && ", "}
+          {link === undefined ? (
+            label
+          ) : (
+            <Link
+              href={link.href}
+              onPress={link.onPress}
+              testId={`field-link-${field.field}-${id}`}
+            >
+              {label}
+            </Link>
+          )}
+        </Fragment>
+      ))}
+    </Text>
+  );
 }
 
 // Field types whose read display already isn't a boxed "disabled input" look
@@ -1062,7 +1096,7 @@ function readOnlyDisplayText(
   t: ReturnType<typeof useTranslation>,
 ): string {
   const { type, value } = field;
-  if (value === undefined || value === null || value === "") return "—";
+  if (value === undefined || value === null || value === "") return EMPTY_VALUE_PLACEHOLDER;
   if (type === "text" && field.writeOnly === true) return t("kumiko.field.writeOnly.set");
   if (type === "text" && field.format === "password") return "••••••••";
   switch (type) {
@@ -1074,7 +1108,7 @@ function readOnlyDisplayText(
       return applyFormatSpec({ format: "timestamp", locale: field.dateLocale ?? appLocale }, value);
     case "locatedTimestamp": {
       const located = locatedValue(value);
-      if (located === "" || located.at === "") return "—";
+      if (located === "" || located.at === "") return EMPTY_VALUE_PLACEHOLDER;
       return applyFormatSpec(
         { format: "timestamp", locale: field.dateLocale ?? appLocale },
         located.utc ?? located.at,
@@ -1085,13 +1119,13 @@ function readOnlyDisplayText(
     case "decimal": {
       const n = numberValue(value);
       return n === ""
-        ? "—"
+        ? EMPTY_VALUE_PLACEHOLDER
         : new Intl.NumberFormat(appLocale, { useGrouping: field.grouping ?? true }).format(n);
     }
     case "money": {
       const currency = resolveMoneyCurrency(value, field.currency);
       const minor = moneyMinorValue(value, currency);
-      if (minor === "") return "—";
+      if (minor === "") return EMPTY_VALUE_PLACEHOLDER;
       const major = minor / 10 ** currencyDecimals(currency);
       return new Intl.NumberFormat(appLocale, { style: "currency", currency }).format(major);
     }
@@ -1099,7 +1133,7 @@ function readOnlyDisplayText(
     case "multiSelect": {
       const labels = field.optionLabels;
       const values = Array.isArray(value) ? value : [value];
-      if (values.length === 0) return "—";
+      if (values.length === 0) return EMPTY_VALUE_PLACEHOLDER;
       return values
         .map((v) => (typeof v === "string" ? (labels?.[v] ?? v) : stringValue(v)))
         .join(", ");

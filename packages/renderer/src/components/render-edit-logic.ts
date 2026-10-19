@@ -126,3 +126,24 @@ export function isDispatcherRejection(value: unknown): value is DispatcherError 
     typeof value.i18nKey === "string"
   );
 }
+
+export const ROOT_ISSUE_PATH = "(root)";
+
+// Issues that stop applying once the user edits `changedField`: its own paths
+// (and nested ones) and the form-level (root) issues. Returns the same object
+// when nothing was dropped, so callers can skip the state update.
+export function issuesAfterEdit<TIssue>(
+  errors: Readonly<Record<string, TIssue>>,
+  changedField: string,
+): Readonly<Record<string, TIssue>> {
+  const remaining = Object.fromEntries(
+    Object.entries(errors).filter(
+      ([path]) =>
+        path !== ROOT_ISSUE_PATH &&
+        path !== changedField &&
+        !path.startsWith(`${changedField}.`) &&
+        !path.startsWith(`${changedField}[`),
+    ),
+  );
+  return Object.keys(remaining).length === Object.keys(errors).length ? errors : remaining;
+}

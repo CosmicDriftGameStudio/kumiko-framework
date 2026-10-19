@@ -50,6 +50,7 @@ import {
   selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
+import { deleteStoredFileAndDerivatives } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   type EscapeHatchAuditSink,
   EXT_USER_DATA,
@@ -75,7 +76,12 @@ import {
   resolveRetentionPolicyForTenant,
   resolveTenantRetentionPreset,
 } from "../data-retention/index.ts";
-import { decryptStoredPii, runInSubTransaction } from "../shared/index.ts";
+import {
+  type DeleteFileBytes,
+  decryptStoredPii,
+  purgeFilesReachingSubject,
+  runInSubTransaction,
+} from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { USER_STATUS, userTable } from "../user/index.ts";
 import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup.ts";
@@ -450,6 +456,25 @@ async function processUser(args: {
         );
       }
 
+      // Same ordering rationale: the files are found through the entity rows a
+      // hook may hard-delete, and a file whose uploader differs from the owner
+      // is never reached by the fileRef hook (it keys on insertedById).
+      await purgeFilesReachingSubject({
+        registry,
+        db: tx,
+        subject: { kind: "user", userId },
+        subjectKey: subjectIdToKey({ kind: "user", userId }),
+        resolveDeleteBytes: resolveForgetFileBytesDeleter(buildStorageProvider),
+        missingStorage: {
+          mode: "skip",
+          warn: (tenantId) =>
+            // biome-ignore lint/suspicious/noConsole: misconfiguration visibility, same as the fileRef delete hook
+            console.warn(
+              `[user-data-rights:run-forget-cleanup] no file provider resolvable for tenantId=${tenantId} - file binaries of userId=${userId} are NOT deleted (rows kept). Mount file-foundation + a file-provider-* feature so erasure can reach the binaries.`,
+            ),
+        },
+      });
+
       for (const tenantId of tenantList) {
         currentTenantId = tenantId;
         // Refine the app-level model to THIS tenant: "single-user" only if the
@@ -573,6 +598,26 @@ async function processUser(args: {
     userEmailBeforeDelete,
     userLocaleBeforeDelete,
     tenantIdsBeforeDelete,
+  };
+}
+
+// A resolution failure collapses to "no storage" like in the fileRef delete hook; a failing
+// byte delete throws through the sweep so the per-user sub-tx rolls back and the next run retries.
+function resolveForgetFileBytesDeleter(
+  buildStorageProvider: RunForgetCleanupArgs["buildStorageProvider"],
+): (tenantId: TenantId) => Promise<DeleteFileBytes | undefined> {
+  return async (tenantId) => {
+    if (!buildStorageProvider) return undefined;
+    try {
+      const provider = await buildStorageProvider(tenantId);
+      return (
+        provider &&
+        ((key) => deleteStoredFileAndDerivatives(key, provider, "user-data-rights:forget-cleanup"))
+      );
+    } catch {
+      // skip: provider unresolvable (not configured) -> files skipped with a warn, like the hook
+      return undefined;
+    }
   };
 }
 

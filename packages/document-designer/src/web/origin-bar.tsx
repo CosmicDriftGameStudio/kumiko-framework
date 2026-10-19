@@ -3,6 +3,7 @@ import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import {
   dispatcherErrorText,
   useMutation,
@@ -35,7 +36,7 @@ const DIFF_TONE: Readonly<Record<TemplateDiff["blocks"][number]["change"], strin
 };
 
 function metaValueText(value: unknown): string {
-  if (value === undefined || value === null) return "–";
+  if (value === undefined || value === null) return EMPTY_VALUE_PLACEHOLDER;
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 

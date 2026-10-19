@@ -547,16 +547,24 @@ describe("files removed from a record are disposed", () => {
     expect(await readFileAs(file, technician)).toBe(200);
   });
 
-  test("a file bound to another record is not disposed when this record drops its id", async () => {
+  test("a file bound to another record cannot be attached here and stays readable on its owner", async () => {
     const shared = await uploadLikeTheForm(photoHints("create"));
     const owner = await createGadget({ photo: shared });
     const other = await createGadget();
-    await updateGadget(other, 1, { photo: shared });
-    expect(await readFileAs(shared, technician)).toBe(200);
 
-    await updateGadget(other, 2, { photo: null });
+    const err = await stack.http.writeErr(
+      "form-upload-gadget:write:field-gadget:update",
+      { id: other, version: 1, changes: { photo: shared } },
+      user,
+    );
 
+    expect(JSON.stringify(err.details)).toContain("invalid_element");
     expect(await readFileAs(shared, technician)).toBe(200);
-    expect(owner).not.toBe(other);
+    const ownerDetail = await stack.http.queryOk<{ photo: string | null }>(
+      "form-upload-gadget:query:field-gadget:detail",
+      { id: owner },
+      user,
+    );
+    expect(ownerDetail.photo).toBe(shared);
   });
 });

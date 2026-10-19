@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import { composeLayoutHtml } from "../compose-layout.ts";
 import { parseOverviewRow } from "../overview-row.ts";
 import { templateTitle, usedByLabel } from "../used-by-label.ts";
@@ -65,7 +66,7 @@ describe("usedByLabel", () => {
       "3 templates",
     );
     expect(usedByLabel(t, viewOf({ kind: "mail-layout", slug: "dunning", usedByCount: 0 }))).toBe(
-      "–",
+      EMPTY_VALUE_PLACEHOLDER,
     );
   });
 
@@ -79,7 +80,9 @@ describe("usedByLabel", () => {
   });
 
   test("a PDF template without usage shows a dash", () => {
-    expect(usedByLabel(t, viewOf({ kind: "document-pdf", slug: "billing:invoice" }))).toBe("–");
+    expect(usedByLabel(t, viewOf({ kind: "document-pdf", slug: "billing:invoice" }))).toBe(
+      EMPTY_VALUE_PLACEHOLDER,
+    );
   });
 });
 

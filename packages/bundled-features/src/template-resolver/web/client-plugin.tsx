@@ -1,3 +1,4 @@
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 // Client feature factory for the text-block content tree. Apps mount it via
 // createKumikoApp({ clientFeatures: [textBlocksClient()] }); it loads the
@@ -399,7 +400,7 @@ function TextBlockEditor({
     <Form
       onSubmit={onSubmit}
       testId="text-block-editor"
-      title={title || slug || "—"}
+      title={title || slug || EMPTY_VALUE_PLACEHOLDER}
       subtitle={locale !== "" ? `${slug} · (${locale})` : slug}
       actions={
         canWrite ? (

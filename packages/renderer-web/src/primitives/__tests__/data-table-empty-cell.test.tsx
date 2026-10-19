@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { render, screen } from "@testing-library/react";
@@ -19,7 +20,7 @@ describe("DataTable renders a placeholder for empty cell values", () => {
     );
 
     const cell = screen.getByTestId("cell-r1-tenants");
-    expect(cell.textContent).toBe("–");
+    expect(cell.textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
     expect(cell.querySelector('[data-empty-cell="true"]')).not.toBeNull();
   });
 

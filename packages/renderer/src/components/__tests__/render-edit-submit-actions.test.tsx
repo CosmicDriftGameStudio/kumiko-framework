@@ -73,6 +73,17 @@ const testInput: ComponentType<{
   />
 );
 
+const testField: ComponentType<{
+  id: string;
+  issues?: readonly unknown[];
+  children?: ReactNode;
+}> = ({ id, issues, children }) => (
+  <div>
+    {issues !== undefined && issues.length > 0 ? <span data-testid={`field-issue-${id}`} /> : null}
+    {children}
+  </div>
+);
+
 const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
@@ -85,7 +96,7 @@ function testPrimitives(): CorePrimitives {
   return {
     Button: testButton,
     Banner: testBanner,
-    Field: passChildren,
+    Field: testField,
     Input: testInput,
     DataTable: noop,
     Form: testForm,
@@ -434,5 +445,62 @@ describe("RenderEdit — writeCommand path", () => {
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
 
     await waitFor(() => expect(rtlScreen.queryByTestId("render-edit-form-error")).toBeNull());
+  });
+});
+
+describe("RenderEdit — errors clear on user input", () => {
+  // `version` has no rendered field, so the failure keeps the banner next to the field error.
+  const failureWith = (code: string): DispatcherError => ({
+    code,
+    httpStatus: 422,
+    i18nKey: "kumiko.errors.validation",
+    message: "failed",
+    details: {
+      fields: [
+        { path: "name", code: "custom", i18nKey: "kumiko.errors.required" },
+        { path: "version", code: "custom", i18nKey: "kumiko.errors.required" },
+      ],
+    },
+  });
+
+  async function submitFailing(code: string) {
+    renderEdit(oneFieldScreen, {
+      customSubmit: async () => ({
+        validationBlocked: false,
+        isSuccess: false,
+        error: failureWith(code),
+      }),
+    });
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    expect(rtlScreen.getAllByTestId(/^field-issue-/)).toHaveLength(1);
+  }
+
+  test("typing into the field removes its error and the submit banner", async () => {
+    await submitFailing("validation_failed");
+
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Adal" } });
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("render-edit-form-error")).toBeNull());
+    expect(rtlScreen.queryAllByTestId(/^field-issue-/)).toHaveLength(0);
+  });
+
+  test("without input the field error and the banner stay", async () => {
+    await submitFailing("validation_failed");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy();
+    expect(rtlScreen.getAllByTestId(/^field-issue-/)).toHaveLength(1);
+  });
+
+  test("a version_conflict banner stays after input while the field error clears", async () => {
+    await submitFailing("version_conflict");
+
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Adal" } });
+
+    await waitFor(() => expect(rtlScreen.queryAllByTestId(/^field-issue-/)).toHaveLength(0));
+    expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy();
   });
 });

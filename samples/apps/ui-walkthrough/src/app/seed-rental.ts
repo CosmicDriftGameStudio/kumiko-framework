@@ -14,6 +14,7 @@ type BoardLease = {
   readonly beginn: string;
   readonly ende?: string;
   readonly miete: number;
+  readonly vorgaengerIndex?: number;
 };
 
 const BOARD_LEASES: readonly BoardLease[] = [
@@ -101,6 +102,7 @@ const BOARD_LEASES: readonly BoardLease[] = [
     beginn: "2026-01-01",
     ende: "2026-08-31",
     miete: 700,
+    vorgaengerIndex: 0,
   },
   {
     mieter: "Karl Positionsende",
@@ -229,6 +231,9 @@ export const seedRental: SeedFn = async (stack) => {
         grundmiete: eur(lease.miete),
         kuendigungsfrist: "3 Monate",
         zahltag: 3,
+        ...(lease.vorgaengerIndex !== undefined && {
+          vorgaenger: boardLeaseId(lease.vorgaengerIndex),
+        }),
       },
       TestUsers.admin,
       db,

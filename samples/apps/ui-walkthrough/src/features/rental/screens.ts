@@ -178,6 +178,7 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
     einheit: "rental:entity:lease:field:einheit",
     liegenschaft: "rental:entity:lease:field:liegenschaft",
     ende: "rental:entity:lease:field:ende",
+    vorgaenger: "rental:entity:lease:field:vorgaenger",
     kontostand: "rental:entity:lease:field:kontostand",
     notizen: "rental:entity:lease:field:notizen",
   },
@@ -268,7 +269,13 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
         kind: "fields",
         title: "rental.tab.contractData",
         columns: 2,
-        fields: ["einheit", "liegenschaft", "beginn", "ende"],
+        fields: [
+          "einheit",
+          "liegenschaft",
+          "beginn",
+          "ende",
+          { field: "vorgaenger", refEntity: "lease", refLabelField: "einheit" },
+        ],
       },
       {
         id: "notes",
@@ -494,6 +501,20 @@ export const leaseListEmptyScreen: EntityListScreenDefinition = {
   defaultFilters: { status: ["active"] },
   createLabel: "rental.action.createLease",
   searchPlaceholder: "rental.search.placeholder",
+  rowActions: [openLeaseDetail],
+  access: OPEN_ACCESS,
+};
+
+// Reference column next to empty plain cells: the predecessor links to its
+// lease, a lease without one shows the empty-value placeholder.
+export const leaseSuccessionListScreen: EntityListScreenDefinition = {
+  id: "lease-succession-list",
+  type: "entityList",
+  entity: "lease",
+  dormant: true,
+  columns: ["mieter", "vorgaenger", "ende", "beginn"],
+  defaultSort: { field: "beginn", dir: "desc" },
+  pageSize: 25,
   rowActions: [openLeaseDetail],
   access: OPEN_ACCESS,
 };

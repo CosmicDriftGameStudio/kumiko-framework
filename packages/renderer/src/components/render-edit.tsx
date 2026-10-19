@@ -73,6 +73,8 @@ import {
   hasEditableSection,
   hasIssueWithoutRenderedField,
   isDispatcherRejection,
+  issuesAfterEdit,
+  ROOT_ISSUE_PATH,
   resolveExtensionEntityId,
   shouldNotifyCaller,
 } from "./render-edit-logic.ts";
@@ -411,6 +413,8 @@ function EditSlotMount({
   );
 }
 
+type FormErrorSource = "submit" | "delete";
+
 function formSectionDomId(sectionIndex: number): string {
   return `form-section-${sectionIndex}`;
 }
@@ -522,6 +526,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
+  // Only a submit's validation/server error is cleared by editing; a delete
+  // rejection and a version conflict (reload is the way out) stay put.
+  const [formErrorSource, setFormErrorSource] = useState<FormErrorSource>("submit");
   // A rejected delete can carry several blocking reasons; the first one is the
   // banner's headline (formError), the rest are listed beneath it.
   const [extraDeleteIssues, setExtraDeleteIssues] = useState<readonly FieldIssue[]>([]);
@@ -663,6 +670,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     ...(ctx !== undefined && { ctx }),
     ...(submitConfig !== undefined && { submit: submitConfig }),
   });
+
+  // Wired at the user-input boundary, not in controller.setField: computed
+  // fields, prefill, draft restore and action patches also call setValues
+  // after a failed submit and must not wipe the errors.
+  const clearErrorsOnInput = (changedField: string): void => {
+    const errors = controller.getSnapshot().errors;
+    const remaining = issuesAfterEdit(errors, changedField);
+    if (remaining !== errors) controller.setErrors(remaining);
+    if (formErrorSource === "submit" && formError?.code !== "version_conflict") {
+      setFormError(null);
+    }
+  };
 
   const lastRefreshTokenRef = useRef(refreshToken);
   useEffect(() => {
@@ -1379,6 +1398,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           if (step !== undefined) jumpToStep(step);
         }
         setExtraDeleteIssues([]);
+        setFormErrorSource("submit");
         setFormError(
           hasIssueWithoutRenderedField(issuePaths, filteredSections) ? result.error : null,
         );
@@ -2174,6 +2194,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     issues={snapshot.errors[field.field]}
                     onChange={(v) => {
                       (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                      clearErrorsOnInput(field.field);
                       if (validateOnChange === true) controller.validate([field.field]);
                     }}
                     GridCell={GridCell}
@@ -2319,7 +2340,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               ))}
             </Banner>
           )}
-          {(snapshot.errors["(root)"] ?? []).map((issue) => (
+          {(snapshot.errors[ROOT_ISSUE_PATH] ?? []).map((issue) => (
             <Banner variant="error" testId="render-edit-root-issue" key={issue.i18nKey}>
               <Text>{translate(issue.i18nKey, issue.params)}</Text>
             </Banner>
@@ -2348,6 +2369,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 if (isDispatcherRejection(rejection)) {
                   const [issue, ...otherIssues] = rejection.details?.fields ?? [];
                   setExtraDeleteIssues(otherIssues);
+                  setFormErrorSource("delete");
                   setFormError(
                     issue === undefined
                       ? rejection

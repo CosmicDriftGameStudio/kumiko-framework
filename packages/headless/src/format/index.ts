@@ -4,6 +4,8 @@
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 
+export const EMPTY_VALUE_PLACEHOLDER = "—";
+
 function toPlainDate(raw: string): Temporal.PlainDate {
   try {
     return Temporal.PlainDate.from(raw);
@@ -238,7 +240,7 @@ export function applyFormatSpec(
         unitDisplaySpec(spec),
       );
     case "priority": {
-      const emptyLabel = stringSpec(spec, "emptyLabel") ?? "—";
+      const emptyLabel = stringSpec(spec, "emptyLabel") ?? EMPTY_VALUE_PLACEHOLDER;
       const prefix = stringSpec(spec, "prefix") ?? "";
       if (isEmpty || value === 0) return emptyLabel;
       return `${prefix}${value}`;

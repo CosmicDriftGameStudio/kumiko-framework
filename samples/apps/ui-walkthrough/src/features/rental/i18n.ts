@@ -7,6 +7,7 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "screen:lease-list.title": "Mietverträge",
     "screen:lease-list-short.title": "Mietverträge (gekündigt)",
+    "screen:lease-succession-list.title": "Nachfolge",
     "screen:lease-edit.title": "Mietvertrag",
     "screen:lease-detail.title": "Mietvertrag",
     "screen:lease-hub.title": "Mietvertrag Hub",
@@ -56,6 +57,7 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:lease:field:liegenschaft": "Liegenschaft",
     "rental:entity:lease:field:beginn": "Beginn",
     "rental:entity:lease:field:ende": "Ende",
+    "rental:entity:lease:field:vorgaenger": "Vorgänger",
     "rental:entity:lease:field:status": "Status",
     "rental:entity:lease:field:status:option:active": "Aktiv",
     "rental:entity:lease:field:status:option:terminated": "Gekündigt",
@@ -71,6 +73,9 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:leasePosition:field:betrag": "Betrag",
     "rental:entity:leasePosition:field:gueltigVon": "Gültig von",
     "rental:entity:leasePosition:field:gueltigBis": "Gültig bis",
+    "errors.validation.position_period_invalid": "Der Zeitraum der Position ist ungültig.",
+    "errors.validation.valid_until_before_valid_from":
+      "Gültig bis darf nicht vor Gültig von liegen.",
 
     "rental:entity:leaseParty:field:lease": "Mietvertrag",
     "rental:entity:leaseParty:field:name": "Name",
@@ -119,6 +124,7 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "screen:lease-list.title": "Leases",
     "screen:lease-list-short.title": "Leases (terminated)",
+    "screen:lease-succession-list.title": "Succession",
     "screen:lease-edit.title": "Lease",
     "screen:lease-detail.title": "Lease",
     "screen:lease-hub.title": "Lease hub",
@@ -166,6 +172,7 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:lease:field:liegenschaft": "Property",
     "rental:entity:lease:field:beginn": "Start",
     "rental:entity:lease:field:ende": "End",
+    "rental:entity:lease:field:vorgaenger": "Predecessor",
     "rental:entity:lease:field:status": "Status",
     "rental:entity:lease:field:status:option:active": "Active",
     "rental:entity:lease:field:status:option:terminated": "Terminated",
@@ -181,6 +188,8 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:leasePosition:field:betrag": "Amount",
     "rental:entity:leasePosition:field:gueltigVon": "Valid from",
     "rental:entity:leasePosition:field:gueltigBis": "Valid until",
+    "errors.validation.position_period_invalid": "The position period is invalid.",
+    "errors.validation.valid_until_before_valid_from": "Valid until must not be before valid from.",
 
     "rental:entity:leaseParty:field:lease": "Lease",
     "rental:entity:leaseParty:field:name": "Name",
