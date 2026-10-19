@@ -734,6 +734,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.field.file-upload.failed": "Upload failed",
   "kumiko.field.file-upload.remove": "Remove",
   "kumiko.field.file-upload.upload": "Upload",
+  "kumiko.field.fillAction.failed": "Could not fetch a suggestion.",
   "kumiko.field.locatedTzHint": "Time local to the given location",
   "kumiko.field.multiSelect.deselect-all": "Deselect all",
   "kumiko.field.multiSelect.select-all": "Select all",

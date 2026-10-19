@@ -1,3 +1,4 @@
+import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
 import type {
   DashboardScreenDefinition,
   EditLayout,
@@ -57,6 +58,18 @@ function checkEditLayoutQueryRefs(
   layout: EditLayout,
 ): void {
   for (const section of layout.sections) {
+    if (isFieldsEditSection(section)) {
+      for (const fieldSpec of sectionFieldSpecs(section)) {
+        const { field, fillAction } = normalizeEditField(fieldSpec);
+        if (fillAction === undefined) continue;
+        checkQueryRef(
+          queryHandlers,
+          fillAction.query,
+          () =>
+            `[Feature ${featureName}] Screen "${screenId}" (${screenType}) field "${field}" fillAction`,
+        );
+      }
+    }
     if (section.kind !== "relatedList") continue;
     checkQueryRef(
       queryHandlers,

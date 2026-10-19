@@ -6,6 +6,7 @@ import type {
   EmbeddedListEditSpec,
   EntityDefinition,
   EntityEditScreenDefinition,
+  FieldAffix,
   FieldCondition,
   ParsedRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -192,6 +193,10 @@ export function computeRelatedListSectionViewModel(
 
 type EntityFieldDef = NonNullable<EntityDefinition["fields"][string]>;
 type NormalizedEditField = ReturnType<typeof normalizeEditField>;
+
+function translateAffix(affix: FieldAffix, translate: Translate): FieldAffix {
+  return typeof affix === "string" ? translate(affix) : affix;
+}
 
 type SelectFieldHints = Pick<
   EditFieldViewModel,
@@ -745,6 +750,15 @@ export function computeEditViewModel<
           ...(normalized.icon !== undefined && { icon: normalized.icon }),
           ...(normalized.placeholder !== undefined && {
             placeholder: translate(normalized.placeholder),
+          }),
+          ...(normalized.prefix !== undefined && {
+            prefix: translateAffix(normalized.prefix, translate),
+          }),
+          ...(normalized.suffix !== undefined && {
+            suffix: translateAffix(normalized.suffix, translate),
+          }),
+          ...(normalized.fillAction !== undefined && {
+            fillAction: { ...normalized.fillAction, label: translate(normalized.fillAction.label) },
           }),
           ...embeddedListHints,
         };

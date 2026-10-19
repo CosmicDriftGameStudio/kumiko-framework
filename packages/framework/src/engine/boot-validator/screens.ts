@@ -150,6 +150,38 @@ function validateEditFieldExtras(
   }
 }
 
+// `{ field }` affixes and fillAction params read live form values, so every
+// name must be a field of the same form — a typo would otherwise render no
+// affix or send an undefined param without a hint.
+function validateFieldFormRefs(
+  where: string,
+  fieldSpec: Exclude<EditFieldSpec, string>,
+  formFieldNames: ReadonlySet<string>,
+): void {
+  const affixes = [
+    ["prefix", fieldSpec.prefix],
+    ["suffix", fieldSpec.suffix],
+  ] as const;
+  for (const [prop, affix] of affixes) {
+    if (affix === undefined || typeof affix === "string") continue;
+    if (!formFieldNames.has(affix.field)) {
+      throw new Error(
+        `${where} ${prop} references unknown field "${affix.field}" — it must be another field of the same form.`,
+      );
+    }
+  }
+  const params = fieldSpec.fillAction?.params;
+  if (params === undefined) return;
+  const sourceFields = "pick" in params ? params.pick : Object.values(params.map);
+  for (const sourceField of sourceFields) {
+    if (!formFieldNames.has(sourceField)) {
+      throw new Error(
+        `${where} fillAction.params reads unknown field "${sourceField}" — it must be a field of the same form.`,
+      );
+    }
+  }
+}
+
 function validateNoWidgetRequiredField(
   featureName: string,
   screenId: string,
@@ -1100,6 +1132,11 @@ function validateFormLayoutSections(
             `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
         );
       }
+      validateFieldFormRefs(
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${normalized.field}"`,
+        normalized,
+        fieldNames,
+      );
     }
   }
 }
@@ -3046,6 +3083,11 @@ export function validateScreens(
           }
           validateNoWidgetRequiredField(feature.name, screenId, entityDef, normalized);
           validateEditFieldExtras(feature.name, screenId, entityDef, normalized);
+          validateFieldFormRefs(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) field "${normalized.field}"`,
+            normalized,
+            fieldNames,
+          );
         }
       }
       validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);

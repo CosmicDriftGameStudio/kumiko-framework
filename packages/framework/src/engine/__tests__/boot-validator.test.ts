@@ -2712,12 +2712,13 @@ describe("boot-validator", () => {
       readonly fields?: Record<string, unknown>;
       readonly sections?: ReadonlyArray<{
         readonly title: string;
-        readonly fields: readonly string[];
+        readonly fields: ReadonlyArray<string | Record<string, unknown>>;
         readonly groups?: ReadonlyArray<{
           readonly title: string;
           readonly fields: readonly string[];
         }>;
       }>;
+      readonly queries?: readonly string[];
       readonly redirect?: string | { readonly screen: string; readonly idFrom: string };
       readonly successLinks?: ReadonlyArray<{
         readonly screen: string;
@@ -2752,6 +2753,14 @@ describe("boot-validator", () => {
           handler: async () => ({ isSuccess: true, data: {} }) as never,
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
+        for (const query of override.queries ?? []) {
+          r.queryHandler({
+            name: query,
+            schema: z.object({}),
+            handler: async () => ({}),
+            access: { roles: ["Admin"] },
+          });
+        }
         r.screen({
           id: "approve-invoice",
           type: "actionForm",
@@ -3110,6 +3119,62 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/successLinks\[0\]\.idFrom is set but target screen "overview" \(custom\)/);
+    });
+
+    // --- field prefix / suffix / fillAction ---
+    const fillSections = (field: Record<string, unknown>) => [
+      { title: "Approval", fields: [{ field: "note", ...field }, "priority"] },
+    ];
+    const fillAction = {
+      label: "shop.fill.roll",
+      query: "shop:query:suggest-note",
+      field: "suggestion",
+    };
+
+    test("fillAction with a registered query, form-field affix and pick params → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            queries: ["suggest-note"],
+            sections: fillSections({
+              prefix: "https://",
+              suffix: { field: "priority" },
+              fillAction: { ...fillAction, params: { pick: ["priority"] } },
+            }),
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("fillAction → unregistered query → Throw naming the field", () => {
+      expect(() => validateBoot([makeFeature({ sections: fillSections({ fillAction }) })])).toThrow(
+        /Screen "approve-invoice" \(actionForm\) field "note" fillAction query "shop:query:suggest-note" is not a registered query-handler/,
+      );
+    });
+
+    test("suffix { field } naming a field outside the form → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ sections: fillSections({ suffix: { field: "ghost" } }) })]),
+      ).toThrow(/field "note" suffix references unknown field "ghost"/);
+    });
+
+    test("prefix { field } naming a field outside the form → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ sections: fillSections({ prefix: { field: "ghost" } }) })]),
+      ).toThrow(/field "note" prefix references unknown field "ghost"/);
+    });
+
+    test("fillAction params reading a field outside the form (pick and map) → Throw", () => {
+      for (const params of [{ pick: ["ghost"] }, { map: { to: "ghost" } }]) {
+        expect(() =>
+          validateBoot([
+            makeFeature({
+              queries: ["suggest-note"],
+              sections: fillSections({ fillAction: { ...fillAction, params } }),
+            }),
+          ]),
+        ).toThrow(/fillAction\.params reads unknown field "ghost"/);
+      }
     });
 
     test("cancelTarget → existing screen-id → kein Throw", () => {
