@@ -144,6 +144,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dashboard.panel.error.isolated": "The other panels are not affected.",
     "kumiko.dashboard.panel.error.retry": "Try again",
     "kumiko.dashboard.panel.error.title": "{label} could not be loaded",
+    "kumiko.dashboard.progress.unlimited": "unlimited",
     "kumiko.dashboard.time-range": "Time range",
     "kumiko.screen.unavailable": "This page is not available right now.",
     "kumiko.dashboard.brush-end": "Window end",

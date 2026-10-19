@@ -456,6 +456,7 @@ export type {
   DashboardPanelDefinition,
   DashboardPanelVisibility,
   DashboardProgressListPanel,
+  DashboardProgressTone,
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,

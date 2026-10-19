@@ -30,6 +30,7 @@
 //                   projectionList.
 //   feed          → { rows: { primary: DashboardText, trailing?: DashboardText }[] }
 //   progress-list → { rows: { label: DashboardText, value: DashboardText, fraction }[] }
+//                   or, per row, used / limit instead of value / fraction
 //   custom        → no query; an app component registered via
 //                   extensionSectionComponents fetches its own data.
 //   screen        → no own query; embeds another declarative screen via
@@ -56,6 +57,7 @@ import type {
   DashboardPanelEmptyState,
   DashboardPanelQueryOptions,
   DashboardProgressListPanel,
+  DashboardProgressTone,
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,
@@ -1003,13 +1005,63 @@ function FeedPanelBody({
 }
 
 type ProgressListEnvelope = {
-  readonly rows?: readonly {
-    readonly label: unknown;
-    readonly value: unknown;
-    readonly fraction: number;
-    readonly sub?: unknown;
-  }[];
+  readonly rows?: readonly Readonly<Record<string, unknown>>[];
 };
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isProgressTone(value: unknown): value is DashboardProgressTone {
+  return value === "default" || value === "danger";
+}
+
+type ProgressUsage = { readonly used: number; readonly limit: number | null };
+
+function progressUsageOf(row: Readonly<Record<string, unknown>>): ProgressUsage | undefined {
+  const { used, limit } = row;
+  if (!isFiniteNumber(used)) return undefined;
+  if (limit === null) return { used, limit: null };
+  return isFiniteNumber(limit) ? { used, limit } : undefined;
+}
+
+function toProgressListRow(
+  row: Readonly<Record<string, unknown>>,
+  index: number,
+  translate: Translate,
+  formats: DashboardFormats,
+): ProgressListRow {
+  const sub = resolveDashboardText(row["sub"], translate, formats);
+  const usage = progressUsageOf(row);
+  const explicitTone = isProgressTone(row["tone"]) ? row["tone"] : undefined;
+  const common = {
+    id: String(index),
+    label: resolveDashboardText(row["label"], translate, formats) ?? EMPTY_VALUE_PLACEHOLDER,
+    ...(sub !== undefined && { sub }),
+  };
+  if (usage === undefined) {
+    return {
+      ...common,
+      value: resolveDashboardText(row["value"], translate, formats) ?? EMPTY_VALUE_PLACEHOLDER,
+      fraction: isFiniteNumber(row["fraction"]) ? row["fraction"] : 0,
+      ...(explicitTone !== undefined && { tone: explicitTone }),
+    };
+  }
+  const { used, limit } = usage;
+  const usedText = formats.formatNumber(used);
+  const limitText =
+    limit === null ? translate("kumiko.dashboard.progress.unlimited") : formats.formatNumber(limit);
+  const exhausted = limit !== null && used >= limit;
+  const tone = explicitTone ?? (exhausted ? "danger" : undefined);
+  let fraction: number | null = null;
+  if (limit !== null) fraction = limit === 0 ? 1 : used / limit;
+  return {
+    ...common,
+    value: `${usedText} / ${limitText}`,
+    fraction,
+    ...(tone !== undefined && { tone }),
+  };
+}
 
 function ProgressListPanelBody({
   panel,
@@ -1033,16 +1085,9 @@ function ProgressListPanelBody({
       isEmpty={(data) => (data.rows ?? []).length === 0}
     >
       {(data) => {
-        const rows: readonly ProgressListRow[] = (data.rows ?? []).map((row, i) => {
-          const sub = resolveDashboardText(row.sub, translate, formats);
-          return {
-            id: String(i),
-            label: resolveDashboardText(row.label, translate, formats) ?? EMPTY_VALUE_PLACEHOLDER,
-            value: resolveDashboardText(row.value, translate, formats) ?? EMPTY_VALUE_PLACEHOLDER,
-            fraction: row.fraction,
-            ...(sub !== undefined && { sub }),
-          };
-        });
+        const rows = (data.rows ?? []).map((row, i) =>
+          toProgressListRow(row, i, translate, formats),
+        );
         return <ProgressList rows={rows} />;
       }}
     </QueryPanel>

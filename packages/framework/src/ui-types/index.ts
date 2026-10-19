@@ -100,6 +100,7 @@ export type {
   DashboardPanelSpan,
   DashboardPanelVisibility,
   DashboardProgressListPanel,
+  DashboardProgressTone,
   DashboardScopeDefinition,
   DashboardScreenDefinition,
   DashboardScreenPanel,

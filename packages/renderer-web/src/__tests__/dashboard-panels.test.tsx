@@ -1254,6 +1254,85 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
     );
     await waitFor(() => expect(screen.getByText("40 % paid off")).toBeTruthy());
   });
+
+  describe("progress-list used/limit rows", () => {
+    function renderProgressRows(rows: readonly Record<string, unknown>[]): void {
+      renderDashboard(
+        {
+          id: "prog",
+          type: "dashboard",
+          panels: [
+            {
+              kind: "progress-list",
+              id: "prog",
+              label: "demo:prog",
+              query: "demo:query:prog:rows",
+            },
+          ],
+        },
+        { "demo:query:prog:rows": () => ok({ rows }) },
+        { locale: "en" },
+      );
+    }
+
+    const barFillOf = (bar: HTMLElement): Element | null => bar.firstElementChild;
+
+    test("shows used / limit with locale number format and fills used / limit", async () => {
+      renderProgressRows([{ label: "Users", used: 1234, limit: 5000 }]);
+      const value = await screen.findByText("1,234 / 5,000");
+      expect(value.className).not.toContain("text-status-critical");
+      const fill = barFillOf(screen.getByRole("progressbar"));
+      expect(fill?.getAttribute("style")).toContain("width: 24.68%");
+      expect(fill?.className).not.toContain("bg-status-critical");
+    });
+
+    test("limit null shows unlimited and renders no bar", async () => {
+      renderProgressRows([{ label: "Users", used: 12, limit: null }]);
+      expect(await screen.findByText("12 / unlimited")).toBeTruthy();
+      expect(screen.queryByRole("progressbar")).toBeNull();
+    });
+
+    test("used >= limit turns bar and value danger", async () => {
+      renderProgressRows([{ label: "Users", used: 5, limit: 5 }]);
+      const value = await screen.findByText("5 / 5");
+      expect(value.className).toContain("text-status-critical");
+      const fill = barFillOf(screen.getByRole("progressbar"));
+      expect(fill?.className).toContain("bg-status-critical");
+      expect(fill?.getAttribute("style")).toContain("width: 100%");
+    });
+
+    test("limit 0 fills the bar completely", async () => {
+      renderProgressRows([{ label: "Users", used: 0, limit: 0 }]);
+      await screen.findByText("0 / 0");
+      expect(barFillOf(screen.getByRole("progressbar"))?.getAttribute("style")).toContain(
+        "width: 100%",
+      );
+    });
+
+    test("an explicit tone wins over the automatic one", async () => {
+      renderProgressRows([
+        { label: "A", used: 9, limit: 5, tone: "default" },
+        { label: "B", used: 1, limit: 5, tone: "danger" },
+      ]);
+      const exhausted = await screen.findByText("9 / 5");
+      expect(exhausted.className).not.toContain("text-status-critical");
+      expect(screen.getByText("1 / 5").className).toContain("text-status-critical");
+    });
+
+    test("fraction rows keep value and fraction and never get an automatic tone", async () => {
+      renderProgressRows([{ label: "Loan", value: "42.000 €", fraction: 1 }]);
+      const value = await screen.findByText("42.000 €");
+      expect(value.className).not.toContain("text-status-critical");
+      const fill = barFillOf(screen.getByRole("progressbar"));
+      expect(fill?.getAttribute("style")).toContain("width: 100%");
+      expect(fill?.className).not.toContain("bg-status-critical");
+    });
+
+    test("a half-filled used/limit pair falls back to fraction mode", async () => {
+      renderProgressRows([{ label: "Loan", value: "x", fraction: 0.5, used: 3 }]);
+      expect(await screen.findByText("x")).toBeTruthy();
+    });
+  });
 });
 
 describe("dashboard stacked-area lines, marker kinds and ranges", () => {

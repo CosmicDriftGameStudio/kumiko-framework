@@ -709,6 +709,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.dashboard.panel.error.isolated": "Die anderen Bereiche sind nicht betroffen.",
   "kumiko.dashboard.panel.error.retry": "Erneut versuchen",
   "kumiko.dashboard.panel.error.title": "{label} konnte nicht geladen werden",
+  "kumiko.dashboard.progress.unlimited": "unbegrenzt",
   "kumiko.dashboard.time-range": "Zeitraum",
   "kumiko.screen-error.detail": "Screen: {screen}. {message}",
   "kumiko.screen-error.screen": "Screen: {screen}",
