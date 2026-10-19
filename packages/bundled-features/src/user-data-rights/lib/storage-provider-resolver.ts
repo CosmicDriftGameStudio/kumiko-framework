@@ -41,7 +41,7 @@ export function makeTenantStorageProviderResolver(
       ctx.db,
     );
     return createFileProviderForTenant(
-      { config, registry: ctx.registry, secrets: ctx.secrets, _userId: ctx.userId },
+      { config, registry: ctx.registry, secrets: ctx.secrets, auditUserId: ctx.userId },
       tenantId,
       ctx.handlerName,
     );

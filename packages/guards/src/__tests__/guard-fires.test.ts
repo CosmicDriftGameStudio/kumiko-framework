@@ -313,6 +313,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare const page: { screenshot: (opts: unknown) => Promise<void> };\nexport const run = () => page.screenshot({ path: "out.png" });',
     expectedMessage: /Direct page\.screenshot/,
   },
+  "Unsafe-Append-Event Guard": {
+    path: `${PKG}/features/x/handler.ts`,
+    code: "declare const ctx: { unsafeAppendEvent(a: unknown): Promise<void> };\nexport const run = () => ctx.unsafeAppendEvent({});",
+    expectedMessage: /unsafeAppendEvent call\(s\) over baseline/,
+  },
 };
 
 // These guards can't produce a violation by construction — they report

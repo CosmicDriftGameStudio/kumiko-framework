@@ -78,7 +78,7 @@ export type WorkerWireDeps = SystemWireDeps & {
   readonly lifecycle: WorkerEntrypoint["lifecycle"];
   /** The worker's ctx.secrets — what `createInboundMailSupervisor` needs as
    *  `providerCtx.secrets` (the IMAP provider reads credentials through it,
-   *  with `_userId` set to a system identity for the audit trail). Undefined
+   *  with `auditUserId` set to a system identity for the audit trail). Undefined
    *  when the secrets feature is not mounted or no master key is available. */
   readonly secrets?: SecretsContext;
 };

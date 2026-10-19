@@ -617,7 +617,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // SYSTEM_USER_ID ist die framework-weite Konvention. Der job-
         // Discriminator wird via handlerName="user-data-rights:run-export-
         // jobs" im Secret-Read-Audit erfasst.
-        const exportUserId = ctx._userId ?? SYSTEM_USER_ID;
+        const exportUserId = SYSTEM_USER_ID;
         const exportDb =
           ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const exportRegistry = ctx.registry;
@@ -710,7 +710,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           throw new Error("run-forget-cleanup: ctx.registry required (JobContext incomplete)");
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-        const forgetUserId = ctx._userId ?? SYSTEM_USER_ID;
+        const forgetUserId = SYSTEM_USER_ID;
         const forgetDb =
           ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const forgetRegistry = ctx.registry;

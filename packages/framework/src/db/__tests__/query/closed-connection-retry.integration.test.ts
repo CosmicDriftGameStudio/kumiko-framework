@@ -202,15 +202,19 @@ describe("describeClosedConnectionFailure", () => {
       connection: { application_name: applicationName },
     });
     try {
-      let described: Record<string, unknown> | undefined;
-      await pool
+      // begin() rejects as soon as the backend dies, while the callback is still awaiting the
+      // failed statement; the description is only complete once the callback itself has finished.
+      const callbackDone = Promise.withResolvers<Record<string, unknown> | undefined>();
+      const beginSettled = pool
         .begin(async (tx) => {
           const pending = tx.unsafe("select 1 from pg_sleep(0.3)").catch((e: unknown) => e);
           const pid = await pollForActivePid(applicationName, "%pg_sleep(0.3)%");
           await terminateBackendPid(pid);
-          described = describeClosedConnectionFailure(tx, await pending, 1);
+          callbackDone.resolve(describeClosedConnectionFailure(tx, await pending, 1));
         })
-        .catch(() => undefined);
+        .catch((e: unknown) => e);
+      const described = await callbackDone.promise;
+      await beginSettled;
       expect(described).toMatchObject({ driver: "postgres-js", pooled: false, attempts: 1 });
     } finally {
       await pool.end({ timeout: 0 });

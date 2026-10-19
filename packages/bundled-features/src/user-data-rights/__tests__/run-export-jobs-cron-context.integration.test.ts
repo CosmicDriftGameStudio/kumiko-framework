@@ -13,11 +13,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  type JobContext,
-  SYSTEM_USER_ID,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -183,7 +179,6 @@ describe("run-export-jobs cron-context", () => {
       registry: stack.registry,
       configResolver,
       _notifyFactory: notifyFactory,
-      _userId: SYSTEM_USER_ID,
       systemUser: createSystemUser(TENANT),
       now: getTemporal().Now.instant(),
     };

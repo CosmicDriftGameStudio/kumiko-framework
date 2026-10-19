@@ -46,6 +46,7 @@ import {
   wrapRedisClient,
 } from "../observability/index.ts";
 import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership.ts";
+import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import type { DispatcherOptions } from "../pipeline/dispatcher.ts";
 import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state.ts";
@@ -356,7 +357,7 @@ export function withFileProviderResolver(
     ...context,
     _fileProviderResolver: makeFileProviderResolver({
       registry,
-      _configAccessorFactory: context._configAccessorFactory,
+      _configAccessorFactory: configAccessorFactoryOf(context),
       secrets: context.secrets,
       db: context.db,
       ...(cacheSync ? { cacheSync } : {}),

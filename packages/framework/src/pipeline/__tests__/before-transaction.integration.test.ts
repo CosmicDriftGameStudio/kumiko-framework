@@ -14,6 +14,11 @@ import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import {
+  hasOutsideTransactionDb,
+  requireOutsideTransactionDb,
+  runInOwnTransaction,
+} from "../../db/tenant-db.ts";
+import {
   createEntity,
   createTextField,
   defineFeature,
@@ -199,14 +204,11 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       schema: titlePayload,
       access: { roles: ["Admin"] },
       reserveBeforeTransaction: async (_event, ctx) => {
-        reservationOutsideHandles.push(
-          ctx.dbOutsideTransaction !== undefined,
-          ctx.outsideTransaction !== undefined,
-        );
-        const rows = await ctx.outsideTransaction?.((txDb) =>
+        reservationOutsideHandles.push(hasOutsideTransactionDb(ctx));
+        const rows = await runInOwnTransaction(requireOutsideTransactionDb(ctx), (txDb) =>
           selectMany<{ title: string }>(txDb, noteTable, {}),
         );
-        reservationOutsideReads.push(rows?.length ?? -1);
+        reservationOutsideReads.push(rows.length);
         return undefined;
       },
       handler: async () => {
@@ -403,7 +405,7 @@ describe("beforeTransaction", () => {
   test("a reservation keeps the outside-transaction handles and can read through them", async () => {
     await stack.http.writeOk(RESERVE_OUTSIDE, { title: "ok" }, admin);
 
-    expect(reservationOutsideHandles).toEqual([true, true]);
+    expect(reservationOutsideHandles).toEqual([true]);
     expect(reservationOutsideReads).toEqual([0]);
     expect(handlerCalls).toEqual(["reserve-outside"]);
   });

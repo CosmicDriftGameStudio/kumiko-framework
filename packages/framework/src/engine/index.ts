@@ -305,6 +305,10 @@ export { parseRefTarget, parseRefTargetEntityName } from "./parse-ref-target.ts"
 export { buildPipelineSteps, stepsPipeline } from "./pipeline.ts";
 export { projectAppSchemaForRoles } from "./project-app-schema-for-roles.ts";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers.ts";
+export {
+  providerPluginContextFromHandler,
+  providerPluginContextFromJob,
+} from "./provider-plugin-context.ts";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name.ts";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.ts";
 export { readClaim } from "./read-claim.ts";
@@ -606,6 +610,7 @@ export type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   ProjectionTable,
+  ProviderPluginContext,
   QualifiedEventName,
   QueryEvent,
   QueryHandlerDef,

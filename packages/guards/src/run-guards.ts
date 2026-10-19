@@ -57,6 +57,7 @@ import { guard as tenantEscalation } from "./guard-tenant-escalation";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
 import { guard as textFieldStance } from "./guard-text-field-stance";
+import { guard as unsafeAppendEvent } from "./guard-unsafe-append-event";
 import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
 import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
@@ -101,6 +102,7 @@ export const GUARDS = [
   libTestCoverage,
   testTimeouts,
   testTemplateDrift,
+  unsafeAppendEvent,
 ];
 
 export const GUARD_FLAGS = [

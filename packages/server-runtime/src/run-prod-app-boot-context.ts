@@ -75,9 +75,13 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
   registry: Registry,
 ): T {
   if (!resolved.configResolver) return resolved;
+  // Both keys, always overriding an app-supplied value: the factory must derive from the
+  // effective resolver (fw#3313); the underscore alias stays until the next major.
+  const configAccessorFactory = createConfigAccessorFactory(registry, resolved.configResolver);
   return {
     ...resolved,
-    _configAccessorFactory: createConfigAccessorFactory(registry, resolved.configResolver),
+    configAccessorFactory,
+    _configAccessorFactory: configAccessorFactory,
   };
 }
 

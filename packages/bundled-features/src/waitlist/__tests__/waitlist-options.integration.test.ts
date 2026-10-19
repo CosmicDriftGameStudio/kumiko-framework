@@ -1,17 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { deleteRows, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { WAITLIST_STATUS, WaitlistHandlers } from "../constants.ts";
 import { waitlistEntryTable } from "../entity.ts";
-import { importWaitlistEntry } from "../import.ts";
+import { importWaitlistEntry, waitlistImportId } from "../import.ts";
 import {
   migrateLegacyWaitlist,
   offlotLegacyTable,
   publicstatusLegacyTable,
 } from "../legacy-migrate.ts";
+import { platformActor, waitlistExecutor } from "../lib.ts";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,
@@ -319,13 +321,13 @@ describe("legacy waitlist migration", () => {
 
   test("dry run reports what would be created and writes nothing", async () => {
     const report = await migrateLegacyWaitlist(stack.db, { ...offlotOptions, dryRun: true });
-    expect(report).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0 });
+    expect(report).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 0 });
     expect(await rowsOf(stack)).toHaveLength(0);
   });
 
   test("offlot rows land in the FW entity; the second run writes nothing", async () => {
     const first = await migrateLegacyWaitlist(stack.db, offlotOptions);
-    expect(first).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0 });
+    expect(first).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 0 });
 
     const [entry] = await rowsOf(stack);
     expect(entry?.["name"]).toBe("Dealer Dan");
@@ -340,13 +342,13 @@ describe("legacy waitlist migration", () => {
     expect(String(entry?.["submittedAt"])).toContain("2026-08-01T10:00:00");
 
     const second = await migrateLegacyWaitlist(stack.db, offlotOptions);
-    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0 });
+    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0, archivedStreams: 0 });
     expect(await rowsOf(stack)).toHaveLength(1);
   });
 
   test("publicstatus rows become pending entries with the default locale; re-run is a no-op", async () => {
     const first = await migrateLegacyWaitlist(stack.db, publicstatusOptions);
-    expect(first).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0 });
+    expect(first).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 0 });
     const [entry] = await rowsOf(stack);
     expect(entry?.["email"]).toBe("lead@apex.example");
     expect(entry?.["name"]).toBe("lead");
@@ -354,7 +356,7 @@ describe("legacy waitlist migration", () => {
     expect(entry?.["status"]).toBe(WAITLIST_STATUS.Pending);
 
     const second = await migrateLegacyWaitlist(stack.db, publicstatusOptions);
-    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0 });
+    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0, archivedStreams: 0 });
     expect(await rowsOf(stack)).toHaveLength(1);
   });
 
@@ -368,7 +370,38 @@ describe("legacy waitlist migration", () => {
       submittedAt: Temporal.Instant.from("2026-08-03T10:00:00Z"),
     });
     const report = await migrateLegacyWaitlist(stack.db, offlotOptions);
-    expect(report).toEqual({ read: 2, created: 1, skipped: 0, unreadable: 1 });
+    expect(report).toEqual({ read: 2, created: 1, skipped: 0, unreadable: 1, archivedStreams: 0 });
+  });
+
+  test("a rebuild after the migration does not replay the legacy event stream next to the new entry", async () => {
+    const legacyStream = await waitlistExecutor.create(
+      {
+        id: offlotId,
+        name: "Dealer Dan",
+        email: "dan@dealer.example",
+        locale: "es",
+        status: WAITLIST_STATUS.Invited,
+        submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
+      },
+      platformActor(),
+      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    );
+    expect(legacyStream.isSuccess).toBe(true);
+
+    const report = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(report).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 1 });
+
+    await rebuildProjection("waitlist:projection:waitlist-entry-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    const ids = (await rowsOf(stack)).map((row) => row["id"]);
+    // Earlier tests' streams outlive the table reset and replay too, so assert on this entry only.
+    expect(ids).toContain(waitlistImportId(`offlot:${offlotId}`));
+    expect(ids).not.toContain(offlotId);
+
+    const second = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0, archivedStreams: 0 });
   });
 
   test("importWaitlistEntry keeps the same source key on one id", async () => {

@@ -58,34 +58,33 @@ export const MAIL_TRANSPORT_EXTENSION = "mailTransport" as const;
 // =============================================================================
 
 /**
- * Schmaler Surface-Type fuer Transport-Plugins — gespiegelt von
- * file-foundation's FileProviderContext. HandlerContext ist zu fett
- * (haelt tx, actor, signal etc.); Plugins beschraenken sich auf die
- * read-Felder die fuer Tenant-Config + Secret-Lookup noetig sind.
+ * Narrow surface type for transport plugins, mirroring file-foundation's
+ * FileProviderContext. HandlerContext carries tx, actor, signal and more;
+ * plugins only get the read fields needed for tenant config and secret lookup.
  *
- * **Warum nicht voller HandlerContext?** Im Worker-Pfad (r.job-getriggerte
- * Transport-Builds, z.B. der user-data-rights forget/export-Cron) gibt es
- * keinen per-request `config`/`tx`/`actor` — der Wrapper baut den per-Tenant-
- * ConfigAccessor aus `ctx.configResolver`. Ein Plugin das `ctx.tx` oder
- * andere request-only-Felder liest, wuerde den Worker-Pfad zur Runtime
- * brechen — und das fiele NUR mit echtem SMTP und nur in production auf.
- * Cast `ctx as unknown as HandlerContext` macht den Compiler happy, fliegt
- * aber zur Runtime im Worker. Plugin das mehr braucht: MailTransportContext
- * explizit erweitern (sichtbarer breaking change) statt ctx-cast.
+ * **Why not the full HandlerContext?** On the worker path (transport builds
+ * triggered by r.job, such as the user-data-rights forget/export cron) there
+ * is no per-request `config`/`tx`/`actor`; the wrapper builds the per-tenant
+ * ConfigAccessor from `ctx.configResolver`. A plugin reading `ctx.tx` or other
+ * request-only fields would break the worker path at runtime, and that would
+ * only show up with real SMTP in production. Casting
+ * `ctx as unknown as HandlerContext` satisfies the compiler but fails at
+ * runtime in the worker. A plugin that needs more extends MailTransportContext
+ * explicitly (a visible breaking change) instead of casting ctx.
  *
- * **Felder:**
- *   config   — tenant-config-reads (host/port/from/... der Plugins)
- *   registry — extension-Lookup in der Factory (nicht plugin-intern)
- *   secrets  — tenant-secret-reads (smtp.password)
- *   _userId  — Audit-Identity fuer secret-reads. Handler-Pfad: dispatcher
- *              setzt Caller-User-ID; Worker-Pfad: r.job-Wrap setzt eine
- *              System-Identity.
+ * **Fields:**
+ *   config      — tenant config reads (the plugin's host/port/from/...)
+ *   registry    — extension lookup in the factory (not plugin-internal)
+ *   secrets     — tenant secret reads (smtp.password)
+ *   auditUserId — audit identity for secret reads. Handler path: the
+ *                 dispatcher sets the caller's user id; worker path: the
+ *                 r.job wrap sets a system identity.
  */
 export type MailTransportContext = {
   readonly config?: ConfigAccessor;
   readonly registry?: Registry;
   readonly secrets?: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext;
-  readonly _userId?: string | undefined;
+  readonly auditUserId?: string | undefined;
 };
 
 /**
@@ -283,7 +282,7 @@ export function tenantMailTransport(
       config: scope.config,
       registry: scope.registry,
       secrets: scope.secrets,
-      _userId: createSystemUser(scope.tenantId).id,
+      auditUserId: createSystemUser(scope.tenantId).id,
     },
     scope.tenantId,
     "channel-email",

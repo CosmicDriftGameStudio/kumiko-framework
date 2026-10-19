@@ -48,6 +48,7 @@ import {
   type Tracer,
   withEscapeHatchAuditScope,
 } from "../observability/index.ts";
+import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
@@ -1307,9 +1308,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       tenantScopedDb && crossTenantReadsReason !== undefined
         ? createCrossTenantReads(tenantScopedDb, crossTenantReadsReason, reportEscapeHatch)
         : undefined;
+    const configFactory = configAccessorFactoryOf(context);
     const config =
-      context._configAccessorFactory && tenantScopedDb
-        ? context._configAccessorFactory({
+      configFactory && tenantScopedDb
+        ? configFactory({
             user: { id: jobSystemUser.id, tenantId },
             db: tenantScopedDb,
             secrets: context.secrets,

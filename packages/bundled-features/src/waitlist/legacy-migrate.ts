@@ -5,6 +5,7 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  countWhere,
   createTenantDb,
   selectMany,
   table,
@@ -14,10 +15,16 @@ import {
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  archiveStream,
+  createArchivedStreamsTable,
+  eventsTable,
+  isStreamArchived,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { WAITLIST_STATUS, type WaitlistStatus } from "./constants.ts";
-import { importWaitlistEntry, type WaitlistImportEntry } from "./import.ts";
+import { importWaitlistEntry, type WaitlistImportEntry, waitlistImportId } from "./import.ts";
 
 export const LEGACY_WAITLIST_SOURCES = ["offlot", "publicstatus"] as const;
 export type LegacyWaitlistSource = (typeof LEGACY_WAITLIST_SOURCES)[number];
@@ -46,7 +53,12 @@ export type LegacyWaitlistMigrateReport = {
   readonly created: number;
   readonly skipped: number;
   readonly unreadable: number;
+  /** Event streams of the legacy rows (same aggregate type) taken out of projection replay. */
+  readonly archivedStreams: number;
 };
+
+const LEGACY_AGGREGATE_TYPE = "waitlistEntry";
+const LEGACY_STREAM_ARCHIVE_REASON = "migrated to a new waitlist entry id by waitlist-migrate";
 
 type LegacyRow = Readonly<Record<string, unknown>>;
 
@@ -189,6 +201,34 @@ async function readLegacyRows(
   });
 }
 
+// A legacy offlot row is the projection of an event stream of the same aggregate type under the
+// old row id, written in the system tenant like every waitlist entry. The imported entry gets a
+// new id, so a rebuild would replay the old stream next to it and bring every migrated entry back
+// twice; archived streams are excluded from replay. The offlot default source table is the entity
+// table itself, so its row ids are live entries by design and no id check can tell a wrong table.
+async function archiveLegacyStream(
+  db: DbConnection,
+  legacyId: string,
+  importedId: string,
+): Promise<number> {
+  if (legacyId === importedId) return 0;
+  if (await isStreamArchived(db, SYSTEM_TENANT_ID, legacyId)) return 0;
+  const legacyEvents = await countWhere(db, eventsTable, {
+    tenantId: SYSTEM_TENANT_ID,
+    aggregateId: legacyId,
+    aggregateType: LEGACY_AGGREGATE_TYPE,
+  });
+  if (legacyEvents === 0) return 0;
+  await archiveStream(db, {
+    tenantId: SYSTEM_TENANT_ID,
+    aggregateId: legacyId,
+    aggregateType: LEGACY_AGGREGATE_TYPE,
+    archivedBy: "waitlist-migrate",
+    reason: LEGACY_STREAM_ARCHIVE_REASON,
+  });
+  return 1;
+}
+
 // Idempotent: the new entry id derives from the source row id, so a re-run finds
 // what an earlier run wrote and skips it. Writes go through the waitlist entity
 // executor (events, projection, subject encryption), never into tables directly.
@@ -200,6 +240,8 @@ export async function migrateLegacyWaitlist(
   let created = 0;
   let skipped = 0;
   let unreadable = 0;
+  let archivedStreams = 0;
+  if (!options.dryRun && options.from === "offlot") await createArchivedStreamsTable(db);
   for (const row of rows) {
     const entry =
       options.from === "offlot"
@@ -215,6 +257,13 @@ export async function migrateLegacyWaitlist(
       if (outcome === "created") created += 1;
       else skipped += 1;
     });
+    if (!options.dryRun && options.from === "offlot") {
+      archivedStreams += await archiveLegacyStream(
+        db,
+        String(row["id"]),
+        waitlistImportId(entry.sourceKey),
+      );
+    }
   }
-  return { read: rows.length, created, skipped, unreadable };
+  return { read: rows.length, created, skipped, unreadable, archivedStreams };
 }

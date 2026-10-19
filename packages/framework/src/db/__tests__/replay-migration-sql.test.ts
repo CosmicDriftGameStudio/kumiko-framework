@@ -284,14 +284,14 @@ describe("diffReplayAgainstSnapshot", () => {
     }
   });
 
-  test("kumiko-framework#1473: an unparsed ALTER TABLE RENAME statement fails loud instead of vanishing", () => {
+  test("kumiko-framework#1473: an unparsed ALTER TABLE statement fails loud instead of vanishing", () => {
     const dir = tmpMigrationsDir();
     try {
       write(
         dir,
         "0001_init.sql",
         `CREATE TABLE IF NOT EXISTS "widgets" ("id" uuid PRIMARY KEY);
-ALTER TABLE "widgets" RENAME TO "gadgets";`,
+ALTER TABLE "widgets" SET SCHEMA "other";`,
       );
       expect(() => replayMigrationsDir(dir)).toThrow(/unparsed table-DDL statement/);
     } finally {
@@ -397,5 +397,136 @@ ALTER TABLE widgets NO FORCE ROW LEVEL SECURITY;`,
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("replayMigrationsDir: RENAME, CREATE TABLE AS, DO blocks", () => {
+  function replayOf(files: Record<string, string>) {
+    const dir = tmpMigrationsDir();
+    try {
+      for (const [name, sql] of Object.entries(files)) write(dir, name, sql);
+      return replayMigrationsDir(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  const widgets = `CREATE TABLE "widgets" ("id" uuid PRIMARY KEY, "title" text);`;
+
+  test("ALTER TABLE RENAME TO moves the table with its columns", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_rename.sql": `ALTER TABLE "widgets" RENAME TO "gadgets";`,
+    });
+    expect([...replayed.keys()]).toEqual(["gadgets"]);
+    expect([...(replayed.get("gadgets")?.columns ?? [])].sort()).toEqual(["id", "title"]);
+  });
+
+  test("RENAME COLUMN (with and without the COLUMN keyword) renames in place", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_rename.sql": `ALTER TABLE "widgets" RENAME COLUMN "title" TO "name";
+ALTER TABLE "widgets" RENAME "name" TO "label";`,
+    });
+    expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual(["id", "label"]);
+  });
+
+  test("RENAME CONSTRAINT does not change the shape", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_rename.sql": `ALTER TABLE "widgets" RENAME CONSTRAINT "a" TO "b";`,
+    });
+    expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual(["id", "title"]);
+  });
+
+  test("CREATE TABLE AS takes columns from aliases and plain references", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_copy.sql": `CREATE TABLE "widgets_archive" AS SELECT w."id", w.title AS caption, count(*) AS total FROM "widgets" w GROUP BY 1, 2;`,
+    });
+    expect([...(replayed.get("widgets_archive")?.columns ?? [])].sort()).toEqual([
+      "caption",
+      "id",
+      "total",
+    ]);
+  });
+
+  test("CREATE TABLE AS SELECT * copies the columns of a known source table", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_copy.sql": `CREATE TABLE "widgets_copy" AS SELECT * FROM "widgets";`,
+    });
+    expect([...(replayed.get("widgets_copy")?.columns ?? [])].sort()).toEqual(["id", "title"]);
+    expect(replayed.get("widgets_copy")?.columnsUnknown).toBeUndefined();
+  });
+
+  test("CREATE TABLE AS SELECT * from an unknown source only tracks the table", () => {
+    const replayed = replayOf({
+      "0001_copy.sql": `CREATE TABLE "mystery" AS SELECT * FROM "external_source";`,
+    });
+    expect(replayed.get("mystery")?.columnsUnknown).toBe(true);
+  });
+
+  test("CREATE TABLE AS with an explicit column list uses that list", () => {
+    const replayed = replayOf({
+      "0001_copy.sql": `CREATE TABLE "pairs" ("a", "b") AS SELECT 1, 2;`,
+    });
+    expect([...(replayed.get("pairs")?.columns ?? [])].sort()).toEqual(["a", "b"]);
+  });
+
+  test("DO block: guarded ADD COLUMN is applied as the intended end state", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_guarded.sql": `DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns WHERE table_name = 'widgets' AND column_name = 'color'
+  ) THEN
+    ALTER TABLE "widgets" ADD COLUMN "color" text;
+  END IF;
+END
+$$;`,
+    });
+    expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual(["color", "id", "title"]);
+  });
+
+  test("DO block without table DDL is a no-op, and following statements still apply", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_data.sql": `DO $tag$ BEGIN UPDATE "widgets" SET title = 'x'; END $tag$;
+ALTER TABLE "widgets" ADD COLUMN "after_do" text;`,
+    });
+    expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual([
+      "after_do",
+      "id",
+      "title",
+    ]);
+  });
+
+  test("DO block with an alphanumeric dollar tag is applied", () => {
+    const replayed = replayOf({
+      "0001_init.sql": widgets,
+      "0002_guarded.sql": `DO $do1$ BEGIN ALTER TABLE "widgets" ADD COLUMN "color" text; END $do1$;`,
+    });
+    expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual(["color", "id", "title"]);
+  });
+
+  test("DO block with a single-quoted body fails loudly instead of being ignored", () => {
+    expect(() =>
+      replayOf({
+        "0001_init.sql": widgets,
+        "0002_quoted.sql": `DO 'BEGIN ALTER TABLE widgets ADD COLUMN color text; END';`,
+      }),
+    ).toThrow(/0002_quoted: DO block/);
+  });
+
+  test("a snapshot comparison skips column drift for a table with unknown columns", () => {
+    const replayed = replayOf({
+      "0001_copy.sql": `CREATE TABLE "mystery" AS SELECT * FROM "external_source";`,
+    });
+    const snapshot = snapshotFromMetas([
+      meta("mystery", [{ name: "id", pgType: "uuid", notNull: true }]),
+    ]);
+    expect(diffReplayAgainstSnapshot(replayed, snapshot)).toEqual([]);
   });
 });

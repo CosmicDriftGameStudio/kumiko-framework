@@ -100,15 +100,22 @@ describe("splitSqlStatements", () => {
     ]);
   });
 
-  test("throws fail-loud on a dollar-quoted body instead of splitting it in half", () => {
-    expect(() => splitSqlStatements("DO $$ BEGIN PERFORM 1; END $$;")).toThrow(
-      /unsupported dollar-quoted body/,
-    );
+  test("keeps a dollar-quoted body whole, including its inner semicolons", () => {
+    expect(splitSqlStatements("DO $$ BEGIN PERFORM 1; END $$; SELECT 2;")).toEqual([
+      "DO $$ BEGIN PERFORM 1; END $$;",
+      "SELECT 2;",
+    ]);
   });
 
-  test("throws fail-loud on a tagged dollar-quoted body ($tag$...$tag$)", () => {
-    expect(() => splitSqlStatements("DO $tag$ BEGIN PERFORM 1; END $tag$;")).toThrow(
-      /unsupported dollar-quoted body/,
+  test("keeps a tagged dollar-quoted body ($tag$...$tag$) whole", () => {
+    expect(splitSqlStatements("DO $tag$ BEGIN PERFORM '$$'; END $tag$;")).toEqual([
+      "DO $tag$ BEGIN PERFORM '$$'; END $tag$;",
+    ]);
+  });
+
+  test("throws fail-loud on an unterminated dollar-quoted body", () => {
+    expect(() => splitSqlStatements("DO $$ BEGIN PERFORM 1;")).toThrow(
+      /unterminated dollar-quoted body/,
     );
   });
 

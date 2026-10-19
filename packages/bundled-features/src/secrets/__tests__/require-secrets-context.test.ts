@@ -4,13 +4,13 @@
 // Surface funktioniert — nicht nur mit voller HandlerContext.
 // Regression-Pin fuer den latenten Worker-Pfad-Bug:
 //   - Vor 3b.fix wurde `ctx as unknown as HandlerContext` durchgereicht
-//   - Im Worker-Pfad ist `ctx._userId` undefined (dispatcher setzt es nur
-//     im request-Pfad), also throw `_userId missing`
-//   - Fix: Worker-Wrap setzt explizit `_userId: SYSTEM_USER_ID`
+//   - Im Worker-Pfad ist `ctx.auditUserId` undefined (dispatcher setzt es nur
+//     im request-Pfad), also throw `auditUserId missing`
+//   - Fix: Worker-Wrap setzt explizit `auditUserId: SYSTEM_USER_ID`
 //
 // Der Test inszeniert beide Surfaces (HandlerContext-shape via type-assert
 // + FileProviderContext-shape direkt) und prueft dass beide den happy-path
-// + den fehlt-_userId-throw durchlaufen.
+// + den fehlt-auditUserId-throw durchlaufen.
 
 import { describe, expect, mock, test } from "bun:test";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -28,27 +28,29 @@ function makeRawSecretsContext(): SecretsContext {
 }
 
 describe("requireSecretsContext :: FileProviderContext surface", () => {
-  test("succeeds with secrets + _userId present (Worker-Pfad mit SYSTEM_USER_ID)", () => {
+  test("succeeds with secrets + auditUserId present (Worker-Pfad mit SYSTEM_USER_ID)", () => {
     const fileProviderCtx = {
       secrets: makeRawSecretsContext(),
-      _userId: SYSTEM_USER_ID,
+      auditUserId: SYSTEM_USER_ID,
     };
     expect(() => requireSecretsContext(fileProviderCtx, "test-handler")).not.toThrow();
   });
 
-  test("throws when _userId is missing (latenter Worker-Bug pre-3b.fix)", () => {
-    // Pinst die Falle die der 3b.fix abfaengt: wenn ein Provider-Plugin
-    // `requireSecretsContext` ruft und der ctx kein _userId hat (z.B. weil
-    // ein r.job-Wrap das vergessen hat zu setzen), faellt es FRUEH mit
-    // einer klaren Fehlermeldung um — nicht silent broken.
+  test("throws when auditUserId is missing (latenter Worker-Bug pre-3b.fix)", () => {
+    // Pins the trap the 3b fix catches: when a provider plugin calls
+    // `requireSecretsContext` and the ctx has no auditUserId (for example
+    // because an r.job wrap forgot to set it), it fails early with a clear
+    // error instead of breaking silently.
     const fileProviderCtx = {
       secrets: makeRawSecretsContext(),
-      // _userId absichtlich undefined
+      // auditUserId absichtlich undefined
     };
-    expect(() => requireSecretsContext(fileProviderCtx, "test-handler")).toThrow(/_userId missing/);
+    expect(() => requireSecretsContext(fileProviderCtx, "test-handler")).toThrow(
+      /auditUserId missing/,
+    );
   });
 
-  test("handler contexts audit as ctx.user.id when no _userId is set", async () => {
+  test("handler contexts audit as ctx.user.id when no auditUserId is set", async () => {
     const audits: unknown[] = [];
     const raw: SecretsContext = {
       ...makeRawSecretsContext(),
@@ -70,7 +72,7 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
 
   test("throws when secrets is missing (boot-Misconfig)", () => {
     const fileProviderCtx = {
-      _userId: SYSTEM_USER_ID,
+      auditUserId: SYSTEM_USER_ID,
       // secrets absichtlich undefined
     };
     expect(() => requireSecretsContext(fileProviderCtx, "test-handler")).toThrow(
@@ -80,13 +82,13 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
 
   test("audit-userId reaches secrets.get when call is delegated", async () => {
     // Pinst den Audit-Pfad: wenn ein Plugin secrets.get(...) aufruft, kommt
-    // _userId als audit.userId ohne Override durch. Das ist der Grund warum
+    // auditUserId als audit.userId ohne Override durch. Das ist der Grund warum
     // SYSTEM_USER_ID nicht durch einen ad-hoc-magic-string ersetzt werden
     // darf — sonst wird der Audit-Trail inkonsistent.
     const raw = makeRawSecretsContext();
     const ctx = {
       secrets: raw,
-      _userId: SYSTEM_USER_ID,
+      auditUserId: SYSTEM_USER_ID,
     };
     const wrapped = requireSecretsContext(ctx, "user-data-rights:run-export-jobs");
     await wrapped.get(

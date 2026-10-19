@@ -95,7 +95,7 @@ export function createConfigAccessor(
   return configAccessor;
 }
 
-// Pass to the test-stack / server-boot as `_configAccessorFactory` —
+// Pass to the test-stack / server-boot as `configAccessorFactory` —
 // `buildHandlerContext` mints a per-user `ctx.config` from this.
 export function createConfigAccessorFactory(
   registry: Registry,
@@ -115,7 +115,7 @@ export function requireConfigResolver(ctx: HandlerContext, handlerName: string):
     throw new InternalError({
       message:
         `[${handlerName}] ctx.configResolver missing — pass createConfigAccessorFactory's ` +
-        `output via extraContext._configAccessorFactory and the resolver via ` +
+        `output via extraContext.configAccessorFactory and the resolver via ` +
         `extraContext.configResolver at boot.`,
     });
   }
