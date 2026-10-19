@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -12,6 +12,12 @@ import { makeSessionApi } from "../../../auth-email-password/web/__tests__/test-
 import { SessionContext } from "../../../auth-email-password/web/session.tsx";
 import { defaultTranslations } from "../i18n.ts";
 import { MfaVerifyScreen } from "../mfa-verify-screen.tsx";
+
+// Tests below replace globalThis.fetch; restore it so later files in the shared DOM run get the real one.
+const originalFetch = globalThis.fetch;
+afterAll(() => {
+  globalThis.fetch = originalFetch;
+});
 
 function renderScreen(ui: ReactElement, session = makeSessionApi()): RenderResult {
   return render(

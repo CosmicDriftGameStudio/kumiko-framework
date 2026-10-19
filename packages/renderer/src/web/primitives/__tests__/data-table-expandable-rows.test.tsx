@@ -5,6 +5,14 @@ import { defaultPrimitives } from "../index.tsx";
 
 const { DataTable } = defaultPrimitives;
 
+// A plain `window.innerWidth =` write pins an override in happy-dom that later
+// setInnerWidth calls in other files of the shared DOM run can no longer change.
+function setViewportWidth(width: number): void {
+  (
+    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
+  ).happyDOM.setInnerWidth(width);
+}
+
 const columns = [
   { field: "name", label: "Name", type: "string", sortable: false },
   { field: "status", label: "Status", type: "string", sortable: false },
@@ -117,7 +125,7 @@ describe("DataTable expandable rows (table layout)", () => {
 describe("DataTable expandable rows (card layout)", () => {
   test("narrow viewport: toggle inside the row item, expansion as a sibling item outside the click target", () => {
     const originalWidth = window.innerWidth;
-    window.innerWidth = 500;
+    setViewportWidth(500);
     try {
       const onRowClick = mock();
       const { onToggleRowExpanded } = renderTable({
@@ -136,7 +144,7 @@ describe("DataTable expandable rows (card layout)", () => {
       expect(onToggleRowExpanded).toHaveBeenCalledWith("r1");
       expect(onRowClick).not.toHaveBeenCalled();
     } finally {
-      window.innerWidth = originalWidth;
+      setViewportWidth(originalWidth);
     }
   });
 });

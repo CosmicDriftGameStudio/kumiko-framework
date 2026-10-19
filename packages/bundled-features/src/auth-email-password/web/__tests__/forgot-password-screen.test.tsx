@@ -1,8 +1,14 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { ForgotPasswordScreen } from "../forgot-password-screen.tsx";
 import { installFetchMock } from "./fetch-mock.ts";
 import { renderWithProviders } from "./test-utils.tsx";
+
+// Tests below replace globalThis.fetch; restore it so later files in the shared DOM run get the real one.
+const originalFetch = globalThis.fetch;
+afterAll(() => {
+  globalThis.fetch = originalFetch;
+});
 
 installFetchMock();
 

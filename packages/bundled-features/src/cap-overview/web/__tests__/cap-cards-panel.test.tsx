@@ -301,5 +301,10 @@ describe("CapCardsPanel", () => {
 // The restore source is a spread copy: mock.module patches an already imported namespace in place.
 afterAll(() => {
   mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
-  mock.module("@cosmicdrift/kumiko-renderer/web", () => actualRendererWeb);
+  // renderer/web re-exports useQuery and was copied under the renderer mock, so its copy
+  // holds the spy; restoring it unchanged would reinstall the spy for every later file.
+  mock.module("@cosmicdrift/kumiko-renderer/web", () => ({
+    ...actualRendererWeb,
+    useQuery: actualRenderer.useQuery,
+  }));
 });

@@ -9,6 +9,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../i18n.ts";
 
+// Tests below replace globalThis.fetch; restore it so later files in the shared DOM run get the real one.
+const originalFetch = globalThis.fetch;
+afterAll(() => {
+  globalThis.fetch = originalFetch;
+});
+
 const realModule0 = { ...(await import("qrcode/lib/browser.js")) };
 mock.module("qrcode/lib/browser.js", () => ({
   default: { toString: mock(async () => "<svg></svg>") },

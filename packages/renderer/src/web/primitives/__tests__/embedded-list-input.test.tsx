@@ -146,7 +146,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
     // end up correct); spying on document.createElement across the whole
     // render call is the only way to prove a <table> was never built at all.
     const originalWidth = window.innerWidth;
-    window.innerWidth = 500;
+    setViewportWidth(500);
     const createElementSpy = spyOn(document, "createElement");
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
@@ -154,7 +154,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
       expect(createElementSpy.mock.calls.some(([tag]) => tag === "table")).toBe(false);
     } finally {
-      window.innerWidth = originalWidth;
+      setViewportWidth(originalWidth);
       createElementSpy.mockRestore();
     }
   });
@@ -166,7 +166,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
       expect(screen.getByTestId("lines-desktop")).toBeTruthy();
 
       await act(async () => {
-        window.innerWidth = 500;
+        setViewportWidth(500);
         window.dispatchEvent(new Event("resize"));
       });
 
@@ -174,7 +174,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
       expect(screen.getByTestId("lines-mobile")).toBeTruthy();
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
-      window.innerWidth = originalWidth;
+      setViewportWidth(originalWidth);
     }
   });
 });
@@ -1006,14 +1006,14 @@ describe("EmbeddedListInput — accessible names", () => {
 
   test("every mobile card cell control is named too", () => {
     const originalWidth = window.innerWidth;
-    window.innerWidth = 500;
+    setViewportWidth(500);
     try {
       renderWithLocale(
         <EmbeddedListInput {...baseProps({ columns: ALL_TYPE_COLUMNS, rows: ROWS })} />,
       );
       expectEveryCellControlNamed(screen.getByTestId("lines-mobile"));
     } finally {
-      window.innerWidth = originalWidth;
+      setViewportWidth(originalWidth);
     }
   });
 
@@ -1173,14 +1173,14 @@ describe("EmbeddedListInput — readOnly cells as plain text", () => {
 
   test("mobile card layout also renders plain text", () => {
     const originalWidth = window.innerWidth;
-    window.innerWidth = 500;
+    setViewportWidth(500);
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
       const mobile = within(screen.getByTestId("lines-mobile"));
       expect(mobile.getByText(longText).tagName).toBe("DIV");
       expect(mobile.queryByDisplayValue(longText)).toBeNull();
     } finally {
-      window.innerWidth = originalWidth;
+      setViewportWidth(originalWidth);
     }
   });
 });
