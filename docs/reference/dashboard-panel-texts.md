@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-15
-evidence: "packages/types/src/screen.ts (DashboardText, DashboardValueFormat, DashboardPanelGate, DashboardChartPanel); packages/renderer-web/src/app/dashboard-body.tsx; packages/renderer-web/src/widgets/stat.tsx; packages/renderer-web/src/widgets/charts.tsx (StackedAreaChart scrollable, lines, markers); packages/framework/src/engine/boot-validator/screens.ts"
+evidence: "packages/types/src/screen.ts (DashboardText, DashboardValueFormat, DashboardPanelGate, DashboardChartPanel); packages/renderer/src/web/app/dashboard-body.tsx; packages/renderer/src/web/widgets/stat.tsx; packages/renderer/src/web/widgets/charts.tsx (StackedAreaChart scrollable, lines, markers); packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
 # Dashboard panel texts and value formats

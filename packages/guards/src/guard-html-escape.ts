@@ -3,7 +3,7 @@
  * Guard: HTML-building template literals must escape every interpolation.
  *
  * XSS protection in this codebase is a callsite convention
- * (escapeHtml/escapeHtmlAttr from kumiko-headless) — this guard makes the
+ * (escapeHtml/escapeHtmlAttr from kumiko-renderer/headless) — this guard makes the
  * convention enforceable. A template literal counts as HTML-building when
  * its static text contains a known HTML/MJML/SVG tag. Every interpolation
  * inside it must then be recognizably safe:
@@ -409,7 +409,7 @@ function scanFile(sf: SourceFile): UnsafeSite[] {
 export const guard: AstGuard = {
   name: "HTML-Escape Guard",
   scan: SCAN,
-  hint: "Escape interpolation in an HTML template literal: escapeHtml()/escapeHtmlAttr() from @cosmicdrift/kumiko-headless. Mark pre-rendered HTML with a `*Html` name; type static copy tables `as const`; deliberate exception with `// html-ok: <why>`.",
+  hint: "Escape interpolation in an HTML template literal: escapeHtml()/escapeHtmlAttr() from @cosmicdrift/kumiko-renderer/headless. Mark pre-rendered HTML with a `*Html` name; type static copy tables `as const`; deliberate exception with `// html-ok: <why>`.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

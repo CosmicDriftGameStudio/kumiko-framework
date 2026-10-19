@@ -173,7 +173,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
       `<!doctype html><html><head></head><body><div id="root"></div><script type="module" src="/client.js"></script></body></html>`,
     );
     // Acts like stylesheet:false: no src/styles.css and outside the monorepo,
-    // so the renderer-web fallback fails and resolves to undefined.
+    // so the renderer/web fallback fails and resolves to undefined.
     await writeFile(join(tmp, "package.json"), `{"name":"build-it-fixture","private":true}`);
 
     execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {

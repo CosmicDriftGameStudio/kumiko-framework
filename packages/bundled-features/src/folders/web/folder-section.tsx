@@ -169,10 +169,9 @@ export function FolderSection({
         />
       </Field>
 
-      {/* Inline create-row: das Ordner-Input wächst, der Anlegen-Button sitzt
-          rechts daneben. ponytail: separate Zeile, weil die Combobox keine
-          create-on-type-Affordance hat — fold-in, wenn renderer-web ein
-          onCreate-Prop bekommt. */}
+      {/* Inline create row: the folder input grows, the create button sits next
+          to it. Separate row because the combobox has no create-on-type
+          affordance; fold in once renderer/web gets an onCreate prop. */}
       <div className="flex items-end gap-2">
         <div className="flex-1">
           <Field id="folder-section-new" label={t("folders.section.newLabel")}>

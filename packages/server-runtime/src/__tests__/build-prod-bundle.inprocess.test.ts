@@ -131,7 +131,7 @@ describe("buildProdBundle in-process (Bun.build)", () => {
       );
       await writeFile(
         join(cwd, "src/styles.css"),
-        `@import "@cosmicdrift/kumiko-renderer-web/styles.css";\n`,
+        `@import "@cosmicdrift/kumiko-renderer/web/styles.css";\n`,
       );
       await mkdir(join(cwd, "public"), { recursive: true });
       await writeFile(

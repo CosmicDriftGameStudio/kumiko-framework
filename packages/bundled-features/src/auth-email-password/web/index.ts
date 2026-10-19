@@ -3,7 +3,7 @@
 // Wird über den Sub-Path-Export `@cosmicdrift/kumiko-bundled-features/auth-email-
 // password/web` konsumiert — die Server-Seite (defineFeature) lebt in
 // `@cosmicdrift/kumiko-bundled-features/auth-email-password` und hat keine
-// React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer-web.
+// React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer/web.
 
 export { defaultTranslations, mergeTranslations } from "../i18n.ts";
 export type {

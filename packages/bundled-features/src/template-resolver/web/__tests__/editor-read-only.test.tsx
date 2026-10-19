@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 // mock.module replaces imports for all consumers — static imports
 // before mock.module still see the mocked version because Bun
 // intercepts at the loader level. useShellUser is a mock object here.
@@ -8,17 +8,20 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { textBlocksClient } from "../client-plugin.tsx";
 import { defaultTranslations } from "../i18n.ts";
 
+const realModule0 = {
+  ...(await import("@cosmicdrift/kumiko-bundled-features/auth-email-password/web")),
+};
 mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
   useShellUser: mock(),
 }));
 
-const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
+const actual_renderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actual_renderer,
   useDispatcher: mock(),
@@ -185,4 +188,11 @@ describe("TextContentEditor — handleSave", () => {
     const [, payload] = write.mock.calls[0] as unknown as [unknown, { contentFormat?: string }];
     expect(payload.contentFormat).toBe("plain");
   });
+});
+
+// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
+// The restore source is a spread copy: mock.module patches an already imported namespace in place.
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => realModule0);
+  mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
 });

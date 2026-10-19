@@ -1,5 +1,5 @@
-import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext, useState } from "react";
+import type { Dispatcher, DispatcherStatus } from "../headless/index.ts";
 import { useStore } from "../hooks/use-store.ts";
 import { createQueryPools, type QueryPools } from "./query-pool.ts";
 

@@ -10,8 +10,8 @@ import {
   isUnchangedValue,
   NO_WIDGET_FIELD_TYPES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type EditFormMode, I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import * as z from "zod";
+import { type EditFormMode, I18N_KEY_PARAM } from "../headless/index.ts";
 import { layoutEditFields } from "./layout-fields.ts";
 
 // `required` means "has a value", not "is truthy" — `false` and `0` count
@@ -125,7 +125,7 @@ export function buildFormSchema(
           code: "custom",
           path: [spec.field],
           message: `"${spec.field}" is required.`,
-          // I18N_KEY_PARAM override, see packages/headless/src/form/zod-bridge.ts.
+          // I18N_KEY_PARAM override, see packages/renderer/src/headless/form/zod-bridge.ts.
           params: { [I18N_KEY_PARAM]: REQUIRED_FIELD_I18N_KEY },
         });
       }

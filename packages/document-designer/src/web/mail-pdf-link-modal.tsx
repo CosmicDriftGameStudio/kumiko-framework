@@ -11,7 +11,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { EmptyState } from "@cosmicdrift/kumiko-renderer-web";
+import { EmptyState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { lastSlugSegment, parseJsonRecord, uniqueResourceKey } from "./mail-draft.ts";
 import type { TemplateRowSummary, TemplateRowView } from "./mail-types.ts";

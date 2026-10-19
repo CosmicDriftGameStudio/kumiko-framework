@@ -40,7 +40,7 @@ import {
   type PageHeadResolver,
   type PageHeadSystemQuery,
   resolveAndInjectPageHead,
-} from "@cosmicdrift/kumiko-headless/apex";
+} from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
 import {
   buildBunServeOptions,
@@ -191,7 +191,7 @@ export type CreateKumikoServerOptions = {
    *  whether the CLI keeps running with `--watch` afterwards.
    *
    *  When `undefined` and a client entry is set, the app's own
-   *  src/styles.css wins, otherwise `@cosmicdrift/kumiko-renderer-web/styles.css`
+   *  src/styles.css wins, otherwise `@cosmicdrift/kumiko-renderer/web/styles.css`
    *  resolves via package exports, so no sample hardcodes a monorepo-relative path.
    *
    *  `stylesheet: false` disables the CSS pipeline. */
@@ -352,7 +352,7 @@ const RELOAD_SNIPPET = `
 // keyboard shrinks only the visual viewport, not the layout viewport that
 // `position: fixed` anchors to — a fixed bottom action bar would stay
 // pinned behind the keyboard instead of above it. iOS Safari ignores the
-// key; renderer-web's useKeyboardInset covers it via window.visualViewport.
+// key; renderer/web's useKeyboardInset covers it via window.visualViewport.
 export const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -686,23 +686,20 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
   return out;
 }
 
-// Resolve den Pfad zur Tailwind-Entry-CSS. Mehrere Fälle:
-//   - Explicit string  → den resolved'en absoluten Pfad verwenden
-//   - false            → CSS-Pipeline aus (undefined zurück)
-//   - undefined + client(s):
-//       1. App-eigenes src/styles.css (App-Theme-Override) wenn vorhanden
-//       2. Sonst Default `@cosmicdrift/kumiko-renderer-web/styles.css` über Package-Exports
-//   - undefined + kein clientEntry/clientEntries: undefined (keine CSS nötig)
+// Resolves the path to the Tailwind entry CSS:
+//   - explicit string  → the resolved absolute path
+//   - false            → CSS pipeline off (undefined)
+//   - undefined + client entries:
+//       1. the app's own src/styles.css (theme override) if present
+//       2. else the default `@cosmicdrift/kumiko-renderer/web/styles.css` via package exports
+//   - undefined + no client entry: undefined (no CSS needed)
 //
-// Auto-Detection von src/styles.css spiegelt die Logik aus
-// build-prod-bundle:resolveStylesheetEntry — damit dev und prod identisch
-// resolven. Ohne diesen Check müsste jede App `stylesheet: "./src/styles.css"`
-// setzen, sonst greift in dev der renderer-web-Default und Brand-Tokens
-// werden ignoriert (DX-Falle).
+// The src/styles.css auto-detection mirrors build-prod-bundle:resolveStylesheetEntry
+// so dev and prod resolve identically. Without it every app would have to set
+// `stylesheet: "./src/styles.css"`, or dev would fall back to the default and
+// ignore the brand tokens.
 //
-// @internal — exportiert nur für Unit-Tests, nicht aus dem Package-Index
-//   re-exportiert. Konsumenten gehen ausschließlich über die `stylesheet`-
-//   Option der createKumikoServer-Aufrufstelle.
+// @internal — exported for unit tests only, not re-exported from the package index.
 export function resolveStylesheet(options: CreateKumikoServerOptions): string | undefined {
   if (options.stylesheet === false) return undefined;
   if (typeof options.stylesheet === "string") return resolve(options.stylesheet);
@@ -711,12 +708,12 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
     (options.clientEntries !== undefined && options.clientEntries.length > 0);
   if (!hasAnyEntry) return undefined;
 
-  // App-eigenes src/styles.css schlägt den renderer-web-Default — gleiche
-  // Logik wie kumiko-build, damit lokal/prod identisch bauen.
+  // The app's own src/styles.css beats the renderer/web default, same as
+  // kumiko-build, so local and prod builds match.
   const local = resolve(process.cwd(), "src/styles.css");
   if (existsSync(local)) return local;
 
-  // Bun.resolveSync folgt Package-Exports — "./styles.css" in renderer-web's
+  // Bun.resolveSync folgt Package-Exports — "./styles.css" in renderer/web's
   // package.json. Das Monorepo auflöst direkt auf den Workspace-File, eine
   // installierte Fremd-App auf den node_modules-File. Kein `fileURLToPath`
   // nötig, Bun gibt schon einen absoluten FS-Pfad zurück.
@@ -727,14 +724,14 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
     return undefined;
   }
   try {
-    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", process.cwd());
+    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer/web/styles.css", process.cwd());
     if (!canResolveTailwindStylesheet(resolved, { bun: Bun, cwd: process.cwd() })) {
       return undefined;
     }
     return resolved;
   } catch (err) {
     logError(
-      "[kumiko-server] couldn't auto-resolve @cosmicdrift/kumiko-renderer-web/styles.css — " +
+      "[kumiko-server] couldn't auto-resolve @cosmicdrift/kumiko-renderer/web/styles.css — " +
         "pass `stylesheet: <path>` or `stylesheet: false` explicitly.",
       err,
     );
@@ -878,7 +875,7 @@ export async function createKumikoServer(
   // reloads after a bundle rebuild anyway.
   //
   // Without an explicit `stylesheet`, the default resolves through the
-  // package exports of `@cosmicdrift/kumiko-renderer-web`, which works both
+  // package exports of `@cosmicdrift/kumiko-renderer/web`, which works both
   // for a workspace link and for an installed app (node_modules).
   let stylesheetPath: string | undefined;
   let killTailwind: (() => void) | undefined;
@@ -1149,7 +1146,7 @@ export async function createKumikoServer(
     ? realpathSync(lexicalPublicDir)
     : lexicalPublicDir;
   // The app's cwd first, this package's own location as fallback (the cwd may
-  // not have renderer-web installed, e.g. a fixture dir).
+  // not have renderer/web installed, e.g. a fixture dir).
   const rendererWebFontsDir = resolveRendererWebFontsDir([process.cwd(), import.meta.dir]);
 
   const routeFetch = async (req: Request, socketAddress?: string): Promise<Response> => {

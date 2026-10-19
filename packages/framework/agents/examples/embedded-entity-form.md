@@ -471,7 +471,7 @@ export const prospectAcceptScreen: EntityEditScreenDefinition = {
 ```tsx
 import type { RenderEditControls } from "@cosmicdrift/kumiko-renderer";
 import { RenderEdit, useDispatcher, usePrimitives } from "@cosmicdrift/kumiko-renderer";
-import { Drawer } from "@cosmicdrift/kumiko-renderer-web";
+import { Drawer } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { prospectEntity } from "../entities/prospect";

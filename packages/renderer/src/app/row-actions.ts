@@ -10,11 +10,11 @@ import type {
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
 import type { ToolbarActionButton } from "../components/render-list.tsx";
+import type { Dispatcher, ListRowViewModel, Translate } from "../headless/index.ts";
 import type { DataTableRowAction } from "../primitives.tsx";
 import { type ClientActionRuntime, runClientAction } from "./client-actions.tsx";
 import type { NavApi, ScreenTarget } from "./nav.tsx";

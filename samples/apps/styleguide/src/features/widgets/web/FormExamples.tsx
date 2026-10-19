@@ -14,7 +14,7 @@ import {
   TextareaField,
   TextField,
   useDraft,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 
 export function FormExamples(): ReactNode {

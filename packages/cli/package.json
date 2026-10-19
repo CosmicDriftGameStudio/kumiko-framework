@@ -38,6 +38,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
     "marked": "^18.0.3",
     "zod": "^4.4.3"
@@ -46,7 +47,7 @@
     "sharp": "^0.35.5",
     "@cosmicdrift/kumiko-bundled-features": ">=0.353.0 <1.0.0",
     "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0",
-    "@cosmicdrift/kumiko-headless": ">=0.353.0 <1.0.0"
+    "@cosmicdrift/kumiko-renderer": ">=0.353.0 <1.0.0"
   },
   "peerDependenciesMeta": {
     "sharp": {
@@ -58,14 +59,14 @@
     "@cosmicdrift/kumiko-framework": {
       "optional": true
     },
-    "@cosmicdrift/kumiko-headless": {
+    "@cosmicdrift/kumiko-renderer": {
       "optional": true
     }
   },
   "devDependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-renderer": "workspace:*",
     "sharp": "^0.35.5"
   },
   "publishConfig": {

@@ -1,13 +1,13 @@
 import type { RowActionDrawer } from "@cosmicdrift/kumiko-framework/ui-types";
-import type {
-  EditRelatedListSectionViewModel,
-  ListRowViewModel,
-  Translate,
-} from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { RelatedListSection } from "../components/related-list-section.tsx";
 import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
+import type {
+  EditRelatedListSectionViewModel,
+  ListRowViewModel,
+  Translate,
+} from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";

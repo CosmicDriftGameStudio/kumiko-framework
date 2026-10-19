@@ -2,6 +2,7 @@
 // package-merge — packages folded into another package keep working as shims for one wave and are
 // then removed; this rewrites the consumer side of each move:
 //   import/export/import()/mock.module specifiers (incl. subpaths) -> the new specifier
+//   CSS @import/@plugin/@config specifiers                         -> the new specifier
 //   package.json dependencies/devDependencies/peerDependencies     -> old entry out, new entry in
 //     (same version range, same block, skipped when the block already has it)
 // New moves are rows in PACKAGE_MERGE_MAPPINGS; nothing else changes.
@@ -33,6 +34,9 @@ export const PACKAGE_MERGE_MAPPINGS: readonly PackageMergeMapping[] = [
     from: "@cosmicdrift/kumiko-repo-manifest",
     to: "@cosmicdrift/kumiko-guards/repo-manifest",
   },
+  { from: "@cosmicdrift/kumiko-headless", to: "@cosmicdrift/kumiko-renderer/headless" },
+  { from: "@cosmicdrift/kumiko-dispatcher-live", to: "@cosmicdrift/kumiko-renderer/live" },
+  { from: "@cosmicdrift/kumiko-renderer-web", to: "@cosmicdrift/kumiko-renderer/web" },
 ];
 
 const DEPENDENCY_BLOCKS = ["dependencies", "devDependencies", "peerDependencies"] as const;
@@ -41,6 +45,14 @@ const SKIPPED_PATH_SUFFIXES: readonly string[] = [
   "packages/http/src/index.ts",
   "packages/repo-manifest/src/index.ts",
   "packages/repo-manifest/src/app-ports/index.ts",
+  "packages/headless/src/index.ts",
+  "packages/headless/src/apex/index.ts",
+  "packages/headless/src/dispatcher/index.ts",
+  "packages/headless/src/locale-routing/index.ts",
+  "packages/dispatcher-live/src/index.ts",
+  "packages/renderer-web/src/index.ts",
+  "packages/renderer-web/src/theme-plugin.ts",
+  "packages/renderer-web/src/styles.css",
   "packages/framework/src/scripts/codemod/package-merge.ts",
   "packages/framework/src/__tests__/package-merge-codemod.test.ts",
 ];
@@ -100,6 +112,42 @@ function transformTypeScriptSource(
     edits.push({ start: literal.getStart(), end: literal.getEnd(), text: JSON.stringify(next) });
   }
   return applyEdits(source, edits);
+}
+
+const CSS_AT_RULE_STRING = /@(import|plugin|config|source)(\s+(?:url\(\s*)?)(["'])([^"'\n]+)\3/g;
+
+// A stylesheet specifier is rewritten like an import. A path into the package's files (`@source
+// ".../node_modules/<from>/src/..."`) has no mechanical target, so it is reported as manual.
+function transformCssSource(
+  source: string,
+  filePath: string,
+  mappings: readonly PackageMergeMapping[],
+  result: SiteLists,
+): string {
+  if (!mappings.some(({ from }) => source.includes(from))) return source;
+  const lineOf = (offset: number): number => source.slice(0, offset).split("\n").length;
+  return source.replace(
+    CSS_AT_RULE_STRING,
+    (match, rule: string, between: string, quote: string, value: string, offset: number) => {
+      const next = rule === "source" ? undefined : mergedSpecifier(value, mappings);
+      if (next !== undefined) {
+        result.rewrites.push({
+          file: filePath,
+          line: lineOf(offset),
+          description: `${value} -> ${next}`,
+        });
+        return `@${rule}${between}${quote}${next}${quote}`;
+      }
+      if (mappings.some(({ from }) => value.includes(`/${from}/`))) {
+        result.manual.push({
+          file: filePath,
+          line: lineOf(offset),
+          description: `@${rule} path into a merged package: ${value}`,
+        });
+      }
+      return match;
+    },
+  );
 }
 
 function detectIndent(source: string): string {
@@ -188,7 +236,9 @@ export function transformPackageMergeSource(
   const result: SiteLists = { rewrites: [], manual: [] };
   const output = filePath.endsWith("package.json")
     ? transformPackageJson(source, filePath, mappings, result)
-    : transformTypeScriptSource(source, filePath, mappings, result);
+    : filePath.endsWith(".css")
+      ? transformCssSource(source, filePath, mappings, result)
+      : transformTypeScriptSource(source, filePath, mappings, result);
   return { output, ...result };
 }
 
@@ -203,6 +253,7 @@ if (import.meta.main) {
       transform: (source, filePath) => transformPackageMergeSource(source, filePath),
       isSkippedPath,
       extraFileNames: ["package.json"],
+      extraExtensions: [".css"],
     },
     process.argv.slice(2),
   );

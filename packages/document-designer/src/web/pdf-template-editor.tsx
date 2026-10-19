@@ -10,8 +10,8 @@ import {
   useTranslation,
   useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
+import { ErrorState, LoadingState, uploadFileRef } from "@cosmicdrift/kumiko-renderer/web";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
-import { ErrorState, LoadingState, uploadFileRef } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { BRANDING_QUERY_QN } from "../constants.ts";
 import {

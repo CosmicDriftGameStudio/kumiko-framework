@@ -1,4 +1,4 @@
-import { escapeXml } from "@cosmicdrift/kumiko-headless";
+import { escapeXml } from "@cosmicdrift/kumiko-renderer/headless";
 
 export type SitemapEntry = {
   readonly loc: string;

@@ -4,7 +4,7 @@
 // DashboardFilterDefinition in feature.ts).
 
 import { type ExtensionSectionProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { SectionCard } from "@cosmicdrift/kumiko-renderer-web";
+import { SectionCard } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 
 export function DashboardFilterEcho({ filterParams }: ExtensionSectionProps): ReactNode {

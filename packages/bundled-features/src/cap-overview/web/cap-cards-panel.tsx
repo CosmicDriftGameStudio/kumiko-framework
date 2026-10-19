@@ -1,13 +1,13 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
 // @runtime client
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
 import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   EmptyState,
   StatCard,
   StatusBadge,
   type StatusTone,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { Database, FileText, Gauge, Hash, Mail, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { CapOverviewQueries } from "../constants.ts";
@@ -68,7 +68,7 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
   return (
     <div
       // Arbitrary bracket values (grid-cols-[repeat(...)]) never compiled:
-      // styles.css's Tailwind v4 @source scan only covers renderer-web/src,
+      // styles.css's Tailwind v4 @source scan only covers renderer/web/src,
       // renderer/src and samples/**/src (see its comment) — bundled-features
       // isn't scanned, so a class unique to this file has no generated rule
       // and silently no-ops (the grid fell back to one implicit column,

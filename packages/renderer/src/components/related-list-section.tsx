@@ -12,11 +12,6 @@ import {
   relatedListGroupHeaderLabel,
   relatedListGroupKey,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type {
-  EditRelatedListSectionViewModel,
-  ListRowViewModel,
-  Translate,
-} from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
@@ -45,6 +40,11 @@ import { findEditScreenFor } from "../app/screen-access.ts";
 import { dispatcherErrorText } from "../app/write-failed-error.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import type {
+  EditRelatedListSectionViewModel,
+  ListRowViewModel,
+  Translate,
+} from "../headless/index.ts";
 import type { ListSort } from "../hooks/use-list-url-state.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { useOptionalLocale, useTranslation } from "../i18n.tsx";

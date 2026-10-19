@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
+import type { DispatcherError } from "../../headless/index.ts";
 import type { UseQueryResult } from "../../hooks/use-query.ts";
 import { evalVisibleWhen, evalVisibleWhenAfterShown } from "../visible-when.ts";
 

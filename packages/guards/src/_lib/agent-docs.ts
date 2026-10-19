@@ -14,7 +14,7 @@ import { type ExportedDeclarations, type JSDocableNode, Node, Project, ts } from
 export const AGENT_DOCS_DIR = "packages/framework/agents";
 
 const FEATURE_MANIFEST_REL = "samples/apps/use-all-bundled/feature-manifest.json";
-const RENDERER_WEB_INDEX_REL = "packages/renderer-web/src/index.ts";
+const RENDERER_WEB_INDEX_REL = "packages/renderer/src/web/index.ts";
 const RECIPES_REL = "samples/recipes";
 const RECIPE_SLUG_RE = /^[a-z0-9-]+$/;
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
@@ -286,7 +286,7 @@ function renderWidgets(repoRoot: string): string {
     const rows = entries.map(([name, description]) => [`\`${name}\``, description]);
     sections.push(`## ${group}\n\n${table(["Name", "Description"], rows)}`);
   }
-  const intro = "Value exports of `@cosmicdrift/kumiko-renderer-web`.";
+  const intro = "Value exports of `@cosmicdrift/kumiko-renderer/web`.";
   return finishFile(RENDERER_WEB_INDEX_REL, `# Widgets\n\n${intro}\n\n${sections.join("\n\n")}`);
 }
 

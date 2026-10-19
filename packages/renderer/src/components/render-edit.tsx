@@ -10,6 +10,7 @@ import {
   PROJECTION_DETAIL_ENTITY,
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   DispatcherError,
   EditExtensionSectionViewModel,
@@ -20,14 +21,13 @@ import type {
   FormValues,
   SubmitResult,
   Translate,
-} from "@cosmicdrift/kumiko-headless";
+} from "../headless/index.ts";
 import {
   computeEditViewModel,
   groupIssuesByPath,
   relevantFieldIssues,
   zodErrorToFieldIssues,
-} from "@cosmicdrift/kumiko-headless";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+} from "../headless/index.ts";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import type { RenderEditProps } from "./render-edit-types.ts";
 import { AllFieldsRequiredProvider } from "./render-field.tsx";

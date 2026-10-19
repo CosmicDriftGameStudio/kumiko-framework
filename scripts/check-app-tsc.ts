@@ -65,9 +65,6 @@ const PACKAGE_REFS = [
   "bundled-features",
   "dev-server",
   "renderer",
-  "renderer-web",
-  "headless",
-  "dispatcher-live",
 ] as const;
 
 const PACKAGE_PATH_PREFIXES = PACKAGE_REFS.map((p) => `@cosmicdrift/kumiko-${p}`);

@@ -48,9 +48,9 @@ export type EmailPasswordClientOptions = {
   readonly translations?: TranslationsByLocale;
 };
 
-// Struktural identisch zur renderer-web ClientFeatureDefinition, aber
-// ohne harte Dep auf @cosmicdrift/kumiko-renderer-web — so bleibt das Feature auch
-// für React-Native-Renderer (wenn sie kommen) nutzbar.
+// Structurally identical to the renderer/web ClientFeatureDefinition, but
+// without a hard dependency on @cosmicdrift/kumiko-renderer/web, so the feature
+// stays usable by other renderers.
 export type EmailPasswordClientFeature = {
   readonly name: "auth-email-password";
   readonly providers: readonly ComponentType<{ children: ReactNode }>[];

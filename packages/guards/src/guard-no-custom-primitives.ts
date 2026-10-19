@@ -89,7 +89,7 @@ const rawFormHtmlBaseline = baselineRatchet({
   unit: "raw form HTML finding(s)",
 });
 const RAW_FORM_HTML_REMEDIATION =
-  "Use a framework widget (@cosmicdrift/kumiko-renderer-web: Field/Input, ComboboxInput, …) " +
+  "Use a framework widget (@cosmicdrift/kumiko-renderer/web: Field/Input, ComboboxInput, …) " +
   `or usePrimitives(). Real exception: // ${IGNORE_TAG} <reason>`;
 
 // The rule is new: measured backlog is 0 in every locally checked repo
@@ -166,7 +166,7 @@ export const guard: AstGuard = {
   name: "No-Custom-Primitives Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Use a framework widget (@cosmicdrift/kumiko-renderer-web: StatCard, SectionCard, StatusBadge, QueryTable, Charts, …) " +
+    "Use a framework widget (@cosmicdrift/kumiko-renderer/web: StatCard, SectionCard, StatusBadge, QueryTable, Charts, …) " +
     `or usePrimitives(). Real domain component without a framework equivalent: // ${IGNORE_TAG} <reason>`,
   run: (files: readonly SourceFile[]) => analyse(files, true),
 };

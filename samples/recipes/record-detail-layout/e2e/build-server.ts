@@ -18,7 +18,7 @@
 // getBoundingClientRect() measurements in height.spec.ts would be against
 // unstyled browser default flow, not the actual flex chain under test.
 // Entry stylesheet = fixtures/styles.css, a local wrapper that re-exports
-// renderer-web's styles.css and adds an @source covering this e2e dir.
+// renderer/web's styles.css and adds an @source covering this e2e dir.
 //
 // One-shot build, no watcher (the server only runs for the test duration)
 // — dies hard on a Tailwind CLI/build failure instead of degrading to an

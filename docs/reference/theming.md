@@ -1,12 +1,12 @@
 ---
 status: reference
 verified: 2026-10-03
-evidence: "kumiko-framework#3381 (warm-neutral tokens, IBM Plex, sidebar tokens); packages/renderer-web/src/styles.css; packages/renderer-web/src/__tests__/token-contrast.test.ts"
+evidence: "kumiko-framework#3381 (warm-neutral tokens, IBM Plex, sidebar tokens); packages/renderer/src/web/styles.css; packages/renderer/src/web/__tests__/token-contrast.test.ts"
 ---
 
 # Theming: design tokens, fonts and app overrides
 
-`@cosmicdrift/kumiko-renderer-web/styles.css` defines every color, radius and font as a CSS variable. Screens and widgets only use the tokens, so an app re-brands by overriding variables and never touches component CSS.
+`@cosmicdrift/kumiko-renderer/web/styles.css` defines every color, radius and font as a CSS variable. Screens and widgets only use the tokens, so an app re-brands by overriding variables and never touches component CSS.
 
 ## Token roles (light)
 
@@ -37,15 +37,15 @@ Dark uses the same roles with its own values (page `#121211`, surface `#1A1A19`,
 
 - `--radius` is `0.5rem`. Controls use `rounded-md` (6px), pills use `rounded-full`.
 - Numbers, dates and money render with `tabular-nums`.
-- IBM Plex Sans (400, 500, 600) and IBM Plex Mono (400, 500) ship inside `renderer-web` under the SIL Open Font License (`src/fonts/OFL.txt`). They are self-hosted, so `font-src 'self'` is enough. The dev server and the production build of `server-runtime` serve them under `/assets/kumiko/fonts/`.
+- IBM Plex Sans (400, 500, 600) and IBM Plex Mono (400, 500) ship inside `renderer/web` under the SIL Open Font License (`src/fonts/OFL.txt`). They are self-hosted, so `font-src 'self'` is enough. The dev server and the production build of `server-runtime` serve them under `/assets/kumiko/fonts/`.
 - Override the fonts with `fonts.sans` and `fonts.mono` in `defineAppTheme` (see App override). Apps that want Inter set `fonts.sans` and load the font themselves.
 
 ## App override
 
-An app declares its brand once with `defineAppTheme` and loads it through the Tailwind plugin from `@cosmicdrift/kumiko-renderer-web/theme-plugin`. Every framework token above is a valid key under `colors`; a plain string applies to both modes, `{ light, dark }` sets them separately:
+An app declares its brand once with `defineAppTheme` and loads it through the Tailwind plugin from `@cosmicdrift/kumiko-renderer/web/theme-plugin`. Every framework token above is a valid key under `colors`; a plain string applies to both modes, `{ light, dark }` sets them separately:
 
 ```ts illustration
-import { createThemePlugin, defineAppTheme } from "@cosmicdrift/kumiko-renderer-web/theme-plugin";
+import { createThemePlugin, defineAppTheme } from "@cosmicdrift/kumiko-renderer/web/theme-plugin";
 
 export default createThemePlugin(
   defineAppTheme({

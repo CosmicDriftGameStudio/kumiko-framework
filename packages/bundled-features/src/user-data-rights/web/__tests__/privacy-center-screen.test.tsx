@@ -3,11 +3,10 @@
 // (the dispatched query/handler names). Restriction/deletion (status-driven
 // branches) moved to declarative fields/actions with fw#2312 (feature.ts,
 // booted in inspector-screens.boot.test.ts) — only Export (ExportSection) is
-// still a React component. Provider wrapper is local (the renderer-web →
+// still a React component. Provider wrapper is local (the renderer/web →
 // bundled-features dependency direction forbids importing test-utils).
 
 import { describe, expect, spyOn, test } from "bun:test";
-import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -18,7 +17,12 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  createStore,
+  type Dispatcher,
+  type DispatcherStatus,
+} from "@cosmicdrift/kumiko-renderer/headless";
+import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { UserQueries } from "../../../user/index.ts";

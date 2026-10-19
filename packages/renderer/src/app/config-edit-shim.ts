@@ -18,8 +18,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import * as z from "zod";
+import { I18N_KEY_PARAM } from "../headless/index.ts";
 
 const CONFIG_EDIT_PSEUDO_ENTITY = "__config-edit__";
 

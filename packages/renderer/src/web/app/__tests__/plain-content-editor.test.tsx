@@ -1,0 +1,69 @@
+import { describe, expect, test } from "bun:test";
+import { type ReactNode, useState } from "react";
+import { CONTENT_EDITOR_ELEMENT_ID } from "../../../index.ts";
+import { fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
+import { PlainContentEditor } from "../plain-content-editor.tsx";
+
+function Controlled({ initial }: { readonly initial: string }): ReactNode {
+  const [value, setValue] = useState(initial);
+  return (
+    <PlainContentEditor
+      id={CONTENT_EDITOR_ELEMENT_ID}
+      value={value}
+      onChange={setValue}
+      variables={["name"]}
+      readOnly={false}
+    />
+  );
+}
+
+describe("PlainContentEditor", () => {
+  test("renders the textarea plus one chip per variable", () => {
+    render(
+      <PlainContentEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value=""
+        onChange={() => {}}
+        variables={["name"]}
+        readOnly={false}
+      />,
+    );
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    expect(screen.getByText("{{name}}")).toBeTruthy();
+  });
+
+  test("no variables → no chips", () => {
+    render(
+      <PlainContentEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value=""
+        onChange={() => {}}
+        variables={[]}
+        readOnly={false}
+      />,
+    );
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+
+  test("chip click inserts the placeholder at the caret, not appended", () => {
+    render(<Controlled initial="Hello  world" />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    // Caret between the two spaces (index 6), so the insert must land there —
+    // an append-only implementation would put it at the string's end instead.
+    textarea.setSelectionRange(6, 6);
+    fireEvent.click(screen.getByText("{{name}}"));
+    expect(textarea.value).toBe("Hello {{name}} world");
+    // Caret-restore effect: focus + selection must land right after the
+    // inserted placeholder, not wherever the DOM happened to leave it.
+    expect(textarea.selectionStart).toBe(14);
+    expect(textarea.selectionEnd).toBe(14);
+  });
+
+  test("chip click replaces a selection instead of inserting alongside it", () => {
+    render(<Controlled initial="Hello world" />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.setSelectionRange(6, 11); // selects "world"
+    fireEvent.click(screen.getByText("{{name}}"));
+    expect(textarea.value).toBe("Hello {{name}}");
+  });
+});

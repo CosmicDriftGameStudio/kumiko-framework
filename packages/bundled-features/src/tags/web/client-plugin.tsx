@@ -1,6 +1,6 @@
 // @runtime client
 
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import {
   TAGS_COLUMN_RENDERER_NAME,
   TAGS_FEATURE_NAME,

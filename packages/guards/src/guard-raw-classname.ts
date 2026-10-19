@@ -90,7 +90,7 @@ export const guard: AstGuard = {
   name: "Raw-ClassName Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Design-bearing classes belong in widgets/theme tokens (@cosmicdrift/kumiko-renderer-web widgets/, --color-status-*). " +
+    "Design-bearing classes belong in widgets/theme tokens (@cosmicdrift/kumiko-renderer/web widgets/, --color-status-*). " +
     `Justified exception: // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];

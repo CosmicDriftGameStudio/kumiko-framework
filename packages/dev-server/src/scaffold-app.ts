@@ -257,7 +257,7 @@ function renderPackageJson(
         "@cosmicdrift/kumiko-bundled-features": version,
         "@cosmicdrift/kumiko-dev-server": version,
         "@cosmicdrift/kumiko-framework": version,
-        "@cosmicdrift/kumiko-renderer-web": version,
+        "@cosmicdrift/kumiko-renderer": version,
         "@cosmicdrift/kumiko-server-runtime": version,
         react: "^19.2.6",
         "react-dom": "^19.2.6",
@@ -597,7 +597,7 @@ function renderClient(appName: string): string {
     },
     { specifier: "./features/tasks/web", names: ["tasksClient"] },
     {
-      specifier: "@cosmicdrift/kumiko-renderer-web",
+      specifier: "@cosmicdrift/kumiko-renderer/web",
       names: ["type AppSchema", "createKumikoApp", "DefaultAppShell"],
     },
     { specifier: "react", names: ["ReactNode"], typeOnly: true },
@@ -802,7 +802,7 @@ For full docs see https://docs.kumiko.rocks.
 
 function renderStylesCss(): string {
   return [
-    '@import "@cosmicdrift/kumiko-renderer-web/styles.css";',
+    '@import "@cosmicdrift/kumiko-renderer/web/styles.css";',
     "",
     '@source "./**/*.{ts,tsx}";',
     "",

@@ -7,7 +7,7 @@ import {
   useTranslation,
   useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
-import { LoadingState } from "@cosmicdrift/kumiko-renderer-web";
+import { LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DEFAULT_TEMPLATE_LOCALES } from "../constants.ts";
 import { defaultLocaleOf } from "./editor-locale.ts";

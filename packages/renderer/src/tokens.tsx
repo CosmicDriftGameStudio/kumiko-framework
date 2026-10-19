@@ -128,16 +128,15 @@ export function useTokenController(): TokensApi {
   const api = useContext(TokensContext);
   if (api === undefined) {
     throw new Error(
-      "useTokens/useTokenController: no <TokensProvider> mounted. createKumikoApp verdrahtet den Provider automatisch mit @cosmicdrift/kumiko-renderer-web defaults.",
+      "useTokens/useTokenController: no <TokensProvider> mounted. createKumikoApp verdrahtet den Provider automatisch mit @cosmicdrift/kumiko-renderer/web defaults.",
     );
   }
   return api;
 }
 
-/** Tokens mit var-string-Werten. Konstant — die "Werte" sind
- *  Referenzen, die echten Farben ändern sich per CSS ohne dass das
- *  Objekt mutiert werden muss. Plattform-Packages (renderer-web,
- *  -native) importieren das in ihre TokensApi-Impl. */
+/** Tokens with var-string values. Constant: the "values" are references,
+ *  the real colors change via CSS without mutating the object. Platform
+ *  bindings (renderer/web) import it into their TokensApi impl. */
 export const cssVarTokens: Tokens = {
   color: {
     background: "var(--color-background)",

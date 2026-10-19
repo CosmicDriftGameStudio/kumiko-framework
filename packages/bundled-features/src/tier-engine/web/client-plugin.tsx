@@ -8,7 +8,7 @@ import {
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { TIER_ENGINE_FEATURE } from "../constants.ts";
 import { TIER_ENGINE_I18N } from "../i18n.ts";
 

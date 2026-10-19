@@ -8,7 +8,7 @@ import {
   createClientIpResolver,
 } from "@cosmicdrift/kumiko-framework/api";
 import { rankPreferredLocales } from "@cosmicdrift/kumiko-framework/i18n";
-import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
+import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ASSETS_DIR } from "./build-prod-bundle.ts";
 import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.ts";

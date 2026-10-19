@@ -3,12 +3,12 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher, DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { buildFormSchema } from "../../app/form-schema.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher, DispatcherError, SubmitResult } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {

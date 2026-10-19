@@ -170,7 +170,7 @@ describe("scaffoldApp", () => {
     expect(pkg.dependencies["@cosmicdrift/kumiko-bundled-features"]).toBe("^0.13.0");
     expect(pkg.dependencies["@cosmicdrift/kumiko-dev-server"]).toBe("^0.13.0");
     expect(pkg.dependencies["@cosmicdrift/kumiko-framework"]).toBe("^0.13.0");
-    expect(pkg.dependencies["@cosmicdrift/kumiko-renderer-web"]).toBe("^0.13.0");
+    expect(pkg.dependencies["@cosmicdrift/kumiko-renderer"]).toBe("^0.13.0");
     expect(pkg.scripts["boot"]).toContain("KUMIKO_DRY_RUN_ENV=boot");
     expect(pkg.scripts["dev"]).toBe("bun --watch bin/server.ts");
     expect(pkg.scripts["check"]).toBe("kumiko check");
@@ -397,7 +397,7 @@ describe("scaffoldApp", () => {
     expect(client).toContain("function AppShell(");
     expect(client).toContain("brand={<span");
     expect(client).toContain(">my-shop</span>");
-    expect(client).toContain('from "@cosmicdrift/kumiko-renderer-web"');
+    expect(client).toContain('from "@cosmicdrift/kumiko-renderer/web"');
     expect(client).toContain('from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web"');
     expect(client).toContain("tasksClient");
   });

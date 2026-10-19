@@ -1,6 +1,6 @@
 import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
-import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";
 import { configDemoClient } from "../features/demo/web";
 import { AppShell } from "./shell";
 

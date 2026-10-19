@@ -185,7 +185,7 @@ function renderWebIndex(name: string): string {
 // createKumikoApp({ clientFeatures: [...] }) einhängen — das passiert
 // NICHT automatisch. Screens: eine Datei pro Screen in diesem Ordner.
 
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 
 export const ${camel}Client: ClientFeatureDefinition = {
   name: "${name}",

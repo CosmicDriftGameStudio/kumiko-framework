@@ -14,7 +14,7 @@ import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes.ts";
 import { buildServer } from "../server.ts";
 
-// Reads the SSE wire format independently of the client-side parser in kumiko-dispatcher-live.
+// Reads the SSE wire format independently of the client-side parser in kumiko-renderer/live.
 function parseSseFrames(text: string): { event: string; data: string }[] {
   return text
     .split("\n\n")

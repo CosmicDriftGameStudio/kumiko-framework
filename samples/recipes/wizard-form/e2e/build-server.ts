@@ -1,9 +1,9 @@
 // Tiny Bun server that builds and serves the e2e bundle — counterpart to
-// the build-server in packages/renderer-web/e2e, radically stripped down
+// the build-server in packages/renderer/e2e, radically stripped down
 // (no Postgres, no auth). The MockDispatcher (fixtures/mock-dispatcher.ts)
 // replaces the whole stack.
 //
-// Difference from the renderer-web blueprint: the AppSchema is NOT
+// Difference from the renderer/web blueprint: the AppSchema is NOT
 // duplicated in the client bundle (drift risk against the real feature
 // code). Instead this server process builds the schema from the real
 // src/feature.ts via createRegistry + buildAppSchema (both pure, no
@@ -20,8 +20,8 @@
 // disappears under the simulated keyboard). Without real CSS those would
 // be fake assertions against unstyled browser default flow. Entry
 // stylesheet = fixtures/styles.css, a local wrapper that re-exports
-// renderer-web's styles.css and adds an @source covering this e2e dir —
-// renderer-web's own @source globs only scan samples/**/src/**, which
+// renderer/web's styles.css and adds an @source covering this e2e dir —
+// renderer/web's own @source globs only scan samples/**/src/**, which
 // misses e2e/fixtures/client.tsx.
 // One-shot build, no watcher (the server only runs for the test duration)
 // — same CLI-resolve mechanism as create-kumiko-server.ts, but without

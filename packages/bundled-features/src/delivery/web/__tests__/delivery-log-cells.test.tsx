@@ -7,7 +7,7 @@ import {
   PrimitivesProvider,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DELIVERY_I18N } from "../../i18n.ts";

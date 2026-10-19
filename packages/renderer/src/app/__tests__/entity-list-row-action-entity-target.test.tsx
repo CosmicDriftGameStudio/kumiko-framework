@@ -2,7 +2,7 @@
 // of a ScreenTarget (`screen`). This renders the real entityList pipeline
 // (KumikoScreen → EntityListBody) and asserts a click on the entity-target
 // row action calls nav.navigate with `{ entity, id }` — resolution to an
-// actual screen is the NavApi impl's job (renderer-web's resolveTarget), not
+// actual screen is the NavApi impl's job (renderer/web's resolveTarget), not
 // this platform-neutral package's. Mirrors
 // entity-list-row-action-kumiko-actions-view.test.tsx's harness.
 
@@ -14,10 +14,10 @@ import type {
   ProjectionListScreenDefinition,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {

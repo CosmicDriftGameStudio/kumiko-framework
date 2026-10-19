@@ -1,6 +1,5 @@
-// Primitives-Contract. Plattform-neutral — die Types beschreiben die
-// semantische Oberfläche, die konkrete Implementation (HTML, React
-// Native) kommt aus `@cosmicdrift/kumiko-renderer-web` oder `@cosmicdrift/kumiko-renderer-native`.
+// Primitives contract. Platform-neutral: the types describe the semantic
+// surface, the concrete implementation (HTML) comes from `@cosmicdrift/kumiko-renderer/web`.
 //
 // Die Renderer (RenderEdit, RenderList, RenderField, KumikoScreen)
 // konsumieren nur diesen Context. Es gibt KEIN Default-Registry hier
@@ -16,7 +15,7 @@
 //   Input     — discriminated union über text/number/boolean/date
 //   DataTable — Spalten + Zeilen + onRowClick, Empty-State intern
 //   EmbeddedListInput — row array + totals table for createEmbeddedListField
-//   Form      — submit-Wrapper (Web: <form>, Native: View + onSubmit)
+//   Form      — submit-Wrapper (<form> + onSubmit)
 //   Section   — titled Gruppe von Feldern (Web: <fieldset>+<legend>)
 //   Grid      — columns-basiertes Layout innerhalb einer Section
 //   Text      — semantische Text-Variante (body/small/code/required-mark)
@@ -43,12 +42,6 @@ import type {
   RowActionDisplay,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type {
-  FieldIssue,
-  ListColumnViewModel,
-  ListRowViewModel,
-  RuntimeRenderer,
-} from "@cosmicdrift/kumiko-headless";
 import {
   type ComponentType,
   createContext,
@@ -58,6 +51,12 @@ import {
   type Ref,
   useContext,
 } from "react";
+import type {
+  FieldIssue,
+  ListColumnViewModel,
+  ListRowViewModel,
+  RuntimeRenderer,
+} from "./headless/index.ts";
 
 export type { RuntimeRenderer };
 
@@ -65,7 +64,7 @@ export type { RuntimeRenderer };
 
 /** Escape hatch for `data-*` test hooks (e.g. an E2E selector) that don't
  *  warrant a dedicated typed prop. Web merges these onto the rendered
- *  element; native impls ignore it (precedent: `className`). */
+ *  element. */
 export type DataAttributes = Readonly<Record<`data-${string}`, string>>;
 
 /** Structural marker a top-level `actions` node can carry so DefaultForm's
@@ -126,7 +125,7 @@ type ButtonBaseProps = {
   /** Barrierefreies Label — Pflicht bei icon-only-Buttons (children ist nur
    *  ein Icon/Zeichen), sonst hat der Button keinen zugänglichen Namen. */
   readonly ariaLabel?: string;
-  /** Tooltip — web renders the native `title` attribute, native impls may ignore it. */
+  /** Tooltip — rendered as the `title` attribute. */
   readonly title?: string;
   /** Toggle state for toggle buttons — web sets `aria-pressed`; leave unset for plain buttons. */
   readonly pressed?: boolean;
@@ -137,12 +136,10 @@ type ButtonBaseProps = {
    *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */
   readonly width?: "full" | "auto";
   readonly testId?: string;
-  /** Layout extras — Web merges via cn(), native impls ignore it
-   *  (precedent: LinkProps.className). */
+  /** Layout extras, merged via cn(). */
   readonly className?: string;
   /** DOM ref on the button — escape hatch for cases that need more than
-   *  a click (e.g. binding a drop-target handler). Web forwards it, native
-   *  impls ignore it (no native equivalent). */
+   *  a click (e.g. binding a drop-target handler). Forwarded to the element. */
   readonly ref?: Ref<HTMLButtonElement>;
   /** Icon before the label. */
   readonly icon?: NavIconKey;
@@ -165,8 +162,7 @@ export type LinkProps = {
   /** Plain left-click handler (SPA navigation); `href` stays set for
    *  modifier/middle clicks, which the browser handles itself. */
   readonly onPress?: () => void;
-  /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
-   *  Native-Impls ignorieren es (Präzedenz: CardProps.className). */
+  /** Layout extras (self-center, text-xs), merged via cn(). */
   readonly className?: string;
   readonly children: ReactNode;
   readonly testId?: string;
@@ -298,7 +294,7 @@ export type InputProps =
       /** Read-only Input (z.B. gewürfelter Free-Tier-Slug). Nicht `disabled`
        *  — bleibt fokussier-/kopierbar. */
       readonly readOnly?: boolean;
-      /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
+      /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer/web). */
       readonly icon?: FieldIconKey;
       /** Resolved inline text before/after the input (EditFieldSpec.prefix/suffix). */
       readonly prefix?: string;
@@ -306,8 +302,7 @@ export type InputProps =
       readonly fill?: InputFillAction;
       readonly dataAttributes?: DataAttributes;
       /** Raw keydown access (e.g. Enter-to-submit at the field instead of
-       *  the surrounding Form). Web forwards it, native impls ignore it
-       *  (precedent: `ButtonProps.ref`). */
+       *  the surrounding Form). Forwarded to the element. */
       readonly onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
     }
   | {
@@ -357,7 +352,7 @@ export type InputProps =
       /** Hint text shown when the field is empty (analog to kind:"text"). */
       readonly placeholder?: string;
       readonly testId?: string;
-      /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
+      /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer/web). */
       readonly icon?: FieldIconKey;
       /** `<input step>`. "any" disables the native stepMismatch constraint
        *  (needed for decimal fields — integer fields leave this unset).
@@ -429,7 +424,7 @@ export type InputProps =
        *  attribute so a phone opens the camera instead of the file picker. */
       readonly capture?: "environment" | "user";
       /** Web-only folder picker: the picked files (with `webkitRelativePath`)
-       *  go to `onFilesPicked` and nothing is uploaded. Native impls ignore it. */
+       *  go to `onFilesPicked` and nothing is uploaded. */
       readonly directory?: boolean;
       readonly onFilesPicked?: (files: readonly PickedFile[]) => void;
       /** Translated label of the pick button; absent → the upload/change default. */
@@ -638,8 +633,8 @@ export type InputProps =
       readonly dataAttributes?: DataAttributes;
       /** Raw keydown access (e.g. plain-Enter-submits/Shift+Enter-newline at
        *  the field instead of the surrounding Form). Composes with
-       *  `onSubmitShortcut` — both fire on the same keystroke when set. Web
-       *  forwards it, native impls ignore it (precedent: `ButtonProps.ref`). */
+       *  `onSubmitShortcut` — both fire on the same keystroke when set. Forwarded
+       *  to the element. */
       readonly onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
     };
 
@@ -906,7 +901,7 @@ export type DataTableProps = {
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----
 
 /** Cell type for one column of an embedded-list field. Mirrors
- *  EmbeddedListCellViewModel["type"] from `@cosmicdrift/kumiko-headless`. */
+ *  EmbeddedListCellViewModel["type"] from `@cosmicdrift/kumiko-renderer/headless`. */
 export type EmbeddedListCellType =
   | "text"
   | "number"
@@ -1019,8 +1014,7 @@ export type FormSectionNavItem = {
  *
  *  `title`: slot in the card header. `actions`: optional slot for the
  *  primary form actions (Save, Cancel) — renders as a footer row at the
- *  end of the card (normal document flow). Native impls may render the
- *  same slot as a bottom bar instead. */
+ *  end of the card (normal document flow). */
 export type FormProps = {
   readonly onSubmit: (e?: FormEvent) => void;
   readonly children: ReactNode;
@@ -1034,24 +1028,20 @@ export type FormProps = {
   readonly secondaryActions?: ReactNode;
   readonly testId?: string;
   /** Max width of the form container. Default "full" — see FormWidth
-   *  (`packages/types/src/screen.ts`, EditLayout.width). Native impls may
-   *  ignore this prop (no width constraint there). */
+   *  (`packages/types/src/screen.ts`, EditLayout.width). */
   readonly width?: FormWidth;
   /** Pins `actions` to the viewport bottom on narrow screens (`<640px`)
    *  instead of normal document flow, so it stays reachable when a virtual
    *  keyboard shrinks the visible viewport (fw#1918). Desktop/tablet
-   *  unaffected. Native impls may ignore this prop (already bottom-bar by
-   *  convention there). */
+   *  unaffected. */
   readonly stickyActions?: boolean;
   /** Extra content rendered above the card, inside the same page padding
    *  the card itself sits in — for a host that needs its own header region
    *  (title/metrics/tabs) to share the form's left padding and width
-   *  instead of rendering as unpadded siblings before it. Native impls may
-   *  ignore this prop. */
+   *  instead of rendering as unpadded siblings before it. */
   readonly headerRegion?: ReactNode;
   /** Compact content on the right of the form title, same row — status
-   *  chips or allowance badges that belong to the screen, not to a field.
-   *  Native impls may ignore this prop. */
+   *  chips or allowance badges that belong to the screen, not to a field. */
   readonly titleAction?: ReactNode;
   /** Sizes the form to fill its container's height (instead of the page's
    *  natural content height) so a single scrolling child — a lone
@@ -1060,8 +1050,7 @@ export type FormProps = {
    *  section and for screens that fill the shell height (together with
    *  `stickyActions`: sections scroll, footer stays pinned without
    *  `position: fixed`); every other caller leaves it unset and keeps normal
-   *  document-flow height. Native impls may ignore this prop (already a
-   *  bounded viewport there). */
+   *  document-flow height. */
   readonly fillHeight?: boolean;
   /** Drops the surrounding card (bg/border/rounded, title/subtitle block,
    *  footer border) so sections+footer render as siblings of `headerRegion`
@@ -1069,14 +1058,12 @@ export type FormProps = {
    *  projectionDetail's tab content is a sibling of the head card, not its
    *  child (bedienkonzept A1), so it must look like a standalone screen
    *  instead of a form embedded in another card. Default false: unchanged
-   *  card chrome. Native impls may ignore this prop (no card chrome there
-   *  to begin with). */
+   *  card chrome. */
   readonly chromeless?: boolean;
   /** Set by RenderEdit for entityEdit/actionForm screens that fill the shell
    *  height: the form renders without a surrounding card, in a padded scroll
    *  surface with a fixed-width form column. Requires `fillHeight`; projection
-   *  detail screens (which also fill the height) do not set it. Native impls
-   *  may ignore this prop. */
+   *  detail screens (which also fill the height) do not set it. */
   readonly screenForm?: boolean;
   /** Number of unsaved changes, shown in the pinned footer; 0 shows the quiet
    *  "No unsaved changes" status. Omitted (create mode) — no status at all. */
@@ -1087,7 +1074,7 @@ export type FormProps = {
    *  `screenForm`. The web impl shows it only with three or more entries. */
   readonly sectionNav?: readonly FormSectionNavItem[];
   /** Leading column next to the scroll surface of a `screenForm` (wizard step
-   *  navigation). Native impls may ignore this prop. */
+   *  navigation). */
   readonly sideRail?: ReactNode;
 };
 
@@ -1657,7 +1644,7 @@ export type CopyButtonProps = {
   readonly label: string;
   readonly copiedLabel: string;
   readonly variant?: "primary" | "secondary";
-  /** Layout extras — web merges via cn(), native impls ignore it. */
+  /** Layout extras, merged via cn(). */
   readonly className?: string;
   readonly testId?: string;
 };
@@ -1670,7 +1657,7 @@ export type ShareButtonProps = {
   readonly text: string;
   readonly label: string;
   readonly variant?: "primary" | "secondary";
-  /** Layout extras — web merges via cn(), native impls ignore it. */
+  /** Layout extras, merged via cn(). */
   readonly className?: string;
   readonly testId?: string;
 } & (
@@ -1821,7 +1808,7 @@ export function usePrimitives(): PrimitivesRegistry {
   const registry = useContext(PrimitivesContext);
   if (registry === undefined) {
     throw new Error(
-      "usePrimitives: no <PrimitivesProvider> mounted. Wrap your app in one (createKumikoApp does this for you with defaultPrimitives from @cosmicdrift/kumiko-renderer-web).",
+      "usePrimitives: no <PrimitivesProvider> mounted. Wrap your app in one (createKumikoApp does this for you with defaultPrimitives from @cosmicdrift/kumiko-renderer/web).",
     );
   }
   return registry;

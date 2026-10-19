@@ -58,7 +58,7 @@ export type TreeNode = {
   readonly state?: TreeNodeState;
   // Optional Klick-Ziel. Fehlt → reiner Container-Knoten (nur ausklappbar,
   // nicht klickbar). Vorhanden → Klick öffnet die Editor-Maske via
-  // Target-Resolver in renderer-web.
+  // Target-Resolver in renderer/web.
   readonly target?: TargetRef;
   // Hover-Actions rechts (Add/Refresh/Delete/etc.). Werden in der
   // Sidebar-Row erst bei Hover sichtbar — VS-Code-Pattern. Engine

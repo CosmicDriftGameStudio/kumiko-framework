@@ -1,7 +1,6 @@
 // @runtime client
 
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { EMPTY_VALUE_PLACEHOLDER, toInstant } from "@cosmicdrift/kumiko-headless";
 import {
   type ColumnRendererComponent,
   type ColumnRendererProps,
@@ -9,7 +8,8 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
+import { EMPTY_VALUE_PLACEHOLDER, toInstant } from "@cosmicdrift/kumiko-renderer/headless";
+import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { type OverviewRowView, parseOverviewRow } from "./overview-row.ts";
 import { statusLabel, statusTone } from "./status-label.ts";

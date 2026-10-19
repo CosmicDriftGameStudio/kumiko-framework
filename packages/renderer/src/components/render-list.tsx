@@ -3,6 +3,9 @@ import type {
   EntityListScreenDefinition,
   IconKey,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
+import { useReferenceLinkResolver } from "../app/reference-link.ts";
 import type {
   ListColumnViewModel,
   ListRowViewModel,
@@ -10,11 +13,8 @@ import type {
   RuntimeCellLink,
   RuntimeRenderer,
   Translate,
-} from "@cosmicdrift/kumiko-headless";
-import { computeListViewModel, EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
-import { useReferenceLinkResolver } from "../app/reference-link.ts";
+} from "../headless/index.ts";
+import { computeListViewModel, EMPTY_VALUE_PLACEHOLDER } from "../headless/index.ts";
 import type { ListSort } from "../hooks/use-list-url-state.ts";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";

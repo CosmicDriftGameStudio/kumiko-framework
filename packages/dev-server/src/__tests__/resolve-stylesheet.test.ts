@@ -53,7 +53,7 @@ describe("resolveStylesheet", () => {
   });
 
   test("undefined + clientEntry: undefined (silent skip)", () => {
-    // Bun resolveSync findet packages/renderer-web/src/styles.css im
+    // Bun resolveSync findet packages/renderer/src/web/styles.css im
     // Repo. Das ist der prod-Pfad — unter Bun (real oder CI) ist der
     // Wert ein absoluter path; unter Node (von wo der Test portiert
     // wurde) wäre es undefined. Wir akzeptieren beides.
@@ -64,7 +64,7 @@ describe("resolveStylesheet", () => {
     if (typeof Bun === "undefined") {
       expect(out).toBeUndefined();
     } else {
-      expect(out).toMatch(/renderer-web\/src\/styles\.css$/);
+      expect(out).toMatch(/renderer\/src\/web\/styles\.css$/);
     }
   });
 

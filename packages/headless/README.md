@@ -1,11 +1,8 @@
 # @cosmicdrift/kumiko-headless
 
-Headless UI logic for Kumiko: dispatcher contract, form controller, view model and nav resolver. Platform and React free; every renderer builds on it.
+Deprecated: import from `@cosmicdrift/kumiko-renderer/headless`. This package only
+re-exports it and is removed after wave 4.
 
-## Install
-
-```bash
-bun add @cosmicdrift/kumiko-headless
+```sh
+bun kumiko codemod package-merge . --write
 ```
-
-Documentation: https://kumiko.rocks

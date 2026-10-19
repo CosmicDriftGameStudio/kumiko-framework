@@ -40,7 +40,7 @@ export function validationErrorFromZod(error: ZodError): ValidationError {
 // `code: "custom"` is zod's catch-all for every superRefine/refine check;
 // left mechanical it'd collapse onto one generic key, so a superRefine can
 // set `params.i18nKey` to override it. Keep in sync with the client mirror
-// (packages/headless/src/form/zod-bridge.ts).
+// (packages/renderer/src/headless/form/zod-bridge.ts).
 function resolveI18nKey(issue: ZodIssue): string {
   if (issue.code === "custom") {
     const override = issue.params?.["i18nKey"];

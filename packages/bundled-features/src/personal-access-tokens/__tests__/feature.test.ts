@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
-import { fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
+import { fieldOptionLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { EXT_TOKEN_VERIFIER } from "../../auth-foundation/index.ts";
 import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "../constants.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";

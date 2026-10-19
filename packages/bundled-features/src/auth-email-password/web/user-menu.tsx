@@ -21,7 +21,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { ChevronDown, ChevronsUpDown, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSession } from "./session.tsx";

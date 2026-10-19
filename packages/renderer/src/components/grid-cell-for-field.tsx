@@ -1,5 +1,5 @@
-import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
+import type { EditFieldViewModel, FieldIssue } from "../headless/index.ts";
 import type { FieldCellWidth, FieldProps, usePrimitives } from "../primitives.tsx";
 import { RenderField } from "./render-field.tsx";
 

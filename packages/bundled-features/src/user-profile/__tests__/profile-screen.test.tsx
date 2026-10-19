@@ -1,6 +1,6 @@
 // Render test against the real i18n bundles (catches missing keys — the
 // sections must never show raw "profile.*" keys). Provider wrapper mirrors
-// renderer-web/test-utils, duplicated locally because the renderer-web →
+// renderer/web/test-utils, duplicated locally because the renderer/web →
 // bundled-features dependency direction is forbidden.
 //
 // fw#2312: the `profile` screen is no longer a React component (ProfileScreen)
@@ -10,7 +10,6 @@
 // express); the danger zone is fields + actions.
 
 import { describe, expect, spyOn, test } from "bun:test";
-import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -21,7 +20,12 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  createStore,
+  type Dispatcher,
+  type DispatcherStatus,
+} from "@cosmicdrift/kumiko-renderer/headless";
+import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../i18n.ts";

@@ -1,15 +1,8 @@
 # @cosmicdrift/kumiko-dispatcher-live
 
-HTTP-only dispatcher for Kumiko UIs. Always online, failures surface immediately. The default client for web admin and cockpit apps.
+Deprecated: import from `@cosmicdrift/kumiko-renderer/live`. This package only
+re-exports it and is removed after wave 4.
 
-## Install
-
-```bash
-bun add @cosmicdrift/kumiko-dispatcher-live
+```sh
+bun kumiko codemod package-merge . --write
 ```
-
-```ts
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
-```
-
-Documentation: https://kumiko.rocks

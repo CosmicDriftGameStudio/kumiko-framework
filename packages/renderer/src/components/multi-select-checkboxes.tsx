@@ -1,5 +1,5 @@
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
+import type { EditFieldViewModel } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 
@@ -21,7 +21,7 @@ export type MultiSelectCheckboxesProps = {
 // as a visible checkbox plus a select-all toggle, built purely from the
 // platform-neutral Primitives contract (Grid/GridCell/Field/Input kind
 // "boolean", the same primitive `case "boolean"` uses in render-field.tsx).
-// No renderer-web import here — this file must stay usable from Expo too.
+// No renderer/web import here — this file must stay usable from Expo too.
 export function MultiSelectCheckboxes({
   field,
   id,

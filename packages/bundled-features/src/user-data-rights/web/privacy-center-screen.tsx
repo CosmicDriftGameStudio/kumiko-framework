@@ -1,4 +1,4 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-headless";
+import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 // @runtime client
 // Export section (Art. 20) — the one part of user-data-rights' privacy-center
 // screen that stays custom (fw#2312). Registered as an EditExtensionSection
@@ -17,7 +17,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
+import { postWithDownload } from "@cosmicdrift/kumiko-renderer/web";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
 import {

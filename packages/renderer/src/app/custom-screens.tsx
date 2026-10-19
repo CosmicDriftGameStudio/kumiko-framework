@@ -1,6 +1,6 @@
 // Custom-Screen-Components-Map: client-side Lookup für Screens vom Typ
 // `custom`. KumikoScreen schaut hier nach `screen.id` (oder qn) und
-// rendert die passende Component. createKumikoApp im renderer-web sammelt
+// rendert die passende Component. createKumikoApp im renderer/web sammelt
 // alle clientFeatures.components und mountet den Provider; Tests die
 // einzelne Custom-Screens prüfen wollen, mounten den Provider direkt.
 

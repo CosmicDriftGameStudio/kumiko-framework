@@ -222,7 +222,7 @@ export const tasksTranslations: TranslationsByLocale = {
 }
 
 export function renderDemoTasksWebIndex(): string {
-  return `import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+  return `import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { tasksTranslations } from "../i18n";
 
 export const tasksClient: ClientFeatureDefinition = {

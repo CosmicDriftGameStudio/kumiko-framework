@@ -4,9 +4,9 @@
 // format.test.tsx — `field.grouping` gates it the same way (fw#3234).
 
 import { describe, expect, test } from "bun:test";
-import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import type { EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
 import { RenderField } from "../render-field.tsx";

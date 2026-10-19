@@ -9,12 +9,12 @@
 // unter `<SessionProvider>`; der `useSession()`-Hook liefert den State
 // und die Transitions.
 
-import { readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import {
   type CurrentUser,
   CurrentUserProvider,
   useSessionEndedSignal,
 } from "@cosmicdrift/kumiko-renderer";
+import { readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
 import {
   createContext,
   type ReactNode,

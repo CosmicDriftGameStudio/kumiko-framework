@@ -1,6 +1,6 @@
 // @runtime client
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { UploadZone } from "@cosmicdrift/kumiko-renderer-web";
+import { UploadZone } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 

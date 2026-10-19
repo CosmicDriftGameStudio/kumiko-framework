@@ -4,7 +4,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { requestContext } from "@cosmicdrift/kumiko-framework/internal/request-context";
-import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
+import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-renderer/headless/apex";
 
 export type QueryDispatcher = {
   readonly query: (type: string, payload: unknown, user: SessionUser) => Promise<unknown>;

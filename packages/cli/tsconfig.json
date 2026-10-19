@@ -10,6 +10,7 @@
   "references": [
     { "path": "../dev-server" },
     { "path": "../guards" },
+    { "path": "../server-runtime" },
     { "path": "../testing" }
   ],
   "include": ["./src", "./bin"]

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { CSRF_HEADER_NAME } from "@cosmicdrift/kumiko-dispatcher-live";
+import { CSRF_HEADER_NAME } from "@cosmicdrift/kumiko-renderer/live";
 import {
   AuthRequestError,
   confirmAccountUnlock,

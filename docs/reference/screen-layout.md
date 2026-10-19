@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-12
-evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer-web/src/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer-web/src/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
+evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer/src/web/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer/src/web/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props

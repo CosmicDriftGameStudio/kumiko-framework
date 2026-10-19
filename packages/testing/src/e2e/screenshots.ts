@@ -21,7 +21,7 @@ export const DEFAULT_REDUCED_MOTION = "reduce" as const;
 
 const MIN_BYTES = 5 * 1024;
 
-// The two themes every sample app renders out of the box: renderer-web's
+// The two themes every sample app renders out of the box: renderer/web's
 // light default and its `.dark` variant. Apps with extra themes (styleguide's
 // brand-token override) pass their own pair to runMatrix.
 export const DEFAULT_THEMES = ["default-light", "default-dark"] as const;

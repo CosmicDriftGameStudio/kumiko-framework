@@ -17,7 +17,7 @@
       "!**/.kumiko",
       "!**/feature-manifest.json",
       "!**/sample-index.json",
-      "!**/renderer-web/src/ui",
+      "!**/renderer/src/web/ui",
       "!**/__tests__/fixtures/migrate-db-raw",
       "!**/__tests__/fixtures/migrate-open-to-all",
       "!**/__tests__/fixtures/migrate-cross-tenant",

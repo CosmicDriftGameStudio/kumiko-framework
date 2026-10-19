@@ -4,7 +4,7 @@ import type {
   EditFieldViewModel,
   EditSectionViewModel,
   SubmitResult,
-} from "@cosmicdrift/kumiko-headless";
+} from "../../headless/index.ts";
 import {
   filterEditSections,
   findFirstErroringSectionIndex,

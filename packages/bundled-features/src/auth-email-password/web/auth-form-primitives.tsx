@@ -15,7 +15,7 @@
 // die früheren authButtonClass/authMutedLinkClass sind dorthin gewandert.
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
-import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer-web";
+import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer/web";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 // Wrappt die zentrierte Auth-Card in ihre Umgebung. Default = Fullscreen-

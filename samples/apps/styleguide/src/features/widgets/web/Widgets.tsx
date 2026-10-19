@@ -36,7 +36,7 @@ import {
   TextField,
   TimeseriesChart,
   useDraft,
-} from "@cosmicdrift/kumiko-renderer-web";
+} from "@cosmicdrift/kumiko-renderer/web";
 import { Wallet } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { euro, percent } from "../lib/format";

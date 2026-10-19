@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { ConfigQueries } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { type Dispatcher, formatMoney } from "@cosmicdrift/kumiko-headless";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -15,7 +14,8 @@ import {
   PrimitivesProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { type Dispatcher, formatMoney } from "@cosmicdrift/kumiko-renderer/headless";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";

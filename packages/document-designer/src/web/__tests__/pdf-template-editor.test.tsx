@@ -4,7 +4,6 @@ import {
   TemplateResolverQueries,
   textBlocksClient,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -14,8 +13,9 @@ import {
   PrimitivesProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
-import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import { PdfTemplateEditor } from "../pdf-template-editor.tsx";

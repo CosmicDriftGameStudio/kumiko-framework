@@ -34,6 +34,17 @@ describe("events command", () => {
     expect(spy.errs.join("\n")).toMatch(/--older-than requires a positive number/);
   });
 
+  test("prune without --aggregate-types is rejected", async () => {
+    const t = makeTempCwd();
+    cleanups.push(t.cleanup);
+    const spy = makeSpyOutput();
+    const exit = await eventsCommand.run(
+      makeContext({ cwd: t.cwd, argv: ["prune", "--dry-run"], out: spy.out }),
+    );
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toMatch(/--aggregate-types <a,b> is required/);
+  });
+
   test("prune without DATABASE_URL emits error", async () => {
     const t = makeTempCwd();
     cleanups.push(t.cleanup);
@@ -42,7 +53,7 @@ describe("events command", () => {
     try {
       const spy = makeSpyOutput();
       const exit = await eventsCommand.run(
-        makeContext({ cwd: t.cwd, argv: ["prune", "--dry-run"], out: spy.out }),
+        makeContext({ cwd: t.cwd, argv: ["prune", "--dry-run", "--aggregate-types", "task"], out: spy.out }),
       );
       expect(exit).toBe(1);
       expect(spy.errs.join("\n")).toMatch(/DATABASE_URL not set/);

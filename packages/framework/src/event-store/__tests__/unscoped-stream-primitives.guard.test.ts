@@ -28,7 +28,7 @@ describe("unscoped stream primitives — caller allowlist", () => {
   test("only seed/system-internal paths reference the existence-oracle primitives", async () => {
     // Widened from {framework,bundled-features} — the primitives are exported
     // from the public @cosmicdrift/kumiko-framework/event-store barrel, so any
-    // package (server-runtime, dispatcher-live, headless, renderer-web, cli, ...)
+    // package (server-runtime, dispatcher-live, headless, renderer/web, cli, ...)
     // can import and call them; the allowlist must cover all of them, not just
     // the two packages that happened to have callers when this guard was written.
     const glob = new Glob("packages/*/src/**/*.ts");

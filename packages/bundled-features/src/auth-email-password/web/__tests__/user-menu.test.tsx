@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
-import { SidebarProvider, ThemeMenuItem } from "@cosmicdrift/kumiko-renderer-web";
+import { SidebarProvider, ThemeMenuItem } from "@cosmicdrift/kumiko-renderer/web";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TenantMenuItems } from "../tenant-menu-items.tsx";
