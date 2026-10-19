@@ -311,7 +311,7 @@ function isScreenTargetKept(
 
 function isRedirectTargetKept(
   featureName: string,
-  target: string | ActionFormRedirect,
+  target: string | Pick<ActionFormRedirect, "screen">,
   keptScreenQns: ReadonlySet<string>,
 ): boolean {
   const screenRef = typeof target === "string" ? target : target.screen;

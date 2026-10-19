@@ -12,6 +12,7 @@ import type {
   DashboardPanelDefinition,
   DashboardScreenDefinition,
   DashboardTextPanel,
+  EditFieldSpec,
   EntityListExpandableRow,
   FeatureDefinition,
   ListEmptyStateSpec,
@@ -89,6 +90,17 @@ function editFieldName(f: string | { readonly field: string }): string {
   return typeof f === "string" ? f : f.field;
 }
 
+// Placeholder, affix texts and the fill button label of a field spec; a `{ field }`
+// affix reads another form field and is no key.
+function pushEditFieldTextKeys(out: Set<string>, spec: EditFieldSpec, treatAsKey = false): void {
+  if (typeof spec === "string") return;
+  pushKey(out, spec.placeholder, treatAsKey);
+  for (const affix of [spec.prefix, spec.suffix]) {
+    if (typeof affix === "string") pushKey(out, affix, treatAsKey);
+  }
+  pushKey(out, spec.fillAction?.label, treatAsKey);
+}
+
 // Group titles are translated exactly like the section title (computeEditViewModel).
 function pushSectionTitles(
   out: Set<string>,
@@ -120,6 +132,7 @@ function pushActionFormShapedKeys(
     pushSectionTitles(out, section);
     for (const f of sectionFieldSpecs(section)) {
       out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, editFieldName(f)));
+      pushEditFieldTextKeys(out, f);
     }
   }
 }
@@ -310,6 +323,7 @@ export function requiredKeysFromScreen(
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
         pushSectionTitles(out, section);
         for (const f of sectionFieldSpecs(section)) {
+          pushEditFieldTextKeys(out, f);
           const fieldName = editFieldName(f);
           const override = edit.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);
@@ -324,6 +338,7 @@ export function requiredKeysFromScreen(
       pushKey(out, form.summary?.title);
       pushKey(out, form.summary?.subtitle);
       for (const action of form.footerActions ?? []) pushKey(out, action.label);
+      for (const link of form.successLinks ?? []) pushKey(out, link.label);
       for (const fieldName of Object.keys(form.fields)) {
         const override = form.fieldLabels?.[fieldName];
         if (override !== undefined) pushKey(out, override);
@@ -337,6 +352,7 @@ export function requiredKeysFromScreen(
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
         pushSectionTitles(out, section);
         for (const f of sectionFieldSpecs(section)) {
+          pushEditFieldTextKeys(out, f);
           const fieldName = editFieldName(f);
           const override = form.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);
@@ -384,6 +400,7 @@ export function requiredKeysFromScreen(
         pushSectionTitles(out, section, treatDotFormAsKey);
         pushKey(out, section.description, treatDotFormAsKey);
         for (const f of sectionFieldSpecs(section)) {
+          pushEditFieldTextKeys(out, f, treatDotFormAsKey);
           const fieldName = editFieldName(f);
           const override = config.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
@@ -419,6 +436,7 @@ export function requiredKeysFromScreen(
           pushKey(out, section.submitLabel);
           // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
           for (const f of section.fields) {
+            pushEditFieldTextKeys(out, f);
             const fieldName = editFieldName(f);
             out.add(fieldLabelKey(featureName, WRITE_FORM_SECTION_ENTITY, fieldName));
           }
@@ -426,6 +444,7 @@ export function requiredKeysFromScreen(
         }
         pushSectionTitles(out, section);
         for (const f of sectionFieldSpecs(section)) {
+          pushEditFieldTextKeys(out, f);
           const fieldName = editFieldName(f);
           const override = detail.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);

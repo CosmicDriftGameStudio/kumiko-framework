@@ -173,12 +173,34 @@ function warnDrawerActionDropped(
   );
 }
 
+export function runDrawerRowAction(
+  action: RowActionDrawer,
+  openDrawer: OpenDrawer,
+  row: ListRowViewModel,
+): void {
+  openDrawer(
+    action,
+    action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined,
+  );
+}
+
+/** The action that claims the row-body click (`rowClick: true`); the boot
+ *  validator allows at most one per list. */
+export function findRowClickAction(
+  rowActions: readonly RowAction[] | undefined,
+): RowActionNavigate | RowActionDrawer | undefined {
+  return rowActions?.find(
+    (a): a is RowActionNavigate | RowActionDrawer =>
+      (a.kind === "navigate" || a.kind === "drawer") && a.rowClick === true,
+  );
+}
+
 export function buildDrawerRowAction(
   action: RowActionDrawer,
   translate: Translate,
   openDrawer: OpenDrawer,
 ): DataTableRowAction {
-  const { visible, params } = action;
+  const { visible } = action;
   const actionIcon = resolveActionIcon(action.id, action.icon);
   return {
     id: action.id,
@@ -186,10 +208,9 @@ export function buildDrawerRowAction(
     ...(action.style !== undefined && { style: action.style }),
     ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
+    ...(action.rowClick === true && { rowClick: true }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
-    onTrigger: (row: ListRowViewModel) => {
-      openDrawer(action, params !== undefined ? evalRowExtractor(params, row.values) : undefined);
-    },
+    onTrigger: (row: ListRowViewModel) => runDrawerRowAction(action, openDrawer, row),
     ...(visible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
     }),

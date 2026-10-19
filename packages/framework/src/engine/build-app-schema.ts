@@ -42,6 +42,7 @@ import {
   SETTINGS_HUB_FEATURE,
 } from "./build-config-feature-schema.ts";
 import { isEncryptedAtRest } from "./config-helpers.ts";
+import { isListQueryWithoutSearchableFields } from "./entity-list-searchability.ts";
 import { QnTypes, qualifyEntityName } from "./qualified-name.ts";
 import type { Registry } from "./types/feature.ts";
 import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields.ts";
@@ -428,11 +429,15 @@ function projectProjectionListScreen(
   screen: ProjectionListScreenDefinition,
   registry: Registry,
 ): ProjectionListScreenDefinition {
-  const schema = registry.getQueryHandler(screen.query)?.schema;
-  const capabilities = deriveProjectionListCapabilities(schema);
+  const handler = registry.getQueryHandler(screen.query);
+  const capabilities = deriveProjectionListCapabilities(handler?.schema);
+  // A search box over an entity without searchable fields would never match.
+  const searchable =
+    capabilities.searchable &&
+    !isListQueryWithoutSearchableFields(screen.query, handler, (name) => registry.getEntity(name));
   return {
     ...screen,
-    searchable: screen.searchable ?? capabilities.searchable,
+    searchable: screen.searchable ?? searchable,
     sortable: capabilities.sortable,
     paginated: capabilities.paginated,
   };

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { validateBoot } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
+import { defineEntityListHandler } from "../entity-handlers.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
 describe("validateBoot — projectionList screens", () => {
@@ -245,6 +246,75 @@ describe("validateBoot — projectionList screens", () => {
 
     test("more than one rowClick action per list is rejected", () => {
       expect(() => validateBoot([makeFeature(2)])).toThrow(
+        /at most one may fire on a row-body click/i,
+      );
+    });
+
+    function makeMixedFeature(withNavigateRowClick: boolean) {
+      return defineFeature("ledger", (r) => {
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({ id: "schedule-detail", type: "custom", renderer: { react: "stub" } });
+        r.screen({
+          id: "schedule-rename",
+          type: "actionForm",
+          handler: "ledger:write:schedule:rename",
+          fields: { description: { type: "text", required: true } },
+          layout: { sections: [{ fields: ["description"] }] },
+        });
+        r.writeHandler({
+          name: "schedule:rename",
+          schema: z.object({ description: z.string() }),
+          handler: async () => ({ isSuccess: true as const, data: {} }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["description"],
+          rowActions: [
+            {
+              kind: "drawer",
+              id: "rename",
+              label: "actions.rename",
+              screen: "schedule-rename",
+              rowClick: true,
+            },
+            ...(withNavigateRowClick
+              ? [
+                  {
+                    kind: "navigate" as const,
+                    id: "open",
+                    label: "actions.open",
+                    screen: "schedule-detail",
+                    rowClick: true,
+                  },
+                ]
+              : []),
+          ],
+        });
+        r.translations({
+          keys: {
+            "screen:schedule-list.title": { de: "Liste", en: "List" },
+            "screen:schedule-detail.title": { de: "Detail", en: "Detail" },
+            "screen:schedule-rename.title": { de: "Umbenennen", en: "Rename" },
+            "ledger:entity:__action-form__:field:description": { de: "Text", en: "Text" },
+          },
+        });
+      });
+    }
+
+    test("a drawer rowClick action passes boot", () => {
+      expect(() => validateBoot([makeMixedFeature(false)])).not.toThrow();
+    });
+
+    test("a drawer and a navigate rowClick action together are rejected", () => {
+      expect(() => validateBoot([makeMixedFeature(true)])).toThrow(
         /at most one may fire on a row-body click/i,
       );
     });
@@ -725,6 +795,67 @@ describe("validateBoot — projectionList screens", () => {
         });
       });
       expect(() => validateBoot([feature])).not.toThrow();
+    });
+  });
+
+  describe("entity-convention list query over an entity without searchable fields", () => {
+    const listAccess = {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    };
+    const plainEntity = createEntity({
+      table: "plain_things",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    });
+    const searchableEntity = createEntity({
+      table: "searchable_things",
+      fields: {
+        name: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
+      },
+    });
+
+    function featureFor(
+      entityName: string,
+      entity: typeof plainEntity,
+      searchable: boolean | undefined,
+    ) {
+      return defineFeature("ledger", (r) => {
+        r.entity({ name: entityName, ...entity });
+        r.queryHandler(defineEntityListHandler(entityName, entity, listAccess));
+        r.screen({
+          id: "thing-list",
+          type: "projectionList",
+          query: `ledger:query:${entityName}:list`,
+          columns: ["name"],
+          defaultSort: { field: "name", dir: "asc" },
+          ...(searchable !== undefined && { searchable }),
+        });
+        r.translations({
+          keys: {
+            "screen:thing-list.title": { de: "Liste", en: "List" },
+            [`ledger:entity:${entityName}:field:name`]: { de: "Name", en: "Name" },
+          },
+        });
+      });
+    }
+
+    test("an explicit searchable: false needs no whitelist entry", () => {
+      expect(() => validateBoot([featureFor("plain", plainEntity, false)])).not.toThrow();
+    });
+
+    test("the derived (omitted) searchable boots", () => {
+      expect(() => validateBoot([featureFor("plain", plainEntity, undefined)])).not.toThrow();
+    });
+
+    test("searchable: true over an entity without searchable fields is rejected", () => {
+      expect(() => validateBoot([featureFor("plain", plainEntity, true)])).toThrow(
+        /lists an entity with no searchable field/,
+      );
+    });
+
+    test("a searchable entity still rejects searchable: false outside the whitelist", () => {
+      expect(() => validateBoot([featureFor("searchable", searchableEntity, false)])).toThrow(
+        /searchable: false disables it/,
+      );
     });
   });
 });

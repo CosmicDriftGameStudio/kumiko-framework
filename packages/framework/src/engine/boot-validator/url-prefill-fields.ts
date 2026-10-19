@@ -270,6 +270,8 @@ export function validateSubmitPrefilledHiddenFields(features: readonly FeatureDe
       const seeded = new Set(
         (sources ?? []).flatMap((source) => rowFieldExtractorKeys(source.params)),
       );
+      // A `load` form is seeded from the loaded record, not from navigate params.
+      if (screen.type === "actionForm" && screen.load !== undefined) continue;
       assertHiddenRequiredFieldsSeeded(feature.name, screenId, screen, seeded);
     }
   }

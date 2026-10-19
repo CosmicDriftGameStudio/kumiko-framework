@@ -400,6 +400,10 @@ export type RowActionDrawer = {
   /** Line under the drawer heading (i18n key or a bare `{name}` template),
    *  resolved like `title`. */
   readonly subtitle?: string;
+  /** Clicking the row opens this drawer with that row's `params`. At most one
+   *  `rowClick` action (navigate or drawer) per list; rejected on
+   *  projectionDetail header actions, like navigate's. */
+  readonly rowClick?: boolean;
 };
 
 // ToolbarAction — button in the list header. Three variants: navigate to
@@ -1921,6 +1925,11 @@ export type ActionFormScreenDefinition = {
    *  kept, typed values cleared). Only applies while the screen stays put,
    *  i.e. without `redirect`. */
   readonly resetOnSuccess?: boolean;
+  /** Load the initial values from a query. The record id comes from the route
+   *  (or the drawer row id) and is sent as `{ [idParam]: id }`; the result,
+   *  picked to `fields`, becomes the initial values. Turns URL prefill off:
+   *  search params never reach the form. */
+  readonly load?: ActionFormLoad;
   /** Target of the Cancel button. Default: `redirect` (historical
    *  behavior — Cancel and the submit-redirect then land in the same
    *  place). `false` = no Cancel button; correct for single-action
@@ -1974,8 +1983,19 @@ export type ActionFormRedirect = {
   readonly tab?: string;
 };
 
+export type ActionFormLoad = {
+  /** Query QN that returns the record. */
+  readonly query: string;
+  /** Payload key carrying the record id (default "id"). */
+  readonly idParam?: string;
+};
+
 /** A redirect target rendered as a link in the success box. */
-export type ActionFormSuccessLink = ActionFormRedirect & {
+export type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom"> & {
+  /** Success-payload field carrying the navigation id. Required for a record
+   *  target (`entityEdit`, `projectionDetail`); omit it for a list, dashboard
+   *  or form target, which opens without an id. */
+  readonly idFrom?: string;
   /** Link text (i18n key). */
   readonly label: string;
 };

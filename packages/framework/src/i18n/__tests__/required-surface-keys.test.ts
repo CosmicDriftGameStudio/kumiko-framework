@@ -173,3 +173,91 @@ describe("requiredKeysFromScreen — list emptyState and description", () => {
     );
   });
 });
+
+describe("requiredKeysFromScreen — field texts and success links", () => {
+  const fieldSpec = {
+    field: "slug",
+    placeholder: "shop:slug:hint",
+    prefix: "shop:slug:prefix",
+    suffix: { field: "domain" },
+    fillAction: { label: "shop:slug:suggest", query: "shop:query:slug:suggest", field: "slug" },
+  };
+  const literalSpec = {
+    field: "slug",
+    placeholder: "Type a slug",
+    prefix: "/shop/",
+    suffix: ".example.com",
+    fillAction: { label: "Suggest", query: "shop:query:slug:suggest", field: "slug" },
+  };
+
+  test("actionForm requires success link labels and the field placeholder, affix and fill labels", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "create-shop",
+      type: "actionForm",
+      handler: "shop:write:create",
+      fields: { slug: { type: "text" }, domain: { type: "text" } },
+      layout: { sections: [{ fields: [fieldSpec, "domain"] }] },
+      successLinks: [
+        { screen: "shop-list", label: "shop:link:list" },
+        { screen: "shop-edit", idFrom: "id", label: "Open shop" },
+      ],
+    } as unknown as Parameters<typeof requiredKeysFromScreen>[1]);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "shop:link:list",
+        "shop:slug:hint",
+        "shop:slug:prefix",
+        "shop:slug:suggest",
+      ]),
+    );
+    expect(keys).not.toContain("domain");
+    expect(keys).not.toContain("Open shop");
+  });
+
+  test("entityEdit requires the same field texts", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "shop-edit",
+      type: "entityEdit",
+      entity: "shop",
+      layout: { sections: [{ fields: [fieldSpec] }] },
+    } as unknown as Parameters<typeof requiredKeysFromScreen>[1]);
+    expect(keys).toEqual(
+      expect.arrayContaining(["shop:slug:hint", "shop:slug:prefix", "shop:slug:suggest"]),
+    );
+  });
+
+  test("configEdit and secretMint steps require the field texts", () => {
+    const configKeys = requiredKeysFromScreen(
+      "shop",
+      {
+        id: "shop-config",
+        type: "configEdit",
+        fields: { slug: { type: "text" } },
+        layout: { sections: [{ fields: [fieldSpec] }] },
+      } as unknown as Parameters<typeof requiredKeysFromScreen>[1],
+      { treatDotFormAsKey: true },
+    );
+    expect(configKeys).toContain("shop:slug:hint");
+    const mintKeys = requiredKeysFromScreen("shop", {
+      id: "shop-mint",
+      type: "secretMint",
+      fields: { slug: { type: "text" } },
+      layout: { sections: [{ fields: [fieldSpec] }] },
+      reveal: { fields: [] },
+    } as unknown as Parameters<typeof requiredKeysFromScreen>[1]);
+    expect(mintKeys).toContain("shop:slug:suggest");
+  });
+
+  test("literal placeholder, affix and fill label are no keys", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "create-shop",
+      type: "actionForm",
+      handler: "shop:write:create",
+      fields: { slug: { type: "text" } },
+      layout: { sections: [{ fields: [literalSpec] }] },
+    } as unknown as Parameters<typeof requiredKeysFromScreen>[1]);
+    for (const literal of ["Type a slug", "/shop/", ".example.com", "Suggest"]) {
+      expect(keys).not.toContain(literal);
+    }
+  });
+});

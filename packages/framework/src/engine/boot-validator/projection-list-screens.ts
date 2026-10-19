@@ -1,9 +1,11 @@
-import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
-import { parseQn, QnTypes, qualifyEntityName } from "../qualified-name.ts";
+import {
+  isListQueryWithoutSearchableFields,
+  resolveEntityBehindListQuery,
+} from "../entity-list-searchability.ts";
+import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import { isEditLayoutScreen } from "../screen-helpers.ts";
 import {
   type EditRelatedListSection,
-  type EntityDefinition,
   type FeatureDefinition,
   type ProjectionListScreenDefinition,
   type QueryHandlerDef,
@@ -46,9 +48,15 @@ function validateOneProjectionListScreen(
   feature: FeatureDefinition,
   screen: ProjectionListScreenDefinition,
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   const prefix = `[projectionList] Feature "${feature.name}" screen "${screen.id}"`;
-  const schema = queryHandlers.get(screen.query)?.schema;
+  const handler = queryHandlers.get(screen.query);
+  const schema = handler?.schema;
+  // buildAppSchema derives searchable: false for these, so no whitelist entry is needed.
+  const searchDerivedOff = isListQueryWithoutSearchableFields(screen.query, handler, (name) =>
+    findEntity(featureMap, name),
+  );
 
   if (screen.searchable === true && !schemaAccepts(schema, "search")) {
     throw new Error(
@@ -56,9 +64,16 @@ function validateOneProjectionListScreen(
     );
   }
 
+  if (screen.searchable === true && searchDerivedOff) {
+    throw new Error(
+      `${prefix}: searchable: true but query "${screen.query}" lists an entity with no searchable field, so a search would never match. Mark a field searchable: true on the entity or remove searchable: true.`,
+    );
+  }
+
   if (
     screen.searchable === false &&
     schemaAccepts(schema, "search") &&
+    !searchDerivedOff &&
     !SEARCHABLE_FALSE_WHITELIST.has(screen.id)
   ) {
     throw new Error(
@@ -77,7 +92,8 @@ function validateOneProjectionListScreen(
     throw new Error(`${prefix}: paginated is derived from the query's Zod schema, don't set it`);
   }
 
-  const searchActive = screen.searchable !== false && schemaAccepts(schema, "search");
+  const searchActive =
+    screen.searchable !== false && !searchDerivedOff && schemaAccepts(schema, "search");
   const sortActive = schemaAccepts(schema, "sort");
   if ((searchActive || sortActive) && screen.defaultSort === undefined) {
     throw new Error(
@@ -187,10 +203,11 @@ function validateProjectionListFacetsSchemaAcceptance(
 
 export function validateProjectionListScreens(features: readonly FeatureDefinition[]): void {
   const queryHandlers = buildQueryHandlerMap(features);
+  const featureMap = new Map(features.map((f) => [f.name, f] as const));
   for (const feature of features) {
     for (const screen of Object.values(feature.screens)) {
       if (screen.type !== "projectionList") continue;
-      validateOneProjectionListScreen(feature, screen, queryHandlers);
+      validateOneProjectionListScreen(feature, screen, queryHandlers, featureMap);
     }
   }
 }
@@ -221,29 +238,6 @@ function validateRelatedListFacets(
   );
 }
 
-// parentFilter resolves an entity field map to
-// check `field` against ONLY when the query is one of the entity-convention
-// factories (defineEntityListHandler et al., branded by
-// ENTITY_CONVENTION_QUERY_BRAND) — a hand-written handler carries no entity,
-// same "capability absent, no throw" policy as schemaAccepts above. The
-// entity name comes from the handler's own `<entityName>:list` naming
-// convention (parseHandlerName in entity-handlers.ts), recovered here from
-// the query's fully qualified name.
-function resolveEntityBehindQuery(
-  queryQn: string,
-  handler: QueryHandlerDef | undefined,
-  featureMap: ReadonlyMap<string, FeatureDefinition>,
-): EntityDefinition | undefined {
-  if (handler === undefined || handler[ENTITY_CONVENTION_QUERY_BRAND] !== true) return undefined;
-  let entityName: string;
-  try {
-    entityName = parseQn(queryQn).name.split(":")[0] ?? "";
-  } catch {
-    return undefined;
-  }
-  return entityName === "" ? undefined : findEntity(featureMap, entityName);
-}
-
 // parentFilter lets a relatedList reuse the
 // generic `<entity>:list` query instead of a bespoke child-rows handler —
 // same 422 footgun as facets/filter above, plus its own mutual-exclusivity
@@ -271,7 +265,9 @@ function validateRelatedListParentFilter(
         `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
     );
   }
-  const entity = resolveEntityBehindQuery(section.query, handler, featureMap);
+  const entity = resolveEntityBehindListQuery(section.query, handler, (name) =>
+    findEntity(featureMap, name),
+  );
   if (entity !== undefined && entity.fields[section.parentFilter.field] === undefined) {
     throw new Error(
       `${prefix}: parentFilter.field "${section.parentFilter.field}" is not a declared field on the ` +

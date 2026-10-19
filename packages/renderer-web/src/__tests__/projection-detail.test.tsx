@@ -1296,6 +1296,58 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
     expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull();
     await waitFor(() => expect(paymentsQueryCount).toBeGreaterThan(queriesBeforeSubmit));
   });
+
+  test("a relatedList drawer action marked rowClick opens the drawer from a click on the row body", async () => {
+    const [detailSection] = detailWithDrawerRow.layout.sections.slice(-1);
+    if (detailSection === undefined || detailSection.kind !== "relatedList") {
+      throw new Error("expected the relatedList section last");
+    }
+    const detailWithRowClick: ProjectionDetailScreenDefinition = {
+      ...detailWithDrawerRow,
+      layout: {
+        sections: [
+          ...detailScreen.layout.sections,
+          {
+            ...detailSection,
+            rowActions: (detailSection.rowActions ?? []).map((action) => ({
+              ...action,
+              rowClick: true,
+            })),
+          },
+        ],
+      },
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (type: string) =>
+        type === "sessions:query:user-session:detail"
+          ? { isSuccess: true, data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" } }
+          : {
+              isSuccess: true,
+              data: { rows: [{ id: "pay-1", amount: "42" }], nextCursor: null },
+            }) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={{
+            featureName: "sessions",
+            entities: {},
+            screens: [detailWithRowClick, paymentNoteForm],
+          }}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("row-pay-1"));
+
+    fireEvent.click(screen.getByTestId("row-pay-1"));
+
+    const drawer = await waitFor(() => screen.getByTestId("toolbar-drawer-annotate"));
+    const paymentIdInput = within(drawer).getByTestId("field-paymentId").querySelector("input");
+    expect(paymentIdInput?.value).toBe("pay-1");
+  });
 });
 
 // fw#2312 mounts extension sections (ExtensionSectionMount, render-edit.tsx)

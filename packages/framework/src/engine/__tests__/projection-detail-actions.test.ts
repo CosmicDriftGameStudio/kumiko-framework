@@ -39,6 +39,36 @@ describe("validateBoot — projectionDetail actions (fw#2166)", () => {
     );
   });
 
+  test("drawer action with rowClick: true throws, like navigate's", () => {
+    const feature = defineFeature("app", (r) => {
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        layout: { sections: [{ title: "s", fields: ["description"] }] },
+        actions: [
+          {
+            kind: "drawer",
+            id: "edit",
+            label: "actions.note",
+            screen: "rent-note",
+            rowClick: true,
+          },
+        ],
+      });
+      r.screen({
+        id: "rent-note",
+        type: "actionForm",
+        handler: "app:write:rent:note",
+        fields: { note: { type: "text" } },
+        layout: { sections: [{ fields: ["note"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /Screen "app:screen:rent-detail" \(projectionDetail\) action "edit" sets rowClick: true/,
+    );
+  });
+
   test("valid navigate + writeHandler actions boot cleanly", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler({
