@@ -20,8 +20,8 @@ import {
   type KumikoServerHandle,
   runDevApp,
 } from "@cosmicdrift/kumiko-dev-server";
+import { createE2eSeedRoutes, seedTenant } from "@cosmicdrift/kumiko-dev-server/testing";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-
 import {
   collectPiiEncryptedFields,
   configuredPiiSubjectKms,
@@ -54,17 +54,12 @@ import {
   seedTenantResponseSchema,
   seedUserResponseSchema,
 } from "../e2e/seed-contract";
-import {
-  createE2eSeedRoutes,
-  type E2eExtraSeeder,
-  type E2eSeedRoutesOptions,
-} from "../e2e/seed-route";
+import type { E2eExtraSeeder, E2eSeedRoutesOptions } from "../e2e/seed-route";
 import {
   type ProvideSeedTenantDeps,
   provideSeedTenant,
   type SeedTenantFixture,
 } from "../e2e/seeded-tenant-fixture";
-import { seedTenant } from "../seed-tenant";
 import { NOTE_CREATE, NOTE_LIST, noteFeature } from "./note-feature";
 
 const TOKEN = "seed-route-test-token";

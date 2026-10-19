@@ -8,8 +8,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  createTierEngineFeature,
+  createTierResolver,
+  tierAssignmentEntity,
+} from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-
 import { asRawClient, buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
@@ -20,9 +24,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { tierAssignmentEntity } from "../entity.ts";
-import { createTierEngineFeature } from "../feature.ts";
-import { createTierResolver } from "../tier-resolver.ts";
 
 type TestCaps = { readonly maxItems: number };
 type TestTier = "free" | "pro";

@@ -1,6 +1,8 @@
 // A single-tenant reload that started before a full resync must not overwrite the resync's
 // fresher snapshot when it resolves last. The DB is a hand-driven fake so resolution order is explicit.
 import { describe, expect, test } from "bun:test";
+import type { TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import { createTierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import {
   createRegistry,
   findTierResolverUsage,
@@ -10,8 +12,6 @@ import {
 import { CACHE_SYNC_TOPICS, type CacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
-import type { TierMap } from "../compose-app.ts";
-import { createTierEngineFeature } from "../feature.ts";
 
 const TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },

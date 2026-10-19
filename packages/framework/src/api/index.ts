@@ -16,6 +16,7 @@ export type {
 } from "./auth-middleware.ts";
 export {
   authMiddleware,
+  CSRF_HEADER_NAME,
   getUser,
   PAT_TOKEN_PREFIX,
   sessionCheckStatus,

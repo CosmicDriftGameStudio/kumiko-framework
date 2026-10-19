@@ -31,6 +31,7 @@ import {
   createTenantSettingsFeature,
   TenantSettingsConfig,
 } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
+import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -39,7 +40,6 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { setupAppTestStack } from "@cosmicdrift/kumiko-testing";
 import {
   type TestStack,
   unsafeCreateEntityTable,

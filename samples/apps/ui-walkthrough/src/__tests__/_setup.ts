@@ -1,4 +1,4 @@
-import { setupAppTestStack } from "@cosmicdrift/kumiko-testing";
+import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { taskFeature } from "../features/tasks";
 

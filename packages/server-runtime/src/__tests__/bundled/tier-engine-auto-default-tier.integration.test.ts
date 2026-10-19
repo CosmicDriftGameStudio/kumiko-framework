@@ -1,25 +1,28 @@
-// auto-default-tier hook regression test — beweist dass beim
-// `tenant:write:create` der postSave-Hook von createTierEngineFeature
-// fired und automatisch ein tier-assignment-row mit `defaultTier`
-// schreibt.
+// auto-default-tier hook regression test: `tenant:write:create` must fire the postSave hook of
+// createTierEngineFeature, which writes a tier-assignment row with `defaultTier`.
 //
-// **Warum dieser Test existiert (2026-05-10):**
-// Der auto-default-tier-Hook wurde in Sprint 8a Phase 2 hinzugefügt aber
-// nie direkt getestet. Bei Sprint 8c (Studio-Mount mit auto-default-
-// compliance-companion-hook) flog der Bug auf: `ctx.db as DbConnection`
-// war ein Type-Lie — TenantDb exposed select/insert/update/delete, NICHT
-// execute(). Der event-store-append (event-store.ts:102) ruft
-// `db.execute(sql\`SELECT pg_notify(...)\`)` → TypeError. Fix:
-// `ctx.db.raw as DbConnection` (Pattern aus signup-confirm.write.ts:107).
+// Why this test exists: the hook was never tested directly, and a bug surfaced later:
+// `ctx.db as DbConnection` was a type lie. TenantDb exposes select/insert/update/delete, NOT
+// execute(), but the event-store append calls `db.execute(sql\`SELECT pg_notify(...)\`)` and
+// threw a TypeError. Fix: `ctx.db.raw as DbConnection` (same pattern as signup-confirm.write.ts).
 //
-// Pin-Verträge:
-//   1. tenant:write:create fired postSave-Hook mit isNew=true
-//   2. Hook erstellt tier-assignment-row im NEUEN tenant (nicht im caller-
-//      tenant — Memory `feedback_event_store_tenant_consistency`)
-//   3. Idempotency: tenant-update fired keinen weiteren row
-
+// Pinned contracts:
+//   1. tenant:write:create fires the postSave hook with isNew=true
+//   2. The hook creates the tier-assignment row in the NEW tenant, not in the caller tenant
+//   3. Idempotency: a tenant update does not create another row
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-
+import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  TenantHandlers,
+  tenantMembershipsTable,
+  tenantTable,
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
+import type { TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import {
+  createTierEngineFeature,
+  tierAssignmentEntity,
+} from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
@@ -28,12 +31,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { configValuesTable } from "../../config/index.ts";
-import { TenantHandlers, tenantMembershipsTable, tenantTable } from "../../tenant/index.ts";
-import { userTable } from "../../user/index.ts";
-import type { TierMap } from "../compose-app.ts";
-import { tierAssignmentEntity } from "../entity.ts";
-import { createTierEngineFeature } from "../feature.ts";
 
 const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },

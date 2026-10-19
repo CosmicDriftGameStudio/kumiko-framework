@@ -13,8 +13,8 @@ import { createDeliveryTestContext } from "@cosmicdrift/kumiko-bundled-features/
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { runDevApp, type SeedFn } from "@cosmicdrift/kumiko-dev-server";
+import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-dev-server/testing";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-testing/e2e/seed-route";
 import { devAppOptions } from "../src/app/dev-app-options";
 import { GALLERY_TENANT_HOST, GALLERY_TERMS_SLUG } from "./gallery-constants";
 import {

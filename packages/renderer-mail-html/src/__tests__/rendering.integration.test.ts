@@ -26,6 +26,7 @@ import {
   templateResourcesTable,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
+import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
@@ -33,7 +34,6 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { setupAppTestStack } from "@cosmicdrift/kumiko-testing";
 import { type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { DEFAULT_MAIL_LAYOUT_MJML } from "../default-layout";

@@ -1,26 +1,26 @@
-// Sprint-8a: behavior-tests für `createTierEngineFeature({ tierMap })`.
-// Drei tests, advisor-empfohlene Coverage-Schichten:
+// Behavior tests for `createTierEngineFeature({ tierMap })`, three coverage layers:
 //
-// (1) per-tenant gating end-to-end via dispatcher: Tenant A "pro" sieht
-//     den feature-handler, Tenant B "free" bekommt 403.
-// (2) cache-invalidation via tier-assignment:postSave: tier ändert sich
-//     → resolver reflects sofort.
-// (3) SYSTEM_TENANT_ID returnt union-of-all-features (operator-tooling +
+// (1) Per-tenant gating end-to-end via the dispatcher: tenant A on "pro" sees the feature
+//     handler, tenant B on "free" gets 403.
+// (2) Cache invalidation via tier-assignment:postSave: a tier change is reflected in the
+//     resolver immediately.
+// (3) SYSTEM_TENANT_ID returns the union of all features (operator tooling and the
 //     event-dispatcher async-pass convention).
 //
-// Memory `feedback_no_fake_tests`: das Verhalten der per-tenant signature
-// + extension-pickup ist sonst nirgends getestet. Phase-1-tests (dispatcher
-// per-tenant + lifecycle hook-filter) zeigen die signature funktioniert
-// MIT einem mock-resolver. Diese tests zeigen die echte tier-engine als
-// resolver-implementierung funktioniert.
+// The per-tenant signature and extension pickup are tested nowhere else with the real engine;
+// the dispatcher tests only show the signature works with a mock resolver.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
+import type { TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import {
+  createTierEngineFeature,
+  tierAssignmentEntity,
+} from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-
 import { asRawClient, buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
@@ -37,12 +37,9 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import type { TierMap } from "../compose-app.ts";
-import { tierAssignmentEntity } from "../entity.ts";
-import { createTierEngineFeature } from "../feature.ts";
 
-// App-spezifische cap-shape (die TierMap ist generic). Hier dummy-caps —
-// fokus ist features-resolution, nicht caps.
+// App-specific cap shape (the TierMap is generic). Dummy caps here, the focus is feature
+// resolution, not caps.
 type TestCaps = { readonly maxItems: number };
 
 const TEST_TIER_MAP: TierMap<TestCaps> = {
@@ -51,8 +48,8 @@ const TEST_TIER_MAP: TierMap<TestCaps> = {
   business: { features: ["feat-pro", "feat-business"], caps: { maxItems: 20 } },
 };
 
-// Toy-feature mit einem tenantadmin-only-handler. Wenn das feature im
-// effective-Set ist, dispatcher passt durch — wenn nicht, 403 feature_disabled.
+// Toy feature with a tenantadmin-only handler. If the feature is in the effective set the
+// dispatcher lets the call through, otherwise it answers 403 feature_disabled.
 const featProFeature = defineFeature("feat-pro", (r) => {
   r.toggleable({ default: false });
   r.queryHandler({
@@ -74,7 +71,7 @@ const features = composeFeatures(
 );
 
 // Zweite Komposition MIT Trial-Option: jeder Tenant bekommt 30 Tage ab
-// inserted_at die "pro"-Features (feat-pro), unabhängig vom gespeicherten Tier.
+// inserted_at the "pro" features (feat-pro), independent of the stored tier.
 const TRIAL_HOURS = 30 * 24;
 const featuresWithTrial = composeFeatures(
   [
@@ -94,11 +91,10 @@ const _adminA = createTestUser({ id: "u-a", tenantId: tenantA, roles: ["TenantAd
 const _adminB = createTestUser({ id: "u-b", tenantId: tenantB, roles: ["TenantAdmin"] });
 
 beforeAll(async () => {
-  // setupTestStack mit dem extension-pickup-Pfad: wir holen den plugin
-  // selbst und builden ihn manuell, weil setupTestStack heute nicht das
-  // Auto-pickup macht (das ist runDevApp/runProdApp's Job). Test fokus
-  // ist die feature-Implementation, nicht das wiring — wiring deckt
-  // (separater) integration-test im dev-server ab.
+  // setupTestStack with the extension-pickup path: fetch the plugin and build it manually,
+  // because setupTestStack does not auto-pickup (that is runDevApp/runProdApp's job). The test
+  // targets the feature implementation, not the wiring; a separate dev-server integration test
+  // covers the wiring.
   stack = await setupTestStack({ features });
   await unsafePushTables(stack.db, {
     config_values: configValuesTable,
@@ -147,7 +143,7 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
   });
 
   test("(2) cache-invalidation: tier change reflects in resolver immediately", async () => {
-    // Start mit free, dann zu pro upgraden, resolver soll's sofort sehen.
+    // Start with free, upgrade to pro; the resolver must see it immediately.
     const usage = findTierResolverUsage(features);
     if (!usage) throw new Error("setup failure");
     const plugin = usage.options as TierResolverPlugin;
@@ -205,11 +201,10 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
   });
 
   test("(4) set-tenant-tier reflects in resolver — effective gating, not just projection", async () => {
-    // Kern-Zweck von #434: ein manueller Grant muss das EFFEKTIVE Feature-Set
-    // ändern (Resolver-Cache), nicht nur die Projektion. set-tenant-tier
-    // schreibt direkt über den Executor — feuert das den postSave-Hook, der
-    // den Cache aktualisiert? Stale-Upgrade free→pro deckt den Fall ab, den
-    // der cache-miss-Fallback NICHT rettet.
+    // Core purpose of #434: a manual grant must change the EFFECTIVE feature set (resolver
+    // cache), not just the projection. set-tenant-tier writes through the executor directly;
+    // does that fire the postSave hook that refreshes the cache? A stale free->pro upgrade
+    // covers the case the cache-miss fallback does NOT rescue.
     const usage = findTierResolverUsage(features);
     if (!usage) throw new Error("setup failure");
     const plugin = usage.options as TierResolverPlugin;
@@ -224,7 +219,7 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
     const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
     expect(resolver(tenantA).has("feat-pro")).toBe(false);
 
-    // Manueller Grant via set-tenant-tier (cross-tenant-fähig, hier eigener Tenant).
+    // Manual grant via set-tenant-tier (cross-tenant capable, here the tenant itself).
     await stack.http.writeOk(
       "tier-engine:write:set-tenant-tier",
       { tenantId: tenantA, tier: "pro" },
@@ -251,12 +246,11 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
 });
 
 describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet, Live-Gate)", () => {
-  // Der Trial lebt NICHT mehr im Resolver-Feature-Set (sync/boot-cached sieht
-  // weder frische Signups noch den Zeitablauf), sondern als async trialGate,
-  // der tenant.inserted_at LIVE liest. Diese Tenants entstehen über den ECHTEN
-  // seedTenant-Pfad (= auth-signup) — OHNE tier-assignment-Row. Genau dieser
-  // Pfad war der Prod-Bug: die alte gecachte Trial-Uhr sah seedTenant-Signups
-  // nie (seedTenant umgeht den dispatcher-postSave-Hook).
+  // The trial no longer lives in the resolver feature set (a sync, boot-cached set sees neither
+  // fresh signups nor the passage of time) but in an async trialGate that reads tenant.inserted_at
+  // LIVE. These tenants come from the REAL seedTenant path (= auth-signup) WITHOUT a
+  // tier-assignment row. That path was the prod bug: the old cached trial clock never saw
+  // seedTenant signups (seedTenant bypasses the dispatcher postSave hook).
   async function seedSignup(tenantId: TenantId, key: string) {
     await seedTenant(stack.db, { id: tenantId, key, name: key });
   }
@@ -269,11 +263,11 @@ describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet, Live-Gate)",
     await seedSignup(tenantA, "trial-a");
     const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
 
-    // Trial sitzt am Gate, nicht im Resolver-Feature-Set.
+    // The trial sits at the gate, not in the resolver feature set.
     expect(resolver(tenantA).has("feat-pro")).toBe(false);
     expect(resolver.trialGate).toBeDefined();
     expect(await resolver.trialGate?.(tenantA, "feat-pro")).toBe(true);
-    // Feature außerhalb des Trial-Tiers ("business") bleibt zu.
+    // A feature outside the trial tier ("business") stays closed.
     expect(await resolver.trialGate?.(tenantA, "feat-business")).toBe(false);
   });
 
@@ -283,8 +277,8 @@ describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet, Live-Gate)",
     const plugin = usage.options as TierResolverPlugin;
 
     await seedSignup(tenantB, "trial-b");
-    // Anlage-Datum künstlich 31 Tage zurückdrehen → Trial abgelaufen. tenantB ist
-    // eine fixe Test-UUID (kein User-Input) → inline-Interpolation unkritisch.
+    // Backdate the creation date by 31 days so the trial has expired. tenantB is a fixed test
+    // UUID (no user input), so the inline interpolation is safe.
     await asRawClient(stack.db).unsafe(
       `UPDATE read_tenants SET inserted_at = now() - interval '31 days' WHERE id = '${tenantB}'::uuid`,
     );

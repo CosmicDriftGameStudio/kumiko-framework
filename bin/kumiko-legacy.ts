@@ -357,6 +357,10 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     cmd: `bun "${join(FRAMEWORK_REPO_ROOT, "scripts/guard-guide-code-blocks.ts")}"`,
   });
   steps.push({
+    name: "Package-Cycles Check",
+    cmd: `bun "${join(FRAMEWORK_REPO_ROOT, "scripts/check-package-cycles.ts")}"`,
+  });
+  steps.push({
     name: "Integration-Mock Guard",
     cmd: `cd "${FRAMEWORK_REPO_ROOT}" && bun integration.guard.ts`,
   });

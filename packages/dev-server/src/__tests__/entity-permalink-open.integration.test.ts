@@ -1,15 +1,10 @@
-// Issue #912 — Teilbare Entity-Permalinks. Der Copy-Link-Button selbst ist
-// UI-Zucker (baut eine URL, kopiert sie); die eigentliche Anforderung des
-// Issues ist "ein Permalink darf nie Auth/Tenant-Isolation umgehen". Ein
-// entityEdit-Permalink öffnet beim Klick exactly denselben
-// `<feature>:query:<entity>:detail`-Call, den jede Entity schon für ihr
-// Update-Formular nutzt — es gibt keinen separaten Permalink-Resolve-Pfad.
-// Dieser Test beweist den Deny für beide Achsen, die einen Leak verhindern
-// müssten: Rollen-Gate (dispatcher-seitig, default-deny) und Tenant-Scoping
-// (strukturell über ctx.db).
+// A shareable entity permalink must never bypass auth or tenant isolation. An entityEdit permalink
+// opens the same `<feature>:query:<entity>:detail` call every entity already uses for its update
+// form; there is no separate permalink resolve path.
+// This test proves the deny on both axes that would otherwise leak: the role gate (dispatcher
+// side, default-deny) and tenant scoping (structural via ctx.db).
 
 import { describe, expect, test } from "bun:test";
-import { setupTestStackFromFeatures } from "@cosmicdrift/kumiko-dev-server/setup-test-stack-from-features";
 import {
   createEntity,
   createTextField,
@@ -17,8 +12,9 @@ import {
   defineEntityDetailHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { pushEntityProjectionTables } from "@cosmicdrift/kumiko-testing/stack";
-import { createTestUser, testTenantId } from "../seeding/seed-users.ts";
+import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.ts";
 
 const noteEntity = createEntity({
   table: "read_permalink_notes",

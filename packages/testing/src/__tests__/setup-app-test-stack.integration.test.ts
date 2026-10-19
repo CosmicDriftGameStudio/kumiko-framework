@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 import { asRawClient, tableExists } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -11,7 +12,6 @@ import {
 import { resolveObservabilityWiring } from "@cosmicdrift/kumiko-framework/observability";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
-import { setupAppTestStack } from "../index";
 import { createTestDb, type TestDb, type TestStack } from "../stack/index.ts";
 import { noteFeature } from "./note-feature";
 

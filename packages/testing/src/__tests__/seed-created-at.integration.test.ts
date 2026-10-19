@@ -4,8 +4,8 @@ import {
   type KumikoServerHandle,
   runDevApp,
 } from "@cosmicdrift/kumiko-dev-server";
+import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-dev-server/testing";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-
 import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -39,7 +39,7 @@ import {
   SEED_TOKEN_HEADER,
 } from "../e2e/constants";
 import { seedTenantResponseSchema } from "../e2e/seed-contract";
-import { createE2eSeedRoutes, type E2eExtraSeeder } from "../e2e/seed-route";
+import type { E2eExtraSeeder } from "../e2e/seed-route";
 import { drainEventConsumers } from "../stack/index.ts";
 
 const TOKEN = "seed-created-at-test-token";

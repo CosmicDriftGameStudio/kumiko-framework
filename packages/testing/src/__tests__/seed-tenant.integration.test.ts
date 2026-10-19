@@ -6,12 +6,13 @@ import {
   tenantTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { tenantChannel } from "@cosmicdrift/kumiko-framework/engine";
 import { SSE_BROADCAST_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { type SeedPart, seedTenant, setupAppTestStack } from "../index";
+import type { SeedPart } from "../index";
 import { drainEventConsumers, type TestStack } from "../stack/index.ts";
 import { NOTE_CREATE, NOTE_LIST, noteFeature } from "./note-feature";
 

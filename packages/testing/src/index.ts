@@ -1,9 +1,10 @@
-export { PROVIDER_ENV_KEYS } from "./provider-env-keys";
+export { PROVIDER_ENV_KEYS } from "@cosmicdrift/kumiko-testing/provider-env-keys";
+export type { InboxMessage, SeedBundledApi, SeedRouteBundledApi } from "./bundled-injection.ts";
 export {
   type BoundApi,
   type InProcessSeededTenant,
   type PersistedTenant,
-  persistTenantRows,
+  persistTenantRows as persistTenantRowsWith,
   type SavedRow,
   type SeededCredentials,
   type SeededTenant,
@@ -11,9 +12,5 @@ export {
   type SeedPart,
   type SeedTenantOptions,
   type SeedWriter,
-  seedTenant,
-} from "./seed-tenant";
-export {
-  type SetupAppTestStackOptions,
-  setupAppTestStack,
-} from "./setup-app-test-stack";
+  seedTenant as seedTenantWith,
+} from "./seed-tenant.ts";

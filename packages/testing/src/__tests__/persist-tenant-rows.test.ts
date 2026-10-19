@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { verifyPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { TenantHandlers } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
-import { persistTenantRows, type SeedWriter } from "../seed-tenant";
+import { persistTenantRows } from "@cosmicdrift/kumiko-dev-server/testing";
+import type { SeedWriter } from "../seed-tenant";
 
 type Call = { readonly handlerQn: string; readonly payload: Record<string, unknown> };
 

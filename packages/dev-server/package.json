@@ -19,7 +19,8 @@
     "bunOnlyExports": [
       ".",
       "./managed-files",
-      "./setup-test-stack-from-features"
+      "./setup-test-stack-from-features",
+      "./testing"
     ]
   },
   "exports": {
@@ -46,6 +47,10 @@
     "./setup-test-stack-from-features": {
       "types": "./src/setup-test-stack-from-features.ts",
       "default": "./src/setup-test-stack-from-features.ts"
+    },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
     },
     "./schema-apply": {
       "types": "./src/schema-apply.ts",
@@ -112,6 +117,10 @@
       "./setup-test-stack-from-features": {
         "types": "./dist/setup-test-stack-from-features.d.ts",
         "default": "./dist/setup-test-stack-from-features.js"
+      },
+      "./testing": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
       },
       "./schema-apply": {
         "types": "./dist/schema-apply.d.ts",
