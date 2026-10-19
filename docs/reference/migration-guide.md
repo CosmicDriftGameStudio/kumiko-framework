@@ -2,13 +2,51 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-18
+verified: 2026-10-19
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.372.0
+
+### delivery
+
+**Queued delivery jobs carry the recipient address sealed**
+
+createDeliveryService takes an addressCipher; the boot wiring passes the master-key cipher, so delivery.render and delivery.send payloads hold sealedAddress instead of address. Workers open it through ctx.configEncryption.
+
+**Migration:** Roll out worker and web together with the same KUMIKO_SECRETS_MASTER_KEY_V<n>; a worker without the master key fails sealed jobs with send_failed. Code that calls createDeliveryService itself passes addressCipher to get sealed payloads.
+
+### files
+
+**Orphaned upload bytes are swept through a new upload ledger**
+
+The files feature registers the store_file_upload_ledger table and an hourly sweep job. FileContext has the new methods writeUploadBytes and forgetUploadBytes, which the four upload paths use; a custom FileContext or resolver must provide the ledger (withUploadLedger wraps a resolver). TenantDb.deleteMany resolves to the number of deleted rows instead of void. A fileRef commit whose ledger row was already swept throws InternalError "upload expired".
+
+**Migration:** Generate and apply a migration with `kumiko-schema generate` — uploads fail without the new store_file_upload_ledger table
+
+### framework-core
+
+**executor.detail() and executor.list() return EntityRow<E>, derived from the entity definition**
+
+Rows of createEntityExecutor / createEventStoreExecutor are typed per entity; wide entities keep Record<string, unknown>. createBooleanField is typed non-null. UserMfaRow in the bundled auth-mfa feature now declares enabledAt and lastUsedAt as Temporal.Instant, which is what the row always held.
+
+**Migration:** Remove the `row as T` casts on executor.detail() / executor.list() results with `bun kumiko-upgrade --apply` (codemod remove-engine-payload-casts). Casts to a type the row does not satisfy stay and are listed as manual; replace them with a field-level check or a narrower type.
+
+**Tokens carrying system or all lose those roles on verify**
+
+jwt.verify strips the system and all roles that session minting never grants, so a self-signed or leaked-key token cannot act as System.
+
+**Migration:** Apps that mint their own tokens with the `system` role must stop doing so and use `createSystemUser` or system dispatch in-process instead. Tokens issued by the framework are unaffected. Tests that send a system user over `stack.http.*` must switch to `stack.dispatcher.write/query`.
+
+**http.route and the metric route label carry the route pattern, http.target is removed**
+
+Spans are named "METHOD pattern" instead of "http.request"; paths no route matched are labelled "unmatched". The PII ciphertext guard message names the pattern as well.
+
+**Migration:** Dashboards, alerts and trace queries keyed on raw paths or on the span name "http.request" must switch to route patterns and the "METHOD pattern" span name. Read the query string from your access logs if you relied on http.target.
 
 ## 0.370.0
 

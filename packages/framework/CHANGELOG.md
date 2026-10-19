@@ -1,5 +1,136 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.372.0
+
+### Minor Changes
+
+- a4401ab: `kumiko check` honours the boot-validator options declared in kumiko.config.ts
+  
+  The boot step of `kumiko check` ran `validateBoot` without the options the app passes to `runProdApp`, so allowlisted or exempted navs still warned there. `defineAppConfig` now takes an optional `validateBootOptions` (`navAllowlist`, `navAllowlistExempt`, `warnOnUniqueAccessRoles`; `env` and the cipher stay runner-owned). The managed `kumiko/schema.ts` exports it as `VALIDATE_BOOT_OPTIONS`, `kumiko check` and `kumiko-schema validate` hand it to `validateBoot`, and a wrong shape fails the boot step with a clear message. New apps pass the same options from their `bin/main.ts` and `bin/server.ts` to `runProdApp` and `runDevApp`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko check validates the boot configuration with the validateBootOptions from kumiko.config.ts
+  detail: Set validateBootOptions in defineAppConfig (navAllowlist, navAllowlistExempt, warnOnUniqueAccessRoles); the managed kumiko/schema.ts exports it as VALIDATE_BOOT_OPTIONS and kumiko check validates with it. Apps with a hand-written kumiko/schema.ts can export VALIDATE_BOOT_OPTIONS themselves.
+  migration: Existing apps get the new line in kumiko/schema.ts through `kumiko-upgrade --apply` (managed file). The bin files belong to the app: pass `...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions })` to runProdApp in bin/main.ts and to runDevApp in bin/server.ts (import appConfig from "../kumiko.config") so runtime and kumiko check agree.
+  -->
+- 236858e: `executor.detail()` and `executor.list()` return the entity's row type
+  
+  `createEntityExecutor(name, entity)` and `createEventStoreExecutor(table, entity, options)` now return `EventStoreExecutor<EntityRow<E>>`. `detail` resolves to `EntityRow<E> | null` and `list` to `CursorResult<EntityRow<E>>`, so `row.title` needs no cast or schema parse. `EntityRow<E>` is exported from `@cosmicdrift/kumiko-framework/db` and follows what the executor returns at runtime: money is one `{ amount, currency, amountScaled, amountMinor }` key, a located timestamp one `{ at, tz, utc }` key, `date` is a `Temporal.PlainDate`, `timestamp` and `insertedAt` are `Temporal.Instant`, soft-delete keys are required only when `softDelete` is the literal `true`, and bigInt and jsonb stay `unknown`. A wide `fields` map falls back to `Record<string, unknown>`. Create and update payloads stay untyped, and a typed executor is still assignable to the untyped `EventStoreExecutor`.
+  
+  `createBooleanField` is now typed as non-null (`default: boolean`), matching what it stores.
+  
+  Breaking: a `row as T` cast whose target the row type no longer overlaps becomes a compile error, and casts that still compile but are now redundant can go. Run the codemod first, then fix what it lists as manual.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: executor.detail() and executor.list() return EntityRow<E>, derived from the entity definition
+  detail: Rows of createEntityExecutor / createEventStoreExecutor are typed per entity; wide entities keep Record<string, unknown>. createBooleanField is typed non-null. UserMfaRow in the bundled auth-mfa feature now declares enabledAt and lastUsedAt as Temporal.Instant, which is what the row always held.
+  migration: Remove the `row as T` casts on executor.detail() / executor.list() results with `bun kumiko-upgrade --apply` (codemod remove-engine-payload-casts). Casts to a type the row does not satisfy stay and are listed as manual; replace them with a field-level check or a narrower type.
+  codemod: scripts/codemod/remove-engine-payload-casts.ts
+  manualAfterCodemod: true
+  -->
+- 27b759f: Orphaned upload bytes are swept
+  
+  Bytes written by `POST /files`, `createFileRefFromBytes`, `uploadFileBytesBeforeTransaction` and the seed `createFileRef` are recorded in the new `store_file_upload_ledger` table before they reach storage. The commit that creates the fileRef row removes the ledger row in its own transaction. The new hourly `files:job:sweep-orphaned-uploads` job deletes the bytes (original and derivatives) of uploads still unclaimed after `uploadSweepGraceHours` (default 24, minimum 1; option of `createFilesFeature`). A commit that arrives after its upload was swept fails with `upload expired`. Plain `files.ref(key).write()` stays untracked and is never swept.
+  
+  `FileContext` gains `writeUploadBytes` and `forgetUploadBytes`, `FileProviderResolver` may carry `uploadLedgerFor`, and `TenantDb.deleteMany` now returns the number of deleted rows. Build a tenant's `FileContext` with `createTenantFileContext(resolver, tenantId)` so it carries the resolver's ledger.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: breaking
+  title: Orphaned upload bytes are swept through a new upload ledger
+  detail: The files feature registers the store_file_upload_ledger table and an hourly sweep job. FileContext has the new methods writeUploadBytes and forgetUploadBytes, which the four upload paths use; a custom FileContext or resolver must provide the ledger (withUploadLedger wraps a resolver). TenantDb.deleteMany resolves to the number of deleted rows instead of void. A fileRef commit whose ledger row was already swept throws InternalError "upload expired".
+  migration: Generate and apply a migration with `kumiko-schema generate` — uploads fail without the new store_file_upload_ledger table
+  -->
+- 221f81c: JWT verification drops the `system` and `all` roles
+  
+  A token signed with the right key could carry `roles: ["system"]` and be treated as the in-process System identity. `verify()` now removes `system` and `all` from the roles claim; minting never grants them. `anonymous`, `SystemAdmin` and all other roles are kept. The test request helper (`stack.http.*`) now throws when handed a user with the `system` role; use `stack.dispatcher.write/query` for system calls.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Tokens carrying system or all lose those roles on verify
+  detail: jwt.verify strips the system and all roles that session minting never grants, so a self-signed or leaked-key token cannot act as System.
+  migration: Apps that mint their own tokens with the `system` role must stop doing so and use `createSystemUser` or system dispatch in-process instead. Tokens issued by the framework are unaffected. Tests that send a system user over `stack.http.*` must switch to `stack.dispatcher.write/query`.
+  -->
+- dca222d: HTTP spans and metrics use the route pattern instead of the raw request path
+  
+  The `http.route` span attribute and the `route` label on `kumiko_http_requests_total` and `kumiko_http_request_duration_seconds` now carry the matched route pattern (`/api/heartbeat/:token`), or `unmatched` when no route matched. Raw paths put path-param secrets into traces and gave every id its own metric series. The span is named `GET /api/heartbeat/:token` instead of `http.request`, and the `http.target` attribute is gone.
+  
+  `observabilityOptions` (`BaseEntrypointOptions`, `RunProdAppOptions`, `RunWorkerAppOptions`) is deprecated and has no effect anymore: it only configured query-string redaction, and the route label carries no query string. `ServerOptions.observabilityOptions` is removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: http.route and the metric route label carry the route pattern, http.target is removed
+  detail: Spans are named "METHOD pattern" instead of "http.request"; paths no route matched are labelled "unmatched". The PII ciphertext guard message names the pattern as well.
+  migration: Dashboards, alerts and trace queries keyed on raw paths or on the span name "http.request" must switch to route patterns and the "METHOD pattern" span name. Read the query string from your access logs if you relied on http.target.
+  -->
+- 2cb8b4f: `resolvePageHead` receives the request's preferred locales
+  
+  The resolver input gains `preferredLocales`: an ordered, canonicalized, deduplicated list with a valid `?lang=` first, then every Accept-Language tag by q (q=0 and malformed tags dropped, header order breaks ties). A resolver can walk it and use the first locale it has content for, instead of parsing the header itself. `runProdApp`, `runDevApp` and `hostDispatch` pages all pass it. `@cosmicdrift/kumiko-framework/i18n` exports `rankAcceptLanguage` and `rankPreferredLocales`; `pickAcceptLanguage` behaves as before. With a page-head resolver configured, `runProdApp` HTML responses send `Vary: Host, Accept-Language`, so a shared cache keeps the locale variants apart.
+  
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: resolvePageHead gets preferredLocales (?lang= first, then Accept-Language by q) so resolvers can pick a content locale
+  detail: Callers constructing PageHeadResolveInput themselves must now pass preferredLocales (an empty array when no preference is known).
+  -->
+
+### Patch Changes
+
+- de53a14: `createEntity` accepts inline field literals without `as const`
+  
+  `createEntity({ fields: { owner: { type: "reference", entity: "user" } } })` no longer collapses to `never`: the `fields` type parameter is `const`, so `type` keeps its literal instead of widening to `string`. Field helpers (`createTextField` and friends) behave as before.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: createEntity no longer collapses to never for inline field literals such as { type: "reference", entity }
+  detail: The fields type parameter is const, so the literal type of each inline field survives without as const.
+  -->
+- 5cd8710: A save cannot name a file that is bound to another record
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A save cannot reference a file that belongs to another record
+  detail: Creating or updating a record with a file id that is already bound to a different record of the same tenant is now rejected with invalid_element on that field, the same error as for a foreign tenant. Pending uploads, ids the record already holds and moves between its own file fields are unaffected.
+  -->
+- 4224023: Seeds can call write handlers that declare a `rateLimit`
+  
+  The seed and seed-migration dispatcher of `runProdApp` had no `RateLimitResolver`, so any handler with a `rateLimit` failed with an internal error when a seed called it. Seeds now always run with `createUnlimitedRateLimitResolver()` (exported from `@cosmicdrift/kumiko-framework/pipeline`), even when the app has a real resolver: they are bootstrap writes, so they neither fail on a limit nor drain the buckets real requests use. Requests are limited as before.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Seeds no longer fail on write handlers that declare a rateLimit
+  detail: The seed dispatcher gets an unlimited RateLimitResolver instead of none; requests keep the app's resolver and limits.
+  -->
+- 9bc4bc4: Locked screens with a fallback stay in the schema of tenants without the feature
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: fix
+  title: Tenants whose tier excludes API tokens now reach the lockedFallbackScreen
+  detail: GET /api/schema removed every screen of a feature the tenant has switched off, and the role projection then dropped the navs of other features that pointed at them. The token list screen was gone, so the upgrade screen set via lockedFallbackScreen was never shown. Screens that declare a fallback (and the same-feature screens those fallbacks name) now stay in the schema; the server still rejects their queries and writes with feature_disabled, which makes the renderer show the fallback. Navs, content collections and workspaces of the disabled feature are still removed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: improvement
+  title: The token list looks like any other Kumiko list
+  detail: The create button now sits in the page header next to the title, and an empty list shows the standard hint with a create button. The German title of the list screen is "API-Tokens" instead of "Personal Access Tokens", which also fixes the breadcrumb of the mint screen. Renderer, all apps: a projection list without an entity create button now shows its first primary toolbar action (one that needs no confirmation dialog) in the page header on desktop as well, with its label, instead of in the toolbar row; on phones it already did. On desktop only an icon derived from the action id (or declared on the action) is shown; the plus fallback exists only on phones. Consumers get this after the bump without code changes.
+  -->
+- Updated dependencies [236858e]
+- Updated dependencies [27b759f]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-types@0.372.0
+  - @cosmicdrift/kumiko-http@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

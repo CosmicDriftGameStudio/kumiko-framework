@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.372.0",
+    "type": "fix",
+    "title": "The designer names placeholders by their label everywhere",
+    "detail": "Placeholder chips in the mail subject, the header label, the footer note and the paper editor now show only the variable's label; the raw name stays available as a tooltip. The tone select reads \"From placeholder: <label>\" instead of \"{{tone}}\", and the validation notes in the preview list labels instead of names. The file-name hint in the settings is translated (de, en, es). Unknown placeholders and variables without a label still show their name."
+  },
+  {
+    "version": "0.372.0",
+    "type": "fix",
+    "title": "Sample values show formatted money and dates",
+    "detail": "The sample-values bar in the mail preview formats money, dates and percentages in the language of the selected tab and with the tenant currency, through the same helpers the mail and PDF renderers use (formatDocumentMoney, formatDocumentDate and formatDocumentPercent, now exported from kumiko-headless). An amount reads \"1.284,50 €\" instead of \"128450 EUR\". The required star in the placeholder list stays on the label's last word instead of wrapping onto its own line. config/web now exports ConfigQueries."
+  },
+  {
     "version": "0.371.1",
     "type": "fix",
     "title": "The Document Designer editor shows its own texts in Spanish",

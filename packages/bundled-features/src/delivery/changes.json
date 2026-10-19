@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.372.0",
+    "type": "breaking",
+    "title": "Queued delivery jobs carry the recipient address sealed",
+    "detail": "createDeliveryService takes an addressCipher; the boot wiring passes the master-key cipher, so delivery.render and delivery.send payloads hold sealedAddress instead of address. Workers open it through ctx.configEncryption.",
+    "migration": "Roll out worker and web together with the same KUMIKO_SECRETS_MASTER_KEY_V<n>; a worker without the master key fails sealed jobs with send_failed. Code that calls createDeliveryService itself passes addressCipher to get sealed payloads."
+  },
+  {
+    "version": "0.372.0",
+    "type": "improvement",
+    "title": "createUnsubscribePageChromeReader gives app routes the tenant branding for unsubscribe pages",
+    "detail": "The JSDoc of renderUnsubscribeResultPage pointed to a chrome read that only works for SystemAdmin, so app routes for legacy unsubscribe links rendered without branding. The new `createUnsubscribePageChromeReader({ dispatchSystemQuery })` returns `(tenantId, locale) => MailChrome | null`, failing soft to null. Build it once in the `wire` hook, whose deps now also carry `dispatchSystemQuery` (runProdApp, runWorkerApp.wireComponents, createKumikoServer), and call it with a tenant the route resolved itself, for example from the Host, never with a tenantId from the query string or body. The chrome query itself stays SystemAdmin-only; anonymous `/api/query` callers are still rejected for every tenant."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "Unsubscribe endpoint answers form posts with an HTML page",

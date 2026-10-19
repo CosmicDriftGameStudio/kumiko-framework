@@ -1,5 +1,47 @@
 [
   {
+    "version": "0.372.0",
+    "type": "improvement",
+    "title": "kumiko check validates the boot configuration with the validateBootOptions from kumiko.config.ts",
+    "detail": "Set validateBootOptions in defineAppConfig (navAllowlist, navAllowlistExempt, warnOnUniqueAccessRoles); the managed kumiko/schema.ts exports it as VALIDATE_BOOT_OPTIONS and kumiko check validates with it. Apps with a hand-written kumiko/schema.ts can export VALIDATE_BOOT_OPTIONS themselves.",
+    "migration": "Existing apps get the new line in kumiko/schema.ts through `kumiko-upgrade --apply` (managed file). The bin files belong to the app: pass `...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions })` to runProdApp in bin/main.ts and to runDevApp in bin/server.ts (import appConfig from \"../kumiko.config\") so runtime and kumiko check agree."
+  },
+  {
+    "version": "0.372.0",
+    "type": "fix",
+    "title": "createEntity no longer collapses to never for inline field literals such as { type: \"reference\", entity }",
+    "detail": "The fields type parameter is const, so the literal type of each inline field survives without as const."
+  },
+  {
+    "version": "0.372.0",
+    "type": "breaking",
+    "title": "executor.detail() and executor.list() return EntityRow<E>, derived from the entity definition",
+    "detail": "Rows of createEntityExecutor / createEventStoreExecutor are typed per entity; wide entities keep Record<string, unknown>. createBooleanField is typed non-null. UserMfaRow in the bundled auth-mfa feature now declares enabledAt and lastUsedAt as Temporal.Instant, which is what the row always held.",
+    "migration": "Remove the `row as T` casts on executor.detail() / executor.list() results with `bun kumiko-upgrade --apply` (codemod remove-engine-payload-casts). Casts to a type the row does not satisfy stay and are listed as manual; replace them with a field-level check or a narrower type.",
+    "codemod": "scripts/codemod/remove-engine-payload-casts.ts",
+    "manualAfterCodemod": true
+  },
+  {
+    "version": "0.372.0",
+    "type": "fix",
+    "title": "A save cannot reference a file that belongs to another record",
+    "detail": "Creating or updating a record with a file id that is already bound to a different record of the same tenant is now rejected with invalid_element on that field, the same error as for a foreign tenant. Pending uploads, ids the record already holds and moves between its own file fields are unaffected."
+  },
+  {
+    "version": "0.372.0",
+    "type": "breaking",
+    "title": "Tokens carrying system or all lose those roles on verify",
+    "detail": "jwt.verify strips the system and all roles that session minting never grants, so a self-signed or leaked-key token cannot act as System.",
+    "migration": "Apps that mint their own tokens with the `system` role must stop doing so and use `createSystemUser` or system dispatch in-process instead. Tokens issued by the framework are unaffected. Tests that send a system user over `stack.http.*` must switch to `stack.dispatcher.write/query`."
+  },
+  {
+    "version": "0.372.0",
+    "type": "breaking",
+    "title": "http.route and the metric route label carry the route pattern, http.target is removed",
+    "detail": "Spans are named \"METHOD pattern\" instead of \"http.request\"; paths no route matched are labelled \"unmatched\". The PII ciphertext guard message names the pattern as well.",
+    "migration": "Dashboards, alerts and trace queries keyed on raw paths or on the span name \"http.request\" must switch to route patterns and the \"METHOD pattern\" span name. Read the query string from your access logs if you relied on http.target."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "Dry-run env table and boot check respect required overrides and the fileStorage default",

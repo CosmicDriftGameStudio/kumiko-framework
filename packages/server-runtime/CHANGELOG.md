@@ -1,5 +1,105 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.372.0
+
+### Minor Changes
+
+- 16ab9fe: Queued delivery jobs carry the recipient address sealed
+  
+  `delivery.render` and `delivery.send` job payloads sit in Redis and the job-run table. With a master key configured, the recipient address now travels as `sealedAddress` (encrypted per tenant) and is opened only right before `channel.send`. Without a master key the payload keeps the plaintext `address` and boot logs one warning. Jobs queued before the upgrade keep their plaintext address and still send.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Queued delivery jobs carry the recipient address sealed
+  detail: createDeliveryService takes an addressCipher; the boot wiring passes the master-key cipher, so delivery.render and delivery.send payloads hold sealedAddress instead of address. Workers open it through ctx.configEncryption.
+  migration: Roll out worker and web together with the same KUMIKO_SECRETS_MASTER_KEY_V<n>; a worker without the master key fails sealed jobs with send_failed. Code that calls createDeliveryService itself passes addressCipher to get sealed payloads.
+  -->
+- 7c04d2a: App unsubscribe pages can wear the tenant's mail look
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: createUnsubscribePageChromeReader gives app routes the tenant branding for unsubscribe pages
+  detail: The JSDoc of renderUnsubscribeResultPage pointed to a chrome read that only works for SystemAdmin, so app routes for legacy unsubscribe links rendered without branding. The new `createUnsubscribePageChromeReader({ dispatchSystemQuery })` returns `(tenantId, locale) => MailChrome | null`, failing soft to null. Build it once in the `wire` hook, whose deps now also carry `dispatchSystemQuery` (runProdApp, runWorkerApp.wireComponents, createKumikoServer), and call it with a tenant the route resolved itself, for example from the Host, never with a tenantId from the query string or body. The chrome query itself stays SystemAdmin-only; anonymous `/api/query` callers are still rejected for every tenant.
+  -->
+- 27b759f: Orphaned upload bytes are swept
+  
+  Bytes written by `POST /files`, `createFileRefFromBytes`, `uploadFileBytesBeforeTransaction` and the seed `createFileRef` are recorded in the new `store_file_upload_ledger` table before they reach storage. The commit that creates the fileRef row removes the ledger row in its own transaction. The new hourly `files:job:sweep-orphaned-uploads` job deletes the bytes (original and derivatives) of uploads still unclaimed after `uploadSweepGraceHours` (default 24, minimum 1; option of `createFilesFeature`). A commit that arrives after its upload was swept fails with `upload expired`. Plain `files.ref(key).write()` stays untracked and is never swept.
+  
+  `FileContext` gains `writeUploadBytes` and `forgetUploadBytes`, `FileProviderResolver` may carry `uploadLedgerFor`, and `TenantDb.deleteMany` now returns the number of deleted rows. Build a tenant's `FileContext` with `createTenantFileContext(resolver, tenantId)` so it carries the resolver's ledger.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: breaking
+  title: Orphaned upload bytes are swept through a new upload ledger
+  detail: The files feature registers the store_file_upload_ledger table and an hourly sweep job. FileContext has the new methods writeUploadBytes and forgetUploadBytes, which the four upload paths use; a custom FileContext or resolver must provide the ledger (withUploadLedger wraps a resolver). TenantDb.deleteMany resolves to the number of deleted rows instead of void. A fileRef commit whose ledger row was already swept throws InternalError "upload expired".
+  migration: Generate and apply a migration with `kumiko-schema generate` — uploads fail without the new store_file_upload_ledger table
+  -->
+- dca222d: HTTP spans and metrics use the route pattern instead of the raw request path
+  
+  The `http.route` span attribute and the `route` label on `kumiko_http_requests_total` and `kumiko_http_request_duration_seconds` now carry the matched route pattern (`/api/heartbeat/:token`), or `unmatched` when no route matched. Raw paths put path-param secrets into traces and gave every id its own metric series. The span is named `GET /api/heartbeat/:token` instead of `http.request`, and the `http.target` attribute is gone.
+  
+  `observabilityOptions` (`BaseEntrypointOptions`, `RunProdAppOptions`, `RunWorkerAppOptions`) is deprecated and has no effect anymore: it only configured query-string redaction, and the route label carries no query string. `ServerOptions.observabilityOptions` is removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: http.route and the metric route label carry the route pattern, http.target is removed
+  detail: Spans are named "METHOD pattern" instead of "http.request"; paths no route matched are labelled "unmatched". The PII ciphertext guard message names the pattern as well.
+  migration: Dashboards, alerts and trace queries keyed on raw paths or on the span name "http.request" must switch to route patterns and the "METHOD pattern" span name. Read the query string from your access logs if you relied on http.target.
+  -->
+- 2cb8b4f: `resolvePageHead` receives the request's preferred locales
+  
+  The resolver input gains `preferredLocales`: an ordered, canonicalized, deduplicated list with a valid `?lang=` first, then every Accept-Language tag by q (q=0 and malformed tags dropped, header order breaks ties). A resolver can walk it and use the first locale it has content for, instead of parsing the header itself. `runProdApp`, `runDevApp` and `hostDispatch` pages all pass it. `@cosmicdrift/kumiko-framework/i18n` exports `rankAcceptLanguage` and `rankPreferredLocales`; `pickAcceptLanguage` behaves as before. With a page-head resolver configured, `runProdApp` HTML responses send `Vary: Host, Accept-Language`, so a shared cache keeps the locale variants apart.
+  
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: resolvePageHead gets preferredLocales (?lang= first, then Accept-Language by q) so resolvers can pick a content locale
+  detail: Callers constructing PageHeadResolveInput themselves must now pass preferredLocales (an empty array when no preference is known).
+  -->
+
+### Patch Changes
+
+- 4224023: Seeds can call write handlers that declare a `rateLimit`
+  
+  The seed and seed-migration dispatcher of `runProdApp` had no `RateLimitResolver`, so any handler with a `rateLimit` failed with an internal error when a seed called it. Seeds now always run with `createUnlimitedRateLimitResolver()` (exported from `@cosmicdrift/kumiko-framework/pipeline`), even when the app has a real resolver: they are bootstrap writes, so they neither fail on a limit nor drain the buckets real requests use. Requests are limited as before.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Seeds no longer fail on write handlers that declare a rateLimit
+  detail: The seed dispatcher gets an unlimited RateLimitResolver instead of none; requests keep the app's resolver and limits.
+  -->
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [16ab9fe]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [5cd8710]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [5cd8710]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-bundled-features@0.372.0
+  - @cosmicdrift/kumiko-headless@0.372.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.372.0
+  - @cosmicdrift/kumiko-renderer-web@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

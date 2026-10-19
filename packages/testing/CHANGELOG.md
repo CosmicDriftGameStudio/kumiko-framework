@@ -1,5 +1,62 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.372.0
+
+### Minor Changes
+
+- a45b3ee: `defineAppE2eConfig` can target a running instance, and `csrfFetch` reads the https csrf cookie
+  
+  Set `KUMIKO_E2E_REMOTE_BASE_URL` (http or https URL) and the template starts no web server and uses that URL as `baseURL`; `KUMIKO_E2E_STORAGE_STATE` adds a recorded Playwright session file. Timeouts, viewport and device scale factor stay with the template, so a `*.real.spec.ts` runs unchanged against staging or prod. A storage state without a remote base URL, or a URL that is not http(s), fails with a clear message.
+  
+  `csrfHeaderFromCookies` and `csrfFetch` now find the csrf cookie under both `__Host-kumiko_csrf` (https) and `kumiko_csrf` (http), prefixed first. Against an https target they used to answer 403 `csrf_token_mismatch`.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: defineAppE2eConfig runs against a remote instance via KUMIKO_E2E_REMOTE_BASE_URL; csrfFetch handles the __Host- csrf cookie
+  detail: KUMIKO_E2E_STORAGE_STATE supplies a recorded session. Without the remote env nothing changes.
+  -->
+- 27b759f: Orphaned upload bytes are swept
+  
+  Bytes written by `POST /files`, `createFileRefFromBytes`, `uploadFileBytesBeforeTransaction` and the seed `createFileRef` are recorded in the new `store_file_upload_ledger` table before they reach storage. The commit that creates the fileRef row removes the ledger row in its own transaction. The new hourly `files:job:sweep-orphaned-uploads` job deletes the bytes (original and derivatives) of uploads still unclaimed after `uploadSweepGraceHours` (default 24, minimum 1; option of `createFilesFeature`). A commit that arrives after its upload was swept fails with `upload expired`. Plain `files.ref(key).write()` stays untracked and is never swept.
+  
+  `FileContext` gains `writeUploadBytes` and `forgetUploadBytes`, `FileProviderResolver` may carry `uploadLedgerFor`, and `TenantDb.deleteMany` now returns the number of deleted rows. Build a tenant's `FileContext` with `createTenantFileContext(resolver, tenantId)` so it carries the resolver's ledger.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: breaking
+  title: Orphaned upload bytes are swept through a new upload ledger
+  detail: The files feature registers the store_file_upload_ledger table and an hourly sweep job. FileContext has the new methods writeUploadBytes and forgetUploadBytes, which the four upload paths use; a custom FileContext or resolver must provide the ledger (withUploadLedger wraps a resolver). TenantDb.deleteMany resolves to the number of deleted rows instead of void. A fileRef commit whose ledger row was already swept throws InternalError "upload expired".
+  migration: Generate and apply a migration with `kumiko-schema generate` — uploads fail without the new store_file_upload_ledger table
+  -->
+- 221f81c: JWT verification drops the `system` and `all` roles
+  
+  A token signed with the right key could carry `roles: ["system"]` and be treated as the in-process System identity. `verify()` now removes `system` and `all` from the roles claim; minting never grants them. `anonymous`, `SystemAdmin` and all other roles are kept. The test request helper (`stack.http.*`) now throws when handed a user with the `system` role; use `stack.dispatcher.write/query` for system calls.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Tokens carrying system or all lose those roles on verify
+  detail: jwt.verify strips the system and all roles that session minting never grants, so a self-signed or leaked-key token cannot act as System.
+  migration: Apps that mint their own tokens with the `system` role must stop doing so and use `createSystemUser` or system dispatch in-process instead. Tokens issued by the framework are unaffected. Tests that send a system user over `stack.http.*` must switch to `stack.dispatcher.write/query`.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

@@ -1,5 +1,82 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.372.0
+
+### Minor Changes
+
+- 67238d2: `buildServerBundle` and `kumiko-build` can bundle extra server entry points
+  
+  Scripts such as a remote probe next to `bin/main.ts` can now ship in the same `dist-server/` image. Pass `extraEntries: ["bin/remote-probe.ts"]` to `buildServerBundle`, or `--entry bin/remote-probe.ts` (repeatable) to `kumiko-build`. Each file is emitted as `dist-server/<basename>.js` and shares the framework chunks. A missing file, or a basename that collides with `server`, `kumiko`, `worker`, `bootstrap` or another extra entry, fails the build before `dist-server/` is touched. `kumiko-build` now rejects unknown options instead of ignoring them.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: kumiko-build --entry and buildServerBundle extraEntries bundle additional server entry points as dist-server/<basename>.js
+  detail: Opt-in per file, not every bin/ helper module; the output shares the chunk files with server.js. Unknown kumiko-build options now fail the build.
+  -->
+- a4401ab: `kumiko check` honours the boot-validator options declared in kumiko.config.ts
+  
+  The boot step of `kumiko check` ran `validateBoot` without the options the app passes to `runProdApp`, so allowlisted or exempted navs still warned there. `defineAppConfig` now takes an optional `validateBootOptions` (`navAllowlist`, `navAllowlistExempt`, `warnOnUniqueAccessRoles`; `env` and the cipher stay runner-owned). The managed `kumiko/schema.ts` exports it as `VALIDATE_BOOT_OPTIONS`, `kumiko check` and `kumiko-schema validate` hand it to `validateBoot`, and a wrong shape fails the boot step with a clear message. New apps pass the same options from their `bin/main.ts` and `bin/server.ts` to `runProdApp` and `runDevApp`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko check validates the boot configuration with the validateBootOptions from kumiko.config.ts
+  detail: Set validateBootOptions in defineAppConfig (navAllowlist, navAllowlistExempt, warnOnUniqueAccessRoles); the managed kumiko/schema.ts exports it as VALIDATE_BOOT_OPTIONS and kumiko check validates with it. Apps with a hand-written kumiko/schema.ts can export VALIDATE_BOOT_OPTIONS themselves.
+  migration: Existing apps get the new line in kumiko/schema.ts through `kumiko-upgrade --apply` (managed file). The bin files belong to the app: pass `...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions })` to runProdApp in bin/main.ts and to runDevApp in bin/server.ts (import appConfig from "../kumiko.config") so runtime and kumiko check agree.
+  -->
+- 2cb8b4f: `resolvePageHead` receives the request's preferred locales
+  
+  The resolver input gains `preferredLocales`: an ordered, canonicalized, deduplicated list with a valid `?lang=` first, then every Accept-Language tag by q (q=0 and malformed tags dropped, header order breaks ties). A resolver can walk it and use the first locale it has content for, instead of parsing the header itself. `runProdApp`, `runDevApp` and `hostDispatch` pages all pass it. `@cosmicdrift/kumiko-framework/i18n` exports `rankAcceptLanguage` and `rankPreferredLocales`; `pickAcceptLanguage` behaves as before. With a page-head resolver configured, `runProdApp` HTML responses send `Vary: Host, Accept-Language`, so a shared cache keeps the locale variants apart.
+  
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: resolvePageHead gets preferredLocales (?lang= first, then Accept-Language by q) so resolvers can pick a content locale
+  detail: Callers constructing PageHeadResolveInput themselves must now pass preferredLocales (an empty array when no preference is known).
+  -->
+
+### Patch Changes
+
+- 7c04d2a: App unsubscribe pages can wear the tenant's mail look
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: createUnsubscribePageChromeReader gives app routes the tenant branding for unsubscribe pages
+  detail: The JSDoc of renderUnsubscribeResultPage pointed to a chrome read that only works for SystemAdmin, so app routes for legacy unsubscribe links rendered without branding. The new `createUnsubscribePageChromeReader({ dispatchSystemQuery })` returns `(tenantId, locale) => MailChrome | null`, failing soft to null. Build it once in the `wire` hook, whose deps now also carry `dispatchSystemQuery` (runProdApp, runWorkerApp.wireComponents, createKumikoServer), and call it with a tenant the route resolved itself, for example from the Host, never with a tenantId from the query string or body. The chrome query itself stays SystemAdmin-only; anonymous `/api/query` callers are still rejected for every tenant.
+  -->
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [16ab9fe]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [a45b3ee]
+- Updated dependencies [5cd8710]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [5cd8710]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-bundled-features@0.372.0
+  - @cosmicdrift/kumiko-server-runtime@0.372.0
+  - @cosmicdrift/kumiko-headless@0.372.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.372.0
+  - @cosmicdrift/kumiko-testing@0.372.0
+  - @cosmicdrift/kumiko-renderer-web@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

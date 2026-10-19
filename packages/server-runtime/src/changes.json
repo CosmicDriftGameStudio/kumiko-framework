@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.372.0",
+    "type": "fix",
+    "title": "Seeds no longer fail on write handlers that declare a rateLimit",
+    "detail": "The seed dispatcher gets an unlimited RateLimitResolver instead of none; requests keep the app's resolver and limits."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "Default mail resolveEmail finds users of any tenant",

@@ -1,5 +1,63 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.372.0
+
+### Patch Changes
+
+- 7c04d2a: Designer shows placeholder labels instead of raw names
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: The designer names placeholders by their label everywhere
+  detail: Placeholder chips in the mail subject, the header label, the footer note and the paper editor now show only the variable's label; the raw name stays available as a tooltip. The tone select reads "From placeholder: <label>" instead of "{{tone}}", and the validation notes in the preview list labels instead of names. The file-name hint in the settings is translated (de, en, es). Unknown placeholders and variables without a label still show their name.
+  -->
+- 7c04d2a: Designer sample values show money and dates like the rendered mail
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Sample values show formatted money and dates
+  detail: The sample-values bar in the mail preview formats money, dates and percentages in the language of the selected tab and with the tenant currency, through the same helpers the mail and PDF renderers use (formatDocumentMoney, formatDocumentDate and formatDocumentPercent, now exported from kumiko-headless). An amount reads "1.284,50 €" instead of "128450 EUR". The required star in the placeholder list stays on the label's last word instead of wrapping onto its own line. config/web now exports ConfigQueries.
+  -->
+- 5cd8710: Empty values use one placeholder everywhere
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Empty values use one placeholder everywhere
+  detail: Empty table cells, reference columns, read-only fields and dashboard lists now share one em dash placeholder (exported as EMPTY_VALUE_PLACEHOLDER from the headless package) instead of mixing en and em dashes.
+  -->
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [16ab9fe]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [5cd8710]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [5cd8710]
+- Updated dependencies [5cd8710]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-bundled-features@0.372.0
+  - @cosmicdrift/kumiko-headless@0.372.0
+  - @cosmicdrift/kumiko-renderer@0.372.0
+  - @cosmicdrift/kumiko-renderer-web@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

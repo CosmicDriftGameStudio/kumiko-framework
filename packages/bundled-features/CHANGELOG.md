@@ -1,5 +1,155 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.372.0
+
+### Minor Changes
+
+- 16ab9fe: Queued delivery jobs carry the recipient address sealed
+  
+  `delivery.render` and `delivery.send` job payloads sit in Redis and the job-run table. With a master key configured, the recipient address now travels as `sealedAddress` (encrypted per tenant) and is opened only right before `channel.send`. Without a master key the payload keeps the plaintext `address` and boot logs one warning. Jobs queued before the upgrade keep their plaintext address and still send.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Queued delivery jobs carry the recipient address sealed
+  detail: createDeliveryService takes an addressCipher; the boot wiring passes the master-key cipher, so delivery.render and delivery.send payloads hold sealedAddress instead of address. Workers open it through ctx.configEncryption.
+  migration: Roll out worker and web together with the same KUMIKO_SECRETS_MASTER_KEY_V<n>; a worker without the master key fails sealed jobs with send_failed. Code that calls createDeliveryService itself passes addressCipher to get sealed payloads.
+  -->
+- 7c04d2a: App unsubscribe pages can wear the tenant's mail look
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: createUnsubscribePageChromeReader gives app routes the tenant branding for unsubscribe pages
+  detail: The JSDoc of renderUnsubscribeResultPage pointed to a chrome read that only works for SystemAdmin, so app routes for legacy unsubscribe links rendered without branding. The new `createUnsubscribePageChromeReader({ dispatchSystemQuery })` returns `(tenantId, locale) => MailChrome | null`, failing soft to null. Build it once in the `wire` hook, whose deps now also carry `dispatchSystemQuery` (runProdApp, runWorkerApp.wireComponents, createKumikoServer), and call it with a tenant the route resolved itself, for example from the Host, never with a tenantId from the query string or body. The chrome query itself stays SystemAdmin-only; anonymous `/api/query` callers are still rejected for every tenant.
+  -->
+- 236858e: `executor.detail()` and `executor.list()` return the entity's row type
+  
+  `createEntityExecutor(name, entity)` and `createEventStoreExecutor(table, entity, options)` now return `EventStoreExecutor<EntityRow<E>>`. `detail` resolves to `EntityRow<E> | null` and `list` to `CursorResult<EntityRow<E>>`, so `row.title` needs no cast or schema parse. `EntityRow<E>` is exported from `@cosmicdrift/kumiko-framework/db` and follows what the executor returns at runtime: money is one `{ amount, currency, amountScaled, amountMinor }` key, a located timestamp one `{ at, tz, utc }` key, `date` is a `Temporal.PlainDate`, `timestamp` and `insertedAt` are `Temporal.Instant`, soft-delete keys are required only when `softDelete` is the literal `true`, and bigInt and jsonb stay `unknown`. A wide `fields` map falls back to `Record<string, unknown>`. Create and update payloads stay untyped, and a typed executor is still assignable to the untyped `EventStoreExecutor`.
+  
+  `createBooleanField` is now typed as non-null (`default: boolean`), matching what it stores.
+  
+  Breaking: a `row as T` cast whose target the row type no longer overlaps becomes a compile error, and casts that still compile but are now redundant can go. Run the codemod first, then fix what it lists as manual.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: executor.detail() and executor.list() return EntityRow<E>, derived from the entity definition
+  detail: Rows of createEntityExecutor / createEventStoreExecutor are typed per entity; wide entities keep Record<string, unknown>. createBooleanField is typed non-null. UserMfaRow in the bundled auth-mfa feature now declares enabledAt and lastUsedAt as Temporal.Instant, which is what the row always held.
+  migration: Remove the `row as T` casts on executor.detail() / executor.list() results with `bun kumiko-upgrade --apply` (codemod remove-engine-payload-casts). Casts to a type the row does not satisfy stay and are listed as manual; replace them with a field-level check or a narrower type.
+  codemod: scripts/codemod/remove-engine-payload-casts.ts
+  manualAfterCodemod: true
+  -->
+- 27b759f: Orphaned upload bytes are swept
+  
+  Bytes written by `POST /files`, `createFileRefFromBytes`, `uploadFileBytesBeforeTransaction` and the seed `createFileRef` are recorded in the new `store_file_upload_ledger` table before they reach storage. The commit that creates the fileRef row removes the ledger row in its own transaction. The new hourly `files:job:sweep-orphaned-uploads` job deletes the bytes (original and derivatives) of uploads still unclaimed after `uploadSweepGraceHours` (default 24, minimum 1; option of `createFilesFeature`). A commit that arrives after its upload was swept fails with `upload expired`. Plain `files.ref(key).write()` stays untracked and is never swept.
+  
+  `FileContext` gains `writeUploadBytes` and `forgetUploadBytes`, `FileProviderResolver` may carry `uploadLedgerFor`, and `TenantDb.deleteMany` now returns the number of deleted rows. Build a tenant's `FileContext` with `createTenantFileContext(resolver, tenantId)` so it carries the resolver's ledger.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: breaking
+  title: Orphaned upload bytes are swept through a new upload ledger
+  detail: The files feature registers the store_file_upload_ledger table and an hourly sweep job. FileContext has the new methods writeUploadBytes and forgetUploadBytes, which the four upload paths use; a custom FileContext or resolver must provide the ledger (withUploadLedger wraps a resolver). TenantDb.deleteMany resolves to the number of deleted rows instead of void. A fileRef commit whose ledger row was already swept throws InternalError "upload expired".
+  migration: Generate and apply a migration with `kumiko-schema generate` — uploads fail without the new store_file_upload_ledger table
+  -->
+- 7c04d2a: Template variable examples can be translated
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Text examples of template variables follow the template's language
+  detail: The `example` of a text or richText templateVariable is now read like `label`: an i18n key resolves to the translation of the edited template's locale, plain text stays as it is. Preview, the sample values bar and send-test therefore show German examples for a German template. Example values of other types (link, number, enum-like text values) stay as declared; put the explanation of such a value into the variable's label. Apps: register `templateVariable.text({ example: "<app>:mail.example.x" })` and add the key with de, en and es via `r.translations`.
+  -->
+
+### Patch Changes
+
+- 7c04d2a: Designer shows placeholder labels instead of raw names
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: The designer names placeholders by their label everywhere
+  detail: Placeholder chips in the mail subject, the header label, the footer note and the paper editor now show only the variable's label; the raw name stays available as a tooltip. The tone select reads "From placeholder: <label>" instead of "{{tone}}", and the validation notes in the preview list labels instead of names. The file-name hint in the settings is translated (de, en, es). Unknown placeholders and variables without a label still show their name.
+  -->
+- 7c04d2a: Designer sample values show money and dates like the rendered mail
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Sample values show formatted money and dates
+  detail: The sample-values bar in the mail preview formats money, dates and percentages in the language of the selected tab and with the tenant currency, through the same helpers the mail and PDF renderers use (formatDocumentMoney, formatDocumentDate and formatDocumentPercent, now exported from kumiko-headless). An amount reads "1.284,50 €" instead of "128450 EUR". The required star in the placeholder list stays on the label's last word instead of wrapping onto its own line. config/web now exports ConfigQueries.
+  -->
+- 5cd8710: Empty values use one placeholder everywhere
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Empty values use one placeholder everywhere
+  detail: Empty table cells, reference columns, read-only fields and dashboard lists now share one em dash placeholder (exported as EMPTY_VALUE_PLACEHOLDER from the headless package) instead of mixing en and em dashes.
+  -->
+- 5cd8710: runRetentionCleanup is exported for app tests
+  
+  <!-- kumiko-changes
+  feature: data-retention
+  type: improvement
+  title: runRetentionCleanup is exported for app tests
+  detail: The data-retention entry point now exports runRetentionCleanup with its argument, result and skip types, so an app test can drive a retention run with its own now and file context and check that bytes, file_refs rows and the entity row are gone. The user-data-rights recipe shows the pattern.
+  -->
+- 5cd8710: Account forget-cleanup removes userOwned files uploaded by someone else
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Account forget-cleanup removes userOwned files uploaded by someone else
+  detail: runForgetCleanup now purges the bytes, derivatives and file_refs rows behind every file field whose subject is the deleted user, not only files the user uploaded; a failing byte delete keeps the user in DeletionRequested so the next run retries.
+  -->
+- 5cd8710: forget-subject removes files bound to the forgotten subject
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-subject removes files bound to the forgotten subject
+  detail: Forgetting a record or user subject now deletes the bytes, derivatives and file_refs rows behind that subject's personal file fields (fail closed with missing_file_storage or file_delete_failed in cleanupError), so a retry can finish the job; the entity row stays.
+  -->
+- 9bc4bc4: Locked screens with a fallback stay in the schema of tenants without the feature
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: fix
+  title: Tenants whose tier excludes API tokens now reach the lockedFallbackScreen
+  detail: GET /api/schema removed every screen of a feature the tenant has switched off, and the role projection then dropped the navs of other features that pointed at them. The token list screen was gone, so the upgrade screen set via lockedFallbackScreen was never shown. Screens that declare a fallback (and the same-feature screens those fallbacks name) now stay in the schema; the server still rejects their queries and writes with feature_disabled, which makes the renderer show the fallback. Navs, content collections and workspaces of the disabled feature are still removed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: improvement
+  title: The token list looks like any other Kumiko list
+  detail: The create button now sits in the page header next to the title, and an empty list shows the standard hint with a create button. The German title of the list screen is "API-Tokens" instead of "Personal Access Tokens", which also fixes the breadcrumb of the mint screen. Renderer, all apps: a projection list without an entity create button now shows its first primary toolbar action (one that needs no confirmation dialog) in the page header on desktop as well, with its label, instead of in the toolbar row; on phones it already did. On desktop only an icon derived from the action id (or declared on the action) is shown; the plus fallback exists only on phones. Consumers get this after the bump without code changes.
+  -->
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [5cd8710]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-headless@0.372.0
+  - @cosmicdrift/kumiko-renderer@0.372.0
+  - @cosmicdrift/kumiko-renderer-web@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes
