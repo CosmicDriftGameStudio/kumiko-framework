@@ -459,6 +459,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Elige un proveedor. Su configuración aparece debajo y se guarda junto con él.",
   "config.settings.provider": "Proveedor",
+  "config.settings.provider.platformDefault": "Plataforma (predeterminado)",
   "config.settings.system": "Plataforma",
   "config.settings.tenant": "Organización",
   "config.settings.title": "Ajustes",
@@ -1822,13 +1823,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Demasiados correos de prueba, inténtalo de nuevo más tarde.",
   "screen:mail-foundation-tenant.title": "Envío de correo",
   "mail-foundation.settings": "Envío de correo",
-  "mail-foundation.provider": "Servidor de correo propio",
+  "mail-foundation.provider": "Enviar mediante",
   "mail-foundation.provider.description":
-    "Sin él, la plataforma envía los correos. Restablece la selección para volver a eso.",
+    "Elige quién envía tus correos. El envío de la plataforma no necesita ajustes propios.",
+  "mail-foundation.provider.platformDefault": "Envío de la plataforma (predeterminado)",
   "mail-transport-inmemory.settings": "Buzón de prueba (en memoria)",
-  "mail-transport-smtp.settings": "Servidor SMTP",
-  "screen:mail-foundation-tenant-selection.title": "Proveedor",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Servidor SMTP",
+  "mail-transport-smtp.settings": "Servidor SMTP propio",
+  "config:entity:__config-edit__:field:provider:option:": "Envío de la plataforma (predeterminado)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Servidor SMTP propio",
   "mail-transport-smtp.settings.secrets": "Acceso SMTP",
   "mail-transport-smtp.settings.description":
     "Los datos de conexión te los da tu proveedor de correo, por ejemplo Brevo, Postmark, Amazon SES o tu propio servidor.",

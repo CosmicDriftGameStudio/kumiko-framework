@@ -440,6 +440,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Choose a provider. Its settings appear below and are saved together with it.",
   "config.settings.provider": "Provider",
+  "config.settings.provider.platformDefault": "Platform default",
   "config.settings.system": "Platform",
   "config.settings.tenant": "Tenant",
   "config.settings.title": "Settings",
@@ -1781,13 +1782,14 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.rateLimited": "Too many test mails, please try again later.",
   "screen:mail-foundation-tenant.title": "Email sending",
   "mail-foundation.settings": "Email sending",
-  "mail-foundation.provider": "Own mail server",
+  "mail-foundation.provider": "Send via",
   "mail-foundation.provider.description":
-    "Without one, the platform sends the mails. Reset the choice to go back to that.",
+    "Choose who sends your emails. The platform default needs no settings of your own.",
+  "mail-foundation.provider.platformDefault": "Platform sending (default)",
   "mail-transport-inmemory.settings": "Test inbox (in memory)",
-  "mail-transport-smtp.settings": "SMTP server",
-  "screen:mail-foundation-tenant-selection.title": "Provider",
-  "config:entity:__config-edit__:field:provider:option:smtp": "SMTP server",
+  "mail-transport-smtp.settings": "Own SMTP server",
+  "config:entity:__config-edit__:field:provider:option:": "Platform sending (default)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Own SMTP server",
   "mail-transport-smtp.settings.secrets": "SMTP sign-in",
   "mail-transport-smtp.settings.description":
     "The connection details come from your mail provider, for example Brevo, Postmark, Amazon SES or your own server.",

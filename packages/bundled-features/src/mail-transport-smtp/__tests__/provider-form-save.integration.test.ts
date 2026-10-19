@@ -89,7 +89,7 @@ beforeAll(async () => {
   await unsafePushTables(stack.db, { configValuesTable, tenant_secrets: tenantSecretsTable });
 
   const generated = buildConfigFeatureSchema(stack.registry).screens.find(
-    (screen) => screen.id === "mail-foundation-tenant-selection",
+    (screen) => screen.id === "mail-foundation-tenant",
   );
   if (generated?.type !== "configEdit") throw new Error("provider form missing");
   form = generated;
@@ -153,5 +153,24 @@ describe("mail provider form :: one save over /api/batch", () => {
     expect(values[configKeyOf(HOST_FIELD)]?.value).not.toBe("smtp.example.test");
     const secrets = await stack.http.queryOk<StoredSecret[]>("secrets:query:list", {}, admin);
     expect(secrets.map((row) => row.key)).not.toContain(secretKeyOf(PASSWORD_FIELD));
+  });
+
+  test("choosing the platform default stores an empty provider", async () => {
+    const admin = adminFor(813);
+    const setProvider = (value: string) =>
+      stack.http.batch(
+        [
+          {
+            type: "config:write:set",
+            payload: { key: configKeyOf(PROVIDER_FIELD), value, scope: "tenant" },
+          },
+        ],
+        admin,
+      );
+    expect((await setProvider("smtp")).status).toBe(200);
+    expect((await setProvider("")).status).toBe(200);
+
+    const values = await stack.http.queryOk<StoredConfig>("config:query:values", {}, admin);
+    expect(values[configKeyOf(PROVIDER_FIELD)]?.value).toBe("");
   });
 });

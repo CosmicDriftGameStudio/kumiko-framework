@@ -1,6 +1,7 @@
-// The generated Settings-Hub dashboard of an extension selector, rendered from
-// the REAL generator output (buildConfigFeatureSchema) — one form for the provider
-// and every provider's settings and secrets, shown for the provider picked in the form.
+// The generated Settings-Hub form of an extension selector, rendered from the REAL
+// generator output (buildConfigFeatureSchema) — one form for the provider and every
+// provider's settings and secrets, shown for the provider picked in the form. The
+// chromeless dashboard panel is what an owner with extra panels embeds that form in.
 //
 // `as unknown as Dispatcher[...]`: each mock lambda implements only the overload
 // the test exercises.
@@ -91,6 +92,28 @@ const hubSchema: FeatureSchema = {
   screens: generated.screens,
 };
 
+const PROVIDER_FORM_ID = "mail-foundation-tenant";
+const EMBEDDED_FORM_ID = "mail-foundation-tenant-selection";
+
+function dashboardAroundForm(chromeless: boolean): FeatureSchema {
+  return {
+    ...hubSchema,
+    screens: [
+      ...generated.screens.map((screenDef) =>
+        screenDef.id === PROVIDER_FORM_ID
+          ? { ...screenDef, id: EMBEDDED_FORM_ID, dormant: true }
+          : screenDef,
+      ),
+      {
+        id: PROVIDER_FORM_ID,
+        type: "dashboard",
+        panels: [{ kind: "screen", id: "selection", screen: EMBEDDED_FORM_ID, chromeless }],
+        access: { roles: ["TenantAdmin"] },
+      },
+    ],
+  };
+}
+
 function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   const nav = useBrowserNavApi({ hasWorkspaces: false });
   return <NavProvider value={nav}>{children}</NavProvider>;
@@ -166,8 +189,9 @@ describe("generated extension-selector dashboard", () => {
     expect(screen.queryByTestId("dashboard-panel-mail-smtp-config")).toBeNull();
   });
 
-  test("generated panels render chromeless: no padded scroll surface or card around the embedded form", async () => {
-    renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }));
+  test("a chromeless panel renders the embedded form without a padded scroll surface or card", async () => {
+    const embedded = dashboardAroundForm(true);
+    renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }), embedded);
     await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
     const panel = screen.getByTestId("dashboard-panel-selection");
     expect(panel.querySelector("form")).not.toBeNull();
@@ -176,19 +200,7 @@ describe("generated extension-selector dashboard", () => {
   });
 
   test("without the chromeless option the embedded form keeps its padded screen-form surface", async () => {
-    const framed: FeatureSchema = {
-      ...hubSchema,
-      screens: hubSchema.screens.map((screenDef) =>
-        screenDef.type === "dashboard"
-          ? {
-              ...screenDef,
-              panels: screenDef.panels.map((panel) =>
-                panel.kind === "screen" ? { ...panel, chromeless: false } : panel,
-              ),
-            }
-          : screenDef,
-      ),
-    };
+    const framed = dashboardAroundForm(false);
     renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }), framed);
     await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
     const panel = screen.getByTestId("dashboard-panel-selection");
