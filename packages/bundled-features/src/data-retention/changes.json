@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.372.0",
+    "type": "improvement",
+    "title": "runRetentionCleanup is exported for app tests",
+    "detail": "The data-retention entry point now exports runRetentionCleanup with its argument, result and skip types, so an app test can drive a retention run with its own now and file context and check that bytes, file_refs rows and the entity row are gone. The user-data-rights recipe shows the pattern."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "data-retention exports computeCutoff",

@@ -1,5 +1,74 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.372.0
+
+### Patch Changes
+
+- 5cd8710: Empty values use one placeholder everywhere
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Empty values use one placeholder everywhere
+  detail: Empty table cells, reference columns, read-only fields and dashboard lists now share one em dash placeholder (exported as EMPTY_VALUE_PLACEHOLDER from the headless package) instead of mixing en and em dashes.
+  -->
+- 5cd8710: Form errors clear once the user edits the affected field
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Form errors clear once the user edits the affected field
+  detail: In RenderEdit, typing into a field removes that field's server issues and the form-level issues, and dismisses the submit error banner. A version_conflict banner and a delete rejection stay until reloaded or retried. Programmatic value changes (initial, draft restore, action patches) leave errors untouched.
+  -->
+- 5cd8710: Reference fields and columns link to the referenced record
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Reference fields and columns link to the referenced record
+  detail: A resolved reference in a list column or a read-only field links to the detail screen of the referenced entity when the user may open it, so the link also works in a new tab. Unresolved ids, system labels, multi-reference list cells and cells in a clickable first column or card stay plain text. New useOptionalNav hook returns undefined without a NavProvider.
+  -->
+- 7c04d2a: Screen-reader labels in the app shell are translated
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Sidebar, breadcrumb, drawer and table labels for screen readers follow the user's language
+  detail: The sidebar toggle ("Toggle Sidebar"), the sidebar rail, the title of the mobile sidebar sheet, the breadcrumb landmark, the drawer's close button, the close button of the workspace editor panel and the actions column of tables had hard-coded English names. They now come from the translations in de, en, es, fr and it (`kumiko.sidebar.*`, `kumiko.breadcrumb.label`, `kumiko.list.actions`, `kumiko.dialog.close`).
+  -->
+- 9bc4bc4: Locked screens with a fallback stay in the schema of tenants without the feature
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: fix
+  title: Tenants whose tier excludes API tokens now reach the lockedFallbackScreen
+  detail: GET /api/schema removed every screen of a feature the tenant has switched off, and the role projection then dropped the navs of other features that pointed at them. The token list screen was gone, so the upgrade screen set via lockedFallbackScreen was never shown. Screens that declare a fallback (and the same-feature screens those fallbacks name) now stay in the schema; the server still rejects their queries and writes with feature_disabled, which makes the renderer show the fallback. Navs, content collections and workspaces of the disabled feature are still removed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: improvement
+  title: The token list looks like any other Kumiko list
+  detail: The create button now sits in the page header next to the title, and an empty list shows the standard hint with a create button. The German title of the list screen is "API-Tokens" instead of "Personal Access Tokens", which also fixes the breadcrumb of the mint screen. Renderer, all apps: a projection list without an entity create button now shows its first primary toolbar action (one that needs no confirmation dialog) in the page header on desktop as well, with its label, instead of in the toolbar row; on phones it already did. On desktop only an icon derived from the action id (or declared on the action) is shown; the plus fallback exists only on phones. Consumers get this after the bump without code changes.
+  -->
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [5cd8710]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-headless@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

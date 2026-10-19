@@ -1,5 +1,51 @@
 # @cosmicdrift/kumiko-types
 
+## 0.372.0
+
+### Minor Changes
+
+- 236858e: `executor.detail()` and `executor.list()` return the entity's row type
+  
+  `createEntityExecutor(name, entity)` and `createEventStoreExecutor(table, entity, options)` now return `EventStoreExecutor<EntityRow<E>>`. `detail` resolves to `EntityRow<E> | null` and `list` to `CursorResult<EntityRow<E>>`, so `row.title` needs no cast or schema parse. `EntityRow<E>` is exported from `@cosmicdrift/kumiko-framework/db` and follows what the executor returns at runtime: money is one `{ amount, currency, amountScaled, amountMinor }` key, a located timestamp one `{ at, tz, utc }` key, `date` is a `Temporal.PlainDate`, `timestamp` and `insertedAt` are `Temporal.Instant`, soft-delete keys are required only when `softDelete` is the literal `true`, and bigInt and jsonb stay `unknown`. A wide `fields` map falls back to `Record<string, unknown>`. Create and update payloads stay untyped, and a typed executor is still assignable to the untyped `EventStoreExecutor`.
+  
+  `createBooleanField` is now typed as non-null (`default: boolean`), matching what it stores.
+  
+  Breaking: a `row as T` cast whose target the row type no longer overlaps becomes a compile error, and casts that still compile but are now redundant can go. Run the codemod first, then fix what it lists as manual.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: executor.detail() and executor.list() return EntityRow<E>, derived from the entity definition
+  detail: Rows of createEntityExecutor / createEventStoreExecutor are typed per entity; wide entities keep Record<string, unknown>. createBooleanField is typed non-null. UserMfaRow in the bundled auth-mfa feature now declares enabledAt and lastUsedAt as Temporal.Instant, which is what the row always held.
+  migration: Remove the `row as T` casts on executor.detail() / executor.list() results with `bun kumiko-upgrade --apply` (codemod remove-engine-payload-casts). Casts to a type the row does not satisfy stay and are listed as manual; replace them with a field-level check or a narrower type.
+  codemod: scripts/codemod/remove-engine-payload-casts.ts
+  manualAfterCodemod: true
+  -->
+- 27b759f: Orphaned upload bytes are swept
+  
+  Bytes written by `POST /files`, `createFileRefFromBytes`, `uploadFileBytesBeforeTransaction` and the seed `createFileRef` are recorded in the new `store_file_upload_ledger` table before they reach storage. The commit that creates the fileRef row removes the ledger row in its own transaction. The new hourly `files:job:sweep-orphaned-uploads` job deletes the bytes (original and derivatives) of uploads still unclaimed after `uploadSweepGraceHours` (default 24, minimum 1; option of `createFilesFeature`). A commit that arrives after its upload was swept fails with `upload expired`. Plain `files.ref(key).write()` stays untracked and is never swept.
+  
+  `FileContext` gains `writeUploadBytes` and `forgetUploadBytes`, `FileProviderResolver` may carry `uploadLedgerFor`, and `TenantDb.deleteMany` now returns the number of deleted rows. Build a tenant's `FileContext` with `createTenantFileContext(resolver, tenantId)` so it carries the resolver's ledger.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: breaking
+  title: Orphaned upload bytes are swept through a new upload ledger
+  detail: The files feature registers the store_file_upload_ledger table and an hourly sweep job. FileContext has the new methods writeUploadBytes and forgetUploadBytes, which the four upload paths use; a custom FileContext or resolver must provide the ledger (withUploadLedger wraps a resolver). TenantDb.deleteMany resolves to the number of deleted rows instead of void. A fileRef commit whose ledger row was already swept throws InternalError "upload expired".
+  migration: Generate and apply a migration with `kumiko-schema generate` — uploads fail without the new store_file_upload_ledger table
+  -->
+
+### Patch Changes
+
+- 7c04d2a: Template variable examples can be translated
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Text examples of template variables follow the template's language
+  detail: The `example` of a text or richText templateVariable is now read like `label`: an i18n key resolves to the translation of the edited template's locale, plain text stays as it is. Preview, the sample values bar and send-test therefore show German examples for a German template. Example values of other types (link, number, enum-like text values) stay as declared; put the explanation of such a value into the variable's label. Apps: register `templateVariable.text({ example: "<app>:mail.example.x" })` and add the key with de, en and es via `r.translations`.
+  -->
+
 ## 0.371.1
 
 No changes in this release.

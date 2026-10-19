@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.372.0",
+    "type": "fix",
+    "title": "Empty values use one placeholder everywhere",
+    "detail": "Empty table cells, reference columns, read-only fields and dashboard lists now share one em dash placeholder (exported as EMPTY_VALUE_PLACEHOLDER from the headless package) instead of mixing en and em dashes."
+  },
+  {
+    "version": "0.372.0",
+    "type": "fix",
+    "title": "Form errors clear once the user edits the affected field",
+    "detail": "In RenderEdit, typing into a field removes that field's server issues and the form-level issues, and dismisses the submit error banner. A version_conflict banner and a delete rejection stay until reloaded or retried. Programmatic value changes (initial, draft restore, action patches) leave errors untouched."
+  },
+  {
+    "version": "0.372.0",
+    "type": "improvement",
+    "title": "Reference fields and columns link to the referenced record",
+    "detail": "A resolved reference in a list column or a read-only field links to the detail screen of the referenced entity when the user may open it, so the link also works in a new tab. Unresolved ids, system labels, multi-reference list cells and cells in a clickable first column or card stay plain text. New useOptionalNav hook returns undefined without a NavProvider."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "Missing-screen page spaces title and hint like other cards",

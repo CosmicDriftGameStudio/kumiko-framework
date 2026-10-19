@@ -1,5 +1,55 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.372.0
+
+### Patch Changes
+
+- 5cd8710: Empty values use one placeholder everywhere
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Empty values use one placeholder everywhere
+  detail: Empty table cells, reference columns, read-only fields and dashboard lists now share one em dash placeholder (exported as EMPTY_VALUE_PLACEHOLDER from the headless package) instead of mixing en and em dashes.
+  -->
+- 5cd8710: Reference fields and columns link to the referenced record
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Reference fields and columns link to the referenced record
+  detail: A resolved reference in a list column or a read-only field links to the detail screen of the referenced entity when the user may open it, so the link also works in a new tab. Unresolved ids, system labels, multi-reference list cells and cells in a clickable first column or card stay plain text. New useOptionalNav hook returns undefined without a NavProvider.
+  -->
+- 7c04d2a: Screen-reader labels in the app shell are translated
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Sidebar, breadcrumb, drawer and table labels for screen readers follow the user's language
+  detail: The sidebar toggle ("Toggle Sidebar"), the sidebar rail, the title of the mobile sidebar sheet, the breadcrumb landmark, the drawer's close button, the close button of the workspace editor panel and the actions column of tables had hard-coded English names. They now come from the translations in de, en, es, fr and it (`kumiko.sidebar.*`, `kumiko.breadcrumb.label`, `kumiko.list.actions`, `kumiko.dialog.close`).
+  -->
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [5cd8710]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [5cd8710]
+- Updated dependencies [7c04d2a]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-headless@0.372.0
+  - @cosmicdrift/kumiko-renderer@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

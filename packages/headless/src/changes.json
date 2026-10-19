@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.372.0",
+    "type": "improvement",
+    "title": "resolvePageHead gets preferredLocales (?lang= first, then Accept-Language by q) so resolvers can pick a content locale",
+    "detail": "Callers constructing PageHeadResolveInput themselves must now pass preferredLocales (an empty array when no preference is known)."
+  },
+  {
     "version": "0.365.1",
     "type": "improvement",
     "title": "The timestamp FormatSpec takes an IANA timeZone",

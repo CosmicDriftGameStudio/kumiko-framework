@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.372.0",
+    "type": "improvement",
+    "title": "New opt-in package kumiko-locale-fr ships French framework copy",
+    "detail": "Same shape as kumiko-locale-es; not included by includeBundled."
+  }
+]

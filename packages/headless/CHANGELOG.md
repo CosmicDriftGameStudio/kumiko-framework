@@ -1,5 +1,60 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.372.0
+
+### Minor Changes
+
+- 7c04d2a: Designer sample values show money and dates like the rendered mail
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Sample values show formatted money and dates
+  detail: The sample-values bar in the mail preview formats money, dates and percentages in the language of the selected tab and with the tenant currency, through the same helpers the mail and PDF renderers use (formatDocumentMoney, formatDocumentDate and formatDocumentPercent, now exported from kumiko-headless). An amount reads "1.284,50 €" instead of "128450 EUR". The required star in the placeholder list stays on the label's last word instead of wrapping onto its own line. config/web now exports ConfigQueries.
+  -->
+- 2cb8b4f: `resolvePageHead` receives the request's preferred locales
+  
+  The resolver input gains `preferredLocales`: an ordered, canonicalized, deduplicated list with a valid `?lang=` first, then every Accept-Language tag by q (q=0 and malformed tags dropped, header order breaks ties). A resolver can walk it and use the first locale it has content for, instead of parsing the header itself. `runProdApp`, `runDevApp` and `hostDispatch` pages all pass it. `@cosmicdrift/kumiko-framework/i18n` exports `rankAcceptLanguage` and `rankPreferredLocales`; `pickAcceptLanguage` behaves as before. With a page-head resolver configured, `runProdApp` HTML responses send `Vary: Host, Accept-Language`, so a shared cache keeps the locale variants apart.
+  
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: resolvePageHead gets preferredLocales (?lang= first, then Accept-Language by q) so resolvers can pick a content locale
+  detail: Callers constructing PageHeadResolveInput themselves must now pass preferredLocales (an empty array when no preference is known).
+  -->
+
+### Patch Changes
+
+- 5cd8710: Empty values use one placeholder everywhere
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Empty values use one placeholder everywhere
+  detail: Empty table cells, reference columns, read-only fields and dashboard lists now share one em dash placeholder (exported as EMPTY_VALUE_PLACEHOLDER from the headless package) instead of mixing en and em dashes.
+  -->
+- 5cd8710: Reference fields and columns link to the referenced record
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Reference fields and columns link to the referenced record
+  detail: A resolved reference in a list column or a read-only field links to the detail screen of the referenced entity when the user may open it, so the link also works in a new tab. Unresolved ids, system labels, multi-reference list cells and cells in a clickable first column or card stay plain text. New useOptionalNav hook returns undefined without a NavProvider.
+  -->
+- Updated dependencies [a4401ab]
+- Updated dependencies [de53a14]
+- Updated dependencies [236858e]
+- Updated dependencies [5cd8710]
+- Updated dependencies [27b759f]
+- Updated dependencies [221f81c]
+- Updated dependencies [dca222d]
+- Updated dependencies [2cb8b4f]
+- Updated dependencies [4224023]
+- Updated dependencies [9bc4bc4]
+- Updated dependencies [7c04d2a]
+  - @cosmicdrift/kumiko-framework@0.372.0
+  - @cosmicdrift/kumiko-types@0.372.0
+
 ## 0.371.1
 
 ### Patch Changes

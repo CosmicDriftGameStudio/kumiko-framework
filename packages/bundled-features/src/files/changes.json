@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.372.0",
+    "type": "breaking",
+    "title": "Orphaned upload bytes are swept through a new upload ledger",
+    "detail": "The files feature registers the store_file_upload_ledger table and an hourly sweep job. FileContext has the new methods writeUploadBytes and forgetUploadBytes, which the four upload paths use; a custom FileContext or resolver must provide the ledger (withUploadLedger wraps a resolver). TenantDb.deleteMany resolves to the number of deleted rows instead of void. A fileRef commit whose ledger row was already swept throws InternalError \"upload expired\".",
+    "migration": "Generate and apply a migration with `kumiko-schema generate` — uploads fail without the new store_file_upload_ledger table"
+  },
+  {
     "version": "0.354.0",
     "type": "breaking",
     "title": "FileHandle.derive throws for suffixes outside <name>-<16 hex>",
