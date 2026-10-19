@@ -16,12 +16,14 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 export function PdfResourceSection({
   resourceKeys,
   canUpload,
+  fileUploads,
   layoutName,
   onInsert,
   onUpload,
 }: {
   readonly resourceKeys: readonly string[];
   readonly canUpload: boolean;
+  readonly fileUploads: boolean;
   readonly layoutName: string;
   readonly onInsert: (key: string) => void;
   readonly onUpload: (file: File) => Promise<void>;
@@ -40,22 +42,30 @@ export function PdfResourceSection({
           onPress={() => onInsert(key)}
         />
       ))}
-      <RailField>
-        {canUpload ? (
-          <UploadZone
-            multiple={false}
-            accept={IMAGE_TYPES}
-            title={t("documentDesigner.resources.upload")}
-            onUpload={onUpload}
-            testId="document-designer-upload"
-          />
-        ) : (
-          <Button variant="secondary" size="sm" disabled>
-            {t("documentDesigner.resources.upload")}
-          </Button>
-        )}
-      </RailField>
-      {!canUpload && <RailHint>{t("documentDesigner.resources.saveFirst")}</RailHint>}
+      {fileUploads ? (
+        <>
+          <RailField>
+            {canUpload ? (
+              <UploadZone
+                multiple={false}
+                accept={IMAGE_TYPES}
+                title={t("documentDesigner.resources.upload")}
+                onUpload={onUpload}
+                testId="document-designer-upload"
+              />
+            ) : (
+              <Button variant="secondary" size="sm" disabled>
+                {t("documentDesigner.resources.upload")}
+              </Button>
+            )}
+          </RailField>
+          {!canUpload && <RailHint>{t("documentDesigner.resources.saveFirst")}</RailHint>}
+        </>
+      ) : (
+        <RailHint testId="pdf-resource-uploads-unavailable">
+          {t("documentDesigner.uploads.unavailable")}
+        </RailHint>
+      )}
       <RailHint>{t("documentDesigner.placeholders.layoutHint", { layout: layoutName })}</RailHint>
     </RailSection>
   );

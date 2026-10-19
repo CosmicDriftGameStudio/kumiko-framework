@@ -197,6 +197,16 @@ function withTenantTransportUsage(base: Dispatcher): Dispatcher {
   };
 }
 
+function withoutUploadsOrTestMail(base: Dispatcher): Dispatcher {
+  return {
+    ...base,
+    query: (async (type: string, payload: unknown) =>
+      type === "template-resolver:query:editor-capabilities"
+        ? { isSuccess: true, data: { fileUploads: false, testMail: false } }
+        : base.query(type as never, payload as never)) as unknown as Dispatcher["query"],
+  };
+}
+
 // Only the screen list matters to the sender hint's link check.
 const MAIL_SENDING_FEATURE = {
   name: "mail-foundation",
@@ -592,6 +602,19 @@ describe("MailEditor", () => {
     await openPreview();
     expect(await screen.findByTestId("mail-test-no-attachments")).toBeTruthy();
     expect(document.getElementById("mail-test-attachments")).toBeNull();
+  });
+
+  test("an app without file storage or mail delivery hides upload and test mail and says why", async () => {
+    renderEditor(withoutUploadsOrTestMail(fakeDispatcher("draft", [])));
+    expect((await screen.findByTestId("mail-resource-uploads-unavailable")).textContent).toBe(
+      "Uploads need file storage, which this app has not set up.",
+    );
+    expect(screen.queryByTestId("mail-resource-upload-open")).toBeNull();
+    await openPreview();
+    expect((await screen.findByTestId("mail-test-unavailable")).textContent).toContain(
+      "Test mails need mail delivery",
+    );
+    expect(screen.queryByTestId("mail-test-send")).toBeNull();
   });
 
   test("the sender hint names the platform for a platform-sent mail and the tenant's email sending, with a link, for a tenant-routed one", async () => {

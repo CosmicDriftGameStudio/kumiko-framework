@@ -15,12 +15,12 @@ export function RailSection({
 }): ReactNode {
   return (
     <section className="flex flex-col border-b pb-1" data-testid={testId}>
-      <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-1">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      {/* A narrow rail wraps the action below the title instead of clipping it. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 pt-2.5 pb-1">
+        <span className="min-w-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {title}
         </span>
-        <div className="grow" />
-        {action}
+        {action !== undefined && <div className="ml-auto">{action}</div>}
       </div>
       {children}
     </section>
@@ -84,7 +84,9 @@ export function RailRow({
       )}
       <span
         className={cn(
-          "min-w-0 grow break-words text-sm",
+          // anywhere, not break-word: only it lets a file name without spaces narrow the min-content
+          // width, so the label wraps instead of running under the action.
+          "min-w-0 grow wrap-anywhere text-sm",
           trailing !== undefined && "min-w-min max-w-[65%] shrink-0",
           bad === true && "text-status-bad",
         )}
@@ -129,6 +131,16 @@ export function RailRow({
   );
 }
 
-export function RailHint({ children }: { readonly children: ReactNode }): ReactNode {
-  return <p className="px-3.5 pt-1 pb-2 text-xs text-muted-foreground">{children}</p>;
+export function RailHint({
+  testId,
+  children,
+}: {
+  readonly testId?: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <p className="px-3.5 pt-1 pb-2 text-xs text-muted-foreground" data-testid={testId}>
+      {children}
+    </p>
+  );
 }

@@ -50,6 +50,7 @@ import {
 import type { MailDraft, MailValidation, PickedValues, TemplateRowView } from "./mail-types.ts";
 import { UploadModal } from "./mail-upload-modal.tsx";
 import { VersionsSection } from "./mail-versions.tsx";
+import { useEditorCapabilities } from "./use-editor-capabilities.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useMailPersistence } from "./use-mail-persistence.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
@@ -116,6 +117,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   });
   const testMail = useTestMail();
   const own = useOwnAddress();
+  const capabilities = useEditorCapabilities();
   const resourceRemove = useMutation(TemplateResolverHandlers.resourceRemove);
   const layouts = useOverviewRows("mail-layout");
   const pdfTemplates = useOverviewRows("document-pdf");
@@ -226,7 +228,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   const footer =
     locked || validation === undefined || validation === null
       ? null
-      : footerMessage(t, validation, mode === "preview");
+      : footerMessage(t, validation, mode === "preview" && capabilities.testMail);
 
   const fieldErrors = locked ? {} : metaFieldMessages(t, validation ?? null);
   const publish = (): void => void saveAndReload(true);
@@ -297,6 +299,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
                 resources={resources}
                 pdfTitles={pdfTitles}
                 canUpload={uploadTemplateId !== null}
+                fileUploads={capabilities.fileUploads}
                 onUpload={() => setUploadOpen(true)}
                 onInsert={insert.insertResource}
                 onRemove={(key) => setDialog({ kind: "remove", key })}
@@ -377,6 +380,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           origin={origin}
           controls={controls}
           testMail={{
+            available: capabilities.testMail,
             pending: testMail.pending,
             onSend: sendTestMail,
             includeAttachments,

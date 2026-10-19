@@ -13,6 +13,7 @@ import { copyLocaleWrite } from "./handlers/copy-locale.write.ts";
 import { diffToSystemQuery } from "./handlers/diff-to-system.query.ts";
 import { discardDraftSystemWrite, discardDraftWrite } from "./handlers/discard-draft.write.ts";
 import { documentBlocksQuery } from "./handlers/document-blocks.query.ts";
+import { editorCapabilitiesQuery } from "./handlers/editor-capabilities.query.ts";
 import { exportBundleQuery } from "./handlers/export-bundle.query.ts";
 import { findByIdQuery } from "./handlers/find-by-id.query.ts";
 import { importBundleWrite } from "./handlers/import-bundle.write.ts";
@@ -39,6 +40,7 @@ import { upsertSystemWrite } from "./handlers/upsert-system.write.ts";
 import { upsertTenantWrite } from "./handlers/upsert-tenant.write.ts";
 import { usageQuery } from "./handlers/usage.query.ts";
 import { validateQuery } from "./handlers/validate.query.ts";
+import { TEMPLATE_RESOLVER_I18N } from "./i18n.ts";
 import { templateResourceEntity } from "./table.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
 
@@ -101,6 +103,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         resourceMaxBytes: createSystemConfig("number", { default: 2_097_152, bounds: { min: 1 } }),
       },
     });
+    r.translations({ keys: TEMPLATE_RESOLVER_I18N });
     r.entity({ name: "template-resource", ...templateResourceEntity });
     // Only when the app actually mounts a user-owned collection: the entity's
     // `content` is `userOwned`, which makes it subject data — the boot guard
@@ -143,6 +146,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       preview: r.queryHandler(previewQuery),
       documentBlocks: r.queryHandler(documentBlocksQuery),
       exportBundle: r.queryHandler(exportBundleQuery),
+      editorCapabilities: r.queryHandler(editorCapabilitiesQuery),
     };
 
     for (const collection of collections) {

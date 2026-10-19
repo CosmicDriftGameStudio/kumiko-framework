@@ -136,6 +136,7 @@ export function ResourceSection({
   resources,
   pdfTitles,
   canUpload,
+  fileUploads,
   onUpload,
   onInsert,
   onRemove,
@@ -143,6 +144,7 @@ export function ResourceSection({
   readonly resources: readonly LinkedResourceView[];
   readonly pdfTitles: ReadonlyMap<string, string>;
   readonly canUpload: boolean;
+  readonly fileUploads: boolean;
   readonly onUpload: () => void;
   readonly onInsert: (key: string) => void;
   readonly onRemove: (key: string) => void;
@@ -154,17 +156,26 @@ export function ResourceSection({
       title={t("documentDesigner.mail.resource.title")}
       testId="mail-editor-resources"
       action={
-        <Button
-          variant="link"
-          disabled={!canUpload}
-          onClick={onUpload}
-          testId="mail-resource-upload-open"
-        >
-          {t("documentDesigner.mail.resource.upload")}
-        </Button>
+        fileUploads ? (
+          <Button
+            variant="link"
+            disabled={!canUpload}
+            onClick={onUpload}
+            testId="mail-resource-upload-open"
+          >
+            {t("documentDesigner.mail.resource.upload")}
+          </Button>
+        ) : undefined
       }
     >
-      {!canUpload && <RailHint>{t("documentDesigner.mail.resource.saveFirst")}</RailHint>}
+      {!fileUploads && (
+        <RailHint testId="mail-resource-uploads-unavailable">
+          {t("documentDesigner.uploads.unavailable")}
+        </RailHint>
+      )}
+      {fileUploads && !canUpload && (
+        <RailHint>{t("documentDesigner.mail.resource.saveFirst")}</RailHint>
+      )}
       {resources.map((resource) => {
         const row = resourceRow(t, resource, pdfTitles);
         return (

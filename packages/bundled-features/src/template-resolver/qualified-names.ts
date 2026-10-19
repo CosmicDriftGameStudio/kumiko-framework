@@ -35,6 +35,7 @@ export const TemplateResolverQueries = {
   preview: "template-resolver:query:preview",
   documentBlocks: "template-resolver:query:document-blocks",
   exportBundle: "template-resolver:query:export-bundle",
+  editorCapabilities: "template-resolver:query:editor-capabilities",
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
   byTenant: "template-resolver:query:by-tenant",

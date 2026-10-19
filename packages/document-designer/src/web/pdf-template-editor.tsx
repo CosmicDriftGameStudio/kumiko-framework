@@ -51,6 +51,7 @@ import {
   type ValidationResult,
   type VariableInfo,
 } from "./types.ts";
+import { useEditorCapabilities } from "./use-editor-capabilities.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
 import { templateTitle } from "./used-by-label.ts";
@@ -99,6 +100,7 @@ export function PdfTemplateEditor({
   onLocaleChange,
 }: PdfTemplateEditorProps): ReactNode {
   const t = useTranslation();
+  const capabilities = useEditorCapabilities();
   const dispatcher = useDispatcher();
   const { Button, Banner, Dialog } = usePrimitives();
   const insert = useInsertTargets();
@@ -516,6 +518,7 @@ export function PdfTemplateEditor({
               <PdfResourceSection
                 resourceKeys={resourceKeys}
                 canUpload={detail.scope === scope}
+                fileUploads={capabilities.fileUploads}
                 layoutName={layoutName}
                 onInsert={insert.insertResource}
                 onUpload={uploadResource}

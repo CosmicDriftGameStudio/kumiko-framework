@@ -1,8 +1,7 @@
 // @runtime test
 // Screenshots of the PDF template editor for the design review. Runs only with
 // SCREENSHOT_DIR set. Shows the seeded system template "Rechnung" (billing:invoice).
-// ui-walkthrough has no puppeteer service, so the preview state shows the
-// "not available" notice instead of a rendered page.
+// The preview prints through the puppeteer service that playwright.config.ts starts.
 
 import {
   captureScreenshot,
@@ -88,6 +87,51 @@ test("pdf-template-editor-edit", async ({ page }) => {
       if (scroller !== null) scroller.scrollTop = 0;
     });
   await shot(page, "pdf-template-editor-edit");
+});
+
+// No seeded template has a title this long, so the heading text is swapped in place: what is
+// checked is how the header lays out a title that does not fit next to the actions.
+test("a long template title truncates without sliding over the parent crumb", async ({ page }) => {
+  await openEditor(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  const header = page.locator('[data-kumiko-layout="shell-header"]');
+  await header.locator("h1").evaluate((heading) => {
+    heading.textContent = "Kündigungsbestätigung des Betreibers für einen Vertrag mit Verlängerung";
+  });
+  const parentCrumb = header.getByRole("link", { name: "Vorlagen" });
+  await expect(parentCrumb).toBeVisible();
+  const crumbFits = await parentCrumb.evaluate(
+    (element) => element.scrollWidth <= element.clientWidth,
+  );
+  expect(crumbFits).toBe(true);
+  const crumbBox = await parentCrumb.boundingBox();
+  const titleBox = await header.locator("h1").boundingBox();
+  expect(crumbBox).not.toBeNull();
+  expect(titleBox).not.toBeNull();
+  if (crumbBox === null || titleBox === null) return;
+  expect(crumbBox.x + crumbBox.width).toBeLessThanOrEqual(titleBox.x);
+});
+
+test("in a narrow window the parent crumb gives way to the title instead of running under the status", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 820 });
+  // Not openEditor: at this width the title may truncate, which is the point here.
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto(EDITOR_URL);
+  await expect(page.getByTestId("pdf-editor-footer-message")).toContainText("Pflicht-Platzhalter");
+  const header = page.locator('[data-kumiko-layout="shell-header"]');
+  await expect(header.getByRole("link", { name: "Vorlagen" })).toBeHidden();
+  const crumbsFit = await header
+    .locator("nav")
+    .evaluate((nav) => (nav.firstElementChild?.scrollWidth ?? 0) <= nav.clientWidth);
+  expect(crumbsFit).toBe(true);
+  const titleBox = await header.locator("h1").boundingBox();
+  const statusBox = await header.locator('[data-kumiko-layout="page-header-status"]').boundingBox();
+  expect(titleBox).not.toBeNull();
+  expect(statusBox).not.toBeNull();
+  if (titleBox === null || statusBox === null) return;
+  expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(statusBox.x);
+  await shot(page, "pdf-template-editor-narrow-header");
 });
 
 test("pdf-template-editor-preview", async ({ page }) => {

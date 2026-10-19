@@ -412,6 +412,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Save first, then upload.",
     de: "Erst speichern, dann hochladen.",
   },
+  "documentDesigner.uploads.unavailable": {
+    en: "Uploads need file storage, which this app has not set up.",
+    de: "Hochladen braucht einen Dateispeicher, den diese App nicht eingerichtet hat.",
+  },
   "documentDesigner.mail.resource.inline": {
     en: "Inline",
     de: "Inline",
@@ -561,8 +565,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Kennzeichen im Kopf",
   },
   "documentDesigner.mail.chrome.headerChipPlaceholder": {
-    en: "e.g. New incident",
-    de: "z. B. Neuer Incident",
+    en: "e.g. Reminder",
+    de: "z. B. Erinnerung",
   },
   "documentDesigner.mail.chrome.tone": {
     en: "Tone",
@@ -839,6 +843,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.mail.testMail.hint": {
     en: "Sent through the tenant's normal delivery path to your own address.",
     de: "Versand über den normalen Zustellweg des Mandanten an deine eigene Adresse.",
+  },
+  "documentDesigner.mail.testMail.unavailable": {
+    en: "Test mails need mail delivery and an email address on your account, and one of them is missing here.",
+    de: "Test-Mails brauchen einen Mail-Versand und eine E-Mail-Adresse in deinem Konto, und eins davon fehlt hier.",
   },
   "documentDesigner.mail.testMail.sent": {
     en: "Test mail sent to your address: {subject}",

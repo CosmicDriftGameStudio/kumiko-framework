@@ -30,6 +30,7 @@ type Call = { readonly type: string; readonly payload: unknown };
 type FakeOptions = {
   readonly missingRequired?: readonly string[];
   readonly puppeteer: "available" | "unavailable" | "unknown-query";
+  readonly fileUploads?: boolean;
 };
 
 const SLUG = "invoice";
@@ -149,6 +150,10 @@ function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; w
               ? { available: true }
               : { available: false, error: "no_browser", message: "no browser" },
         };
+      case TemplateResolverQueries.editorCapabilities:
+        return options.fileUploads === undefined
+          ? failure
+          : { isSuccess: true, data: { fileUploads: options.fileUploads, testMail: false } };
       default:
         return failure;
     }
@@ -248,6 +253,23 @@ describe("PdfTemplateEditor", () => {
 
     await screen.findByText(/PDF generation is not available/);
     for (const button of buttonsNamed("Generate PDF")) expect(button.disabled).toBe(true);
+  });
+
+  test("with file storage the upload zone shows", async () => {
+    // The fixture rows are system rows, which only a SystemAdmin uploads to directly.
+    renderEditor({ puppeteer: "available", fileUploads: true }, undefined, ["SystemAdmin"]);
+    await ready();
+    await screen.findByTestId("document-designer-upload");
+    expect(screen.queryByTestId("pdf-resource-uploads-unavailable")).toBeNull();
+  });
+
+  test("without file storage the upload zone gives way to the reason", async () => {
+    renderEditor({ puppeteer: "available", fileUploads: false });
+    await ready();
+    expect((await screen.findByTestId("pdf-resource-uploads-unavailable")).textContent).toBe(
+      "Uploads need file storage, which this app has not set up.",
+    );
+    expect(screen.queryByTestId("document-designer-upload")).toBeNull();
   });
 
   test("page settings travel in the saved meta", async () => {

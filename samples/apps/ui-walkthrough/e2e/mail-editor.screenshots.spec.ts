@@ -96,6 +96,69 @@ test("mail-editor-chrome-rail", async ({ page }) => {
   await captureScreenshot(page, "mail-editor-chrome-preview");
 });
 
+test("mail-editor-right-rail-fits", async ({ page }) => {
+  await openEditor(page);
+  const footerHint = page.locator("#mail-footer-note .is-editor-empty");
+  await footerHint.scrollIntoViewIfNeeded();
+  // The empty-field hint is a ::before box: it must end inside the field, cut with an ellipsis.
+  const hintFits = await footerHint.evaluate((paragraph) => {
+    const hint = getComputedStyle(paragraph, "::before");
+    return parseFloat(hint.width) <= paragraph.clientWidth && hint.textOverflow === "ellipsis";
+  });
+  expect(hintFits).toBe(true);
+
+  const addPdf = page.getByTestId("mail-attachment-pdf-open");
+  await addPdf.scrollIntoViewIfNeeded();
+  await shot(page, "mail-editor-right-rail-fits");
+  // The rail has a fixed width and the German label just fits beside the heading; the French one
+  // is longer and must wrap below it instead of being clipped.
+  await addPdf.evaluate((button) => {
+    button.textContent = "+ Pièce jointe issue d'un modèle PDF";
+  });
+  const addPdfFits = await addPdf.evaluate((button) => {
+    const section = button.closest("section");
+    if (section === null) return false;
+    return (
+      button.getBoundingClientRect().right <= section.getBoundingClientRect().right &&
+      button.scrollWidth <= button.clientWidth
+    );
+  });
+  expect(addPdfFits).toBe(true);
+  await shot(page, "mail-editor-right-rail-long-action");
+});
+
+// This app has file storage and mail delivery; the answer of an app without them is stubbed.
+test("mail-editor-without-files-and-mail", async ({ page }) => {
+  await page.route("**/api/query", async (route) => {
+    const body: unknown = route.request().postDataJSON();
+    const type = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
+    if (type !== "template-resolver:query:editor-capabilities") return route.continue();
+    return route.fulfill({ json: { data: { fileUploads: false, testMail: false } } });
+  });
+  await openEditor(page);
+  await expect(page.getByTestId("mail-resource-uploads-unavailable")).toBeVisible();
+  await expect(page.getByTestId("mail-resource-upload-open")).toHaveCount(0);
+  await page.getByTestId("mail-resource-uploads-unavailable").scrollIntoViewIfNeeded();
+  // The seeded file name has no spaces; it has to wrap inside its row, not run under "Entfernen".
+  const resourceRow = page.getByTestId("mail-resource-row");
+  const labelEndsBeforeAction = await resourceRow.evaluate((row) => {
+    const action = row.querySelector("[data-testid^='mail-resource-remove-']");
+    const label = row.querySelector("span.text-sm");
+    if (action === null || label === null) return false;
+    return label.getBoundingClientRect().right <= action.getBoundingClientRect().left;
+  });
+  expect(labelEndsBeforeAction).toBe(true);
+  await shot(page, "mail-editor-without-files");
+  await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
+  await expect(page.getByTestId("mail-test-unavailable")).toBeVisible();
+  await expect(page.getByTestId("mail-test-send")).toHaveCount(0);
+  const footerMessage = page.getByTestId("mail-editor-footer-message");
+  await expect(footerMessage).toContainText("Veröffentlichen ist gesperrt");
+  await expect(footerMessage).not.toContainText("Test-Mail");
+  await expect(page.getByTestId("mail-preview-checks")).toBeVisible();
+  await shot(page, "mail-editor-without-mail");
+});
+
 test("mail-editor-edit-en-missing", async ({ page }) => {
   await openEditor(page);
   await page.getByTestId("mail-locale-switch").getByText("en", { exact: true }).click();

@@ -125,6 +125,7 @@ function RecordPickerLink({
 }
 
 export type TestMailControls = {
+  readonly available: boolean;
   readonly pending: boolean;
   readonly onSend: () => void;
   readonly includeAttachments: boolean;
@@ -164,6 +165,69 @@ function TestMailRecipient({ own }: { readonly own: OwnAddress }): ReactNode {
   );
 }
 
+function TestMailForm({
+  own,
+  testMail,
+  hasAttachments,
+}: {
+  readonly own: OwnAddress;
+  readonly testMail: TestMailControls;
+  readonly hasAttachments: boolean;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button, Field, Input, Text } = usePrimitives();
+  return (
+    <>
+      <TestMailRecipient own={own} />
+      <RailField>
+        <Field
+          id="mail-test-prefix"
+          label={t("documentDesigner.mail.testMail.prefixSubject")}
+          layout="inline"
+        >
+          <Input
+            kind="boolean"
+            id="mail-test-prefix"
+            name="mail-test-prefix"
+            value={testMail.prefixSubject}
+            onChange={testMail.onPrefixSubject}
+          />
+        </Field>
+        {hasAttachments ? (
+          <Field
+            id="mail-test-attachments"
+            label={t("documentDesigner.mail.testMail.attachments")}
+            layout="inline"
+          >
+            <Input
+              kind="boolean"
+              id="mail-test-attachments"
+              name="mail-test-attachments"
+              value={testMail.includeAttachments}
+              onChange={testMail.onIncludeAttachments}
+            />
+          </Field>
+        ) : (
+          <Text variant="muted" testId="mail-test-no-attachments">
+            {t("documentDesigner.mail.testMail.noAttachments")}
+          </Text>
+        )}
+        <Button
+          variant="secondary"
+          width="full"
+          disabled={testMail.pending}
+          loading={testMail.pending}
+          onClick={testMail.onSend}
+          testId="mail-test-send"
+        >
+          {t("documentDesigner.mail.testMail.send")}
+        </Button>
+      </RailField>
+      <RailHint>{t("documentDesigner.mail.testMail.hint")}</RailHint>
+    </>
+  );
+}
+
 export function PreviewSide({
   preview,
   validation,
@@ -184,7 +248,6 @@ export function PreviewSide({
   readonly testMail: TestMailControls;
 }): ReactNode {
   const t = useTranslation();
-  const { Button, Field, Input, Text } = usePrimitives();
   const hasAttachments = preview?.attachments.some((a) => a.kind !== "inline") === true;
   return (
     <div data-testid="mail-preview-side">
@@ -196,52 +259,13 @@ export function PreviewSide({
         <RailHint>{t("documentDesigner.mail.preview.samplesHint")}</RailHint>
       </RailSection>
       <RailSection title={t("documentDesigner.mail.testMail.title")}>
-        <TestMailRecipient own={own} />
-        <RailField>
-          <Field
-            id="mail-test-prefix"
-            label={t("documentDesigner.mail.testMail.prefixSubject")}
-            layout="inline"
-          >
-            <Input
-              kind="boolean"
-              id="mail-test-prefix"
-              name="mail-test-prefix"
-              value={testMail.prefixSubject}
-              onChange={testMail.onPrefixSubject}
-            />
-          </Field>
-          {hasAttachments ? (
-            <Field
-              id="mail-test-attachments"
-              label={t("documentDesigner.mail.testMail.attachments")}
-              layout="inline"
-            >
-              <Input
-                kind="boolean"
-                id="mail-test-attachments"
-                name="mail-test-attachments"
-                value={testMail.includeAttachments}
-                onChange={testMail.onIncludeAttachments}
-              />
-            </Field>
-          ) : (
-            <Text variant="muted" testId="mail-test-no-attachments">
-              {t("documentDesigner.mail.testMail.noAttachments")}
-            </Text>
-          )}
-          <Button
-            variant="secondary"
-            width="full"
-            disabled={testMail.pending}
-            loading={testMail.pending}
-            onClick={testMail.onSend}
-            testId="mail-test-send"
-          >
-            {t("documentDesigner.mail.testMail.send")}
-          </Button>
-        </RailField>
-        <RailHint>{t("documentDesigner.mail.testMail.hint")}</RailHint>
+        {testMail.available ? (
+          <TestMailForm own={own} testMail={testMail} hasAttachments={hasAttachments} />
+        ) : (
+          <RailHint testId="mail-test-unavailable">
+            {t("documentDesigner.mail.testMail.unavailable")}
+          </RailHint>
+        )}
       </RailSection>
       <RailSection title={t("documentDesigner.mail.preview.checks")} testId="mail-preview-checks">
         {(preview?.checks ?? []).map((check) => (

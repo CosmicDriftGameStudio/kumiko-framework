@@ -50,7 +50,7 @@ type AdminNoticeStrings = {
   readonly footer: string;
 };
 
-const ADMIN_NOTICE_STRINGS: Readonly<Record<"en" | "de", AdminNoticeStrings>> = {
+const ADMIN_NOTICE_STRINGS: Readonly<Record<WaitlistMailLocale, AdminNoticeStrings>> = {
   en: {
     subject: (name) => `New waitlist entry: ${name}`,
     header: "New waitlist entry",
@@ -62,6 +62,12 @@ const ADMIN_NOTICE_STRINGS: Readonly<Record<"en" | "de", AdminNoticeStrings>> = 
     header: "Neuer Wartelisten-Eintrag",
     intro: "Jemand hat sich gerade auf die Warteliste eingetragen.",
     footer: "Den Eintrag findest du in der Wartelisten-Verwaltung.",
+  },
+  es: {
+    subject: (name) => `Nueva entrada en la lista de espera: ${name}`,
+    header: "Nueva entrada en la lista de espera",
+    intro: "Alguien acaba de unirse a la lista de espera.",
+    footer: "Revisa la entrada en la administración de la lista de espera.",
   },
 };
 
@@ -124,11 +130,6 @@ export function waitlistConfirmationTemplate(): NotificationLocalizedTemplate {
       },
     ]),
   );
-}
-
-// Operator-facing, so the entrant's locale does not apply: en/de, en default.
-export function resolveWaitlistAdminMailLocale(adminLocale: string | undefined): "en" | "de" {
-  return languageOf(adminLocale) === "de" ? "de" : "en";
 }
 
 export function waitlistAdminNoticeVariables(args: {

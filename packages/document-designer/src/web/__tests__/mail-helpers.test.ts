@@ -168,6 +168,16 @@ describe("footer message", () => {
     expect(message.text).toContain("Fälligkeitsdatum");
   });
 
+  test("mentions the test mail only where one can be sent", () => {
+    const missing = { ...base, missingRequired: ["dueDate"] };
+    expect(footerMessage(t, missing, true).text).toStartWith(
+      "documentDesigner.mail.footer.missingPreview",
+    );
+    expect(footerMessage(t, missing, false).text).toStartWith(
+      "documentDesigner.mail.footer.missing{",
+    );
+  });
+
   test("shows a warning when nothing blocks and ok otherwise", () => {
     expect(footerMessage(t, base, false).tone).toBe("ok");
     const warned = footerMessage(

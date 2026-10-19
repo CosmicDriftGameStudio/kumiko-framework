@@ -33,6 +33,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.hint":
     "Versand über den normalen Zustellweg des Mandanten an Ihre eigene Adresse.",
   "documentDesigner.mail.testMail.sent": "Test-Mail an Ihre Adresse gesendet: {subject}",
+  "documentDesigner.mail.testMail.unavailable":
+    "Test-Mails brauchen einen Mail-Versand und eine E-Mail-Adresse in Ihrem Konto, und eins davon fehlt hier.",
   "auth.errors.accountRestricted":
     "Konto nach Art. 18 DSGVO eingeschränkt. Heben Sie die Einschränkung auf, um sich wieder anzumelden.",
   "auth.errors.invalidResetToken":
