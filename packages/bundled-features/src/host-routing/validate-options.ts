@@ -30,6 +30,13 @@ function validateRedirects(options: HostRoutingOptions): void {
 }
 
 function validateAnonymousQueryAllowlist(options: HostRoutingOptions): void {
+  if (options.apexAnonymousQueryAllowlist !== undefined && options.tenantBy === "path") {
+    // Path mode resolves as fallback-only: a client-sent X-Tenant or cookie wins
+    // before the resolver runs, so the allowlist could never hold.
+    throw new Error(
+      'host-routing: apexAnonymousQueryAllowlist cannot be used with tenantBy "path", because the client names its tenant there and bypasses the allowlist',
+    );
+  }
   for (const host of Object.keys(options.apexAnonymousQueryAllowlist ?? {})) {
     if (!isApexHostname(host, options.baseDomain)) {
       throw new Error(

@@ -220,6 +220,29 @@ describe("host-routing with a tenantBy resolver", () => {
     expect(await errorCode(res)).toBe("tenant_required");
   });
 
+  test.each([
+    ["percent-encoded /api/query", "/api/%71uery"],
+    ["percent-encoded /api/stream", "/api/%73tream"],
+    ["trailing slash", "/api/query/"],
+  ])("apex allowlist: %s cannot bypass it", async (_label, path) => {
+    const res = await stack.http.raw(
+      "POST",
+      path,
+      { type: WHOAMI, payload: {} },
+      { Host: BASE_DOMAIN },
+    );
+    expect(res.status).toBe(400);
+    expect(await errorCode(res)).toBe("tenant_required");
+  });
+
+  test("apex allowlist: www shares the apex entry instead of keeping the anchor", async () => {
+    const www = `www.${BASE_DOMAIN}`;
+    expect(await tenantIdOf(await call(ALLOWED_QUERY, www))).toBe(SYSTEM_TENANT_ID);
+    const res = await call(WHOAMI, www);
+    expect(res.status).toBe(400);
+    expect(await errorCode(res)).toBe("tenant_required");
+  });
+
   test("createHostTenantIdResolver maps hosts for managed-pages", async () => {
     const resolveHost = createHostTenantIdResolver(options, stack.db);
     expect(await resolveHost(`shop.${BASE_DOMAIN}`)).toBe(ACME.id);

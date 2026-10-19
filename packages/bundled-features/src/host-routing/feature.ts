@@ -31,6 +31,7 @@ type RequestReader = {
   readonly req: {
     readonly header: (name: string) => string | undefined;
     readonly url: string;
+    readonly path: string;
     readonly raw?: Request;
   };
 };
@@ -46,16 +47,32 @@ function isRequestReader(c: unknown): c is RequestReader {
     "header" in c.req &&
     typeof c.req.header === "function" &&
     "url" in c.req &&
-    typeof c.req.url === "string"
+    typeof c.req.url === "string" &&
+    "path" in c.req &&
+    typeof c.req.path === "string"
   );
 }
 
-function pathnameOf(c: RequestReader): string | null {
-  try {
-    return new URL(c.req.url).pathname;
-  } catch {
-    return null;
+// Hono routes on the decoded path and ignores a trailing slash, so the
+// allowlist must compare the same shape: "/api/%71uery" and "/api/query/"
+// reach the query handler too.
+function routedPathOf(c: RequestReader): string {
+  return c.req.path.length > 1 ? c.req.path.replace(/\/+$/, "") : c.req.path;
+}
+
+// "example.com" and "www.example.com" are one site: a host without its own
+// entry falls back to the other variant's entry instead of keeping the anchor.
+function allowlistFor(
+  options: HostRoutingOptions,
+  hostname: string,
+): readonly string[] | undefined {
+  const allowlists = options.apexAnonymousQueryAllowlist;
+  if (allowlists === undefined) return undefined;
+  const counterpart = hostname.startsWith("www.") ? hostname.slice(4) : `www.${hostname}`;
+  for (const key of [hostname, counterpart]) {
+    if (Object.hasOwn(allowlists, key)) return allowlists[key];
   }
+  return undefined;
 }
 
 // Both carry { type, payload } and run read handlers; /api/batch is commands only.
@@ -82,11 +99,8 @@ async function apexAnchorFor(
 ): Promise<TenantId | null> {
   const anchor = options.apexAnonymousTenantId ?? null;
   if (anchor === null) return null;
-  const allowlist = options.apexAnonymousQueryAllowlist?.[hostname];
-  const pathname = pathnameOf(c);
-  if (allowlist === undefined || pathname === null || !TYPED_READ_PATHS.has(pathname)) {
-    return anchor;
-  }
+  const allowlist = allowlistFor(options, hostname);
+  if (allowlist === undefined || !TYPED_READ_PATHS.has(routedPathOf(c))) return anchor;
   const type = await peekQueryType(c);
   return type !== null && allowlist.includes(type) ? anchor : null;
 }

@@ -321,4 +321,17 @@ describe("host-routing option validation", () => {
       createHostDispatch({ ...hostMode, apexAnonymousQueryAllowlist: { "other.test": [] } }),
     ).toThrow("apexAnonymousQueryAllowlist");
   });
+
+  test("an allowlist is rejected in path mode, where X-Tenant would bypass it", () => {
+    expect(() =>
+      createHostDispatch({
+        tenantBy: "path",
+        tenantPathPrefix: "/app",
+        baseDomain: "example.test",
+        apex: { file: "index.html" },
+        tenant: { file: "tenant.html" },
+        apexAnonymousQueryAllowlist: { "example.test": [] },
+      }),
+    ).toThrow('cannot be used with tenantBy "path"');
+  });
 });

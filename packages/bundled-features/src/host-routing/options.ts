@@ -75,8 +75,11 @@ export type HostRoutingOptions = HostRoutingTenantMode & {
   readonly apexAnonymousTenantId?: TenantId;
   // Per apex hostname ("example.com" or "www.example.com"): the only
   // /api/query and /api/stream types that get the apexAnonymousTenantId anchor. Other anonymous
-  // queries on that host get no tenant (tenant_required). Hosts without an
-  // entry, and other paths (e.g. /api/batch), keep the anchor for everything.
+  // queries on that host get no tenant (tenant_required). "example.com" and
+  // "www.example.com" share one entry: a host without its own uses the other's.
+  // Other paths (e.g. /api/batch) keep the anchor for everything.
+  // Not allowed with tenantBy "path" (boot error): there the client's X-Tenant
+  // wins over the resolver, so the allowlist would be ineffective.
   readonly apexAnonymousQueryAllowlist?: Readonly<Record<string, readonly string[]>>;
   // Checked first, before any host classification.
   readonly redirects?: readonly HostRoutingRedirect[];
