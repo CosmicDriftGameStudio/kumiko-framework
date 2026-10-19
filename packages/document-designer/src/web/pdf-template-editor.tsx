@@ -32,6 +32,7 @@ import { fileUrl } from "./file-name.ts";
 import type { BrandingView } from "./layout-types.ts";
 import { systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import { PlaceholderSection, SystemPlaceholderSection } from "./mail-left-rail.tsx";
+import type { MailVariable } from "./mail-types.ts";
 import { OverridesDrawer } from "./overrides-drawer.tsx";
 import { PageCanvas } from "./page-canvas.tsx";
 import { pdfFooterMessage } from "./pdf-footer.ts";
@@ -62,6 +63,38 @@ import { templateTitle } from "./used-by-label.ts";
 
 const SETTLE_MS = 500;
 const NO_VARIABLES: Readonly<Record<string, VariableInfo>> = {};
+
+// Only the label of an images variable is needed, for the Images block and its picker.
+function imageLabelSource(
+  variables: Readonly<Record<string, VariableInfo>>,
+): Readonly<Record<string, MailVariable>> {
+  const result: Record<string, MailVariable> = {};
+  for (const [name, info] of Object.entries(variables)) {
+    if (info.type === "images" && info.label !== undefined) {
+      result[name] = { type: "text", label: info.label };
+    }
+  }
+  return result;
+}
+
+function textVariablesOf(
+  variables: Readonly<Record<string, VariableInfo>>,
+): Readonly<Record<string, MailVariable>> {
+  const result: Record<string, MailVariable> = {};
+  for (const [name, info] of Object.entries(variables)) {
+    if (info.type === "images") continue;
+    const { item, ...rest } = info;
+    const columns = Object.entries(item ?? {}).flatMap(([column, def]) =>
+      def.type === "images" ? [] : [[column, { ...def, type: def.type }] as const],
+    );
+    result[name] = {
+      ...rest,
+      type: info.type,
+      ...(item !== undefined && { item: Object.fromEntries(columns) }),
+    };
+  }
+  return result;
+}
 
 type Draft = { readonly content: string; readonly meta: PdfMetaDraft };
 
@@ -210,15 +243,25 @@ export function PdfTemplateEditor({
     { enabled: showOrigin && detail !== null },
   );
 
-  const variables = validation?.variables ?? NO_VARIABLES;
+  const allVariables = validation?.variables ?? NO_VARIABLES;
+  // Photos are record data, never an inline placeholder: images variables only feed the Images block.
+  const variables = useMemo(() => textVariablesOf(allVariables), [allVariables]);
+  const imageVariables = useMemo(
+    () => Object.keys(allVariables).filter((name) => allVariables[name]?.type === "images"),
+    [allVariables],
+  );
   const systemVariables = useMemo(
     () => visibleSystemPlaceholders(validation?.systemPlaceholders ?? []),
     [validation?.systemPlaceholders],
   );
   const systemLabels = useMemo(() => systemLabelMap(t, systemVariables), [t, systemVariables]);
   const variableLabels = useMemo(
-    () => ({ ...systemLabels, ...variableLabelMap(t, variables) }),
-    [systemLabels, variables, t],
+    () => ({
+      ...systemLabels,
+      ...variableLabelMap(t, variables),
+      ...variableLabelMap(t, imageLabelSource(allVariables)),
+    }),
+    [systemLabels, variables, allVariables, t],
   );
   const variableNames = useMemo(() => Object.keys(variables), [variables]);
   const linkedResources = detail?.linkedResources ?? null;
@@ -383,6 +426,7 @@ export function PdfTemplateEditor({
       ? null
       : {
           ...validation,
+          variables,
           systemPlaceholders: visibleSystemPlaceholders(validation.systemPlaceholders),
         };
   const layoutFills = (name: string): boolean =>
@@ -547,6 +591,7 @@ export function PdfTemplateEditor({
                 systemVariables={systemVariables}
                 systemLabels={systemLabels}
                 variableNames={variableNames}
+                imageVariables={imageVariables}
                 resourcePreviews={resourcePreviews}
                 onEditorReady={insert.register("body")}
               />

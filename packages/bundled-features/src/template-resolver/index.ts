@@ -1,3 +1,4 @@
+export { isResourceImageContentType } from "../shared/index.ts";
 export {
   createTemplateResolverApi,
   type ResolveRequest,
@@ -8,6 +9,7 @@ export {
 } from "./api.ts";
 export {
   type CompileDocumentBodyOptions,
+  collectDocumentImageVariables,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   toResourceDataUri,

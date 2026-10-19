@@ -381,3 +381,24 @@ describe("sanitizeDocumentHtml :: data-if", () => {
     expect(violationCodes('<p data-if="a b">x</p>')).toContain("invalid_reference_name");
   });
 });
+
+describe("images block", () => {
+  const images = '<div data-images="photos"></div>';
+  const input = (kind: string) => ({ kind, contentFormat: "html" as const, content: images });
+
+  test("document-pdf keeps the block byte for byte", () => {
+    expect(sanitizeTemplateBody(input("document-pdf"))).toEqual({ ok: true, content: images });
+  });
+
+  test("a mail kind rejects the block", () => {
+    const result = sanitizeTemplateBody(input("mail"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.violations[0]?.code).toBe("images_block_pdf_only");
+  });
+
+  test("an invalid variable name drops the block", () => {
+    expect(
+      sanitizeTemplateBody({ ...input("document-pdf"), content: '<div data-images="a b"></div>' }),
+    ).not.toEqual({ ok: true, content: '<div data-images="a b"></div>' });
+  });
+});

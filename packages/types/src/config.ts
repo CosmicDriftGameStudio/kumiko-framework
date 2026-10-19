@@ -541,7 +541,13 @@ export type TemplateListVariableDef = TemplateVariableCommon & {
   readonly example?: readonly Readonly<Record<string, unknown>>[];
 };
 
-export type TemplateVariableDef = TemplateScalarVariableDef | TemplateListVariableDef;
+// FileRef id or id[] of the record's images; only an images block renders it, never inline text.
+export type TemplateImagesVariableDef = TemplateVariableCommon & { readonly type: "images" };
+
+export type TemplateVariableDef =
+  | TemplateScalarVariableDef
+  | TemplateListVariableDef
+  | TemplateImagesVariableDef;
 
 export type TemplateVariables = Readonly<Record<string, TemplateVariableDef>>;
 

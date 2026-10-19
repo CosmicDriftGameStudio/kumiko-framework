@@ -43,6 +43,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.documentEditor.removeLink": "Remove link",
     "template-resolver.documentEditor.repeat": "Repeat",
     "template-resolver.documentEditor.repeatList": "List to repeat",
+    "template-resolver.documentEditor.images": "Photos",
+    "template-resolver.documentEditor.imagesVariable": "Photos from",
     "template-resolver.documentEditor.steps": "Steps",
     "template-resolver.documentEditor.stepsVariable": "Current step from",
     "template-resolver.documentEditor.stepsList": "Steps, separated by commas (value=label)",
@@ -58,6 +60,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.editor.saving": "Saving…",
     "template-resolver.editor.created": "Created.",
     "template-resolver.editor.saved": "Saved.",
+    "templateResolver.errors.document.imagesBlockPdfOnly":
+      "Photo blocks are only allowed in PDF documents.",
     "templateResolver.errors.document.buttonHrefNotPlaceholder":
       "The button target “{detail}” must be a placeholder.",
     "templateResolver.errors.document.disallowedLinkHref":

@@ -65,6 +65,7 @@ const scalarVariableSchema = z.discriminatedUnion("type", [
 
 const variableDefSchema = z.union([
   scalarVariableSchema,
+  z.object({ ...variableCommon, type: z.literal("images") }),
   z.object({
     ...variableCommon,
     type: z.literal("list"),
@@ -126,17 +127,24 @@ function listItemFields(
   return def?.type === "list" ? def.item : {};
 }
 
+// An images variable holds file ids: as text it would leak them, so only an images block
+// (and a condition on its presence) may name it.
 function isKnownName(
   name: string,
   scope: PlaceholderScope,
   itemFields: Readonly<Record<string, unknown>>,
+  allowImages = false,
 ): Resolution {
   const { variables } = scope;
   const root = rootName(name);
   // Declared variables and item fields are scalars: a dotted path under one never renders a value.
   if (Object.hasOwn(itemFields, name)) return { known: true, used: "" };
   if (scope.systemPlaceholders.has(root)) return { known: true, used: "" };
-  if (Object.hasOwn(variables, name)) return { known: true, used: name };
+  if (Object.hasOwn(variables, name)) {
+    return variables[name]?.type === "images" && !allowImages
+      ? { known: false, used: "" }
+      : { known: true, used: name };
+  }
   return { known: false, used: "" };
 }
 
@@ -144,8 +152,9 @@ function recordName(
   name: string,
   itemFields: Readonly<Record<string, unknown>>,
   scope: PlaceholderScope,
+  allowImages = false,
 ) {
-  const resolution = isKnownName(name, scope, itemFields);
+  const resolution = isKnownName(name, scope, itemFields, allowImages);
   if (!resolution.known) scope.unknown.add(name);
   else if (resolution.used !== "") scope.used.add(resolution.used);
 }
@@ -154,10 +163,18 @@ function enclosingEachName(element: ScanElement): string | null {
   return element.closest("tr[data-each]")?.getAttribute("data-each") ?? null;
 }
 
-const NAME_ATTRIBUTE_BY_TAG: Readonly<Record<string, string>> = {
-  span: "data-variable",
-  div: "data-steps",
-};
+function nameAttributeOf(element: ScanElement): string | undefined {
+  const tag = element.tagName.toLowerCase();
+  if (tag === "span") return "data-variable";
+  if (tag !== "div") return undefined;
+  return element.hasAttribute("data-images") ? "data-images" : "data-steps";
+}
+
+function recordImagesName(name: string, scope: PlaceholderScope): void {
+  const def = Object.hasOwn(scope.variables, name) ? scope.variables[name] : undefined;
+  if (def?.type === "images") scope.used.add(name);
+  else scope.unknown.add(name);
+}
 
 function scanRepeatRows(root: ScanElement, scope: PlaceholderScope): void {
   for (const element of Array.from(root.querySelectorAll("tr[data-each]"))) {
@@ -174,18 +191,22 @@ function scanConditions(root: ScanElement, scope: PlaceholderScope): void {
       scope.variables,
       enclosingEachName(conditionScopeElement(element)),
     );
-    recordName(element.getAttribute(DOCUMENT_CONDITION_ATTRIBUTE) ?? "", itemFields, scope);
+    recordName(element.getAttribute(DOCUMENT_CONDITION_ATTRIBUTE) ?? "", itemFields, scope, true);
   }
 }
 
 function scanReferences(root: ScanElement, scope: PlaceholderScope): void {
   for (const element of Array.from(
-    root.querySelectorAll("span[data-variable], div[data-steps], a[href], img[data-resource]"),
+    root.querySelectorAll(
+      "span[data-variable], div[data-steps], div[data-images], a[href], img[data-resource]",
+    ),
   )) {
     const itemFields = listItemFields(scope.variables, enclosingEachName(element));
     const tag = element.tagName.toLowerCase();
-    const nameAttribute = NAME_ATTRIBUTE_BY_TAG[tag];
-    if (nameAttribute !== undefined) {
+    const nameAttribute = nameAttributeOf(element);
+    if (nameAttribute === "data-images") {
+      recordImagesName(element.getAttribute(nameAttribute) ?? "", scope);
+    } else if (nameAttribute !== undefined) {
       recordName(element.getAttribute(nameAttribute) ?? "", itemFields, scope);
     } else if (tag === "a") {
       const href = element.getAttribute("href") ?? "";

@@ -1148,6 +1148,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Link entfernen",
   "template-resolver.documentEditor.repeat": "Wiederholung",
   "template-resolver.documentEditor.repeatList": "Liste für die Wiederholung",
+  "template-resolver.documentEditor.images": "Fotos",
+  "template-resolver.documentEditor.imagesVariable": "Fotos aus",
   "template-resolver.documentEditor.steps": "Stufen",
   "template-resolver.documentEditor.stepsVariable": "Aktuelle Stufe aus",
   "template-resolver.documentEditor.stepsList": "Stufen, durch Komma getrennt (Wert=Beschriftung)",
@@ -1169,6 +1171,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Gespeichert.",
   "template-resolver.editor.saving": "Speichern…",
   "template-resolver.editor.titleLabel": "Titel",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "Fotoblöcke sind nur in PDF-Dokumenten erlaubt.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "Das Ziel der Schaltfläche „{detail}“ muss ein Platzhalter sein.",
   "templateResolver.errors.document.disallowedLinkHref":

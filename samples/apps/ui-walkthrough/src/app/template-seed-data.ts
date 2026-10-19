@@ -535,6 +535,26 @@ export const SYSTEM_TENANCY_CERTIFICATE: SeedTemplate = {
   },
 };
 
+export const SYSTEM_PROPERTY_EXPOSE: SeedTemplate = {
+  slug: "rental:property-expose",
+  kind: "document-pdf",
+  locale: "de",
+  title: "Exposé",
+  content: [
+    `<h1>Exposé ${v("propertyAddress")}</h1>`,
+    `<p>${v("propertySummary")}</p>`,
+    "<h2>Objektfotos</h2>",
+    '<div data-images="photos"></div>',
+  ].join(""),
+  meta: { layoutSlug: "default", pageFormat: "A4", fileName: "Expose.pdf" },
+  variableSchema: {
+    propertyAddress: { type: "text", required: true },
+    propertySummary: { type: "text", required: true },
+    // The app passes the FileRef ids of the property photos when it renders the PDF.
+    photos: { type: "images", label: "Objektfotos" },
+  },
+};
+
 // Two other tenants customise the invoice for the "Anpassungen der Mandanten" drawer: one
 // published copy with a second save, one draft.
 export type TenantInvoiceOverride = {

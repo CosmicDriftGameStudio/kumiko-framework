@@ -12,6 +12,13 @@ export const { executor: partyExecutor } = createEntityExecutor("leaseParty", le
 
 export const idPayloadSchema = z.object({ id: z.uuid() });
 
+// Walkthrough shortcut, not the pattern: a real handler reads the photo ids from the stored record, never from the client.
+export const propertyExposePayloadSchema = z.object({
+  propertyAddress: z.string().min(1),
+  propertySummary: z.string().min(1),
+  photos: z.array(z.uuid()).max(10),
+});
+
 // Walkthrough shortcut, not the pattern: real screens resolve FileRefs from the record, never from route-supplied ids.
 export const fileRefIdsPayloadSchema = z.object({
   id: z

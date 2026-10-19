@@ -1,6 +1,10 @@
 import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, defineWriteHandler, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  renderPdfBeforeTransaction,
+  storeRenderedPdf,
+} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { z } from "zod";
 import { openToAllSignedIn, toKeyFirst } from "../translations";
 import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
@@ -20,6 +24,7 @@ import {
   positionExecutor,
   positionListRowSchema,
   positionRowSchema,
+  propertyExposePayloadSchema,
   type RecordedPositionItem,
   recordPositionsPayloadSchema,
   rentAdjustPayloadSchema,
@@ -238,6 +243,21 @@ export const rentalFeature = defineFeature("rental", (r) => {
     handler: async (event) => ({ isSuccess: true, data: event.payload }),
     ...open,
   });
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate-property-expose",
+      schema: propertyExposePayloadSchema,
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: async (event, ctx) =>
+        renderPdfBeforeTransaction(ctx, {
+          slug: "rental:property-expose",
+          locale: "de",
+          variables: event.payload,
+        }),
+      handler: async (event, ctx) => storeRenderedPdf(ctx, event.prepared),
+    }),
+  );
 
   r.writeHandler({
     name: "rent:adjust",

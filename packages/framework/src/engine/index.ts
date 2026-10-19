@@ -657,6 +657,7 @@ export type {
   StreamHandlerFn,
   Subscribe,
   TargetRef,
+  TemplateImagesVariableDef,
   TemplateListVariableDef,
   TemplateScalarVariableDef,
   TemplateVariableDef,

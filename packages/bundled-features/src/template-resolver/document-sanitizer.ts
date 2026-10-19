@@ -26,6 +26,7 @@ export type DocumentViolationCode =
   | "invalid_reference_name"
   | "embedded_content"
   | "unsafe_attribute_value"
+  | "images_block_pdf_only"
   | "button_href_not_placeholder"
   | "document_requires_html_format"
   | "layout_requires_mjml_format"
@@ -143,6 +144,7 @@ const REFERENCE_ATTRIBUTES: ReadonlyArray<readonly [string, (value: string) => b
   [DOCUMENT_CONDITION_ATTRIBUTE, isDocumentReferenceName],
   ["data-resource", isDocumentResourceKey],
   ["data-steps", isDocumentReferenceName],
+  ["data-images", isDocumentReferenceName],
   ["data-step", isDocumentStepKey],
 ];
 
@@ -313,6 +315,36 @@ function requiredFormatViolation(
   return null;
 }
 
+const IMAGES_BLOCK_KIND = "document-pdf";
+
+// The node is part of the shared document model, so a mail body would keep it after the
+// rebuild; only a PDF resolves the record's images.
+function imagesBlockViolation(input: {
+  readonly kind: string;
+  readonly contentFormat: ContentFormat;
+  readonly content: string | null;
+}): DocumentViolation | null {
+  if (
+    input.kind === IMAGES_BLOCK_KIND ||
+    !isSanitizedHtmlKind(input.kind) ||
+    input.contentFormat !== "html" ||
+    input.content === null
+  ) {
+    return null;
+  }
+  const hasImagesBlock = withParsedDocument(
+    input.content,
+    (body) => body.querySelector("div[data-images]") !== null,
+  );
+  return hasImagesBlock
+    ? violation(
+        "images_block_pdf_only",
+        input.kind,
+        `Record images blocks are only allowed in templates of kind ${IMAGES_BLOCK_KIND}`,
+      )
+    : null;
+}
+
 export function sanitizeTemplateBody(input: {
   readonly kind: string;
   readonly contentFormat: ContentFormat;
@@ -320,6 +352,8 @@ export function sanitizeTemplateBody(input: {
 }): SanitizeBodyResult {
   const formatViolation = requiredFormatViolation(input.kind, input.contentFormat);
   if (formatViolation !== null) return { ok: false, violations: [formatViolation] };
+  const imagesViolation = imagesBlockViolation(input);
+  if (imagesViolation !== null) return { ok: false, violations: [imagesViolation] };
   if (
     !isSanitizedHtmlKind(input.kind) ||
     input.contentFormat !== "html" ||
@@ -340,6 +374,7 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   invalid_reference_name: "templateResolver.errors.document.invalidReferenceName",
   embedded_content: "templateResolver.errors.document.embeddedContent",
   unsafe_attribute_value: "templateResolver.errors.document.unsafeAttributeValue",
+  images_block_pdf_only: "templateResolver.errors.document.imagesBlockPdfOnly",
   button_href_not_placeholder: "templateResolver.errors.document.buttonHrefNotPlaceholder",
   document_requires_html_format: "templateResolver.errors.document.documentRequiresHtmlFormat",
   layout_requires_mjml_format: "templateResolver.errors.document.layoutRequiresMjmlFormat",
