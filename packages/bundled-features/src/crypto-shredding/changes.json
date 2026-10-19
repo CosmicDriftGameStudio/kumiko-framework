@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.377.0",
+    "type": "fix",
+    "title": "Forgetting a user also removes their unbound pending uploads",
+    "detail": "forget-subject for a user deleted only files bound to a record. Uploads the user made but never attached (file refs without an entity id) stayed behind. They are now removed with their bytes, except refs a record still names in a single-file column."
+  },
+  {
     "version": "0.372.0",
     "type": "fix",
     "title": "forget-subject removes files bound to the forgotten subject",

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "Document dates can print the time in the tenant time zone",
+    "detail": "The date helper accepts time=true ({{date value time=true}}). Instants print date and time in the tenant's configured IANA zone (tenant timezone config, UTC without one), offset date-times keep their own wall clock, date-only values print no time. Without time=true nothing changes. formatDocumentDate takes an optional { time, timeZone } argument, DocumentFormat gets timeZone, and TENANT_TIMEZONE_CONFIG_KEY is exported from framework/pipeline."
+  },
+  {
+    "version": "0.377.0",
+    "type": "fix",
+    "title": "tenantName in the document context falls back to the tenant record",
+    "detail": "Without managed-pages there is no branding title, so tenantName was empty. It now falls back to the decrypted name of the tenant record when the tenant feature is mounted."
+  },
+  {
     "version": "0.367.0",
     "type": "improvement",
     "title": "Mail header shows the branding logo address, band link falls back to an app site URL",

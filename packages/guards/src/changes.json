@@ -1,5 +1,37 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "guard-unsafe-append-event",
+    "detail": "Flags ctx.unsafeAppendEvent outside migrations/, upcasters/ and tests. Existing call sites are frozen per file in .kumiko-unsafe-append-event-baseline.json and the count may only shrink; repos without the file get a warning only."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "repo-manifest moved into guards",
+    "detail": "The kumiko.json schema and loader are exported from @cosmicdrift/kumiko-guards/repo-manifest, the app port reader from @cosmicdrift/kumiko-guards/repo-manifest/app-ports. @cosmicdrift/kumiko-repo-manifest now only re-exports them and is removed after the consumer pass of wave 4. @cosmicdrift/kumiko-framework is an optional peer for the app-ports subpath.",
+    "migration": "Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-repo-manifest (and its /app-ports subpath) to @cosmicdrift/kumiko-guards/repo-manifest and replaces the dependency in package.json with kumiko-guards.",
+    "codemod": "scripts/codemod/package-merge.ts"
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "renderer-boundaries guard scans headless and live for imports only",
+    "detail": "The headless and live subtrees of kumiko-renderer must not import react-dom, jsdom or renderer-web; the symbol and JSX rules of the shared layer no longer apply to them. The section-fields-raw scope follows the moved headless sources."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "renderer-boundaries guard leaves the web subtree unscanned",
+    "detail": "renderer/src/web may use the DOM and every web dependency; the shared renderer root and headless/live must not import it. The tailwind-scan-surface guard follows the new stylesheet location through package exports and shim imports."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "comment-lang touched mode pairs renames",
+    "detail": "The touched mode diffs a moved file against its old path, so moving a file no longer counts every German comment in it as new."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "The pre-push bypass is gone",

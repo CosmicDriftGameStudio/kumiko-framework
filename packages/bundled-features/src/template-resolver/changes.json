@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "seedSystemTemplateBundle sets a title per template",
+    "detail": "Bundle locale entries accept an optional title, written to the template resource and exported again by the bundle export. SeedSystemTemplateOptions gets title. The template overview shows it instead of the slug."
+  },
+  {
     "version": "0.375.0",
     "type": "improvement",
     "title": "Preview and test mail render with the values of a picked record",

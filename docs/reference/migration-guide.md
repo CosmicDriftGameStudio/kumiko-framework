@@ -10,6 +10,24 @@ verified: 2026-10-19
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.377.0
+
+### @cosmicdrift/kumiko-types
+
+**JobContext._userId removed**
+
+The job runner never set JobContext._userId; only user-data-rights read it, falling back to SYSTEM_USER_ID. Hand-built JobContext objects that still set it fail to type-check, and code that read it must use SYSTEM_USER_ID or the job's system user.
+
+**Migration:** Drop _userId from hand-built JobContext objects (tests, job helpers) and replace reads of ctx._userId with SYSTEM_USER_ID. Known hits - money-horse data-export integration test, offlot-app channel-text generate-texts.job.ts.
+
+### framework-core
+
+**Provider contexts expose auditUserId instead of _userId**
+
+FileProviderContext, MailTransportContext, InboundMailContext and the context read by requireSecretsContext name the audit identity auditUserId. The old underscore field is gone.
+
+**Migration:** Rename _userId to auditUserId wherever a provider context is built by hand (tests, custom resolvers, worker wiring). requireSecretsContext still falls back to ctx.user.id when it is unset.
+
 ## 0.376.0
 
 ### @cosmicdrift/kumiko-server-runtime

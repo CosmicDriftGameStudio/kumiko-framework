@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "kumiko-dispatcher-live is a deprecated shim over kumiko-renderer/live",
+    "detail": "The package only re-exports @cosmicdrift/kumiko-renderer/live and is removed after the consumer pass of wave 4.",
+    "migration": "Import from @cosmicdrift/kumiko-renderer/live, or run bun kumiko codemod package-merge . --write."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "Responses that match no envelope report their real httpStatus instead of 0",

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "kumiko-http is a deprecated shim over kumiko-framework/http",
+    "detail": "The package only re-exports @cosmicdrift/kumiko-framework/http and is removed after the consumer pass of wave 4.",
+    "migration": "Import from @cosmicdrift/kumiko-framework/http, or run bun kumiko codemod package-merge . --write."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "A redirect hop outside allowOrigins now fails with the egress(internal): redirect prefix",

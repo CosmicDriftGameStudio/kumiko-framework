@@ -1,5 +1,58 @@
 [
   {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "PlanCard ctaLink",
+    "detail": "PlanCard takes ctaLink ({ label, href, target? }) and renders it as a full-width link button in the footer instead of the cta button. The PlanCardLinkSlot type is exported from @cosmicdrift/kumiko-renderer/web next to PlanCardActionSlot."
+  },
+  {
+    "version": "0.377.0",
+    "type": "fix",
+    "title": "The entityEdit discard-confirm test waits for the form's mount effects before it types and clicks",
+    "detail": "The test rendered outside act and only waited for the input to appear. Under CPU load the form's mount effects (store subscription, dirty reporting) ran after the click, so the header action still had no discard confirm and the test failed. The render now runs inside act, so the detail query, the commit and the effects settle first. Test-only change, no runtime behavior changes."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "headless and the live dispatcher moved into renderer",
+    "detail": "The headless UI logic is exported from @cosmicdrift/kumiko-renderer/headless (with /headless/apex, /headless/dispatcher and /headless/locale-routing), the HTTP dispatcher from @cosmicdrift/kumiko-renderer/live. @cosmicdrift/kumiko-headless and @cosmicdrift/kumiko-dispatcher-live now only re-export these subpaths and are removed after the consumer pass of wave 4.",
+    "migration": "Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-headless (and its subpaths) to @cosmicdrift/kumiko-renderer/headless and imports of @cosmicdrift/kumiko-dispatcher-live to @cosmicdrift/kumiko-renderer/live, and replaces both dependencies in package.json with kumiko-renderer.",
+    "codemod": "scripts/codemod/package-merge.ts"
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "renderer-web moved into renderer",
+    "detail": "The web bindings are exported from @cosmicdrift/kumiko-renderer/web, the stylesheet from @cosmicdrift/kumiko-renderer/web/styles.css and the Tailwind theme plugin from @cosmicdrift/kumiko-renderer/web/theme-plugin. @cosmicdrift/kumiko-renderer-web now only re-exports these and is removed after the consumer pass of wave 4.",
+    "migration": "Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports and CSS @import lines of @cosmicdrift/kumiko-renderer-web (including /styles.css and /theme-plugin) to @cosmicdrift/kumiko-renderer/web and replaces the dependency in package.json with kumiko-renderer.",
+    "codemod": "scripts/codemod/package-merge.ts"
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "actionForm shows key figures from the handler's success payload",
+    "detail": "ActionFormScreenDefinition gets successFacts, a list of { field, label } entries read from the success payload and shown in the success box next to successLinks while the screen stays put. A number or string is one value, an array a comma-separated list of numbers, strings or { label } objects, a missing field is hidden. Mutually exclusive with redirect (boot validator). Default behaviour is unchanged."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "A text field with format month renders a native month input",
+    "detail": "createTextField({ format: \"month\" }) renders <input type=\"month\"> and carries YYYY-MM. The schema builder validates the pattern server-side (an empty string is accepted for optional fields). New InputProps kind \"month\" for custom Input primitives.",
+    "migration": "Only custom CorePrimitives.Input implementations with an exhaustive switch over kind need a \"month\" branch; a text fallback is fine."
+  },
+  {
+    "version": "0.377.0",
+    "type": "improvement",
+    "title": "Array reference fields render as links in lists",
+    "detail": "A reference column over an array field renders one link per entry, labelled from the eagerloaded record or the label lookup, like single references. New CellLinkItem and RuntimeCellLinkItems exports from the headless view model; DataTableCell accepts linkItems."
+  },
+  {
+    "version": "0.377.0",
+    "type": "fix",
+    "title": "List empty state, sidebar rail cursor, toolbar description spacing and root form errors",
+    "detail": "The empty list no longer shows a second Create button when Create is already in the page header. The sidebar rail edge, which only toggles open and closed, shows a pointer cursor instead of a resize cursor. toolbarDescription always gets the standard bottom spacing, not only with fillsHeight. A server error without a field reference (path \"(root)\") shows once in the form banner instead of also at a field."
+  },
+  {
     "version": "0.374.0",
     "type": "improvement",
     "title": "Success box with links, form reset and field placeholder",
