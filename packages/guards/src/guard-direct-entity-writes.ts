@@ -252,10 +252,10 @@ function rebuildableEntityTableDeclId(
   return declIdOf(nameNode.asKindOrThrow(SyntaxKind.Identifier));
 }
 
-// Tables registered via `r.entity({ name, ...entityDef })` as a rebuildable implicit
-// projection, linked entity→table via the shared entity-def symbol (see header), not by name string.
 const ENTITY_METHOD_ACCESS = /\.\s*entity\b/;
 
+// Tables registered via `r.entity({ name, ...entityDef })` as a rebuildable implicit
+// projection, linked entity→table via the shared entity-def symbol (see header), not by name string.
 export function collectEntityProjectionTables(files: readonly SourceFile[]): Set<TableId> {
   const rebuildableEntities = new Set<TableId>();
   const tables = new Set<TableId>();

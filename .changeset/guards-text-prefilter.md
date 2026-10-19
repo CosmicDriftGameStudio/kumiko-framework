@@ -2,7 +2,7 @@
 "@cosmicdrift/kumiko-guards": patch
 ---
 
-Guards: cheap text prefilters before the AST walks of Pre-ES-Patterns, API-Object-Form, Escape-Hatch-Declared and Direct-Entity-Writes. Findings are unchanged; the guard run drops from about 67 s and 10 GB RSS to about 28 s and 7.7 GB.
+Guards: cheap text prefilters before the AST walks of Pre-ES-Patterns, API-Object-Form, Escape-Hatch-Declared and Direct-Entity-Writes. Findings are unchanged; the guard run drops from about 67 s / 10 GB to about 25 s / 7.5 GB.
 
 <!-- kumiko-changes
 feature: guards
