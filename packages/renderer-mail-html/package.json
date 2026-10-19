@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-renderer-mail-html",
-  "version": "0.374.0",
+  "version": "0.375.0",
   "description": "Renderer-Foundation plugin for branded HTML emails: mail-kind templates (document HTML + subject meta) rendered with isolated Handlebars into an MJML layout, plus plain text via html-to-text. Templates resolved from template-resolver.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
