@@ -76,7 +76,7 @@ const variableDefSchema = z.union([
 // A stored variableSchema value is either a bare string (legacy "this is a text
 // variable") or a TemplateVariableDef object; anything else is not declared and
 // therefore shows up as an unknown placeholder instead of being guessed at.
-function toVariableDef(raw: unknown): TemplateVariableDef | null {
+export function toVariableDef(raw: unknown): TemplateVariableDef | null {
   if (typeof raw === "string") return { type: "text" };
   const parsed = variableDefSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;

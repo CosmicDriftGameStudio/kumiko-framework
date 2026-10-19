@@ -80,6 +80,30 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.checks.sizeUnderCap": "The mail is within the 10 MiB size limit",
     "templateResolver.checks.requiredPlaceholders": "All required placeholders are used",
     "templateResolver.errors.preview.renderFailed": "The preview could not be rendered.",
+    "templateResolver.errors.patch.unknownBlock":
+      "The block {blockId} does not exist in the template.",
+    "templateResolver.errors.patch.blockRemoved":
+      "The block {blockId} was already removed by an earlier step.",
+    "templateResolver.errors.patch.textNotFound": "The text {find} was not found in the block.",
+    "templateResolver.errors.patch.textAmbiguous":
+      "The text {find} occurs {count} times in the block; use a longer text.",
+    "templateResolver.errors.patch.blockNotAllowed":
+      "The block type {type} is not available in {kind} templates.",
+    "templateResolver.errors.patch.blockTypeMismatch":
+      "This step needs a {expected} block, but the block is a {actual}.",
+    "templateResolver.errors.patch.invalidResourceKey": "The image key {resource} is not valid.",
+    "templateResolver.errors.patch.invalidButtonHref":
+      "A button target must be a placeholder in double curly braces.",
+    "templateResolver.errors.patch.invalidVariableName": "The variable name {name} is not valid.",
+    "templateResolver.errors.patch.invalidVariableDefinition":
+      "The definition of the variable {name} is not valid.",
+    "templateResolver.errors.patch.invalidDocument":
+      "The change would produce an invalid document.",
+    "templateResolver.errors.patch.invalidMetaKey": "The meta key {key} is not allowed.",
+    "templateResolver.errors.patch.variablesDeclaredByFeature":
+      "The variables of {slug} are fixed by the application and cannot be changed.",
+    "templateResolver.errors.patch.requiredPlaceholderRemoved":
+      "The change removes required placeholders: {names}",
     "templateResolver.errors.testMail.noChannel":
       "No email channel is set up, so no test mail can be sent.",
     "templateResolver.errors.testMail.noAddress":

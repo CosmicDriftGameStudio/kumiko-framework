@@ -1213,6 +1213,31 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.requiredPlaceholders":
     "Tous les espaces réservés obligatoires sont utilisés",
   "templateResolver.errors.preview.renderFailed": "L'aperçu n'a pas pu être généré.",
+  "templateResolver.errors.patch.unknownBlock": "Le bloc {blockId} n'existe pas dans le modèle.",
+  "templateResolver.errors.patch.blockRemoved":
+    "Le bloc {blockId} a déjà été supprimé par une étape précédente.",
+  "templateResolver.errors.patch.textNotFound": "Le texte {find} est introuvable dans le bloc.",
+  "templateResolver.errors.patch.textAmbiguous":
+    "Le texte {find} apparaît {count} fois dans le bloc ; utilisez un texte plus long.",
+  "templateResolver.errors.patch.blockNotAllowed":
+    "Le type de bloc {type} n'est pas disponible dans les modèles {kind}.",
+  "templateResolver.errors.patch.blockTypeMismatch":
+    "Cette étape nécessite un bloc de type {expected}, mais le bloc est de type {actual}.",
+  "templateResolver.errors.patch.invalidResourceKey": "La clé d'image {resource} n'est pas valide.",
+  "templateResolver.errors.patch.invalidButtonHref":
+    "La cible d'un bouton doit être un champ variable entre doubles accolades.",
+  "templateResolver.errors.patch.invalidVariableName":
+    "Le nom de variable {name} n'est pas valide.",
+  "templateResolver.errors.patch.invalidVariableDefinition":
+    "La définition de la variable {name} n'est pas valide.",
+  "templateResolver.errors.patch.invalidDocument":
+    "La modification produirait un document non valide.",
+  "templateResolver.errors.patch.invalidMetaKey":
+    "La clé de métadonnées {key} n'est pas autorisée.",
+  "templateResolver.errors.patch.variablesDeclaredByFeature":
+    "Les variables de {slug} sont définies par l'application et ne peuvent pas être modifiées.",
+  "templateResolver.errors.patch.requiredPlaceholderRemoved":
+    "La modification supprime des champs variables obligatoires : {names}",
   "templateResolver.errors.testMail.noChannel":
     "Aucun canal e-mail n'est configuré ; aucun e-mail de test ne peut donc être envoyé.",
   "templateResolver.errors.testMail.noAddress":

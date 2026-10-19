@@ -47,17 +47,19 @@ type TemplateDraftInput = {
   readonly scope: TemplateWriteScope;
 };
 
-// The dry run of the write pipeline; preview feeds on the evaluation, validate returns the response.
-export async function validateTemplateDraft(
+// Image keys the editor may reference: the system rows plus, for a tenant write, the caller's own.
+export async function knownResourceKeysFor(
   ctx: HandlerContext,
   user: SessionUser,
-  payload: TemplateDraftInput,
-) {
-  const variables = resolveTemplateVariables(ctx.registry, payload.slug, payload.variableSchema);
-  const { slug, kind, locale } = payload;
-  // The dry run must not promise what the caller's write handlers would refuse.
-  const scope: TemplateWriteScope = isSystemAdmin(user) ? payload.scope : "tenant";
-  const known = [
+  where: {
+    readonly slug: string;
+    readonly kind: string;
+    readonly scope: TemplateWriteScope;
+    readonly locale: string | undefined;
+  },
+): Promise<string[]> {
+  const { slug, kind, scope, locale } = where;
+  return [
     ...(await knownResourceKeys(ctx.db, {
       tenantId: SYSTEM_TENANT_ID,
       slug,
@@ -69,6 +71,19 @@ export async function validateTemplateDraft(
       ? await knownResourceKeys(ctx.db, { tenantId: user.tenantId, slug, kind, scope, locale })
       : []),
   ];
+}
+
+// The dry run of the write pipeline; preview feeds on the evaluation, validate returns the response.
+export async function validateTemplateDraft(
+  ctx: HandlerContext,
+  user: SessionUser,
+  payload: TemplateDraftInput,
+) {
+  const variables = resolveTemplateVariables(ctx.registry, payload.slug, payload.variableSchema);
+  const { slug, kind, locale } = payload;
+  // The dry run must not promise what the caller's write handlers would refuse.
+  const scope: TemplateWriteScope = isSystemAdmin(user) ? payload.scope : "tenant";
+  const known = await knownResourceKeysFor(ctx, user, { slug, kind, scope, locale });
   const evaluation = evaluateTemplateWrite({
     kind,
     scope,

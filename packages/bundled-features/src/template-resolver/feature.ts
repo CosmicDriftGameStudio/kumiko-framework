@@ -12,6 +12,7 @@ import { makeCollectionSetWrite } from "./handlers/collection-set.write.ts";
 import { copyLocaleWrite } from "./handlers/copy-locale.write.ts";
 import { diffToSystemQuery } from "./handlers/diff-to-system.query.ts";
 import { discardDraftSystemWrite, discardDraftWrite } from "./handlers/discard-draft.write.ts";
+import { documentBlocksQuery } from "./handlers/document-blocks.query.ts";
 import { exportBundleQuery } from "./handlers/export-bundle.query.ts";
 import { findByIdQuery } from "./handlers/find-by-id.query.ts";
 import { importBundleWrite } from "./handlers/import-bundle.write.ts";
@@ -19,6 +20,7 @@ import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.t
 import { layoutSourceQuery } from "./handlers/layout-source.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
 import { overviewQuery } from "./handlers/overview.query.ts";
+import { patchDraftWrite } from "./handlers/patch-draft.write.ts";
 import { previewQuery } from "./handlers/preview.query.ts";
 import { resetToSystemWrite } from "./handlers/reset-to-system.write.ts";
 import { resourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.ts";
@@ -124,6 +126,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       resourceRemove: r.writeHandler(resourceRemoveWrite),
       resourceLinkPdf: r.writeHandler(resourceLinkPdfWrite),
       sendTest: r.writeHandler(sendTestWrite),
+      patchDraft: r.writeHandler(patchDraftWrite),
     };
 
     const queries = {
@@ -138,6 +141,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       diffToSystem: r.queryHandler(diffToSystemQuery),
       validate: r.queryHandler(validateQuery),
       preview: r.queryHandler(previewQuery),
+      documentBlocks: r.queryHandler(documentBlocksQuery),
       exportBundle: r.queryHandler(exportBundleQuery),
     };
 

@@ -20,6 +20,7 @@ export const TemplateResolverHandlers = {
   resourceRemove: "template-resolver:write:resource-remove",
   resourceLinkPdf: "template-resolver:write:resource-link-pdf",
   sendTest: "template-resolver:write:send-test",
+  patchDraft: "template-resolver:write:patch-draft",
 } as const;
 
 export const TemplateResolverQueries = {
@@ -32,6 +33,7 @@ export const TemplateResolverQueries = {
   diffToSystem: "template-resolver:query:diff-to-system",
   validate: "template-resolver:query:validate",
   preview: "template-resolver:query:preview",
+  documentBlocks: "template-resolver:query:document-blocks",
   exportBundle: "template-resolver:query:export-bundle",
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",

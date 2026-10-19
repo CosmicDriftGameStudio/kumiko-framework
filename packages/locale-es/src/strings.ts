@@ -1199,6 +1199,28 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.sizeUnderCap": "El correo está dentro del límite de 10 MiB",
   "templateResolver.checks.requiredPlaceholders": "Se usan todos los marcadores obligatorios",
   "templateResolver.errors.preview.renderFailed": "No se pudo generar la vista previa.",
+  "templateResolver.errors.patch.unknownBlock": "El bloque {blockId} no existe en la plantilla.",
+  "templateResolver.errors.patch.blockRemoved":
+    "El bloque {blockId} ya fue eliminado por un paso anterior.",
+  "templateResolver.errors.patch.textNotFound": "No se encontró el texto {find} en el bloque.",
+  "templateResolver.errors.patch.textAmbiguous":
+    "El texto {find} aparece {count} veces en el bloque; use un texto más largo.",
+  "templateResolver.errors.patch.blockNotAllowed":
+    "El tipo de bloque {type} no está disponible en las plantillas {kind}.",
+  "templateResolver.errors.patch.blockTypeMismatch":
+    "Este paso necesita un bloque de tipo {expected}, pero el bloque es de tipo {actual}.",
+  "templateResolver.errors.patch.invalidResourceKey": "La clave de imagen {resource} no es válida.",
+  "templateResolver.errors.patch.invalidButtonHref":
+    "El destino de un botón debe ser un marcador entre dobles llaves.",
+  "templateResolver.errors.patch.invalidVariableName": "El nombre de variable {name} no es válido.",
+  "templateResolver.errors.patch.invalidVariableDefinition":
+    "La definición de la variable {name} no es válida.",
+  "templateResolver.errors.patch.invalidDocument": "El cambio produciría un documento no válido.",
+  "templateResolver.errors.patch.invalidMetaKey": "La clave de metadatos {key} no está permitida.",
+  "templateResolver.errors.patch.variablesDeclaredByFeature":
+    "Las variables de {slug} las fija la aplicación y no se pueden cambiar.",
+  "templateResolver.errors.patch.requiredPlaceholderRemoved":
+    "El cambio elimina marcadores obligatorios: {names}",
   "templateResolver.errors.testMail.noChannel":
     "No hay un canal de correo configurado, por lo que no se puede enviar un correo de prueba.",
   "templateResolver.errors.testMail.noAddress":

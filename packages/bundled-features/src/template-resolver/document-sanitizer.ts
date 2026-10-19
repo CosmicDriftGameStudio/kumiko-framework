@@ -2,6 +2,7 @@
 // of client barrels and the document-schema subpath export.
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { JSONContent } from "@tiptap/core";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { type Element as ScanElement, Window } from "happy-dom";
 import type { ContentFormat } from "./constants.ts";
@@ -270,6 +271,14 @@ export function sanitizeDocumentHtml(html: string): SanitizeHtmlResult {
     ok: true,
     html: generateHTML(generateJSON(html, documentExtensions), documentExtensions),
   };
+}
+
+export function parseDocumentJson(html: string): JSONContent {
+  return generateJSON(html, documentExtensions);
+}
+
+export function serializeDocumentJson(doc: JSONContent): string {
+  return generateHTML(doc, documentExtensions);
 }
 
 // For a sanitized value placed inside a line of text: paragraphs become line
