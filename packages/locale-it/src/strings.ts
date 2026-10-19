@@ -1202,6 +1202,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Questo link non è valido o è scaduto. Usa il link per annullare l'iscrizione di un'e-mail più recente.",
   "templateResolver.errors.systemOnlyTemplate":
     "Solo la piattaforma gestisce questo modello; non può essere sostituito per singola organizzazione.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Solo la piattaforma può modificare questo modello.",
   "templateResolver.errors.template.targetExists":
     "Esiste già un modello per la lingua «{detail}»; sovrascrivilo esplicitamente per sostituirlo.",
   "templateResolver.warnings.resourceNotUploaded": "Immagine non caricata: {detail}",

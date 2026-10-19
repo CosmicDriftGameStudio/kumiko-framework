@@ -64,6 +64,7 @@ export const TemplateResolverErrors = {
   targetExists: "target_exists",
   systemResourcesNeedSystemTenant: "system_resources_need_system_tenant",
   systemOnlyTemplate: "system_only_template",
+  templateNotTenantEditable: "template_not_tenant_editable",
   bundleLocalesDiffer: "bundle_locales_differ",
   resourceTooLarge: "template_resource_too_large",
   resourceUnsupportedImage: "template_resource_unsupported_image",

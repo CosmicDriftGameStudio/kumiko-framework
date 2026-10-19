@@ -8,7 +8,7 @@ Shows how a feature sends notifications to multiple channels (InApp + Email + Pu
 
 **Mail text is stored data:** The boot seed (`seedNotificationTemplates`) writes the declared `template` and `meta` into the template store as system templates. The email channel renders them with `renderer-mail-html`. A notification routed to email without `template` and `meta` fails its delivery.
 
-**Tenant override:** A tenant admin overrides the text through the template-resolver handlers (`upsertTenant`, then `publish`). The next mail for that tenant uses the override; the system text stays for everyone else.
+**Tenant override:** Only a SystemAdmin edits templates unless the app unlocks them. The app lists the mail in `createTemplateResolverFeature({ tenantEditable: [{ kind: "mail", slug, access: { roles: ["TenantAdmin"] } }] })`; then a tenant admin overrides the text through the template-resolver handlers (`upsertTenant`, then `publish`) and every other template is refused with 403. The next mail for that tenant uses the override; the system text stays for everyone else.
 
 **Sending:** The write handler calls `ctx.notify(type, { to, data })`. The `data` keys are the template variables; sending fails loudly when a required variable is missing.
 

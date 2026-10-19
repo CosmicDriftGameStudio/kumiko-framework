@@ -1173,6 +1173,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "This link is invalid or has expired. Please use the unsubscribe link in a more recent email.",
   "templateResolver.errors.systemOnlyTemplate":
     "Only the platform maintains this template; it cannot be overridden per tenant.",
+  "templateResolver.errors.templateNotTenantEditable": "Only the platform may edit this template.",
   "templateResolver.errors.template.targetExists":
     "A template for locale “{detail}” already exists; overwrite it explicitly to replace it.",
   "templateResolver.warnings.resourceNotUploaded": "Image not uploaded: {detail}",

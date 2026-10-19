@@ -1214,6 +1214,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Ce lien est invalide ou a expiré. Utilisez le lien de désabonnement d'un e-mail plus récent.",
   "templateResolver.errors.systemOnlyTemplate":
     "Seule la plateforme gère ce modèle ; il ne peut pas être remplacé par organisation.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Seule la plateforme peut modifier ce modèle.",
   "templateResolver.errors.template.targetExists":
     "Un modèle existe déjà pour la langue « {detail} » ; écrasez-le explicitement pour le remplacer.",
   "templateResolver.warnings.resourceNotUploaded": "Image non téléversée : {detail}",

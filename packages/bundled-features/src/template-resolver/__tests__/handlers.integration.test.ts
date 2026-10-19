@@ -13,6 +13,45 @@ import {
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "ai-prompt"],
+  [
+    "test-slug",
+    "system-new",
+    "system-idem",
+    "tenant-blocked",
+    "user-blocked",
+    "tenant-own",
+    "tenant-default-draft",
+    "tenant-explicit-active",
+    "system-override",
+    "denied-system-override",
+    "denied-override",
+    "user-denied",
+    "publish-test",
+    "isolation-publish",
+    "archive-test",
+    "isolation-archive",
+    "find-own",
+    "find-isolation",
+    "find-system",
+    "list-system-1",
+    "list-tenant-1",
+    "list-system-2",
+    "list-tenant-2",
+    "sysown-system",
+    "sysown-own",
+    "sysown-tenant-a",
+    "syscross-system",
+    "syscross-own",
+    "syscross-tenant-b",
+    "list-iso",
+    "filter-draft",
+    "filter-active",
+  ],
+);
 
 let stack: TestStack;
 let db: DbConnection;
@@ -33,7 +72,7 @@ const tenantB_Admin = createTestUser({
 });
 const normalUser = createTestUser({ id: 4, tenantId: testTenantId(10) });
 
-const feature = createTemplateResolverFeature();
+const feature = createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });

@@ -1201,6 +1201,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Este enlace no es válido o ha caducado. Usa el enlace para darte de baja de un correo más reciente.",
   "templateResolver.errors.systemOnlyTemplate":
     "Solo la plataforma mantiene esta plantilla; no se puede sobrescribir por cliente.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Solo la plataforma puede editar esta plantilla.",
   "templateResolver.errors.template.targetExists":
     "Ya existe una plantilla para el idioma «{detail}»; sobrescríbela de forma explícita para reemplazarla.",
   "templateResolver.warnings.resourceNotUploaded": "Imagen no subida: {detail}",

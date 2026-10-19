@@ -1208,6 +1208,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieser Link ist ungültig oder abgelaufen. Bitte den Abmeldelink aus einer neueren E-Mail verwenden.",
   "templateResolver.errors.systemOnlyTemplate":
     "Diese Vorlage pflegt nur die Plattform; sie lässt sich nicht pro Mandant überschreiben.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Diese Vorlage darf nur die Plattform bearbeiten.",
   "templateResolver.errors.template.targetExists":
     "Für die Sprache „{detail}“ gibt es schon eine Vorlage; überschreibe sie ausdrücklich, um sie zu ersetzen.",
   "templateResolver.warnings.resourceNotUploaded": "Bild nicht hochgeladen: {detail}",

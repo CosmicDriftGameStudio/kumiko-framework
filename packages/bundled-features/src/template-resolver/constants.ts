@@ -99,3 +99,6 @@ export { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 // Default-Locale wenn Tenant keinen eigenen Default konfiguriert. Resolver
 // fällt darauf zurück wenn requested locale + tenant-default fehlen.
 export const FALLBACK_LOCALE = "de";
+
+// A collection mounted without `access` is maintained by the platform only; TenantAdmin access is an explicit mount decision.
+export const DEFAULT_COLLECTION_ACCESS = { roles: ["SystemAdmin"] } as const;

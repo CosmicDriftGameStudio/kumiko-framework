@@ -30,6 +30,7 @@ import {
   SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
   TemplateResolverQueries,
+  type TenantEditableTemplate,
   templateResourceEntity,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
@@ -72,6 +73,14 @@ const BRANDED = qn(FEATURE, QnTypes.notify, "branded");
 const PLAIN = qn(FEATURE, QnTypes.notify, "plain");
 const SYSTEM_FILE = qn(FEATURE, QnTypes.notify, "system-file");
 const SEND = qn(FEATURE, QnTypes.write, "send");
+const TENANT_EDITABLE: TenantEditableTemplate[] = [
+  ...[INVOICE, INHERIT, IMMEDIATE, PLAIN, SYSTEM_FILE].map((slug) => ({
+    kind: "mail" as const,
+    slug,
+    access: { roles: ["TenantAdmin"] },
+  })),
+  { kind: "mail-layout", slug: "letterhead", access: { roles: ["TenantAdmin"] } },
+];
 
 const LOGO_BODY = '<p>Your invoice</p><p><img data-resource="logo" alt="Logo"></p>';
 // 1x1 PNG
@@ -185,7 +194,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createManagedPagesFeature({ resolveApexTenant: () => null }),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       fakePdfRenderer,

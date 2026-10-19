@@ -31,6 +31,7 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const PLAIN_NAMES = [
   "lifecycle",
@@ -43,6 +44,19 @@ const PLAIN_NAMES = [
   "sysdraft",
 ];
 const slugOf = (name: string) => `dd-mailer:notify:${name}`;
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "mail-layout", "document-pdf", "ai-prompt", "text-block"],
+  [
+    ...PLAIN_NAMES.map(slugOf),
+    slugOf("gated"),
+    "dd-layout",
+    "dd-mailer:doc",
+    "dd-system-layout",
+    "dd-seeded",
+    "dd-seeded-block",
+  ],
+);
 
 const mailer = defineFeature("dd-mailer", (r) => {
   r.writeHandler({
@@ -139,7 +153,7 @@ function validationCodes(err: { details?: unknown }): string[] {
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       mailer,
@@ -662,7 +676,10 @@ describe("template-resolver :: draft beside the active version", () => {
 
     await rebuildProjection("template-resolver:projection:template-resource-entity", {
       db: stack.db,
-      registry: createRegistry([createTemplateResolverFeature(), mailer]),
+      registry: createRegistry([
+        createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
+        mailer,
+      ]),
     });
 
     expect(await snapshot()).toEqual(before);

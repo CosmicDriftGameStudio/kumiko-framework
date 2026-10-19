@@ -3,44 +3,48 @@ import {
   createSystemConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { isCollectionRefusedKind } from "./constants.ts";
+import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "./constants.ts";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantQuery } from "./handlers/by-tenant.query.ts";
 import { makeCollectionItemQuery } from "./handlers/collection-item.query.ts";
 import { makeCollectionListQuery } from "./handlers/collection-list.query.ts";
 import { makeCollectionSetWrite } from "./handlers/collection-set.write.ts";
-import { copyLocaleWrite } from "./handlers/copy-locale.write.ts";
+import { makeCopyLocaleWrite } from "./handlers/copy-locale.write.ts";
 import { diffToSystemQuery } from "./handlers/diff-to-system.query.ts";
-import { discardDraftSystemWrite, discardDraftWrite } from "./handlers/discard-draft.write.ts";
+import {
+  makeDiscardDraftSystemWrite,
+  makeDiscardDraftWrite,
+} from "./handlers/discard-draft.write.ts";
 import { documentBlocksQuery } from "./handlers/document-blocks.query.ts";
 import { exportBundleQuery } from "./handlers/export-bundle.query.ts";
 import { findByIdQuery } from "./handlers/find-by-id.query.ts";
-import { importBundleWrite } from "./handlers/import-bundle.write.ts";
+import { makeImportBundleWrite } from "./handlers/import-bundle.write.ts";
 import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.ts";
 import { layoutSourceQuery } from "./handlers/layout-source.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
-import { overviewQuery } from "./handlers/overview.query.ts";
-import { patchDraftWrite } from "./handlers/patch-draft.write.ts";
+import { makeOverviewQuery } from "./handlers/overview.query.ts";
+import { makePatchDraftWrite } from "./handlers/patch-draft.write.ts";
 import { previewQuery } from "./handlers/preview.query.ts";
-import { resetToSystemWrite } from "./handlers/reset-to-system.write.ts";
-import { resourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.ts";
-import { resourceRemoveWrite } from "./handlers/resource-remove.write.ts";
-import { resourceUploadWrite } from "./handlers/resource-upload.write.ts";
+import { makeResetToSystemWrite } from "./handlers/reset-to-system.write.ts";
+import { makeResourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.ts";
+import { makeResourceRemoveWrite } from "./handlers/resource-remove.write.ts";
+import { makeResourceUploadWrite } from "./handlers/resource-upload.write.ts";
 import { sendTestWrite } from "./handlers/send-test.write.ts";
 import { sendTestStatusQuery } from "./handlers/send-test-status.query.ts";
-import { setWrite } from "./handlers/set.write.ts";
+import { makeSetWrite } from "./handlers/set.write.ts";
 import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.ts";
 import {
-  archiveSystemWrite,
-  archiveWrite,
-  publishSystemWrite,
-  publishWrite,
+  makeArchiveSystemWrite,
+  makeArchiveWrite,
+  makePublishSystemWrite,
+  makePublishWrite,
 } from "./handlers/toggle-status.write.ts";
 import { upsertSystemWrite } from "./handlers/upsert-system.write.ts";
-import { upsertTenantWrite } from "./handlers/upsert-tenant.write.ts";
+import { makeUpsertTenantWrite } from "./handlers/upsert-tenant.write.ts";
 import { usageQuery } from "./handlers/usage.query.ts";
 import { validateQuery } from "./handlers/validate.query.ts";
 import { templateResourceEntity } from "./table.ts";
+import type { TenantEditableTemplate } from "./template-edit-policy.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
 
 // template-resolver — structured template storage with tenant-override
@@ -62,6 +66,13 @@ export type TemplateResolverOptions = {
    *  access rule, so the dispatcher enforces the separation instead of a
    *  branch in a shared handler. */
   readonly collections?: readonly ContentCollectionDefinition[];
+  /** Templates a TenantAdmin may edit for the own tenant (override, draft, publish, archive,
+   *  reset, copy-locale, import, resources). Without an entry only a SystemAdmin edits.
+   *  A tenant-edited mail goes out under the platform's name, so the app opts in per
+   *  template instead of the framework guessing which ones a tenant may reword.
+   *  `access` is required: the host decides its role vocabulary here, like for
+   *  `collections`. SystemAdmin always passes. */
+  readonly tenantEditable?: readonly TenantEditableTemplate[];
 };
 
 function assertCollectionKindsAllowed(collections: readonly ContentCollectionDefinition[]): void {
@@ -74,15 +85,40 @@ function assertCollectionKindsAllowed(collections: readonly ContentCollectionDef
   }
 }
 
+function assertTenantEditableValid(entries: readonly TenantEditableTemplate[]): void {
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    const key = `${entry.kind}/${entry.slug}`;
+    if (seen.has(key)) {
+      throw new Error(`template-resolver: tenantEditable lists "${key}" twice`);
+    }
+    seen.add(key);
+    if (entry.slug.trim() === "") {
+      throw new Error(
+        `template-resolver: tenantEditable entry of kind "${entry.kind}" has an empty slug`,
+      );
+    }
+    if (entry.access.roles.length === 0) {
+      throw new Error(
+        `template-resolver: tenantEditable entry "${entry.kind}/${entry.slug}" has no roles in access`,
+      );
+    }
+  }
+}
+
 export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}) {
   const collections = opts.collections ?? [];
   assertCollectionKindsAllowed(collections);
+  const tenantEditable = opts.tenantEditable ?? [];
+  assertTenantEditableValid(tenantEditable);
+  const policy = { tenantEditable };
   const hasUserOwned = collections.some((c) => c.ownership === "user");
   return defineFeature("template-resolver", (r) => {
     r.describe(
       [
         "Every piece of editable text lives here, in one entity: mail bodies, notification texts, PDF document templates, AI prompts and plain text blocks. What a record is used for is the `kind` (`notification`, `mail`, `mail-layout`, `document-pdf`, `pdf-layout`, `ai-prompt`, `text-block`, `snippet`, `image-snapshot`).",
         "Reading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`. Saving a draft over an active template keeps the active version served and stores the edit beside it (column `draft`); `publish` makes it the served version, `discardDraft` / `discardDraftSystem` throws it away.",
+        'Editing templates is for SystemAdmin only. A TenantAdmin edits only the templates the app unlocks at the mount site, `createTemplateResolverFeature({ tenantEditable: [{ kind: "mail", slug: "status-update", access: { roles: ["TenantAdmin"] } }] })`, and every write handler enforces that on the server (override, draft, publish, archive, reset, copy-locale, import, resources, `set`). Each entry carries the `access` roles allowed to edit it, because a bundled feature cannot know the host\'s roles. Reading and delivery do not depend on it: a tenant override that exists is served. A collection mounted without `access` is SystemAdmin only.',
         "Text an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.",
         "How a collection is edited follows from `contentFormat`: `plain` gives a text area, `rich` a small WYSIWYG (bold, italic, headings, lists, links), `markdown` a text area that stores markdown text (same insertable chips as `plain`). All three offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
@@ -111,23 +147,23 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
 
     const handlers = {
       upsertSystem: r.writeHandler(upsertSystemWrite),
-      upsertTenant: r.writeHandler(upsertTenantWrite),
-      publish: r.writeHandler(publishWrite),
-      archive: r.writeHandler(archiveWrite),
-      publishSystem: r.writeHandler(publishSystemWrite),
-      archiveSystem: r.writeHandler(archiveSystemWrite),
-      discardDraft: r.writeHandler(discardDraftWrite),
-      discardDraftSystem: r.writeHandler(discardDraftSystemWrite),
-      resetToSystem: r.writeHandler(resetToSystemWrite),
-      set: r.writeHandler(setWrite),
-      importBundle: r.writeHandler(importBundleWrite),
+      upsertTenant: r.writeHandler(makeUpsertTenantWrite(policy)),
+      publish: r.writeHandler(makePublishWrite(policy)),
+      archive: r.writeHandler(makeArchiveWrite(policy)),
+      publishSystem: r.writeHandler(makePublishSystemWrite(policy)),
+      archiveSystem: r.writeHandler(makeArchiveSystemWrite(policy)),
+      discardDraft: r.writeHandler(makeDiscardDraftWrite(policy)),
+      discardDraftSystem: r.writeHandler(makeDiscardDraftSystemWrite(policy)),
+      resetToSystem: r.writeHandler(makeResetToSystemWrite(policy)),
+      set: r.writeHandler(makeSetWrite(policy)),
+      importBundle: r.writeHandler(makeImportBundleWrite(policy)),
       importBundleSystem: r.writeHandler(importBundleSystemWrite),
-      copyLocale: r.writeHandler(copyLocaleWrite),
-      resourceUpload: r.writeHandler(resourceUploadWrite),
-      resourceRemove: r.writeHandler(resourceRemoveWrite),
-      resourceLinkPdf: r.writeHandler(resourceLinkPdfWrite),
+      copyLocale: r.writeHandler(makeCopyLocaleWrite(policy)),
+      resourceUpload: r.writeHandler(makeResourceUploadWrite(policy)),
+      resourceRemove: r.writeHandler(makeResourceRemoveWrite(policy)),
+      resourceLinkPdf: r.writeHandler(makeResourceLinkPdfWrite(policy)),
       sendTest: r.writeHandler(sendTestWrite),
-      patchDraft: r.writeHandler(patchDraftWrite),
+      patchDraft: r.writeHandler(makePatchDraftWrite(policy)),
     };
 
     const queries = {
@@ -136,7 +172,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       bySlug: r.queryHandler(bySlugQuery),
       byTenant: r.queryHandler(byTenantQuery),
       usage: r.queryHandler(usageQuery),
-      overview: r.queryHandler(overviewQuery),
+      overview: r.queryHandler(makeOverviewQuery(policy)),
       layoutSource: r.queryHandler(layoutSourceQuery),
       tenantOverrides: r.queryHandler(tenantOverridesQuery),
       diffToSystem: r.queryHandler(diffToSystemQuery),
@@ -148,7 +184,10 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     };
 
     for (const collection of collections) {
-      r.contentCollection(collection);
+      r.contentCollection({
+        ...collection,
+        access: collection.access ?? DEFAULT_COLLECTION_ACCESS,
+      });
       r.queryHandler(makeCollectionListQuery(collection));
       r.queryHandler(makeCollectionItemQuery(collection));
       r.writeHandler(makeCollectionSetWrite(collection));

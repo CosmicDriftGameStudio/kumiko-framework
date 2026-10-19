@@ -7,13 +7,9 @@ import {
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
-import { isCollectionRefusedKind } from "../constants.ts";
+import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "../constants.ts";
 import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.ts";
-import {
-  type CollectionEntryRow,
-  collectionStore,
-  DEFAULT_COLLECTION_ACCESS,
-} from "./collection-shared.ts";
+import { type CollectionEntryRow, collectionStore } from "./collection-shared.ts";
 import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared.ts";
 
 // Upsert inside one collection. Mirrors set.write for text-blocks, but the

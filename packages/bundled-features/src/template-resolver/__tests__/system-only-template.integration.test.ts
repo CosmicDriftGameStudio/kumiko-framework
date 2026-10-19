@@ -10,6 +10,12 @@ import { createTemplateResolverFeature } from "../feature.ts";
 import type { OverviewResponse } from "../index.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail"],
+  ["account-so:notify:deletion-verification", "account-so:notify:welcome"],
+);
 
 const SYSTEM_ONLY_SLUG = "account-so:notify:deletion-verification";
 const EDITABLE_SLUG = "account-so:notify:welcome";
@@ -46,7 +52,9 @@ function mailPayload(slug: string, content: string, extra: Record<string, unknow
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature(), account] });
+  stack = await setupTestStack({
+    features: [createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }), account],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   for (const slug of [SYSTEM_ONLY_SLUG, EDITABLE_SLUG]) {
     await stack.http.writeOk(

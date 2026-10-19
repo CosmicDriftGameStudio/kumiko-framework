@@ -41,6 +41,12 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail-layout", "pdf-layout", "mail"],
+  ["default", "contract-frame", "patch-free", "base", "b1", "b2", "inv-mailer:notify:invoice"],
+);
 
 const LOCALE = "de";
 const SLUG = "inv-mailer:notify:invoice";
@@ -106,7 +112,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),

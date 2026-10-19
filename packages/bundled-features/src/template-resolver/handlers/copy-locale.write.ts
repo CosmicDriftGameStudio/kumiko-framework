@@ -25,6 +25,11 @@ import {
 } from "../store-template-resource.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { toWorkingRow, type WorkingRow } from "../template-draft.ts";
+import {
+  refuseTemplateEdit,
+  type TemplateEditPolicy,
+  templateEditAccess,
+} from "../template-edit-policy.ts";
 import { attachTemplateResources } from "../template-resources.ts";
 import { resolveTemplateVariables } from "../template-validation.ts";
 import { targetExistsIssue } from "./bundle-import.ts";
@@ -97,6 +102,7 @@ type CopyRequest = {
 // Runs before the upload (reject early, store nothing) and again in the transaction on the fresh rows.
 async function checkCopyRequest(
   ctx: WriteCtx,
+  policy: TemplateEditPolicy,
   event: {
     readonly user: SessionUser;
     readonly payload: z.infer<typeof copyLocaleSchema>;
@@ -113,6 +119,7 @@ async function checkCopyRequest(
   }
   const tenantId = scope === "system" ? SYSTEM_TENANT_ID : event.user.tenantId;
   const refused =
+    (scope === "tenant" ? refuseTemplateEdit(policy, event.user, { slug, kind }) : null) ??
     refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
     refuseSystemOnlyTenantOverride(ctx.registry, scope, slug, kind);
   if (refused !== null) return refused;
@@ -155,62 +162,64 @@ async function checkCopyRequest(
   };
 }
 
-export const copyLocaleWrite = defineWriteHandler({
-  name: "copy-locale",
-  schema: copyLocaleSchema,
-  access: { roles: ["TenantAdmin", "SystemAdmin"] },
-  description:
-    "Copies the text of one locale of a template into another locale as a draft override of the caller's tenant, taking the tenant's own row or else the system default as the source; use it as the starting point for a translation. It refuses an existing target unless overwrite is set. With scope system (SystemAdmin only) both source and target are system-default rows and the target lands as a system draft; any other caller gets a 403.",
-  beforeTransaction: async (event, ctx) => {
-    const request = await checkCopyRequest(ctx, event);
-    if (!request.isSuccess) return request;
-    if (!request.data.sourceIsForeign) return { isSuccess: true, data: [] };
-    return prepareLinkedResourceCopiesBeforeTransaction({
-      ctx,
-      user: event.user,
-      tenantId: request.data.tenantId,
-      resources: request.data.sourceResources,
-    });
-  },
-  handler: async (event, ctx) => {
-    const { slug, kind, toLocale } = event.payload;
-    const request = await checkCopyRequest(ctx, event);
-    if (!request.isSuccess) return request;
-    const { scope, tenantId, source, contentFormat, sourceResources, sourceIsForeign } =
-      request.data;
+export function makeCopyLocaleWrite(policy: TemplateEditPolicy) {
+  return defineWriteHandler({
+    name: "copy-locale",
+    schema: copyLocaleSchema,
+    access: templateEditAccess(policy.tenantEditable),
+    description:
+      "Copies the text of one locale of a template into another locale as a draft override of the caller's tenant, taking the tenant's own row or else the system default as the source; use it as the starting point for a translation. It refuses an existing target unless overwrite is set. With scope system (SystemAdmin only) both source and target are system-default rows and the target lands as a system draft; any other caller gets a 403. A TenantAdmin may copy only templates the app lists in tenantEditable, otherwise SystemAdmin only.",
+    beforeTransaction: async (event, ctx) => {
+      const request = await checkCopyRequest(ctx, policy, event);
+      if (!request.isSuccess) return request;
+      if (!request.data.sourceIsForeign) return { isSuccess: true, data: [] };
+      return prepareLinkedResourceCopiesBeforeTransaction({
+        ctx,
+        user: event.user,
+        tenantId: request.data.tenantId,
+        resources: request.data.sourceResources,
+      });
+    },
+    handler: async (event, ctx) => {
+      const { slug, kind, toLocale } = event.payload;
+      const request = await checkCopyRequest(ctx, policy, event);
+      if (!request.isSuccess) return request;
+      const { scope, tenantId, source, contentFormat, sourceResources, sourceIsForeign } =
+        request.data;
 
-    const variableSchema = storedRecord(source.variableSchema);
-    const written = await writeTemplateRow({
-      ctx,
-      user: event.user,
-      tenantId,
-      scope,
-      status: "draft",
-      variables: resolveTemplateVariables(ctx.registry, slug, variableSchema),
-      payload: {
-        slug,
-        kind,
-        locale: toLocale,
-        content: source.content,
-        contentFormat,
-        variableSchema,
-        meta: parseStoredJson(source.meta),
-        title: source.title,
-        folder: source.folder,
-      },
-    });
-    if (!written.isSuccess) return written;
-    const resources = sourceIsForeign
-      ? await createLinkedResourceCopies({ ctx, user: event.user, tenantId }, event.prepared)
-      : { isSuccess: true as const, data: sourceResources };
-    if (!resources.isSuccess) return resources;
-    const attached = await attachTemplateResources(ctx, {
-      user: event.user,
-      tenantId,
-      templateId: written.data.id,
-      resources: resources.data,
-    });
-    if (!attached.isSuccess) return attached;
-    return written;
-  },
-});
+      const variableSchema = storedRecord(source.variableSchema);
+      const written = await writeTemplateRow({
+        ctx,
+        user: event.user,
+        tenantId,
+        scope,
+        status: "draft",
+        variables: resolveTemplateVariables(ctx.registry, slug, variableSchema),
+        payload: {
+          slug,
+          kind,
+          locale: toLocale,
+          content: source.content,
+          contentFormat,
+          variableSchema,
+          meta: parseStoredJson(source.meta),
+          title: source.title,
+          folder: source.folder,
+        },
+      });
+      if (!written.isSuccess) return written;
+      const resources = sourceIsForeign
+        ? await createLinkedResourceCopies({ ctx, user: event.user, tenantId }, event.prepared)
+        : { isSuccess: true as const, data: sourceResources };
+      if (!resources.isSuccess) return resources;
+      const attached = await attachTemplateResources(ctx, {
+        user: event.user,
+        tenantId,
+        templateId: written.data.id,
+        resources: resources.data,
+      });
+      if (!attached.isSuccess) return attached;
+      return written;
+    },
+  });
+}
