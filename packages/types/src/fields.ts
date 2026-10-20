@@ -946,6 +946,10 @@ export type FilesFieldDef = {
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly maxCount?: number;
+  /** `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a
+   *  drag-and-drop zone with one status row per file, a remove action per file and the field's
+   *  `maxCount`/`accept`/`maxSize` as hints. The stored value is the same array of FileRef ids. */
+  readonly display?: "list" | "dropzone";
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
 
@@ -955,6 +959,10 @@ export type ImagesFieldDef = {
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly maxCount?: number;
+  /** `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a
+   *  drag-and-drop zone with one status row per file, a remove action per file and the field's
+   *  `maxCount`/`accept`/`maxSize` as hints. The stored value is the same array of FileRef ids. */
+  readonly display?: "list" | "dropzone";
   readonly variants?: Readonly<Record<string, VariantSpec>>;
   /** Forwarded to the file input's `capture` attribute so a phone opens the
    *  camera instead of the file picker. */

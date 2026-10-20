@@ -223,6 +223,9 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   /** actionForm `derive`: derived fields are recomputed into the form state on every
    *  change and render read-only. */
   readonly formDerivation?: FormDerivationScreen;
+  /** QN of the actionForm screen this form renders; its file fields upload as pending for that
+   *  screen. Unset for entityEdit and for secretMint/confirm forms, which take no uploads. */
+  readonly actionFormScreenQn?: string;
   /** Show the unsaved-changes footer (count, Discard, "Save changes") even
    *  without an entity id or a screen-height form — for hosts that edit an
    *  existing server-side record through `customSubmit` (configEdit, also when

@@ -4554,6 +4554,7 @@ function ActionFormBody({
       featureName={schema.featureName}
       initial={derivedInitial}
       {...(screen.derive !== undefined && { formDerivation: screen })}
+      actionFormScreenQn={qualifyScreenId(schema.featureName, screen.id)}
       // Extension-Sections im actionForm sehen die initialen Form-Values
       // (inkl. searchParams-Prefill, z.B. ?incidentId=…) als initialValues
       // — anders als im entityEdit gibt es hier keinen record, aus dem

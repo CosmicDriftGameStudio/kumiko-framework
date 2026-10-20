@@ -864,6 +864,26 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
       expect(docs?.maxCount).toBe(5);
     });
 
+    test("inside an actionForm the upload targets the screen, and display travels with the field", () => {
+      const entity = {
+        fields: { belege: { type: "files", display: "dropzone" }, doc: { type: "files" } },
+      } as unknown as EntityDefinition;
+      const vm = computeEditViewModel({
+        screen: editScreen({ sections: [{ title: "x", fields: ["belege", "doc"] }] }),
+        entity,
+        values: {},
+        translate,
+        featureName: "rental",
+        actionFormScreenQn: "rental:screen:upload-standard-layout",
+      });
+      const [belege, doc] = asFields(vm.sections[0]).fields;
+      expect(belege?.uploadActionForm).toBe("rental:screen:upload-standard-layout");
+      expect(belege?.entityType).toBeUndefined();
+      expect(belege?.fieldName).toBe("belege");
+      expect(belege?.fileDisplay).toBe("dropzone");
+      expect(doc?.fileDisplay).toBeUndefined();
+    });
+
     test("a plain file field gets upload hints but no imageVariant", () => {
       const entity = {
         fields: { doc: { type: "file", variants: { thumb: {} } } },

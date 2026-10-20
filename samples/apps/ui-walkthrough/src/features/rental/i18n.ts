@@ -13,14 +13,14 @@ export const rentalTranslations: TranslationsByLocale = {
     "screen:upload-standard-layout.title": "Belege hochladen",
     "rental.upload.description":
       "Laden Sie Rechnungen und Nebenkostenbelege zum Mietvertrag hoch. Danach gehen sie zur Prüfung.",
+    "rental.upload.screenDescription": "Belege hochladen; sie werden dem Vorgang zugeordnet.",
     "rental.upload.zoneTitle": "Belege auswählen",
-    "rental.upload.zoneDescription": "PDF oder Foto, mehrere Dateien auf einmal sind möglich.",
-    "rental.upload.dropTitle": "Rechnungen und Belege hier ablegen",
-    "rental.upload.dropHint": "PDF, JPG oder PNG",
-    "rental.upload.resultTitle": "Hochgeladene Belege",
-    "rental.upload.resultDescription": "Diese Dateien gehen mit der Prüfung an die Buchhaltung.",
-    "rental.upload.empty": "Noch keine Belege hochgeladen.",
-    "rental.upload.toReview": "Zur Prüfung",
+    "rental.upload.submit": "Zur Prüfung übernehmen",
+    "rental.upload.factCount": "Übernommene Belege",
+    "rental.upload.factFiles": "Dateien",
+    "rental.upload.unknownFile":
+      "Mindestens eine Datei gehört nicht zu Ihrem Upload. Bitte laden Sie sie erneut hoch.",
+    "rental:entity:__action-form__:field:belege": "Belege",
 
     "screen:lease-list.title": "Mietverträge",
     "screen:lease-list-short.title": "Mietverträge (gekündigt)",
@@ -165,14 +165,14 @@ export const rentalTranslations: TranslationsByLocale = {
     "screen:upload-standard-layout.title": "Upload receipts",
     "rental.upload.description":
       "Upload invoices and service charge receipts for the lease. They then go to review.",
+    "rental.upload.screenDescription": "Upload receipts; they are attached to the record.",
     "rental.upload.zoneTitle": "Choose receipts",
-    "rental.upload.zoneDescription": "PDF or photo, several files at once are fine.",
-    "rental.upload.dropTitle": "Drop invoices and receipts here",
-    "rental.upload.dropHint": "PDF, JPG or PNG",
-    "rental.upload.resultTitle": "Uploaded receipts",
-    "rental.upload.resultDescription": "These files go to accounting with the review.",
-    "rental.upload.empty": "No receipts uploaded yet.",
-    "rental.upload.toReview": "To review",
+    "rental.upload.submit": "Send to review",
+    "rental.upload.factCount": "Receipts accepted",
+    "rental.upload.factFiles": "Files",
+    "rental.upload.unknownFile":
+      "At least one file is not part of your upload. Please upload it again.",
+    "rental:entity:__action-form__:field:belege": "Receipts",
 
     "screen:lease-list.title": "Leases",
     "screen:lease-list-short.title": "Leases (terminated)",

@@ -183,3 +183,32 @@ describe("FileUploadInput — upload POST body", () => {
     expect(body.get("entityType")).toBe("order");
   });
 });
+
+describe("FileUploadInput — upload failure", () => {
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+  let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
+
+  test("shows the translated text for a server error code, never the raw server string", async () => {
+    const rawServerMessage = "file_too_large: 12 bytes exceeds the limit of 10";
+    fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: rawServerMessage }), { status: 413 }),
+    );
+    const { container, findByText, queryByText } = render(
+      <FileUploadInput
+        kind="file"
+        id="doc"
+        value={null}
+        onChange={noop}
+        uploadActionForm="rental:screen:upload"
+        fieldName="doc"
+      />,
+    );
+    const input = container.querySelector('input[type="file"]');
+    if (input === null) throw new Error("file input missing");
+    fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
+    expect(await findByText("File is too large")).toBeDefined();
+    expect(queryByText(rawServerMessage, { exact: false })).toBeNull();
+  });
+});

@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { rentalFeature } from "../features/rental/feature";
@@ -7,7 +11,9 @@ import { rentalFeature } from "../features/rental/feature";
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupAppTestStack([rentalFeature]);
+  stack = await setupAppTestStack([createFilesFeature(), rentalFeature], {
+    files: { storageProvider: createInMemoryFileProvider() },
+  });
 });
 
 afterAll(async () => {

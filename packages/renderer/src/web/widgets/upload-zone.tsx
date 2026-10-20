@@ -1,5 +1,5 @@
-import { CheckCircle2, FileUp, Loader2, TriangleAlert, Upload } from "lucide-react";
-import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
+import { CheckCircle2, FileUp, Loader2, TriangleAlert, Upload, X } from "lucide-react";
+import { type DragEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "../../index.ts";
 import { toAcceptAttr } from "../lib/accept-attr.ts";
 import { cn } from "../lib/cn.ts";
@@ -12,6 +12,8 @@ type UploadRow = {
   readonly fileName: string;
   readonly status: UploadRowStatus;
   readonly error?: string;
+  /** What `onUpload` returned for a done row; handed to `onRemove`. */
+  readonly value?: string;
 };
 
 const STATUS_ICON: Record<UploadRowStatus, ReactNode> = {
@@ -30,7 +32,7 @@ export type UploadZoneProps = {
   /** Uploads a single file (POST + optional follow-up mutation). Throws on
    *  failure — the message ends up in the row's error line. Runs in
    *  parallel per file within a batch (no sequential waiting). */
-  readonly onUpload: (file: File) => Promise<void>;
+  readonly onUpload: (file: File) => Promise<string | undefined | void>;
   readonly title: ReactNode;
   readonly hint?: ReactNode;
   readonly accept?: readonly string[];
@@ -41,6 +43,15 @@ export type UploadZoneProps = {
   readonly capture?: "environment" | "user";
   readonly disabled?: boolean;
   readonly testId?: string;
+  /** Turns a failed upload into the row's error text. Default: the error's own message. */
+  readonly describeError?: (cause: unknown) => string;
+  /** Controlled use, for a form field: a string returned by `onUpload` becomes the row's value
+   *  and done rows get a remove button that calls this with it. The zone does not drop the row;
+   *  the owner removes the value from `doneValues`, which the zone then follows. */
+  readonly onRemove?: (value: string) => void;
+  /** The values the owner currently holds. Done rows whose value left the list disappear, and
+   *  going from some to none (an external reset) clears every row, error rows included. */
+  readonly doneValues?: readonly string[];
 };
 
 // `accept` on the native <input> only filters the file-picker dialog — a
@@ -83,6 +94,9 @@ export function UploadZone({
   capture,
   disabled,
   testId,
+  describeError,
+  onRemove,
+  doneValues,
 }: UploadZoneProps): ReactNode {
   const t = useTranslation();
   const inputId = useId();
@@ -93,16 +107,35 @@ export function UploadZone({
   // preview leaves it undefined. These ids are React keys/row ids, not
   // globally unique identifiers, so a per-instance counter is enough.
   const nextRowId = useRef(0);
+  const previousDoneCount = useRef(0);
+
+  const doneCount = doneValues?.length;
+  useEffect(() => {
+    if (doneCount === undefined) return;
+    if (doneCount === 0 && previousDoneCount.current > 0) setRows([]);
+    previousDoneCount.current = doneCount;
+  }, [doneCount]);
 
   async function uploadOne(file: File): Promise<void> {
     const rowId = String(nextRowId.current++);
     const uploadFile = await resizeImageBeforeUpload(file);
     setRows((prev) => [...prev, { id: rowId, fileName: uploadFile.name, status: "uploading" }]);
     try {
-      await onUpload(uploadFile);
-      setRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, status: "done" } : row)));
+      const value = await onUpload(uploadFile);
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === rowId
+            ? { ...row, status: "done", ...(typeof value === "string" && { value }) }
+            : row,
+        ),
+      );
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : t("kumiko.widget.upload.error");
+      const message =
+        describeError !== undefined
+          ? describeError(cause)
+          : cause instanceof Error
+            ? cause.message
+            : t("kumiko.widget.upload.error");
       setRows((prev) =>
         prev.map((row) => (row.id === rowId ? { ...row, status: "error", error: message } : row)),
       );
@@ -134,6 +167,10 @@ export function UploadZone({
     setDragOver(false);
     if (disabled === true) return;
     void uploadFiles(e.dataTransfer.files);
+  }
+
+  function removeRow(row: UploadRow): void {
+    if (row.value !== undefined) onRemove?.(row.value);
   }
 
   const acceptAttr = toAcceptAttr(accept);
@@ -177,23 +214,41 @@ export function UploadZone({
       </label>
       {rows.length > 0 && (
         <ul className="flex flex-col gap-2">
-          {rows.map((row) => (
-            <li
-              key={row.id}
-              data-testid={testId !== undefined ? `${testId}-row` : undefined}
-              className="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2"
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <FileUp className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span className="truncate text-sm">{row.fileName}</span>
-              </div>
-              <output className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                {STATUS_ICON[row.status]}
-                <span className="sr-only">{t(STATUS_LABEL_KEY[row.status])}</span>
-                {row.status === "error" && row.error !== undefined && <span>{row.error}</span>}
-              </output>
-            </li>
-          ))}
+          {rows
+            .filter(
+              (row) =>
+                row.value === undefined ||
+                doneValues === undefined ||
+                doneValues.includes(row.value),
+            )
+            .map((row) => (
+              <li
+                key={row.id}
+                data-testid={testId !== undefined ? `${testId}-row` : undefined}
+                className="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileUp className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="truncate text-sm">{row.fileName}</span>
+                </div>
+                <output className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  {STATUS_ICON[row.status]}
+                  <span className="sr-only">{t(STATUS_LABEL_KEY[row.status])}</span>
+                  {row.status === "error" && row.error !== undefined && <span>{row.error}</span>}
+                  {row.value !== undefined && onRemove !== undefined && disabled !== true && (
+                    <button
+                      type="button"
+                      className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                      aria-label={t("kumiko.widget.upload.remove")}
+                      data-testid={testId !== undefined ? `${testId}-remove` : undefined}
+                      onClick={() => removeRow(row)}
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  )}
+                </output>
+              </li>
+            ))}
         </ul>
       )}
     </div>

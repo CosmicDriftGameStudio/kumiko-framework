@@ -1028,6 +1028,9 @@ function renderInput({
           {...(field.accept !== undefined && { accept: field.accept })}
           {...(field.maxSize !== undefined && { maxSize: field.maxSize })}
           {...(field.entityType !== undefined && { entityType: field.entityType })}
+          {...(field.uploadActionForm !== undefined && {
+            uploadActionForm: field.uploadActionForm,
+          })}
           {...(field.entityId !== undefined && { entityId: field.entityId })}
           {...(field.fieldName !== undefined && { fieldName: field.fieldName })}
           {...(field.imageVariant !== undefined && { imageVariant: field.imageVariant })}

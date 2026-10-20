@@ -425,6 +425,9 @@ export type InputProps =
       /** Für den Upload-POST `/api/files` — der Endpoint prüft maxSize/accept
        *  gegen die Field-Def von (entityType, fieldName). */
       readonly entityType?: string;
+      /** Screen QN of the actionForm the field belongs to; sent as `actionForm` instead of
+       *  `entityType`, so the upload stays pending for that form's field. */
+      readonly uploadActionForm?: string;
       /** Must be sent as the `entityId` part of the upload so the FileRef is
        *  attached to the record (qr overlays and access guards need it). */
       readonly entityId?: string;
@@ -442,6 +445,27 @@ export type InputProps =
       /** Translated label of the pick button; absent → the upload/change default. */
       readonly pickLabel?: string;
       /** Hidden file input gets `${testId}-input`, the pick button `${testId}-pick`. */
+      readonly testId?: string;
+    }
+  | {
+      /** Drop zone for a `files` / `images` field: the value is the list of uploaded FileRef ids,
+       *  the implementation offers multi-pick, drag and drop and a remove control per file. */
+      readonly kind: "files-dropzone";
+      readonly id: string;
+      readonly name: string;
+      readonly value: readonly string[];
+      readonly onChange: (fileIds: readonly string[]) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      readonly accept?: readonly string[];
+      readonly maxSize?: string;
+      readonly maxCount?: number;
+      /** Upload target, same meaning as on the `file` kind. */
+      readonly entityType?: string;
+      readonly uploadActionForm?: string;
+      readonly entityId?: string;
+      readonly fieldName?: string;
       readonly testId?: string;
     }
   | {

@@ -9,7 +9,8 @@ import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "../../index.ts";
 import { toAcceptAttr } from "../lib/accept-attr.ts";
 import { resizeImageBeforeUpload } from "../lib/resize-image.ts";
-import { FileUploadFailedError, uploadFileRef } from "../lib/upload-file-ref.ts";
+import { uploadErrorKey } from "../lib/upload-error-key.ts";
+import { uploadFileRef } from "../lib/upload-file-ref.ts";
 import { Button as UiButton } from "../ui/button.tsx";
 import { FileNameLink, FileThumbnail } from "./file-thumbnail.tsx";
 
@@ -21,6 +22,7 @@ export type FileUploadInputProps = {
   readonly accept?: readonly string[];
   readonly disabled?: boolean;
   readonly entityType?: string;
+  readonly uploadActionForm?: string;
   readonly entityId?: string;
   readonly fieldName?: string;
   readonly imageVariant?: string;
@@ -44,6 +46,7 @@ export function FileUploadInput({
   accept,
   disabled,
   entityType,
+  uploadActionForm,
   entityId,
   fieldName,
   imageVariant,
@@ -70,13 +73,16 @@ export function FileUploadInput({
     setError(null);
     try {
       const uploadFile = await resizeImageBeforeUpload(file);
-      onChange(await uploadFileRef(uploadFile, { entityType, entityId, fieldName }));
-    } catch (error) {
-      setError(
-        error instanceof FileUploadFailedError && error.fromServer
-          ? error.message
-          : t("kumiko.field.file-upload.failed"),
+      onChange(
+        await uploadFileRef(uploadFile, {
+          entityType,
+          entityId,
+          fieldName,
+          actionForm: uploadActionForm,
+        }),
       );
+    } catch (cause) {
+      setError(t(uploadErrorKey(cause)));
     } finally {
       setUploading(false);
       // Clear the input so re-picking the SAME file still fires change — the

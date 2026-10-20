@@ -11,4 +11,5 @@ export const RENTAL_WRITES = {
   rentAdjust: "rental:write:rent:adjust",
   positionsRecord: "rental:write:lease:record-positions",
   invoiceReceive: "rental:write:invoice:receive",
+  receiptsUpload: "rental:write:receipts-upload",
 } as const;

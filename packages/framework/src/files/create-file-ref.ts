@@ -8,6 +8,7 @@ import {
 } from "../engine/types/index.ts";
 import { InternalError, type WriteFailure } from "../errors/index.ts";
 import { generateId } from "../utils/index.ts";
+import { isActionFormScreenQn, resolveActionFormFileField } from "./action-form-upload.ts";
 import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import { resolveContentType } from "./resolve-content-type.ts";
@@ -37,6 +38,8 @@ export function getFileRefExecutor(): ReturnType<typeof buildFileRefExecutor> {
   fileRefExecutor ??= buildFileRefExecutor();
   return fileRefExecutor;
 }
+
+const ACTION_FORM_STORAGE_SEGMENT = "action-form";
 
 const SAFE_IDENTIFIER = /^[A-Za-z0-9_-]+$/;
 
@@ -71,6 +74,9 @@ export type StoreFileInput = {
   readonly entityType?: string | undefined;
   readonly entityId?: string | undefined;
   readonly fieldName?: string | undefined;
+  /** Qualified name of a registered actionForm screen; `fieldName` then names one of its files
+   *  fields and the upload is stored as pending (entityType = the screen QN, no entityId). */
+  readonly actionForm?: string | undefined;
 };
 
 export type StoreFileDeps = {
@@ -117,6 +123,42 @@ type AcceptedFile =
   | { readonly kind: "accepted"; readonly mimeType: string; readonly extension: string | undefined }
   | { readonly kind: "rejected"; readonly error: string };
 
+type UploadFieldResolution =
+  | AttachedFieldResolution
+  | { readonly kind: "rejected"; readonly error: string };
+
+function resolveUploadField(
+  registry: Registry | undefined,
+  input: Pick<StoreFileInput, "entityType" | "entityId" | "fieldName" | "actionForm">,
+): UploadFieldResolution {
+  const { entityType, entityId, fieldName, actionForm } = input;
+  if (actionForm === undefined) return resolveAttachedField(registry, entityType, fieldName);
+  if (entityType !== undefined || entityId !== undefined) {
+    return {
+      kind: "rejected",
+      error: "invalid_action_form: actionForm cannot be combined with entityType/entityId",
+    };
+  }
+  if (!isActionFormScreenQn(actionForm)) {
+    return {
+      kind: "rejected",
+      error: "invalid_action_form: expected a screen QN like <feature>:screen:<id>",
+    };
+  }
+  const fieldDef =
+    fieldName !== undefined
+      ? resolveActionFormFileField(registry, actionForm, fieldName)
+      : undefined;
+  if (fieldDef === undefined) {
+    return {
+      kind: "rejected",
+      error:
+        "unresolvable_field: actionForm and fieldName must name a files/image field of a registered actionForm screen",
+    };
+  }
+  return { kind: "resolved", fieldDef };
+}
+
 function acceptFile(
   deps: Pick<StoreFileDeps, "registry" | "defaultMaxUploadSize">,
   input: StoreFileInput,
@@ -137,19 +179,16 @@ function acceptFile(
     }
   }
 
-  let maxSize = deps.defaultMaxUploadSize;
-  let accept: readonly string[] | undefined;
-
-  const attachedField = resolveAttachedField(deps.registry, entityType, fieldName);
-  if (attachedField.kind === "unresolvable") {
+  const field = resolveUploadField(deps.registry, input);
+  if (field.kind === "rejected") return field;
+  if (field.kind === "unresolvable") {
     return rejected(
       "unresolvable_field: entityType/fieldName must resolve to a registered file field, or both must be omitted for an unattached upload",
     );
   }
-  if (attachedField.kind === "resolved") {
-    if (attachedField.fieldDef.maxSize) maxSize = attachedField.fieldDef.maxSize;
-    if (attachedField.fieldDef.accept) accept = attachedField.fieldDef.accept;
-  }
+  const fieldDef = field.kind === "resolved" ? field.fieldDef : undefined;
+  const maxSize = fieldDef?.maxSize || deps.defaultMaxUploadSize;
+  const accept = fieldDef?.accept;
 
   const validationError = validateFile(
     { fileName, mimeType: declaredMimeType, size: data.byteLength },
@@ -189,14 +228,15 @@ export async function writeAcceptedFileBytes(
   deps: Pick<StoreFileDeps, "user" | "registry" | "defaultMaxUploadSize" | "writeBytes">,
   input: StoreFileInput,
 ): Promise<UploadBytesOutcome> {
-  const { fileName, data, entityType, entityId, fieldName } = input;
+  const { fileName, data, entityType, entityId, fieldName, actionForm } = input;
   const accepted = acceptFile(deps, input);
   if (accepted.kind === "rejected") return accepted;
   const { mimeType, extension } = accepted;
 
   const storageKey = buildStorageKey(
     deps.user.tenantId,
-    entityType ?? "unattached",
+    // The screen QN stays out of the key: a fixed segment keeps it a plain path part.
+    actionForm !== undefined ? ACTION_FORM_STORAGE_SEGMENT : (entityType ?? "unattached"),
     entityId,
     fieldName ?? "file",
     fileName,
@@ -212,7 +252,7 @@ export async function writeAcceptedFileBytes(
       fileName,
       mimeType,
       size: data.byteLength,
-      entityType,
+      entityType: actionForm ?? entityType,
       entityId,
       fieldName,
     },

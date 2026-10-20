@@ -15,7 +15,11 @@ import {
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import {
+  fileRefEntity,
+  fileRefsTable,
+  resolveActionFormFileField,
+} from "@cosmicdrift/kumiko-framework/files";
 import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.ts";
 
 const ERROR_CONTEXT = "user-data-rights-defaults:fileRef";
@@ -166,6 +170,8 @@ function isPersonalPiiField(field: FieldDefinition | undefined): boolean {
 //   2. Field exists but carries no PII annotation → anonymize (the
 //      conservative path); the boot-validator warns on a PII-typical field
 //      name so this stays visible and quiet-fixable via `personal`.
+//   2b. Pending upload of an actionForm files field (entityType = screen QN, entityId null):
+//      nothing owns it yet, so it is personal to its uploader and hard-deleted like case 1.
 //   3. Entity or field not resolvable (upload hardening in file-routes.ts
 //      should prevent this from ever being written; theoretical remainder
 //      only) → anonymize, never a silent hard-delete.
@@ -174,6 +180,9 @@ function isPersonalFileRow(registry: Registry, row: Record<string, unknown>): bo
   const fieldName = row["fieldName"]; // @cast-boundary db-row
   if (entityType === null && fieldName === null) return true;
   if (typeof entityType !== "string" || typeof fieldName !== "string") return false;
+  if (row["entityId"] === null && resolveActionFormFileField(registry, entityType, fieldName)) {
+    return true;
+  }
   const fieldDef = registry.getEntity(entityType)?.fields[fieldName];
   return isPersonalPiiField(fieldDef);
 }

@@ -25,6 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  bindPendingFileRef,
   createFilesFeature,
   createInMemoryFileProvider,
   deriveKey,
@@ -44,6 +45,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 
@@ -52,6 +54,8 @@ const CREATE_DOSSIER = "ff-probe:write:dossier:create";
 const UPDATE_DOSSIER = "ff-probe:write:dossier:update";
 const DETAIL_DOSSIER = "ff-probe:query:dossier:detail";
 const CREATE_OWNED = "ff-probe:write:owned-doc:create";
+const INTAKE_FORM = "ff-probe:screen:intake-form";
+const KEEP_AS_COVER = "ff-probe:write:keep-as-cover";
 const REASON = "authority request (Art. 17 file purge)";
 const ROLES = { access: { roles: ["Admin", "DataProtectionOfficer"] } } as const;
 
@@ -82,6 +86,33 @@ const probeFeature = defineFeature("ff-probe", (r) => {
   r.writeHandler(defineEntityUpdateHandler("dossier", dossierEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, ROLES));
   r.writeHandler(defineEntityCreateHandler("owned-doc", ownedDocEntity, ROLES));
+  r.screen({
+    id: "intake-form",
+    type: "actionForm",
+    dormant: true,
+    handler: "ff-probe:write:dossier:create",
+    fields: { attachments: createFilesField() },
+    layout: { sections: [{ fields: ["attachments"] }] },
+  });
+  // What an actionForm handler does with a kept upload: move it onto the entity's non-personal cover.
+  r.writeHandler({
+    name: "keep-as-cover",
+    schema: z.object({ fileRefId: z.string(), entityId: z.string() }),
+    access: { roles: ["Admin", "DataProtectionOfficer"] },
+    handler: async (event, ctx) => {
+      const outcome = await bindPendingFileRef({
+        fileRefId: event.payload.fileRefId,
+        entityName: INTAKE_FORM,
+        fieldName: "attachments",
+        entityId: event.payload.entityId,
+        bindTo: { entityName: "dossier", fieldName: "cover" },
+        registry: ctx.registry,
+        user: event.user,
+        db: ctx.db,
+      });
+      return { isSuccess: true as const, data: { outcome } };
+    },
+  });
 });
 
 const TENANT: TenantId = testTenantId(31);
@@ -150,10 +181,12 @@ async function upload(
   as: Uploader,
   entityType: string | undefined,
   fieldName?: string,
+  actionForm?: string,
 ): Promise<string> {
   const token = await stack.jwt.sign(as);
   const fd = new FormData();
   if (entityType !== undefined) fd.append("entityType", entityType);
+  if (actionForm !== undefined) fd.append("actionForm", actionForm);
   if (fieldName !== undefined) fd.append("fieldName", fieldName);
   fd.append(
     "file",
@@ -420,5 +453,28 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
 
     expect(await memory.exists(heldKey)).toBe(true);
     expect(await fileRefExists(heldId)).toBe(true);
+  });
+
+  test("user subject: an unbound actionForm upload of the user is removed, one the handler moved to a non-personal field stays", async () => {
+    const pendingId = await upload(foreignUploader, undefined, "attachments", INTAKE_FORM);
+    const keptId = await upload(foreignUploader, undefined, "attachments", INTAKE_FORM);
+    await stack.http.writeOk(
+      KEEP_AS_COVER,
+      { fileRefId: keptId, entityId: crypto.randomUUID() },
+      foreignUploader,
+    );
+    const pendingKey = await storageKeyOf(pendingId);
+    const keptKey = await storageKeyOf(keptId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: foreignUploader.id }, reason: REASON },
+      dpo,
+    );
+
+    expect(await memory.exists(pendingKey)).toBe(false);
+    expect(await fileRefExists(pendingId)).toBe(false);
+    expect(await memory.exists(keptKey)).toBe(true);
+    expect(await fileRefExists(keptId)).toBe(true);
   });
 });

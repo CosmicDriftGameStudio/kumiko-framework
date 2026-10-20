@@ -7,10 +7,17 @@ import {
   type SaveContext,
   type SessionUser,
 } from "../engine/types/index.ts";
-import { reraiseAsKumikoError, type WriteErrorInfo } from "../errors/index.ts";
-import { getFileRefExecutor } from "./create-file-ref.ts";
+import {
+  FrameworkReasons,
+  InternalError,
+  reraiseAsKumikoError,
+  UnprocessableError,
+  type WriteErrorInfo,
+} from "../errors/index.ts";
+import { getFileRefExecutor, resolveAttachedField } from "./create-file-ref.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import { type FileRefRows, loadFileRefRows } from "./load-save-file-refs.ts";
+import { validateFile } from "./types.ts";
 
 export function fileRefIdsOf(value: unknown): readonly string[] {
   if (typeof value === "string") return isUuid(value) ? [value] : [];
@@ -49,13 +56,21 @@ async function bindPendingRow(args: {
   readonly entityName: string;
   readonly fieldName: string;
   readonly entityId: string;
+  readonly bindTo?: PendingFileRefBindTarget | undefined;
   readonly user: SessionUser;
   readonly db: TenantDb;
 }): Promise<BindOutcome> {
-  const { row, fileRefId, entityName, fieldName, entityId, user, db } = args;
+  const { row, fileRefId, entityName, fieldName, entityId, bindTo, user, db } = args;
   if (!isPendingUploadFor(row, entityName, fieldName, user)) return { kind: "not-pending" };
   const bound = await getFileRefExecutor().update(
-    { id: fileRefId, version: streamVersionOf(row), changes: { entityId } },
+    {
+      id: fileRefId,
+      version: streamVersionOf(row),
+      changes:
+        bindTo === undefined
+          ? { entityId }
+          : { entityId, entityType: bindTo.entityName, fieldName: bindTo.fieldName },
+    },
     user,
     db,
   );
@@ -154,6 +169,44 @@ export async function loadPendingFileRef(
   return { id: lookup.fileRefId, storageKey, mimeType, size, version };
 }
 
+export type PendingFileRefBindTarget = {
+  readonly entityName: string;
+  readonly fieldName: string;
+};
+
+// The pending upload was checked against the form field it came in through; a different target
+// field may be stricter. Metadata only (bytes are not re-read): the extension comes from the
+// storage key, whose suffix is the sniffed type, because fileName may be encrypted personal data.
+export function assertRowFitsBindTarget(
+  registry: Registry | undefined,
+  bindTo: PendingFileRefBindTarget,
+  row: FileRefRow,
+): void {
+  const target = resolveAttachedField(registry, bindTo.entityName, bindTo.fieldName);
+  if (target.kind !== "resolved") {
+    throw new InternalError({
+      message: `bindPendingFileRef: bindTo ${bindTo.entityName}.${bindTo.fieldName} is not a registered file field (pass the handler's ctx.registry)`,
+    });
+  }
+  const { storageKey, mimeType, size } = row;
+  if (typeof storageKey !== "string" || typeof mimeType !== "string" || typeof size !== "number") {
+    // A row without these can only come from corruption; letting it through would skip the check.
+    throw new InternalError({
+      message: `bindPendingFileRef: pending file_ref ${String(row["id"])} lacks storageKey, mimeType or size`,
+    });
+  }
+  const error = validateFile(
+    { fileName: storageKey, mimeType, size },
+    { maxSize: target.fieldDef.maxSize, accept: target.fieldDef.accept },
+  );
+  if (error !== null) {
+    throw new UnprocessableError(FrameworkReasons.fileViolatesBindTarget, {
+      i18nKey: "errors.file.violatesBindTarget",
+      details: { error },
+    });
+  }
+}
+
 export type BindPendingFileRefOutcome = "bound" | "not-pending" | "version-conflict";
 
 const CONCURRENT_BIND_ERROR_CODES: readonly string[] = ["version_conflict", "unique_violation"];
@@ -165,15 +218,26 @@ const CONCURRENT_BIND_ERROR_CODES: readonly string[] = ["version_conflict", "uni
  * The helper checks the upload, not the target: the caller must already be authorized to write
  * `entityId` itself (for example a record the handler just wrote); `canWriteRecord` is not checked.
  *
+ * `bindTo` moves the upload onto an entity file field of its own: a form upload is pending under
+ * the actionForm screen (entityName = the screen QN), and the handler decides which entity field
+ * keeps it. The row is re-tagged to `bindTo` and must fit that field's `accept`/`maxSize`
+ * (UnprocessableError otherwise); the field must be registered, which needs `registry`
+ * (the handler's `ctx.registry`), else InternalError.
+ *
  * A parallel bind of the same fileRef loses with "version-conflict" (or "not-pending" once the
  * winner has committed); anything else throws.
  */
 export async function bindPendingFileRef(
-  args: PendingFileRefLookup & { readonly entityId: string },
+  args: PendingFileRefLookup & {
+    readonly entityId: string;
+    readonly bindTo?: PendingFileRefBindTarget;
+    readonly registry?: Registry;
+  },
 ): Promise<BindPendingFileRefOutcome> {
   const row = await loadPendingRow(args);
   // Without a stream version the update would run unversioned and could overwrite a concurrent bind.
   if (row === undefined || streamVersionOf(row) === undefined) return "not-pending";
+  if (args.bindTo !== undefined) assertRowFitsBindTarget(args.registry, args.bindTo, row);
   const outcome = await bindPendingRow({ ...args, row });
   switch (outcome.kind) {
     case "bound":

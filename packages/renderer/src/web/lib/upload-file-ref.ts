@@ -2,7 +2,10 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { CSRF_HEADER_NAME, readCsrfToken } from "../../live/index.ts";
 import { buildFileUploadFormData, type FileUploadFormDataInput } from "./file-upload-form-data.ts";
 
-export type FileRefTarget = Pick<FileUploadFormDataInput, "entityType" | "entityId" | "fieldName">;
+export type FileRefTarget = Pick<
+  FileUploadFormDataInput,
+  "entityType" | "entityId" | "fieldName" | "actionForm"
+>;
 
 /** Carries the server's own `error` message when the upload endpoint sent one. */
 export class FileUploadFailedError extends Error {

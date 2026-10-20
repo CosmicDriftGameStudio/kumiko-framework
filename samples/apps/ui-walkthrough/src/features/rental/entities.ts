@@ -1,6 +1,7 @@
 import {
   createDateField,
   createEntity,
+  createFileField,
   createMoneyField,
   createNumberField,
   createSelectField,
@@ -8,6 +9,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 const DEMO_DATA = { personal: false, reason: "is_business_data" } as const;
+
+// Server-side accept lists are extensions, not MIME types.
+export const RECEIPT_ACCEPT = ["pdf", "png", "jpg"] as const;
 
 export const LEASE_STATUSES = ["active", "terminated"] as const;
 
@@ -54,5 +58,19 @@ export const leasePartyEntity = createEntity({
     lease: { type: "reference", entity: "lease", required: true, filterable: true },
     name: createTextField({ ...DEMO_DATA, required: true, searchable: true }),
     rolle: createTextField({ ...DEMO_DATA, filterable: true }),
+  },
+});
+
+// A receipt keeps the uploaded file as its own record; dateiname is a copy for the success list.
+export const receiptEntity = createEntity({
+  table: "read_ui_walkthrough_receipts",
+  fields: {
+    datei: createFileField({
+      ...DEMO_DATA,
+      required: true,
+      accept: RECEIPT_ACCEPT,
+      maxSize: "10MB",
+    }),
+    dateiname: createTextField({ ...DEMO_DATA, required: true }),
   },
 });

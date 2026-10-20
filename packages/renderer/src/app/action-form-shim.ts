@@ -26,12 +26,11 @@ import type {
   SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
+  ACTION_FORM_PSEUDO_ENTITY,
   isFieldsEditSection,
   normalizeEditField,
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-
-const ACTION_FORM_PSEUDO_ENTITY = "__action-form__";
 
 /** Baut eine minimale EntityDefinition aus den Inline-Fields eines
  *  ActionForm- oder SecretMint-Screens. RenderEdit + computeEditViewModel

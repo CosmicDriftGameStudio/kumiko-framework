@@ -291,7 +291,12 @@ export type EditFieldViewModel = {
    *  upload POST (`/api/files`), so the endpoint can check maxSize/accept
    *  against the right field def. */
   readonly entityType?: string;
+  /** Only for file fields of an actionForm — the screen QN the upload POST names as
+   *  `actionForm` instead of `entityType`; the server resolves the field through that screen. */
+  readonly uploadActionForm?: string;
   readonly fieldName?: string;
+  /** Only for `type: "files" | "images"` — how the field is shown. Absent = list. */
+  readonly fileDisplay?: "list" | "dropzone";
   /** Record being edited (update mode only). Sent with the upload so the
    *  FileRef is attached to the record. */
   readonly entityId?: string;

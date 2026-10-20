@@ -501,6 +501,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     leadContent,
     submitBlocked = false,
     formDerivation,
+    actionFormScreenQn,
   } = props;
   // View mode is a locked form, so everything keyed on `disabled` follows.
   const disabled = disabledProp || viewMode;
@@ -984,9 +985,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         mode: writeVerb,
         ...(!isCreateMode && entityIdProp != null && { entityId: entityIdProp }),
         ...(formDerivation !== undefined && { derivation: formDerivation }),
+        ...(actionFormScreenQn !== undefined && { actionFormScreenQn }),
       }),
     [
       formDerivation,
+      actionFormScreenQn,
       screen,
       entity,
       snapshot.values,

@@ -186,6 +186,62 @@ documents) are not covered: they stay with their uploader and the privileged
 roles. Use binding when the
 reference is a file field, `unclaimedUploadReaders` when it is not.
 
+## Upload in an actionForm
+
+A `files` or `images` field of an `actionForm` screen has no record to attach to,
+so its upload targets the screen: the client posts `actionForm=<screen QN>` and
+`fieldName` instead of `entityType`/`entityId`. Combining them is a 400. The row
+is stored pending (`entityType` = the screen QN, `entityId` null); the storage
+key carries the fixed segment `action-form`, never the QN.
+
+The field's own `accept` and `maxSize` apply, and `maxSize` raises the request
+body limit like an entity field does. The route answers `403` before any byte is
+written when the caller may not submit the form: the screen's `access` (if set)
+and the access of its `handler` must both pass. Anonymous callers get no upload.
+An unknown screen, a screen of another type, a missing or non-file field and a
+malformed QN answer `400`.
+
+The form's handler receives only the file ids. It loads each one as the caller's
+own pending upload of the form and binds the ones it keeps to a record's file
+field with `bindTo`; an id that is foreign, already bound or unknown must fail
+the whole submit before anything is written:
+
+```ts
+const pending = await loadPendingFileRef({
+  fileRefId,
+  entityName: "rental:screen:upload-standard-layout",
+  fieldName: "belege",
+  user: event.user,
+  db: ctx.db,
+});
+if (pending === undefined) throw new UnprocessableError("unknown_upload");
+await bindPendingFileRef({
+  fileRefId,
+  entityName: "rental:screen:upload-standard-layout",
+  fieldName: "belege",
+  entityId: receiptId,
+  bindTo: { entityName: "receipt", fieldName: "datei" },
+  registry: ctx.registry,
+  user: event.user,
+  db: ctx.db,
+});
+```
+
+`bindTo` re-tags the row to the target entity field and sets `entityId`. The
+target must be a registered file field (`registry` is the handler's
+`ctx.registry`, else `InternalError`) and the file must fit its `accept` and
+`maxSize`, else `UnprocessableError` with `errors.file.violatesBindTarget`.
+
+Uploads the handler never binds stay pending and private to the uploader. They
+count as the uploader's personal data: forgetting the user hard-deletes them
+(bytes and row), user-data-rights export lists them, and the `forget-subject`
+purge removes unbound ones too. Files the handler moved onto a record follow
+that field's own personal-data annotation.
+
+`display: "dropzone"` on a `files`/`images` field renders a drop zone with one
+status row per file instead of the file list; it works in `entityEdit` and
+`actionForm`.
+
 ## Signed-URL default expiry
 
 The framework-native file-download route signs URLs with a 15-minute default
