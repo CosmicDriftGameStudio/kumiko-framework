@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "documentExtract projection survives a rebuild",
+    "detail": "DOCUMENT_EXTRACT_AGGREGATE_TYPE is exported, and the documentExtract entity projection applies the stored document-extract.* events, so rebuildProjection restores the rows. No event is rewritten."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated documentIngestFoundationFeature constant is removed",

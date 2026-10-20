@@ -1,5 +1,264 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.379.0
+
+### Minor Changes
+
+- aa886cc: Fixes for the gaps the attack tests found: form drafts are encrypted per owner, SSE entity signals follow the read access of the connection, late Stripe events no longer roll a subscription back, unknown e-mail addresses count towards the login lockout, and cause details no longer leak when NODE_ENV is missing.
+  
+  <!-- kumiko-changes
+  feature: form-draft
+  type: breaking
+  title: Form draft content is encrypted per owner
+  detail: The jsonb field draft carries personal: { of: "ownerId" }, so its content is stored as ciphertext in events and in read_form_drafts; the delete event no longer keeps the plaintext in previous. The PII event backfill (jsonb-objects-v3) encrypts existing events once on the next boot and rebuilds the table. The column type stays jsonb, so there is no schema change.
+  migration: Nothing to run; the backfill happens on boot. Code that reads read_form_drafts.draft with raw SQL must decrypt it (decryptPiiFieldValues) or use the form-draft lookup helpers; the get and list queries are unchanged for clients.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: PII backfill encrypts jsonb object and array fields
+  detail: runPiiEventBackfill and backfillEventPiiEncryption now retro-encrypt plaintext jsonb objects and arrays of personal fields and personal jsonb scalars, and createPiiBackfillStateTable bootstraps under an advisory lock so concurrent first boots no longer skip the ALTER. Completed backfill states rerun once because the transform version changed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: applyEntityEvent is exported from the db barrel, extension sources accept auto-verbs
+  detail: applyEntityEvent can be used by extendEntityProjection apply handlers to project stored entity events of a foreign aggregate type. validateProjectionApplyKeys accepts the entity auto-verbs for an extension source that is not a registered entity.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: documentExtract projection survives a rebuild
+  detail: DOCUMENT_EXTRACT_AGGREGATE_TYPE is exported, and the documentExtract entity projection applies the stored document-extract.* events, so rebuildProjection restores the rows. No event is rewritten.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: SSE entity signals follow the read access of the connection
+  detail: A signed-in connection receives an entity signal only when a query reading that entity lets one of its roles in (SseRouteOptions.entityReadAccess, built by collectEntityReadAccess). Entities without a reading query no longer go on the channel. When the reading access depends on a row or owner filter, the signal goes out without id and version, so a client refetches its query instead of learning which row changed.
+  migration: Apps that rely on a signal for an entity no query exposes to the user must add a query for that entity with a matching access rule. Custom buildServer callers that build SseRouteOptions themselves must pass entityReadAccess.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Late Stripe events are dropped
+  detail: The Stripe plugin passes event.created as providerEventAt, process-event stores it as providerEventAtIso in the subscription event and drops a created, updated or canceled event that is older than one already stored (result stale: true). A canceled subscription is no longer reactivated by a late delivery. Providers without a timestamp are unaffected; no migration.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: fix
+  title: assign-tag and delete-tag no longer race
+  detail: Re-assigning a tag after it was deleted no longer restores the assignment of a gone tag. assign-tag and delete-tag now take the same per-tag advisory lock, so a parallel assign can no longer leave an assignment for a deleted tag.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Unknown e-mail addresses count towards the login lockout
+  detail: Failed logins for unknown or deleted addresses are counted under a keyed digest of the normalized address (ctx.rateLimitDigest, derived from the JWT secret), so after the threshold they answer account_locked like a registered address and the lock no longer reveals which addresses exist. Without a digest key the old invalid_credentials answer stays.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cause details only with NODE_ENV development or test
+  detail: internal_error responses and write error infos carry the cause snapshot (name, message, stack) only when NODE_ENV is explicitly development or test. A missing or misspelled NODE_ENV no longer exposes stack traces, paths or upstream URLs. kumiko-dev starts the server with NODE_ENV=development when none is set, so local dev keeps the details; a dev script that runs the server directly (bun --watch bin/server.ts) must set NODE_ENV=development itself to see them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Global IP rate-limit middleware default matches runProdApp
+  detail: globalIpRateLimit defaults to 600 requests per 60 seconds (was 1000). DEFAULT_GLOBAL_RATE_LIMIT is exported from the api barrel and shared with server-runtime. authEndpointRateLimit keeps its default of 5 per 60 seconds.
+  migration: Apps that use globalIpRateLimit directly and relied on 1000 pass limit explicitly. runProdApp users see no change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot warning when /metrics is off in production
+  detail: buildServer logs a warning in production when no metrics option is set, which happens when PROMETHEUS_METRICS_TOKEN is unset.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Empty list with an active default filter offers "Show all"
+  detail: A list that is empty only because its defaultFilters are on says so and offers a Show all button instead of the "create the first one" text. The hard-coded Loading… banners use the kumiko.widget.loading key, so they follow the locale.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: Translations for the default-filter empty state
+  detail: kumiko.list.empty.defaultFiltered and kumiko.list.empty.showAll are translated in de, es, fr and it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: Retry documentation matches the client
+  detail: The client retries 502, 503 and network errors; other 5xx and client timeouts fail at once because the render already ran. The feature description no longer promises a retry for every 5xx.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Count messages use singular and plural forms
+  detail: Nine count messages (template usage, mail preview entries, layout origin and footer, tag delete confirmation, embedded-list paste warnings) now come as .one and .other keys in en, de, es, fr and it, so "1 template" no longer reads "1 templates". Apps that override these keys must rename them to .one and .other.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: runDevApp stop releases the late-bound revokers
+  detail: stop() swaps the session and PAT revokers that boot bound onto the auth-mfa, sessions and personal-access-tokens feature instances for inert ones, and those features now accept a new binding on a second boot instead of keeping the first. A later app or test stack on the same feature instances no longer reaches the closed database connection.
+  -->
+- 434be6e: Four UI gaps from wave 3: an actionForm can load a singleton row, the dashboard text block gets a role-gated link, seeded PDF templates can carry an i18n title key, and the template overview shows locked tenant overrides.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm loads a singleton row without a record id
+  detail: load.singleton: true on an actionForm sends the load query without idParam and prefills the form from the tenant's single row, like projectionDetail. A route id is never forwarded. The boot validator rejects singleton together with idParam.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Dashboard text block link shown only to given roles
+  detail: A text block of kind link ({ text, screen, roles? }) renders a link to a screen and is hidden unless the user holds one of the roles. This only gates the display; the target screen still checks access on the server. The boot validator rejects an unknown target screen and an empty roles list.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: seedSystemTemplate accepts titleI18nKey
+  detail: A seeded template can store an i18n key as its title (titleI18nKey, exclusive with title). The overview returns the key; the document-designer overview, mail editor and PDF link modal translate it and fall back to the raw text. Templates without a key behave as before; no migration.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Template overview shows locked tenant overrides
+  detail: Rows with lockedOverride and lockedOverrideI18nKey show the status text as a warning badge in the status column. The row action "Remove own version" calls the existing resetToSystem with the new overview field lockedOverrideId (the tenant row; one locale per click). The status shows a short label with the long sentence as tooltip.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: DataTable no longer hides its last column under the sticky actions column
+  detail: Header and text cells wrap instead of staying on one line (badges, dates and row actions keep their own nowrap), and a row-action group wraps when the column is narrow. A table whose cells could not shrink scrolled sideways without a visible scrollbar and its last column slid under the sticky actions column. Long values now wrap (up to max-w-xs per column) instead of being cut with an ellipsis.
+  -->
+
+### Patch Changes
+
+- 2a057b1: Template designer follow-up: plain-language titles for the template-resolver write handlers, a Spanish waitlist admin notice, and layout fixes in the editor rails and the shell header.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Titles for the template-resolver write handlers
+  detail: Every agent-callable template-resolver write handler now has a title in de, en, es, fr and it, so the AI assistant names actions such as "Edit template draft" instead of "template-resolver:write:patch-draft". The handlers of mounted content collections (`<id>-set`) stay untitled because their names depend on the app. The empty-field hint of the placeholder line editor now ends in an ellipsis inside the field instead of running past it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: Spanish admin notice for new waitlist entries
+  detail: The operator notice "new entry on the waitlist" now exists in Spanish, like the entrant's confirmation. It follows the locale of the request that created the entry and falls back to English.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Designer rails wrap instead of clipping
+  detail: A rail section wraps its action below the heading instead of clipping it, a resource name without spaces wraps inside its row instead of running under "Remove" and its meta text takes its own line instead of an ellipsis, the footer no longer offers a test mail when send-test-status says none can be sent, and the header label placeholder reads "e.g. Reminder" instead of an incident example. In a narrow window (1024px beside the app sidebar) both rails share the left column so the page keeps its room, and the header leaves save and publish to the footer below 1280px so the template title stays readable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Shell header: the parent crumb no longer slides under a long title
+  detail: The page title truncates on its own; the parent crumb stays whole and is left out when the space beside the header actions gets narrower than 20rem (a container query on the header's left side instead of the sm viewport breakpoint). The h1 carries the full title as tooltip.
+  -->
+- 5876d7b: Billing confirmation and termination receipt mails reach users again when PII encryption is active. The tests of the designer and renderer packages are now part of the root type check, and a DOM test no longer types into a form before its effects have run.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Contract mails reach users with encrypted email addresses
+  detail: With a KMS configured, the contract confirmation and the receipt for a termination from the user account used the stored, encrypted email address as recipient. The mail channel refuses such addresses, so neither mail was sent and the send job failed after its retries. Both now decrypt the address first; an erased user gets no mail, as before for deleted users.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Long template names wrap in the template overview
+  detail: In the template overview, a long template name such as "Kündigungshinweis an den Betreiber" now wraps to a second line instead of widening the first column. The overview fits at 1280 px again when billing-foundation templates are listed.
+  -->
+- d72e1fc: The runtime of a feature file now follows from its path: `src/<feature>/web/**` is client code, everything else is server or isomorphic. The `@runtime` markers are gone from bundled-features and the document designer, and the isomorphic constants, i18n and name files moved under `web/`. Every existing export subpath stays valid and points at the new file.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Client files of a feature live under web/
+  detail: Files that carried a runtime-client marker moved into <feature>/web/ (constants.ts, i18n.ts, qualified-names and similar), so the runtime-isolation guard reads the runtime from the path. Export subpaths such as ./tenant/constants are unchanged; only relative imports into the old file locations break. The web-side translation glue of user-data-rights, managed-pages, admin-shell, audit, jobs and the document designer is now web/default-translations.ts.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod feature-layout . --write. It moves every file marked as runtime client from src/features/<feature>/ into src/features/<feature>/web/, rewrites the relative imports and drops the marker. Add --check to list what is left.
+  codemod: scripts/codemod/feature-layout.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: App-feature-structure guard flags runtime-client markers
+  detail: The guard reports a runtime-client marker in a feature file, outside web/ as client code in the server tree and inside web/ as redundant. dev/ is classified as the dev runtime by path.
+  -->
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [aa886cc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [2a057b1]
+- Updated dependencies [5876d7b]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [632da48]
+- Updated dependencies [632da48]
+- Updated dependencies [632da48]
+- Updated dependencies [94d55c0]
+- Updated dependencies [d72e1fc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [9d81e04]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [434be6e]
+  - @cosmicdrift/kumiko-renderer@0.379.0
+  - @cosmicdrift/kumiko-framework@0.379.0
+  - @cosmicdrift/kumiko-types@0.379.0
+  - @cosmicdrift/kumiko-bundled-features@0.379.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.379.0
+
 ## 0.378.0
 
 ### Minor Changes

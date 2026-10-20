@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "runDevApp stop releases the late-bound revokers",
+    "detail": "stop() swaps the session and PAT revokers that boot bound onto the auth-mfa, sessions and personal-access-tokens feature instances for inert ones, and those features now accept a new binding on a second boot instead of keeping the first. A later app or test stack on the same feature instances no longer reaches the closed database connection."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "setupAppTestStack featureToggles option",
+    "detail": "featureToggles true mounts the feature-toggles feature and binds it, so a disabled feature is unreachable in the test stack. It cannot be combined with effectiveFeatures."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "kumiko check managed rejects loose Kumiko pins and a missing infraRef",
+    "detail": "In an app, all @cosmicdrift/kumiko-*, create-kumiko-app and @cosmicdriftgamestudio/kumiko-* dependencies must be exact versions (workspace specs are allowed) on one version per scope. A private app without kumiko.deploy.infraRef is an error instead of a warning. In @cosmicdrift/kumiko-dev-server, listManagedWarnings is now listManagedErrors and ManagedCheckResult.warnings is now errors.",
+    "migration": "Pin the Kumiko dependencies without ^ or ~ and to one version per scope. Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z) in package.json. Programmatic callers: rename listManagedWarnings to listManagedErrors and ManagedCheckResult.warnings to errors."
+  },
+  {
     "version": "0.378.0",
     "type": "improvement",
     "title": "composeRendererStack forwards templateResolver options",

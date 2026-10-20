@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "MFA setup uses the shared QR secret primitive",
+    "detail": "The pre-auth MFA setup screen renders the QR code and secret through the renderer's QR secret primitive instead of its own markup."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "MFA token secrets are optional and bound at boot",

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "ledger confirm-schedule-period takes its lock through TenantDb",
+    "detail": "confirm-schedule-period serializes parallel confirms of one schedule period with ctx.db.advisoryXactLock instead of an unsafeRaw connection and an escapeHatch declaration. The lock key is unchanged (tenant id plus reference), so nothing changes for running installations.",
+    "migration": "None."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated ledgerFeature constant is removed",

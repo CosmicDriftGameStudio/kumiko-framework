@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Internal peer dependencies are published as exact versions",
+    "detail": "The peer dependencies between the Kumiko packages (cli, guards, bundled-features, testing) are workspace:* in the repo, so publish pins them to the release version instead of an open range."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "kumiko codemod lists package-merge",

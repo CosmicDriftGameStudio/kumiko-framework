@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "assign-tag and delete-tag no longer race",
+    "detail": "Re-assigning a tag after it was deleted no longer restores the assignment of a gone tag. assign-tag and delete-tag now take the same per-tag advisory lock, so a parallel assign can no longer leave an assignment for a deleted tag."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated tagsFeature constant is removed",

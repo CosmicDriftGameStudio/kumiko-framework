@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Designer rails wrap instead of clipping",
+    "detail": "A rail section wraps its action below the heading instead of clipping it, a resource name without spaces wraps inside its row instead of running under \"Remove\" and its meta text takes its own line instead of an ellipsis, the footer no longer offers a test mail when send-test-status says none can be sent, and the header label placeholder reads \"e.g. Reminder\" instead of an incident example. In a narrow window (1024px beside the app sidebar) both rails share the left column so the page keeps its room, and the header leaves save and publish to the footer below 1280px so the template title stays readable."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Long template names wrap in the template overview",
+    "detail": "In the template overview, a long template name such as \"Kündigungshinweis an den Betreiber\" now wraps to a second line instead of widening the first column. The overview fits at 1280 px again when billing-foundation templates are listed."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Template overview shows locked tenant overrides",
+    "detail": "Rows with lockedOverride and lockedOverrideI18nKey show the status text as a warning badge in the status column. The row action \"Remove own version\" calls the existing resetToSystem with the new overview field lockedOverrideId (the tenant row; one locale per click). The status shows a short label with the long sentence as tooltip."
+  },
+  {
     "version": "0.378.0",
     "type": "fix",
     "title": "Mail preview fills the editor column",

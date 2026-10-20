@@ -1,5 +1,383 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.379.0
+
+### Minor Changes
+
+- ba1a10e: File uploads in an actionForm, dropzone display for files fields
+  
+  <!-- kumiko-changes
+  feature: files
+  type: improvement
+  title: File uploads in an actionForm, dropzone display for files fields
+  detail: A files or images field of an actionForm screen uploads through POST /files with actionForm=<screen QN> and fieldName; the file is stored pending under the screen and the route checks the caller's access to the screen and its handler before writing bytes. New helpers resolveActionFormFileField and listActionFormFileFields (framework/files), bindPendingFileRef takes bindTo (the target entity file field, checked against its accept and maxSize) and registry, and ACTION_FORM_PSEUDO_ENTITY moves to framework/ui-types. New display "list" or "dropzone" on FilesFieldDef and ImagesFieldDef; the dropzone works in entityEdit and actionForm and maps server error codes to translated texts. Pending actionForm uploads are removed on user forget and by the forget-subject file purge. New i18n keys kumiko.widget.upload.too-large|invalid-type|max-count|remove, kumiko.field.dropzone.* and errors.file.violatesBindTarget (de, es, fr, it included).
+  migration: Custom upload screens such as solon document-upload can become an actionForm with a files field and display "dropzone". The form's handler must bind every file it keeps: load it with loadPendingFileRef (entityName = the screen QN) and move it onto a record with bindPendingFileRef({ bindTo, registry: ctx.registry }); unbound uploads are treated as the uploader's personal data and removed on forget.
+  -->
+- aa886cc: Fixes for the gaps the attack tests found: form drafts are encrypted per owner, SSE entity signals follow the read access of the connection, late Stripe events no longer roll a subscription back, unknown e-mail addresses count towards the login lockout, and cause details no longer leak when NODE_ENV is missing.
+  
+  <!-- kumiko-changes
+  feature: form-draft
+  type: breaking
+  title: Form draft content is encrypted per owner
+  detail: The jsonb field draft carries personal: { of: "ownerId" }, so its content is stored as ciphertext in events and in read_form_drafts; the delete event no longer keeps the plaintext in previous. The PII event backfill (jsonb-objects-v3) encrypts existing events once on the next boot and rebuilds the table. The column type stays jsonb, so there is no schema change.
+  migration: Nothing to run; the backfill happens on boot. Code that reads read_form_drafts.draft with raw SQL must decrypt it (decryptPiiFieldValues) or use the form-draft lookup helpers; the get and list queries are unchanged for clients.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: PII backfill encrypts jsonb object and array fields
+  detail: runPiiEventBackfill and backfillEventPiiEncryption now retro-encrypt plaintext jsonb objects and arrays of personal fields and personal jsonb scalars, and createPiiBackfillStateTable bootstraps under an advisory lock so concurrent first boots no longer skip the ALTER. Completed backfill states rerun once because the transform version changed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: applyEntityEvent is exported from the db barrel, extension sources accept auto-verbs
+  detail: applyEntityEvent can be used by extendEntityProjection apply handlers to project stored entity events of a foreign aggregate type. validateProjectionApplyKeys accepts the entity auto-verbs for an extension source that is not a registered entity.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: documentExtract projection survives a rebuild
+  detail: DOCUMENT_EXTRACT_AGGREGATE_TYPE is exported, and the documentExtract entity projection applies the stored document-extract.* events, so rebuildProjection restores the rows. No event is rewritten.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: SSE entity signals follow the read access of the connection
+  detail: A signed-in connection receives an entity signal only when a query reading that entity lets one of its roles in (SseRouteOptions.entityReadAccess, built by collectEntityReadAccess). Entities without a reading query no longer go on the channel. When the reading access depends on a row or owner filter, the signal goes out without id and version, so a client refetches its query instead of learning which row changed.
+  migration: Apps that rely on a signal for an entity no query exposes to the user must add a query for that entity with a matching access rule. Custom buildServer callers that build SseRouteOptions themselves must pass entityReadAccess.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Late Stripe events are dropped
+  detail: The Stripe plugin passes event.created as providerEventAt, process-event stores it as providerEventAtIso in the subscription event and drops a created, updated or canceled event that is older than one already stored (result stale: true). A canceled subscription is no longer reactivated by a late delivery. Providers without a timestamp are unaffected; no migration.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: fix
+  title: assign-tag and delete-tag no longer race
+  detail: Re-assigning a tag after it was deleted no longer restores the assignment of a gone tag. assign-tag and delete-tag now take the same per-tag advisory lock, so a parallel assign can no longer leave an assignment for a deleted tag.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Unknown e-mail addresses count towards the login lockout
+  detail: Failed logins for unknown or deleted addresses are counted under a keyed digest of the normalized address (ctx.rateLimitDigest, derived from the JWT secret), so after the threshold they answer account_locked like a registered address and the lock no longer reveals which addresses exist. Without a digest key the old invalid_credentials answer stays.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cause details only with NODE_ENV development or test
+  detail: internal_error responses and write error infos carry the cause snapshot (name, message, stack) only when NODE_ENV is explicitly development or test. A missing or misspelled NODE_ENV no longer exposes stack traces, paths or upstream URLs. kumiko-dev starts the server with NODE_ENV=development when none is set, so local dev keeps the details; a dev script that runs the server directly (bun --watch bin/server.ts) must set NODE_ENV=development itself to see them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Global IP rate-limit middleware default matches runProdApp
+  detail: globalIpRateLimit defaults to 600 requests per 60 seconds (was 1000). DEFAULT_GLOBAL_RATE_LIMIT is exported from the api barrel and shared with server-runtime. authEndpointRateLimit keeps its default of 5 per 60 seconds.
+  migration: Apps that use globalIpRateLimit directly and relied on 1000 pass limit explicitly. runProdApp users see no change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot warning when /metrics is off in production
+  detail: buildServer logs a warning in production when no metrics option is set, which happens when PROMETHEUS_METRICS_TOKEN is unset.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Empty list with an active default filter offers "Show all"
+  detail: A list that is empty only because its defaultFilters are on says so and offers a Show all button instead of the "create the first one" text. The hard-coded Loading… banners use the kumiko.widget.loading key, so they follow the locale.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: Translations for the default-filter empty state
+  detail: kumiko.list.empty.defaultFiltered and kumiko.list.empty.showAll are translated in de, es, fr and it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: Retry documentation matches the client
+  detail: The client retries 502, 503 and network errors; other 5xx and client timeouts fail at once because the render already ran. The feature description no longer promises a retry for every 5xx.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Count messages use singular and plural forms
+  detail: Nine count messages (template usage, mail preview entries, layout origin and footer, tag delete confirmation, embedded-list paste warnings) now come as .one and .other keys in en, de, es, fr and it, so "1 template" no longer reads "1 templates". Apps that override these keys must rename them to .one and .other.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: runDevApp stop releases the late-bound revokers
+  detail: stop() swaps the session and PAT revokers that boot bound onto the auth-mfa, sessions and personal-access-tokens feature instances for inert ones, and those features now accept a new binding on a second boot instead of keeping the first. A later app or test stack on the same feature instances no longer reaches the closed database connection.
+  -->
+- ba1a10e: SystemAdmin audit log across all tenants
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: SystemAdmin audit log across all tenants
+  detail: New queries audit:query:list-all-tenants and audit:query:details-all-tenants (SystemAdmin only) return the audit trail of every tenant, each row with its tenantId, filterable by tenant. Screens audit-log-all-tenants and audit-log-all-tenants-detail show the tenant name; the admin-shell platform workspace lists the new nav audit:nav:audit-log-all-tenants. Events of the system tenant are not included. The audit feature now declares r.systemScope(), so its handlers read through ctx.systemDb instead of ctx.db, and list and details rows carry tenantId too. A targetless cross-tenant read (acknowledgeCrossTenant or cross-tenant-read) is now recorded at most once per actor, handler, tenant and reason per hour, so the reference lookups of a SystemAdmin list no longer flood the trail on every page load; all other escape-hatch kinds keep the 60 s window. The audit events keep metadata free of PII ciphertext, a cursor or id beyond bigint is a 422 and the all-tenants tenant filter takes at most 100 ids. Applies to every user:user reference column and read-only reference field in all apps, not only the audit screens: an actor without a visible row no longer shows the raw id but reads "Unknown" (kumiko.reference.unknown-user), once the lookup finished without error (while it loads or after it failed the cell keeps a placeholder), and the "system" createdBy literal reads "System". The audit screen descriptions are now short user-facing sentences.
+  migration: Apps with their own platform workspace add the nav `audit:nav:audit-log-all-tenants` (screen `audit:screen:audit-log-all-tenants`) to its navs; apps using the admin-shell platform workspace get it automatically.
+  -->
+- ba1a10e: Embedded-list footer totals can sum several columns under their own label
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Embedded-list footer totals can sum several columns under their own label
+  detail: EmbeddedFieldDef.totals entries are now a column name (as before) or { label, from } with an i18n label and the sub-fields to add up, for example Net { from: ["amount"] }, VAT { from: ["vatAmount"] } and Gross { from: ["amount", "vatAmount"] }. Display only, the server derivation is unchanged. The boot validator rejects an empty from and any from entry that is not a number, money or decimal sub-field. Money sums use the same format as string totals. The ui-walkthrough receive-invoice screen and the embedded recipe now lay out only the Positionen list with a footer of Net, VAT and Gross; the derived head totals are still computed on the server but not laid out, and the list requires at least one line (minItems 1).
+  migration: Optional. Replace a totals string list with labelled entries where the footer should show Net, VAT and Gross (solon invoice screens).
+  -->
+- 94d55c0: Event-fed tables (r.entity and r.projection) reject direct writes at runtime. Only the entity executor, projection apply and rebuild, declared unsafe projection steps, tenant-destroy hooks and the new deleteRowsWithoutReplayableStream helper may write them. unsafeRaw() no longer unlocks them.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Direct writes on event-fed tables throw at runtime
+  detail: buildEntityTable and r.projection mark their tables. insertOne, updateMany, deleteMany, the upsert and counter helpers, ctx.db write methods and db.global() writes throw AccessDeniedError on a marked table unless the runner carries the framework write capability. The executor, projection apply, rebuild, unsafeProjectionDelete, tenant-destroy hooks and deleteRowsWithoutReplayableStream hold it; ctx.db.unsafeRaw() never does. Retention deletes only rows whose stream is gone or archived. The cascade delete hook, the soft-delete purge jobs and seedReferenceData now write through the executor, so their effect survives a rebuild; cascade children are written as the system user, and softDelete children are soft-deleted instead of hard-deleted. The direct-entity-writes guard has no exceptions left.
+  migration: Write event-fed rows through the executor (r.crud, ctx.write, createEventStoreExecutor). Projection apply functions must use the db they receive. Test seeds and teardown use seedRow, seedRows, updateRows, deleteRows and clearTables from kumiko-testing instead of hand-written wipe helpers. Do not pass ctx.db.unsafeRaw() to code that deletes event-fed rows; pass ctx.db inside a tenant-destroy hook. Retention code calls deleteRowsWithoutReplayableStream after pruning or archiving the events. seedReferenceData takes the registry instead of a table map. Affects kumiko-enterprise, kumiko-studio and solon.
+  -->
+- 9d81e04: Live updates reconnect and resync after a dropped stream, forms ask before throwing away unsaved input, and the receipt of a public cancellation carries a link to take it back.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Live updates reconnect, resync and coalesce refetches
+  detail: The web EventSource reconnects with exponential backoff and jitter after a refused handshake unless the session ended, rewires every subscribed entity on the new connection and sends each listener a LIVE_RESYNC_EVENT_TYPE event after a reconnect, because frames during the gap are lost. useQuery and the nav tree refetch in the background and collapse a burst of live events into one trailing run (LIVE_REFETCH_COALESCE_MS); an event during a running fetch queues exactly one follow-up. A failed refetch keeps the last data on screen and shows QueryErrorBanner with a retry button above it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A slow SSE client no longer buffers without bound
+  detail: The SSE route tracks the writes a client has not consumed. A client whose queued frames make no progress for SSE_STALLED_CLIENT_TIMEOUT_MS (one heartbeat interval), or that queues SSE_MAX_PENDING_WRITES_PER_CLIENT frames, is aborted and unregistered; it reconnects and resyncs. A large broadcast batch does not drop a client that keeps reading, and one failing client no longer stops the broadcast to the others. SseRouteOptions.now makes the clock injectable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Forms ask before unsaved input is discarded
+  detail: A dirty entity form or writeForm section now asks with the discard dialog before an in-app navigation, a projectionDetail tab switch, browser back or forward, and the browser asks on tab close or reload (beforeunload). A successful save clears the form before its follow-up navigation, and wizards with layout.draft keep their draft instead of asking. requestLeave, hasUnsavedInput and useUnsavedInputSource are exported for custom screens.
+  migration: End-to-end tests that fill a form and then navigate away without saving now meet the dialog (testId leave-guard-dialog); confirm it or save first. page.goto from a dirty form triggers the browser's beforeunload prompt.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Form writes carry a requestId and reuse it only for a safe retry
+  detail: The form controller passes { requestId } as third argument to dispatcher.write. After a transport failure without a server answer, a submit with the same values reuses the requestId, so the server idempotency guard does not run the write twice; any server answer or changed values get a new one. generateRequestId moved to the headless dispatcher module.
+  migration: Tests that assert a mocked dispatcher.write with toHaveBeenCalledWith(type, payload) must accept the third argument, e.g. toHaveBeenCalledWith(type, payload, expect.objectContaining({ requestId: expect.any(String) })). Custom Dispatcher implementations should forward options.requestId.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Failed submits focus the first invalid field, clearer format errors
+  detail: After a failed submit the web form focuses and scrolls to the first field with aria-invalid (FormProps.focusFirstErrorKey; native forms ignore it). Format errors for email, url, date, datetime and uuid name the expected format with an example, the error line no longer shifts the labels of neighbouring fields, and SegmentedControl options with up to four entries get equal widths.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: "This cancellation was not me" link in the public cancellation receipt
+  detail: When a public § 312k declaration matches an account, the receipt mail carries a one-time link (random token, only its sha256 is stored as revocationTokenHash in the declared event). The link opens a confirmation page; confirming with POST takes the cancellation back until it takes effect, resumes the provider subscription through the new optional SubscriptionProviderPlugin.resumeSubscription (Stripe sets cancel_at_period_end to false) or asks the operator to do it by hand, appends contract-termination.revoked and notifies the operator. Unknown requests and wrong tokens get the same answer; after the effective date the page says it is too late. Declarations stored before this release have no token and cannot be revoked by link.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: fix
+  title: MFA setup uses the shared QR secret primitive
+  detail: The pre-auth MFA setup screen renders the QR code and secret through the renderer's QR secret primitive instead of its own markup.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: One English reference catalog for all locale packages
+  detail: The completeness checks of es, fr and it run in the use-all-bundled i18n parity test against the single English catalog in locale-de; the harvest script writes only that file. New keys errors.validation.invalid_format.{email,url,date,datetime,uuid} in all locales.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Deprecations name their removal release
+  detail: The three @deprecated APIs without a target release (the minor-units money accessor and the landingPath props of the invite and signup screens) now say they are removed in 0.390.0.
+  -->
+- 7b01b0d: Removes deprecated API: `HandlerContext.outsideTransaction`, `buildEntityTableMeta`, `dsgvoSelfServiceFeatures` with `DsgvoSelfServiceOptions`, and the `observabilityOptions` option of the entrypoint and the prod/worker runners.
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: HandlerContext.outsideTransaction removed
+  detail: The deprecated outsideTransaction field no longer exists on HandlerContext. ctx.dbOutsideTransaction together with runInOwnTransaction replaces it.
+  migration: Replace ctx.outsideTransaction(fn) with runInOwnTransaction(requireOutsideTransactionDb(ctx), fn); both are exported from @cosmicdrift/kumiko-framework/db and fn keeps its (db) => Promise signature.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: buildEntityTableMeta and observabilityOptions removed
+  detail: buildEntityTableMeta was a deprecated alias of deriveEntityTableMeta. The deprecated observabilityOptions option of the entrypoint and the prod and worker runners is gone as well, it had no effect since the HTTP route label no longer carries a query string.
+  migration: Rename buildEntityTableMeta to deriveEntityTableMeta (same signature). Delete observabilityOptions from the entrypoint and runner options, nothing replaces it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: presets
+  type: breaking
+  title: dsgvoSelfServiceFeatures removed
+  detail: The deprecated preset dsgvoSelfServiceFeatures and its DsgvoSelfServiceOptions type are gone. composeGdprStack covers the same features.
+  migration: Use composeGdprStack({ selfService: { userDataRights } }), or mount createSessionsFeature, createDataRetentionFeature, createComplianceProfilesFeature, createUserDataRightsFeature and createUserProfileFeature yourself.
+  -->
+- ece210b: readDatabaseNow helper, SaveContext.event kept out of JSON responses, dashboard navigate with a record binding accepted by the boot validator.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: readDatabaseNow(db) in framework/db
+  detail: Typed read of the Postgres clock for a TenantDb without unsafeRaw. Inside a transaction now() is the transaction start, so repeated reads agree.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: SaveContext.event no longer reaches JSON responses
+  detail: The event echoed on the SaveContext of create, update and restore is non-enumerable, so a handler returning the save result no longer leaks event data (PII) in its response; hooks and projections still read it by property.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Dashboard navigate params may bind a record
+  detail: The boot validator accepts navigate params on a dashboard row action that has a record binding (record.param) but no filter; it still rejects params when the dashboard reads no filter, time range or record binding.
+  -->
+- 7b01b0d: The five re-export shim packages `@cosmicdrift/kumiko-headless`, `@cosmicdrift/kumiko-dispatcher-live`, `@cosmicdrift/kumiko-renderer-web`, `@cosmicdrift/kumiko-http` and `@cosmicdrift/kumiko-repo-manifest` are no longer built or published.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Re-export shim packages removed
+  detail: The shims headless, dispatcher-live, renderer-web, http and repo-manifest are gone. Their code lives in kumiko-renderer (/headless, /live, /web), kumiko-framework (/http) and kumiko-guards (/repo-manifest).
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites the imports and package.json dependencies of all five shims to their target packages.
+  codemod: scripts/codemod/package-merge.ts
+  -->
+- ece210b: TenantDb gains databaseNow().
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: TenantDb.databaseNow
+  detail: TenantDb has a databaseNow() method returning Postgres now(); custom TenantDb implementations must add it.
+  migration: Add databaseNow(): Promise<Date> to hand-built TenantDb objects and mocks, returning the Postgres now().
+  -->
+- 434be6e: Four UI gaps from wave 3: an actionForm can load a singleton row, the dashboard text block gets a role-gated link, seeded PDF templates can carry an i18n title key, and the template overview shows locked tenant overrides.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm loads a singleton row without a record id
+  detail: load.singleton: true on an actionForm sends the load query without idParam and prefills the form from the tenant's single row, like projectionDetail. A route id is never forwarded. The boot validator rejects singleton together with idParam.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Dashboard text block link shown only to given roles
+  detail: A text block of kind link ({ text, screen, roles? }) renders a link to a screen and is hidden unless the user holds one of the roles. This only gates the display; the target screen still checks access on the server. The boot validator rejects an unknown target screen and an empty roles list.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: seedSystemTemplate accepts titleI18nKey
+  detail: A seeded template can store an i18n key as its title (titleI18nKey, exclusive with title). The overview returns the key; the document-designer overview, mail editor and PDF link modal translate it and fall back to the raw text. Templates without a key behave as before; no migration.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Template overview shows locked tenant overrides
+  detail: Rows with lockedOverride and lockedOverrideI18nKey show the status text as a warning badge in the status column. The row action "Remove own version" calls the existing resetToSystem with the new overview field lockedOverrideId (the tenant row; one locale per click). The status shows a short label with the long sentence as tooltip.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: DataTable no longer hides its last column under the sticky actions column
+  detail: Header and text cells wrap instead of staying on one line (badges, dates and row actions keep their own nowrap), and a row-action group wraps when the column is narrow. A table whose cells could not shrink scrolled sideways without a visible scrollbar and its last column slid under the sticky actions column. Long values now wrap (up to max-w-xs per column) instead of being cut with an ellipsis.
+  -->
+
+### Patch Changes
+
+- ba1a10e: A rejected empty embedded list shows its error at the list, once, without a banner-only failure
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A rejected empty embedded list shows its error at the list, once, without a banner-only failure
+  detail: The empty state of an embedded list now shows list-level issues (min items, required), and the surrounding field no longer prints them a second time. An issue on a derived head total that is not laid out (an empty list leaves it without a value) no longer adds the generic form banner while another issue is shown; it still shows the banner when it is the only issue. A list below its minItems now reads "At least 1 row required." / "At least N rows required." (errors.validation.list_min_rows.one and .other) instead of the generic too-small text. Only embedded lists get the row wording (their schema reports a custom issue with params.i18nKey and minimum, which both zod bridges now forward); other arrays such as a required multiSelect keep errors.validation.too_small.
+  migration: None.
+  -->
+- 632da48: Ships kumiko-es-tables.json, the list of this package's event-store tables, so the direct-entity-writes guard can recognise them in consumer repos.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Package ships its event-store table catalog
+  detail: kumiko-es-tables.json is included in the published files; no runtime change.
+  -->
+- d72e1fc: The runtime of a feature file now follows from its path: `src/<feature>/web/**` is client code, everything else is server or isomorphic. The `@runtime` markers are gone from bundled-features and the document designer, and the isomorphic constants, i18n and name files moved under `web/`. Every existing export subpath stays valid and points at the new file.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Client files of a feature live under web/
+  detail: Files that carried a runtime-client marker moved into <feature>/web/ (constants.ts, i18n.ts, qualified-names and similar), so the runtime-isolation guard reads the runtime from the path. Export subpaths such as ./tenant/constants are unchanged; only relative imports into the old file locations break. The web-side translation glue of user-data-rights, managed-pages, admin-shell, audit, jobs and the document designer is now web/default-translations.ts.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod feature-layout . --write. It moves every file marked as runtime client from src/features/<feature>/ into src/features/<feature>/web/, rewrites the relative imports and drops the marker. Add --check to list what is left.
+  codemod: scripts/codemod/feature-layout.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: App-feature-structure guard flags runtime-client markers
+  detail: The guard reports a runtime-client marker in a feature file, outside web/ as client code in the server tree and inside web/ as redundant. dev/ is classified as the dev runtime by path.
+  -->
+- ba1a10e: Tests pin the money units of form derivations
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Tests pin the money units of form derivations
+  detail: form-derivations tests now cover realistic money values (1234,56 EUR plus 234,57 EUR, 0,10 plus 0,20) and minor-unit list cells; no behaviour change.
+  migration: None.
+  -->
+- Updated dependencies [ba1a10e]
+- Updated dependencies [aa886cc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [434be6e]
+  - @cosmicdrift/kumiko-types@0.379.0
+
 ## 0.378.0
 
 ### Minor Changes

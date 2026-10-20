@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-samples
 
+## 0.379.0
+
+### Patch Changes
+
+- ece210b: Samples pass the registry to createTemplateResolverApi.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Samples follow the createTemplateResolverApi(db, registry) signature
+  detail: Recipes and sample apps build the template resolver API with the registry as second argument.
+  -->
+
 ## 0.378.0
 
 No changes in this release.

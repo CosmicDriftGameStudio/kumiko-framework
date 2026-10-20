@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Unknown e-mail addresses count towards the login lockout",
+    "detail": "Failed logins for unknown or deleted addresses are counted under a keyed digest of the normalized address (ctx.rateLimitDigest, derived from the JWT secret), so after the threshold they answer account_locked like a registered address and the lock no longer reveals which addresses exist. Without a digest key the old invalid_credentials answer stays."
+  },
+  {
     "version": "0.374.0",
     "type": "improvement",
     "title": "Client actions for password reset and email verification",

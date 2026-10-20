@@ -1,5 +1,36 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "App-feature-structure guard flags runtime-client markers",
+    "detail": "The guard reports a runtime-client marker in a feature file, outside web/ as client code in the server tree and inside web/ as redundant. dev/ is classified as the dev runtime by path."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Direct-entity-writes guard catches external and projection event-store tables",
+    "detail": "Published packages list their event-store tables in kumiko-es-tables.json, which the guard checks for staleness in the owning repo and reads in consumers. r.projection tables are now guarded as well. Existing consumers can get new findings that were previously hidden."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Guard runs queue for a free local slot",
+    "detail": "At most two full guard runs per machine run at the same time (KUMIKO_GUARD_SLOTS, default 2, 0 disables, unset in CI). Further runs print a waiting line and start when a slot frees up; slots of crashed runs are taken over automatically."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "direct-fetch guard uses kumiko-lint-ignore",
+    "detail": "The guard-allow direct-fetch marker is no longer parsed. The guard now honors kumiko-lint-ignore direct-fetch with a specific reason, like the other guards.",
+    "migration": "Replace guard-allow direct-fetch comments with kumiko-lint-ignore direct-fetch followed by the reason."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Subpath-exports and guards-doc-drift checks",
+    "detail": "The subpath-exports check fails when a published package ships src/<feature>/web.ts without the matching exports key. The guards-doc-drift check keeps docs/reference/guards.md in sync with the guard sources, and a registry test fails when a guard file is not registered."
+  },
+  {
     "version": "0.378.0",
     "type": "fix",
     "title": "Direct-entity-writes guard catches imported event-store tables",

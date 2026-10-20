@@ -10,6 +10,100 @@ verified: 2026-10-20
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.379.0
+
+### @cosmicdrift/kumiko-dev-server
+
+**kumiko check managed rejects loose Kumiko pins and a missing infraRef**
+
+In an app, all @cosmicdrift/kumiko-*, create-kumiko-app and @cosmicdriftgamestudio/kumiko-* dependencies must be exact versions (workspace specs are allowed) on one version per scope. A private app without kumiko.deploy.infraRef is an error instead of a warning. In @cosmicdrift/kumiko-dev-server, listManagedWarnings is now listManagedErrors and ManagedCheckResult.warnings is now errors.
+
+**Migration:** Pin the Kumiko dependencies without ^ or ~ and to one version per scope. Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z) in package.json. Programmatic callers: rename listManagedWarnings to listManagedErrors and ManagedCheckResult.warnings to errors.
+
+### @cosmicdrift/kumiko-renderer
+
+**Forms ask before unsaved input is discarded**
+
+A dirty entity form or writeForm section now asks with the discard dialog before an in-app navigation, a projectionDetail tab switch, browser back or forward, and the browser asks on tab close or reload (beforeunload). A successful save clears the form before its follow-up navigation, and wizards with layout.draft keep their draft instead of asking. requestLeave, hasUnsavedInput and useUnsavedInputSource are exported for custom screens.
+
+**Migration:** End-to-end tests that fill a form and then navigate away without saving now meet the dialog (testId leave-guard-dialog); confirm it or save first. page.goto from a dirty form triggers the browser's beforeunload prompt.
+
+**Form writes carry a requestId and reuse it only for a safe retry**
+
+The form controller passes { requestId } as third argument to dispatcher.write. After a transport failure without a server answer, a submit with the same values reuses the requestId, so the server idempotency guard does not run the write twice; any server answer or changed values get a new one. generateRequestId moved to the headless dispatcher module.
+
+**Migration:** Tests that assert a mocked dispatcher.write with toHaveBeenCalledWith(type, payload) must accept the third argument, e.g. toHaveBeenCalledWith(type, payload, expect.objectContaining({ requestId: expect.any(String) })). Custom Dispatcher implementations should forward options.requestId.
+
+### @cosmicdrift/kumiko-types
+
+**HandlerContext.outsideTransaction removed**
+
+The deprecated outsideTransaction field no longer exists on HandlerContext. ctx.dbOutsideTransaction together with runInOwnTransaction replaces it.
+
+**Migration:** Replace ctx.outsideTransaction(fn) with runInOwnTransaction(requireOutsideTransactionDb(ctx), fn); both are exported from @cosmicdrift/kumiko-framework/db and fn keeps its (db) => Promise signature.
+
+### form-draft
+
+**Form draft content is encrypted per owner**
+
+The jsonb field draft carries personal: { of: "ownerId" }, so its content is stored as ciphertext in events and in read_form_drafts; the delete event no longer keeps the plaintext in previous. The PII event backfill (jsonb-objects-v3) encrypts existing events once on the next boot and rebuilds the table. The column type stays jsonb, so there is no schema change.
+
+**Migration:** Nothing to run; the backfill happens on boot. Code that reads read_form_drafts.draft with raw SQL must decrypt it (decryptPiiFieldValues) or use the form-draft lookup helpers; the get and list queries are unchanged for clients.
+
+### framework-core
+
+**SSE entity signals follow the read access of the connection**
+
+A signed-in connection receives an entity signal only when a query reading that entity lets one of its roles in (SseRouteOptions.entityReadAccess, built by collectEntityReadAccess). Entities without a reading query no longer go on the channel. When the reading access depends on a row or owner filter, the signal goes out without id and version, so a client refetches its query instead of learning which row changed.
+
+**Migration:** Apps that rely on a signal for an entity no query exposes to the user must add a query for that entity with a matching access rule. Custom buildServer callers that build SseRouteOptions themselves must pass entityReadAccess.
+
+**Global IP rate-limit middleware default matches runProdApp**
+
+globalIpRateLimit defaults to 600 requests per 60 seconds (was 1000). DEFAULT_GLOBAL_RATE_LIMIT is exported from the api barrel and shared with server-runtime. authEndpointRateLimit keeps its default of 5 per 60 seconds.
+
+**Migration:** Apps that use globalIpRateLimit directly and relied on 1000 pass limit explicitly. runProdApp users see no change.
+
+**Direct writes on event-fed tables throw at runtime**
+
+buildEntityTable and r.projection mark their tables. insertOne, updateMany, deleteMany, the upsert and counter helpers, ctx.db write methods and db.global() writes throw AccessDeniedError on a marked table unless the runner carries the framework write capability. The executor, projection apply, rebuild, unsafeProjectionDelete, tenant-destroy hooks and deleteRowsWithoutReplayableStream hold it; ctx.db.unsafeRaw() never does. Retention deletes only rows whose stream is gone or archived. The cascade delete hook, the soft-delete purge jobs and seedReferenceData now write through the executor, so their effect survives a rebuild; cascade children are written as the system user, and softDelete children are soft-deleted instead of hard-deleted. The direct-entity-writes guard has no exceptions left.
+
+**Migration:** Write event-fed rows through the executor (r.crud, ctx.write, createEventStoreExecutor). Projection apply functions must use the db they receive. Test seeds and teardown use seedRow, seedRows, updateRows, deleteRows and clearTables from kumiko-testing instead of hand-written wipe helpers. Do not pass ctx.db.unsafeRaw() to code that deletes event-fed rows; pass ctx.db inside a tenant-destroy hook. Retention code calls deleteRowsWithoutReplayableStream after pruning or archiving the events. seedReferenceData takes the registry instead of a table map. Affects kumiko-enterprise, kumiko-studio and solon.
+
+**buildEntityTableMeta and observabilityOptions removed**
+
+buildEntityTableMeta was a deprecated alias of deriveEntityTableMeta. The deprecated observabilityOptions option of the entrypoint and the prod and worker runners is gone as well, it had no effect since the HTTP route label no longer carries a query string.
+
+**Migration:** Rename buildEntityTableMeta to deriveEntityTableMeta (same signature). Delete observabilityOptions from the entrypoint and runner options, nothing replaces it.
+
+**Re-export shim packages removed**
+
+The shims headless, dispatcher-live, renderer-web, http and repo-manifest are gone. Their code lives in kumiko-renderer (/headless, /live, /web), kumiko-framework (/http) and kumiko-guards (/repo-manifest).
+
+**Migration:** Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites the imports and package.json dependencies of all five shims to their target packages.
+
+**TenantDb.databaseNow**
+
+TenantDb has a databaseNow() method returning Postgres now(); custom TenantDb implementations must add it.
+
+**Migration:** Add databaseNow(): Promise<Date> to hand-built TenantDb objects and mocks, returning the Postgres now().
+
+### presets
+
+**dsgvoSelfServiceFeatures removed**
+
+The deprecated preset dsgvoSelfServiceFeatures and its DsgvoSelfServiceOptions type are gone. composeGdprStack covers the same features.
+
+**Migration:** Use composeGdprStack({ selfService: { userDataRights } }), or mount createSessionsFeature, createDataRetentionFeature, createComplianceProfilesFeature, createUserDataRightsFeature and createUserProfileFeature yourself.
+
+### template-resolver
+
+**Overrides of locked templates are no longer served**
+
+A tenant override of a mail, PDF or layout template is delivered (mail send, PDF render, linked PDFs, layouts, previews, export bundles, document blocks, overview, text blocks) only while the template is listed in tenantEditable. A locked override stays stored and has no effect; listing the template makes it effective again, nothing is deleted. A SystemAdmin sees locked overrides in the overview (`lockedOverride`, `lockedOverrideI18nKey`) and can reset or archive them with the existing handlers; the template-resolver queries do not show them to a TenantAdmin; the audit log keeps the history. Tenant rows of a collection mounted with `access` are served, except for a slug that has a system template outside tenantEditable: that system template wins, and the collection `-set` handler refuses such a slug for a non-SystemAdmin. createTemplateResolverApi(db) became createTemplateResolverApi(db, registry) because the delivery policy is read from the mounted feature; without the mounted feature no tenant override is served.
+
+**Migration:** Overrides of templates that are not tenantEditable are no longer served; enable the template via tenantEditable to keep using them. Pass the registry as second argument to createTemplateResolverApi (ctx.registry in handlers, stack.registry in tests). Tenant rows without a system counterpart (for example text blocks seeded directly into a tenant) are hidden as well unless listed in tenantEditable.
+
 ## 0.378.0
 
 ### @cosmicdrift/kumiko-document-designer
