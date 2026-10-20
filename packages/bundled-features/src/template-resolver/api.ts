@@ -74,15 +74,9 @@ export type ResolveLayoutRequest = {
 
 export type TemplateResolverApi = {
   /**
-   * Findet ein konkretes Template by (tenantId, slug, kind, locale).
-   * Kein Locale-Fallback, keine Override-Hierarchie — Raw-Lookup für
-   * Admin-UI-Edits und Konformitäts-Tests. Für Render-Aufrufe immer
-   * `resolveTemplate` nutzen.
-   *
-   * `scope: "system"` zwingt Lookup gegen SYSTEM_TENANT_ID (ignoriert
-   * den übergebenen tenantId). Default = Lookup gegen den übergebenen
-   * tenantId direkt (Caller wählt entweder Tenant oder System per
-   * tenantId).
+   * Raw lookup by (tenantId, slug, kind, locale): no locale fallback, no override
+   * hierarchy. Render paths must use `resolveTemplate`. `scope: "system"` forces
+   * SYSTEM_TENANT_ID and ignores the passed tenantId.
    *
    * Tenant rows of a template that is not tenantEditable are not returned.
    */
@@ -95,21 +89,10 @@ export type TemplateResolverApi = {
   }) => Promise<TemplateResource | null>;
 
   /**
-   * Resolver mit 4-Stufen-Fallback (siehe template-resolver.md):
-   *   1. tenant + requested-locale
-   *   2. system + requested-locale
-   *   3. tenant + FALLBACK_LOCALE
-   *   4. system + FALLBACK_LOCALE
-   * Tenant-Zeilen zählen nur für Vorlagen, die für Tenants freigeschaltet sind
-   * (tenantEditable, bzw. Collection mit access); gesperrte Overrides werden
-   * übersprungen, bleiben aber gespeichert.
-   * Resource-Substitution wird hier NICHT ausgeführt — das macht der
-   * Caller (renderer-foundation-Plugin) je nach kind-passendem Modus
-   * (inline-base64 vs. signed-url). API liefert TemplateResource pur.
-   *
-   * **Caller-Invariante:** `tenantId` MUSS vom Server kommen (typisch
-   * `ctx.user.tenantId`). Niemals direkt aus User-Input — sonst kann
-   * User cross-tenant Templates abfragen (Tenant-Isolation gebrochen).
+   * Four-step fallback: tenant+locale, system+locale, tenant+FALLBACK_LOCALE,
+   * system+FALLBACK_LOCALE (see template-resolver.md).
+   * Tenant rows count only for templates unlocked for tenants (tenantEditable,
+   * or a collection with access); locked overrides are skipped but stay stored.
    */
   readonly resolveTemplate: (args: ResolveRequest) => Promise<TemplateResource>;
 

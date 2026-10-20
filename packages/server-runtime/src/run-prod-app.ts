@@ -584,25 +584,19 @@ export type RunProdAppOptions = {
    *  anonymous role (not system) — the resolver is reachable by any
    *  public visitor, same access gate as a real anonymous request. */
   readonly resolvePageHead?: PageHeadResolver;
-  /** Pfad zu kumiko/migrations für den Boot-Gate. Default "./kumiko/
-   *  migrations" relativ zum process-cwd (wo die App gestartet wird —
-   *  bei Container-Deploys typischerweise der App-Workspace-Root, weil
-   *  WORKDIR im Dockerfile dorthin zeigt). Boot wirft SchemaDriftError
-   *  wenn Migrations pending sind oder erwartete Tabellen fehlen.
-   *  Setze auf `false` um den Gate komplett zu deaktivieren — nur für
-   *  Setups die ihren eigenen Schema-Check fahren (z.B. bring-your-own-
-   *  ORM). Standard-Apps lassen das default. */
+  /** Path to kumiko/migrations for the boot gate. Default "./kumiko/migrations"
+   *  relative to the process cwd. Boot throws SchemaDriftError on pending
+   *  migrations or missing tables. `false` disables the gate for setups that
+   *  run their own schema check. */
   readonly migrations?: { readonly dir: string } | false;
-  /** Extra AppContext keys. Framework-Defaults werden zur Boot-Zeit
-   *  unter den Factory-Werten ergänzt, App-Werte gewinnen immer:
-   *    - `templateResolver` (createTemplateResolverApi(db, registry)) — immer
-   *    - `secrets` (createSecretsContext) — nur wenn das `secrets`-Feature
-   *      gemountet ist (sonst kein KEK-env-Zwang für Apps ohne secrets)
-   *    - `configResolver` — im Auth-Mode (env-config-overrides)
-   *  Akzeptiert einen statischen Object ODER eine Factory
-   *  `({db, redis, registry}) => Record<string, unknown>` — gleiches
-   *  Pattern wie `anonymousAccess`. Eine App die einen dieser Keys selbst
-   *  setzt (z.B. eigener configResolver) überschreibt den Default. */
+  /** Extra AppContext keys. Framework defaults are added at boot beneath the
+   *  factory values; app values always win:
+   *    - `templateResolver` (createTemplateResolverApi(db, registry)), always
+   *    - `secrets` (createSecretsContext), only when the `secrets` feature is
+   *      mounted (no KEK env requirement otherwise)
+   *    - `configResolver`, in auth mode (env-config-overrides)
+   *  Accepts a static object or a factory
+   *  `({db, redis, registry}) => Record<string, unknown>`, like `anonymousAccess`. */
   /** Boot default locale (BCP-47) for ctx.locale when the request carries
    *  no locale signal. Merged into AppContext before extraContext (app wins). */
   readonly defaultLocale?: string;
