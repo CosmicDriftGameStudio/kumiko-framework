@@ -233,3 +233,6 @@ export type TerminationScope = (typeof TERMINATION_SCOPES)[number];
 export function isTerminationScope(value: unknown): value is TerminationScope {
   return isOneOf(TERMINATION_SCOPES, value);
 }
+
+/** Advisory-lock namespace serialising appends onto one tenant's subscription stream. */
+export const BILLING_SUBSCRIPTION_LOCK_NAMESPACE = 0x62_69_6c_6c; // 'bill'

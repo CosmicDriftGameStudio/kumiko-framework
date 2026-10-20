@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import { hasAccess } from "../engine/access.ts";
 import { tenantChannel } from "../engine/constants.ts";
 import { isAnonymousSessionUser } from "../engine/system-user.ts";
-import type { SessionUser } from "../engine/types/index.ts";
+import type { AccessRule, SessionUser } from "../engine/types/index.ts";
 import { Routes } from "./api-constants.ts";
 import { getAuthTokenExpiry, getStaleCredentialCode, getUser } from "./auth-middleware.ts";
 import { clearSessionCookies, getSessionCookies } from "./session-cookies.ts";
@@ -47,6 +48,7 @@ const SESSION_ENDED_SSE_EVENT = "session-ended";
 
 export type SseRouteOptions = {
   readonly anonymousLiveEntities: ReadonlySet<string>;
+  readonly entityReadAccess: ReadonlyMap<string, readonly AccessRule[]>;
 };
 
 type AnonymousEntitySignalWire = {
@@ -97,12 +99,24 @@ function isAddressedTo(event: SseEvent, userId: string): boolean {
   return typeof addressee === "string" && addressee === userId;
 }
 
-function mayReceiveEntitySignal(
+type SignalDetail = "identified" | "anonymous" | "none";
+
+// A role-gated rule means every holder may read every row, so id and version leak nothing.
+// An openToAll rule leaves row visibility to the handler (e.g. an owner check on form drafts),
+// which the signal cannot know: such a connection only learns that the entity changed.
+function entitySignalDetail(
   user: SessionUser,
   aggregateType: string,
   options: SseRouteOptions,
-): boolean {
-  return !isAnonymousSessionUser(user) || options.anonymousLiveEntities.has(aggregateType);
+): SignalDetail {
+  if (isAnonymousSessionUser(user)) {
+    return options.anonymousLiveEntities.has(aggregateType) ? "anonymous" : "none";
+  }
+  const granting = (options.entityReadAccess.get(aggregateType) ?? []).filter((rule) =>
+    hasAccess(user, rule),
+  );
+  if (granting.length === 0) return "none";
+  return granting.some((rule) => "roles" in rule) ? "identified" : "anonymous";
 }
 
 type SseWireFrame = { readonly name: string; readonly data: unknown };
@@ -114,11 +128,13 @@ function decideWireFrame(
 ): SseWireFrame | undefined {
   const data = event.data;
   if (isEntityEventData(data)) {
-    // skip: anonymous connections only get signals for entities an anonymous query declares
-    if (!mayReceiveEntitySignal(user, data.aggregateType, options)) return undefined;
-    const signal = isAnonymousSessionUser(user)
-      ? toAnonymousEntitySignalWire(event, data)
-      : toEntitySignalWire(event, data);
+    // skip: connections only get signals for entities a query lets their roles read
+    const detail = entitySignalDetail(user, data.aggregateType, options);
+    if (detail === "none") return undefined;
+    const signal =
+      detail === "anonymous"
+        ? toAnonymousEntitySignalWire(event, data)
+        : toEntitySignalWire(event, data);
     return { name: data.aggregateType, data: signal };
   }
   // skip: frames without an entity belong to their addressee only

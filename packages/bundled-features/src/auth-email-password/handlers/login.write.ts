@@ -105,6 +105,31 @@ export async function gateResolveAuthUser(
   return ok({ ...found, passwordHash: found.passwordHash });
 }
 
+// Unknown and deleted addresses are counted too, under a keyed digest of the
+// address exactly as findForAuth looks it up (no own normalization: a differently
+// cased spelling is a different, unknown address and must not share a counter with a
+// registered one). ctx.rateLimitDigest is derived from the JWT secret, so that after the
+// threshold they answer account_locked exactly like a registered address.
+// Without a digest key (no rate-limit wiring) they stay plain invalid_credentials.
+function unknownEmailLockoutSubject(ctx: HandlerContext, email: string): string | undefined {
+  const digest = ctx.rateLimitDigest?.(email);
+  return digest === undefined ? undefined : `email:${digest}`;
+}
+
+export async function gateCountUnknownUser(
+  ctx: HandlerContext,
+  email: string,
+  maxFailedAttempts: number,
+  lockoutDurationMinutes: number,
+): Promise<GateOutcome<undefined>> {
+  const subject = unknownEmailLockoutSubject(ctx, email);
+  if (!ctx.redis || subject === undefined) return ok(undefined);
+  const locked = await gateEnforceLockout(ctx, subject);
+  if (!locked.ok) return locked;
+  await recordFailedAttempt(ctx.redis, subject, maxFailedAttempts, lockoutDurationMinutes);
+  return ok(undefined);
+}
+
 /**
  * Lockout BEFORE password verify — locked accounts can't be password-probed.
  * Fail-open without Redis (IP rate-limit still covers partially).
@@ -295,6 +320,15 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       const foundRow = parseAuthUserRow(
         await ctx.queryAs(systemUser, UserQueries.findForAuth, { email: event.payload.email }),
       );
+      if (!foundRow?.passwordHash || foundRow.isDeleted) {
+        const unknown = await gateCountUnknownUser(
+          ctx,
+          event.payload.email,
+          maxFailedAttempts,
+          lockoutDurationMinutes,
+        );
+        if (!unknown.ok) return unknown.result;
+      }
       const userGate = await gateResolveAuthUser(foundRow, event.payload.password);
       if (!userGate.ok) return userGate.result;
       const found = userGate.value;

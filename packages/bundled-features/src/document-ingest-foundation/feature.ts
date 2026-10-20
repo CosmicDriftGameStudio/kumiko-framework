@@ -4,7 +4,7 @@
 // hardcoded mime allowlist or size cap — providers register via
 // EXT_DOCUMENT_INGEST_PROVIDER (see providers.ts).
 
-import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
+import { applyEntityEvent, entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createTenantConfig,
@@ -16,8 +16,9 @@ import { normalizeMimeType } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
 import { documentIngestAggregateId } from "./aggregate-id.ts";
 import { validateDocumentIngestProviderWiring } from "./boot-checks.ts";
-import { documentExtractEntity } from "./entity.ts";
+import { documentExtractEntity, documentExtractsTable } from "./entity.ts";
 import {
+  DOCUMENT_EXTRACT_AGGREGATE_TYPE,
   DOCUMENT_INGEST_AGGREGATE_TYPE,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
@@ -44,9 +45,9 @@ const FILE_REF_CREATED = entityEventName("fileRef", "created");
 const FILE_REF_RESTORED = entityEventName("fileRef", "restored");
 const FILE_REF_DELETED = entityEventName("fileRef", "deleted");
 const FILE_REF_FORGOTTEN = entityEventName("fileRef", "forgotten");
-// Executors write under entityName "document-extract" (executor.ts), not the
+// Executors write under DOCUMENT_EXTRACT_AGGREGATE_TYPE (executor.ts), not the
 // camelCase r.entity() name — the event type follows the executor.
-const DOCUMENT_EXTRACT_CREATED = entityEventName("document-extract", "created");
+const DOCUMENT_EXTRACT_CREATED = entityEventName(DOCUMENT_EXTRACT_AGGREGATE_TYPE, "created");
 
 type MspApplyContext = Parameters<MultiStreamApplyFn>[2];
 
@@ -140,6 +141,19 @@ export function createDocumentIngestFoundationFeature() {
       r.entity({ name: "documentExtract", ...documentExtractEntity });
       r.useExtension(EXT_TENANT_DATA, "documentExtract", {
         destroy: documentExtractTenantDestroyHook,
+      });
+      // The implicit projection listens for "documentExtract.*"; stored events are
+      // "document-extract.*", so a rebuild would otherwise drop every extract row.
+      r.extendEntityProjection("documentExtract", {
+        sources: [DOCUMENT_EXTRACT_AGGREGATE_TYPE],
+        apply: Object.fromEntries(
+          (["created", "updated", "deleted", "forgotten"] as const).map((verb) => [
+            entityEventName(DOCUMENT_EXTRACT_AGGREGATE_TYPE, verb),
+            async (event, tx) => {
+              await applyEntityEvent(event, documentExtractsTable, documentExtractEntity, tx);
+            },
+          ]),
+        ),
       });
 
       // No onRegister: resolution happens at boot and per-apply, not on register.

@@ -281,6 +281,39 @@ describe("account-lockout — enumeration surface", () => {
   });
 });
 
+describe("account-lockout — enumeration through the lock answer", () => {
+  test("after the threshold a registered and an unknown email answer the same", async () => {
+    await seedLoginUser("probe-registered@example.com", "right-pw");
+
+    async function lastAnswerAfterThreshold(email: string) {
+      let last: Response | undefined;
+      for (let i = 0; i <= MAX_ATTEMPTS; i++) {
+        last = await loginAttempt(email, `wrong-${i}`);
+      }
+      if (!last) throw new Error("no login attempt made");
+      const body = await last.json();
+      return { status: last.status, reason: body.error?.details?.reason };
+    }
+
+    const registered = await lastAnswerAfterThreshold("probe-registered@example.com");
+    const unknown = await lastAnswerAfterThreshold("probe-unknown@example.com");
+
+    expect(registered).toEqual(unknown);
+  });
+});
+
+describe("account-lockout — differently cased spelling", () => {
+  test("failures under another spelling never lock the registered address's answer", async () => {
+    await seedLoginUser("casevictim@example.com", "right-pw");
+    for (let i = 0; i <= MAX_ATTEMPTS; i++) {
+      await loginAttempt("CaseVictim@example.com", `wrong-${i}`);
+    }
+    const res = await loginAttempt("casevictim@example.com", "wrong-probe");
+    const body = await res.json();
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
+  });
+});
+
 describe("account-lockout — race-free counter under concurrent attempts", () => {
   test("parallel wrong-password attempts produce exact count — no under-counting", async () => {
     // The Lua-scripted recordFailedAttempt is the load-bearing claim for

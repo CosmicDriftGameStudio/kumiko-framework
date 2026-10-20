@@ -2,7 +2,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { FORM_DRAFT_ACCESS } from "../constants.ts";
 import { lookupDraft } from "../lookup.ts";
 import type { FormDraftBlob } from "../schemas.ts";
-import { formDraftBlobSchema, getDraftPayloadSchema } from "../schemas.ts";
+import { getDraftPayloadSchema } from "../schemas.ts";
 
 export type GetDraftResult = { readonly draft: FormDraftBlob | null };
 
@@ -24,15 +24,14 @@ export const getDraftQuery = defineQueryHandler({
       query.payload.draftKey,
     );
     if (!row) return { draft: null };
-    const parsed = formDraftBlobSchema.safeParse(row.draft);
-    if (!parsed.success) {
-      // Schema evolution or a corrupt jsonb row: surface it to operators
+    if (!row.draft) {
+      // Schema evolution or a corrupt/erased row: surface it to operators
       // instead of silently making the user's draft vanish.
       ctx.log?.warn?.(
-        `[form-draft:get] stored blob for draftKey=${query.payload.draftKey} failed schema, treating as absent: ${parsed.error.message}`,
+        `[form-draft:get] stored blob for draftKey=${query.payload.draftKey} failed schema or decryption, treating as absent`,
       );
       return { draft: null };
     }
-    return { draft: parsed.data };
+    return { draft: row.draft };
   },
 });

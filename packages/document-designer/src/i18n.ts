@@ -44,7 +44,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
 
   "documentDesigner.usedBy.allMails": { en: "all mails", de: "alle Mails" },
   "documentDesigner.usedBy.allPdfs": { en: "all PDFs", de: "alle PDFs" },
-  "documentDesigner.usedBy.templates": { en: "{count} templates", de: "{count} Vorlagen" },
+  "documentDesigner.usedBy.templates.one": { en: "1 template", de: "1 Vorlage" },
+  "documentDesigner.usedBy.templates.other": { en: "{count} templates", de: "{count} Vorlagen" },
   "documentDesigner.usedBy.title": { en: "Used by", de: "Wird verwendet von" },
   "documentDesigner.usedBy.none": {
     en: "No template uses this layout yet.",
@@ -164,11 +165,19 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "You are looking at the system layout. Saving creates a customisation for your tenant.",
     de: "Du siehst das System-Layout. Speichern legt eine Anpassung für deinen Mandanten an.",
   },
-  "documentDesigner.editor.origin.tenant.mails": {
+  "documentDesigner.editor.origin.tenant.mails.one": {
+    en: "Overrides system layout v{version}. Applies to 1 mail template of this tenant.",
+    de: "Überschreibt das System-Layout v{version}. Gilt für 1 Mail-Vorlage dieses Mandanten.",
+  },
+  "documentDesigner.editor.origin.tenant.mails.other": {
     en: "Overrides system layout v{version}. Applies to {count} mail templates of this tenant.",
     de: "Überschreibt das System-Layout v{version}. Gilt für {count} Mail-Vorlagen dieses Mandanten.",
   },
-  "documentDesigner.editor.origin.tenant.pdfs": {
+  "documentDesigner.editor.origin.tenant.pdfs.one": {
+    en: "Overrides system letterhead v{version}. Applies to 1 PDF template of this tenant.",
+    de: "Überschreibt das System-Briefpapier v{version}. Gilt für 1 PDF-Vorlage dieses Mandanten.",
+  },
+  "documentDesigner.editor.origin.tenant.pdfs.other": {
     en: "Overrides system letterhead v{version}. Applies to {count} PDF templates of this tenant.",
     de: "Überschreibt das System-Briefpapier v{version}. Gilt für {count} PDF-Vorlagen dieses Mandanten.",
   },
@@ -232,11 +241,19 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Checking the layout …",
     de: "Layout wird geprüft …",
   },
-  "documentDesigner.editor.footer.okMail": {
+  "documentDesigner.editor.footer.okMail.one": {
+    en: "Content placeholder present. After publishing, the change applies to 1 template.",
+    de: "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf 1 Vorlage.",
+  },
+  "documentDesigner.editor.footer.okMail.other": {
     en: "Content placeholder present. After publishing, the change applies to {count} templates.",
     de: "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf {count} Vorlagen.",
   },
-  "documentDesigner.editor.footer.okPdf": {
+  "documentDesigner.editor.footer.okPdf.one": {
+    en: "Content placeholder present. After publishing, the change applies to 1 template.",
+    de: "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf 1 Vorlage.",
+  },
+  "documentDesigner.editor.footer.okPdf.other": {
     en: "Content placeholder present. After publishing, the change applies to {count} templates.",
     de: "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf {count} Vorlagen.",
   },
@@ -804,10 +821,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "missing in content",
     de: "fehlt im Inhalt",
   },
-  "documentDesigner.mail.preview.entries": {
-    en: "{count} entries",
-    de: "{count} Einträge",
-  },
+  "documentDesigner.mail.preview.entries.one": { en: "1 entry", de: "1 Eintrag" },
+  "documentDesigner.mail.preview.entries.other": { en: "{count} entries", de: "{count} Einträge" },
   "documentDesigner.mail.preview.checks": {
     en: "Checks",
     de: "Prüfung",

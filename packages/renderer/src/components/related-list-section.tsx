@@ -524,7 +524,7 @@ export function RelatedListSection({
   const content =
     rowsQuery.loading && rowsQuery.data === null ? (
       <Banner padded variant="loading" testId="related-list-loading">
-        Loading…
+        {t("kumiko.widget.loading")}
       </Banner>
     ) : rowsQuery.error ? (
       <Banner padded variant="error" testId="related-list-error">

@@ -70,7 +70,7 @@ export type BaseEntrypointOptions = {
   readonly jwtSecret: string | JwtKeyring;
   readonly jwtIssuer?: string;
   readonly observability?: ObservabilityProvider;
-  /** @deprecated No effect: the HTTP route label carries no query string anymore, so there is nothing left to configure. */
+  /** @deprecated No effect: the HTTP route label carries no query string anymore, so there is nothing left to configure. Removed in 0.390.0. */
   readonly observabilityOptions?: ObservabilityOptions;
   readonly dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   readonly systemHooks?: SystemHooks;

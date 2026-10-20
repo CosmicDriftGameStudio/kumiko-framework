@@ -102,6 +102,11 @@ type CancelCall = { readonly providerSubscriptionId: string; readonly when: stri
 const cancelCalls: CancelCall[] = [];
 let providerCancelFails = false;
 let clockOffsetDays = 0;
+type ProviderCancelHold = {
+  readonly released: Promise<void>;
+  readonly entered: () => void;
+};
+let providerCancelHold: ProviderCancelHold | undefined;
 
 const mockProviderFeature = defineFeature("test-mock-termination-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
@@ -109,6 +114,10 @@ const mockProviderFeature = defineFeature("test-mock-termination-provider", (r) 
     verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,
     priceToTier: { price_starter: "starter", price_pro: "pro" },
     cancelSubscription: async (_ctx, options) => {
+      if (providerCancelHold) {
+        providerCancelHold.entered();
+        await providerCancelHold.released;
+      }
       if (providerCancelFails) throw new Error("provider down");
       cancelCalls.push({
         providerSubscriptionId: options.providerSubscriptionId,
@@ -220,6 +229,7 @@ beforeEach(async () => {
   cancelCalls.length = 0;
   providerCancelFails = false;
   clockOffsetDays = 0;
+  providerCancelHold = undefined;
   await resetStack(stack);
 });
 
@@ -580,6 +590,44 @@ describe("public declaration through /api/write", () => {
     expect(operatorMails).toHaveLength(2);
     expect(operatorMails.map((m) => m.html).join("\n")).toContain(unknown.requestId);
     expect(operatorMails.map((m) => m.html).join("\n")).toContain(DECLARANT_NAME);
+  });
+
+  test("a matched declaration is answered without waiting for the provider cancel", async () => {
+    const email = "slow-provider@example.com";
+    const userId = await createUser(email);
+    await addMember(userId, 8111, ["TenantAdmin"]);
+    await seedSubscription(8111, "sub_slow_provider");
+    const release = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    let providerEntered = false;
+    providerCancelHold = {
+      released: release.promise,
+      entered: () => {
+        providerEntered = true;
+        entered.resolve();
+      },
+    };
+
+    let matchedAnswered = false;
+    const matched = postDeclaration({ email }, nextClientIp()).then((res) => {
+      matchedAnswered = true;
+      return res;
+    });
+    const unmatched = await postDeclaration({ email: "nobody-slow@example.com" }, nextClientIp());
+    expect(unmatched.status).toBe(200);
+    // Either the matched answer arrives, or the provider call is reached while the
+    // answer is still pending; the latter makes the answer time depend on the match.
+    await Promise.race([matched, entered.promise]);
+    const answeredBeforeProviderReturned = matchedAnswered;
+    release.resolve();
+    expect((await matched).status).toBe(200);
+    await stack.drainJobs();
+
+    expect(answeredBeforeProviderReturned).toBe(true);
+    expect(providerEntered).toBe(true);
+    expect(cancelCalls).toEqual([
+      { providerSubscriptionId: "sub_slow_provider", when: "period-end" },
+    ]);
   });
 
   test("a public withdrawal records and notifies the operator but never calls the provider", async () => {

@@ -1,3 +1,4 @@
+export { applyEntityEvent } from "./apply-entity-event.ts";
 export { assertExistsIn } from "./assert-exists-in.ts";
 export {
   nullBlindIndexesForSubject,

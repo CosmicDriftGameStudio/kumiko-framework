@@ -59,3 +59,7 @@ export const DEFAULT_TAG_ROLES = ["TenantAdmin", "TenantMember"] as const;
 // makes tagging reachable for any authenticated tenant user — matching apps
 // whose other handlers are openToAll rather than role-gated.
 export const DEFAULT_TAG_ACCESS: AccessRule = { roles: DEFAULT_TAG_ROLES };
+
+// Advisory-lock namespace serialising assign-tag against delete-tag per tag id
+// (no FK in the event-sourced catalog, so the DB cannot guard the orphan race).
+export const TAG_LOCK_NAMESPACE = 0x74_61_67_73; // 'tags'

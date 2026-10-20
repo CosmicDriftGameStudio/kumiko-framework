@@ -16,6 +16,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
 import { TagsHandlers, TagsQueries } from "../constants.ts";
 import { TagChip } from "./tag-chip.tsx";
@@ -139,6 +140,7 @@ export function TagManager({
   const usage = new Map<string, number>();
   for (const a of assignments.data?.rows ?? []) usage.set(a.tagId, (usage.get(a.tagId) ?? 0) + 1);
 
+  const deletingUsage = usage.get(deleting?.id ?? "") ?? 0;
   const selecting = selection !== undefined;
   const allTags = catalog.data?.rows ?? [];
   const tags = selecting
@@ -378,8 +380,8 @@ export function TagManager({
           if (!open) setDeleting(null);
         }}
         title={t("tags.manage.deleteConfirmTitle", { name: deleting?.name ?? "" })}
-        description={t("tags.manage.deleteConfirmDesc", {
-          count: usage.get(deleting?.id ?? "") ?? 0,
+        description={t(pluralKey("tags.manage.deleteConfirmDesc", deletingUsage), {
+          count: deletingUsage,
         })}
         confirmLabel={t("tags.manage.delete")}
         variant="danger"

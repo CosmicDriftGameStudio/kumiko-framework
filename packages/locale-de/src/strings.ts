@@ -748,9 +748,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.empty-cta": "Erste Zeile hinzufügen",
   "kumiko.field.embedded-list.move-down": "Nach unten verschieben",
   "kumiko.field.embedded-list.move-up": "Nach oben verschieben",
-  "kumiko.field.embedded-list.paste-cells-unmatched":
+  "kumiko.field.embedded-list.paste-cells-unmatched.one":
+    "1 Zelle ohne passende Option wurde nicht geändert.",
+  "kumiko.field.embedded-list.paste-cells-unmatched.other":
     "{count} Zellen ohne passende Option wurden nicht geändert.",
-  "kumiko.field.embedded-list.paste-rows-truncated":
+  "kumiko.field.embedded-list.paste-rows-truncated.one":
+    "1 eingefügte Zeile wurde verworfen, weil die maximale Zeilenzahl erreicht ist.",
+  "kumiko.field.embedded-list.paste-rows-truncated.other":
     "{count} eingefügte Zeilen wurden verworfen, weil die maximale Zeilenzahl erreicht ist.",
   "kumiko.field.embedded-list.remove-row": "Zeile entfernen",
   "kumiko.field.file-list.add": "Datei hinzufügen",
@@ -809,6 +813,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.list.count.one": "1 Eintrag",
   "kumiko.list.count.other": "{count} Einträge",
   "kumiko.list.empty.filtered": "Keine Einträge passen zur Suche oder zu den Filtern.",
+  "kumiko.list.empty.defaultFiltered":
+    "Keine Einträge im Standardfilter. Mit „Alle anzeigen“ erscheinen auch Einträge außerhalb davon.",
+  "kumiko.list.empty.showAll": "Alle anzeigen",
   "kumiko.list.empty.hint": "Lege den ersten an, um loszulegen.",
   "kumiko.list.empty.title": "Noch keine Einträge.",
   "kumiko.list.end-of-list": "— Ende der Liste —",
@@ -1092,7 +1099,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "tags.manage.cancel": "Abbrechen",
   "tags.manage.create": "Tag anlegen",
   "tags.manage.delete": "Löschen",
-  "tags.manage.deleteConfirmDesc":
+  "tags.manage.deleteConfirmDesc.one":
+    "Entfernt ihn von 1 Objekt. Das lässt sich nicht rückgängig machen.",
+  "tags.manage.deleteConfirmDesc.other":
     "Entfernt ihn von {count} Objekten. Das lässt sich nicht rückgängig machen.",
   "tags.manage.deleteConfirmTitle": "Tag „{name}“ löschen?",
   "tags.manage.edit": "Bearbeiten",
@@ -1559,7 +1568,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.status.draftVersion": "Entwurf v{version}",
   "documentDesigner.usedBy.allMails": "alle Mails",
   "documentDesigner.usedBy.allPdfs": "alle PDFs",
-  "documentDesigner.usedBy.templates": "{count} Vorlagen",
+  "documentDesigner.usedBy.templates.one": "1 Vorlage",
+  "documentDesigner.usedBy.templates.other": "{count} Vorlagen",
   "documentDesigner.usedBy.title": "Wird verwendet von",
   "documentDesigner.usedBy.none": "Noch keine Vorlage nutzt dieses Layout.",
   "documentDesigner.overriddenBy.tenants": "{active} Mandanten",
@@ -1624,9 +1634,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.editor.origin.none": "Es gibt noch kein Layout.",
   "documentDesigner.editor.origin.system":
     "Du siehst das System-Layout. Speichern legt eine Anpassung für deinen Mandanten an.",
-  "documentDesigner.editor.origin.tenant.mails":
+  "documentDesigner.editor.origin.tenant.mails.one":
+    "Überschreibt das System-Layout v{version}. Gilt für 1 Mail-Vorlage dieses Mandanten.",
+  "documentDesigner.editor.origin.tenant.mails.other":
     "Überschreibt das System-Layout v{version}. Gilt für {count} Mail-Vorlagen dieses Mandanten.",
-  "documentDesigner.editor.origin.tenant.pdfs":
+  "documentDesigner.editor.origin.tenant.pdfs.one":
+    "Überschreibt das System-Briefpapier v{version}. Gilt für 1 PDF-Vorlage dieses Mandanten.",
+  "documentDesigner.editor.origin.tenant.pdfs.other":
     "Überschreibt das System-Briefpapier v{version}. Gilt für {count} PDF-Vorlagen dieses Mandanten.",
   "documentDesigner.editor.origin.platformPlain": "System-Layout v{version}",
   "documentDesigner.editor.origin.platformCount":
@@ -1650,9 +1664,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Hier wird der Inhalt jeder Mail-Vorlage eingesetzt. Betreff und Vorschautext kommen aus der Vorlage.",
   "documentDesigner.editor.slot.pdf": "Hier wird der Inhalt jeder PDF-Vorlage eingesetzt.",
   "documentDesigner.editor.footer.checking": "Layout wird geprüft …",
-  "documentDesigner.editor.footer.okMail":
+  "documentDesigner.editor.footer.okMail.one":
+    "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf 1 Vorlage.",
+  "documentDesigner.editor.footer.okMail.other":
     "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf {count} Vorlagen.",
-  "documentDesigner.editor.footer.okPdf":
+  "documentDesigner.editor.footer.okPdf.one":
+    "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf 1 Vorlage.",
+  "documentDesigner.editor.footer.okPdf.other":
     "Inhalts-Platzhalter vorhanden. Änderung wirkt nach Veröffentlichen auf {count} Vorlagen.",
   "documentDesigner.editor.discard": "Änderungen verwerfen",
   "documentDesigner.editor.save": "Speichern",
@@ -1828,7 +1846,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.preview.samplesHint":
     "Geld und Datum werden nach den Mandanten-Einstellungen formatiert.",
   "documentDesigner.mail.preview.missingInContent": "fehlt im Inhalt",
-  "documentDesigner.mail.preview.entries": "{count} Einträge",
+  "documentDesigner.mail.preview.entries.one": "1 Eintrag",
+  "documentDesigner.mail.preview.entries.other": "{count} Einträge",
   "documentDesigner.mail.preview.checks": "Prüfung",
   "documentDesigner.mail.preview.checksHint":
     "Das hat der Server beim Rendern dieser Mail gefunden.",

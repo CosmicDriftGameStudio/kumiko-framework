@@ -148,11 +148,14 @@ export function createPersonalAccessTokensFeature(
     // is r.systemScope()'d (the user aggregate is a systemStream, framework
     // #497), so a postSave hook on "user" gets a poisoned ctx.db here. The
     // concrete revoker is bound once run{Prod,Dev}App has a real db handle.
-    let autoRevokeOnPasswordChange = options.autoRevokeOnPasswordChange;
+    // Explicit option wins; the runtime binding is replaceable so a second boot of the same
+    // feature instance binds its own database.
+    let boundAutoRevoke: ((userId: string) => Promise<number>) | undefined;
     r.hook({
       type: "postSave",
       target: { allOf: "user" },
       handler: async (result) => {
+        const autoRevokeOnPasswordChange = options.autoRevokeOnPasswordChange ?? boundAutoRevoke;
         // skip: nothing bound — same late-bind pattern as sessions/feature.ts
         if (!autoRevokeOnPasswordChange) return;
         // skip: brand-new user, no PATs can exist yet
@@ -165,8 +168,7 @@ export function createPersonalAccessTokensFeature(
       },
     });
     const bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange = (revoker) => {
-      // explicit constructor option wins over the runtime binding
-      autoRevokeOnPasswordChange ??= revoker;
+      boundAutoRevoke = revoker;
     };
 
     const handlers = {

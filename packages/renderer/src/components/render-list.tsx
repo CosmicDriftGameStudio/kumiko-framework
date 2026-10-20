@@ -77,6 +77,8 @@ export type RenderListProps = {
   readonly emptyContent?: ListEmptyStateContent;
   /** Search or filters changed the result; the empty box then says "no matches". */
   readonly narrowed?: boolean;
+  /** Nothing was narrowed by the user, but a default filter is still on; the empty box then offers "show all" instead of "create the first one". */
+  readonly defaultFilterActive?: boolean;
   /** Plural-forms key for the footer count noun; default is the entity's `:noun` convention key. */
   readonly itemNounKey?: string;
   /** Aktueller Search-Term (vom URL-State / Parent). RenderList puffert
@@ -199,6 +201,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     description,
     emptyContent,
     narrowed = false,
+    defaultFilterActive: defaultFilterActiveProp = false,
     itemNounKey,
     searchValue,
     onSearchChange,
@@ -494,15 +497,18 @@ export function RenderList(props: RenderListProps): ReactNode {
   // Button. Caller kann via emptyState-Prop komplett überschreiben.
   // Wenn weder onCreate noch ein Override gegeben ist, fällt die
   // DataTable auf den DataTable-Default zurück (`kumiko.list.no-entries`).
+  const defaultFilterActive = defaultFilterActiveProp && onFilterReset !== undefined;
   const composedEmptyState =
     emptyState ??
-    (onCreate !== undefined || emptyContent !== undefined || narrowed ? (
+    (onCreate !== undefined || emptyContent !== undefined || narrowed || defaultFilterActive ? (
       <ListEmptyStateBody
         content={emptyContent}
         narrowed={narrowed}
+        defaultFilterActive={defaultFilterActive}
+        {...(onFilterReset !== undefined && { onShowAll: onFilterReset })}
         translate={translate}
         createButton={
-          onCreate !== undefined && !narrowed && !createInPageHeader ? (
+          onCreate !== undefined && !narrowed && !defaultFilterActive && !createInPageHeader ? (
             <Button
               variant="primary"
               icon="plus"

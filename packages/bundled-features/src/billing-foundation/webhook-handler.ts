@@ -133,6 +133,9 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
           tier: parsed.tier,
           currentPeriodEndIso: parsed.currentPeriodEnd,
           ...(parsed.cancelAt !== undefined && { cancelAtIso: parsed.cancelAt }),
+          ...(parsed.providerEventAt !== undefined && {
+            providerEventAtIso: parsed.providerEventAt,
+          }),
           ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
         },
       });

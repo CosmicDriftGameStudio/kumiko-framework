@@ -30,11 +30,15 @@ export type ErrorResponseBody = {
 // possible — without this, a crash in a handler comes back as a bare
 // "internal error" and developers have to add try/catch + UnprocessableError
 // just to see what went wrong (real footgun, not theoretical). The exposure
-// is gated on NODE_ENV !== "production" so a misconfigured prod deploy
-// doesn't leak stack traces over the wire.
+// is gated on NODE_ENV being explicitly "development" or "test": a missing or
+// misspelled NODE_ENV (a misconfigured prod deploy) must not leak stack traces,
+// paths or upstream URLs over the wire.
 const CODES_WITHOUT_CLIENT_DETAILS = new Set(["internal_error"]);
 
-const isProductionEnv = (): boolean => process.env["NODE_ENV"] === "production";
+export const exposesCauseDetails = (): boolean => {
+  const env = process.env["NODE_ENV"];
+  return env === "development" || env === "test";
+};
 
 // Snapshot of the cause chain (top-most error only) suitable for inclusion
 // in dev-mode error responses. Stack is truncated to keep the body small.
@@ -58,7 +62,7 @@ export function serializeError(
   requestId?: string,
   errorDocs?: ErrorDocsConfig,
 ): ErrorResponseBody {
-  const stripped = CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && isProductionEnv();
+  const stripped = CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && !exposesCauseDetails();
   const exposeDeclaredDetails = err.details !== undefined && !stripped;
 
   // For internal_error in dev/test, surface the cause chain so the
@@ -67,7 +71,7 @@ export function serializeError(
   // a hand-set details on InternalError should not be replaced.
   const detailsForResponse = (() => {
     if (exposeDeclaredDetails) return err.details;
-    if (CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && !isProductionEnv()) {
+    if (CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && exposesCauseDetails()) {
       return devCauseDetail(err.cause);
     }
     return undefined;

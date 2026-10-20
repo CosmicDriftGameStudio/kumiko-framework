@@ -4,9 +4,10 @@
 
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { documentExtractEntity, documentExtractsTable } from "./entity.ts";
+import { DOCUMENT_EXTRACT_AGGREGATE_TYPE } from "./events.ts";
 
 export const documentExtractExecutor = createEventStoreExecutor(
   documentExtractsTable,
   documentExtractEntity,
-  { entityName: "document-extract" },
+  { entityName: DOCUMENT_EXTRACT_AGGREGATE_TYPE },
 );

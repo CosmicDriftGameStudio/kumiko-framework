@@ -211,11 +211,15 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // sessionChecker blocks a status-locked principal on its next request
       // regardless.
       const REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
-      let autoRevoke = options?.autoRevokeOnPasswordChange;
+      // Explicit option wins; the runtime binding is replaceable so a second boot of the same
+      // feature instance (a new app or test stack in one process) binds its own database.
+      const explicitAutoRevoke = options?.autoRevokeOnPasswordChange;
+      let boundAutoRevoke: SessionMassRevoker | undefined;
       r.hook({
         type: "postSave",
         target: { allOf: "user" },
         handler: async (ctx) => {
+          const autoRevoke = explicitAutoRevoke ?? boundAutoRevoke;
           // skip: nothing bound — stateless-JWT deployments without a runtime
           // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
           if (!autoRevoke) return;
@@ -231,8 +235,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       });
 
       const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = (revoker) => {
-        // explicit constructor option wins over the runtime binding
-        autoRevoke ??= revoker;
+        boundAutoRevoke = revoker;
       };
 
       r.translations({ keys: SESSIONS_I18N });

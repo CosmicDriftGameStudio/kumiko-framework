@@ -54,7 +54,9 @@ const crashTracker = createCrashTracker({
 const spawnServer = (): void => {
   const child = spawn(bunPath, ["run", entry, ...passthroughArgs], {
     stdio: "inherit",
-    env: process.env,
+    // Error responses carry cause details only under an explicit development/test NODE_ENV,
+    // so a local dev run without one would hide them.
+    env: { ...process.env, NODE_ENV: process.env["NODE_ENV"] ?? "development" },
   });
 
   child.on("exit", (code, signal) => {

@@ -88,6 +88,7 @@ export type {
   ResolveNavigationOptions,
 } from "./nav/index.ts";
 export { resolveNavigation } from "./nav/index.ts";
+export { pluralKey } from "./plural-key.ts";
 export type { Store, WritableStore } from "./store/index.ts";
 export { createStore, shallowEqual } from "./store/index.ts";
 export type {

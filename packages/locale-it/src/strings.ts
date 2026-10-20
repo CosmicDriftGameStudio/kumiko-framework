@@ -742,10 +742,14 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.empty-cta": "Aggiungi la prima riga",
   "kumiko.field.embedded-list.move-down": "Sposta giù",
   "kumiko.field.embedded-list.move-up": "Sposta su",
-  "kumiko.field.embedded-list.paste-cells-unmatched":
-    "{count} cella/e senza opzione corrispondente sono state lasciate invariate.",
-  "kumiko.field.embedded-list.paste-rows-truncated":
-    "{count} riga/righe incollata/e sono state scartate (raggiunto il numero massimo di righe).",
+  "kumiko.field.embedded-list.paste-cells-unmatched.one":
+    "1 cella senza opzione corrispondente è stata lasciata invariata.",
+  "kumiko.field.embedded-list.paste-cells-unmatched.other":
+    "{count} celle senza opzione corrispondente sono state lasciate invariate.",
+  "kumiko.field.embedded-list.paste-rows-truncated.one":
+    "1 riga incollata è stata scartata (raggiunto il numero massimo di righe).",
+  "kumiko.field.embedded-list.paste-rows-truncated.other":
+    "{count} righe incollate sono state scartate (raggiunto il numero massimo di righe).",
   "kumiko.field.embedded-list.remove-row": "Rimuovi riga",
   "kumiko.field.file-list.add": "Aggiungi file",
   "kumiko.field.file-list.empty": "Ancora nessun file.",
@@ -803,6 +807,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.list.count.one": "1 voce",
   "kumiko.list.count.other": "{count} voci",
   "kumiko.list.empty.filtered": "Nessuna voce corrisponde alla ricerca o ai filtri attuali.",
+  "kumiko.list.empty.defaultFiltered":
+    "Nessuna voce corrisponde al filtro predefinito. Mostra tutto per includere le voci fuori dal filtro.",
+  "kumiko.list.empty.showAll": "Mostra tutto",
   "kumiko.list.empty.hint": "Crea la prima per iniziare.",
   "kumiko.list.empty.title": "Ancora nessuna voce.",
   "kumiko.list.end-of-list": "— Fine dell'elenco —",
@@ -1086,7 +1093,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "tags.manage.cancel": "Annulla",
   "tags.manage.create": "Crea etichetta",
   "tags.manage.delete": "Elimina",
-  "tags.manage.deleteConfirmDesc":
+  "tags.manage.deleteConfirmDesc.one":
+    "La rimuove da 1 oggetto. L'azione non può essere annullata.",
+  "tags.manage.deleteConfirmDesc.other":
     "La rimuove da {count} oggetti. L'azione non può essere annullata.",
   "tags.manage.deleteConfirmTitle": "Eliminare l'etichetta «{name}»?",
   "tags.manage.edit": "Modifica",
@@ -1557,7 +1566,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.status.draftVersion": "Bozza v{version}",
   "documentDesigner.usedBy.allMails": "tutte le e-mail",
   "documentDesigner.usedBy.allPdfs": "tutti i PDF",
-  "documentDesigner.usedBy.templates": "{count} modelli",
+  "documentDesigner.usedBy.templates.one": "1 modello",
+  "documentDesigner.usedBy.templates.other": "{count} modelli",
   "documentDesigner.usedBy.title": "Usato da",
   "documentDesigner.usedBy.none": "Nessun modello usa ancora questo layout.",
   "documentDesigner.overriddenBy.tenants": "{active} organizzazioni",
@@ -1621,9 +1631,13 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.editor.origin.none": "Non esiste ancora alcun layout.",
   "documentDesigner.editor.origin.system":
     "Stai guardando il layout di sistema. Salvando crei una personalizzazione per la tua organizzazione.",
-  "documentDesigner.editor.origin.tenant.mails":
+  "documentDesigner.editor.origin.tenant.mails.one":
+    "Sostituisce il layout di sistema v{version}. Vale per 1 modello di e-mail di questa organizzazione.",
+  "documentDesigner.editor.origin.tenant.mails.other":
     "Sostituisce il layout di sistema v{version}. Vale per {count} modelli di e-mail di questa organizzazione.",
-  "documentDesigner.editor.origin.tenant.pdfs":
+  "documentDesigner.editor.origin.tenant.pdfs.one":
+    "Sostituisce la carta intestata di sistema v{version}. Vale per 1 modello PDF di questa organizzazione.",
+  "documentDesigner.editor.origin.tenant.pdfs.other":
     "Sostituisce la carta intestata di sistema v{version}. Vale per {count} modelli PDF di questa organizzazione.",
   "documentDesigner.editor.origin.platformPlain": "Layout di sistema v{version}",
   "documentDesigner.editor.origin.platformCount":
@@ -1647,9 +1661,13 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Il contenuto di ogni modello di e-mail viene inserito qui. Oggetto e testo di anteprima provengono dal modello.",
   "documentDesigner.editor.slot.pdf": "Il contenuto di ogni modello PDF viene inserito qui.",
   "documentDesigner.editor.footer.checking": "Controllo del layout in corso …",
-  "documentDesigner.editor.footer.okMail":
+  "documentDesigner.editor.footer.okMail.one":
+    "Segnaposto del contenuto presente. Dopo la pubblicazione la modifica vale per 1 modello.",
+  "documentDesigner.editor.footer.okMail.other":
     "Segnaposto del contenuto presente. Dopo la pubblicazione la modifica vale per {count} modelli.",
-  "documentDesigner.editor.footer.okPdf":
+  "documentDesigner.editor.footer.okPdf.one":
+    "Segnaposto del contenuto presente. Dopo la pubblicazione la modifica vale per 1 modello.",
+  "documentDesigner.editor.footer.okPdf.other":
     "Segnaposto del contenuto presente. Dopo la pubblicazione la modifica vale per {count} modelli.",
   "documentDesigner.editor.discard": "Scarta le modifiche",
   "documentDesigner.editor.save": "Salva",
@@ -1828,7 +1846,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.preview.samplesHint":
     "Importi e date sono formattati secondo le impostazioni dell'organizzazione.",
   "documentDesigner.mail.preview.missingInContent": "manca nel contenuto",
-  "documentDesigner.mail.preview.entries": "{count} voci",
+  "documentDesigner.mail.preview.entries.one": "1 voce",
+  "documentDesigner.mail.preview.entries.other": "{count} voci",
   "documentDesigner.mail.preview.checks": "Controlli",
   "documentDesigner.mail.preview.checksHint":
     "Ciò che il server ha rilevato durante il rendering di questa e-mail.",

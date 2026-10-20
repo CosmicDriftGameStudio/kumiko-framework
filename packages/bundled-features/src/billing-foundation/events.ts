@@ -67,6 +67,8 @@ export const subscriptionEventPayloadSchema = z.object({
   // doesn't report cancelAt at all — projection.ts tells the two apart.
   cancelAtIso: z.string().min(1).nullable().optional(),
   consentId: z.string().min(1).max(100).optional(),
+  // When the provider emitted the event; lets process-event drop late deliveries.
+  providerEventAtIso: z.iso.datetime().optional(),
 });
 export type SubscriptionEventPayload = z.infer<typeof subscriptionEventPayloadSchema>;
 

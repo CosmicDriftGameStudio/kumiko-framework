@@ -1,4 +1,4 @@
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
+import { EMPTY_VALUE_PLACEHOLDER, pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 // @runtime client
 import { DEFAULT_LAYOUT_SLUG } from "../constants.ts";
 import type { OverviewRowView, OverviewUsageView } from "./overview-row.ts";
@@ -60,7 +60,9 @@ export function usedByLabel(t: Translate, row: OverviewRowView): string {
     }
     return row.usedByCount === 0
       ? EMPTY_VALUE_PLACEHOLDER
-      : t("documentDesigner.usedBy.templates", { count: row.usedByCount });
+      : t(pluralKey("documentDesigner.usedBy.templates", row.usedByCount), {
+          count: row.usedByCount,
+        });
   }
   const first = row.usedBy[0];
   return first === undefined ? EMPTY_VALUE_PLACEHOLDER : usageLabel(t, first);

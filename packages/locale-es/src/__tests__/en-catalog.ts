@@ -726,10 +726,14 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.empty-cta": "Add first row",
   "kumiko.field.embedded-list.move-down": "Move down",
   "kumiko.field.embedded-list.move-up": "Move up",
-  "kumiko.field.embedded-list.paste-cells-unmatched":
-    "{count} cell(s) had no matching option and were left unchanged.",
-  "kumiko.field.embedded-list.paste-rows-truncated":
-    "{count} pasted row(s) were dropped (max row count reached).",
+  "kumiko.field.embedded-list.paste-cells-unmatched.one":
+    "1 cell had no matching option and was left unchanged.",
+  "kumiko.field.embedded-list.paste-cells-unmatched.other":
+    "{count} cells had no matching option and were left unchanged.",
+  "kumiko.field.embedded-list.paste-rows-truncated.one":
+    "1 pasted row was dropped (max row count reached).",
+  "kumiko.field.embedded-list.paste-rows-truncated.other":
+    "{count} pasted rows were dropped (max row count reached).",
   "kumiko.field.embedded-list.remove-row": "Remove row",
   "kumiko.field.file-list.add": "Add file",
   "kumiko.field.file-list.empty": "No files yet.",
@@ -785,6 +789,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.count.one": "1 entry",
   "kumiko.list.count.other": "{count} entries",
   "kumiko.list.empty.filtered": "No entries match the current search or filters.",
+  "kumiko.list.empty.defaultFiltered":
+    "No entries match the default filter. Show all to include entries outside it.",
+  "kumiko.list.empty.showAll": "Show all",
   "kumiko.list.empty.hint": "Create the first one to get started.",
   "kumiko.list.empty.title": "No entries yet.",
   "kumiko.list.end-of-list": "— End of list —",
@@ -1060,7 +1067,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "tags.manage.cancel": "Cancel",
   "tags.manage.create": "Create label",
   "tags.manage.delete": "Delete",
-  "tags.manage.deleteConfirmDesc": "Removes it from {count} objects. This can't be undone.",
+  "tags.manage.deleteConfirmDesc.one": "Removes it from 1 object. This can't be undone.",
+  "tags.manage.deleteConfirmDesc.other": "Removes it from {count} objects. This can't be undone.",
   "tags.manage.deleteConfirmTitle": "Delete label “{name}”?",
   "tags.manage.edit": "Edit",
   "tags.manage.namePlaceholder": "Label name",
@@ -1517,7 +1525,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.status.draftVersion": "Draft v{version}",
   "documentDesigner.usedBy.allMails": "all mails",
   "documentDesigner.usedBy.allPdfs": "all PDFs",
-  "documentDesigner.usedBy.templates": "{count} templates",
+  "documentDesigner.usedBy.templates.one": "1 template",
+  "documentDesigner.usedBy.templates.other": "{count} templates",
   "documentDesigner.usedBy.title": "Used by",
   "documentDesigner.usedBy.none": "No template uses this layout yet.",
   "documentDesigner.overriddenBy.tenants": "{active} tenants",
@@ -1581,9 +1590,13 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.editor.origin.none": "There is no layout yet.",
   "documentDesigner.editor.origin.system":
     "You are looking at the system layout. Saving creates a customisation for your tenant.",
-  "documentDesigner.editor.origin.tenant.mails":
+  "documentDesigner.editor.origin.tenant.mails.one":
+    "Overrides system layout v{version}. Applies to 1 mail template of this tenant.",
+  "documentDesigner.editor.origin.tenant.mails.other":
     "Overrides system layout v{version}. Applies to {count} mail templates of this tenant.",
-  "documentDesigner.editor.origin.tenant.pdfs":
+  "documentDesigner.editor.origin.tenant.pdfs.one":
+    "Overrides system letterhead v{version}. Applies to 1 PDF template of this tenant.",
+  "documentDesigner.editor.origin.tenant.pdfs.other":
     "Overrides system letterhead v{version}. Applies to {count} PDF templates of this tenant.",
   "documentDesigner.editor.origin.platformPlain": "System layout v{version}",
   "documentDesigner.editor.origin.platformCount":
@@ -1607,9 +1620,13 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The content of every mail template is inserted here. Subject and preview text come from the template.",
   "documentDesigner.editor.slot.pdf": "The content of every PDF template is inserted here.",
   "documentDesigner.editor.footer.checking": "Checking the layout …",
-  "documentDesigner.editor.footer.okMail":
+  "documentDesigner.editor.footer.okMail.one":
+    "Content placeholder present. After publishing, the change applies to 1 template.",
+  "documentDesigner.editor.footer.okMail.other":
     "Content placeholder present. After publishing, the change applies to {count} templates.",
-  "documentDesigner.editor.footer.okPdf":
+  "documentDesigner.editor.footer.okPdf.one":
+    "Content placeholder present. After publishing, the change applies to 1 template.",
+  "documentDesigner.editor.footer.okPdf.other":
     "Content placeholder present. After publishing, the change applies to {count} templates.",
   "documentDesigner.editor.discard": "Discard changes",
   "documentDesigner.editor.save": "Save",
@@ -1783,7 +1800,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.preview.samplesHint":
     "Money and dates are formatted by the tenant settings.",
   "documentDesigner.mail.preview.missingInContent": "missing in content",
-  "documentDesigner.mail.preview.entries": "{count} entries",
+  "documentDesigner.mail.preview.entries.one": "1 entry",
+  "documentDesigner.mail.preview.entries.other": "{count} entries",
   "documentDesigner.mail.preview.checks": "Checks",
   "documentDesigner.mail.preview.checksHint": "What the server found while rendering this mail.",
   "documentDesigner.mail.testMail.title": "Test mail",

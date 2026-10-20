@@ -135,13 +135,14 @@ function buildStripeSubscriptionEvent(overrides: {
   subscriptionId?: string;
   eventType?: string;
   consentId?: string;
+  created?: number;
 }) {
   const eventId = overrides.eventId ?? "evt_integration_001";
   return {
     id: eventId,
     object: "event",
     api_version: "2026-04-22.dahlia",
-    created: 1_770_000_000,
+    created: overrides.created ?? 1_770_000_000,
     type: overrides.eventType ?? "customer.subscription.created",
     livemode: false,
     pending_webhooks: 1,
@@ -394,6 +395,56 @@ describe("scenario 3: idempotency via Stripe-retry", () => {
       tenantStringId,
     );
     expect(esEvents).toHaveLength(1);
+  });
+});
+
+describe("scenario 3b: late delivery of an older Stripe event", () => {
+  test("an older subscription.updated delivered after the cancellation does not reactivate the subscription", async () => {
+    const tenantStringId = testTenantId(4013);
+    const base = { tenantId: tenantStringId, subscriptionId: "sub_4013", customerId: "cus_4013" };
+    const deliver = async (event: ReturnType<typeof buildStripeSubscriptionEvent>) => {
+      const payload = JSON.stringify(event);
+      const res = await postStripeWebhook(payload, await signEvent(payload));
+      expect(res.status).toBe(200);
+    };
+
+    await deliver(
+      buildStripeSubscriptionEvent({ ...base, eventId: "evt_4013_create", created: 1_770_000_100 }),
+    );
+    await deliver(
+      buildStripeSubscriptionEvent({
+        ...base,
+        eventId: "evt_4013_deleted",
+        eventType: "customer.subscription.deleted",
+        status: "canceled",
+        created: 1_770_000_300,
+      }),
+    );
+    // Stripe does not guarantee delivery order; this update was emitted before the cancellation.
+    await deliver(
+      buildStripeSubscriptionEvent({
+        ...base,
+        eventId: "evt_4013_updated_late",
+        eventType: "customer.subscription.updated",
+        status: "active",
+        priceId: "price_business_yearly",
+        created: 1_770_000_200,
+      }),
+    );
+
+    const admin = createTestUser({
+      id: 4013,
+      tenantId: tenantStringId,
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows).toHaveLength(1);
+    expect(subs.rows[0]?.["status"]).toBe("canceled");
+    expect(subs.rows[0]?.["tier"]).toBe("pro");
   });
 });
 

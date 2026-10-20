@@ -4,6 +4,7 @@ import {
   formatDocumentDate,
   formatDocumentMoney,
   formatDocumentPercent,
+  pluralKey,
 } from "@cosmicdrift/kumiko-renderer/headless";
 import type {
   LinkedResourceView,
@@ -218,7 +219,9 @@ export function displayValue(
   format: SampleValueFormat,
 ): string {
   if (Array.isArray(value))
-    return t("documentDesigner.mail.preview.entries", { count: value.length });
+    return t(pluralKey("documentDesigner.mail.preview.entries", value.length), {
+      count: value.length,
+    });
   if (type === "money") {
     if (typeof value === "number" && format.tenantCurrency === undefined) return String(value);
     return formatDocumentMoney(

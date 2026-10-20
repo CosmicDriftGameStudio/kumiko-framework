@@ -74,6 +74,11 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature({
         invite: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/invite/accept" },
         signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/complete" },
+        passwordReset: {
+          hmacSecret: "test-reset-hmac-secret-at-least-32-bytes-long!!",
+          tokenTtlMinutes: 15,
+          appUrl: "https://app.example.com/reset",
+        },
         mfaStatusChecker: async (ctx, userId, tenantId, roles) => {
           if (failNextMfaCheck) {
             failNextMfaCheck = false;
@@ -104,6 +109,10 @@ beforeAll(async () => {
       signup: {
         requestHandler: AuthHandlers.signupRequest,
         confirmHandler: AuthHandlers.signupConfirm,
+      },
+      passwordReset: {
+        requestHandler: AuthHandlers.requestPasswordReset,
+        confirmHandler: AuthHandlers.resetPassword,
       },
       loginErrorStatusMap: {
         [AuthErrors.invalidCredentials]: 401,
@@ -427,5 +436,75 @@ describe("signup-confirm runs the login's MFA gate", () => {
 
     expect(res.status).toBe(401);
     expect(await selectMany(stack.db, userTable, { email })).toHaveLength(0);
+  });
+});
+
+describe("password reset and anonymous auth edges", () => {
+  async function seedEnrolledAdmin(email: string): Promise<{ id: string; secret: string }> {
+    const { id } = await seedUser(stack.db, {
+      email,
+      displayName: "Reset Admin",
+      passwordHash: await hashPassword(PASSWORD),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId: id, tenantId: tenantA, roles: ["Admin"] });
+    const admin: SessionUser = { id, tenantId: tenantA, roles: ["Admin"] };
+    const started = (await (
+      await authedRaw(admin, "/api/write", { type: AuthMfaHandlers.enableStart, payload: {} })
+    ).json()) as { data: { setupToken: string; totpSecret: string } };
+    const confirmed = await authedRaw(admin, "/api/write", {
+      type: AuthMfaHandlers.enableConfirm,
+      payload: {
+        setupToken: started.data.setupToken,
+        code: currentTotpCode(base32Decode(started.data.totpSecret)),
+      },
+    });
+    expect(confirmed.status).toBe(200);
+    return { id, secret: started.data.totpSecret };
+  }
+
+  test("a mailed password reset neither mints a session nor lets the next login skip MFA", async () => {
+    const email = "reset-enrolled-admin@example.com";
+    const newPassword = "after-reset-pw-5678";
+    await seedEnrolledAdmin(email);
+
+    emailTransport.sent.length = 0;
+    const requested = await stack.http.raw("POST", "/api/auth/request-password-reset", { email });
+    expect(requested.status).toBe(200);
+    const token = emailTransport.sent.at(-1)?.text?.match(/[?&]token=([^&"'<\s\]]+)/)?.[1];
+    if (token === undefined) throw new Error("request-password-reset sent no token mail");
+
+    const reset = await stack.http.raw("POST", "/api/auth/reset-password", {
+      token: decodeURIComponent(token),
+      newPassword,
+    });
+    expect(reset.status).toBe(200);
+    const resetBody = await reset.json();
+    expect(resetBody.token).toBeUndefined();
+    expect(reset.headers.get("set-cookie")).toBeNull();
+
+    const login = await stack.http.raw("POST", "/api/auth/login", { email, password: newPassword });
+    expect(login.status).toBe(200);
+    const loginBody = await login.json();
+    expect(loginBody.mfaRequired).toBe(true);
+    expect(typeof loginBody.challengeToken).toBe("string");
+    expect(loginBody.token).toBeUndefined();
+    expect(login.headers.get("set-cookie")).toBeNull();
+  });
+
+  test("signup-request and request-password-reset answer identically for a registered and an unknown address", async () => {
+    await seedEnrolledAdmin("registered-probe@example.com");
+
+    async function probe(path: string, email: string): Promise<{ status: number; body: unknown }> {
+      const res = await stack.http.raw("POST", path, { email }, { "x-forwarded-for": email });
+      return { status: res.status, body: await res.json() };
+    }
+
+    for (const path of ["/api/auth/signup-request", "/api/auth/request-password-reset"]) {
+      const known = await probe(path, "registered-probe@example.com");
+      const unknown = await probe(path, "never-registered-probe@example.com");
+      expect({ path, ...known }).toEqual({ path, ...unknown });
+      expect(known.status).toBe(200);
+    }
   });
 });

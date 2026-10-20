@@ -258,6 +258,25 @@ describe("form-draft cleanup job — batch sweep", () => {
     expect(await draftExists("wizard:resaved")).toBe(true);
   });
 
+  test("a row whose blob could not be decrypted is deferred, not deleted", async () => {
+    await saveDraft("wizard:unreadable");
+    await backdate("wizard:unreadable", 5);
+    const [row] = await selectStaleDraftsBatch(stack.db, 1, 10);
+    if (!row) throw new Error("expected the stale draft");
+
+    const outcome = await deleteStaleDraftsBatch(
+      [{ ...row, draft: null, draftUnreadable: true }],
+      stack.db,
+      1,
+      undefined,
+    );
+
+    expect(outcome.deletedRows).toHaveLength(0);
+    expect(outcome.deferredIds).toEqual([row.id]);
+    expect(await draftExists("wizard:unreadable")).toBe(true);
+    expect(await selectStaleDraftsBatch(stack.db, 1, 10, [row.id])).toHaveLength(0);
+  });
+
   test("a still-stale row is deleted and not counted as skipped", async () => {
     await saveDraft("wizard:stale");
     await backdate("wizard:stale", 5);

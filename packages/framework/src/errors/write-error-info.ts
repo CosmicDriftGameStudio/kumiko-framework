@@ -5,6 +5,7 @@ import type {
 import { NotFoundError, UnprocessableError } from "./classes.ts";
 import { KumikoError } from "./kumiko-error.ts";
 import { FrameworkReasons } from "./reasons.ts";
+import { exposesCauseDetails } from "./serialize.ts";
 import { buildInvalidTransitionDetails } from "./transition-details.ts";
 
 // Re-exported so a caller importing this module directly (instead of via
@@ -71,10 +72,10 @@ export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
   // back to the client as a bare `{ message: "internal error" }` —
   // identical user-experience to a misconfigured prod, just slower
   // because the dev has to add try/catch + console.log to find the
-  // actual stack. Same gating as serializeError: NODE_ENV !== production.
+  // actual stack. Same gating as serializeError.
   const causeDetails =
     err.details === undefined && err.code === "internal_error" && err.cause instanceof Error
-      ? process.env["NODE_ENV"] !== "production"
+      ? exposesCauseDetails()
         ? {
             causeName: err.cause.name,
             causeMessage: err.cause.message,

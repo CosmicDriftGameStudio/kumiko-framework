@@ -10,7 +10,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
+import { EMPTY_VALUE_PLACEHOLDER, pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { EmptyState, ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { originOf } from "./editor-header.tsx";
@@ -146,7 +146,7 @@ function originText(
   }
   const usesKey = kind === "mail-layout" ? "mails" : "pdfs";
   if (source.tenant !== null) {
-    return t(`documentDesigner.editor.origin.tenant.${usesKey}`, {
+    return t(pluralKey(`documentDesigner.editor.origin.tenant.${usesKey}`, userCount), {
       version: systemVersion,
       count: userCount,
     });
