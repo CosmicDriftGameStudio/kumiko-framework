@@ -1,12 +1,11 @@
-// Client-i18n-Bundle für die managed-pages Admin-Screens. Der Browser-Renderer
-// baut seinen Fallback-Locale-Store NUR aus clientFeatures[].translations — der
-// server-seitige r.translations-Bundle (feature.ts) erreicht ihn nie. Damit die
-// configEdit/entityEdit-Labels im Client übersetzt rendern statt roh, spiegeln
-// wir hier dieselben Keys.
+// Client i18n bundle for the managed-pages admin screens. The browser renderer
+// builds its fallback locale store ONLY from clientFeatures[].translations; the
+// server-side r.translations bundle (feature.ts) never reaches it. To render the
+// configEdit/entityEdit labels translated instead of raw, we mirror the same keys here.
 //
-// Single source: pivotiert MANAGED_PAGES_I18N (key-first { key: {de,en} },
-// Server-Form) in die locale-first TranslationsByLocale-Form die der Client
-// erwartet — kein Key-Duplikat, kein Drift.
+// Single source: pivots MANAGED_PAGES_I18N (key-first { key: {de,en} }, server
+// form) into the locale-first TranslationsByLocale form the client expects, so
+// there is no key duplication and no drift.
 
 import {
   type TranslationsByLocale,

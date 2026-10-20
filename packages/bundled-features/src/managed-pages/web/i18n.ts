@@ -1,19 +1,19 @@
-// Pure-Data (i18n-Keys) — client-marked, damit das web/-Bundle sie in den
-// Browser-Store pivotieren darf; feature.ts (server) importiert sie ebenso
-// (server darf client-safe Pure-Data importieren, wie PAT constants.ts).
+// Pure data (i18n keys) that lives under web/ so the web bundle may pivot it into
+// the browser store; feature.ts (server) imports it as well (the server may import
+// client-safe pure data, like PAT constants.ts).
 //
-// Übersetzungs-Bundle für die managed-pages Admin-Screens. Ohne diese Keys
-// rendert die UI die Roh-i18n-Keys (screen:*.title, entity:*:field:*, Section-
-// Header). Der Boot-Validator (required-surface-keys) verlangt — sobald ein
-// Feature r.translations ruft — den KOMPLETTEN Required-Surface-Satz in de+en;
-// diese Datei deckt jeden Screen/Feld/Section-Key ab, den managed-pages
-// registriert. Die zwei customCss-Keys werden unconditional geliefert (schaden
-// bei allowCustomCss:false nicht, sind aber Pflicht für Consumer die es aktivieren).
+// Translation bundle for the managed-pages admin screens. Without these keys the
+// UI renders the raw i18n keys (screen:*.title, entity:*:field:*, section
+// headers). Once a feature calls r.translations, the boot validator
+// (required-surface-keys) demands the COMPLETE required-surface set in de+en;
+// this file covers every screen/field/section key managed-pages registers. The
+// two customCss keys are always supplied (harmless with allowCustomCss:false, but
+// required for consumers that enable it).
 
 type LocalizedString = { readonly en: string };
 
 export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
-  // Screen-Titel (global/unpräfixiert — screenTitleKey = screen:<id>.title)
+  // Screen titles (global/unprefixed, screenTitleKey = screen:<id>.title)
   "screen:page-list.title": { en: "Pages" },
   "screen:page-edit.title": { en: "Edit page" },
   "screen:branding-settings.title": { en: "Branding" },

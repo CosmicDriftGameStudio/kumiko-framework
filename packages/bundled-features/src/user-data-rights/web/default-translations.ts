@@ -1,7 +1,6 @@
-// Default-Bundle für die Apex-Deletion-Screens. Apps hängen es als
-// Fallback-Bundle in den LocaleProvider (createPublicSurface clientFeatures
-// oder direkt) und können einzelne Keys überschreiben. Keys: `userDataRights.
-// deletion.<step>.<slug>`.
+// Default bundle for the apex deletion screens. Apps attach it as a fallback
+// bundle in the LocaleProvider (createPublicSurface clientFeatures or directly)
+// and may override single keys. Keys: `userDataRights.deletion.<step>.<slug>`.
 
 import {
   mergeTranslations,
