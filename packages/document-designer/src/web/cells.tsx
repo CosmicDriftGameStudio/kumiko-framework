@@ -176,7 +176,7 @@ function OverriddenByCount({
           active: data.activeOverrides,
           total: data.totalTenants,
         });
-  return <span className="whitespace-nowrap">{label}</span>;
+  return <span>{label}</span>;
 }
 
 export function OverriddenByCell({ row }: ColumnRendererProps): ReactNode {

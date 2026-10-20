@@ -44,3 +44,10 @@ test("overview-locked-override", async ({ page }) => {
   await expect(page.getByTestId("render-list-table")).toBeVisible();
   await shot(page, "overview-locked-override");
 });
+
+test("list-sample", async ({ page }) => {
+  await loginAsAdmin(page);
+  await page.goto("/lease-list");
+  await expect(page.getByTestId("render-list-table")).toBeVisible();
+  await shot(page, "list-sample");
+});
