@@ -17,7 +17,7 @@ import {
 import { createArchivedStreamsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher, sleep } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
@@ -149,7 +149,6 @@ describe("SYSTEM_USER in jobs", () => {
     await jobRunner.dispatch("billing:job:calculate-total", {
       tenantId: "00000000-0000-4000-8000-000000000001",
     });
-    await sleep(1500);
 
     // Config should have been set by the job via SYSTEM_USER
     const configFn = createConfigAccessor(
@@ -159,7 +158,11 @@ describe("SYSTEM_USER in jobs", () => {
       "11111111-0000-4000-8000-000000000099",
       db,
     );
-    const total = await configFn("billing:config:monthly-total");
+    let total: unknown;
+    await waitFor(async () => {
+      total = await configFn("billing:config:monthly-total");
+      return total === 42000;
+    });
     expect(total).toBe(42000);
     expect(typeof total).toBe("number");
   });

@@ -2,6 +2,7 @@
 // 409 carries the winner's stream version, so a client can rebase.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { type Barrier, createBarrier } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.ts";
@@ -11,23 +12,17 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 const AGGREGATE_TYPE = "avcDoc";
 const WRITERS_PER_ROUND = 2;
 
-const arrivals = new Map<string, { count: number; release: () => void; gate: Promise<void> }>();
+const barriers = new Map<string, Barrier>();
 
 // Holds each writer until all have arrived so their version reads overlap. The read sits after the
 // barrier, so a round can still serialize cleanly; the test needs a conflict in some round, not each.
 async function waitForAllWriters(aggregateId: string): Promise<void> {
-  let entry = arrivals.get(aggregateId);
-  if (!entry) {
-    let release = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    entry = { count: 0, release, gate };
-    arrivals.set(aggregateId, entry);
+  let barrier = barriers.get(aggregateId);
+  if (!barrier) {
+    barrier = createBarrier({ expected: WRITERS_PER_ROUND });
+    barriers.set(aggregateId, barrier);
   }
-  entry.count++;
-  if (entry.count >= WRITERS_PER_ROUND) entry.release();
-  await entry.gate;
+  await barrier.arrive();
 }
 
 const feature = defineFeature("avc", (r) => {

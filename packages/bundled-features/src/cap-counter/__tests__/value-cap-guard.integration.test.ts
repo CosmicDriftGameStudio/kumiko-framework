@@ -14,11 +14,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { CapCounterQueries } from "../constants.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { createValueCapGuard } from "../value-cap-guard.ts";
 import { withCapEnforcement } from "../with-cap-enforcement.ts";
+import { fetchCounterValue } from "./read-counter.ts";
 
 type Caps = { readonly maxRetentionDays: number };
 
@@ -137,18 +137,13 @@ describe("withValueCap over HTTP", () => {
 
   test("composed with withCapEnforcement both apply: the value cap rejects without using up capacity, the cap still ends the quota", async () => {
     const admin = adminFor(4104);
-    const counterValue = async () => {
-      const row = (await stack.http.queryOk(
-        CapCounterQueries.getCounter,
-        { capName: CAP_NAME, periodStartIso: PERIOD },
-        createTestUser({
-          id: 4104,
-          tenantId: testTenantId(4104),
-          roles: ["TenantAdmin", "SystemAdmin"],
-        }),
-      )) as Record<string, unknown> | null;
-      return row?.["value"] ?? 0;
-    };
+    const counterUser = createTestUser({
+      id: 4104,
+      tenantId: testTenantId(4104),
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const counterValue = async () =>
+      (await fetchCounterValue(stack, counterUser, CAP_NAME, PERIOD)) ?? 0;
 
     await stack.http.writeOk(COUNTED_QN, { retentionDays: 10 }, admin);
     const overMax = await stack.http.writeErr(COUNTED_QN, { retentionDays: 31 }, admin);

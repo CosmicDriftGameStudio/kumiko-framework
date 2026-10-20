@@ -1489,9 +1489,7 @@ describe("DataTable", () => {
       );
       await user.click(screen.getByTestId("row-r1-actions-menu"));
       await user.click(screen.getByTestId("row-r1-action-b"));
-      // micro-task warten (onTrigger ist async im Hook)
-      await new Promise((r) => setTimeout(r, 0));
-      expect(onTrigger).toHaveBeenCalledWith(rows[0]);
+      await waitFor(() => expect(onTrigger).toHaveBeenCalledWith(rows[0]));
     });
 
     test("Kebab: Click auf Danger-Item → Confirm-Dialog statt direkt-Trigger", async () => {

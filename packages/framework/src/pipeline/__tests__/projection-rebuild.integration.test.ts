@@ -872,7 +872,13 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
       // Let B reach its lock-wait before we swap the table out from under it.
       // NOT awaiting bDone here: B can only finish once A commits (releases the
       // fence) — awaiting it inside the tx would deadlock.
-      await new Promise((r) => setTimeout(r, 300));
+      await waitFor(async () => {
+        const waiting = await asRawClient(testDb.db).unsafe(
+          `SELECT 1 FROM pg_locks WHERE locktype = 'relation' AND NOT granted AND relation = 'public."read_rebuild_items_per_group"'::regclass`,
+          [],
+        );
+        return waiting.length > 0;
+      });
       await swapShadowIntoLive(atx, "read_rebuild_items_per_group");
     });
     if (bDone) await bDone; // A committed → B unblocks and resolves

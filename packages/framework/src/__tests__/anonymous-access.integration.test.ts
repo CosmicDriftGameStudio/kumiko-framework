@@ -7,6 +7,7 @@
 // Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { readSseFrames } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -103,18 +104,6 @@ const shopFeature = defineFeature("anonshop", (r) => {
     access: { roles: ["Admin"] },
   });
 });
-
-// Reads the first SSE chunk and closes the stream; the stream otherwise never ends.
-async function readFirstSseChunk(res: Response): Promise<string> {
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("SSE response has no body");
-  try {
-    const { value } = await reader.read();
-    return new TextDecoder().decode(value);
-  } finally {
-    await reader.cancel();
-  }
-}
 
 // --- Suite ---
 
@@ -239,18 +228,17 @@ describe("anonymous access — single-tenant default", () => {
     expect(res.headers.get("set-cookie")).toMatch(
       new RegExp(`${AUTH_COOKIE_BASE}=;[^,]*Max-Age=0`, "i"),
     );
-    const firstChunk = await readFirstSseChunk(res);
-    expect(firstChunk).toContain("event: session-ended");
-    expect(firstChunk).toContain('"code":"invalid_token"');
+    const frames = await readSseFrames(res, { skipPings: false, until: () => true });
+    expect(frames.map((frame) => frame.event)).toEqual(["session-ended"]);
+    expect(frames.at(-1)?.data).toContain('"code":"invalid_token"');
   });
 
   test("anonymous /api/sse without a cookie carries no session-ended frame", async () => {
     const res = await stack.http.raw("GET", "/api/sse");
     expect(res.status).toBe(200);
     expect(res.headers.get("set-cookie")).toBeNull();
-    const firstChunk = await readFirstSseChunk(res);
-    expect(firstChunk).toContain("event: ping");
-    expect(firstChunk).not.toContain("session-ended");
+    const frames = await readSseFrames(res, { skipPings: false, until: () => true });
+    expect(frames.map((frame) => frame.event)).toEqual(["ping"]);
   });
 
   test("stale auth cookie on /api/auth/* keeps 401 invalid_token", async () => {
@@ -469,9 +457,9 @@ describe("anonymous access — revoked session cookie", () => {
       Cookie: await revokedSessionCookie(),
     });
     expect(res.status).toBe(200);
-    const firstChunk = await readFirstSseChunk(res);
-    expect(firstChunk).toContain("event: session-ended");
-    expect(firstChunk).toContain('"code":"session_invalid"');
+    const frames = await readSseFrames(res, { skipPings: false, until: () => true });
+    expect(frames.map((frame) => frame.event)).toEqual(["session-ended"]);
+    expect(frames.at(-1)?.data).toContain('"code":"session_invalid"');
   });
 
   test("the same revoked token as bearer keeps 401 session_invalid", async () => {

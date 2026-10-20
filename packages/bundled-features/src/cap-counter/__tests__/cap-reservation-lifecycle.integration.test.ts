@@ -32,12 +32,13 @@ import type {
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { readRollingCapUsage } from "../book-cap-usage.ts";
-import { CapCounterHandlers, CapCounterQueries } from "../constants.ts";
+import { CapCounterHandlers } from "../constants.ts";
 import type { SoftHitNotifier } from "../enforce-cap.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { capReservationsTable } from "../tables.ts";
 import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.ts";
+import { fetchCounterRow } from "./read-counter.ts";
 
 const PERIOD = "2026-07-01T00:00:00Z";
 
@@ -253,12 +254,8 @@ function userFor(tenantNumber: number, userNumber: number, roles: string[] = ["T
   return createTestUser({ id: userNumber, tenantId: testTenantId(tenantNumber), roles });
 }
 
-async function readCounter(user: ReturnType<typeof userFor>, capName: string) {
-  return (await stack.http.queryOk(
-    CapCounterQueries.getCounter,
-    { capName, periodStartIso: PERIOD },
-    user,
-  )) as Record<string, unknown> | null;
+function readCounter(user: ReturnType<typeof userFor>, capName: string) {
+  return fetchCounterRow(stack, user, capName, PERIOD);
 }
 
 async function rollingUsage(tenantNumber: number, capName: string) {

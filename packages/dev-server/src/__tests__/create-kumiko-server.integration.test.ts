@@ -25,7 +25,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { getSetCookieValue } from "@cosmicdrift/kumiko-testing/helpers";
+import { getSetCookieValue, readSseFrames } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import {
   type CreateKumikoServerOptions,
@@ -754,34 +754,13 @@ describe("createKumikoServer — hot-reload broadcast", () => {
 
       const sseRes = await handle.fetch(new Request("http://localhost/_reload"));
       expect(sseRes.status).toBe(200);
-      const reader = sseRes.body?.getReader();
-      expect(reader).toBeDefined();
-      if (!reader) return;
-
-      await reader.read(); // drain connected comment
 
       const initialBuilds = builds;
       watchEvents.emit("web/page.tsx");
 
       // Native fs events are not used: macOS FSEvents starts asynchronously and drops early writes.
-      const decoder = new TextDecoder();
-      let unparsed = "";
-      let reloadedFile: string | undefined;
-      try {
-        while (reloadedFile === undefined) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          unparsed += decoder.decode(value, { stream: true });
-          const frames = unparsed.split("\n\n");
-          unparsed = frames.pop() ?? "";
-          for (const frame of frames) {
-            const data = /^event: reload\ndata: (.*)$/m.exec(frame)?.[1];
-            if (data !== undefined) reloadedFile = String(JSON.parse(data));
-          }
-        }
-      } finally {
-        await reader.cancel();
-      }
+      const frames = await readSseFrames(sseRes, { until: (frame) => frame.event === "reload" });
+      const reloadedFile = String(JSON.parse(frames.at(-1)?.data ?? "null"));
       expect(reloadedFile).toBe("web/page.tsx");
 
       expect(builds).toBeGreaterThan(initialBuilds);

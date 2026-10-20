@@ -13,6 +13,7 @@ import {
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -567,24 +568,17 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
 
   test("missing blocks + NODE_ENV=production → throws mit slug-Liste", async () => {
     const { api } = fakeTemplateResolver([]);
-    const originalEnv = process.env["NODE_ENV"];
-    process.env["NODE_ENV"] = "production";
-    try {
+    await withEnv({ NODE_ENV: "production" }, async () => {
       await expect(runLegalPagesBootCheck({ templateResolver: api })).rejects.toThrow(
         /Boot-Validation failed.*imprint\/de.*privacy\/de/s,
       );
-    } finally {
-      if (originalEnv === undefined) delete process.env["NODE_ENV"];
-      else process.env["NODE_ENV"] = originalEnv;
-    }
+    });
   });
 
   test("missing blocks + NODE_ENV!=production → log.warn, kein throw", async () => {
     const { api } = fakeTemplateResolver([]);
     const warns: string[] = [];
-    const originalEnv = process.env["NODE_ENV"];
-    process.env["NODE_ENV"] = "development";
-    try {
+    await withEnv({ NODE_ENV: "development" }, async () => {
       await expect(
         runLegalPagesBootCheck({
           templateResolver: api,
@@ -595,10 +589,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
       expect(warns[0]).toContain("missing 2 required text-block(s)");
       expect(warns[0]).toContain("imprint/de");
       expect(warns[0]).toContain("privacy/de");
-    } finally {
-      if (originalEnv === undefined) delete process.env["NODE_ENV"];
-      else process.env["NODE_ENV"] = originalEnv;
-    }
+    });
   });
 
   test("ctx ohne templateResolver → InternalError mit Wiring-Hinweis", async () => {
@@ -613,9 +604,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
       { slug: "privacy", lang: "de", title: "P", content: "body" },
     ]);
     const warns: string[] = [];
-    const originalEnv = process.env["NODE_ENV"];
-    process.env["NODE_ENV"] = "development";
-    try {
+    await withEnv({ NODE_ENV: "development" }, async () => {
       await runLegalPagesBootCheck({
         templateResolver: api,
         log: { warn: (m) => warns.push(m) },
@@ -623,10 +612,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
       expect(warns[0]).toContain("missing 1 required text-block(s)");
       expect(warns[0]).toContain("imprint/de");
       expect(warns[0]).not.toContain("privacy/de");
-    } finally {
-      if (originalEnv === undefined) delete process.env["NODE_ENV"];
-      else process.env["NODE_ENV"] = originalEnv;
-    }
+    });
   });
 
   test("alle Lookups erfolgen gegen SYSTEM_TENANT_ID (nie tenant-scoped)", async () => {
@@ -645,19 +631,14 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     const { api } = fakeTemplateResolver([
       { slug: "imprint", lang: "es", title: "I", content: "x" },
     ]);
-    const originalEnv = process.env["NODE_ENV"];
-    process.env["NODE_ENV"] = "production";
-    try {
+    await withEnv({ NODE_ENV: "production" }, async () => {
       await expect(
         runLegalPagesBootCheck({ templateResolver: api }, [
           { slug: "imprint", lang: "es" },
           { slug: "privacy", lang: "es" },
         ]),
       ).rejects.toThrow(/Boot-Validation failed.*privacy\/es/s);
-    } finally {
-      if (originalEnv === undefined) delete process.env["NODE_ENV"];
-      else process.env["NODE_ENV"] = originalEnv;
-    }
+    });
   });
 
   test("custom requiredBlock (es privacy) vorhanden → kein throw", async () => {
@@ -665,19 +646,14 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
       { slug: "imprint", lang: "es", title: "I", content: "x" },
       { slug: "privacy", lang: "es", title: "P", content: "x" },
     ]);
-    const originalEnv = process.env["NODE_ENV"];
-    process.env["NODE_ENV"] = "production";
-    try {
+    await withEnv({ NODE_ENV: "production" }, async () => {
       await expect(
         runLegalPagesBootCheck({ templateResolver: api }, [
           { slug: "imprint", lang: "es" },
           { slug: "privacy", lang: "es" },
         ]),
       ).resolves.toBeUndefined();
-    } finally {
-      if (originalEnv === undefined) delete process.env["NODE_ENV"];
-      else process.env["NODE_ENV"] = originalEnv;
-    }
+    });
   });
 
   test("createLegalPagesFeature threads requiredBlocks into the boot-check job, not the DACH default", async () => {
@@ -702,14 +678,9 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
       payload: Record<string, unknown>,
       ctx: { templateResolver: TemplateResolverApi },
     ) => Promise<void>;
-    const originalEnv = process.env["NODE_ENV"];
-    process.env["NODE_ENV"] = "production";
-    try {
+    await withEnv({ NODE_ENV: "production" }, async () => {
       await expect(handler({}, { templateResolver: api })).rejects.toThrow(/privacy\/es/);
-    } finally {
-      if (originalEnv === undefined) delete process.env["NODE_ENV"];
-      else process.env["NODE_ENV"] = originalEnv;
-    }
+    });
   });
 });
 

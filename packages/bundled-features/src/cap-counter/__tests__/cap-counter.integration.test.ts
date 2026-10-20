@@ -23,11 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { rollingCapAggregateId } from "../aggregate-id.ts";
-import {
-  CapCounterHandlers,
-  CapCounterQueries,
-  ROLLING_INCREMENTED_EVENT_QN,
-} from "../constants.ts";
+import { CapCounterHandlers, ROLLING_INCREMENTED_EVENT_QN } from "../constants.ts";
 import {
   CapExceededError,
   currentCalendarMonthStartIso,
@@ -39,6 +35,7 @@ import {
 } from "../enforce-cap.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
+import { fetchCounterRow } from "./read-counter.ts";
 
 // --- Test-Probe-Feature: drives enforceCap from inside a real handler ---
 
@@ -232,16 +229,12 @@ async function incrementRolling(
   await stack.http.writeOk(CapCounterHandlers.incrementRolling, { capName, amount }, user);
 }
 
-async function readCounter(
+function readCounter(
   user: ReturnType<typeof adminFor>,
   capName: string,
   periodStartIso: string = PERIOD,
 ) {
-  return (await stack.http.queryOk(
-    CapCounterQueries.getCounter,
-    { capName, periodStartIso },
-    user,
-  )) as Record<string, unknown> | null;
+  return fetchCounterRow(stack, user, capName, periodStartIso);
 }
 
 // --- Scenario 1: increment + read ---

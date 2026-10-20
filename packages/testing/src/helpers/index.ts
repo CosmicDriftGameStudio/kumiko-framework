@@ -62,8 +62,10 @@ export {
   sharedWidgetEntity,
   sharedWidgetTable,
 } from "./shared-entities.ts";
+export { readSseFrames, type SseFrame } from "./sse-frames.ts";
 export { createTestStoredEvent } from "./stored-event-fixture.ts";
 export { sleep } from "./utils.ts";
 export { waitFor } from "./wait-for.ts";
+export { withEnv } from "./with-env.ts";
 export { withoutAmbientTemporal } from "./without-ambient-temporal.ts";
 export { zipWithEntries } from "./zip-fixture.ts";
