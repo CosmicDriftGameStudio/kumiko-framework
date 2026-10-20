@@ -8,6 +8,8 @@ import type { ReactNode } from "react";
 import type { Dispatcher } from "../../headless/index.ts";
 import {
   DispatcherProvider,
+  type ExtensionSectionProps,
+  ExtensionSectionsProvider,
   type FeatureSchema,
   KumikoScreen,
   LeaveGuardDialog,
@@ -203,6 +205,160 @@ describe("leave guard", () => {
     typeTitle("draft");
     view.unmount();
     expect(beforeUnloadEvent().defaultPrevented).toBe(false);
+  });
+});
+
+describe("leave guard with an extension section that saves host values itself", () => {
+  const extensionScreen: EntityEditScreenDefinition = {
+    id: "tasks:screen:task-edit-ext",
+    type: "entityEdit",
+    entity: "task",
+    layout: {
+      sections: [
+        { title: "Basics", columns: 1, fields: ["title"] },
+        { kind: "extension", title: "Publish", component: { react: { __component: "SelfSaver" } } },
+      ],
+    },
+  };
+
+  function SelfSaver({ patch, markSaved }: ExtensionSectionProps): ReactNode {
+    const nav = useNav();
+    return (
+      <>
+        <button
+          type="button"
+          data-testid="patch-host"
+          onClick={() => patch?.({ title: "changed" })}
+        >
+          patch
+        </button>
+        <button
+          type="button"
+          data-testid="save-and-leave"
+          onClick={() => {
+            markSaved?.();
+            nav.navigate({ screenId: "list" });
+          }}
+        >
+          save
+        </button>
+        <button
+          type="button"
+          data-testid="leave-without-mark"
+          onClick={() => nav.navigate({ screenId: "list" })}
+        >
+          leave
+        </button>
+      </>
+    );
+  }
+
+  const footerScreen: EntityEditScreenDefinition = {
+    ...extensionScreen,
+    id: "tasks:screen:task-edit-footer",
+    layout: { sections: [{ title: "Basics", columns: 1, fields: ["title"] }] },
+    slots: { footer: { react: { __component: "FooterSaver" } } },
+  };
+
+  function FooterSaver({ markSaved }: ExtensionSectionProps): ReactNode {
+    const nav = useNav();
+    return (
+      <>
+        <button
+          type="button"
+          data-testid="footer-save-and-leave"
+          onClick={() => {
+            markSaved?.();
+            nav.navigate({ screenId: "list" });
+          }}
+        >
+          save
+        </button>
+        <button
+          type="button"
+          data-testid="footer-leave-without-mark"
+          onClick={() => nav.navigate({ screenId: "list" })}
+        >
+          leave
+        </button>
+      </>
+    );
+  }
+
+  function renderFooterForm(): void {
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={dispatcherWriting("success")}>
+          <ExtensionSectionsProvider value={{ FooterSaver }}>
+            <RenderEdit<TaskValues>
+              screen={footerScreen}
+              entity={taskEntity}
+              featureName="tasks"
+              initial={{ title: "" }}
+              writeCommand="task:update"
+              entityId="t-1"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+        <LeaveGuardDialog />
+      </BrowserNav>,
+    );
+  }
+
+  function renderExtensionForm(): void {
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={dispatcherWriting("success")}>
+          <ExtensionSectionsProvider value={{ SelfSaver }}>
+            <RenderEdit<TaskValues>
+              screen={extensionScreen}
+              entity={taskEntity}
+              featureName="tasks"
+              initial={{ title: "" }}
+              writeCommand="task:update"
+              entityId="t-1"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+        <LeaveGuardDialog />
+      </BrowserNav>,
+    );
+  }
+
+  test("markSaved after patching host values lets the next navigation pass without asking", async () => {
+    renderExtensionForm();
+    fireEvent.click(screen.getByTestId("patch-host"));
+    fireEvent.click(screen.getByTestId("save-and-leave"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/list"));
+    expect(screen.queryByTestId("leave-guard-dialog")).toBeNull();
+  });
+
+  test("without markSaved the same patched form asks before leaving", async () => {
+    renderExtensionForm();
+    fireEvent.click(screen.getByTestId("patch-host"));
+    fireEvent.click(screen.getByTestId("leave-without-mark"));
+
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    expect(window.location.pathname).toBe("/tasks");
+  });
+
+  test("footer slot: markSaved after the host values changed lets the navigation pass without asking", async () => {
+    renderFooterForm();
+    typeTitle("changed");
+    fireEvent.click(screen.getByTestId("footer-save-and-leave"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/list"));
+    expect(screen.queryByTestId("leave-guard-dialog")).toBeNull();
+  });
+
+  test("footer slot: without markSaved the dirty form asks before leaving", async () => {
+    renderFooterForm();
+    typeTitle("changed");
+    fireEvent.click(screen.getByTestId("footer-leave-without-mark"));
+
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    expect(window.location.pathname).toBe("/tasks");
   });
 });
 

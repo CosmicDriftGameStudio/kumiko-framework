@@ -287,6 +287,7 @@ function ExtensionSectionMount({
   values,
   patch,
   validate,
+  markSaved,
   hideTitle,
   actions,
   stepKey,
@@ -299,6 +300,7 @@ function ExtensionSectionMount({
   readonly values?: Readonly<Record<string, unknown>>;
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   readonly validate?: () => boolean;
+  readonly markSaved?: () => void;
   readonly hideTitle?: boolean;
   /** section.actions, already resolved into buttons by the caller. */
   readonly actions?: ReactNode;
@@ -350,6 +352,7 @@ function ExtensionSectionMount({
       values={values}
       patch={patch}
       validate={validate}
+      markSaved={markSaved}
       {...(onReportStepComplete !== undefined && { reportStepComplete })}
     />
   );
@@ -381,6 +384,7 @@ function EditSlotMount({
   entityName,
   entityId,
   values,
+  markSaved,
   hasUnsavedChanges,
   wizardStep,
 }: {
@@ -390,6 +394,7 @@ function EditSlotMount({
   readonly entityName: string;
   readonly entityId: string | null;
   readonly values: Readonly<Record<string, unknown>>;
+  readonly markSaved?: () => void;
   readonly hasUnsavedChanges?: boolean;
   readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
 } & StickyPrimaryActionMarker): ReactNode {
@@ -409,6 +414,7 @@ function EditSlotMount({
       entityName={entityName}
       entityId={entityId}
       values={values}
+      {...(markSaved !== undefined && { markSaved })}
       {...(hasUnsavedChanges !== undefined && { hasUnsavedChanges })}
       {...(wizardStep !== undefined && { wizardStep })}
     />
@@ -754,6 +760,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     () => controller.validate(scopeFieldNamesRef.current),
     [controller],
   );
+  const markSaved = useCallback(() => {
+    controller.rebase();
+    extensionDirtyRef.current = false;
+    setExtensionDirty(false);
+  }, [controller]);
 
   // `saveDraft` (defined below) is a fresh closure every render, over that
   // render's `draftKey`/`draftId` — the ref lets the debounce timer below
@@ -1696,6 +1707,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           entityName={vm.entityName}
           entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
           values={snapshot.values}
+          markSaved={markSaved}
           hasUnsavedChanges={hasUnsavedInput}
           wizardStep={isWizard ? { index: currentStep, isLast: isLastWizardStep } : undefined}
           {...(screen.slots?.footerPrimary === true && { [STICKY_PRIMARY_ACTION_PROP]: true })}
@@ -2115,6 +2127,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     ) => void
                   }
                   validate={scopedValidate}
+                  markSaved={markSaved}
                   hideTitle={hideSectionTitles}
                   {...(isWizard &&
                     !isCreateMode && {

@@ -74,11 +74,11 @@ const scopedEntity = createEntity({
   },
 });
 
-// fw#2914 — "tenant-scoped" is a managed r.entity table (EXECUTOR_ONLY-branded),
+// fw#2914 — "tenant-scoped" is a managed r.entity table (not Writable),
 // so TenantDb's typed write methods reject it; this delete is raw SQL, still
 // filtered by tenant_id.
 const TENANT_SCOPED_DELETE_REASON =
-  "fw#2914 test fixture: tenant-scoped erasure against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by tenant_id";
+  "fw#2914 test fixture: tenant-scoped erasure against a managed entity table needs raw SQL (TenantDb's typed write API rejects non-Writable tables); filtered by tenant_id";
 
 const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
   if (ctx.tenantModel !== "single-user") return; // shared tenant: erasing would hit co-members

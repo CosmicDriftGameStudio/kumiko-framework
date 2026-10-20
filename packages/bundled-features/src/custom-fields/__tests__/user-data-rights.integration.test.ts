@@ -74,11 +74,11 @@ const propertyTable = buildEntityTable("property", propertyEntity);
 // Host entity gets its own EXT_USER_DATA-registration too — that's the
 // canonical setup. The host's anonymize hook NULLS inserted_by_id; the
 // custom-fields wiring contributes export only (#972).
-// fw#2914 — "property" is a managed r.entity table (EXECUTOR_ONLY-branded), so
+// fw#2914 — "property" is a managed r.entity table (not Writable), so
 // TenantDb's typed write methods reject it; these host hooks need raw SQL,
 // still filtered by inserted_by_id + tenant_id.
 const HOST_HOOK_REASON =
-  "fw#2914 test fixture: host export/delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by inserted_by_id + tenant_id";
+  "fw#2914 test fixture: host export/delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects non-Writable tables); filtered by inserted_by_id + tenant_id";
 
 const hostExportHook: UserDataExportHook = async (ctx) => {
   const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe(

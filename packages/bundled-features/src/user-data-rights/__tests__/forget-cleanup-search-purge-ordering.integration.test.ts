@@ -57,11 +57,11 @@ const noteEntity = createEntity({
 });
 const noteTable = buildEntityTable("note", noteEntity);
 
-// fw#2914 — "note" is a managed r.entity table (EXECUTOR_ONLY-branded), so
+// fw#2914 — "note" is a managed r.entity table (not Writable), so
 // TenantDb's typed write methods reject it; this delete is raw SQL, still
 // filtered by author_id + tenant_id.
 const HARD_DELETE_NOTE_REASON =
-  "fw#2914 test fixture: hard delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by author_id + tenant_id";
+  "fw#2914 test fixture: hard delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects non-Writable tables); filtered by author_id + tenant_id";
 
 const hardDeleteNoteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") return;
