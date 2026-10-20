@@ -16,36 +16,36 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createAuditFeature } from "../../audit/feature.ts";
-import { ConfigQueries } from "../../config/constants.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigQueries } from "../../config/web/constants.ts";
 import { createFeatureTogglesFeature } from "../../feature-toggles/feature.ts";
-import { JobQueries } from "../../jobs/constants.ts";
 import { createJobsFeature } from "../../jobs/feature.ts";
 import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table.ts";
+import { JobQueries } from "../../jobs/web/constants.ts";
 import { hashPassword } from "../../shared/index.ts";
-import { TenantQueries } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
+import { TenantQueries } from "../../tenant/web/constants.ts";
 import { createTierEngineFeature } from "../../tier-engine/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
 import { seedUser } from "../../user/seeding.ts";
-import {
-  ADMIN_SHELL_FEATURE,
-  DEFAULT_PLATFORM_WORKSPACE_ID,
-  DEFAULT_TENANT_WORKSPACE_ID,
-  TENANT_OVERVIEW_SCREEN_ID,
-} from "../constants.ts";
 import { createAdminShellFeature } from "../feature.ts";
 import {
   isOverviewQueryAllowed,
   TENANT_OVERVIEW_FORBIDDEN_QUERIES,
 } from "../overview-allowlist.ts";
+import {
+  ADMIN_SHELL_FEATURE,
+  DEFAULT_PLATFORM_WORKSPACE_ID,
+  DEFAULT_TENANT_WORKSPACE_ID,
+  TENANT_OVERVIEW_SCREEN_ID,
+} from "../web/constants.ts";
 import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.ts";
 
 let stack: TestStack;

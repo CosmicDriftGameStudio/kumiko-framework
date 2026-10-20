@@ -1,4 +1,3 @@
-// @runtime client
 // Default-Bundles für die auth-mfa Feature-UI. Merged in mit
 // authMfaClient() analog zu emailPasswordClient() aus auth-email-password.
 // Keys folgen `auth.mfa.<area>.<slug>`.

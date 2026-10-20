@@ -43,8 +43,8 @@ import { signTenantHandoverGrant } from "../../tenant-handover/grant.ts";
 import { createTenantHandoverFeature } from "../../tenant-handover/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const GRANT_SECRET = "signup-handover-test-secret-min-32-chars-long-enough";

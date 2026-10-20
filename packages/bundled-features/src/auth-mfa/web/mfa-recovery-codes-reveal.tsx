@@ -1,4 +1,3 @@
-// @runtime client
 // MfaRecoveryCodesReveal — one-time display of a fresh recovery-code set,
 // with an acknowledge-then-dismiss gate. Standalone so MfaRegenerateRecovery-
 // Dialog's caller can render it after the dialog closes — the codes only

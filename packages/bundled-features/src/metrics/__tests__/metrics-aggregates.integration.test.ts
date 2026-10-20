@@ -6,9 +6,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { METRICS_FEATURE, metricQueryName } from "../constants.ts";
 import { createMetricsFeature } from "../feature.ts";
 import type { MetricResult } from "../types.ts";
+import { METRICS_FEATURE, metricQueryName } from "../web/constants.ts";
 import {
   ALL_TEST_METRICS,
   amountMetric,

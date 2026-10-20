@@ -11,8 +11,8 @@ import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
-import { JobErrors } from "../constants.ts";
 import { jobRunsTable } from "../job-run-table.ts";
+import { JobErrors } from "../web/constants.ts";
 
 type JobRunRow = {
   readonly status: string;

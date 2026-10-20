@@ -1,4 +1,3 @@
-// @runtime client
 //
 // Lazy boundary: tiptap only loads when a "document" collection is rendered.
 // Never import document-tiptap-editor or document-editor-extensions statically here.

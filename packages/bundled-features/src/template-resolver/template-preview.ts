@@ -30,13 +30,6 @@ import {
 } from "../renderer-foundation/index.ts";
 import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource } from "./api.ts";
 import { collectDocumentResourceKeys } from "./compile-document-body.ts";
-import {
-  DEFAULT_MAIL_LAYOUT_SLUG,
-  DEFAULT_PDF_LAYOUT_SLUG,
-  MAIL_PREVIEW_MAX_BYTES,
-  SYSTEM_TENANT_ID,
-  type TemplateScope,
-} from "./constants.ts";
 import { parseStoredJson } from "./handlers/template-gates.ts";
 import { validateTemplateDraft } from "./handlers/validate.query.ts";
 import {
@@ -47,7 +40,6 @@ import {
 } from "./layout-regions.ts";
 import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.ts";
 import { buildDisplayHtml } from "./preview-display-html.ts";
-import { TemplateResolverErrors } from "./qualified-names.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import { deliveryPolicyOf, isRowServedTo } from "./template-delivery-policy.ts";
 import {
@@ -57,6 +49,14 @@ import {
   parseTemplateMeta,
   readPdfTemplateMeta,
 } from "./template-meta.ts";
+import {
+  DEFAULT_MAIL_LAYOUT_SLUG,
+  DEFAULT_PDF_LAYOUT_SLUG,
+  MAIL_PREVIEW_MAX_BYTES,
+  SYSTEM_TENANT_ID,
+  type TemplateScope,
+} from "./web/constants.ts";
+import { TemplateResolverErrors } from "./web/qualified-names.ts";
 
 const SAMPLE_LINK = "https://example.com";
 const SAMPLE_DATE = "2026-01-15";

@@ -1,6 +1,5 @@
-// @runtime client
 import { useAppFeatures, useQuery } from "@cosmicdrift/kumiko-renderer";
-import { PROFILE_FEATURE_NAME, PROFILE_SCREEN_ID, USER_ME_QUERY_QN } from "../constants.ts";
+import { PROFILE_FEATURE_NAME, PROFILE_SCREEN_ID, USER_ME_QUERY_QN } from "./constants.ts";
 
 export type OwnAddress = {
   readonly email: string | null;

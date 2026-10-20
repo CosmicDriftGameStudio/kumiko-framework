@@ -34,13 +34,13 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { seedNotificationTemplates } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const TENANT_EDITABLE = tenantEditableTemplates(

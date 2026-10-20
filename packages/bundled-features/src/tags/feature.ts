@@ -28,7 +28,6 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
-import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants.ts";
 import { createTagAssignmentEntity, tagEntity } from "./entity.ts";
 import { createTagAssignmentExecutor } from "./executor.ts";
 import { createAssignTagHandler } from "./handlers/assign-tag.write.ts";
@@ -38,6 +37,7 @@ import { createRemoveTagHandler } from "./handlers/remove-tag.write.ts";
 import { createUpdateTagHandler } from "./handlers/update-tag.write.ts";
 import { TAGS_FEATURE_I18N } from "./i18n.ts";
 import { createTagEditScreen, createTagListScreen } from "./screens.ts";
+import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./web/constants.ts";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature

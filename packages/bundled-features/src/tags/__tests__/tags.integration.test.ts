@@ -24,9 +24,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { v5 as uuidv5 } from "uuid";
-import { TagsHandlers, TagsQueries } from "../constants.ts";
 import { tagAssignmentEntity, tagEntity } from "../entity.ts";
 import { createTagsFeature } from "../feature.ts";
+import { TagsHandlers, TagsQueries } from "../web/constants.ts";
 
 const tagsFeature = createTagsFeature();
 

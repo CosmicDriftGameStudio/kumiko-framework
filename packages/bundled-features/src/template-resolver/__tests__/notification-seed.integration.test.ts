@@ -17,13 +17,13 @@ import {
 import * as z from "zod";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { TemplateResolverHandlers } from "../qualified-names.ts";
 import { seedNotificationTemplates } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { TemplateResolverHandlers } from "../web/qualified-names.ts";
 
 let stack: TestStack;
 let db: DbConnection;

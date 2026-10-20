@@ -5,11 +5,11 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { DocumentHtmlKind } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
+import type { DocumentHtmlKind } from "../web/constants.ts";
 import { parseStoredJson } from "./template-gates.ts";
 
 export type DocumentBase = {

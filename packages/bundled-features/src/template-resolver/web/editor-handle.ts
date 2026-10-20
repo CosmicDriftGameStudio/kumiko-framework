@@ -1,6 +1,5 @@
-// @runtime client
 import type { Editor } from "@tiptap/core";
-import { isDocumentReferenceName, isDocumentResourceKey } from "../document-schema.ts";
+import { isDocumentReferenceName, isDocumentResourceKey } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
 
 export function createEditorHandle(editor: Editor): DocumentEditorHandle {

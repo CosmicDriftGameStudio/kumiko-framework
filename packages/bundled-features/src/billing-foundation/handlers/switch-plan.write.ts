@@ -13,10 +13,10 @@ import {
   joinBaseUrl,
   resolveCatalogProvider,
 } from "../checkout-core.ts";
-import { isSwitchableSubscriptionStatus } from "../constants.ts";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
 import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.ts";
 import type { BillingFoundationOptions, BillingPlanCatalog } from "../types.ts";
+import { isSwitchableSubscriptionStatus } from "../web/constants.ts";
 
 export function createSwitchPlanHandler(
   options: BillingFoundationOptions,

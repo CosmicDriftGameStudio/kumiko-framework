@@ -4,7 +4,6 @@
 // the renderer did not plan for.
 
 import type { Element as ScanElement } from "happy-dom";
-import type { ContentFormat } from "./constants.ts";
 import {
   type DocumentViolation,
   type SanitizeBodyResult,
@@ -13,6 +12,7 @@ import {
   violation,
   withParsedDocument,
 } from "./document-sanitizer.ts";
+import type { ContentFormat } from "./web/constants.ts";
 
 const REGION_ATTRIBUTES = ["data-header", "data-content", "data-signature", "data-footer"] as const;
 type RegionAttribute = (typeof REGION_ATTRIBUTES)[number];

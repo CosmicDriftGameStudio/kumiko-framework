@@ -1,4 +1,3 @@
-// @runtime client
 // Client-safe ledger surface: QN constants, the pure recurring helpers
 // (projection + Soll/Ist merge), and the Zod payload schemas (for client-side
 // pre-validation before dispatch) — nothing else. The full `../ledger` entry
@@ -7,17 +6,6 @@
 // (e.g. a rent-cashflow view) imports the dispatch QNs + the pure forecast/merge
 // from HERE, then dispatches via the renderer's useDispatcher.
 
-export {
-  ACCOUNT_TYPES,
-  type AccountType,
-  LEDGER_FEATURE_NAME,
-  LedgerHandlers,
-  LedgerQueries,
-  SCHEDULE_INTERVALS,
-  type ScheduleInterval,
-  TRANSACTION_STATUS,
-  type TransactionStatus,
-} from "../constants.ts";
 export {
   type LedgerTxRow,
   mergeScheduleActuals,
@@ -34,3 +22,14 @@ export {
   type Posting,
   postingSchema,
 } from "../schemas.ts";
+export {
+  ACCOUNT_TYPES,
+  type AccountType,
+  LEDGER_FEATURE_NAME,
+  LedgerHandlers,
+  LedgerQueries,
+  SCHEDULE_INTERVALS,
+  type ScheduleInterval,
+  TRANSACTION_STATUS,
+  type TransactionStatus,
+} from "./constants.ts";

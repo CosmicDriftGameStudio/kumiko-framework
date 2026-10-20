@@ -1,10 +1,8 @@
-// @runtime client
-
 import { useLocale, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
-import { resolveConsentLocale } from "../consumer-protection/consent-locale.ts";
 import type { BillingPlansResult } from "../types.ts";
+import { resolveConsentLocale } from "./consumer-protection/consent-locale.ts";
 
 export const CONSENT_TEXT_OUTDATED_CODE = "consent_text_outdated";
 

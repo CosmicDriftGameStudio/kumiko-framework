@@ -1,4 +1,3 @@
-// @runtime client
 // RequestAccountUnlockScreen — form with an email input. Submit triggers
 // /api/auth/request-account-unlock (silent-success, no account
 // enumeration). UI unconditionally shows an "if your account is locked,

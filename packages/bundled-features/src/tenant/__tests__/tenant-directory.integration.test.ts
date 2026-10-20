@@ -20,10 +20,10 @@ import { configValuesTable } from "../../config/table.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { seedUser } from "../../user/seeding.ts";
-import { TenantQueries } from "../constants.ts";
 import { createTenantFeature } from "../feature.ts";
 import { tenantEntity } from "../schema/tenant.ts";
 import { seedTenant } from "../seeding.ts";
+import { TenantQueries } from "../web/constants.ts";
 
 const ownTenantId = testTenantId(1);
 const foreignTenantId = testTenantId(2);

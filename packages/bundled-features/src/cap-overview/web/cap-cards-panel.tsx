@@ -1,4 +1,3 @@
-// @runtime client
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
 import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
@@ -10,9 +9,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer/web";
 import { Database, FileText, Gauge, Hash, Mail, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { CapOverviewQueries } from "../constants.ts";
 import type { CapIconKey, CapUsageTone, CapUsageWithMeta } from "../types.ts";
 import { CapUsageBar } from "./cap-usage-bar.tsx";
+import { CapOverviewQueries } from "./constants.ts";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 

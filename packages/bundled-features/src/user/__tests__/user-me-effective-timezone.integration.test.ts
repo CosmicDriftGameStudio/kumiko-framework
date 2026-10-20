@@ -10,9 +10,9 @@ import { createConfigAccessorFactory, createConfigFeature } from "../../config/f
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
-import { UserHandlers, UserQueries } from "../constants.ts";
 import { createUserFeature } from "../feature.ts";
 import { userEntity } from "../schema/user.ts";
+import { UserHandlers, UserQueries } from "../web/constants.ts";
 
 let stack: TestStack;
 

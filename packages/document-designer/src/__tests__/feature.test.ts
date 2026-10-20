@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { createDocumentDesignerFeature } from "../feature.ts";
+import { documentDesignerClient } from "../web/client-plugin.tsx";
 import {
   DocumentDesignerCells,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
   TEMPLATE_EDITOR_SCREENS,
-} from "../constants.ts";
-import { createDocumentDesignerFeature } from "../feature.ts";
-import { documentDesignerClient } from "../web/client-plugin.tsx";
+} from "../web/constants.ts";
 
 const features = [createTemplateResolverFeature(), createDocumentDesignerFeature()];
 

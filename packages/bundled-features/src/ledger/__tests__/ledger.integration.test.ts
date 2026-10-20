@@ -20,11 +20,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants.ts";
 import { accountEntity, scheduleEntity, transactionEntity } from "../entity.ts";
 import { createLedgerFeature } from "../feature.ts";
 import { scheduleReference } from "../recurring.ts";
 import type { Posting } from "../schemas.ts";
+import { type AccountType, LedgerHandlers, LedgerQueries } from "../web/constants.ts";
 
 const ledgerFeature = createLedgerFeature();
 

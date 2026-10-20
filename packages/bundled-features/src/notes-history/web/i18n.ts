@@ -1,4 +1,3 @@
-// @runtime client
 // Default translation bundle for the notes-history UI. notesHistoryClient()
 // hangs it into the LocaleProvider as a fallback bundle — apps override
 // individual keys via notesHistoryClient({ translations }).

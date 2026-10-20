@@ -1,4 +1,3 @@
-// @runtime client
 // Channel column: the label comes from `delivery.channel.<name>`, registered by each
 // channel feature; unknown channels show their raw name.
 

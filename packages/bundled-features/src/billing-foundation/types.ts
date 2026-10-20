@@ -28,6 +28,7 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import type { OrderItem } from "./consumer-protection/consent-gate.ts";
 import {
   type BillingEventKinds,
   type BillingPlanAction,
@@ -36,9 +37,8 @@ import {
   type SubscriptionEventType,
   type SubscriptionStatus,
   type TerminationScope,
-} from "./constants.ts";
-import type { OrderItem } from "./consumer-protection/consent-gate.ts";
-import type { ConsentLocale } from "./consumer-protection/consent-locale.ts";
+} from "./web/constants.ts";
+import type { ConsentLocale } from "./web/consumer-protection/consent-locale.ts";
 
 // =============================================================================
 // Normalisierter Webhook-Event

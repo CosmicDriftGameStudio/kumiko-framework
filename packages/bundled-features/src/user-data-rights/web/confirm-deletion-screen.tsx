@@ -1,4 +1,3 @@
-// @runtime client
 // ConfirmAccountDeletionScreen — anonymer Apex-Screen Schritt 2. Liest das
 // Token aus dem URL-Fragment (`#token=…`, nie an den Server gesendet — landet
 // so nicht in Proxy-/Access-Logs, fw#1554) und dispatcht beim Bestätigen

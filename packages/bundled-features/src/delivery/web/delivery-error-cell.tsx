@@ -1,4 +1,3 @@
-// @runtime client
 // Error column. The log only carries fixed codes (`DeliveryErrorCode`); `http_<status>`
 // takes the status as a parameter, anything unknown shows as the raw value.
 

@@ -1,4 +1,3 @@
-// @runtime client
 // Login-Challenge-Step, gerendert wenn LoginScreen's onMfaChallenge feuert
 // (/auth/login antwortete mfaRequired). Stilistisch wie login-screen.tsx:
 // useState + direkter fetch-Call, kein Dispatcher — es existiert noch kein

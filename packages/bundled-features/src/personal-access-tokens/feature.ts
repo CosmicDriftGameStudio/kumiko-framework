@@ -9,12 +9,6 @@ import {
   type FeatureDefinition,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  API_TOKEN_ENTITY_NAME,
-  PAT_DEFAULT_RATE_LIMIT,
-  PAT_FEATURE,
-  type PatRateLimit,
-} from "./constants.ts";
 import { availabilityQuery } from "./handlers/availability.query.ts";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.ts";
 import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.ts";
@@ -24,8 +18,14 @@ import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n.ts";
 import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event.ts";
 import { createPatResolver } from "./resolver.ts";
 import { apiTokenEntity } from "./schema/api-token.ts";
-import type { PatScopeConfig } from "./scopes.ts";
 import { createPatMintScreen, patListScreen } from "./screens.ts";
+import {
+  API_TOKEN_ENTITY_NAME,
+  PAT_DEFAULT_RATE_LIMIT,
+  PAT_FEATURE,
+  type PatRateLimit,
+} from "./web/constants.ts";
+import type { PatScopeConfig } from "./web/scopes.ts";
 
 // Password-change is the only field-level trigger — see the postSave hook
 // below. MFA-enable/disable is wired separately (auth-mfa's

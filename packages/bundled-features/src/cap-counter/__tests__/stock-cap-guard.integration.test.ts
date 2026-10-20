@@ -26,10 +26,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createStockCapGuard } from "../stock-cap-guard.ts";
 

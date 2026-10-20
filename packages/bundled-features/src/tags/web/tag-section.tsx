@@ -1,4 +1,3 @@
-// @runtime client
 // TagSection — drop-in tag editor for ANY entity, GitLab-labels style. Shows the
 // entity's tags as colored chips plus an "Edit tags" button that opens the
 // shared TagPicker modal (pick + manage). Applying the picker diffs the
@@ -19,7 +18,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { TagsHandlers, TagsQueries } from "../constants.ts";
+import { TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
 

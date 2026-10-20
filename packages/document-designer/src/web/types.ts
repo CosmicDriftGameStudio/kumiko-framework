@@ -1,4 +1,3 @@
-// @runtime client
 import type { FieldIssue } from "@cosmicdrift/kumiko-renderer/headless";
 import type { TemplateDiff } from "./layout-types.ts";
 

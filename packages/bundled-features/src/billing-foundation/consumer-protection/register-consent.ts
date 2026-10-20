@@ -1,6 +1,5 @@
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
-import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_SHORT,
   CONTRACT_CONFIRMATION_ISSUED_EVENT_SHORT,
@@ -12,6 +11,7 @@ import {
   SUBSCRIPTION_UPDATED_EVENT_QN,
 } from "../events.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../web/constants.ts";
 import { createIssueContractConfirmationHandler } from "./issue-confirmation.ts";
 import { registerConsumerProtectionMails } from "./mail-notifications.ts";
 import { registerContractTermination } from "./register-termination.ts";

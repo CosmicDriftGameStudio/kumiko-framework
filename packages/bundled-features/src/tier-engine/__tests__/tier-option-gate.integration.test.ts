@@ -28,11 +28,11 @@ import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
-import { TierEngineHandlers } from "../constants.ts";
 import { tierAssignmentEntity } from "../entity.ts";
 import { createTierEngineFeature } from "../feature.ts";
 import { createTierOptionGate } from "../tier-option-gate.ts";
 import { createTierResolver } from "../tier-resolver.ts";
+import { TierEngineHandlers } from "../web/constants.ts";
 
 type Tier = "free" | "pro" | "enterprise";
 type Caps = { readonly layouts: readonly string[] };

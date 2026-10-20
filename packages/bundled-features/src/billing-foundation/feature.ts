@@ -56,11 +56,6 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import {
-  BILLING_FOUNDATION_FEATURE,
-  SUBSCRIPTION_PROVIDER_EXTENSION,
-  SubscriptionFoundationHandlers,
-} from "./constants.ts";
 import { registerConsumerProtection } from "./consumer-protection/register-consent.ts";
 import { paymentEntity, subscriptionEntity } from "./entities.ts";
 import {
@@ -110,6 +105,11 @@ import {
 } from "./tenant-destroy-hook.ts";
 import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types.ts";
 import { validateOptions } from "./validate-options.ts";
+import {
+  BILLING_FOUNDATION_FEATURE,
+  SUBSCRIPTION_PROVIDER_EXTENSION,
+  SubscriptionFoundationHandlers,
+} from "./web/constants.ts";
 
 export function createBillingFoundationFeature<TTier extends string = string>(
   options: BillingFoundationOptions<TTier> = {},

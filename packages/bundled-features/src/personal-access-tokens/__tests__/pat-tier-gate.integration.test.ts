@@ -5,14 +5,14 @@ import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
+import { createPersonalAccessTokensFeature } from "../feature.ts";
 import {
   PAT_FEATURE,
   PAT_MINT_SCREEN_ID,
   PAT_SCREEN_ID,
   PatHandlers,
   PatQueries,
-} from "../constants.ts";
-import { createPersonalAccessTokensFeature } from "../feature.ts";
+} from "../web/constants.ts";
 
 const TENANT_WITH_TIER = testTenantId(11);
 const TENANT_WITHOUT_TIER = testTenantId(12);

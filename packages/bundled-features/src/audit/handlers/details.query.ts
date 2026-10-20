@@ -5,7 +5,7 @@
 
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { AUDIT_SCOPE_VALUES } from "../constants.ts";
+import { AUDIT_SCOPE_VALUES } from "../web/constants.ts";
 import { auditEventIdSchema, loadAuditEvent } from "./audit-events.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";

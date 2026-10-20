@@ -31,11 +31,11 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigAccessorFactory } from "../../config/feature.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
   clearInbox,

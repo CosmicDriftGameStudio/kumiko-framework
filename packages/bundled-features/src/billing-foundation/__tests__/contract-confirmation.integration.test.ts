@@ -30,11 +30,11 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
-import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { TemplateResolverHandlers } from "../../template-resolver/index.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
 import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.ts";
+import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/web/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
@@ -42,13 +42,6 @@ import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
-import {
-  BillingEventKinds,
-  SubscriptionEventTypes,
-  SubscriptionFoundationHandlers,
-  type SubscriptionStatus,
-  SubscriptionStatuses,
-} from "../constants.ts";
 import { CONSENT_TEXTS, consentTextVersion } from "../consumer-protection/consent-text.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,
@@ -62,6 +55,13 @@ import type {
   SubscriptionEvent,
   SubscriptionProviderPlugin,
 } from "../types.ts";
+import {
+  BillingEventKinds,
+  SubscriptionEventTypes,
+  SubscriptionFoundationHandlers,
+  type SubscriptionStatus,
+  SubscriptionStatuses,
+} from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 const PROVIDER = "mock-confirm-provider";

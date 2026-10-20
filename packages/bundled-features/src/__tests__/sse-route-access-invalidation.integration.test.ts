@@ -21,8 +21,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.ts";
+import { AuthHandlers } from "../auth-email-password/web/constants.ts";
 import { createConfigFeature } from "../config/index.ts";
 import { createConfigResolver } from "../config/resolver.ts";
 import { configValuesTable } from "../config/table.ts";
@@ -32,10 +32,10 @@ import { createSessionsFeature } from "../sessions/feature.ts";
 import { userSessionEntity, userSessionTable } from "../sessions/schema/user-session.ts";
 import { createSessionCallbacks, type SessionCallbacks } from "../sessions/session-callbacks.ts";
 import { sessionCallbacksFromLateBound, withMintedSession } from "../sessions/testing.ts";
-import { TenantHandlers } from "../tenant/constants.ts";
 import { createTenantFeature } from "../tenant/index.ts";
 import { tenantMembershipsTable } from "../tenant/membership-table.ts";
 import { tenantEntity } from "../tenant/schema/tenant.ts";
+import { TenantHandlers } from "../tenant/web/constants.ts";
 import { createUserFeature } from "../user/feature.ts";
 import { userEntity, userTable } from "../user/schema/user.ts";
 

@@ -10,11 +10,11 @@ import {
   type LinkedResourceEntry,
   parseLinkedResourceEntries,
 } from "../linked-resources.ts";
-import { TemplateResolverErrors } from "../qualified-names.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import type { TemplateBundle } from "../template-bundle.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { readTemplateResource } from "../template-resources.ts";
+import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { kindSchema, templateSlugSchema } from "./shared.ts";
 import { parseStoredJson, storedRecord } from "./template-gates.ts";
 

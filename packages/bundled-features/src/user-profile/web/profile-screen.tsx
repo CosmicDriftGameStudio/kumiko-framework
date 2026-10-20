@@ -1,4 +1,3 @@
-// @runtime client
 // Change-password and change-email sections for the declarative `profile`
 // projectionDetail screen (fw#2312, ../feature.ts). Both keep re-auth flows
 // a declarative action can't express, so they stay React `EditExtensionSection`
@@ -15,9 +14,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
-import { AuthHandlers } from "../../auth-email-password/constants.ts";
+import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { requestEmailVerification } from "../../auth-email-password/web/index.ts";
-import { UserProfileHandlers } from "../constants.ts";
+import { UserProfileHandlers } from "./constants.ts";
 
 type SectionStatus =
   | { kind: "idle" }

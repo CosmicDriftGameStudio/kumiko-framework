@@ -12,7 +12,6 @@ import {
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
-import { SubscriptionFoundationHandlers } from "../constants.ts";
 import {
   CONTRACT_TERMINATION_DECLARED_EVENT_QN,
   CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
@@ -24,6 +23,7 @@ import {
 } from "../events.ts";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { SubscriptionFoundationHandlers } from "../web/constants.ts";
 import type { ConsentLocale } from "./consent-text.ts";
 import { notifyOperator } from "./termination-notify.ts";
 import { hasRevocation, resumeAtProvider } from "./termination-record.ts";

@@ -1,6 +1,6 @@
-import { AUTH_UNLOCK_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.ts";
 import { AuthMailNotificationTypes } from "../mail-notifications.ts";
 import { signUnlockToken } from "../unlock-token.ts";
+import { AUTH_UNLOCK_DEFAULT_TTL_MINUTES, AuthErrors } from "../web/constants.ts";
 import {
   createTokenRequestHandler,
   type TokenRequestData,

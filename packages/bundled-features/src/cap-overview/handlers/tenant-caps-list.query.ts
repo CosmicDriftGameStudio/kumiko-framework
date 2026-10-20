@@ -12,9 +12,9 @@ import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts"
 import type { CapLimitContext } from "../../cap-counter/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 import { tierAssignmentEntity } from "../../tier-engine/index.ts";
-import { capFieldName } from "../constants.ts";
 import type { CapSpec, CapUsage } from "../types.ts";
-import { computeFraction } from "../usage-math.ts";
+import { capFieldName } from "../web/constants.ts";
+import { computeFraction } from "../web/usage-math.ts";
 
 type TenantRow = { readonly id: string; readonly name: string };
 type TierAssignmentRow = {

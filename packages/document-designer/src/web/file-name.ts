@@ -1,4 +1,3 @@
-// @runtime client
 // The upload input only hands back the FileRef id; resources are keyed and named after the file.
 export async function fetchStoredFileName(fileRefId: string): Promise<string | null> {
   try {

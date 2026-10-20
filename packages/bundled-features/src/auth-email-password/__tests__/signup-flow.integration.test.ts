@@ -54,8 +54,8 @@ import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
 import { createTierEngineFeature } from "../../tier-engine/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthErrors, AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);

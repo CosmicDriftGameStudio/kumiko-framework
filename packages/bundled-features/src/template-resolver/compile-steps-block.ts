@@ -1,7 +1,7 @@
 import type { Element as ScanElement } from "happy-dom";
-import { isDocumentReferenceName } from "./document-schema.ts";
-import { readDocumentSteps } from "./document-steps.ts";
 import { isHexColor } from "./layout-appearance.ts";
+import { isDocumentReferenceName } from "./web/document-schema.ts";
+import { readDocumentSteps } from "./web/document-steps.ts";
 
 export const DEFAULT_STEPS_COLOR = "#1f5468";
 const TODO_BAR_COLOR = "#ECEDEA";

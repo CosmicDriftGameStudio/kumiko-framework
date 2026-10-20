@@ -26,11 +26,11 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
-import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./constants.ts";
 import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";
 import { createSetFolderHandler } from "./handlers/set-folder.write.ts";
+import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./web/constants.ts";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature

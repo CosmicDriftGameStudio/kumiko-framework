@@ -3,7 +3,6 @@ import {
   createSystemConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "./constants.ts";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantQuery } from "./handlers/by-tenant.query.ts";
 import { makeCollectionItemQuery } from "./handlers/collection-item.query.ts";
@@ -48,6 +47,7 @@ import { templateResourceEntity } from "./table.ts";
 import type { TemplateDeliveryPolicy } from "./template-delivery-policy.ts";
 import type { TenantEditableTemplate } from "./template-edit-policy.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
+import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "./web/constants.ts";
 
 // template-resolver — structured template storage with tenant-override
 // hierarchy, locale fallback and resource linking via file-foundation.

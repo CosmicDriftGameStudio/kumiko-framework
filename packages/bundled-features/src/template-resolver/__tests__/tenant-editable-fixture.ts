@@ -1,5 +1,5 @@
-import type { TemplateKind } from "../constants.ts";
 import type { TenantEditableTemplate } from "../template-edit-policy.ts";
+import type { TemplateKind } from "../web/constants.ts";
 
 export function tenantEditableTemplates(
   kinds: readonly TemplateKind[],

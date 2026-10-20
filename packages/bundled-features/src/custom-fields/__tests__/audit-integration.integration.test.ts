@@ -27,8 +27,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { AuditQueries } from "../../audit/constants.ts";
 import { createAuditFeature } from "../../audit/feature.ts";
+import { AuditQueries } from "../../audit/web/constants.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";

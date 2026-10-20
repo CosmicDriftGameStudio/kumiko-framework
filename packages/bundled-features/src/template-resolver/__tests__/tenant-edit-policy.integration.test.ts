@@ -17,13 +17,13 @@ import {
 import sharp from "sharp";
 import { createTemplateResolverApi } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
+import { templateResourceEntity } from "../table.ts";
 import {
   collectionHandlerName,
   collectionQueryName,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "../qualified-names.ts";
-import { templateResourceEntity } from "../table.ts";
+} from "../web/qualified-names.ts";
 
 const NOT_EDITABLE_REASON = "template_not_tenant_editable";
 const OPEN_SLUG = "policy:notify:open";

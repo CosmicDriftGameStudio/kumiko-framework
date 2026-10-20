@@ -5,8 +5,8 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { JSONContent } from "@tiptap/core";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { type Element as ScanElement, Window } from "happy-dom";
-import type { ContentFormat } from "./constants.ts";
-import { DOCUMENT_HTML_KINDS } from "./constants.ts";
+import type { ContentFormat } from "./web/constants.ts";
+import { DOCUMENT_HTML_KINDS } from "./web/constants.ts";
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   documentExtensions,
@@ -14,8 +14,8 @@ import {
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "./document-schema.ts";
-import { isDocumentStepKey } from "./document-steps.ts";
+} from "./web/document-schema.ts";
+import { isDocumentStepKey } from "./web/document-steps.ts";
 
 export type DocumentViolationCode =
   | "script_element"

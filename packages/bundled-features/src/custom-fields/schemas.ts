@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { SUPPORTED_FIELD_TYPES } from "./constants.ts";
+import { SUPPORTED_FIELD_TYPES } from "./web/constants.ts";
 
 // Field-Type-Validator — pinnt valid type-Werte für fieldDefinition.
 export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);

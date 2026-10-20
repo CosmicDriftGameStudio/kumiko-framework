@@ -13,8 +13,8 @@
 // pure — no DB, no Date API (windows/asOf come in as params) — so the no-date-api
 // guard stays green and the forecast is deterministic.
 
-import type { ScheduleInterval } from "./constants.ts";
 import type { Posting } from "./schemas.ts";
+import type { ScheduleInterval } from "./web/constants.ts";
 
 export type ScheduleDef = {
   readonly startDate: string; // ISO; first period (day ignored for monthly)

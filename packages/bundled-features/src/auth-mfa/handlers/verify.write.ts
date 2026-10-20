@@ -10,7 +10,6 @@ import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
 import { USER_STATUS, UserQueries } from "../../user/index.ts";
-import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import { invalidChallengeToken, invalidTotpCode, tooManyAttempts } from "../errors.ts";
 import { verifyMfaChallengeToken } from "../mfa-challenge-token.ts";
@@ -21,6 +20,7 @@ import {
 } from "../mfa-verify-attempts.ts";
 import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 import { verifyMfaFactor } from "../verify-factor.ts";
+import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../web/constants.ts";
 
 export type MfaVerifyOptions = {
   // Must match the secret the login handler signs mfa-challenge tokens

@@ -12,14 +12,14 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
-import { UserHandlers } from "../../user/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
+import { UserHandlers } from "../../user/web/constants.ts";
 import { base32Decode } from "../base32.ts";
-import { AuthMfaHandlers, AuthMfaQueries } from "../constants.ts";
 import { createAuthMfaFeature } from "../feature.ts";
 import { userMfaEntity } from "../schema/user-mfa.ts";
 import { currentTotpCode } from "../totp.ts";
+import { AuthMfaHandlers, AuthMfaQueries } from "../web/constants.ts";
 
 let stack: TestStack;
 

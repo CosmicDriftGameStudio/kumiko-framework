@@ -1,17 +1,17 @@
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import { getSchema, type JSONContent } from "@tiptap/core";
 import * as z from "zod";
-import type { DocumentHtmlKind } from "./constants.ts";
-import { documentBlocksForKind } from "./document-blocks.ts";
+import { toVariableDef } from "./template-validation.ts";
+import type { DocumentHtmlKind } from "./web/constants.ts";
+import { documentBlocksForKind } from "./web/document-blocks.ts";
 import {
   DOCUMENT_TEXT_ALIGNMENTS,
   documentExtensions,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "./document-schema.ts";
-import { contentToLine, lineToContent, singleLine } from "./placeholder-text.ts";
-import { toVariableDef } from "./template-validation.ts";
+} from "./web/document-schema.ts";
+import { contentToLine, lineToContent, singleLine } from "./web/placeholder-text.ts";
 
 export const MAX_DOCUMENT_OPS = 50;
 

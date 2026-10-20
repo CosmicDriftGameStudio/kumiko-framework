@@ -1,4 +1,3 @@
-// @runtime client
 // ForgotPasswordScreen — Form mit email-input. Submit triggert
 // /api/auth/request-password-reset (silent-success, kein account-
 // enumeration). UI zeigt unconditional ein "Wenn Account existiert,

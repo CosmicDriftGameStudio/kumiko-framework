@@ -1,4 +1,3 @@
-// @runtime client
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const documentDesignerTranslations: TranslationsByLocale = {

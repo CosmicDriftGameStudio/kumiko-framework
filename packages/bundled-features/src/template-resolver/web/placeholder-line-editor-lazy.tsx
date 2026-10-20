@@ -1,4 +1,3 @@
-// @runtime client
 //
 // Lazy boundary for the placeholder line editor: tiptap loads with the chunk,
 // the fallback is a plain text input holding the same `{{name}}` text.

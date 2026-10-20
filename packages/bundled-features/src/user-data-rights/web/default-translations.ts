@@ -1,4 +1,3 @@
-// @runtime client
 // Default-Bundle für die Apex-Deletion-Screens. Apps hängen es als
 // Fallback-Bundle in den LocaleProvider (createPublicSurface clientFeatures
 // oder direkt) und können einzelne Keys überschreiben. Keys: `userDataRights.
@@ -9,7 +8,7 @@ import {
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import { USER_DATA_RIGHTS_I18N } from "../i18n.ts";
+import { USER_DATA_RIGHTS_I18N } from "./i18n.ts";
 
 const apexTranslations: TranslationsByLocale = {
   en: {

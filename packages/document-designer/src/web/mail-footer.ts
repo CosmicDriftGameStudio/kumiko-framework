@@ -1,4 +1,3 @@
-// @runtime client
 import type { ValidationIssue } from "./layout-types.ts";
 import type { MailValidation } from "./mail-types.ts";
 import { variableLabelText } from "./used-by-label.ts";

@@ -28,18 +28,18 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
-import { TenantHandlers } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import type { ProviderSubscriptionSnapshot, SubscriptionProviderPlugin } from "../types.ts";
 import {
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
-} from "../constants.ts";
-import { createBillingFoundationFeature } from "../feature.ts";
-import type { ProviderSubscriptionSnapshot, SubscriptionProviderPlugin } from "../types.ts";
+} from "../web/constants.ts";
 
 let retrieveSnapshot: ProviderSubscriptionSnapshot | null = null;
 // Keyed by providerSubscriptionId — the job-path test fans the same

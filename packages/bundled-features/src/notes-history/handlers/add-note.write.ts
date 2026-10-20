@@ -4,9 +4,9 @@ import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/err
 import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { userTable } from "../../user/index.ts";
-import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants.ts";
 import { noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
 import { type AddNotePayload, addNotePayloadSchema } from "../schemas.ts";
+import { DEFAULT_NOTES_HISTORY_ACCESS } from "../web/constants.ts";
 
 const READ_AUTHOR_DISPLAY_NAME_REASON =
   "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction";

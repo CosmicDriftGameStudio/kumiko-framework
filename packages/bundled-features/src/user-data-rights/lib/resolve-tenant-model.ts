@@ -12,7 +12,7 @@ import {
   type TenantUserModel,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createConfigAccessor } from "../../config/index.ts";
-import { TENANT_MODEL_CONFIG_KEY } from "../constants.ts";
+import { TENANT_MODEL_CONFIG_KEY } from "../web/constants.ts";
 
 export async function resolveAppTenantModel(args: {
   readonly registry: Registry;

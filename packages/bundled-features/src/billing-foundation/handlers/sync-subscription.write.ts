@@ -18,8 +18,8 @@ import { SYSTEM_ROLE, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { findProviderPlugin } from "../checkout-core.ts";
-import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../constants.ts";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
+import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../web/constants.ts";
 import { appendSubscriptionEvent } from "./process-event.write.ts";
 
 export const syncSubscriptionSchema = z.object({}).strict();

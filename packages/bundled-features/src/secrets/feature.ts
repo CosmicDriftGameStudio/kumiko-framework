@@ -10,7 +10,6 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { SETTINGS_HUB_I18N } from "@cosmicdrift/kumiko-framework/i18n";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import * as z from "zod";
-import { DEFAULT_SECRETS_ACCESS } from "./constants.ts";
 import { createDeleteHandler } from "./handlers/delete.write.ts";
 import { createListHandler } from "./handlers/list.query.ts";
 import { rotateJob } from "./handlers/rotate.job.ts";
@@ -18,6 +17,7 @@ import { createSetHandler } from "./handlers/set.write.ts";
 import { SECRETS_I18N } from "./i18n.ts";
 import { secretReadSchema } from "./secrets-context.ts";
 import { tenantSecretEntity, tenantSecretsTable } from "./table.ts";
+import { DEFAULT_SECRETS_ACCESS } from "./web/constants.ts";
 
 const ROTATE_ESCAPE_HATCH_REASON = "re-encrypts every tenant's secrets with the new master key";
 

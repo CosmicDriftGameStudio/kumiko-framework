@@ -7,9 +7,9 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { OverviewResponse } from "../index.ts";
-import { TemplateResolverQueries } from "../qualified-names.ts";
 import { seedSystemTemplate } from "../seeding.ts";
 import { templateResourceEntity } from "../table.ts";
+import { TemplateResolverQueries } from "../web/qualified-names.ts";
 
 const TITLE_KEY = "money-horse:template.creditSchedule.title";
 const KEYED_SLUG = "money-horse:credit-schedule";

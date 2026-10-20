@@ -1,4 +1,3 @@
-// @runtime client
 // Column-renderer for the /members screen's status column, registered via
 // `tenantClient()`'s `columnRenderers` map (screen.columns[].renderer in
 // screens.ts). The list frame itself is the generic declarative

@@ -16,12 +16,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthMfaHandlers } from "../../auth-mfa/constants.ts";
 import { createAuthMfaFeature } from "../../auth-mfa/feature.ts";
 import { mfaStatusCheckerFromFeature } from "../../auth-mfa/feature-exports.ts";
 import { base32Decode } from "../../auth-mfa/index.ts";
 import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.ts";
 import { currentTotpCode } from "../../auth-mfa/totp.ts";
+import { AuthMfaHandlers } from "../../auth-mfa/web/constants.ts";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
@@ -36,9 +36,9 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthErrors, AuthHandlers, AuthQueries } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { INITIAL_SIGNUP_ROLES, seedUser } from "../seeding.ts";
+import { AuthErrors, AuthHandlers, AuthQueries } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const PASSWORD = "mfa-gates-pw-1234";

@@ -1,4 +1,3 @@
-// @runtime client
 export {
   type DocumentDesignerClientOptions,
   documentDesignerClient,

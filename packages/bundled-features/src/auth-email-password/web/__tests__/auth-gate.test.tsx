@@ -7,8 +7,8 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../../i18n.ts";
 import { createLoginRoute, makeAuthGate } from "../auth-gate.tsx";
+import { defaultTranslations } from "../i18n.ts";
 import { SessionProvider } from "../session.tsx";
 import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
 

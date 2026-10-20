@@ -18,13 +18,6 @@ import {
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createConfigAccessor } from "../config/index.ts";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.ts";
-import {
-  EXPORT_SECTION_EXTENSION_NAME,
-  PRIVACY_CENTER_SCREEN_ID,
-  STATUS_OPTION_KEY_PREFIX,
-  USER_ME_QUERY,
-  UserDataRightsHandlers,
-} from "./constants.ts";
 import { deletionTokenSecretEnvSchema } from "./env.ts";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.ts";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write.ts";
@@ -48,7 +41,6 @@ import {
 import { requestExportWrite } from "./handlers/request-export.write.ts";
 import { restrictAccountWrite } from "./handlers/restrict-account.write.ts";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write.ts";
-import { USER_DATA_RIGHTS_I18N } from "./i18n.ts";
 import {
   type GdprMailDefaults,
   isGdprMailDeliveryAvailable,
@@ -82,6 +74,14 @@ import {
   exportJobDetailScreen,
   exportJobListScreen,
 } from "./screens.ts";
+import {
+  EXPORT_SECTION_EXTENSION_NAME,
+  PRIVACY_CENTER_SCREEN_ID,
+  STATUS_OPTION_KEY_PREFIX,
+  USER_ME_QUERY,
+  UserDataRightsHandlers,
+} from "./web/constants.ts";
+import { USER_DATA_RIGHTS_I18N } from "./web/i18n.ts";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
 // Art. 18 (Restriction) + Art. 20 (Portabilität) als Core-Feature.

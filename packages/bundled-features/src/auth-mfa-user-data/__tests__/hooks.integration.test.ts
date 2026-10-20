@@ -13,10 +13,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { base32Decode } from "../../auth-mfa/base32.ts";
-import { AuthMfaHandlers } from "../../auth-mfa/constants.ts";
 import { createAuthMfaFeature } from "../../auth-mfa/feature.ts";
 import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.ts";
 import { currentTotpCode } from "../../auth-mfa/totp.ts";
+import { AuthMfaHandlers } from "../../auth-mfa/web/constants.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";

@@ -1,4 +1,3 @@
-// @runtime client
 // Column-renderer for the delivery-log screen's status column, registered
 // via `deliveryClient()`'s `columnRenderers` map (screen.columns[].renderer
 // in feature.ts). The list frame itself is the generic declarative
@@ -8,7 +7,7 @@ import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-re
 import { StatusBadge, type StatusTone } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { translateOrRaw } from "../../shared/web/translate-or-raw.ts";
-import { DeliveryStatus } from "../public-names.ts";
+import { DeliveryStatus } from "./public-names.ts";
 
 const STATUS_TONE: Readonly<Record<string, StatusTone>> = {
   [DeliveryStatus.sent]: "ok",

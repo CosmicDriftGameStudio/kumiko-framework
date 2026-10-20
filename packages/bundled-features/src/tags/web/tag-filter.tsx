@@ -1,4 +1,3 @@
-// @runtime client
 // TagFilter — a drop-in tag filter for ANY entityList toolbar. Register it as
 // the list's header slot (`screen.slots.header`); the renderer passes it the
 // list's screenId, and picking tags resolves the matching row ids and narrows
@@ -20,7 +19,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { TagsQueries } from "../constants.ts";
+import { TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
 

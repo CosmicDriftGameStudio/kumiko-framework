@@ -13,17 +13,17 @@ import {
 import type { TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
 import {
-  BillingEventKinds,
-  SubscriptionEventTypes,
-  SubscriptionFoundationQueries,
-  SubscriptionStatuses,
-} from "../constants.ts";
-import {
   createSubscriptionTierSync,
   effectiveTierFromSubscription,
   TIER_SYNC_MANUAL_GRANT_SKIPPED,
 } from "../subscription-tier-sync.ts";
 import type { SubscriptionEvent } from "../types.ts";
+import {
+  BillingEventKinds,
+  SubscriptionEventTypes,
+  SubscriptionFoundationQueries,
+  SubscriptionStatuses,
+} from "../web/constants.ts";
 
 type TestTier = "free" | "starter" | "pro";
 const isTierName = (v: string): v is TestTier => v === "free" || v === "starter" || v === "pro";

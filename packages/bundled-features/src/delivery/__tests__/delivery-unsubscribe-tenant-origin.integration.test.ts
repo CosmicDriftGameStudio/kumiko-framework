@@ -29,11 +29,11 @@ import {
   type UnsubscribeAddressPayload,
   unsubscribeAddressPayloadSchema,
 } from "../handlers/unsubscribe-address.write.ts";
-import { DeliveryHandlers } from "../public-names.ts";
 import { notificationAddressOptOutsTable, notificationPreferencesTable } from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
 import { createUnsubscribeRoutes, signAddressUnsubscribeToken } from "../unsubscribe.ts";
+import { DeliveryHandlers } from "../web/public-names.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-origin-test-secret-32-chars-min!";

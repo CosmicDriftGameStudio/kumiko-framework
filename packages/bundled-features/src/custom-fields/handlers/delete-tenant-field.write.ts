@@ -1,12 +1,12 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
-import {
-  DEFAULT_FIELD_DEFINITION_WRITE_ROLES,
-  FIELD_DEFINITION_AGGREGATE_TYPE,
-} from "../constants.ts";
 import { fieldDefinitionExecutor } from "../executor.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas.ts";
+import {
+  DEFAULT_FIELD_DEFINITION_WRITE_ROLES,
+  FIELD_DEFINITION_AGGREGATE_TYPE,
+} from "../web/constants.ts";
 
 // delete-tenant-field — TenantAdmin löscht eigene Field-Definition.
 // Spec-Promise (Plan-Doc v2 "wie Entity-Delete"): Events bleiben im event-

@@ -1,4 +1,3 @@
-// @runtime client
 // Public exports for the browser side of the cap-overview feature.
 // Consumed via `@cosmicdrift/kumiko-bundled-features/cap-overview/web` —
 // the server side (createCapOverviewFeature) lives under

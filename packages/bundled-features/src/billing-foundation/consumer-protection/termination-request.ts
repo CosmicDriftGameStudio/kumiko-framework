@@ -16,12 +16,6 @@ import * as z from "zod";
 import { TenantQueries } from "../../tenant/index.ts";
 import { UserQueries } from "../../user/index.ts";
 import {
-  CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE,
-  SubscriptionCancelTimings,
-  SubscriptionFoundationHandlers,
-  SubscriptionFoundationQueries,
-} from "../constants.ts";
-import {
   CONTRACT_TERMINATION_DECLARATION_TYPES,
   CONTRACT_TERMINATION_KINDS,
   type ContractTerminationDeclarationType,
@@ -30,6 +24,12 @@ import {
 } from "../events.ts";
 import { purchaseRolesOf } from "../plan-catalog.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import {
+  CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE,
+  SubscriptionCancelTimings,
+  SubscriptionFoundationHandlers,
+  SubscriptionFoundationQueries,
+} from "../web/constants.ts";
 import { resolveConsentLocale } from "./consent-text.ts";
 import { openStoredUserEmail } from "./stored-user-email.ts";
 import { type TerminationDeclaration, terminationReceiptVariables } from "./termination-mail.ts";

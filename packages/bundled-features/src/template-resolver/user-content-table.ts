@@ -5,8 +5,8 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./constants.ts";
 import type { EntityAuditColumns } from "./table.ts";
+import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./web/constants.ts";
 
 // UserContentEntry — the per-user half of the content store: mail signatures
 // and personal reply snippets, one row per (tenantId, ownerId, slug, kind,

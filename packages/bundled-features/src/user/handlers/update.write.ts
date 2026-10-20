@@ -8,9 +8,9 @@ import {
 import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { UserErrors } from "../constants.ts";
 import { rolesInputSchema } from "../roles-input-schema.ts";
 import { userEntity, userTable } from "../schema/user.ts";
+import { UserErrors } from "../web/constants.ts";
 import { applyUserRolesUpdate } from "./update-roles.ts";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });

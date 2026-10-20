@@ -2,9 +2,9 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { isRowDeliveredTo } from "../api.ts";
-import { TEXT_BLOCK_KIND } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
+import { TEXT_BLOCK_KIND } from "../web/constants.ts";
 
 // Public read of a single text-block by (tenantId, slug, locale). Anonymous
 // must be listed explicitly — `openToAll` alone is auth-only (regression

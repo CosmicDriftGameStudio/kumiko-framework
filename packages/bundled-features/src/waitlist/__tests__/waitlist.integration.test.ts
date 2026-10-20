@@ -30,8 +30,8 @@ import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { seedUser } from "../../user/seeding.ts";
 import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.ts";
 import { runUserExport } from "../../user-data-rights/run-user-export.ts";
-import { WAITLIST_FIELD_LIMITS, WaitlistHandlers, WaitlistQueries } from "../constants.ts";
 import { waitlistEntryTable } from "../entity.ts";
+import { WAITLIST_FIELD_LIMITS, WaitlistHandlers, WaitlistQueries } from "../web/constants.ts";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,

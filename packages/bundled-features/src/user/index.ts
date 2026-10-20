@@ -1,5 +1,4 @@
 export { UserCommandSchemas } from "./command-schemas.ts";
-export { USER_FEATURE, UserErrors, UserHandlers, UserQueries } from "./constants.ts";
 export {
   backfillUserStreamTenants,
   type UserStreamBackfillResult,
@@ -22,3 +21,4 @@ export {
   userEntity,
   userTable,
 } from "./schema/user.ts";
+export { USER_FEATURE, UserErrors, UserHandlers, UserQueries } from "./web/constants.ts";

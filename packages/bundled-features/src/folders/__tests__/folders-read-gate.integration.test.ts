@@ -18,9 +18,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { FoldersHandlers, FoldersQueries } from "../constants.ts";
 import { folderAssignmentEntity, folderEntity } from "../entity.ts";
 import { createFoldersFeature } from "../feature.ts";
+import { FoldersHandlers, FoldersQueries } from "../web/constants.ts";
 
 const PROJECT_TABLE = "folders_rg_test_projects";
 

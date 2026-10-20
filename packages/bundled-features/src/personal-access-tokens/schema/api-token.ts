@@ -5,7 +5,7 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { API_TOKEN_ENTITY_NAME } from "../constants.ts";
+import { API_TOKEN_ENTITY_NAME } from "../web/constants.ts";
 
 // One row per Personal Access Token. Like store_user_sessions this is a
 // direct-write store (r.unmanagedTable): the create/revoke handlers write it and

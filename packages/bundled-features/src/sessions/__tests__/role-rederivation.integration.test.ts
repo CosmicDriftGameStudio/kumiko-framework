@@ -24,16 +24,16 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { TenantQueries } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { createSessionsFeature } from "../feature.ts";

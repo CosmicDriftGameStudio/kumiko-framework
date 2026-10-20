@@ -7,7 +7,6 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { DOCUMENT_HTML_KINDS } from "../constants.ts";
 import { applyDocumentOps, documentOpsSchema } from "../document-ops.ts";
 import { parseDocumentJson, serializeDocumentJson } from "../document-sanitizer.ts";
 import {
@@ -16,6 +15,7 @@ import {
   templateEditAccess,
 } from "../template-edit-policy.ts";
 import { resolveTemplateVariables } from "../template-validation.ts";
+import { DOCUMENT_HTML_KINDS } from "../web/constants.ts";
 import { loadDocumentBase } from "./document-base.ts";
 import { localeSchema, templateSlugSchema } from "./shared.ts";
 import { writeTemplateRow } from "./template-write.ts";

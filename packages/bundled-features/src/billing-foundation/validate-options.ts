@@ -4,9 +4,6 @@
 // re-exported from index.ts.
 
 import * as z from "zod";
-import { isTerminationScope, TERMINATION_SCOPES } from "./constants.ts";
-import { CONSENT_LOCALES, type ConsentLocale } from "./consumer-protection/consent-locale.ts";
-import { isContactCardHref } from "./contact-card.ts";
 import {
   type BillingFoundationOptions,
   type BillingPlanContactCard,
@@ -14,6 +11,9 @@ import {
   isLegalLinkSet,
   type LegalLinkSet,
 } from "./types.ts";
+import { isTerminationScope, TERMINATION_SCOPES } from "./web/constants.ts";
+import { CONSENT_LOCALES, type ConsentLocale } from "./web/consumer-protection/consent-locale.ts";
+import { isContactCardHref } from "./web/contact-card.ts";
 
 function isRootRelativePath(path: string): boolean {
   return path.startsWith("/") && !path.startsWith("//");

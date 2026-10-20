@@ -1,4 +1,3 @@
-// @runtime client
 // FolderSection — drop-in single-folder picker for ANY entity. Unlike tags
 // (many-to-many multi-combobox), an entity lives in exactly ONE folder, so this
 // is a single-select combobox with a "no folder" option plus a compact row to
@@ -19,7 +18,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { FoldersHandlers, FoldersQueries } from "../constants.ts";
+import { FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { type FolderRow, folderPath } from "./tree.ts";
 
 type AssignmentRow = {

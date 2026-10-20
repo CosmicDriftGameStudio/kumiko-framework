@@ -12,7 +12,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TEXT_BLOCK_KIND } from "../constants.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import {
   type LegalContentBlock,
@@ -25,6 +24,7 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { TEXT_BLOCK_KIND } from "../web/constants.ts";
 
 // Pins seedLegalContentFromJson: seeds into SYSTEM_TENANT_ID by default and
 // re-seeds with ifExists:"update" so a changed template body lands on an

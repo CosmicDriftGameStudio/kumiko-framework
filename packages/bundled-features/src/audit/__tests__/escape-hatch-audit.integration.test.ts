@@ -13,9 +13,9 @@ import * as z from "zod";
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
-import { AuditQueries } from "../constants.ts";
 import { createEscapeHatchAuditSink, ESCAPE_HATCH_USED_EVENT } from "../escape-hatch-audit-sink.ts";
 import { createAuditFeature } from "../feature.ts";
+import { AuditQueries } from "../web/constants.ts";
 
 const UNSAFE_RAW_REASON = "fw#2861 bundled-features integration test — declared unsafeRaw write";
 

@@ -14,8 +14,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";

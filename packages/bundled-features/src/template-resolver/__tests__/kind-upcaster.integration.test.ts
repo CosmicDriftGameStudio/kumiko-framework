@@ -20,13 +20,13 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TEMPLATE_KINDS } from "../constants.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { TEMPLATE_KINDS } from "../web/constants.ts";
 
 // Stored v1 events say kind "mail-html"; the v2 definition must read them as "mail".
 const entityV1 = createEntity({

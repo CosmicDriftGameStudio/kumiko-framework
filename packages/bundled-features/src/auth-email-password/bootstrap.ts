@@ -24,23 +24,23 @@ import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 // kumiko-lint-ignore cross-feature-import bootstrap sets per-tenant config through the config feature's write handler
-import { ConfigHandlers } from "../config/constants.ts";
+import { ConfigHandlers } from "../config/web/constants.ts";
 // kumiko-lint-ignore cross-feature-import bootstrap compares against the stored config row to stay idempotent
 import { configRowHoldsValue, findConfigRow } from "../config/write-helpers.ts";
-// kumiko-lint-ignore cross-feature-import bootstrap provisions tenant + invitation rows owned by the tenant feature
-import { TenantHandlers } from "../tenant/constants.ts";
 // kumiko-lint-ignore cross-feature-import bootstrap provisions tenant + invitation rows owned by the tenant feature
 import { INVITATION_STATUS, tenantInvitationsTable } from "../tenant/invitation-table.ts";
 // kumiko-lint-ignore cross-feature-import bootstrap checks existing memberships
 import { tenantMembershipsTable } from "../tenant/membership-table.ts";
 // kumiko-lint-ignore cross-feature-import bootstrap checks for an existing tenant
 import { tenantTable } from "../tenant/schema/tenant.ts";
-// kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import type { GlobalRole } from "../user/constants.ts";
+// kumiko-lint-ignore cross-feature-import bootstrap provisions tenant + invitation rows owned by the tenant feature
+import { TenantHandlers } from "../tenant/web/constants.ts";
 // kumiko-lint-ignore cross-feature-import bootstrap skips already activated users
 import { userTable } from "../user/schema/user.ts";
-import { AuthHandlers } from "./constants.ts";
+// kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
+import type { GlobalRole } from "../user/web/constants.ts";
 import { hasLiveInviteToken } from "./invite-token-store.ts";
+import { AuthHandlers } from "./web/constants.ts";
 
 export type BootstrapInvite = {
   readonly email: string;

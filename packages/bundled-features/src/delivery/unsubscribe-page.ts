@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mailT } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import type { MailChrome, MailChromeLink } from "../renderer-foundation/index.ts";
-import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "./public-names.ts";
+import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "./web/public-names.ts";
 import "./unsubscribe-page-strings.ts";
 
 export type UnsubscribePageState =

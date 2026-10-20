@@ -2,7 +2,6 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { filterDeliveredTo } from "../api.ts";
-import { FALLBACK_LOCALE } from "../constants.ts";
 import { type LayoutRegions, readLayoutRegions } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
@@ -14,6 +13,7 @@ import {
   type WorkingRow,
 } from "../template-draft.ts";
 import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.ts";
+import { FALLBACK_LOCALE } from "../web/constants.ts";
 import { localeSchema, templateSlugSchema } from "./shared.ts";
 import { parseStoredJson } from "./template-gates.ts";
 

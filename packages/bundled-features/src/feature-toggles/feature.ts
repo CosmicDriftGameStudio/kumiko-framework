@@ -1,10 +1,4 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  FEATURE_TOGGLE_SET_EVENT_NAME,
-  FeatureToggleHandlers,
-  FeatureToggleQueries,
-  TOGGLE_ADMIN_SCREEN_ID,
-} from "./constants.ts";
 import { featureToggleSetSchema } from "./events.ts";
 import { globalFeatureStateTableMeta } from "./global-feature-state-table.ts";
 import { listQuery } from "./handlers/list.query.ts";
@@ -12,6 +6,12 @@ import { registeredQuery } from "./handlers/registered.query.ts";
 import { createSetWriteHandler } from "./handlers/set.write.ts";
 import { FEATURE_TOGGLES_I18N } from "./i18n.ts";
 import type { GlobalFeatureToggleRuntime } from "./toggle-runtime.ts";
+import {
+  FEATURE_TOGGLE_SET_EVENT_NAME,
+  FeatureToggleHandlers,
+  FeatureToggleQueries,
+  TOGGLE_ADMIN_SCREEN_ID,
+} from "./web/constants.ts";
 
 // IMPORTANT: feature-toggles itself is NOT r.toggleable. Making it
 // toggleable would brick the system — once disabled, no handler of this
@@ -157,7 +157,6 @@ export function createFeatureTogglesFeature(
   });
 }
 
-export { FEATURE_TOGGLE_SET_EVENT_NAME, FeatureToggleErrors } from "./constants.ts";
 export {
   globalFeatureStateTable,
   globalFeatureStateTableMeta,
@@ -170,3 +169,4 @@ export {
   type ToggleSyncSignal,
 } from "./toggle-runtime.ts";
 export { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "./toggle-sync-signal.ts";
+export { FEATURE_TOGGLE_SET_EVENT_NAME, FeatureToggleErrors } from "./web/constants.ts";

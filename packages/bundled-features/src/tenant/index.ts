@@ -1,12 +1,5 @@
 export { cancelPendingInvitation } from "./cancel-pending-invitation.ts";
 export { TenantCommandSchemas } from "./command-schemas.ts";
-export {
-  OWNER_INVITE_ROLE_OPTIONS,
-  TENANT_FEATURE,
-  TenantErrors,
-  TenantHandlers,
-  TenantQueries,
-} from "./constants.ts";
 export { decryptTenantNames } from "./decrypt-tenant-names.ts";
 export { collectAssignableAppRoles, createTenantFeature } from "./feature.ts";
 export type { InvitationStatus } from "./invitation-table.ts";
@@ -24,3 +17,10 @@ export {
   tenantEntity,
   tenantTable,
 } from "./schema/tenant.ts";
+export {
+  OWNER_INVITE_ROLE_OPTIONS,
+  TENANT_FEATURE,
+  TenantErrors,
+  TenantHandlers,
+  TenantQueries,
+} from "./web/constants.ts";

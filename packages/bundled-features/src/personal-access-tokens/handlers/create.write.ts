@@ -11,9 +11,9 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { encryptForDirectWrite, verifyPassword } from "../../shared/index.ts";
 import { UserQueries } from "../../user/index.ts";
-import { API_TOKEN_ENTITY_NAME, PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../constants.ts";
 import { mintPatToken } from "../hash.ts";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token.ts";
+import { API_TOKEN_ENTITY_NAME, PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../web/constants.ts";
 
 export type PatMfaVerifyResult = { readonly enrolled: boolean; readonly ok: boolean };
 

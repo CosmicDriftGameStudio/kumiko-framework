@@ -17,14 +17,6 @@ export {
   type TierDefinition,
   type TierMap,
 } from "./compose-app.ts";
-export {
-  isTierAssignmentSource,
-  TIER_ENGINE_FEATURE,
-  type TierAssignmentSource,
-  TierAssignmentSources,
-  TierEngineHandlers,
-  TierEngineQueries,
-} from "./constants.ts";
 export { tierAssignmentEntity } from "./entity.ts";
 export {
   type CreateTierEngineOptions,
@@ -43,3 +35,11 @@ export {
   type TierResolverDeps,
 } from "./tier-resolver.ts";
 export { isTrialActive, type TrialPolicy } from "./trial.ts";
+export {
+  isTierAssignmentSource,
+  TIER_ENGINE_FEATURE,
+  type TierAssignmentSource,
+  TierAssignmentSources,
+  TierEngineHandlers,
+  TierEngineQueries,
+} from "./web/constants.ts";

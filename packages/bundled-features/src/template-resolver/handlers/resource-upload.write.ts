@@ -15,7 +15,6 @@ import {
   readFileRefContent,
 } from "../../file-foundation/index.ts";
 import { attachmentFileNameSchema } from "../../shared/index.ts";
-import { TemplateResolverErrors } from "../qualified-names.ts";
 import {
   type PreparedTemplateFile,
   prepareTemplateAttachmentBeforeTransaction,
@@ -31,6 +30,7 @@ import {
   type TemplateEditPolicy,
   templateEditAccess,
 } from "../template-edit-policy.ts";
+import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { RESOURCE_PURPOSES, resourceKeySchema, resourceTargetTenantId } from "./resource-shared.ts";
 
 type AttachmentTarget = {

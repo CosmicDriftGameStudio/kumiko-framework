@@ -19,9 +19,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TagsHandlers, TagsQueries } from "../constants.ts";
 import { tagAssignmentEntity, tagEntity } from "../entity.ts";
 import { createTagsFeature } from "../feature.ts";
+import { TagsHandlers, TagsQueries } from "../web/constants.ts";
 
 const PROJECT_TABLE = "tags_rg_test_projects";
 

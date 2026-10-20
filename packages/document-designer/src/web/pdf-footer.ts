@@ -1,4 +1,3 @@
-// @runtime client
 import type { FooterTone } from "./editor-shell.tsx";
 import type { ValidationResult } from "./types.ts";
 import { variableLabelText } from "./used-by-label.ts";

@@ -6,8 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
-import { INVITE_CREATE_SCREEN_ID, MEMBER_ROLES_EDIT_SCREEN_ID } from "../constants.ts";
 import { collectAssignableAppRoles, createTenantFeature } from "../feature.ts";
+import { INVITE_CREATE_SCREEN_ID, MEMBER_ROLES_EDIT_SCREEN_ID } from "../web/constants.ts";
 
 describe("assignable app role declarations at boot (tenant r.bootCheck)", () => {
   function bootWith(declare: Parameters<typeof defineFeature>[1]) {

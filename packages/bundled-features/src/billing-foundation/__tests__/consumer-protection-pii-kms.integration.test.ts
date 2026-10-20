@@ -31,21 +31,16 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
-import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
 import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.ts";
+import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/web/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import {
-  SubscriptionEventTypes,
-  SubscriptionFoundationHandlers,
-  SubscriptionStatuses,
-} from "../constants.ts";
 import { consentTextVersion } from "../consumer-protection/consent-text.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import type {
@@ -54,6 +49,11 @@ import type {
   SubscriptionEvent,
   SubscriptionProviderPlugin,
 } from "../types.ts";
+import {
+  SubscriptionEventTypes,
+  SubscriptionFoundationHandlers,
+  SubscriptionStatuses,
+} from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 const PROVIDER = "mock-pii-kms-provider";

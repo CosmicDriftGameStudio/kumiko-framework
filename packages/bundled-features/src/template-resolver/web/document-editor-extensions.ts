@@ -1,4 +1,3 @@
-// @runtime client
 import type { Extensions, NodeViewRenderer } from "@tiptap/core";
 import { ListKeymap } from "@tiptap/extension-list";
 import { Dropcursor, Gapcursor, Placeholder, UndoRedo } from "@tiptap/extensions";
@@ -11,8 +10,8 @@ import {
   DocumentSteps,
   DocumentVariable,
   documentExtensions,
-} from "../document-schema.ts";
-import { readDocumentStepsAttribute } from "../document-steps.ts";
+} from "./document-schema.ts";
+import { readDocumentStepsAttribute } from "./document-steps.ts";
 import type { DocumentResourcePreview } from "./document-toolbar-blocks.ts";
 
 const DOCUMENT_RESOURCE_SIZE_TOKEN = "{size}";

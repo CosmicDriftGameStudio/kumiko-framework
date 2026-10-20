@@ -1,4 +1,3 @@
-// @runtime client
 //
 // tiptap-backed implementation behind DocumentContentEditor's lazy() boundary —
 // never import this file statically, tiptap must only load when a "document"
@@ -42,18 +41,18 @@ import {
 import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  createDocumentEditorExtensions,
+  DOCUMENT_BLOCK_ATTRIBUTE,
+} from "./document-editor-extensions.ts";
+import {
   DOCUMENT_TEXT_ALIGNMENTS,
   type DocumentTextAlignment,
   isAllowedDocumentLinkHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "../document-schema.ts";
-import { parseDocumentStepsInput } from "../document-steps.ts";
-import {
-  createDocumentEditorExtensions,
-  DOCUMENT_BLOCK_ATTRIBUTE,
-} from "./document-editor-extensions.ts";
+} from "./document-schema.ts";
+import { parseDocumentStepsInput } from "./document-steps.ts";
 import {
   type DocumentEditorProps,
   type DocumentResourcePreview,

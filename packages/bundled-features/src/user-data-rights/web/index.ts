@@ -1,4 +1,3 @@
-// @runtime client
 // Public exports für die Browser-Seite des user-data-rights Features —
 // die anonymen Apex-Deletion-Screens. Konsumiert via Sub-Path-Export
 // `@cosmicdrift/kumiko-bundled-features/user-data-rights/web`. Die Server-

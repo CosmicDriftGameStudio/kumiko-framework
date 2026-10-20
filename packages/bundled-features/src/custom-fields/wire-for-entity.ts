@@ -7,16 +7,15 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { StoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
-import { CUSTOM_FIELDS_EXTENSION, FIELD_DEFINITION_AGGREGATE_TYPE } from "./constants.ts";
 import {
   clearCustomFieldKey,
   removeCustomFieldKeyForTenant,
   removeCustomFieldKeyFromAllTenants,
   setCustomFieldValue,
 } from "./db/queries/projection.ts";
-
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events.ts";
 import { createCustomFieldsFeature } from "./feature.ts";
+import { CUSTOM_FIELDS_EXTENSION, FIELD_DEFINITION_AGGREGATE_TYPE } from "./web/constants.ts";
 
 // Helper für entity-definitions — fügt eine `customFields jsonb`-Spalte
 // hinzu. Consumer:

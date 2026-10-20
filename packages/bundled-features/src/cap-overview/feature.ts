@@ -17,7 +17,6 @@
 // **Boot-Dependencies:** tenant, tier-engine, billing-foundation.
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveCapUsageRoles } from "./access.ts";
-import { CAP_OVERVIEW_FEATURE } from "./constants.ts";
 import { createCapsUsageQuery } from "./handlers/caps-usage.query.ts";
 import { createTenantCapsListQuery } from "./handlers/tenant-caps-list.query.ts";
 import { tenantOptionsQuery } from "./handlers/tenant-options.query.ts";
@@ -28,6 +27,7 @@ import {
   platformTenantCapsScreen,
 } from "./screens.ts";
 import type { CapSpec } from "./types.ts";
+import { CAP_OVERVIEW_FEATURE } from "./web/constants.ts";
 
 export type CreateCapOverviewOptions = {
   readonly caps: readonly CapSpec[];

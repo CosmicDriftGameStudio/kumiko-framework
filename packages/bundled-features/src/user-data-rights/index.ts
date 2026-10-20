@@ -1,4 +1,3 @@
-export { TENANT_MODEL_CONFIG_KEY } from "./constants.ts";
 export { deletionTokenSecretEnvSchema } from "./env.ts";
 export { createUserDataRightsFeature, type UserDataRightsOptions } from "./feature.ts";
 export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write.ts";
@@ -34,3 +33,4 @@ export {
   exportJobEntity,
   exportJobsTable,
 } from "./schema/export-job.ts";
+export { TENANT_MODEL_CONFIG_KEY } from "./web/constants.ts";

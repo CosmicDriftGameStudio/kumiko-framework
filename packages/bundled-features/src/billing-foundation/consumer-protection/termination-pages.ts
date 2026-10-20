@@ -14,8 +14,8 @@ import {
   slashVariantOf,
   wrapInLayout,
 } from "../../page-render/index.ts";
-import { SubscriptionFoundationHandlers } from "../constants.ts";
 import { CONTRACT_TERMINATION_DECLARATION_TYPES, CONTRACT_TERMINATION_KINDS } from "../events.ts";
+import { SubscriptionFoundationHandlers } from "../web/constants.ts";
 import type { ConsentLocale } from "./consent-text.ts";
 import { formatReceivedAt } from "./termination-mail.ts";
 import { requestContractTerminationSchema } from "./termination-request.ts";

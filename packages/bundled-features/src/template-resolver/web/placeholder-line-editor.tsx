@@ -1,4 +1,3 @@
-// @runtime client
 //
 // Single-line editor for plain-text fields that carry {{placeholders}}
 // (subject, preheader). The stored value stays plain text; placeholders show
@@ -10,11 +9,11 @@ import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { type ReactNode, useMemo, useState } from "react";
-import { DocumentVariable } from "../document-schema.ts";
-import { contentToLine, lineToContent, singleLine } from "../placeholder-text.ts";
 import { createVariableView } from "./document-editor-extensions.ts";
+import { DocumentVariable } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
 import { createEditorHandle } from "./editor-handle.ts";
+import { contentToLine, lineToContent, singleLine } from "./placeholder-text.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
 
 export type PlaceholderLineEditorProps = {

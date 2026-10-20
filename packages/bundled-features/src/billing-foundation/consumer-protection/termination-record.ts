@@ -14,7 +14,6 @@ import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { subscriptionAggregateId, terminationUnmatchedAggregateId } from "../aggregate-id.ts";
 import { resolveProviderPlugin } from "../checkout-core.ts";
-import { isTerminalSubscriptionStatus, SubscriptionCancelTimings } from "../constants.ts";
 import {
   CONTRACT_TERMINATION_CHANNELS,
   CONTRACT_TERMINATION_DECLARATION_TYPES,
@@ -34,7 +33,11 @@ import {
 } from "../events.ts";
 import { getSubscriptionForTenant, type SubscriptionView } from "../get-subscription-for-tenant.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
-import { CONSENT_LOCALES, FALLBACK_CONSENT_LOCALE } from "./consent-locale.ts";
+import { isTerminalSubscriptionStatus, SubscriptionCancelTimings } from "../web/constants.ts";
+import {
+  CONSENT_LOCALES,
+  FALLBACK_CONSENT_LOCALE,
+} from "../web/consumer-protection/consent-locale.ts";
 import { notifyOperator } from "./termination-notify.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";
 import { isWithinWithdrawalPeriod } from "./withdrawal-period.ts";

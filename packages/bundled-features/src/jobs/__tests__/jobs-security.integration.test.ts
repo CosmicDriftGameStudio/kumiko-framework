@@ -16,14 +16,14 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/feature.ts";
+import { createJobsFeature } from "../feature.ts";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 import {
   JOB_RUN_DETAIL_SCREEN_ID,
   JOB_RUNS_SCREEN_ID,
   JobHandlers,
   JobQueries,
-} from "../constants.ts";
-import { createJobsFeature } from "../feature.ts";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
+} from "../web/constants.ts";
 
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;
 

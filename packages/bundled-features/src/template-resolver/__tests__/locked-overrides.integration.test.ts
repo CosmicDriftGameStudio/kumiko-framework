@@ -15,12 +15,12 @@ import * as z from "zod";
 import { createTemplateResolverApi } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { OverviewResponse } from "../index.ts";
+import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import {
   collectionHandlerName,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "../qualified-names.ts";
-import { templateResourceEntity, templateResourcesTable } from "../table.ts";
+} from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const MAIL_SLUG = "locked-ov:notify:welcome";

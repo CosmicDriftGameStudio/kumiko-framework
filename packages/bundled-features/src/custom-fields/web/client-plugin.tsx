@@ -1,4 +1,3 @@
-// @runtime client
 // Client-Feature-Factory für custom-fields. Wird vom App-Code in
 // createKumikoApp({ clientFeatures: [customFieldsClient()] }) eingehängt
 // und registriert die CustomFieldsFormSection unter dem Namen
@@ -12,7 +11,7 @@
 //   ]}
 
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { CUSTOM_FIELDS_FEATURE_NAME, CUSTOM_FIELDS_FORM_EXTENSION_NAME } from "../constants.ts";
+import { CUSTOM_FIELDS_FEATURE_NAME, CUSTOM_FIELDS_FORM_EXTENSION_NAME } from "./constants.ts";
 import { CustomFieldsFormSection } from "./custom-fields-form-section.tsx";
 import { defaultTranslations } from "./i18n.ts";
 

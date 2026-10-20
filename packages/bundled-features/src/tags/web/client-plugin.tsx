@@ -1,12 +1,10 @@
-// @runtime client
-
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import {
   TAGS_COLUMN_RENDERER_NAME,
   TAGS_FEATURE_NAME,
   TAGS_FILTER_EXTENSION_NAME,
   TAGS_SECTION_EXTENSION_NAME,
-} from "../constants.ts";
+} from "./constants.ts";
 import { defaultTranslations } from "./i18n.ts";
 import { TagFilter } from "./tag-filter.tsx";
 import { TagSection } from "./tag-section.tsx";

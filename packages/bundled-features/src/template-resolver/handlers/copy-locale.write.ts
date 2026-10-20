@@ -16,9 +16,7 @@ import {
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
-import { CONTENT_FORMATS, type ContentFormat } from "../constants.ts";
 import { type LinkedResourceEntry, parseLinkedResourceEntries } from "../linked-resources.ts";
-import { TemplateResolverErrors } from "../qualified-names.ts";
 import {
   createLinkedResourceCopies,
   prepareLinkedResourceCopiesBeforeTransaction,
@@ -32,6 +30,8 @@ import {
 } from "../template-edit-policy.ts";
 import { attachTemplateResources } from "../template-resources.ts";
 import { resolveTemplateVariables } from "../template-validation.ts";
+import { CONTENT_FORMATS, type ContentFormat } from "../web/constants.ts";
+import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { targetExistsIssue } from "./bundle-import.ts";
 import { kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
 import { parseStoredJson, storedRecord } from "./template-gates.ts";

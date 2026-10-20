@@ -1,4 +1,3 @@
-// @runtime client
 // Client-Feature-Factory für auth-mfa — mirrors emailPasswordClient()'s
 // shape so apps register both the same way:
 // createKumikoApp({ clientFeatures: [emailPasswordClient(), authMfaClient()] }).

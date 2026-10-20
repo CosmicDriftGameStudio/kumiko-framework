@@ -26,9 +26,9 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles/index
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { decryptStoredPii } from "../../shared/index.ts";
-import { TenantHandlers } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../feature.ts";
 import { DESTRUCTION_STAGES } from "../stages.ts";
 import { driveDestructionToCompletion, seedDestroyingTenant } from "../testing.ts";

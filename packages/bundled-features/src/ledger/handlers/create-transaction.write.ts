@@ -1,9 +1,9 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DEFAULT_LEDGER_ACCESS } from "../constants.ts";
 import { accountExecutor, transactionExecutor } from "../executor.ts";
 import { type CreateTransactionPayload, createTransactionPayloadSchema } from "../schemas.ts";
+import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
 // create-transaction — books a balanced journal entry. The Σ=0 and ≥2-accounts
 // invariants are enforced by createTransactionPayloadSchema (command boundary).

@@ -22,13 +22,13 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { collectionHandlerName, collectionQueryName } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
 import {
   type UserContentEntryRow,
   userContentEntriesTable,
   userContentEntryEntity,
 } from "../user-content-table.ts";
+import { collectionHandlerName, collectionQueryName } from "../web/qualified-names.ts";
 
 let stack: TestStack;
 let db: DbConnection;

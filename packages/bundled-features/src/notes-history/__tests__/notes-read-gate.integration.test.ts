@@ -18,9 +18,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { userEntity } from "../../user/index.ts";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.ts";
 import { createNoteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 
 const PROJECT_TABLE = "notes_rg_test_projects";
 

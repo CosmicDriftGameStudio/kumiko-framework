@@ -27,9 +27,9 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { v5 as uuidv5 } from "uuid";
 import { folderAssignmentDeleteHook, folderDeleteHook } from "../../folders-user-data/hooks.ts";
-import { FoldersHandlers, FoldersQueries } from "../constants.ts";
 import { folderAssignmentEntity, folderEntity } from "../entity.ts";
 import { createFoldersFeature } from "../feature.ts";
+import { FoldersHandlers, FoldersQueries } from "../web/constants.ts";
 
 const foldersFeature = createFoldersFeature();
 

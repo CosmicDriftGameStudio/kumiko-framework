@@ -1,4 +1,3 @@
-// @runtime client
 import {
   PlaceholderLineEditor,
   TemplateResolverHandlers,

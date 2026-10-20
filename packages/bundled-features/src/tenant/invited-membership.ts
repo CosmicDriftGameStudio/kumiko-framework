@@ -9,10 +9,10 @@ import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/e
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { TenantErrors } from "./constants.ts";
 import { findForbiddenMembershipRole, reservedMembershipRoleError } from "./membership-roles.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
 import { seedTenantMembership } from "./seeding.ts";
+import { TenantErrors } from "./web/constants.ts";
 
 const membershipExecutor = createEventStoreExecutor(
   tenantMembershipsTable,

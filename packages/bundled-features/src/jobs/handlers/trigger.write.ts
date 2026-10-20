@@ -8,8 +8,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
-import { JobErrors } from "../constants.ts";
 import { isManualTrigger } from "../is-manual-trigger.ts";
+import { JobErrors } from "../web/constants.ts";
 
 function invalidPayloadError(): UnprocessableError {
   return new UnprocessableError(JobErrors.invalidPayload, {

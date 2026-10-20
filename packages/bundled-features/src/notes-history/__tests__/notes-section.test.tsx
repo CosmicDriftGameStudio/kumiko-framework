@@ -1,4 +1,3 @@
-// @runtime client
 // DOM test for the notes-history entry display: body/meta must render as two
 // visually separate lines, the author must never be the raw authorId, and the
 // timestamp must be human-formatted — not the concatenated single-line dump
@@ -26,7 +25,7 @@ import {
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.ts";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 import { defaultTranslations } from "../web/i18n.ts";
 import { NotesSection } from "../web/notes-section.tsx";
 

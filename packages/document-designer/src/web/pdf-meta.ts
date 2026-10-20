@@ -1,4 +1,3 @@
-// @runtime client
 import {
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,

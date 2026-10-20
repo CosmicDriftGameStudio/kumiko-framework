@@ -9,20 +9,20 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DEFAULT_METRICS, type MetricDefinition } from "../metrics/index.ts";
 import {
-  ADMIN_SHELL_FEATURE,
-  DEFAULT_PLATFORM_WORKSPACE_ID,
-  DEFAULT_TENANT_WORKSPACE_ID,
-  PLATFORM_OVERVIEW_SCREEN_ID,
-  TENANT_OVERVIEW_SCREEN_ID,
-} from "./constants.ts";
-import { ADMIN_SHELL_I18N } from "./i18n.ts";
-import {
   OVERVIEW_TIME_RANGE,
   PLATFORM_SCOPE,
   PLATFORM_TENANT_FILTER,
   platformOverviewPanels,
   tenantOverviewPanels,
 } from "./overview-panels.ts";
+import {
+  ADMIN_SHELL_FEATURE,
+  DEFAULT_PLATFORM_WORKSPACE_ID,
+  DEFAULT_TENANT_WORKSPACE_ID,
+  PLATFORM_OVERVIEW_SCREEN_ID,
+  TENANT_OVERVIEW_SCREEN_ID,
+} from "./web/constants.ts";
+import { ADMIN_SHELL_I18N } from "./web/i18n.ts";
 
 export type CreateAdminShellOptions = {
   /** Short workspace id for tenant operators (URL segment). Default `tenant-admin`. */

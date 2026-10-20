@@ -1,4 +1,3 @@
-// @runtime client
 // CustomFieldsFormSection — extension-section component für entityEdit-
 // Screens. Lädt die fieldDefinition-Liste des Tenants, filtert auf die
 // host-Entity, rendert pro Definition einen typed Input, dispatched
@@ -19,7 +18,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { CustomFieldsHandlers, CustomFieldsQueries } from "../constants.ts";
+import { CustomFieldsHandlers, CustomFieldsQueries } from "./constants.ts";
 
 type FieldDefinitionRow = {
   readonly id: string;

@@ -68,8 +68,8 @@ import {
   userEntity,
   userTable,
 } from "../../user/index.ts";
-import { AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthHandlers } from "../web/constants.ts";
 
 // ── Test fixture: an owner-scoped entity + probe handlers/hooks/job ────────
 

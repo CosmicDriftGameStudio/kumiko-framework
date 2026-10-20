@@ -1,4 +1,3 @@
-// @runtime client
 // Client-Feature-Factory für managed-pages. Bringt NUR die Übersetzungen mit —
 // die Screens (page-list/page-edit/branding-settings) sind schema-driven
 // (entityList/entityEdit/configEdit), also keine custom-React-Components zu

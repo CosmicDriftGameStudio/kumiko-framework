@@ -1,4 +1,3 @@
-// @runtime client
 import { useState } from "react";
 
 // Callers often pass fresh object literals every render; this keeps the first

@@ -36,16 +36,16 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { AuthHandlers } from "../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.ts";
+import { AuthHandlers } from "../auth-email-password/web/constants.ts";
 import { createConfigFeature } from "../config/index.ts";
 import { createConfigResolver } from "../config/resolver.ts";
 import { configValuesTable } from "../config/table.ts";
-import { PatHandlers } from "../personal-access-tokens/constants.ts";
 import { createPersonalAccessTokensFeature } from "../personal-access-tokens/feature.ts";
 import { revokeAllPatTokensForUser } from "../personal-access-tokens/revoke-for-user.ts";
 import { apiTokenEntity, apiTokenTable } from "../personal-access-tokens/schema/api-token.ts";
-import type { PatScopeConfig } from "../personal-access-tokens/scopes.ts";
+import { PatHandlers } from "../personal-access-tokens/web/constants.ts";
+import type { PatScopeConfig } from "../personal-access-tokens/web/scopes.ts";
 import { makeSessionHelpers } from "../sessions/__tests__/test-helpers.ts";
 import { createSessionsFeature } from "../sessions/feature.ts";
 import { userSessionEntity, userSessionTable } from "../sessions/schema/user-session.ts";

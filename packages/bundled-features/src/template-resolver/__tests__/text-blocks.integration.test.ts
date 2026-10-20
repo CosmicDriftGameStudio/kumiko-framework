@@ -14,16 +14,16 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TEXT_BLOCK_KIND } from "../constants.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { executor } from "../handlers/shared.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { seedTextBlock } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { TEXT_BLOCK_KIND } from "../web/constants.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const TENANT_EDITABLE = tenantEditableTemplates(

@@ -1,4 +1,3 @@
-// @runtime client
 import type { StatusBadgeTone } from "@cosmicdrift/kumiko-renderer/web";
 import type { OverviewRowView } from "./overview-row.ts";
 

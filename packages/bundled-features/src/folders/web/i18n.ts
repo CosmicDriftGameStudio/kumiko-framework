@@ -1,4 +1,3 @@
-// @runtime client
 // Default translation bundle for the folders UI. foldersClient() hangs it into
 // the LocaleProvider as a fallback bundle — apps override individual keys via
 // foldersClient({ translations }). Keys follow `folders.<area>.<slug>`.

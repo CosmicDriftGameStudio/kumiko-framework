@@ -40,11 +40,11 @@ import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
 import { base32Decode } from "../base32.ts";
-import { AuthMfaHandlers } from "../constants.ts";
 import { createAuthMfaFeature } from "../feature.ts";
 import { mfaReencryptJob } from "../handlers/reencrypt.job.ts";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 import { currentTotpCode } from "../totp.ts";
+import { AuthMfaHandlers } from "../web/constants.ts";
 
 const SETUP_TOKEN_SECRET = "test-setup-token-secret-do-not-use-in-prod";
 const CHALLENGE_TOKEN_SECRET = "test-mfa-challenge-secret-at-least-32-bytes!!";

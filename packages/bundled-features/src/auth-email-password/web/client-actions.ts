@@ -1,4 +1,3 @@
-// @runtime client
 // Handlers for RowAction `kind: "clientAction"`: an admin screen lists users and
 // triggers the same public mail flows the login screens use.
 

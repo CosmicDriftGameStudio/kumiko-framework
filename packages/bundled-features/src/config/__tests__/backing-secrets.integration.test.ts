@@ -17,10 +17,10 @@ import {
 import * as z from "zod";
 import { createSecretsContext } from "../../secrets/secrets-context.ts";
 import { tenantSecretsTable } from "../../secrets/table.ts";
-import { ConfigHandlers, ConfigQueries } from "../constants.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
 import { createConfigResolver } from "../resolver.ts";
 import { configValuesTable } from "../table.ts";
+import { ConfigHandlers, ConfigQueries } from "../web/constants.ts";
 
 // Proves the generic backing="secrets" dispatch end-to-end over real HTTP:
 // a system-scoped config key with backing:"secrets" stores/reads/clears through

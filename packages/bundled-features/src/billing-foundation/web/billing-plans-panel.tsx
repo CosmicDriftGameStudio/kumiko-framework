@@ -1,5 +1,3 @@
-// @runtime client
-
 import {
   type ExtensionSectionProps,
   useLocale,
@@ -16,16 +14,16 @@ import {
   PlanGrid,
 } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
+import type { BillingPlansResult, BillingPlanView } from "../types.ts";
+import { BillingContactPlan } from "./billing-contact-plan.tsx";
+import { CancelContractDialog } from "./cancel-contract-dialog.tsx";
+import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.tsx";
 import {
   BillingPlanActions,
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
-} from "../constants.ts";
-import type { BillingPlansResult, BillingPlanView } from "../types.ts";
-import { BillingContactPlan } from "./billing-contact-plan.tsx";
-import { CancelContractDialog } from "./cancel-contract-dialog.tsx";
-import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.tsx";
+} from "./constants.ts";
 import { localizedParams } from "./localized-params.ts";
 
 type UseTranslation = ReturnType<typeof useTranslation>;

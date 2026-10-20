@@ -1,7 +1,6 @@
-// @runtime client
 import type { ContentEditorProps } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import type { DocumentToolbarBlock } from "../document-blocks.ts";
+import type { DocumentToolbarBlock } from "./document-blocks.ts";
 
 /** Imperative access for an outside panel (placeholder list, resource list). */
 export type DocumentEditorHandle = {
@@ -48,4 +47,4 @@ export {
   documentBlocksForKind,
   MAIL_DOCUMENT_BLOCKS,
   PDF_DOCUMENT_BLOCKS,
-} from "../document-blocks.ts";
+} from "./document-blocks.ts";

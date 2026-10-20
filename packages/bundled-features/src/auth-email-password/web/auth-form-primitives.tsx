@@ -1,4 +1,3 @@
-// @runtime client
 // Shared Web-Primitives für die Auth-Screens. Nur noch Layout/Style-
 // Helpers — Form/Field/Input/Button/Banner kommen jetzt über
 // usePrimitives() aus dem Framework-Vertrag, damit Native dieselben

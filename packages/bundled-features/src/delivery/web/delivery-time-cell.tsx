@@ -1,4 +1,3 @@
-// @runtime client
 import { type ColumnRendererProps, formatWhen } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 

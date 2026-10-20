@@ -1,4 +1,3 @@
-// @runtime client
 import {
   MAIL_TONES,
   type MailTone,
@@ -14,7 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";
-import { DEFAULT_LAYOUT_SLUG, TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.ts";
+import { DEFAULT_LAYOUT_SLUG, TENANT_MAIL_SENDING_SCREEN_ID } from "./constants.ts";
 import { labelPlaceholders } from "./mail-draft.ts";
 import type { EditorVocabulary } from "./mail-edit-center.tsx";
 import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.ts";

@@ -1,8 +1,7 @@
-// @runtime client
+export { customFieldsClient } from "./client-plugin.tsx";
 export {
   CUSTOM_FIELDS_FORM_EXTENSION_NAME,
   CustomFieldsHandlers,
   CustomFieldsQueries,
-} from "../constants.ts";
-export { customFieldsClient } from "./client-plugin.tsx";
+} from "./constants.ts";
 export { CustomFieldsFormSection } from "./custom-fields-form-section.tsx";

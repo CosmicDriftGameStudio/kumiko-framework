@@ -7,7 +7,7 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { FoldersHandlers, FoldersQueries } from "../../constants.ts";
+import { FoldersHandlers, FoldersQueries } from "../constants.ts";
 import { type FolderFiling, FolderManager } from "../folder-manager.tsx";
 import { defaultTranslations } from "../i18n.ts";
 

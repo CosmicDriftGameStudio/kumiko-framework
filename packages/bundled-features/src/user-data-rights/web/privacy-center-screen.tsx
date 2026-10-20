@@ -1,5 +1,4 @@
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
-// @runtime client
 // Export section (Art. 20) — the one part of user-data-rights' privacy-center
 // screen that stays custom (fw#2312). Registered as an EditExtensionSection
 // component (see web/client-plugin.tsx); the projectionDetail screen
@@ -25,7 +24,7 @@ import {
   type ExportJobStatus,
   UserDataRightsHandlers,
   UserDataRightsQueries,
-} from "../constants.ts";
+} from "./constants.ts";
 
 // Export-Job läuft async (worker-Lane-Cron, ~1 Min). Solange er pending/running
 // ist, pollt der Screen den Status, damit der Download ohne manuellen Reload

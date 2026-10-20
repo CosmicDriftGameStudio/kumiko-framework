@@ -6,21 +6,11 @@ import {
   i18nKey,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID,
-  AUDIT_LOG_ALL_TENANTS_NAV_ID,
-  AUDIT_LOG_ALL_TENANTS_SCREEN_ID,
-  AUDIT_LOG_DETAIL_SCREEN_ID,
-  AUDIT_LOG_SCREEN_ID,
-  AuditQueries,
-  DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
-} from "./constants.ts";
 import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink.ts";
 import { detailsQuery } from "./handlers/details.query.ts";
 import { detailsAllTenantsQuery } from "./handlers/details-all-tenants.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
 import { listAllTenantsQuery } from "./handlers/list-all-tenants.query.ts";
-import { AUDIT_I18N } from "./i18n.ts";
 import { runEscapeHatchRetention } from "./run-escape-hatch-retention.ts";
 import {
   AUDIT_LOG_ALL_TENANTS_COLUMNS,
@@ -30,6 +20,16 @@ import {
   AUDIT_LOG_TENANT_FACET,
   auditLogDetailLayout,
 } from "./screens.ts";
+import {
+  AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID,
+  AUDIT_LOG_ALL_TENANTS_NAV_ID,
+  AUDIT_LOG_ALL_TENANTS_SCREEN_ID,
+  AUDIT_LOG_DETAIL_SCREEN_ID,
+  AUDIT_LOG_SCREEN_ID,
+  AuditQueries,
+  DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
+} from "./web/constants.ts";
+import { AUDIT_I18N } from "./web/i18n.ts";
 
 // Audit feature — exposes a filtered read over the framework's event log.
 //

@@ -17,9 +17,9 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
-import { UserErrors, UserHandlers, UserQueries } from "../constants.ts";
 import { createUserFeature } from "../feature.ts";
 import { userEntity, userTable } from "../schema/user.ts";
+import { UserErrors, UserHandlers, UserQueries } from "../web/constants.ts";
 
 let stack: TestStack;
 

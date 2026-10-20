@@ -1,4 +1,3 @@
-// @runtime client
 // Redirect targets for external login pages. `next` travels through the query
 // string, so anything read back from it is untrusted: only same-origin
 // root-relative paths pass (no "//host", no "/\host", no scheme).

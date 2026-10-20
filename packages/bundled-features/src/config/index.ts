@@ -4,12 +4,6 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { configValueEntity, configValuesTable } from "./table.ts";
 
-export {
-  CONFIG_FEATURE,
-  ConfigErrors,
-  ConfigHandlers,
-  ConfigQueries,
-} from "./constants.ts";
 export type { ConfigContext } from "./feature.ts";
 export {
   createConfigAccessor,
@@ -24,6 +18,12 @@ export {
 export type { AppConfigOverrides, ConfigResolver } from "./resolver.ts";
 export { buildEnvConfigOverrides, createConfigResolver, validateAppOverrides } from "./resolver.ts";
 export { configValueEntity, configValuesTable } from "./table.ts";
+export {
+  CONFIG_FEATURE,
+  ConfigErrors,
+  ConfigHandlers,
+  ConfigQueries,
+} from "./web/constants.ts";
 
 // Boot helper for runDevApp / runProdApp: pulls every ConfigSeedDef from
 // the registry and writes the matching system/tenant/user rows via the

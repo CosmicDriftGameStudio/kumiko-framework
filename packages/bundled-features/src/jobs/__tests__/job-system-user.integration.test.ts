@@ -25,10 +25,10 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigAccessor, createConfigFeature } from "../../config/feature.ts";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 
 // --- Setup ---
 

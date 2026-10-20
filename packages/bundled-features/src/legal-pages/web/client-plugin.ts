@@ -1,4 +1,3 @@
-// @runtime client
 // Client-Feature-Factory für legal-pages Visual-Tree. Liefert statische
 // Tree-Knoten für die DACH-Compliance-Blöcke (imprint, privacy in de/en).
 // Jeder Knoten linkt auf text-content's edit-Action — reines Cross-Feature-
@@ -18,7 +17,7 @@
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { LEGAL_OPTIONAL_BLOCKS, LEGAL_REQUIRED_BLOCKS } from "../constants.ts";
+import { LEGAL_OPTIONAL_BLOCKS, LEGAL_REQUIRED_BLOCKS } from "./constants.ts";
 
 const treeProvider: TreeChildrenSubscribe = () => (emit) => {
   // V.1.5d Slug-first Verschachtelung (Variante C):

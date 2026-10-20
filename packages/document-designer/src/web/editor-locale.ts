@@ -1,5 +1,4 @@
-// @runtime client
-import { DEFAULT_TEMPLATE_LOCALES } from "../constants.ts";
+import { DEFAULT_TEMPLATE_LOCALES } from "./constants.ts";
 
 // The editor opens in the language the user works in when the template has it
 // (or, for a template without any version yet, when the app offers it).

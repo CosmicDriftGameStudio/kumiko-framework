@@ -15,7 +15,6 @@ import * as z from "zod";
 import { requireTemplateResolver, TEXT_BLOCK_KIND } from "../../template-resolver/index.ts";
 import { UserQueries } from "../../user/index.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
-import { CONTRACT_CONFIRMATION_NOTIFICATION_TYPE } from "../constants.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,
   type CheckoutConsentRecordedPayload,
@@ -27,6 +26,7 @@ import {
   SUBSCRIPTION_AGGREGATE_TYPE,
 } from "../events.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { CONTRACT_CONFIRMATION_NOTIFICATION_TYPE } from "../web/constants.ts";
 import { contractConfirmationVariables } from "./confirmation-mail.ts";
 import { resolveConsentLocale } from "./consent-text.ts";
 import { openStoredUserEmail } from "./stored-user-email.ts";

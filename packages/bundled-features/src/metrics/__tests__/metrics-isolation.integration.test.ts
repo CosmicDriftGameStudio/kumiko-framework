@@ -5,9 +5,9 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { metricQueryName } from "../constants.ts";
 import { createMetricsFeature, createSystemMetricsFeature } from "../feature.ts";
 import type { MetricResult } from "../types.ts";
+import { metricQueryName } from "../web/constants.ts";
 import {
   ALL_TEST_METRICS,
   amountMetric,

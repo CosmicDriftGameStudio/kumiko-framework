@@ -15,8 +15,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { ConfigHandlers, createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
@@ -29,10 +29,10 @@ import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { mfaRequiredConfigHandle } from "../config.ts";
-import { AuthMfaHandlers } from "../constants.ts";
 import { createAuthMfaFeature } from "../feature.ts";
 import { mfaStatusCheckerFromFeature } from "../feature-exports.ts";
 import { userMfaEntity } from "../schema/user-mfa.ts";
+import { AuthMfaHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 

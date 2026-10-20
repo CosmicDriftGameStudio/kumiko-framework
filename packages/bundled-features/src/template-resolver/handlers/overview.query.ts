@@ -1,7 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
   deliveryPolicyOf,
@@ -19,6 +18,11 @@ import {
 import { mayEditTemplate, type TemplateEditPolicy } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.ts";
+import {
+  DEFAULT_MAIL_LAYOUT_SLUG,
+  FALLBACK_LOCALE,
+  type TemplateStatus,
+} from "../web/constants.ts";
 import { storedRecord } from "./template-gates.ts";
 
 const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as const;

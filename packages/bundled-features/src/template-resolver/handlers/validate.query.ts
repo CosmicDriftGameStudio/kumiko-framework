@@ -6,13 +6,13 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import type { ContentFormat, UpsertKind } from "../constants.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import { imageResourceKeysOf } from "../linked-resources.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { isSystemAdmin } from "../template-draft.ts";
 import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-validation.ts";
+import type { ContentFormat, UpsertKind } from "../web/constants.ts";
 import { contentFormatSchema, kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
 import { evaluateTemplateWrite } from "./template-gates.ts";
 

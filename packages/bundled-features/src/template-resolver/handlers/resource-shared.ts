@@ -1,6 +1,6 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { isDocumentResourceKey } from "../document-schema.ts";
+import { isDocumentResourceKey } from "../web/document-schema.ts";
 
 export const RESOURCE_MAX_BYTES_CONFIG_KEY = "template-resolver:config:resource-max-bytes";
 export const DEFAULT_RESOURCE_MAX_BYTES = 2 * 1024 * 1024;

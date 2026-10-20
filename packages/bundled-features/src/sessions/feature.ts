@@ -17,7 +17,6 @@ import { mineQuery } from "./handlers/mine.query.ts";
 import { revokeWrite } from "./handlers/revoke.write.ts";
 import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write.ts";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write.ts";
-import { SESSIONS_I18N } from "./i18n.ts";
 import { userSessionEntity } from "./schema/user-session.ts";
 import {
   createSessionDetailScreen,
@@ -30,6 +29,7 @@ import {
   type SessionMassRevoker,
 } from "./session-callbacks.ts";
 import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event.ts";
+import { SESSIONS_I18N } from "./web/i18n.ts";
 
 const CLEANUP_ESCAPE_HATCH_REASON = "deletes expired session rows of every tenant";
 

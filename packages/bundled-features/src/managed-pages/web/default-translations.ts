@@ -1,4 +1,3 @@
-// @runtime client
 // Client-i18n-Bundle für die managed-pages Admin-Screens. Der Browser-Renderer
 // baut seinen Fallback-Locale-Store NUR aus clientFeatures[].translations — der
 // server-seitige r.translations-Bundle (feature.ts) erreicht ihn nie. Damit die
@@ -13,7 +12,7 @@ import {
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import { MANAGED_PAGES_I18N } from "../i18n.ts";
+import { MANAGED_PAGES_I18N } from "./i18n.ts";
 
 export const defaultTranslations: TranslationsByLocale =
   translationsByLocaleFromKeys(MANAGED_PAGES_I18N);

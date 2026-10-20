@@ -10,10 +10,10 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import type { TemplateKind } from "./constants.ts";
-import { TemplateResolverErrors } from "./qualified-names.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import { isSystemAdmin } from "./template-draft.ts";
+import type { TemplateKind } from "./web/constants.ts";
+import { TemplateResolverErrors } from "./web/qualified-names.ts";
 
 export type TenantEditableTemplate = {
   readonly kind: TemplateKind;

@@ -16,12 +16,12 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createTierEngineFeature } from "../../tier-engine/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
+import { createAdminShellFeature } from "../feature.ts";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
-} from "../constants.ts";
-import { createAdminShellFeature } from "../feature.ts";
+} from "../web/constants.ts";
 import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.ts";
 
 const features = [

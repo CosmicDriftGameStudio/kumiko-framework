@@ -40,10 +40,10 @@ import {
 import { createConfigFeature } from "../config/feature.ts";
 import { createConfigResolver } from "../config/resolver.ts";
 import { configValuesTable } from "../config/table.ts";
-import { TenantHandlers } from "../tenant/constants.ts";
 import { createTenantFeature } from "../tenant/feature.ts";
 import { tenantMembershipsTable } from "../tenant/membership-table.ts";
 import { tenantEntity } from "../tenant/schema/tenant.ts";
+import { TenantHandlers } from "../tenant/web/constants.ts";
 
 let testDb: TestDb;
 let dispatcher: Dispatcher;

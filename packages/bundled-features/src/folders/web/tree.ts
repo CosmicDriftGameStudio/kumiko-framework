@@ -1,4 +1,3 @@
-// @runtime client
 // Pure tree helpers shared by FolderManager (nested render) and FolderSection
 // (path-labelled options). No React, no IO — folder rows in, structure out, so
 // both can be unit-tested without a renderer harness.

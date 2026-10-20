@@ -1,4 +1,3 @@
-// @runtime client
 // ResetPasswordScreen — liest `?token=...` aus der URL, zeigt Form mit
 // new + confirm-password. Submit triggert /api/auth/reset-password mit
 // dem Token. Server collapses alle Token-Verify-Failures auf einen

@@ -3,14 +3,14 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { changeEmailWrite } from "./handlers/change-email.write.ts";
 import {
   CHANGE_EMAIL_SECTION_EXTENSION_NAME,
   CHANGE_PASSWORD_SECTION_EXTENSION_NAME,
   PROFILE_SCREEN_ID,
   UserDataRightsHandlers,
   UserProfileQueries,
-} from "./constants.ts";
-import { changeEmailWrite } from "./handlers/change-email.write.ts";
+} from "./web/constants.ts";
 
 export type UserProfileFeatureOptions = {
   /** Default true. false drops the change-email handler and the email

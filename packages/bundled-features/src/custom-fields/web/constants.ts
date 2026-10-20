@@ -1,0 +1,78 @@
+// custom-fields bundle constants — feature-name + event-names.
+//
+// Spec: kumiko-platform/docs/plans/features/custom-fields.md
+// Sprint plan: kumiko-platform/docs/plans/custom-fields-sprint.md
+
+export const CUSTOM_FIELDS_FEATURE_NAME = "custom-fields";
+
+// Qualified handler names (QN format: scope:type:name). Mirror text-
+// content's Handler/Queries object pattern — Clients (z.B. die
+// CustomFieldsFormSection web-component) referenzieren über das Object
+// statt magic-strings.
+export const CustomFieldsHandlers = {
+  defineTenantField: "custom-fields:write:define-tenant-field",
+  defineSystemField: "custom-fields:write:define-system-field",
+  deleteTenantField: "custom-fields:write:delete-tenant-field",
+  deleteSystemField: "custom-fields:write:delete-system-field",
+  setCustomField: "custom-fields:write:set-custom-field",
+  clearCustomField: "custom-fields:write:clear-custom-field",
+} as const;
+
+export const CustomFieldsQueries = {
+  fieldDefinitionList: "custom-fields:query:field-definition:list",
+} as const;
+
+// Name the web component registers under in ExtensionSectionsProvider.
+export const CUSTOM_FIELDS_FORM_EXTENSION_NAME = "CustomFieldsFormSection";
+
+// Entity-CRUD auto-events for the `field-definition` entity. registry.ts emits
+// these as `${entityName}.created`/`.updated` (dot form) — they do NOT run
+// through r.defineEvent/toKebab, so the dot MUST stay.
+export const FIELD_DEFINITION_AGGREGATE_TYPE = "field-definition";
+export const FIELD_DEFINITION_CREATED_EVENT = "field-definition.created";
+export const FIELD_DEFINITION_UPDATED_EVENT = "field-definition.updated";
+// Qualified at registration via r.defineEvent — final name is
+// `custom-fields:event:field-definition-deleted`. Short-name MUST be kebab
+// (no dots): qualifyEntityName runs toKebab which collapses dots to dashes.
+export const FIELD_DEFINITION_DELETED_EVENT = "field-definition-deleted";
+
+// Custom-field-VALUE events. Live auf host-aggregate stream (ES-Option-B).
+// Short-names werden via r.defineEvent qualified zu `custom-fields:event:
+// custom-field-set` etc. (qualifyEntityName runs toKebab which collapses dots
+// to dashes — so the short-name MUST already be in dash form, otherwise
+// handler-built strings won't match the registry key).
+export const CUSTOM_FIELD_SET_EVENT = "custom-field-set";
+export const CUSTOM_FIELD_CLEARED_EVENT = "custom-field-cleared";
+
+// Extension-name für r.useExtension("customFields", "<entity>") — registriert
+// dass eine host-entity Custom-Fields haben darf.
+export const CUSTOM_FIELDS_EXTENSION = "customFields";
+
+// Default-RBAC der Value-Write- und List-Pfade. Apps mit eigenem Rollen-
+// Vokabular (publicstatus: "Admin"/"Editor" statt "TenantAdmin"/
+// "TenantMember") überschreiben via createCustomFieldsFeature({
+// valueWriteRoles, fieldDefinitionListRoles }) — sonst sind die hart
+// verdrahteten Bundle-QNs, die die CustomFieldsFormSection dispatcht,
+// für jeden App-User access_denied.
+export const DEFAULT_VALUE_WRITE_ROLES = ["TenantAdmin", "TenantMember"] as const;
+export const DEFAULT_FIELD_DEFINITION_LIST_ROLES = ["TenantAdmin"] as const;
+// Default-RBAC of the definition-CRUD triad (define-/update-/delete-tenant-field,
+// #2296). Apps with their own role vocabulary override via
+// createCustomFieldsFeature({ fieldDefinitionWriteRoles }) — otherwise those three
+// hard-wired handler QNs are access_denied for every app-user without a
+// "TenantAdmin" role (same Role-Naming-Drift as DEFAULT_VALUE_WRITE_ROLES above).
+export const DEFAULT_FIELD_DEFINITION_WRITE_ROLES = ["TenantAdmin"] as const;
+
+// Field-type union — identisch zu Stammfeld-Field-Type-System (Spec Z.59-73:
+// `Identisch zu Entity-Feld-Typen`). Builder-Reuse-Promise: was `r.field.X()`
+// kann, kann eine Custom-Field-Definition auch.
+export const SUPPORTED_FIELD_TYPES = [
+  "text",
+  "number",
+  "boolean",
+  "date",
+  "enum",
+  "money",
+  "embedded",
+] as const;
+export type SupportedFieldType = (typeof SUPPORTED_FIELD_TYPES)[number];

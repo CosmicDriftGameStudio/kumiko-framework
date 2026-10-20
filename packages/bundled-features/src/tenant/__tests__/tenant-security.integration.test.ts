@@ -30,8 +30,8 @@ import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
 } from "../../auth-email-password/__tests__/auth-mail-stack.ts";
-import { AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
@@ -48,12 +48,12 @@ import { hashPassword } from "../../shared/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { seedUser } from "../../user/seeding.ts";
-import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants.ts";
 import { createTenantFeature } from "../feature.ts";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../seeding.ts";
+import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 const emailTransport = createInMemoryTransport();
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

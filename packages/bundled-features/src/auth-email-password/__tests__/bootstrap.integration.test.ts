@@ -31,10 +31,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createTenantFeature, TenantQueries } from "../../tenant/index.ts";
@@ -51,9 +51,9 @@ import {
   BootstrapWriteError,
   bootstrapTenants,
 } from "../bootstrap.ts";
-import { AuthHandlers, AuthQueries } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { invalidateExistingInviteToken } from "../invite-token-store.ts";
+import { AuthHandlers, AuthQueries } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

@@ -1,4 +1,3 @@
-// @runtime client
 // Client-feature factory for tier-engine. Supplies the default translations
 // for the declarative tier-admin actionForm (registered server-side via
 // r.screen in the feature); the app places the screen only via r.nav.
@@ -9,8 +8,8 @@ import {
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { TIER_ENGINE_FEATURE } from "../constants.ts";
-import { TIER_ENGINE_I18N } from "../i18n.ts";
+import { TIER_ENGINE_FEATURE } from "./constants.ts";
+import { TIER_ENGINE_I18N } from "./i18n.ts";
 
 const defaultTranslations: TranslationsByLocale = translationsByLocaleFromKeys(TIER_ENGINE_I18N);
 

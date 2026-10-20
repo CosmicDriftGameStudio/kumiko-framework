@@ -1,4 +1,3 @@
-// @runtime client
 // NotesSection — drop-in note history for ANY entity. Shows every note
 // chronologically (newest first) with author + timestamp, plus a textarea to
 // append a new one. Append-only: there is no edit/delete affordance because
@@ -19,7 +18,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.ts";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "./constants.ts";
 
 type NoteRow = {
   readonly id: string;

@@ -1,4 +1,3 @@
-// @runtime client
 import type { ValidationIssue } from "./layout-types.ts";
 import type { ServedVersionView } from "./types.ts";
 

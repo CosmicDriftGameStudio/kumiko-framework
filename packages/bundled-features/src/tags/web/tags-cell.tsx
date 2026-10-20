@@ -1,4 +1,3 @@
-// @runtime client
 // TagsCell — a reusable columnRenderer that shows an entity's tags as colored
 // chips inline in a list row. Drop it into ANY entityList by declaring a labeled
 // virtual column (no host-schema change), after mounting tagsClient():
@@ -17,7 +16,7 @@
 
 import { type ColumnRendererProps, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { TagsQueries } from "../constants.ts";
+import { TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };

@@ -1,5 +1,3 @@
-// @runtime client
-
 import type { ColumnRendererProps } from "@cosmicdrift/kumiko-renderer";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";

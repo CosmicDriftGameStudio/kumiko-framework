@@ -1,11 +1,11 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { TEMPLATE_KINDS } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { templateSlugSchema } from "../template-meta.ts";
 import { collectTemplateUsage } from "../template-usage.ts";
+import { TEMPLATE_KINDS } from "../web/constants.ts";
 import { effectiveMailLayoutSlugs } from "./overview.query.ts";
 
 const MAIL_ROW_LIMIT = 5000;

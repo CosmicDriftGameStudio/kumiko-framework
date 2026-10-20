@@ -1,7 +1,7 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DEFAULT_SECRETS_ACCESS } from "../constants.ts";
 import { tenantSecretsTable } from "../table.ts";
+import { DEFAULT_SECRETS_ACCESS } from "../web/constants.ts";
 
 // Lists all secrets for the current tenant. Returns redactedPreview, never
 // the plaintext. Decryption would be pointless here anyway — this is the

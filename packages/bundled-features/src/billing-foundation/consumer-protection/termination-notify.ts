@@ -1,8 +1,8 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE } from "../constants.ts";
 import type { ProviderCancelOutcome } from "../events.ts";
 import type { ConsumerProtectionOptions } from "../types.ts";
+import { CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE } from "../web/constants.ts";
 import type { ConsentLocale } from "./consent-text.ts";
 import { type OperatorNoticeDeclaration, operatorNoticeVariables } from "./termination-mail.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";

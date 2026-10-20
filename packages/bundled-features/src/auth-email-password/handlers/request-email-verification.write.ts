@@ -1,6 +1,6 @@
-import { AUTH_VERIFY_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.ts";
 import { AuthMailNotificationTypes } from "../mail-notifications.ts";
 import { signVerificationToken } from "../verification-token.ts";
+import { AUTH_VERIFY_DEFAULT_TTL_MINUTES, AuthErrors } from "../web/constants.ts";
 import {
   createTokenRequestHandler,
   type TokenRequestData,

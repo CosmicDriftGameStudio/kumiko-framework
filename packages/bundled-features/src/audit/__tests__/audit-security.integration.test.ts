@@ -38,8 +38,8 @@ import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
 import { seedUser } from "../../user/seeding.ts";
-import { AUDIT_LOG_SCREEN_ID, AuditQueries, AuditScopes } from "../constants.ts";
 import { createAuditFeature } from "../feature.ts";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries, AuditScopes } from "../web/constants.ts";
 
 const widgetEntity = createEntity({
   table: "audit_sec_widgets",

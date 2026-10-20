@@ -1,7 +1,6 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
-import { MIN_HMAC_SECRET_LENGTH } from "./constants.ts";
 import type { AuthMailLocale } from "./email-templates.ts";
 import { changePasswordWrite } from "./handlers/change-password.write.ts";
 import { createConfirmAccountUnlockHandler } from "./handlers/confirm-account-unlock.write.ts";
@@ -31,13 +30,14 @@ import {
 } from "./handlers/signup-request.write.ts";
 import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-gate.write.ts";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write.ts";
-import { AUTH_EMAIL_PASSWORD_MAIL_I18N } from "./mail-i18n.ts";
 import {
   AUTH_MAIL_VARIABLES,
   authMailLocalizedTemplate,
   INVITE_MAIL_VARIABLES,
   sendsMagicLinkMail,
 } from "./mail-notifications.ts";
+import { MIN_HMAC_SECRET_LENGTH } from "./web/constants.ts";
+import { AUTH_EMAIL_PASSWORD_MAIL_I18N } from "./web/mail-i18n.ts";
 
 /**
  * Env-vars contract for the `auth-email-password` feature.

@@ -1,5 +1,4 @@
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
-// @runtime client
 // Client feature factory for the text-block content tree. Apps mount it via
 // createKumikoApp({ clientFeatures: [textBlocksClient()] }); it loads the
 // blocks from the by-tenant query, groups them by their `folder` field and
@@ -35,15 +34,15 @@ import {
 } from "@cosmicdrift/kumiko-renderer/web";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
+import { DocumentBlocksContext, DocumentContentEditor } from "./document-editor.tsx";
+import { documentBlocksForKind } from "./document-toolbar-blocks.ts";
+import { defaultTranslations } from "./i18n.ts";
 import {
   collectionHandlerName,
   collectionQueryName,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "../qualified-names.ts";
-import { DocumentBlocksContext, DocumentContentEditor } from "./document-editor.tsx";
-import { documentBlocksForKind } from "./document-toolbar-blocks.ts";
-import { defaultTranslations } from "./i18n.ts";
+} from "./qualified-names.ts";
 
 // Exported for the unit test — groupBlocksByFolder is a pure function.
 export type BlockSummary = {

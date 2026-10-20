@@ -26,13 +26,13 @@ import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/w
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { UserQueries } from "../../../user/index.ts";
+import { EXPORT_JOB_STATUS as SCHEMA_EXPORT_JOB_STATUS } from "../../schema/export-job.ts";
 import {
   EXPORT_JOB_STATUS,
   USER_ME_QUERY,
   UserDataRightsHandlers,
   UserDataRightsQueries,
-} from "../../constants.ts";
-import { EXPORT_JOB_STATUS as SCHEMA_EXPORT_JOB_STATUS } from "../../schema/export-job.ts";
+} from "../constants.ts";
 import { defaultTranslations } from "../default-translations.ts";
 import { ExportSection, formatDate } from "../privacy-center-screen.tsx";
 

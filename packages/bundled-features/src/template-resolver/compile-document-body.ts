@@ -11,7 +11,7 @@ import {
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
-} from "./document-schema.ts";
+} from "./web/document-schema.ts";
 
 // Private-use characters mark where a Handlebars expression goes. Author text
 // is scrubbed of them first and every `{`/`}` is entity-encoded before the

@@ -30,10 +30,10 @@ import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
-import { TenantHandlers, TenantQueries } from "../constants.ts";
 import { createTenantFeature } from "../feature.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantEntity } from "../schema/tenant.ts";
+import { TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 // --- Track job executions ---
 

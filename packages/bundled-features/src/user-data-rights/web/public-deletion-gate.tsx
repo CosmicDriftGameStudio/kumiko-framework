@@ -1,4 +1,3 @@
-// @runtime client
 // Public-Gate für die anonyme Account-Löschung. Matcht window.location.pathname:
 // requestPath → RequestAccountDeletionScreen, confirmPath →
 // ConfirmAccountDeletionScreen, sonst durch zur App. Spiegelt makeAuthGate

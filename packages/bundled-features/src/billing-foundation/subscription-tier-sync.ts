@@ -18,8 +18,8 @@ import type {
 import type { TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { subscriptionAggregateId } from "./aggregate-id.ts";
-import { SubscriptionFoundationQueries, SubscriptionStatuses } from "./constants.ts";
 import type { PaymentEvent, SubscriptionEvent } from "./types.ts";
+import { SubscriptionFoundationQueries, SubscriptionStatuses } from "./web/constants.ts";
 import { createSubscriptionWebhookRoute } from "./webhook-handler.ts";
 
 // Outside /api — signature routes carry their own auth (verify()) and are

@@ -25,8 +25,8 @@ import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/iden
 import { createConfigFeature } from "../../config/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
-import { AuditQueries } from "../constants.ts";
 import { createAuditFeature } from "../feature.ts";
+import { AuditQueries } from "../web/constants.ts";
 
 const widgetEntity = createEntity({
   table: "audit_all_tenants_widgets",
