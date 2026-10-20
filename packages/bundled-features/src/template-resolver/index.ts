@@ -128,6 +128,7 @@ export {
   templateResourcesTable,
 } from "./table.ts";
 export { type TemplateBundle, templateBundleSchema } from "./template-bundle.ts";
+export type { TemplateDeliveryPolicy } from "./template-delivery-policy.ts";
 export {
   type TemplateEditPolicy,
   type TenantEditableTemplate,
