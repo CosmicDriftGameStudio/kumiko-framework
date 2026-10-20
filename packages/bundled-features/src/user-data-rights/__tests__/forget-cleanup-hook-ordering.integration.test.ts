@@ -47,11 +47,11 @@ import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000000aa";
 
-// fw#2914 — both host entities are managed r.entity tables (EXECUTOR_ONLY-
-// branded), so TenantDb's typed write methods reject them; these hooks need
+// fw#2914 — both host entities are managed r.entity tables (not
+// Writable), so TenantDb's typed write methods reject them; these hooks need
 // raw SQL, still filtered by inserted_by_id + tenant_id.
 const HOST_DELETE_REASON =
-  "fw#2914 test fixture: owner-nulling delete/anonymize against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by inserted_by_id + tenant_id";
+  "fw#2914 test fixture: owner-nulling delete/anonymize against a managed entity table needs raw SQL (TenantDb's typed write API rejects non-Writable tables); filtered by inserted_by_id + tenant_id";
 const REDACT_REASON =
   "fw#2914 test fixture: jsonb key removal (custom_fields - 'ssn') is a raw SQL expression TenantDb's typed updateMany can't express; filtered by inserted_by_id + tenant_id";
 
