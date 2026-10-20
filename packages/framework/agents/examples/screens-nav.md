@@ -49,6 +49,7 @@ import {
   isFieldsEditSection,
   normalizeEditField,
   normalizeListColumn,
+  sectionFieldSpecs,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
@@ -160,9 +161,9 @@ describe("screens-nav showcase — field specs", () => {
     if (!publishingSection || !isFieldsEditSection(publishingSection)) {
       throw new Error("expected fields section");
     }
-    const priceField = normalizeEditField(publishingSection.fields[0]!);
+    const priceField = normalizeEditField(sectionFieldSpecs(publishingSection)[0]!);
     expect(priceField.readOnly).toEqual({ field: "published", eq: true });
-    const authorField = normalizeEditField(basicsSection.fields[1]!);
+    const authorField = normalizeEditField(sectionFieldSpecs(basicsSection)[1]!);
     expect(authorField.visible).toEqual({ field: "published", eq: false });
   });
 });

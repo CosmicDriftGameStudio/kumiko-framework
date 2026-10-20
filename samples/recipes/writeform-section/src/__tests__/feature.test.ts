@@ -11,6 +11,7 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
+  sectionFieldSpecs,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
@@ -63,7 +64,7 @@ describe("writeform-section sample — registration", () => {
       throw new Error("expected an entityEdit fields section and a writeForm section");
     }
 
-    const editFields = editSection.fields.map(fieldName);
+    const editFields = sectionFieldSpecs(editSection).map(fieldName);
     const writeFormFields = detailSection.fields.map(fieldName);
     expect(writeFormFields).toEqual(editFields);
   });
