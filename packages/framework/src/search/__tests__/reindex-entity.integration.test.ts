@@ -306,6 +306,6 @@ describe("reindexEntity connection lifecycle", () => {
       throw e;
     }
 
-    await ownStack.cleanup();
+    await expect(ownStack.cleanup()).resolves.toBeUndefined();
   });
 });
