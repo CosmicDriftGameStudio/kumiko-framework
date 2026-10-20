@@ -17,7 +17,7 @@ import {
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
+import { reindexEntity, type SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -275,5 +275,37 @@ describe("reindexEntity", () => {
 
     const hits = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
     expect(hits.some((h) => String(h.entityId) === String(created.data.id))).toBe(false);
+  });
+});
+
+describe("reindexEntity connection lifecycle", () => {
+  test("a reindex abandoned while its adapter stalls does not keep the database open after cleanup", async () => {
+    const ownStack = await setupTestStack({ features: [widgetFeature] });
+    try {
+      await unsafeCreateEntityTable(ownStack.db, widgetEntity);
+      const created = await seedExecutor().create(
+        { name: "Stalled Widget" },
+        admin,
+        createTenantDb({ db: ownStack.db, tenantId: admin.tenantId, mode: "system" }),
+      );
+      if (!created.isSuccess) throw new Error("seed failed");
+
+      const indexBatchReached = Promise.withResolvers<void>();
+      const stallingAdapter: SearchAdapter = {
+        ...ownStack.search,
+        indexBatch: () => {
+          indexBatchReached.resolve();
+          return new Promise<void>(() => {});
+        },
+      };
+      // Callers like a boot rebuild race this against their own timeout and move on.
+      void reindexEntity(ownStack.db, ownStack.registry, stallingAdapter, "widget", admin.tenantId);
+      await indexBatchReached.promise;
+    } catch (e) {
+      await ownStack.cleanup();
+      throw e;
+    }
+
+    await expect(ownStack.cleanup()).resolves.toBeUndefined();
   });
 });

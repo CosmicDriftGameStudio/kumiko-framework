@@ -64,6 +64,34 @@ describe("server statement_timeout", () => {
   });
 });
 
+describe("withoutStatementTimeout pool lifecycle", () => {
+  test("closing the parent ends the unbounded pool of a run that never settles", async () => {
+    const parent = createDbConnection({
+      url: testDatabaseUrl(),
+      maxConnections: 1,
+      statementTimeoutMs: STATEMENT_TIMEOUT_MS,
+    });
+    const marker = `abandoned_run_${crypto.randomUUID().replaceAll("-", "")}`;
+    const backendsOfAbandonedRun = () =>
+      client.unsafe<{ pid: number }[]>(
+        "SELECT pid FROM pg_stat_activity WHERE query LIKE $1 AND pid <> pg_backend_pid()",
+        [`%${marker}%`],
+      );
+    const queryRan = Promise.withResolvers<void>();
+    void withoutStatementTimeout(parent.db, async (unbounded) => {
+      await unbounded.unsafe(`SELECT '${marker}'`);
+      queryRan.resolve();
+      await new Promise<never>(() => {});
+    });
+    await queryRan.promise;
+    expect(await backendsOfAbandonedRun()).toHaveLength(1);
+
+    await parent.close();
+
+    expect(await backendsOfAbandonedRun()).toHaveLength(0);
+  });
+});
+
 describe("serverTimeoutOptionsFromEnv", () => {
   test("defaults cap statements at 60s, idle transactions at 300s and leave lock_timeout off", () => {
     expect(serverTimeoutOptionsFromEnv({})).toEqual({
