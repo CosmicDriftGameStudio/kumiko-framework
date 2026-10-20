@@ -10,6 +10,16 @@ verified: 2026-10-20
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.380.0
+
+### framework-core
+
+**Writes compile only for Writable tables or capable runners**
+
+The negative ExecutorOnly brand is replaced by positive brands. table(), defineUnmanagedTable and deriveEntityTableMeta with source "unmanaged" return Writable tables; buildEntityTable and r.projection tables do not. insertOne, updateMany, deleteMany, the upsert and counter helpers and the TenantDb and db.global() write methods accept a Writable table, or any table when the runner is an ExecutorManagedRunner or ExecutorManagedTenantDb. Widening a table to SchemaTable or EntityTableMeta drops the brand, so erased tables no longer compile. Projection apply functions receive tx as ExecutorManagedRunner. The runtime lock is unchanged.
+
+**Migration:** Apply functions that annotate `tx` as `DbRunner`, inline or standalone, type it as `ExecutorManagedRunner` (or drop the annotation / annotate the function with SingleStreamApplyFn/MultiStreamApplyFn). Own write helpers take `WritableTable` for direct-write tables, or `ExecutorManagedRunner` / `ExecutorManagedTenantDb` when they write event-fed tables from an apply, rebuild or tenant-destroy context, instead of `SchemaTable`/`EntityTableMeta`. Tables annotated as `SchemaTable` lose the `Writable` brand; drop the annotation or add `& Writable`. Tenant-destroy hooks keep using the db they receive. Affects kumiko-enterprise, solon, money-horse, kumiko-studio, publicstatus.
+
 ## 0.379.0
 
 ### @cosmicdrift/kumiko-dev-server
