@@ -159,7 +159,7 @@ beforeAll(async () => {
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
-      templateResolver: createTemplateResolverApi(deps.db),
+      templateResolver: createTemplateResolverApi(deps.db, deps.registry),
     }),
     extraRoutes: [createSubscriptionWebhookRoute(), ...createContractTerminationRoutes()],
     anonymousAccess: { defaultTenantId: ANONYMOUS_TENANT },
@@ -349,6 +349,7 @@ describe("revoke pages", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("x-frame-options")).toBe("DENY");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await res.text();
     expect(html).toContain('type="hidden" name="t"');
     expect(html).toContain("Kündigung zurücknehmen?");

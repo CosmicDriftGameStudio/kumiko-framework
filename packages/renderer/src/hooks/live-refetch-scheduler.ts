@@ -32,11 +32,14 @@ export function createLiveRefetchScheduler(
 
   return {
     trigger: () => {
+      // skip: the subscriber is gone
       if (disposed) return;
       if (inFlight) {
         rerunQueued = true;
+        // skip: the queued follow-up run covers this event
         return;
       }
+      // skip: a trailing run is already scheduled and will cover this event
       if (timer !== undefined) return;
       timer = setTimeout(() => void fire(), windowMs);
     },

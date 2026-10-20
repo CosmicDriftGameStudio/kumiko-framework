@@ -3783,13 +3783,23 @@ function ProjectionDetailBody({
   if (detailQuery.loading && detailQuery.data === null) {
     return <QueryLoadingBanner />;
   }
-  if (detailQuery.error) {
+  if (detailQuery.error && detailQuery.data === null) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-error">
-        {dispatcherErrorText(detailQuery.error, effectiveTranslate)}
-      </Banner>
+      <QueryErrorBanner
+        error={detailQuery.error}
+        translate={effectiveTranslate}
+        onRetry={detailQuery.refetch}
+      />
     );
   }
+  // A failed refetch keeps the last good record on screen.
+  const refetchErrorBanner = detailQuery.error ? (
+    <QueryErrorBanner
+      error={detailQuery.error}
+      translate={effectiveTranslate}
+      onRetry={detailQuery.refetch}
+    />
+  ) : null;
   const record = detailQuery.data;
   if (!record) {
     const backListScreen =
@@ -4060,6 +4070,7 @@ function ProjectionDetailBody({
   );
   return (
     <>
+      {refetchErrorBanner}
       <RenderEdit
         key={entityId}
         refreshToken={reloadNonce}

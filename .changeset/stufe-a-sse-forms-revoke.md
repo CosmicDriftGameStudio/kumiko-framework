@@ -2,7 +2,6 @@
 "@cosmicdrift/kumiko-framework": minor
 "@cosmicdrift/kumiko-renderer": minor
 "@cosmicdrift/kumiko-bundled-features": minor
-"@cosmicdrift/kumiko-types": minor
 "@cosmicdrift/kumiko-locale-de": minor
 "@cosmicdrift/kumiko-locale-es": minor
 "@cosmicdrift/kumiko-locale-fr": minor
@@ -22,7 +21,7 @@ detail: The web EventSource reconnects with exponential backoff and jitter after
 feature: framework
 type: fix
 title: A slow SSE client no longer buffers without bound
-detail: The SSE route counts the writes a client has not consumed. Past SSE_MAX_PENDING_WRITES_PER_CLIENT the stream is aborted, the client reconnects and resyncs; one failing client no longer stops the broadcast to the others. A burst of more than that many frames in one tick also drops a healthy client once, which then resyncs.
+detail: The SSE route tracks the writes a client has not consumed. A client whose queued frames make no progress for SSE_STALLED_CLIENT_TIMEOUT_MS (one heartbeat interval), or that queues SSE_MAX_PENDING_WRITES_PER_CLIENT frames, is aborted and unregistered; it reconnects and resyncs. A large broadcast batch does not drop a client that keeps reading, and one failing client no longer stops the broadcast to the others. SseRouteOptions.now makes the clock injectable.
 -->
 
 <!-- kumiko-changes

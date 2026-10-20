@@ -1,3 +1,4 @@
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   isSessionEndedError,
@@ -146,7 +147,7 @@ export function createEventSourceLiveEvents(
   };
 
   const emitResync = (): void => {
-    const createdAt = new Date(now()).toISOString();
+    const createdAt = Temporal.Instant.fromEpochMilliseconds(now()).toString();
     for (const sub of [...subscribers]) {
       sub.listener({
         type: sub.entityName,
@@ -204,6 +205,7 @@ export function createEventSourceLiveEvents(
         if (source !== connection) return;
         if (sessionEnded) {
           signalSessionEnded();
+          // skip: the session ended, reconnecting would only be refused again
           return;
         }
         scheduleReconnect();

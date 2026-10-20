@@ -96,10 +96,11 @@ export function createRevokeContractTerminationHandler(): WriteHandlerDef {
     schema: revokeContractTerminationSchema,
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 600 },
+    // The link only knows baseUrl, which may be a host that resolves no tenant; the token alone authorizes.
     tenantlessAnonymous: true,
     escapeHatch: {
       reason:
-        "Anonymous revoker has no session — the declaration is looked up as a system user of the tenant named in the link; the token check decides, and the tenant written to comes only from that lookup.",
+        "Anonymous revoker has no session — writes as the system user of the tenant named in the link; only a declared event in that tenant whose revocationTokenHash matches the link token lets the revocation through, every other case answers the same generic invalid.",
     },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload

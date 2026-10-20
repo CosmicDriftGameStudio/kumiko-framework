@@ -124,7 +124,7 @@ function newDraftPrefix(screenId: string): string {
 }
 
 // `crypto.randomUUID` is missing in non-secure contexts and React Native/Hermes
-// without a polyfill — guard like dispatcher-live.ts's generateRequestId.
+// without a polyfill — guard like generateRequestId in headless/dispatcher/request-id.ts.
 function mintDraftId(): string {
   const webCrypto = propertyOf(globalThis, "crypto");
   const randomUUID = propertyOf(webCrypto, "randomUUID");

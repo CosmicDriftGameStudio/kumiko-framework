@@ -173,6 +173,51 @@ export function createDeclareContractTerminationHandler(): WriteHandlerDef {
   };
 }
 
+function revokedRecordResult(receivedAtIso: string) {
+  return {
+    isSuccess: true as const,
+    data: {
+      receivedAtIso,
+      effectiveAtIso: null,
+      providerCancel: "none",
+      noticeReason: null,
+      withdrawalPeriodExpired: false,
+    } satisfies RecordContractTerminationResult,
+  };
+}
+
+// A revocation that landed during the provider cancel found nothing to take back yet.
+async function takeBackLateRevokedCancel(
+  ctx: HandlerContext,
+  consumerProtection: ConsumerProtectionOptions,
+  args: {
+    readonly payload: z.infer<typeof recordContractTerminationSchema>;
+    readonly tenantId: string;
+    readonly receivedAtIso: string;
+    readonly providerCancel: ProviderCancelOutcome;
+  },
+): Promise<void> {
+  const { payload, tenantId, receivedAtIso, providerCancel } = args;
+  // skip: nothing was cancelled at the provider, nothing to resume
+  if (providerCancel !== "period-end") return;
+  const reasons = await resumeAtProvider(ctx, await getSubscriptionForTenant(ctx, tenantId));
+  // skip: resumed cleanly, the revocation notice already tells the operator
+  if (reasons.length === 0) return;
+  await notifyOperator(ctx, consumerProtection, {
+    locale: payload.locale ?? FALLBACK_CONSENT_LOCALE,
+    requestId: payload.requestId,
+    receivedAtIso,
+    channel: "public",
+    declaration: {
+      declarationType: payload.declarationType,
+      terminationKind: payload.terminationKind,
+    },
+    reasons,
+    tenantId,
+    providerCancel,
+  });
+}
+
 export function createRecordContractTerminationHandler(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
@@ -223,16 +268,7 @@ export function createRecordContractTerminationHandler(
 
       // A revoked public declaration never reaches the provider.
       if (hasRevocation(stream.events, payload.requestId)) {
-        return {
-          isSuccess: true as const,
-          data: {
-            receivedAtIso,
-            effectiveAtIso: null,
-            providerCancel: "none",
-            noticeReason: null,
-            withdrawalPeriodExpired: false,
-          } satisfies RecordContractTerminationResult,
-        };
+        return revokedRecordResult(receivedAtIso);
       }
 
       const withdrawalPeriodExpired =
@@ -264,34 +300,13 @@ export function createRecordContractTerminationHandler(
       });
       // A revocation that landed during the provider call found no cancel to take back.
       if (hasRevocation(streamAfterProviderCall.events, payload.requestId)) {
-        const subscription = await getSubscriptionForTenant(ctx, tenantId);
-        const resumeReasons =
-          providerCancel === "period-end" ? await resumeAtProvider(ctx, subscription) : [];
-        if (resumeReasons.length > 0) {
-          await notifyOperator(ctx, consumerProtection, {
-            locale: payload.locale ?? FALLBACK_CONSENT_LOCALE,
-            requestId: payload.requestId,
-            receivedAtIso,
-            channel: "public",
-            declaration: {
-              declarationType: payload.declarationType,
-              terminationKind: payload.terminationKind,
-            },
-            reasons: resumeReasons,
-            tenantId,
-            providerCancel,
-          });
-        }
-        return {
-          isSuccess: true as const,
-          data: {
-            receivedAtIso,
-            effectiveAtIso: null,
-            providerCancel: "none",
-            noticeReason: null,
-            withdrawalPeriodExpired: false,
-          } satisfies RecordContractTerminationResult,
-        };
+        await takeBackLateRevokedCancel(ctx, consumerProtection, {
+          payload,
+          tenantId,
+          receivedAtIso,
+          providerCancel,
+        });
+        return revokedRecordResult(receivedAtIso);
       }
       await streamAfterProviderCall.appendOne({
         type: CONTRACT_TERMINATION_REQUESTED_EVENT_QN,

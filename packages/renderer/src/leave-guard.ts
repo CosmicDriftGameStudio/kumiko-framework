@@ -36,6 +36,7 @@ export function setLeaveConfirmer(next: LeaveConfirmer): () => void {
 export function requestLeave(proceed: () => void, cancel: () => void = () => {}): void {
   if (confirmer === undefined || !hasUnsavedInput()) {
     proceed();
+    // skip: nothing to lose, no question needed
     return;
   }
   confirmer({ proceed, cancel });

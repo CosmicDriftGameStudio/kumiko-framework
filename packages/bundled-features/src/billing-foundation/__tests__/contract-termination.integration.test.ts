@@ -326,6 +326,21 @@ async function postDeclaration(
   );
 }
 
+async function postRevocationWrite(target: TestStack, headers: Record<string, string>) {
+  return target.app.request(
+    "/api/write",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({
+        type: SubscriptionFoundationHandlers.revokeContractTermination,
+        payload: { requestId: generateId(), token: "unknown", tenantId: generateId() },
+      }),
+    },
+    nextClientIp(),
+  );
+}
+
 type DeclarationReceipt = { readonly requestId: string; readonly receivedAtIso: string };
 
 async function declare(
@@ -1032,6 +1047,12 @@ describe("public pages on a host-resolved tenant", () => {
     expect(mailsTo(email)).toHaveLength(1);
   });
 
+  test("the revoke handler also runs on a host that resolves no tenant, the receipt link may point there", async () => {
+    const res = await postRevocationWrite(hostStack, { host: APEX_HOST });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { data: { outcome: string } }).data.outcome).toBe("invalid");
+  });
+
   test("a host that resolves no tenant still answers tenant_required, on the page and on /api/write", async () => {
     const email = "host-unknown@example.com";
     const page = await postConfirmForm(hostStack, "/legal/kuendigen", email, { host: APEX_HOST });
@@ -1063,6 +1084,12 @@ describe("public pages in platform mode on a host that resolves no tenant", () =
 
   beforeEach(async () => {
     await resetStack(platformStack);
+  });
+
+  test("the revoke handler runs on the platform host and answers an unknown link with the generic invalid", async () => {
+    const res = await postRevocationWrite(platformStack, apex);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { data: { outcome: string } }).data.outcome).toBe("invalid");
   });
 
   test("both pages are served on the platform host", async () => {

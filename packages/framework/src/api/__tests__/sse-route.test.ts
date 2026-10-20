@@ -17,7 +17,7 @@ import {
 } from "../sse-broker.ts";
 import {
   createSseRoute,
-  SSE_MAX_PENDING_WRITES_PER_CLIENT,
+  SSE_STALLED_CLIENT_TIMEOUT_MS,
   type SseRouteOptions,
 } from "../sse-route.ts";
 
@@ -556,15 +556,20 @@ describe("sse-route access invalidation", () => {
 });
 
 describe("sse-route backpressure", () => {
-  test("a client that never reads is dropped after the pending-write limit while others keep receiving", async () => {
+  const userUpdated = (n: number): SseEvent => ({
+    type: "user.updated",
+    data: {
+      id: `u${n}`,
+      aggregateType: "user",
+      version: n + 1,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+  });
+
+  async function openClients(clock: { now: number }) {
     const local = createSseBroker();
     let resolveNextAdded!: () => void;
     let nextAdded = Promise.resolve();
-    const armNextAdded = () => {
-      nextAdded = new Promise<void>((resolve) => {
-        resolveNextAdded = resolve;
-      });
-    };
     const broker: SseBroker = {
       ...local,
       addClient(channel, send, close) {
@@ -573,37 +578,61 @@ describe("sse-route backpressure", () => {
         return id;
       },
     };
-    const { app, token } = await buildSseApp(broker);
+    const { app, token } = await buildSseApp(broker, {
+      ...NO_ANONYMOUS_ENTITIES,
+      now: () => clock.now,
+    });
     const open = async () => {
-      armNextAdded();
+      nextAdded = new Promise<void>((resolve) => {
+        resolveNextAdded = resolve;
+      });
       const response = await app.request("/api/sse", {
         headers: { Authorization: `Bearer ${token}` },
       });
       await nextAdded;
       return response.body!.getReader();
     };
+    return { local, open, channel: tenantChannel(TestUsers.user.tenantId) };
+  }
 
-    await open();
-    const fastReader = await open();
-    const channel = tenantChannel(TestUsers.user.tenantId);
-    expect(local.getClientCount(channel)).toBe(2);
+  test("a reading client receives a synchronous burst far above the old queue limit and stays connected", async () => {
+    const clock = { now: 0 };
+    const { local, open, channel } = await openClients(clock);
+    const reader = await open();
 
-    const eventCount = SSE_MAX_PENDING_WRITES_PER_CLIENT * 2;
-    for (let n = 0; n < eventCount; n++) {
-      local.pushToChannel(channel, {
-        type: "user.updated",
-        data: {
-          id: `u${n}`,
-          aggregateType: "user",
-          version: n + 1,
-          createdAt: "2026-01-01T00:00:00.000Z",
-        },
-      });
-      const frame = await readNextEntityFrame(fastReader);
+    const burst = 1000;
+    for (let n = 0; n < burst; n++) local.pushToChannel(channel, userUpdated(n));
+
+    for (let n = 0; n < burst; n++) {
+      const frame = await readNextEntityFrame(reader);
       expect(JSON.parse(frame.data).id).toBe(`u${n}`);
     }
+    expect(local.getClientCount(channel)).toBe(1);
+    await reader.cancel();
+  });
+
+  test("a client without progress past the stall timeout is dropped and released while others keep receiving", async () => {
+    const clock = { now: 0 };
+    const { local, open, channel } = await openClients(clock);
+    await open();
+    const fastReader = await open();
+    expect(local.getClientCount(channel)).toBe(2);
+
+    for (let n = 0; n < 3; n++) {
+      local.pushToChannel(channel, userUpdated(n));
+      expect(JSON.parse((await readNextEntityFrame(fastReader)).data).id).toBe(`u${n}`);
+    }
+    expect(local.getClientCount(channel)).toBe(2);
+
+    // let the fast client's last write settle before the clock jumps
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    clock.now += SSE_STALLED_CLIENT_TIMEOUT_MS + 1;
+    local.pushToChannel(channel, userUpdated(3));
+    expect(JSON.parse((await readNextEntityFrame(fastReader)).data).id).toBe("u3");
 
     expect(local.getClientCount(channel)).toBe(1);
+    local.pushToChannel(channel, userUpdated(4));
+    expect(JSON.parse((await readNextEntityFrame(fastReader)).data).id).toBe("u4");
     await fastReader.cancel();
   });
 });

@@ -83,6 +83,8 @@ function pageHeaders(): Record<string, string> {
     ...headers,
     "content-security-policy": `${headers["content-security-policy"] ?? ""}; frame-ancestors 'none'; form-action 'self'`,
     "x-frame-options": "DENY",
+    // The revoke link carries its token in the query string.
+    "referrer-policy": "no-referrer",
   };
 }
 
@@ -414,14 +416,16 @@ function revokeConfirmPage(
   values: RevocationLinkValues,
 ): Response {
   const { revoke } = TERMINATION_TEXTS[ctx.locale].page;
-  const hidden = [
-    ["r", values.requestId],
-    ["t", values.token],
-    ["tenant", values.tenantId],
-  ]
+  const hidden = (
+    [
+      ["r", values.requestId],
+      ["t", values.token],
+      ["tenant", values.tenantId],
+    ] as const
+  )
     .map(
       ([name, value]) =>
-        `<input type="hidden" name="${name}" value="${escapeHtmlAttr(value ?? "")}">`,
+        `<input type="hidden" name="${escapeHtmlAttr(name)}" value="${escapeHtmlAttr(value ?? "")}">`,
     )
     .join("\n");
   const body = `<h1>${escapeHtml(revoke.confirmTitle)}</h1>

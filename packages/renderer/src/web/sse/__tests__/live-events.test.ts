@@ -397,7 +397,7 @@ describe("createEventSourceLiveEvents — reconnect", () => {
         data: {
           aggregateType: "invoice",
           eventType: LIVE_RESYNC_EVENT_TYPE,
-          createdAt: "2026-02-03T04:05:06.000Z",
+          createdAt: "2026-02-03T04:05:06Z",
         },
       },
     ]);
