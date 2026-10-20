@@ -54,6 +54,8 @@ export type OverviewRow = {
   /** SystemAdmin only: a tenant override is stored but not delivered because the template is not unlocked for tenants. */
   readonly lockedOverride: boolean;
   readonly lockedOverrideI18nKey: string | null;
+  /** Tenant row a reset acts on (resetToSystem takes a row id, the overview row is a slug group); set only while a system version exists to fall back to. */
+  readonly lockedOverrideId: string | null;
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsage[];
   readonly usedByCount: number;
@@ -101,6 +103,7 @@ type EffectiveRows = {
   readonly origin: OverviewOrigin;
   readonly rows: TemplateResourceRow[];
   readonly lockedOverride: boolean;
+  readonly lockedOverrideId: string | null;
 };
 
 // A tenant row of a template that is not unlocked is not delivered, so the system version is the effective one.
@@ -116,24 +119,27 @@ function effectiveRowsOf(
   if (!tenantServed && liveTenant.length > 0) {
     const liveSystem = live(systemRows);
     if (systemRows.length === 0)
-      return { origin: "tenant", rows: liveTenant, lockedOverride: true };
+      return { origin: "tenant", rows: liveTenant, lockedOverride: true, lockedOverrideId: null };
     return {
       origin: "system",
       rows: liveSystem.length > 0 ? liveSystem : systemRows,
       lockedOverride: true,
+      lockedOverrideId: String(preferredRow(liveTenant)?.id ?? ""),
     };
   }
-  if (liveTenant.length > 0) return { origin: "tenant", rows: liveTenant, lockedOverride: false };
+  if (liveTenant.length > 0)
+    return { origin: "tenant", rows: liveTenant, lockedOverride: false, lockedOverrideId: null };
   if (systemRows.length > 0) {
     const liveSystem = live(systemRows);
     return {
       origin: "system",
       rows: liveSystem.length > 0 ? liveSystem : systemRows,
       lockedOverride: false,
+      lockedOverrideId: null,
     };
   }
   return tenantRows.length > 0
-    ? { origin: "tenant", rows: tenantRows, lockedOverride: false }
+    ? { origin: "tenant", rows: tenantRows, lockedOverride: false, lockedOverrideId: null }
     : null;
 }
 
@@ -259,6 +265,7 @@ function buildDrafts(
       layoutSlug,
       lockedOverride: effective.lockedOverride,
       lockedOverrideI18nKey: effective.lockedOverride ? LOCKED_OVERRIDE_I18N_KEY : null,
+      lockedOverrideId: effective.lockedOverrideId === "" ? null : effective.lockedOverrideId,
       modifiedAt: modifiedAtOf(preferred),
     });
   }

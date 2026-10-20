@@ -171,9 +171,12 @@ describe("locked template overrides :: mail free, linked PDF and layout locked",
     expect((await readById(systemAdmin))?.slug).toBe(PDF_SLUG);
     expect(await readById(tenantAdmin)).toBeNull();
 
+    // The overview row carries the id the row action sends to resetToSystem.
+    expect(locked?.lockedOverrideId).toBe(overrideIds[PDF_SLUG]);
+    expect(free?.lockedOverrideId).toBeNull();
     await stack.http.writeOk(
       TemplateResolverHandlers.resetToSystem,
-      { id: overrideIds[PDF_SLUG] },
+      { id: locked?.lockedOverrideId },
       systemAdmin,
     );
     const afterReset = await overview(stack, systemAdmin);

@@ -5,7 +5,12 @@ import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { countRowsForTenant } from "../db/queries/row-counts";
-import { leaseExecutor, partyExecutor, positionExecutor } from "../features/rental/lease-support";
+import {
+  leaseExecutor,
+  managementProfileExecutor,
+  partyExecutor,
+  positionExecutor,
+} from "../features/rental/lease-support";
 
 type BoardLease = {
   readonly mieter: string;
@@ -269,4 +274,15 @@ export const seedRental: SeedFn = async (stack) => {
     db,
   );
   if (!position.isSuccess) throw new Error("seed position failed");
+
+  const profile = await managementProfileExecutor.create(
+    {
+      name: "Nordlicht Immobilien GmbH",
+      anschrift: "Hafenstraße 12, 24103 Kiel",
+      zahlungsziel: 14,
+    },
+    TestUsers.admin,
+    db,
+  );
+  if (!profile.isSuccess) throw new Error("seed management profile failed");
 };

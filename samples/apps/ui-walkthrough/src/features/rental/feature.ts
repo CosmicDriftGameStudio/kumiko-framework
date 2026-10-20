@@ -7,7 +7,13 @@ import {
 } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { z } from "zod";
 import { openToAllSignedIn, toKeyFirst } from "../translations";
-import { leaseEntity, leasePartyEntity, leasePositionEntity, receiptEntity } from "./entities";
+import {
+  leaseEntity,
+  leasePartyEntity,
+  leasePositionEntity,
+  managementProfileEntity,
+  receiptEntity,
+} from "./entities";
 import { rentalTranslations } from "./i18n";
 import { receiveInvoicePayloadSchema } from "./invoice-receive";
 import {
@@ -18,6 +24,7 @@ import {
   germanStatusLabel,
   idPayloadSchema,
   leaseExecutor,
+  managementProfileExecutor,
   noticePeriodEnd,
   parseLeaseRow,
   partyExecutor,
@@ -28,6 +35,7 @@ import {
   type RecordedPositionItem,
   recordPositionsPayloadSchema,
   rentAdjustPayloadSchema,
+  saveManagementProfilePayloadSchema,
 } from "./lease-support";
 import { receiptsUploadPayloadSchema, uploadReceipts } from "./receipts-upload";
 import {
@@ -41,6 +49,7 @@ import {
   leaseListShortScreen,
   leaseSuccessionListScreen,
   leaseUnterlagenScreen,
+  managementProfileScreen,
   partyEditScreen,
   positionEditScreen,
   receiveInvoiceScreen,
@@ -240,6 +249,38 @@ export const rentalFeature = defineFeature("rental", (r) => {
   });
 
   r.entity({ name: "receipt", ...receiptEntity });
+  // One row per tenant: the profile screen loads it without a record id.
+  r.entity({ name: "managementProfile", ...managementProfileEntity });
+
+  r.queryHandler({
+    name: "profile:current",
+    schema: z.object({}),
+    handler: async (query, ctx) => {
+      const page = await managementProfileExecutor.list({ limit: 1 }, query.user, ctx.db);
+      return page.rows[0] ?? null;
+    },
+    ...open,
+  });
+
+  r.writeHandler({
+    name: "profile:save",
+    schema: saveManagementProfilePayloadSchema,
+    handler: async (event, ctx) => {
+      const page = await managementProfileExecutor.list({ limit: 1 }, event.user, ctx.db);
+      const existing = page.rows[0];
+      if (existing === undefined) {
+        return managementProfileExecutor.create(event.payload, event.user, ctx.db);
+      }
+      return managementProfileExecutor.update(
+        { id: String(existing["id"]), changes: event.payload },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true },
+      );
+    },
+    ...open,
+  });
+
   r.writeHandler({
     name: "receipts-upload",
     schema: receiptsUploadPayloadSchema,
@@ -325,6 +366,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(receiveInvoiceScreen);
   r.screen(leaseUnterlagenScreen);
   r.screen(uploadReceiptsScreen);
+  r.screen(managementProfileScreen);
 
   r.nav({
     id: "contracts",
@@ -344,6 +386,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
     parent: "rental:nav:contracts",
     screen: "rental:screen:rental-dashboard",
     order: 20,
+  });
+  r.nav({
+    id: "management-profile",
+    label: i18nKey("rental.nav.managementProfile"),
+    parent: "rental:nav:contracts",
+    screen: "rental:screen:management-profile",
+    order: 50,
   });
   r.nav({
     id: "receive-invoice",

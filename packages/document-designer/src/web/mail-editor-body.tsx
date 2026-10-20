@@ -57,6 +57,7 @@ import { useOverviewRows } from "./use-overview-rows.ts";
 import { useOwnAddress } from "./use-own-address.ts";
 import { useSettledValue } from "./use-settled-value.ts";
 import { useTestMail } from "./use-test-mail.ts";
+import { templateTitleText } from "./used-by-label.ts";
 
 // The editor replaces this token with the decoded image size once the preview image loaded.
 const SIZE_TOKEN = "{size}";
@@ -169,7 +170,9 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   };
 
   const resources = parseLinkedResources(row?.linkedResources);
-  const pdfTitles = new Map(pdfTemplates.rows.map((template) => [template.slug, template.title]));
+  const pdfTitles = new Map(
+    pdfTemplates.rows.map((template) => [template.slug, templateTitleText(t, template.title)]),
+  );
   const resourcePreviews = Object.fromEntries(
     resources.flatMap((resource) =>
       resource.kind === "image"

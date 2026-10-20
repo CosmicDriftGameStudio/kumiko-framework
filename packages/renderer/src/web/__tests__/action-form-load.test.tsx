@@ -189,4 +189,41 @@ describe("actionForm load", () => {
     await waitFor(() => expect(screen.getByTestId("kumiko-screen-record-missing")).toBeTruthy());
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
+
+  test("singleton loads the tenant row without a record id and saves the edit", async () => {
+    const calls = renderForm({
+      definition: {
+        id: "rename-form",
+        type: "actionForm",
+        handler: "shop:write:rename",
+        fields: { name: { type: "text", required: true } as TextFieldDef },
+        layout: { sections: [{ fields: ["name"] }] },
+        load: { query: "shop:query:shop-settings:detail", singleton: true },
+      },
+      outcome: { kind: "record", record: { id: "t1", name: "Kaffeerösterei Berger" } },
+    });
+
+    await waitFor(() => expect(nameInput().value).toBe("Kaffeerösterei Berger"));
+    expect(calls.queries[0]).toEqual({ type: "shop:query:shop-settings:detail", payload: {} });
+    expect(screen.queryByTestId("kumiko-screen-action-form-missing-id")).toBeNull();
+
+    await userEvent.setup().type(nameInput(), " GmbH");
+    await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(calls.writes).toEqual([{ name: "Kaffeerösterei Berger GmbH" }]));
+  });
+
+  test("singleton never forwards a stray route id to the query", async () => {
+    const calls = renderForm({
+      definition: {
+        ...renameForm,
+        load: { query: "shop:query:shop-settings:detail", singleton: true },
+      },
+      entityId: "spoofed",
+      outcome: { kind: "record", record: { name: "Pen" } },
+    });
+
+    await waitFor(() => expect(nameInput().value).toBe("Pen"));
+    expect(calls.queries[0]?.payload).toEqual({});
+  });
 });

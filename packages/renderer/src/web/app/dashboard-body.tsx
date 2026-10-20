@@ -100,6 +100,7 @@ import {
   extensionSectionName,
   HeaderActionsBar,
   KumikoScreen,
+  lastSegment,
   type UseQueryResult,
   useEmbeddedScreen,
   useExtensionSectionComponent,
@@ -111,6 +112,7 @@ import {
   useQuery,
   useRecordActions,
   useTranslation,
+  useUserRoles,
 } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { EmbeddedFormProvider } from "../primitives/index.tsx";
@@ -1233,7 +1235,34 @@ function TextBlockView({
           {translate(block.text)}
         </p>
       );
+    case "link":
+      return <TextBlockLink block={block} translate={translate} />;
   }
+}
+
+function TextBlockLink({
+  block,
+  translate,
+}: {
+  readonly block: Extract<DashboardTextBlock, { readonly kind: "link" }>;
+  readonly translate: Translate;
+}): ReactNode {
+  const { Link } = usePrimitives();
+  const nav = useNav();
+  const userRoles = useUserRoles();
+  if (block.roles !== undefined && !block.roles.some((role) => userRoles?.includes(role))) {
+    return null;
+  }
+  const target = { screenId: lastSegment(block.screen) };
+  return (
+    <Link
+      href={nav.hrefFor(target)}
+      onPress={() => nav.navigate(target)}
+      testId={`dashboard-text-link-${target.screenId}`}
+    >
+      {translate(block.text)}
+    </Link>
+  );
 }
 
 function textBlockKey(block: DashboardTextBlock): string {

@@ -19,6 +19,9 @@ export type OverviewRowView = {
   /** An open draft beside the served version, never another tenant's. */
   readonly draftVersion: number | null;
   readonly systemVersion: number | null;
+  /** SystemAdmin only: a stored tenant override that is not delivered. */
+  readonly lockedOverride: boolean;
+  readonly lockedOverrideI18nKey: string | null;
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsageView[];
   readonly usedByCount: number;
@@ -68,6 +71,8 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     version,
     draftVersion,
     systemVersion,
+    lockedOverride,
+    lockedOverrideI18nKey,
     modifiedAt,
     usedBy,
     usedByCount,
@@ -89,6 +94,8 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     version: numberOr(version, 0),
     draftVersion: numberOr(draftVersion, null),
     systemVersion: numberOr(systemVersion, null),
+    lockedOverride: lockedOverride === true,
+    lockedOverrideI18nKey: typeof lockedOverrideI18nKey === "string" ? lockedOverrideI18nKey : null,
     modifiedAt: stringOr(modifiedAt, ""),
     usedBy: usages,
     usedByCount: numberOr(usedByCount, usages.length),

@@ -16,6 +16,7 @@ import { type ReactNode, useState } from "react";
 import { lastSlugSegment, parseJsonRecord, uniqueResourceKey } from "./mail-draft.ts";
 import type { TemplateRowSummary, TemplateRowView } from "./mail-types.ts";
 import type { OverviewRowView } from "./overview-row.ts";
+import { templateTitleText } from "./used-by-label.ts";
 
 function pdfRowIdOf(summaries: readonly TemplateRowSummary[] | null, slug: string): string | null {
   const ofSlug = (summaries ?? []).filter((row) => row.slug === slug);
@@ -89,7 +90,10 @@ function PdfLinkForm({
             setSlug(next);
             setEditedName(null);
           }}
-          options={templates.map((template) => ({ value: template.slug, label: template.title }))}
+          options={templates.map((template) => ({
+            value: template.slug,
+            label: templateTitleText(t, template.title),
+          }))}
         />
       </Field>
       <Field

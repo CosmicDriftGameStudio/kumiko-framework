@@ -106,8 +106,21 @@ const EDITABLE_KINDS: readonly TemplateEditorKind[] = [
   "pdf-layout",
 ];
 
+const RESET_TO_SYSTEM_HANDLER = "template-resolver:write:reset-to-system";
+
+const RESET_LOCKED_OVERRIDE_ACTION: RowAction = {
+  id: "reset-locked-override",
+  label: i18nKey("documentDesigner.action.resetLockedOverride"),
+  handler: RESET_TO_SYSTEM_HANDLER,
+  payload: { map: { id: "lockedOverrideId" } },
+  confirm: i18nKey("documentDesigner.action.resetLockedOverride.confirm"),
+  confirmLabel: i18nKey("documentDesigner.action.resetLockedOverride.confirmLabel"),
+  style: "danger",
+  visible: { field: "lockedOverride", eq: true },
+};
+
 export function templateRowActions(): RowAction[] {
-  return EDITABLE_KINDS.flatMap((kind): RowAction[] => {
+  const editActions = EDITABLE_KINDS.flatMap((kind): RowAction[] => {
     const screen = TEMPLATE_EDITOR_SCREENS[kind];
     if (screen === undefined) return [];
     return [
@@ -121,4 +134,5 @@ export function templateRowActions(): RowAction[] {
       },
     ];
   });
+  return [...editActions, RESET_LOCKED_OVERRIDE_ACTION];
 }

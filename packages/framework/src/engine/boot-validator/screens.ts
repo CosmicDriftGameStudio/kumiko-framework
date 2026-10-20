@@ -59,6 +59,7 @@ import type {
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,
+  DashboardTextBlock,
   DashboardTextPanel,
   DashboardTimeRangeDefinition,
   DashboardValueFormat,
@@ -1557,6 +1558,17 @@ function validateInlineFormScreen(
   if (screen.type === "actionForm") {
     validateFormDerivations(feature.name, screenId, screen);
     validateFormDerivationsEnforced(feature.name, screenId, screen, featureMap);
+  }
+  if (
+    screen.type === "actionForm" &&
+    screen.load?.singleton === true &&
+    screen.load.idParam !== undefined
+  ) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both load.singleton: true ` +
+        `and load.idParam — singleton means the query picks the row from the caller's context, so ` +
+        `there is no record id to send under idParam. Remove idParam.`,
+    );
   }
   validateInlineFormNavTargets(feature, screenId, screen, kind, lookups);
 }
@@ -3391,7 +3403,7 @@ function validateDashboardScreen(
     } else if (panel.kind === "screen") {
       validateDashboardScreenPanel(featureName, screenId, panel, featureMap);
     } else if (panel.kind === "text") {
-      validateDashboardTextPanel(featureName, screenId, panel);
+      validateDashboardTextPanel(featureName, screenId, panel, featureMap);
     } else {
       validateDashboardQueryPanel(featureName, screenId, panel, featureMap);
     }
@@ -3688,6 +3700,7 @@ function validateDashboardTextPanel(
   featureName: string,
   screenId: string,
   panel: DashboardTextPanel,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) text-panel "${panel.id}"`;
   if (panel.blocks.length === 0) {
@@ -3699,6 +3712,30 @@ function validateDashboardTextPanel(
     if (block.kind === "list" && block.items.length === 0) {
       throw new Error(`${context} has a list block without items. Add items or remove the block.`);
     }
+    if (block.kind === "link")
+      validateDashboardTextLinkBlock(context, block, featureName, featureMap);
+  }
+}
+
+function validateDashboardTextLinkBlock(
+  context: string,
+  block: Extract<DashboardTextBlock, { readonly kind: "link" }>,
+  featureName: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const targetQn = resolveScreenTargetQn(featureName, block.screen);
+  const [targetFeatureName = "", , targetShortId = ""] = targetQn.split(":");
+  if (featureMap.get(targetFeatureName)?.screens[targetShortId] === undefined) {
+    throw new Error(
+      `${context} link block screen "${block.screen}" does not resolve to a registered screen ` +
+        `(checked "${targetQn}"). Use a same-feature short id or a cross-feature QN "<feature>:screen:<id>".`,
+    );
+  }
+  if (block.roles?.length === 0) {
+    throw new Error(
+      `${context} link block "${block.screen}" has an empty roles list, which would hide it from everyone. ` +
+        `List the roles or omit roles.`,
+    );
   }
 }
 

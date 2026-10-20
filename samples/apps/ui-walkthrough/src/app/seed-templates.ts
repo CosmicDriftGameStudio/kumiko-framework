@@ -212,6 +212,17 @@ export const seedTemplates: SeedFn = async (stack) => {
   await upsertTenant(INVOICE_CORRECTED_DRAFT, "draft");
   for (const reminder of PAYMENT_REMINDER_TEMPLATES) await upsertTenant(reminder, "active");
   await upsertTenant(TENANT_UTILITY_STATEMENT, "active");
+  // The platform admin adapted the Exposé for Nordlicht, but the template is not unlocked for
+  // tenants, so the stored copy is not delivered; the SystemAdmin overview flags it.
+  await upsert(
+    TemplateResolverHandlers.upsertTenant,
+    {
+      ...SYSTEM_PROPERTY_EXPOSE,
+      content: SYSTEM_PROPERTY_EXPOSE.content.replace("Exposé", "Objektexposé"),
+    },
+    platformAdmin,
+    { status: "active" },
+  );
 
   // Other tenants with their own invoice copy: what the SystemAdmin sees in the overrides drawer.
   for (const override of TENANT_INVOICE_OVERRIDES) {

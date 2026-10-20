@@ -1228,7 +1228,17 @@ export type DashboardTextBlock =
     }
   | { readonly kind: "list"; readonly items: readonly string[] }
   | { readonly kind: "code"; readonly code: string }
-  | { readonly kind: "hint"; readonly text: string };
+  | { readonly kind: "hint"; readonly text: string }
+  | {
+      readonly kind: "link";
+      /** Link label (i18n key). */
+      readonly text: string;
+      /** Same-feature short id or cross-feature QN `<feature>:screen:<id>`. */
+      readonly screen: string;
+      /** Show the link only to users holding one of these roles. Display
+       *  gate only: the target screen's own `access` stays the enforcement. */
+      readonly roles?: readonly string[];
+    };
 
 export type DashboardTextPanel = DashboardPanelGate & {
   readonly kind: "text";
@@ -2105,6 +2115,11 @@ export type ActionFormLoad = {
   readonly query: string;
   /** Payload key carrying the record id (default "id"). */
   readonly idParam?: string;
+  /** The query picks the row from the caller's tenant/session context, so the
+   *  form loads without a record id and the query is called WITHOUT `idParam`
+   *  (same semantics as `ProjectionDetailScreenDefinition.singleton`). Boot
+   *  rejects declaring `idParam` alongside it. */
+  readonly singleton?: boolean;
 };
 
 /** One key figure of the success box, read from the handler's success payload. */

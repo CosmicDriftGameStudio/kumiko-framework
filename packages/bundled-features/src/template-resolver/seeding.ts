@@ -77,6 +77,9 @@ export type SeedSystemTemplateOptions = {
   readonly linkedResources?: Record<string, string>;
   readonly meta?: unknown;
   readonly title?: string;
+  /** Translatable title for the overview and designer, stored in the title column; the client
+   *  shows the translation and falls back to the key. Mutually exclusive with `title`. */
+  readonly titleI18nKey?: string;
   readonly parentTemplateId?: string | null;
   readonly by?: SessionUser;
   readonly ifExists?: SeedIfExists;
@@ -93,6 +96,9 @@ export async function seedSystemTemplate(
   const label = `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale}`;
   const slug = templateSlugSchema.safeParse(opts.slug);
   if (!slug.success) throw new Error(`${label} rejected: ${slug.error.issues[0]?.message}`);
+  if (opts.title !== undefined && opts.titleI18nKey !== undefined) {
+    throw new Error(`${label} rejected: set either title or titleI18nKey, not both`);
+  }
   const evaluated = evaluateTemplateWrite({
     kind: opts.kind,
     scope: "system",
@@ -137,7 +143,7 @@ export async function seedSystemTemplate(
     variableSchema,
     ...(linkedResources !== undefined && { linkedResources }),
     meta,
-    title: opts.title ?? null,
+    title: opts.titleI18nKey ?? opts.title ?? null,
     folder: null,
     scope: "system" as const,
     parentTemplateId,

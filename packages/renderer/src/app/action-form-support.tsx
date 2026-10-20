@@ -66,17 +66,18 @@ export function useActionFormLoad(
   recordId: string | undefined,
   fieldNames: readonly string[],
 ): ActionFormLoadState | undefined {
+  const isSingleton = load?.singleton === true;
   const query = useQuery<unknown>(
     load?.query ?? "",
-    { [load?.idParam ?? DEFAULT_LOAD_ID_PARAM]: recordId },
-    { enabled: load !== undefined && recordId !== undefined },
+    isSingleton ? {} : { [load?.idParam ?? DEFAULT_LOAD_ID_PARAM]: recordId },
+    { enabled: load !== undefined && (isSingleton || recordId !== undefined) },
   );
   const values = useMemo(
     () => pickDeclaredFields(query.data, fieldNames),
     [query.data, fieldNames],
   );
   if (load === undefined) return undefined;
-  if (recordId === undefined) return { status: "missing-id" };
+  if (!isSingleton && recordId === undefined) return { status: "missing-id" };
   if (query.error !== null) return { status: "error", error: query.error };
   if (query.loading) return { status: "loading" };
   if (query.data === null) return { status: "missing-record" };

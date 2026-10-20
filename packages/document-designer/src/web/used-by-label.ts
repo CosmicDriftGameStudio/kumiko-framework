@@ -18,13 +18,18 @@ export function variableLabelText(t: Translate, name: string, label: string | un
 
 const NOTIFICATION_SLUG = /^([^:]+):notify:([^:]+)$/;
 
+// A seeded system template may store an i18n key as its title; plain text stays as typed.
+export function templateTitleText(t: Translate, title: string): string {
+  return translateOrRaw(t, title, title);
+}
+
 // A seeded system mail has no stored title, so its notification label from the
 // owning feature names it; the slug stays the last resort.
 export function templateTitle(
   t: Translate,
   row: Pick<OverviewRowView, "title" | "slug" | "kind">,
 ): string {
-  if (row.title !== row.slug) return row.title;
+  if (row.title !== row.slug) return templateTitleText(t, row.title);
   const match = row.kind === "mail" ? NOTIFICATION_SLUG.exec(row.slug) : null;
   if (match === null) return row.slug;
   return usageParts(t, { feature: match[1] ?? "", notification: match[2] ?? "" }).notification;
