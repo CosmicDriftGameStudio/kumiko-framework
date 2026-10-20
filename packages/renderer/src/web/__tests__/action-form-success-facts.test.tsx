@@ -29,6 +29,7 @@ const LABELS: Readonly<Record<string, string>> = {
   "demo.fact.charged": "Charged",
   "demo.fact.failed": "Failed",
   "demo.fact.missing": "Missing",
+  "kumiko.actionForm.success": "Done.",
 };
 
 function dispatcherReturning(data: Record<string, unknown>): Dispatcher {
@@ -70,9 +71,13 @@ describe("actionForm successFacts", () => {
 
     await waitFor(() => expect(screen.getByTestId("action-form-success-fact-0")).toBeTruthy());
     expect(screen.getByTestId("action-form-success-fact-0").textContent).toBe("Charged: 12");
+    // The message and each fact are separate elements, several lines become one element each.
+    expect(screen.getByTestId("action-form-success-text").textContent).toBe("Done.");
     expect(screen.getByTestId("action-form-success-fact-1").textContent).toBe(
-      "Failed: Lease A, Lease B",
+      "Failed:Lease ALease B",
     );
+    expect(screen.getByTestId("action-form-success-fact-1-line-0").textContent).toBe("Lease A");
+    expect(screen.getByTestId("action-form-success-fact-1-line-1").textContent).toBe("Lease B");
     expect(screen.queryByTestId("action-form-success-fact-2")).toBeNull();
   });
 });
