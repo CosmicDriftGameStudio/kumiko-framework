@@ -149,7 +149,7 @@ export const defaultTranslations: TranslationsByLocale = {
   },
 };
 
-// Kanonische Implementierung lebt jetzt im Renderer (neben
-// TranslationsByLocale) — Re-Export hält die bestehende Import-Surface
-// (auth-email-password/web) stabil.
+// The canonical implementation lives in the renderer (next to
+// TranslationsByLocale); the re-export keeps the existing import surface
+// (auth-email-password/web) stable.
 export { mergeTranslations } from "@cosmicdrift/kumiko-renderer";

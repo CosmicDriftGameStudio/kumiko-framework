@@ -1,10 +1,9 @@
 // Plain data, no imports — the content tree in web/ needs TEXT_BLOCK_KIND to
 // pick between the public and the admin query.
 //
-// RenderKind identifiziert die Konsumenten-Klasse eines Templates.
-// Plugin-Renderer in `renderer-foundation` matchen auf kind; der
-// Resolver hier ist kind-agnostisch — er lädt nur, das Content-Format
-// (markdown/mjml/html) entscheidet wer's rendert.
+// RenderKind identifies the consumer class of a template. Plugin renderers in
+// `renderer-foundation` match on kind; the resolver here is kind-agnostic: it
+// only loads, and the content format (markdown/mjml/html) decides who renders it.
 export const RENDER_KINDS = ["mail", "document-pdf", "image-snapshot"] as const;
 export type RenderKind = (typeof RENDER_KINDS)[number];
 
@@ -94,8 +93,8 @@ export const TEST_MAIL_SUBJECT_PREFIX = "[TEST] ";
 // System templates live under the SYSTEM_TENANT_ID sentinel; the client-safe types package is its single source.
 export { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 
-// Default-Locale wenn Tenant keinen eigenen Default konfiguriert. Resolver
-// fällt darauf zurück wenn requested locale + tenant-default fehlen.
+// Default locale when the tenant configures none. The resolver falls back to
+// it when the requested locale and the tenant default are missing.
 export const FALLBACK_LOCALE = "de";
 
 // A collection mounted without `access` is maintained by the platform only; TenantAdmin access is an explicit mount decision.

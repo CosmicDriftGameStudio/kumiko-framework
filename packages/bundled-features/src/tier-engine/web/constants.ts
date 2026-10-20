@@ -38,6 +38,6 @@ export const TierEngineQueries = {
   tierOptions: "tier-engine:query:tier-options",
 } as const;
 
-// Screen-id für den manuellen Tier-Grant-Screen. Apps referenzieren ihn
-// qualifiziert in r.nav: `tier-engine:screen:tier-admin`.
+// Screen id of the manual tier-grant screen. Apps reference it qualified in
+// r.nav: `tier-engine:screen:tier-admin`.
 export const TIER_ADMIN_SCREEN_ID = "tier-admin" as const;

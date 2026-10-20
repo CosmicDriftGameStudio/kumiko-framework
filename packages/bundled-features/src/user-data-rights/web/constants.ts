@@ -1,7 +1,7 @@
-// Reine String-Konstanten — client-markiert, damit web/ (z.B. ExportSection)
-// sie importieren darf, ohne das runtime-Barrel des Features (und damit
-// dessen Server-/DOM-freien Code) zu ziehen. Runtime-Code (feature.ts) darf
-// client-Dateien ohnehin importieren.
+// Pure string constants, client-marked so web/ (e.g. ExportSection) may
+// import them without pulling the feature's runtime barrel (and with it its
+// server/DOM-free code). Runtime code (feature.ts) may import client files
+// anyway.
 
 export const USER_DATA_RIGHTS_FEATURE = "user-data-rights" as const;
 
@@ -43,15 +43,15 @@ export const UserDataRightsHandlers = {
   restrictAccount: "user-data-rights:write:restrict-account",
 } as const;
 
-// Fremde QN: der Lifecycle-Status (active / deletionRequested / restricted)
-// kommt aus dem user-Feature. Lokal gepinnt statt das user-runtime-Barrel zu
-// importieren (Runtime-Isolation, wie user-profile). Drift-Schutz: der
-// Screen-Test vergleicht gegen UserQueries.me.
+// Foreign QN: the lifecycle status (active / deletionRequested / restricted)
+// comes from the user feature. Pinned locally instead of importing the user
+// runtime barrel (runtime isolation, like user-profile). Drift protection: the
+// screen test compares against UserQueries.me.
 export const USER_ME_QUERY = "user:query:user:me" as const;
 
-// Client-safe Mirror von EXPORT_JOB_STATUS (schema/export-job.ts ist
-// server-only via Drizzle-Import). Drift-Schutz: der Screen-Test vergleicht
-// gegen die Schema-Originale.
+// Client-safe mirror of EXPORT_JOB_STATUS (schema/export-job.ts is server-only
+// via its Drizzle import). Drift protection: the screen test compares against
+// the schema original.
 export const EXPORT_JOB_STATUS = {
   Pending: "pending",
   Running: "running",

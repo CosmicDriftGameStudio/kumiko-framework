@@ -5,7 +5,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 // Feature name
 export const BILLING_FOUNDATION_FEATURE = "billing-foundation" as const;
 
-// Extension-point name fuer Provider-Plugins (subscription-stripe,
+// Extension-point name for provider plugins (subscription-stripe,
 // subscription-mollie, ...).
 export const SUBSCRIPTION_PROVIDER_EXTENSION = "subscriptionProvider" as const;
 
@@ -22,19 +22,18 @@ export const CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE =
 
 // Qualified write handler names (QN format: scope:type:name).
 export const SubscriptionFoundationHandlers = {
-  /** Programmatic entry-point für den webhook-handler. Receives the
-   *  parsed SubscriptionEvent (vom Plugin schon verifiziert) + macht
-   *  insert-event + upsert-subscription + tier-sync atomic. */
+  /** Programmatic entry point for the webhook handler. Receives the
+   *  parsed SubscriptionEvent (already verified by the plugin) and does
+   *  insert-event + upsert-subscription + tier-sync atomically. */
   processEvent: "billing-foundation:write:process-event",
-  /** Tenant-Admin klickt "Upgrade to Pro" → handler findet den
-   *  gewählten provider-plugin + ruft seine createCheckoutSession-
-   *  Methode + returnt die hosted-page-URL. Tenant-Admin wird dorthin
-   *  redirected, der subsequent provider-webhook erstellt die
-   *  subscription. */
+  /** Tenant admin clicks "Upgrade to Pro": the handler finds the chosen
+   *  provider plugin, calls its createCheckoutSession and returns the
+   *  hosted-page URL. The admin is redirected there; the subsequent
+   *  provider webhook creates the subscription. */
   createCheckoutSession: "billing-foundation:write:create-checkout-session",
-  /** Tenant-Admin klickt "Manage Subscription" → handler findet
-   *  current subscription, ruft plugin.createPortalSession, returnt
-   *  hosted-portal-URL. */
+  /** Tenant admin clicks "Manage Subscription": the handler finds the
+   *  current subscription, calls plugin.createPortalSession and returns the
+   *  hosted-portal URL. */
   createPortalSession: "billing-foundation:write:create-portal-session",
   /** Programmatic entry-point for the webhook-handler on a one-off-payment
    *  (checkout mode "payment"). Its own per-tenant aggregate-stream
@@ -88,9 +87,9 @@ export const SubscriptionFoundationHandlers = {
 
 // Qualified query handler names.
 export const SubscriptionFoundationQueries = {
-  /** Sysadmin-cross-tenant + tenant-scoped self-list auf der
-   *  read_subscriptions-projection. Tenant-Admin sieht via ctx.db
-   *  tenant-scoping nur die eigene row. */
+  /** Sysadmin cross-tenant and tenant-scoped self-list on the
+   *  read_subscriptions projection. A tenant admin only sees their own row
+   *  because ctx.db is tenant-scoped. */
   listSubscriptions: "billing-foundation:query:subscription:list",
   /** Lists the catalog's plans with live price, benefits, the caller's
    *  current tier and per-plan action. Only registered when a `catalog` is
@@ -102,9 +101,9 @@ export const SubscriptionFoundationQueries = {
 } as const;
 
 // Normalized subscription-event types — provider-agnostic.
-// Alle Provider-Plugins normalisieren ihre eigenen event-types auf einen
-// dieser. Whitelist: was die Foundation kennt; alles andere muss der
-// Plugin filtern und null returnen aus verifyAndParseWebhook.
+// All provider plugins normalize their own event types onto one of these.
+// Whitelist of what the foundation knows; anything else must be filtered by
+// the plugin, which returns null from verifyAndParseWebhook.
 export const SubscriptionEventTypes = {
   created: "subscription.created",
   updated: "subscription.updated",
@@ -116,8 +115,8 @@ export type SubscriptionEventType =
   (typeof SubscriptionEventTypes)[keyof typeof SubscriptionEventTypes];
 
 // Normalized subscription-status values — provider-agnostic.
-// Stripe + Mollie haben verschiedene Status-Sets; Plugin mapped auf
-// diesen common-subset.
+// Stripe and Mollie have different status sets; the plugin maps onto this
+// common subset.
 export const SubscriptionStatuses = {
   active: "active",
   trialing: "trialing",
@@ -221,17 +220,15 @@ export function isSwitchableSubscriptionStatus(status: string): boolean {
 // TenantAdmin/SystemAdmin-only access.
 export const DEFAULT_PURCHASE_ROLES = ["TenantAdmin", "SystemAdmin"] as const;
 
-// **Multi-Provider von Tag 1:** subscription-foundation hat KEIN
-// `provider`-config-key. Alle gemounteten Plugins sind aktiv parallel —
-// der Endkunde wählt beim Subscribe-Klick zwischen Karte/PayPal/
-// Apple-Pay/Klarna/SEPA (Disney+-Pattern). Welcher Provider die
-// aktuelle subscription des Tenants gerade hält steht in
-// subscription.providerName, kommt aus dem checkout-flow.
+// **Multi-provider from day one:** subscription-foundation has NO `provider`
+// config key. All mounted plugins are active in parallel; the end customer
+// picks between card/PayPal/Apple Pay/Klarna/SEPA at subscribe time
+// (Disney+ pattern). Which provider currently holds the tenant's
+// subscription is stored in subscription.providerName, set by the checkout flow.
 //
-// price-to-tier-Map ist KEIN foundation-config — pro-Plugin, weil
-// Stripe-priceIds vs PayPal-plan-ids vs Apple-product-ids
-// unterschiedliche IDs sind. Jeder Plugin definiert seinen eigenen
-// `<plugin-name>:config:price-to-tier`-Key.
+// The price-to-tier map is NOT foundation config: it is per plugin, because
+// Stripe priceIds, PayPal plan ids and Apple product ids are different IDs.
+// Each plugin defines its own `<plugin-name>:config:price-to-tier` key.
 
 export const TERMINATION_SCOPES = ["tenant-host", "platform"] as const;
 export type TerminationScope = (typeof TERMINATION_SCOPES)[number];

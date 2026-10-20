@@ -21,23 +21,22 @@ export type LegalRequiredBlock = {
 };
 
 // Required slugs that must exist as text-blocks for production-boot.
-// Pro Sprache + Slug eine Pflicht-Kombo. Wer mehr Sprachen will, ergänzt
-// die Liste — Boot-Check wird dynamisch aus der Liste generiert.
+// One mandatory slug per language; anyone who wants more languages extends
+// the list, the boot check is generated dynamically from it.
 export const LEGAL_REQUIRED_BLOCKS = [
   { slug: "imprint", lang: "de" },
   { slug: "privacy", lang: "de" },
 ] as const;
 
-// Optionale Blocks die NICHT Boot-fail-relevant sind, aber die Routes
-// servieren falls vorhanden. EN-Versionen sind in DACH-Apps oft nur
-// "nice-to-have".
+// Optional blocks that are NOT boot-fail relevant, but whose routes are
+// served when present. EN versions are often only nice-to-have in DACH apps.
 export const LEGAL_OPTIONAL_BLOCKS = [
   { slug: "imprint", lang: "en" },
   { slug: "privacy", lang: "en" },
 ] as const;
 
-// Public-Route-Mapping: URL-Path → (slug, lang). DE nutzt die deutschen
-// Standard-Bezeichnungen, EN die englischen.
+// Public route mapping: URL path -> (slug, lang). DE uses the German
+// standard names, EN the English ones.
 export const LEGAL_ROUTES = [
   { path: "/legal/impressum", slug: "imprint", lang: "de", titleFallback: "Impressum" },
   {

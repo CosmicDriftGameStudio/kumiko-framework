@@ -5,10 +5,10 @@
 
 export const CUSTOM_FIELDS_FEATURE_NAME = "custom-fields";
 
-// Qualified handler names (QN format: scope:type:name). Mirror text-
-// content's Handler/Queries object pattern — Clients (z.B. die
-// CustomFieldsFormSection web-component) referenzieren über das Object
-// statt magic-strings.
+// Qualified handler names (QN format: scope:type:name). Mirrors text-
+// content's Handler/Queries object pattern: clients (e.g. the
+// CustomFieldsFormSection web component) reference the object instead of
+// magic strings.
 export const CustomFieldsHandlers = {
   defineTenantField: "custom-fields:write:define-tenant-field",
   defineSystemField: "custom-fields:write:define-system-field",
@@ -36,24 +36,24 @@ export const FIELD_DEFINITION_UPDATED_EVENT = "field-definition.updated";
 // (no dots): qualifyEntityName runs toKebab which collapses dots to dashes.
 export const FIELD_DEFINITION_DELETED_EVENT = "field-definition-deleted";
 
-// Custom-field-VALUE events. Live auf host-aggregate stream (ES-Option-B).
-// Short-names werden via r.defineEvent qualified zu `custom-fields:event:
+// Custom-field VALUE events. They live on the host aggregate stream (ES option B).
+// Short names are qualified via r.defineEvent to `custom-fields:event:
 // custom-field-set` etc. (qualifyEntityName runs toKebab which collapses dots
-// to dashes — so the short-name MUST already be in dash form, otherwise
+// to dashes, so the short name MUST already be in dash form, otherwise
 // handler-built strings won't match the registry key).
 export const CUSTOM_FIELD_SET_EVENT = "custom-field-set";
 export const CUSTOM_FIELD_CLEARED_EVENT = "custom-field-cleared";
 
-// Extension-name für r.useExtension("customFields", "<entity>") — registriert
-// dass eine host-entity Custom-Fields haben darf.
+// Extension name for r.useExtension("customFields", "<entity>"): registers
+// that a host entity may have custom fields.
 export const CUSTOM_FIELDS_EXTENSION = "customFields";
 
-// Default-RBAC der Value-Write- und List-Pfade. Apps mit eigenem Rollen-
-// Vokabular (publicstatus: "Admin"/"Editor" statt "TenantAdmin"/
-// "TenantMember") überschreiben via createCustomFieldsFeature({
-// valueWriteRoles, fieldDefinitionListRoles }) — sonst sind die hart
-// verdrahteten Bundle-QNs, die die CustomFieldsFormSection dispatcht,
-// für jeden App-User access_denied.
+// Default RBAC of the value-write and list paths. Apps with their own role
+// vocabulary (publicstatus: "Admin"/"Editor" instead of "TenantAdmin"/
+// "TenantMember") override via createCustomFieldsFeature({
+// valueWriteRoles, fieldDefinitionListRoles }); otherwise the hard-wired
+// bundle QNs that CustomFieldsFormSection dispatches are access_denied for
+// every app user.
 export const DEFAULT_VALUE_WRITE_ROLES = ["TenantAdmin", "TenantMember"] as const;
 export const DEFAULT_FIELD_DEFINITION_LIST_ROLES = ["TenantAdmin"] as const;
 // Default-RBAC of the definition-CRUD triad (define-/update-/delete-tenant-field,
@@ -63,9 +63,9 @@ export const DEFAULT_FIELD_DEFINITION_LIST_ROLES = ["TenantAdmin"] as const;
 // "TenantAdmin" role (same Role-Naming-Drift as DEFAULT_VALUE_WRITE_ROLES above).
 export const DEFAULT_FIELD_DEFINITION_WRITE_ROLES = ["TenantAdmin"] as const;
 
-// Field-type union — identisch zu Stammfeld-Field-Type-System (Spec Z.59-73:
-// `Identisch zu Entity-Feld-Typen`). Builder-Reuse-Promise: was `r.field.X()`
-// kann, kann eine Custom-Field-Definition auch.
+// Field-type union, identical to the core field type system (spec lines 59-73:
+// `identical to entity field types`). Builder-reuse promise: whatever
+// `r.field.X()` can do, a custom field definition can do too.
 export const SUPPORTED_FIELD_TYPES = [
   "text",
   "number",

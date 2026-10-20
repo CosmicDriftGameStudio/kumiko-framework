@@ -61,7 +61,7 @@ export const TenantQueries = {
   tenantDirectory: "tenant:query:tenant-directory",
   activeTenantIds: "tenant:query:active-tenant-ids",
   resolveUserIds: "tenant:query:resolve-user-ids",
-  // Pending Invitations für den aktuellen Tenant (Admin-UI-Liste).
+  // Pending invitations of the current tenant (admin UI list).
   invitations: "tenant:query:invitations",
   // Combined active-members + pending-invitations list backing /members.
   teamList: "tenant:query:team:list",
