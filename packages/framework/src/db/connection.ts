@@ -32,10 +32,15 @@ export type DbConnectionHandle = {
 // close() must always bound how long shutdown waits.
 export const DEFAULT_DB_CLOSE_TIMEOUT_SECONDS = 5;
 
-// Keyed by the pool so withoutStatementTimeout can open a sibling with identical connect options.
-const unboundedSiblingFactories = new WeakMap<object, () => PgClient>();
+export type UnboundedSiblingPool = {
+  readonly client: PgClient;
+  readonly close: (timeoutSeconds: number) => Promise<void>;
+};
 
-export function openUnboundedSiblingPool(db: unknown): PgClient | undefined {
+// Keyed by the pool so withoutStatementTimeout can open a sibling with identical connect options.
+const unboundedSiblingFactories = new WeakMap<object, () => UnboundedSiblingPool>();
+
+export function openUnboundedSiblingPool(db: unknown): UnboundedSiblingPool | undefined {
   if (typeof db !== "function" && (typeof db !== "object" || db === null)) return undefined;
   return unboundedSiblingFactories.get(db)?.();
 }
@@ -66,22 +71,37 @@ export function createDbConnection({
   if (Object.keys(serverParameters).length > 0) pgOptions.connection = serverParameters;
 
   const client = postgres(url, pgOptions);
-  // Two connections are enough for lock-in-tx plus DDL; the cap keeps parallel rebuilds from exhausting max_connections.
-  unboundedSiblingFactories.set(client, () =>
-    postgres(url, {
+  // A run that never settles (a caller gave up on it via its own timeout) never reaches the
+  // sibling's own close; close() ends it so shutdown and DROP DATABASE are not blocked by it.
+  const openSiblings = new Set<PgClient>();
+  unboundedSiblingFactories.set(client, () => {
+    // Two connections are enough for lock-in-tx plus DDL; the cap keeps parallel rebuilds from exhausting max_connections.
+    const sibling = postgres(url, {
       ...pgOptions,
       max: 4,
       connection: { ...pgOptions.connection, statement_timeout: 0 },
-    }),
-  );
+    });
+    openSiblings.add(sibling);
+    return {
+      client: sibling,
+      close: async (timeoutSeconds) => {
+        openSiblings.delete(sibling);
+        await sibling.end({ timeout: timeoutSeconds });
+      },
+    };
+  });
 
   return {
     db: client,
     client,
-    close: () =>
-      client.end({
-        timeout: options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS,
-      }),
+    close: async () => {
+      const timeout = options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS;
+      const pools = [client, ...openSiblings];
+      openSiblings.clear();
+      const results = await Promise.allSettled(pools.map((pool) => pool.end({ timeout })));
+      const failure = results.find((result) => result.status === "rejected");
+      if (failure !== undefined) throw failure.reason;
+    },
   };
 }
 

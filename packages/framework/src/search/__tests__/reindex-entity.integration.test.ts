@@ -277,3 +277,34 @@ describe("reindexEntity", () => {
     expect(hits.some((h) => String(h.entityId) === String(created.data.id))).toBe(false);
   });
 });
+
+describe("reindexEntity connection lifecycle", () => {
+  test("a reindex abandoned while its adapter stalls does not keep the database open after cleanup", async () => {
+    const ownStack = await setupTestStack({ features: [widgetFeature] });
+    try {
+      await unsafeCreateEntityTable(ownStack.db, widgetEntity);
+      const created = await seedExecutor().create(
+        { name: "Stalled Widget" },
+        admin,
+        createTenantDb({ db: ownStack.db, tenantId: admin.tenantId, mode: "system" }),
+      );
+      if (!created.isSuccess) throw new Error("seed failed");
+
+      const indexBatchReached = Promise.withResolvers<void>();
+      const stallingAdapter = Object.assign(Object.create(ownStack.search), {
+        indexBatch: () => {
+          indexBatchReached.resolve();
+          return new Promise<void>(() => {});
+        },
+      });
+      // Callers like a boot rebuild race this against their own timeout and move on.
+      void reindexEntity(ownStack.db, ownStack.registry, stallingAdapter, "widget", admin.tenantId);
+      await indexBatchReached.promise;
+    } catch (e) {
+      await ownStack.cleanup();
+      throw e;
+    }
+
+    await ownStack.cleanup();
+  });
+});

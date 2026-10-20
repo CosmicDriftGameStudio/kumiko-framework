@@ -14,8 +14,8 @@ export async function withoutStatementTimeout<R, T>(
   const unbounded = openUnboundedSiblingPool(db);
   if (unbounded === undefined) return run(db);
   try {
-    return await run(unbounded);
+    return await run(unbounded.client);
   } finally {
-    await unbounded.end({ timeout: UNBOUNDED_POOL_CLOSE_TIMEOUT_SECONDS });
+    await unbounded.close(UNBOUNDED_POOL_CLOSE_TIMEOUT_SECONDS);
   }
 }
