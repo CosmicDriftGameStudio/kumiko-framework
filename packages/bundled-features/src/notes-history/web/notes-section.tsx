@@ -33,7 +33,7 @@ type NoteRow = {
 };
 
 // Matches @cosmicdrift/kumiko-framework/crypto PII_ERASED_SENTINEL — cannot
-// import that module from @runtime client (runtime-isolation).
+// import that module from client code (runtime-isolation).
 const PII_ERASED_SENTINEL = "[[erased]]";
 
 function displayAuthorName(authorName: string | null, unknownLabel: string): string {

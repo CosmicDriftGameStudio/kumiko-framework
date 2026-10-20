@@ -3,7 +3,7 @@ import {
   resolveTranslationValue,
   type TranslationValue,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { documentDesignerTranslations } from "../i18n.ts";
+import { documentDesignerTranslations } from "../default-translations.ts";
 
 const SHIPPED_LOCALES = ["en", "de", "es"];
 

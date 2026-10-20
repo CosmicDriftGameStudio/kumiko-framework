@@ -16,18 +16,29 @@ src/features/<name>/
   feature.ts       # NUR Registrierung (r.entity / r.screen / r.job / …) — kein
                    # Logik-Dump (Guard: max 300 Zeilen)
   index.ts         # Server-Exports (Feature + Public-Types)
-  constants.ts     # Feature-Name, Handler-Namen, Enums — keine Magic Strings
-  i18n.ts          # Server-Translation-Keys (Screen-Titel, Field-Labels)
+  constants.ts     # nur Server-Konstanten; geteilte (auch im Browser genutzte)
+                   # Konstanten und Translation-Keys liegen unter web/
   handlers/        # eine Datei pro Handler: <thema>.query.ts / <thema>.write.ts
                    # (defineQueryHandler / defineWriteHandler)
   schema/          # Entity- + Table-Definitionen, index.ts re-exportiert
   lib/             # reine Domain-Logik: pure Funktionen mit Test
                    # (ohne r.*-Abhängigkeit)
-  web/             # Client-Seite: index.ts ("@runtime client",
-                   # ClientFeatureDefinition), i18n.ts, EIN Screen pro Datei
-                   # — nur Komponenten + Hooks, keine Berechnung/Logik
+  web/             # client-sicherer Einstieg: index.ts (ClientFeatureDefinition),
+                   # constants.ts / i18n.ts (Feature-Name, Handler-Namen, Enums,
+                   # Translation-Keys; der Server importiert sie direkt),
+                   # EIN Screen pro Datei — nur Komponenten + Hooks, keine
+                   # Berechnung/Logik
   __tests__/       # mindestens der Boot-Test (validateBoot([feature]))
 ```
+
+## Laufzeit per Pfad
+
+`web/**` ist Client-Code und darf nur Client-sicheres importieren; alles andere im
+Feature ist Server bzw. isomorph. Der Runtime-Isolation-Guard liest die Laufzeit aus
+dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
+`guard-app-feature-structure` gemeldet. Bestehende Apps ziehen mit
+`bun kumiko-upgrade --apply` oder `bun kumiko codemod feature-layout . --write` um
+(`--check` listet Reste).
 
 ## Regeln
 

@@ -343,7 +343,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.translations({ keys: USER_DATA_RIGHTS_I18N });
     registerGdprMails(r);
     // Privacy-center dot-form labels (i18nKey()-marked below), duplicated in
-    // web/i18n.ts's client bundle since privacy-center-screen.tsx renders
+    // web/default-translations.ts's client bundle since privacy-center-screen.tsx renders
     // them client-side.
     r.translations({
       keys: {

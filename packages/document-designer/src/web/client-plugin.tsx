@@ -26,7 +26,7 @@ import {
   TitleCell,
   UsedByCell,
 } from "./cells.tsx";
-import { documentDesignerTranslations } from "./i18n.ts";
+import { documentDesignerTranslations } from "./default-translations.ts";
 import { LayoutEditor } from "./layout-editor.tsx";
 import { createMailEditor } from "./mail-editor.tsx";
 import { PdfTemplateEditor } from "./pdf-template-editor.tsx";

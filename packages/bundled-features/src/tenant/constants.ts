@@ -1,8 +1,6 @@
 // @runtime client
-// Pure string constants — `@runtime client` so browser code (e.g. the
-// MemberStatusCell column renderer) can import them too (see
-// auth-email-password/constants.ts for the rationale). Runtime imports
-// client → server can keep using them as well.
+// Pure string constants, client-safe because they live under web/ (see
+// auth-email-password/web/constants.ts); server code may import them too.
 
 // Feature name
 export const TENANT_FEATURE = "tenant" as const;

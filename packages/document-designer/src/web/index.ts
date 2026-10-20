@@ -5,7 +5,7 @@ export {
   PdfTemplateEditorScreen,
 } from "./client-plugin.tsx";
 export { composeLayoutHtml, type LayoutRegionValues } from "./compose-layout.ts";
-export { documentDesignerTranslations } from "./i18n.ts";
+export { documentDesignerTranslations } from "./default-translations.ts";
 export { PdfTemplateEditor, type PdfTemplateEditorProps } from "./pdf-template-editor.tsx";
 export {
   type PreviewRecordPicker,

@@ -1,9 +1,7 @@
 // @runtime client
-// Pure string constants — no DB/Node builtins. Marked `@runtime client` so
-// browser code (Members screen etc.) can import them too without the
-// runtime-isolation guard complaining. Runtime may import "client" files
-// (see RUNTIME_RULES), so server-side access (handlers, dispatcher) stays
-// intact as well.
+// Pure string constants — no DB/Node builtins. They live under web/ so browser
+// code (Members screen etc.) can import them without the runtime-isolation
+// guard complaining; runtime may import client files, so handlers keep using them.
 export const AUTH_EMAIL_PASSWORD_FEATURE = "auth-email-password" as const;
 
 // Minimum length for reset/verify hmacSecret — mirrors the ≥32-char

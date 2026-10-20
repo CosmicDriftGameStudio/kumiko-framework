@@ -33,7 +33,7 @@ import {
   UserDataRightsQueries,
 } from "../../constants.ts";
 import { EXPORT_JOB_STATUS as SCHEMA_EXPORT_JOB_STATUS } from "../../schema/export-job.ts";
-import { defaultTranslations } from "../i18n.ts";
+import { defaultTranslations } from "../default-translations.ts";
 import { ExportSection, formatDate } from "../privacy-center-screen.tsx";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};

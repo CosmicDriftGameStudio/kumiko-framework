@@ -7,7 +7,7 @@
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { defaultTranslations } from "./i18n.ts";
+import { defaultTranslations } from "./default-translations.ts";
 
 export type ManagedPagesClientOptions = {
   /** Key-wise Overrides über die Default-Bundles (de/en). */

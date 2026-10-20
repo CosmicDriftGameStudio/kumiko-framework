@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DOCUMENT_DESIGNER_I18N } from "../i18n";
-import { documentDesignerTranslations } from "../web/i18n";
+import { documentDesignerTranslations } from "../web/default-translations";
 
 // Default German is informal (du); the formal variant lives in locale-de's
 // formal overrides.

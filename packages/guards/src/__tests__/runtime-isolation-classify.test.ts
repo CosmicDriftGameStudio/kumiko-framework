@@ -641,3 +641,63 @@ describe("findWorkspaceRuntime / toEffectivePath", () => {
     expect(toEffectivePath(join(root, "pkg/src/a.ts"))).toBe(join(root, "pkg/src/a.ts"));
   });
 });
+
+describe("feature layout: the runtime follows from the path, no marker needed", () => {
+  const FEATURE_FILES = {
+    "/repo/packages/bundled-features/package.json": JSON.stringify({
+      name: "features",
+      kumiko: { runtime: "runtime" },
+    }),
+    "/repo/packages/bundled-features/src/demo/web/constants.ts": "export const DEMO = 'demo';",
+    "/repo/packages/bundled-features/src/demo/feature.ts":
+      "import { DEMO } from './web/constants';\nexport const f = DEMO;",
+    "/repo/packages/bundled-features/src/demo/handlers.ts":
+      "import { f } from './feature';\nexport const h = f;",
+    "/repo/packages/bundled-features/src/demo/web/screen.tsx":
+      "import { h } from '../handlers';\nexport const s = h;",
+  };
+
+  function violationsOf(files: Record<string, string>, root = "/repo") {
+    const project = makeInMemoryProject(files);
+    const sourceFiles = project.getSourceFiles().filter((sf) => /\.tsx?$/.test(sf.getFilePath()));
+    return findRuntimeIsolationViolations(
+      sourceFiles,
+      root,
+      new Map(),
+      new Set(),
+      createDirectiveClassifier(() => null),
+    ).violations;
+  }
+
+  test("a web/ file importing a server-only file is a finding", () => {
+    const violations = violationsOf(FEATURE_FILES);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("/repo/packages/bundled-features/src/demo/web/screen.tsx");
+    expect(violations[0]?.fileRuntime).toBe("client");
+    expect(violations[0]?.importedRuntime).toBe("runtime");
+  });
+
+  test("server code importing a web/ constants file is allowed", () => {
+    const { "/repo/packages/bundled-features/src/demo/web/screen.tsx": _screen, ...serverOnly } =
+      FEATURE_FILES;
+    expect(violationsOf(serverOnly)).toHaveLength(0);
+  });
+
+  test("a root file without a marker is server code by default", () => {
+    const rt = classify(
+      "/repo/packages/bundled-features/src/demo/constants.ts",
+      "/repo",
+      new Map(),
+      undefined,
+      createDirectiveClassifier(() => null),
+    );
+    expect(rt).toBe("runtime");
+    expect(classifyByPath("packages/bundled-features/src/demo/web/constants.ts")).toBe("client");
+  });
+
+  test("dev/ is the dev runtime and may import runtime but not the other way round", () => {
+    expect(classifyByPath("packages/bundled-features/src/demo/dev/seed.ts")).toBe("dev");
+    expect(classifyByPath("packages/bundled-features/src/demo/__tests__/a.test.ts")).toBe("test");
+    expect(classifyByPath("packages/bundled-features/src/demo/scripts/gen.ts")).toBe("tooling");
+  });
+});

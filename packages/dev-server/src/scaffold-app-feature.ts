@@ -179,8 +179,7 @@ function renderSchemaIndex(name: string): string {
 
 function renderWebIndex(name: string): string {
   const camel = kebabToCamel(name);
-  return `// @runtime client
-// Client-Seite des Features: translations, components (custom-Screens),
+  return `// Client-Seite des Features: translations, components (custom-Screens),
 // columnRenderers. In src/app/client.tsx bei
 // createKumikoApp({ clientFeatures: [...] }) einhängen — das passiert
 // NICHT automatisch. Screens: eine Datei pro Screen in diesem Ordner.

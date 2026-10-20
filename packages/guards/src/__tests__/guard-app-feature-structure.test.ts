@@ -113,3 +113,39 @@ describe("guard-app-feature-structure", () => {
     expect(guard.scan.frameworkWithin?.some((g) => g.includes("bundled-features"))).toBe(true);
   });
 });
+
+describe("guard-app-feature-structure: @runtime client marker", () => {
+  test("flaggt den Marker außerhalb von web/ als Client-Code im Server-Baum", () => {
+    const sf = parse(
+      `// @runtime client\nexport const FEATURE = "demo";`,
+      "src/features/demo/constants.ts",
+    );
+    const outcome = guard.run([sf]);
+    expect(outcome.violations).toHaveLength(1);
+    expect(outcome.violations[0]?.message).toContain("move it under web/");
+  });
+
+  test("flaggt den Marker unter web/ als redundant", () => {
+    const sf = parse(
+      `// @runtime client\nexport const FEATURE = "demo";`,
+      "src/features/demo/web/constants.ts",
+    );
+    const outcome = guard.run([sf]);
+    expect(outcome.violations).toHaveLength(1);
+    expect(outcome.violations[0]?.message).toContain("redundant");
+  });
+
+  test("greift auch in bundled-features und bei verschachtelten Pfaden", () => {
+    const sf = parse(
+      `// @runtime client\nexport const x = 1;`,
+      "packages/bundled-features/src/billing-foundation/consumer-protection/consent-locale.ts",
+    );
+    expect(guard.run([sf]).violations).toHaveLength(1);
+  });
+
+  test("lässt Dateien ohne Marker und andere Marker in Ruhe", () => {
+    const plain = parse(`export const x = 1;`, "src/features/demo/constants.ts");
+    const dev = parse(`// @runtime dev\nexport const x = 1;`, "src/features/demo/seed.ts");
+    expect(guard.run([plain, dev]).violations).toHaveLength(0);
+  });
+});
