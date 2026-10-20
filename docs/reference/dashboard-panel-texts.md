@@ -111,11 +111,12 @@ A `text` panel has no query. It renders `blocks`, an optional `label` as title a
     { kind: "list", items: ["app:help:step-1", "app:help:step-2"] },
     { kind: "code", code: "curl https://api.example.test/health" },
     { kind: "hint", text: "app:help:hint" },
+    { kind: "link", text: "app:help:open-profile", screen: "profile", roles: ["TenantAdmin"] },
   ],
 }
 ```
 
-`text` and every list item are i18n keys and count as required translation keys; `code` is shown verbatim in a horizontally scrollable block. `paragraph` is muted by default, `emphasis: "strong"` uses the foreground color. There is no markdown or HTML. The boot validator rejects empty `blocks` and a `list` without items.
+`text` and every list item are i18n keys and count as required translation keys; `code` is shown verbatim in a horizontally scrollable block. `paragraph` is muted by default, `emphasis: "strong"` uses the foreground color. There is no markdown or HTML. A `link` block shows a link to a screen (`screen` is a short id or a qualified name). With `roles` it is shown only to users holding one of them; this only hides the link, the target screen still checks access on the server. The boot validator rejects empty `blocks`, a `list` without items, a `link` to an unknown screen and an empty `roles`.
 
 ## Stat groups: `subtitle`, `span` and strip icons
 

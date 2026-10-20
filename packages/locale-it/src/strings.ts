@@ -1564,6 +1564,11 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Modifica il layout delle e-mail o la carta intestata PDF.",
   "documentDesigner.search": "Cerca modelli",
   "documentDesigner.action.edit": "Modifica",
+  "documentDesigner.status.lockedOverride": "Non consegnata",
+  "documentDesigner.action.resetLockedOverride": "Rimuovi versione propria",
+  "documentDesigner.action.resetLockedOverride.confirm":
+    "La versione propria salvata di una lingua (prima il tedesco) viene archiviata e resta in uso la versione della piattaforma. Se il modello ha più lingue, l'operazione va ripetuta per ciascuna.",
+  "documentDesigner.action.resetLockedOverride.confirmLabel": "Rimuovi",
   "documentDesigner.col.template": "Modello",
   "documentDesigner.col.kind": "Tipo",
   "documentDesigner.col.origin": "Origine",

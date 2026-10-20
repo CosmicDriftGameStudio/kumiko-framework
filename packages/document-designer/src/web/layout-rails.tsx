@@ -25,6 +25,7 @@ import {
 import type { OverviewRowView } from "./overview-row.ts";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 import { statusLabel } from "./status-label.ts";
+import { templateTitleText } from "./used-by-label.ts";
 
 const BRANDING_SCREEN_SHORT_ID = BRANDING_SCREEN_QN.slice(BRANDING_SCREEN_QN.lastIndexOf(":") + 1);
 
@@ -312,7 +313,7 @@ export function UsedByRail({
           <RailRow
             key={row.id}
             testId={`used-by-${row.id}`}
-            label={row.title}
+            label={templateTitleText(t, row.title)}
             trailing={
               row.origin === "system"
                 ? t("documentDesigner.source.system")

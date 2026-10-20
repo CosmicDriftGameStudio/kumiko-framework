@@ -74,3 +74,12 @@ export const receiptEntity = createEntity({
     dateiname: createTextField({ ...DEMO_DATA, required: true }),
   },
 });
+
+export const managementProfileEntity = createEntity({
+  table: "read_ui_walkthrough_management_profiles",
+  fields: {
+    name: createTextField({ ...DEMO_DATA, required: true }),
+    anschrift: createTextField(DEMO_DATA),
+    zahlungsziel: createNumberField({ integer: true, required: true }),
+  },
+});

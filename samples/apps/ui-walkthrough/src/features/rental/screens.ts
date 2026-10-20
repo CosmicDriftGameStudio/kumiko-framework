@@ -2,6 +2,7 @@ import {
   createDateField,
   createEmbeddedListField,
   createFilesField,
+  createNumberField,
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -363,7 +364,47 @@ export const rentalDashboardScreen: DashboardScreenDefinition = {
       valueField: "rent",
       subField: "rentSub",
     },
+    {
+      kind: "text",
+      id: "profile-hint",
+      label: "rental.dashboard.profileHint.title",
+      blocks: [
+        { kind: "paragraph", text: "rental.dashboard.profileHint.text" },
+        {
+          kind: "link",
+          text: "rental.dashboard.profileHint.link",
+          screen: "management-profile",
+          roles: ["Admin"],
+        },
+      ],
+    },
   ],
+  access: OPEN_ACCESS,
+};
+
+export const managementProfileScreen: ActionFormScreenDefinition = {
+  id: "management-profile",
+  type: "actionForm",
+  handler: RENTAL_WRITES.managementProfileSave,
+  load: { query: RENTAL_QUERIES.managementProfile, singleton: true },
+  fields: {
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    anschrift: createTextField({ personal: false, reason: "is_business_data" }),
+    zahlungsziel: createNumberField({ integer: true, required: true }),
+  },
+  fieldLabels: {
+    name: "rental:entity:__action-form__:field:profileName",
+    anschrift: "rental:entity:__action-form__:field:anschrift",
+    zahlungsziel: "rental:entity:__action-form__:field:zahlungsziel",
+  },
+  layout: {
+    sections: [
+      {
+        description: "rental.managementProfile.hint",
+        fields: ["name", "anschrift", "zahlungsziel"],
+      },
+    ],
+  },
   access: OPEN_ACCESS,
 };
 

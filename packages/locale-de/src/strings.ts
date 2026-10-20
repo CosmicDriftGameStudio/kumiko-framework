@@ -1567,6 +1567,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.screen.layoutEditor.description": "Mail-Layout oder Briefpapier bearbeiten.",
   "documentDesigner.search": "Vorlagen suchen",
   "documentDesigner.action.edit": "Bearbeiten",
+  "documentDesigner.status.lockedOverride": "Nicht ausgeliefert",
+  "documentDesigner.action.resetLockedOverride": "Eigene Fassung entfernen",
+  "documentDesigner.action.resetLockedOverride.confirm":
+    "Die gespeicherte eigene Fassung einer Sprache (zuerst Deutsch) wird archiviert, die Plattform-Fassung bleibt im Einsatz. Hat die Vorlage mehr Sprachen, gilt das je Sprache und ist für jede zu wiederholen.",
+  "documentDesigner.action.resetLockedOverride.confirmLabel": "Entfernen",
   "documentDesigner.col.template": "Vorlage",
   "documentDesigner.col.kind": "Art",
   "documentDesigner.col.origin": "Herkunft",

@@ -185,6 +185,18 @@ function checkEditFormScreenQueryRefs(
       screen.load.query,
       () => `[Feature ${featureName}] Screen "${screenId}" (actionForm) load`,
     );
+    // A singleton load sends no id, so a query that requires input would fail on every open.
+    const loadHandler = queryHandlers.get(screen.load.query);
+    if (
+      screen.load.singleton === true &&
+      loadHandler !== undefined &&
+      !loadHandler.schema.safeParse({}).success
+    ) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (actionForm) load.singleton query "${screen.load.query}" ` +
+          "requires input; a singleton load runs with an empty payload. Make the query's input fields optional.",
+      );
+    }
   }
   if (screen.type !== "entityEdit") {
     checkFormFieldQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.fields);

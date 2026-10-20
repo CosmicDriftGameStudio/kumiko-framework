@@ -4,6 +4,7 @@ export const RENTAL_QUERIES = {
   partyList: "rental:query:lease-party:list",
   positionList: "rental:query:lease:positions",
   kennzahlen: "rental:query:lease:kennzahlen",
+  managementProfile: "rental:query:profile:current",
 } as const;
 
 export const RENTAL_WRITES = {
@@ -12,4 +13,5 @@ export const RENTAL_WRITES = {
   positionsRecord: "rental:write:lease:record-positions",
   invoiceReceive: "rental:write:invoice:receive",
   receiptsUpload: "rental:write:receipts-upload",
+  managementProfileSave: "rental:write:profile:save",
 } as const;

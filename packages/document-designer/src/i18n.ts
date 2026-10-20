@@ -16,6 +16,19 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.search": { en: "Search templates", de: "Vorlagen suchen" },
   "documentDesigner.action.edit": { en: "Edit", de: "Bearbeiten" },
+  "documentDesigner.status.lockedOverride": { en: "Not delivered", de: "Nicht ausgeliefert" },
+  "documentDesigner.action.resetLockedOverride": {
+    en: "Remove own version",
+    de: "Eigene Fassung entfernen",
+  },
+  "documentDesigner.action.resetLockedOverride.confirm": {
+    en: "The stored own version of one language (German first) is archived and the platform version stays in use. If the template has more languages, repeat this for each one.",
+    de: "Die gespeicherte eigene Fassung einer Sprache (zuerst Deutsch) wird archiviert, die Plattform-Fassung bleibt im Einsatz. Hat die Vorlage mehr Sprachen, gilt das je Sprache und ist für jede zu wiederholen.",
+  },
+  "documentDesigner.action.resetLockedOverride.confirmLabel": {
+    en: "Remove",
+    de: "Entfernen",
+  },
 
   "documentDesigner.col.template": { en: "Template", de: "Vorlage" },
   "documentDesigner.col.kind": { en: "Kind", de: "Art" },

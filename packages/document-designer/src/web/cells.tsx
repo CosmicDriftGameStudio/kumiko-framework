@@ -100,6 +100,13 @@ export function StatusCell({ row }: ColumnRendererProps): ReactNode {
       <StatusBadge tone={statusTone(r.status)} testId="document-designer-status">
         {statusLabel(t, r.status, r.version)}
       </StatusBadge>
+      {r.lockedOverride && r.lockedOverrideI18nKey !== null && (
+        <span title={t(r.lockedOverrideI18nKey)}>
+          <StatusBadge tone="warn" testId="document-designer-locked-override">
+            {t("documentDesigner.status.lockedOverride")}
+          </StatusBadge>
+        </span>
+      )}
       {r.status === "active" && r.draftVersion !== null && (
         <StatusBadge tone={statusTone("draft")} testId="document-designer-draft-status">
           {statusLabel(t, "draft", r.draftVersion)}
@@ -169,7 +176,7 @@ function OverriddenByCount({
           active: data.activeOverrides,
           total: data.totalTenants,
         });
-  return <span className="whitespace-nowrap">{label}</span>;
+  return <span>{label}</span>;
 }
 
 export function OverriddenByCell({ row }: ColumnRendererProps): ReactNode {

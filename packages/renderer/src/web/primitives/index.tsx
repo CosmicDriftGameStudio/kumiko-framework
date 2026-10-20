@@ -1823,14 +1823,14 @@ function DefaultDataTable({
                           getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`
                         }
                         data-highlighted={col.highlighted === true ? "true" : undefined}
-                        // Cells truncate long values with ellipsis instead of
-                        // wrapping — lists stay single-line + scannable (Linear
-                        // pattern). max-w-xs gives a sensible default upper
-                        // bound; the table container scrolls horizontally
-                        // if the sum of the columns gets too wide.
+                        // Text wraps instead of truncating: nowrap cells keep their
+                        // full width, so a wide table scrolled sideways and its
+                        // last column slid under the sticky actions column with
+                        // nothing visibly cut off. max-w-xs bounds a single column;
+                        // badges and dates stay nowrap by their own classes.
                         className={cn(
                           col.fileDisplay === undefined
-                            ? "max-w-xs truncate"
+                            ? "max-w-xs whitespace-normal break-words"
                             : FIT_CONTENT_CELL_CLASS,
                           colIndex === 0
                             ? "font-medium text-foreground"
@@ -1883,7 +1883,7 @@ function DefaultDataTable({
                         // viewports. bg-background sets the column apart during
                         // scroll — no border-l (divider too heavy).
                         className={cn(
-                          "text-right md:sticky md:right-0 md:z-10 md:bg-background",
+                          "whitespace-nowrap text-right md:sticky md:right-0 md:z-10 md:bg-background",
                           fillsHeight && "md:bg-card",
                         )}
                         // Action-cell events must not trigger the row click/activation
@@ -2433,7 +2433,7 @@ function RowActionsCell({
     const inline = visible.filter((a) => a.display !== undefined);
     const rest = visible.filter((a) => a.display === undefined);
     return (
-      <div className="inline-flex items-center gap-1 justify-end">
+      <div className="inline-flex flex-wrap items-center gap-1 justify-end">
         {inline.map((a) => (
           <RowActionButton key={a.id} row={row} action={a} compact={compact} />
         ))}
@@ -2451,7 +2451,7 @@ function RowActionsCell({
   const primary = primaryRowAction(visible);
   const rest = visible.filter((a) => a.id !== primary?.id);
   return (
-    <div className="inline-flex items-center gap-1 justify-end">
+    <div className="inline-flex flex-wrap items-center gap-1 justify-end">
       {primary !== undefined && <RowActionButton row={row} action={primary} asLink />}
       {rest.length > 0 && <RowActionsKebab row={row} actions={rest} />}
     </div>
@@ -3114,7 +3114,7 @@ function SortableHeader({
         data-sortable={sortable === true ? true : undefined}
         data-highlighted={highlighted === true ? "true" : undefined}
         className={cn(
-          "font-medium text-muted-foreground",
+          "font-medium whitespace-normal text-muted-foreground",
           numeric === true && "text-right",
           fitContent === true && FIT_CONTENT_CELL_CLASS,
           highlighted === true && "bg-accent/40",
@@ -3138,6 +3138,7 @@ function SortableHeader({
         active !== undefined
           ? "font-semibold text-foreground"
           : "font-medium text-muted-foreground",
+        "whitespace-normal",
         numeric === true && "text-right",
         fitContent === true && FIT_CONTENT_CELL_CLASS,
         highlighted === true && "bg-accent/40",

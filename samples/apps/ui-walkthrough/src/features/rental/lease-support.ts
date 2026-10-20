@@ -1,7 +1,12 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
-import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
+import {
+  leaseEntity,
+  leasePartyEntity,
+  leasePositionEntity,
+  managementProfileEntity,
+} from "./entities";
 
 export const { executor: leaseExecutor } = createEntityExecutor("lease", leaseEntity);
 export const { executor: positionExecutor } = createEntityExecutor(
@@ -9,6 +14,17 @@ export const { executor: positionExecutor } = createEntityExecutor(
   leasePositionEntity,
 );
 export const { executor: partyExecutor } = createEntityExecutor("leaseParty", leasePartyEntity);
+
+export const { executor: managementProfileExecutor } = createEntityExecutor(
+  "managementProfile",
+  managementProfileEntity,
+);
+
+export const saveManagementProfilePayloadSchema = z.object({
+  name: z.string().min(1).max(200),
+  anschrift: z.string().max(400).optional(),
+  zahlungsziel: z.number().int().min(0).max(120),
+});
 
 export const idPayloadSchema = z.object({ id: z.uuid() });
 
