@@ -1,6 +1,5 @@
 import {
   createDateField,
-  createDecimalField,
   createEmbeddedListField,
   createFilesField,
   createSelectField,
@@ -475,6 +474,7 @@ export const receiveInvoiceLines = createEmbeddedListField(
     vatAmount: { type: "money" },
   },
   {
+    minItems: 1,
     derived: { vatAmount: { op: "percent", from: ["amount", "vatRate"] } },
     totals: [
       { label: "rental.total.net", from: ["amount"] },
@@ -497,29 +497,23 @@ export const receiveInvoiceScreen: ActionFormScreenDefinition = {
     }),
     lines: receiveInvoiceLines,
     netTotal: { type: "money", currency: EUR },
-    vatRate: createDecimalField({ precision: 5, scale: 2 }),
     vatTotal: { type: "money", currency: EUR },
     grossTotal: { type: "money", currency: EUR },
   },
   derive: {
     netTotal: { op: "listSum", list: "lines", cell: "amount" },
-    vatTotal: {
-      op: "listSum",
-      list: "lines",
-      cell: "vatAmount",
-      whenEmpty: { op: "percent", from: ["netTotal", "vatRate"] },
-    },
+    vatTotal: { op: "listSum", list: "lines", cell: "vatAmount" },
     grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] },
   },
   layout: {
     width: "full",
     sections: [
       { fields: ["supplier", "invoiceNumber"] },
-      { title: "rental.section.invoiceLines", columns: 1, fields: ["lines"] },
       {
-        title: "rental.section.invoiceTotals",
-        description: "rental.section.invoiceTotalsHint",
-        fields: ["netTotal", "vatRate", "vatTotal", "grossTotal"],
+        title: "rental.section.invoiceLines",
+        description: "rental.section.invoiceLines.description",
+        columns: 1,
+        fields: ["lines"],
       },
     ],
   },

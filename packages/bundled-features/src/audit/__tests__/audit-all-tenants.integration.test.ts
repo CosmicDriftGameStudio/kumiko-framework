@@ -158,6 +158,22 @@ describe("audit:query:list-all-tenants", () => {
     expect(res.status).toBe(400);
   });
 
+  test("more than 100 tenants in the filter, or a cursor beyond bigint, is a validation error", async () => {
+    const tooManyTenants = Array.from({ length: 101 }, () => tenantOne);
+    const filtered = await stack.http.query(
+      AuditQueries.listAllTenants,
+      { filters: [{ field: "tenantId", op: "in", value: tooManyTenants }] },
+      systemAdmin,
+    );
+    expect(filtered.status).toBe(400);
+    const cursored = await stack.http.query(
+      AuditQueries.listAllTenants,
+      { cursor: "9".repeat(19) },
+      systemAdmin,
+    );
+    expect(cursored.status).toBe(400);
+  });
+
   test("Admin and TenantAdmin get 403", async () => {
     for (const user of [adminOne, tenantAdminOne]) {
       const res = await stack.http.query(AuditQueries.listAllTenants, {}, user);
@@ -202,6 +218,15 @@ describe("audit:query:details-all-tenants", () => {
       systemAdmin,
     );
     expect(details).toBeNull();
+  });
+
+  test("an id beyond bigint is a validation error, not a server error", async () => {
+    const res = await stack.http.query(
+      AuditQueries.detailsAllTenants,
+      { id: "9".repeat(19) },
+      systemAdmin,
+    );
+    expect(res.status).toBe(400);
   });
 
   test("Admin gets 403", async () => {

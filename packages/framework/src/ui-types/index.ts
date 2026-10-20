@@ -220,6 +220,7 @@ export {
   LIST_ROW_META_REFERENCES,
   REFERENCE_LOOKUP_SOURCES,
   SYSTEM_REFERENCE_LABELS,
+  UNRESOLVED_REFERENCE_LABEL_KEYS,
 } from "./list-row-meta.ts";
 export {
   type PluralForms,

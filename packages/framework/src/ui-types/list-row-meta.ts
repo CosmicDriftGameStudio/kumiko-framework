@@ -69,6 +69,8 @@ export const REFERENCE_LOOKUP_SOURCES: Readonly<Record<string, ReferenceLookupSo
 
 export type SystemReferenceLabel = {
   readonly id: string;
+  /** Further literals that mean the same system identity (e.g. the "system" createdBy literal). */
+  readonly aliases?: readonly string[];
   readonly labelKey: string;
 };
 
@@ -83,5 +85,17 @@ export const SYSTEM_REFERENCE_LABELS: Readonly<Record<string, SystemReferenceLab
   "tenant:tenant": { id: SYSTEM_TENANT_ID, labelKey: "kumiko.reference.system-tenant" },
   // createdBy on a system write (fw#3103) — SYSTEM_USER_ID is an alias for
   // "no human caller", so read_users never holds a matching row.
-  "user:user": { id: SYSTEM_USER_ID, labelKey: "kumiko.reference.system-user" },
+  "user:user": {
+    id: SYSTEM_USER_ID,
+    aliases: ["system"],
+    labelKey: "kumiko.reference.system-user",
+  },
+};
+
+// Label for a reference id that is neither a system identity nor has a
+// visible row (deleted user, seed actor, row outside the caller's scope).
+// Without it a reference cell falls back to the raw UUID. Opt-in per entity:
+// for entities whose id is meaningful to the reader the raw id stays.
+export const UNRESOLVED_REFERENCE_LABEL_KEYS: Readonly<Record<string, string>> = {
+  "user:user": "kumiko.reference.unknown-user",
 };

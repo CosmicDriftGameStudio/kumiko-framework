@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { defineFeature, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
@@ -45,6 +45,22 @@ const failingProbeFeature = defineFeature("escape-hatch-audit-failing-probe", (r
   });
 });
 
+const ACKNOWLEDGE_REASON = "bundled-features integration test — declared cross-tenant read";
+
+const crossTenantProbeFeature = defineFeature("escape-hatch-audit-cross-tenant-probe", (r) => {
+  r.systemScope();
+  r.queryHandler({
+    name: "cross-tenant-read",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
+      if (!ctx.systemDb) throw new Error("expected ctx.systemDb on a systemScope() handler");
+      const db = ctx.systemDb.acknowledgeCrossTenant(ACKNOWLEDGE_REASON);
+      return { tenantId: db.tenantId };
+    },
+    access: { roles: ["SystemAdmin"] },
+  });
+});
+
 let stack: TestStack;
 
 const tenantId = testTenantId(1);
@@ -56,6 +72,7 @@ beforeAll(async () => {
     features: [
       probeFeature,
       failingProbeFeature,
+      crossTenantProbeFeature,
       createConfigFeature(),
       createTenantFeature(),
       createUserFeature(),
@@ -136,5 +153,50 @@ describe("the escape-hatch audit is durable (#3607)", () => {
     expect(res.rows[0]?.payload["handler"]).toBe(
       "escape-hatch-audit-failing-probe:write:unsafe-raw-then-fail",
     );
+  });
+});
+
+const PROBE_READ = "escape-hatch-audit-cross-tenant-probe:query:cross-tenant-read";
+// The dispatcher's dedupe window outlives resetEventStore, so each test reads as its own actors.
+const systemAdminOf = (id: number): SessionUser =>
+  createTestUser({ id, tenantId: TestUsers.systemAdmin.tenantId, roles: ["SystemAdmin"] });
+const pageReader = systemAdminOf(20);
+const firstReader = systemAdminOf(21);
+const secondReader = systemAdminOf(22);
+
+async function escapeHatchHandlers(reader: SessionUser): Promise<string[]> {
+  const res = await stack.http.queryOk<AuditResponse>(
+    AuditQueries.listAllTenants,
+    { eventType: ESCAPE_HATCH_USED_EVENT },
+    reader,
+  );
+  return res.rows.map((row) => String(row.payload["handler"]));
+}
+
+describe("cross-tenant reads are recorded once per actor and window", () => {
+  test("repeated reads by the same SystemAdmin leave one event", async () => {
+    await stack.http.queryOk(PROBE_READ, {}, pageReader);
+    await stack.http.queryOk(PROBE_READ, {}, pageReader);
+    await escapeHatchHandlers(pageReader);
+
+    // The audit page's own all-tenants read is a cross-tenant read too: one trace, not one per load.
+    expect((await escapeHatchHandlers(pageReader)).sort()).toEqual(
+      [AuditQueries.listAllTenants, PROBE_READ].sort(),
+    );
+  });
+
+  test("a different actor gets an event of its own", async () => {
+    await stack.http.queryOk(PROBE_READ, {}, firstReader);
+    await stack.http.queryOk(PROBE_READ, {}, secondReader);
+
+    const res = await stack.http.queryOk<AuditResponse>(
+      AuditQueries.listAllTenants,
+      { eventType: ESCAPE_HATCH_USED_EVENT },
+      TestUsers.systemAdmin,
+    );
+    const probeActors = res.rows
+      .filter((row) => row.payload["handler"] === PROBE_READ)
+      .map((row) => row.payload["actor"]);
+    expect(probeActors.sort()).toEqual([firstReader.id, secondReader.id].sort());
   });
 });

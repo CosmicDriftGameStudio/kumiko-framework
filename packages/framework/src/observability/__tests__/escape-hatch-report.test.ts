@@ -357,6 +357,32 @@ describe("createEscapeHatchReporter with a process dedup (system cron hatches)",
     expect(t.events).toHaveLength(2);
   });
 
+  test("a targetless cross-tenant read is audited once per hour, every other kind keeps the short window", () => {
+    const t = setup({});
+    t.report("acknowledge-cross-tenant", "read all");
+    t.advance(59 * MINUTE_MS);
+    t.report("acknowledge-cross-tenant", "read all");
+    t.report("unsafe-raw", "manual");
+    expect(t.events.map((e) => e.kind)).toEqual(["acknowledge-cross-tenant", "unsafe-raw"]);
+    t.advance(MINUTE_MS);
+    t.report("acknowledge-cross-tenant", "read all");
+    t.report("unsafe-raw", "manual");
+    expect(t.events.map((e) => e.kind)).toEqual([
+      "acknowledge-cross-tenant",
+      "unsafe-raw",
+      "acknowledge-cross-tenant",
+      "unsafe-raw",
+    ]);
+  });
+
+  test("a cross-tenant read with a target is not stretched to the hour", () => {
+    const t = setup({});
+    t.report("cross-tenant-read", "read one", { id: "u1", tenantId });
+    t.advance(MINUTE_MS);
+    t.report("cross-tenant-read", "read one", { id: "u1", tenantId });
+    expect(t.events).toHaveLength(2);
+  });
+
   test("without a process dedup (user-triggered run) unsafe-raw is audited once per window", () => {
     const t = setup({});
     t.report("unsafe-raw", "manual");

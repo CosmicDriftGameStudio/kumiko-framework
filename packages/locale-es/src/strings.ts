@@ -52,12 +52,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "audit.log.detail.field.id": "ID del evento",
   "audit.log.detail.metadata": "Metadatos",
   "audit.log.detail.payload": "Payload del evento",
-  "audit.log.description":
-    "Tabla de los eventos de auditoría del inquilino con nombres de actores y filtros por tipo de evento y fecha; abre una fila para ver un evento concreto.",
+  "audit.log.description": "Todos los eventos de este inquilino. Una fila abre los detalles.",
   "audit.log.allTenants.description":
-    "Tabla de los eventos de auditoría de todos los inquilinos con nombres de inquilinos y actores y filtros por inquilino y fecha; abre una fila para ver un evento concreto.",
-  "audit.log.detail.subtitle":
-    "Vista de detalle de solo lectura de un evento del registro de auditoría, con actor, marca de tiempo, agregado y el payload y los metadatos del evento en bruto; se accede desde una fila del registro de auditoría.",
+    "Todos los eventos de todos los inquilinos. Una fila abre los detalles.",
+  "audit.log.detail.subtitle": "Un evento con su actor, fecha y datos almacenados.",
   "audit.log.details": "Detalles",
   "audit:nav.auditLog": "Registro de auditoría",
   "audit:nav.auditLogAllTenants": "Registro de auditoría (todos los inquilinos)",
@@ -555,6 +553,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.validation.number.min": "Debe ser al menos {minimum}.",
   "kumiko.validation.number.max": "Debe ser como máximo {maximum}.",
   "errors.validation.too_small": "Demasiado pequeño o demasiado corto (mínimo: {minimum}).",
+  "errors.validation.list_min_rows.one": "Se requiere al menos 1 fila.",
+  "errors.validation.list_min_rows.other": "Se requieren al menos {minimum} filas.",
   "errors.validation.unexpected_field": "Campo desconocido.",
   "errors.validation.unrecognized_keys": "Campos desconocidos.",
   "errors.versionConflict": "El registro se modificó mientras tanto. Recarga e inténtalo de nuevo.",
@@ -858,6 +858,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.planCard.priceUnavailable": "Precio no disponible",
   "kumiko.reference.system-tenant": "Sistema",
   "kumiko.reference.system-user": "Sistema",
+  "kumiko.reference.unknown-user": "Desconocido",
   "kumiko.rowAction.failed": "La acción falló",
   "kumiko.clientAction.success": "Hecho.",
   "kumiko.clientAction.unregistered": "Esta acción no está disponible en esta aplicación.",

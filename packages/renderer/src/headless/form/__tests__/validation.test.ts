@@ -1,9 +1,26 @@
 import { describe, expect, mock, test } from "bun:test";
+import { createEmbeddedListField, fieldToZod } from "@cosmicdrift/kumiko-framework/engine";
+import { resolveTranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import * as z from "zod";
+import { kumikoDefaultTranslations } from "../../../i18n-defaults.ts";
 import { createFormController } from "../form-controller.ts";
 import { groupIssuesByPath, zodErrorToFieldIssues } from "../zod-bridge.ts";
 
 describe("zodErrorToFieldIssues", () => {
+  test("an embedded list below its minItems maps to a row-count message, singular for 1", () => {
+    const textFor = (minItems: number): string => {
+      const list = createEmbeddedListField({ description: { type: "text" } }, { minItems });
+      const result = fieldToZod(list, ["EUR"]).safeParse([]);
+      if (result.success) throw new Error("zod did not reject");
+      const [issue] = zodErrorToFieldIssues(result.error);
+      const template = kumikoDefaultTranslations["en"]?.[issue?.i18nKey ?? ""];
+      if (template === undefined) throw new Error(`no default text for ${issue?.i18nKey}`);
+      return resolveTranslationValue(template, "en", issue?.params);
+    };
+    expect(textFor(1)).toBe("At least 1 row required.");
+    expect(textFor(3)).toBe("At least 3 rows required.");
+  });
+
   test("flattens zod issues to FieldIssue with dotted paths", () => {
     const schema = z.object({
       title: z.string().min(1),

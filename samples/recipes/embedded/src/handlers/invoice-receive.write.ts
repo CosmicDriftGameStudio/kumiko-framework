@@ -16,7 +16,6 @@ const receiveInput = withFormDerivations(
     invoiceNumber: z.string().min(1),
     lines: fieldToZod(invoiceReceiveLines, ["EUR"]),
     netTotal: moneyPayload,
-    vatRate: z.number().optional(),
     vatTotal: moneyPayload,
     grossTotal: moneyPayload,
   }),

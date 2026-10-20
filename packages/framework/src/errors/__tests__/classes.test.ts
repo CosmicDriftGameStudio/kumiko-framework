@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
+import { createEmbeddedListField, fieldToZod } from "../../engine/index.ts";
 import {
   AccessDeniedError,
   buildErrorLog,
@@ -130,6 +131,32 @@ describe("ValidationError", () => {
     expect(err.details).toMatchObject({
       fields: [{ path: "email", code: "invalid_type" }],
     });
+  });
+
+  test("an embedded list below its minimum gets a row-count key and its minimum as param", () => {
+    const issueFor = (minItems: number): Record<string, unknown> => {
+      const list = createEmbeddedListField({ description: { type: "text" } }, { minItems });
+      const result = fieldToZod(list, ["EUR"]).safeParse([]);
+      if (result.success) throw new Error("zod did not reject");
+      const fields = (validationErrorFromZod(result.error).details as { fields: unknown[] }).fields;
+      return fields[0] as Record<string, unknown>;
+    };
+    expect(issueFor(1)).toMatchObject({
+      i18nKey: "errors.validation.list_min_rows.one",
+      params: { minimum: 1 },
+    });
+    expect(issueFor(3)).toMatchObject({
+      i18nKey: "errors.validation.list_min_rows.other",
+      params: { minimum: 3 },
+    });
+  });
+
+  test("a required multiSelect keeps the generic too-small key, it has no rows", () => {
+    const field = { type: "multiSelect", options: ["a", "b"], required: true } as const;
+    const result = fieldToZod(field, []).safeParse([]);
+    if (result.success) throw new Error("zod did not reject");
+    const fields = (validationErrorFromZod(result.error).details as { fields: unknown[] }).fields;
+    expect(fields[0]).toMatchObject({ i18nKey: "errors.validation.too_small" });
   });
 
   test("validationErrorFromZod maps issues to details.fields with params", () => {

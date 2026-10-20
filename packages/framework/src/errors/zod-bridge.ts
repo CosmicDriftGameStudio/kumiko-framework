@@ -58,5 +58,11 @@ function extractIssueParams(issue: ZodIssue): Readonly<Record<string, unknown>> 
   for (const key of ISSUE_PARAM_KEYS) {
     if (bag[key] !== undefined) out[key] = bag[key];
   }
+  // A custom issue that overrides its i18n key also carries the values the text interpolates.
+  if (issue.code === "custom" && typeof issue.params?.["i18nKey"] === "string") {
+    for (const [key, value] of Object.entries(issue.params)) {
+      if (key !== "i18nKey" && value !== undefined) out[key] = value;
+    }
+  }
   return Object.keys(out).length > 0 ? out : undefined;
 }

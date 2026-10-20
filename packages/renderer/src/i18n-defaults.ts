@@ -106,6 +106,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
       "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",
     "kumiko.reference.system-tenant": "System",
     "kumiko.reference.system-user": "System",
+    "kumiko.reference.unknown-user": "Unknown",
 
     "kumiko.pager.status": "{from}–{to} of {total}",
     "kumiko.pager.pageOf": "Page {page} of {pages}",
@@ -310,6 +311,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "errors.validation.invalid_type": "Invalid value.",
     "errors.validation.too_small": "Too small or too short (minimum: {minimum}).",
+    "errors.validation.list_min_rows.one": "At least 1 row required.",
+    "errors.validation.list_min_rows.other": "At least {minimum} rows required.",
     "errors.validation.too_big": "Too big or too long (maximum: {maximum}).",
     "kumiko.validation.number.min": "Must be at least {minimum}.",
     "kumiko.validation.number.max": "Must be {maximum} or less.",

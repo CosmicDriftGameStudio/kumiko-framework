@@ -6,6 +6,7 @@ import {
   type FieldRenderer,
   isFormatSpec,
   SYSTEM_REFERENCE_LABELS,
+  UNRESOLVED_REFERENCE_LABEL_KEYS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
@@ -726,11 +727,18 @@ function ReadOnlyReferenceValue({
   // instead of the raw id.
   const systemLabel = SYSTEM_REFERENCE_LABELS[`${refFeature}:${refEntity}`];
   const parts = ids.map((id) => {
-    if (systemLabel !== undefined && id === systemLabel.id) {
+    if (systemLabel !== undefined && (id === systemLabel.id || systemLabel.aliases?.includes(id))) {
       return { id, label: t(systemLabel.labelKey), link: undefined };
     }
     const row = rows.find((r) => String(r["id"] ?? "") === id);
-    if (row === undefined) return { id, label: id, link: undefined };
+    if (row === undefined) {
+      const unknownKey = UNRESOLVED_REFERENCE_LABEL_KEYS[`${refFeature}:${refEntity}`];
+      const label =
+        unknownKey !== undefined && !queryResult.loading && queryResult.error === null
+          ? t(unknownKey)
+          : id;
+      return { id, label, link: undefined };
+    }
     return { id, label: String(row[labelKey] ?? id), link: resolveReferenceLink(refEntity, id) };
   });
   return (

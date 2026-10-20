@@ -1,6 +1,5 @@
 import {
   type ActionFormScreenDefinition,
-  createDecimalField,
   createEmbeddedListField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -15,13 +14,18 @@ export const invoiceReceiveLines = createEmbeddedListField(
     vatAmount: { type: "money" },
   },
   {
+    minItems: 1,
     derived: { vatAmount: { op: "percent", from: ["amount", "vatRate"] } },
-    totals: ["amount", "vatAmount"],
+    totals: [
+      { label: "invoice.total.net", from: ["amount"] },
+      { label: "invoice.total.vat", from: ["vatAmount"] },
+      { label: "invoice.total.gross", from: ["amount", "vatAmount"] },
+    ],
   },
 );
 
-// Net/VAT/gross are derived: with line items they are the sum of the lines,
-// without lines the net amount and the VAT rate are typed and VAT/gross follow.
+// Net/VAT/gross are derived on the server from the lines (at least one is required)
+// and shown only in the list footer, so the head totals are declared but not laid out.
 export const invoiceReceiveScreen: ActionFormScreenDefinition = {
   id: "invoice-receive",
   type: "actionForm",
@@ -35,25 +39,18 @@ export const invoiceReceiveScreen: ActionFormScreenDefinition = {
     }),
     lines: invoiceReceiveLines,
     netTotal: { type: "money", currency: euro },
-    vatRate: createDecimalField({ precision: 5, scale: 2 }),
     vatTotal: { type: "money", currency: euro },
     grossTotal: { type: "money", currency: euro },
   },
   derive: {
     netTotal: { op: "listSum", list: "lines", cell: "amount" },
-    vatTotal: {
-      op: "listSum",
-      list: "lines",
-      cell: "vatAmount",
-      whenEmpty: { op: "percent", from: ["netTotal", "vatRate"] },
-    },
+    vatTotal: { op: "listSum", list: "lines", cell: "vatAmount" },
     grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] },
   },
   layout: {
     sections: [
       { columns: 2, fields: ["supplier", "invoiceNumber"] },
       { columns: 1, fields: ["lines"] },
-      { columns: 2, fields: ["netTotal", "vatRate", "vatTotal", "grossTotal"] },
     ],
   },
 };

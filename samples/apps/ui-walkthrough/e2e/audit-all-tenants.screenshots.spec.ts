@@ -16,6 +16,9 @@ test("audit-all-tenants-desktop", async ({ page }) => {
   await loginAs(page, PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD);
   await page.goto("/audit-log-all-tenants");
   await expect(page.getByText("Hansa Wohnbau eG").first()).toBeVisible();
+  // A second load must not add more escape-hatch rows (see the sink's read dedupe).
+  await page.reload();
+  await expect(page.getByText("Hansa Wohnbau eG").first()).toBeVisible();
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.evaluate(() => document.fonts.ready);
   await captureScreenshot(page, "audit-alle-mandanten");
