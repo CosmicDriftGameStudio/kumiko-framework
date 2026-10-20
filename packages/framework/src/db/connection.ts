@@ -96,6 +96,7 @@ export function createDbConnection({
     client,
     close: async () => {
       const timeout = options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS;
+      unboundedSiblingFactories.delete(client);
       const pools = [client, ...openSiblings];
       openSiblings.clear();
       const results = await Promise.allSettled(pools.map((pool) => pool.end({ timeout })));

@@ -17,7 +17,7 @@ import {
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
+import { reindexEntity, type SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -291,12 +291,13 @@ describe("reindexEntity connection lifecycle", () => {
       if (!created.isSuccess) throw new Error("seed failed");
 
       const indexBatchReached = Promise.withResolvers<void>();
-      const stallingAdapter = Object.assign(Object.create(ownStack.search), {
+      const stallingAdapter: SearchAdapter = {
+        ...ownStack.search,
         indexBatch: () => {
           indexBatchReached.resolve();
           return new Promise<void>(() => {});
         },
-      });
+      };
       // Callers like a boot rebuild race this against their own timeout and move on.
       void reindexEntity(ownStack.db, ownStack.registry, stallingAdapter, "widget", admin.tenantId);
       await indexBatchReached.promise;
