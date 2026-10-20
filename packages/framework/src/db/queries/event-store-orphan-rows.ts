@@ -1,12 +1,9 @@
-import { toPostgresArrayLiteral } from "../db/queries/postgres-array-literal.ts";
-import { type AnyDb, asRawClient } from "../db/query.ts";
-import { tableNameOf } from "../db/table-introspection.ts";
-import { isBoundTenantDb, tenantDbWriteRunner } from "../db/tenant-db-runner.ts";
-import type { TenantId } from "../engine/types/index.ts";
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
+import type { TenantId } from "../../engine/types/index.ts";
+import { type AnyDb, asRawClient } from "../query.ts";
+import { tableNameOf } from "../table-introspection.ts";
+import { isBoundTenantDb, tenantDbWriteRunner } from "../tenant-db-runner.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
+import { quoteTableIdent } from "./table-ops.ts";
 
 export type DeleteRowsWithoutReplayableStreamArgs = {
   readonly table: unknown;
@@ -32,7 +29,7 @@ export async function deleteRowsWithoutReplayableStream(
     tenantFilter = `AND t."tenant_id" = $2`;
   }
   const rows = await asRawClient(runner).unsafe<{ id: string }>(
-    `DELETE FROM ${quoteIdent(tableNameOf(args.table))} t
+    `DELETE FROM ${quoteTableIdent(tableNameOf(args.table))} t
      WHERE t."id" = ANY($1::uuid[]) ${tenantFilter}
        AND NOT EXISTS (
          SELECT 1 FROM "kumiko_events" e
