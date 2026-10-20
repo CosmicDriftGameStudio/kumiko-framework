@@ -1,5 +1,103 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.379.0
+
+### Minor Changes
+
+- d72e1fc: The runtime of a feature file now follows from its path: `src/<feature>/web/**` is client code, everything else is server or isomorphic. The `@runtime` markers are gone from bundled-features and the document designer, and the isomorphic constants, i18n and name files moved under `web/`. Every existing export subpath stays valid and points at the new file.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Client files of a feature live under web/
+  detail: Files that carried a runtime-client marker moved into <feature>/web/ (constants.ts, i18n.ts, qualified-names and similar), so the runtime-isolation guard reads the runtime from the path. Export subpaths such as ./tenant/constants are unchanged; only relative imports into the old file locations break. The web-side translation glue of user-data-rights, managed-pages, admin-shell, audit, jobs and the document designer is now web/default-translations.ts.
+  migration: Run bun kumiko-upgrade --apply, or bun kumiko codemod feature-layout . --write. It moves every file marked as runtime client from src/features/<feature>/ into src/features/<feature>/web/, rewrites the relative imports and drops the marker. Add --check to list what is left.
+  codemod: scripts/codemod/feature-layout.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: App-feature-structure guard flags runtime-client markers
+  detail: The guard reports a runtime-client marker in a feature file, outside web/ as client code in the server tree and inside web/ as redundant. dev/ is classified as the dev runtime by path.
+  -->
+- 7b01b0d: `kumiko check` fails on non-exact Kumiko dependency pins and on a private app without `kumiko.deploy.infraRef`. The guards gain the subpath-exports and guards-doc-drift checks, and the direct-fetch guard honors `kumiko-lint-ignore direct-fetch` instead of `guard-allow`.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: kumiko check managed rejects loose Kumiko pins and a missing infraRef
+  detail: In an app, all @cosmicdrift/kumiko-*, create-kumiko-app and @cosmicdriftgamestudio/kumiko-* dependencies must be exact versions (workspace specs are allowed) on one version per scope. A private app without kumiko.deploy.infraRef is an error instead of a warning. In @cosmicdrift/kumiko-dev-server, listManagedWarnings is now listManagedErrors and ManagedCheckResult.warnings is now errors.
+  migration: Pin the Kumiko dependencies without ^ or ~ and to one version per scope. Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z) in package.json. Programmatic callers: rename listManagedWarnings to listManagedErrors and ManagedCheckResult.warnings to errors.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: direct-fetch guard uses kumiko-lint-ignore
+  detail: The guard-allow direct-fetch marker is no longer parsed. The guard now honors kumiko-lint-ignore direct-fetch with a specific reason, like the other guards.
+  migration: Replace guard-allow direct-fetch comments with kumiko-lint-ignore direct-fetch followed by the reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Subpath-exports and guards-doc-drift checks
+  detail: The subpath-exports check fails when a published package ships src/<feature>/web.ts without the matching exports key. The guards-doc-drift check keeps docs/reference/guards.md in sync with the guard sources, and a registry test fails when a guard file is not registered.
+  -->
+
+### Patch Changes
+
+- 94d55c0: Event-fed tables (r.entity and r.projection) reject direct writes at runtime. Only the entity executor, projection apply and rebuild, declared unsafe projection steps, tenant-destroy hooks and the new deleteRowsWithoutReplayableStream helper may write them. unsafeRaw() no longer unlocks them.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Direct writes on event-fed tables throw at runtime
+  detail: buildEntityTable and r.projection mark their tables. insertOne, updateMany, deleteMany, the upsert and counter helpers, ctx.db write methods and db.global() writes throw AccessDeniedError on a marked table unless the runner carries the framework write capability. The executor, projection apply, rebuild, unsafeProjectionDelete, tenant-destroy hooks and deleteRowsWithoutReplayableStream hold it; ctx.db.unsafeRaw() never does. Retention deletes only rows whose stream is gone or archived. The cascade delete hook, the soft-delete purge jobs and seedReferenceData now write through the executor, so their effect survives a rebuild; cascade children are written as the system user, and softDelete children are soft-deleted instead of hard-deleted. The direct-entity-writes guard has no exceptions left.
+  migration: Write event-fed rows through the executor (r.crud, ctx.write, createEventStoreExecutor). Projection apply functions must use the db they receive. Test seeds and teardown use seedRow, seedRows, updateRows, deleteRows and clearTables from kumiko-testing instead of hand-written wipe helpers. Do not pass ctx.db.unsafeRaw() to code that deletes event-fed rows; pass ctx.db inside a tenant-destroy hook. Retention code calls deleteRowsWithoutReplayableStream after pruning or archiving the events. seedReferenceData takes the registry instead of a table map. Affects kumiko-enterprise, kumiko-studio and solon.
+  -->
+- 632da48: Direct-entity-writes guard now recognises event-store tables of external packages through a `kumiko-es-tables.json` catalog that each published package ships, and treats `r.projection({ table })` tables as event-fed. Consumers get new findings once they install package versions that contain the catalog.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Direct-entity-writes guard catches external and projection event-store tables
+  detail: Published packages list their event-store tables in kumiko-es-tables.json, which the guard checks for staleness in the owning repo and reads in consumers. r.projection tables are now guarded as well. Existing consumers can get new findings that were previously hidden.
+  -->
+- e71d63f: The full guard run now takes one of two local slots before it builds the project, so parallel pushes from several worktrees queue instead of running six memory-heavy guard runs at once. Set `KUMIKO_GUARD_SLOTS=<n>` to change the limit, `0` to disable it. CI is never limited.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Guard runs queue for a free local slot
+  detail: At most two full guard runs per machine run at the same time (KUMIKO_GUARD_SLOTS, default 2, 0 disables, unset in CI). Further runs print a waiting line and start when a slot frees up; slots of crashed runs are taken over automatically.
+  -->
+- 7b01b0d: Internal peer dependencies between the Kumiko packages are `workspace:*`, so publish pins them to the exact release version instead of an open range.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: Internal peer dependencies are published as exact versions
+  detail: The peer dependencies between the Kumiko packages (cli, guards, bundled-features, testing) are workspace:* in the repo, so publish pins them to the release version instead of an open range.
+  -->
+- Updated dependencies [ba1a10e]
+- Updated dependencies [aa886cc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [632da48]
+- Updated dependencies [94d55c0]
+- Updated dependencies [d72e1fc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [9d81e04]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [434be6e]
+  - @cosmicdrift/kumiko-framework@0.379.0
+
 ## 0.378.0
 
 ### Patch Changes

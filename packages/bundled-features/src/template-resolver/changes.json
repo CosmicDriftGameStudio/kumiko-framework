@@ -1,5 +1,48 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Titles for the template-resolver write handlers",
+    "detail": "Every agent-callable template-resolver write handler now has a title in de, en, es, fr and it, so the AI assistant names actions such as \"Edit template draft\" instead of \"template-resolver:write:patch-draft\". The handlers of mounted content collections (`<id>-set`) stay untitled because their names depend on the app. The empty-field hint of the placeholder line editor now ends in an ellipsis inside the field instead of running past it."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "Overrides of locked templates are no longer served",
+    "detail": "A tenant override of a mail, PDF or layout template is delivered (mail send, PDF render, linked PDFs, layouts, previews, export bundles, document blocks, overview, text blocks) only while the template is listed in tenantEditable. A locked override stays stored and has no effect; listing the template makes it effective again, nothing is deleted. A SystemAdmin sees locked overrides in the overview (`lockedOverride`, `lockedOverrideI18nKey`) and can reset or archive them with the existing handlers; the template-resolver queries do not show them to a TenantAdmin; the audit log keeps the history. Tenant rows of a collection mounted with `access` are served, except for a slug that has a system template outside tenantEditable: that system template wins, and the collection `-set` handler refuses such a slug for a non-SystemAdmin. createTemplateResolverApi(db) became createTemplateResolverApi(db, registry) because the delivery policy is read from the mounted feature; without the mounted feature no tenant override is served.",
+    "migration": "Overrides of templates that are not tenantEditable are no longer served; enable the template via tenantEditable to keep using them. Pass the registry as second argument to createTemplateResolverApi (ctx.registry in handlers, stack.registry in tests). Tenant rows without a system counterpart (for example text blocks seeded directly into a tenant) are hidden as well unless listed in tenantEditable."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Overview label for locked template overrides",
+    "detail": "Adds templateResolver.overview.lockedOverride."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Mail rendering follows the template delivery policy",
+    "detail": "Resolves templates through createTemplateResolverApi(db, registry); overrides of locked templates fall back to the system version."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "PDF rendering follows the template delivery policy",
+    "detail": "Resolves templates through createTemplateResolverApi(db, registry); overrides of locked templates fall back to the system version."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Samples follow the createTemplateResolverApi(db, registry) signature",
+    "detail": "Recipes and sample apps build the template resolver API with the registry as second argument."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "seedSystemTemplate accepts titleI18nKey",
+    "detail": "A seeded template can store an i18n key as its title (titleI18nKey, exclusive with title). The overview returns the key; the document-designer overview, mail editor and PDF link modal translate it and fall back to the raw text. Templates without a key behave as before; no migration."
+  },
+  {
     "version": "0.378.0",
     "type": "improvement",
     "title": "Document PDFs embed the images of a record",

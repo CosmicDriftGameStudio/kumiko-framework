@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Client files of a feature live under web/",
+    "detail": "Files that carried a runtime-client marker moved into <feature>/web/ (constants.ts, i18n.ts, qualified-names and similar), so the runtime-isolation guard reads the runtime from the path. Export subpaths such as ./tenant/constants are unchanged; only relative imports into the old file locations break. The web-side translation glue of user-data-rights, managed-pages, admin-shell, audit, jobs and the document designer is now web/default-translations.ts.",
+    "migration": "Run bun kumiko-upgrade --apply, or bun kumiko codemod feature-layout . --write. It moves every file marked as runtime client from src/features/<feature>/ into src/features/<feature>/web/, rewrites the relative imports and drops the marker. Add --check to list what is left.",
+    "codemod": "scripts/codemod/feature-layout.ts"
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "DELETION_TOKEN_SECRET description corrected",
+    "detail": "The env description no longer claims a fallback to JWT_SECRET; without the secret the anonymous deletion-confirmation flow stays off."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "DELETION_TOKEN_SECRET is part of the env schema",

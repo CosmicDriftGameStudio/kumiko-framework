@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Translations for the default-filter empty state",
+    "detail": "kumiko.list.empty.defaultFiltered and kumiko.list.empty.showAll are translated in de, es, fr and it."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "One English reference catalog for all locale packages",
+    "detail": "The completeness checks of es, fr and it run in the use-all-bundled i18n parity test against the single English catalog in locale-de; the harvest script writes only that file. New keys errors.validation.invalid_format.{email,url,date,datetime,uuid} in all locales."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "errors.demoReadOnly translated",

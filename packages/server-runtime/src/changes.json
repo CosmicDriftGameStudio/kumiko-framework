@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "resolveStoredUserEmail and resolveFeatureTogglesOption exported",
+    "detail": "resolveStoredUserEmail (with MailRecipientScope) and resolveFeatureTogglesOption with its binding types are available from the package entry. The production boot builds the template resolver API with the registry."
+  },
+  {
     "version": "0.378.0",
     "type": "improvement",
     "title": "diskFileRoute for allowlisted disk files",

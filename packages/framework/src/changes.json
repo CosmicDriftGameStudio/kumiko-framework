@@ -1,5 +1,115 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "PII backfill encrypts jsonb object and array fields",
+    "detail": "runPiiEventBackfill and backfillEventPiiEncryption now retro-encrypt plaintext jsonb objects and arrays of personal fields and personal jsonb scalars, and createPiiBackfillStateTable bootstraps under an advisory lock so concurrent first boots no longer skip the ALTER. Completed backfill states rerun once because the transform version changed."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "applyEntityEvent is exported from the db barrel, extension sources accept auto-verbs",
+    "detail": "applyEntityEvent can be used by extendEntityProjection apply handlers to project stored entity events of a foreign aggregate type. validateProjectionApplyKeys accepts the entity auto-verbs for an extension source that is not a registered entity."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "SSE entity signals follow the read access of the connection",
+    "detail": "A signed-in connection receives an entity signal only when a query reading that entity lets one of its roles in (SseRouteOptions.entityReadAccess, built by collectEntityReadAccess). Entities without a reading query no longer go on the channel. When the reading access depends on a row or owner filter, the signal goes out without id and version, so a client refetches its query instead of learning which row changed.",
+    "migration": "Apps that rely on a signal for an entity no query exposes to the user must add a query for that entity with a matching access rule. Custom buildServer callers that build SseRouteOptions themselves must pass entityReadAccess."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Cause details only with NODE_ENV development or test",
+    "detail": "internal_error responses and write error infos carry the cause snapshot (name, message, stack) only when NODE_ENV is explicitly development or test. A missing or misspelled NODE_ENV no longer exposes stack traces, paths or upstream URLs. kumiko-dev starts the server with NODE_ENV=development when none is set, so local dev keeps the details; a dev script that runs the server directly (bun --watch bin/server.ts) must set NODE_ENV=development itself to see them."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "Global IP rate-limit middleware default matches runProdApp",
+    "detail": "globalIpRateLimit defaults to 600 requests per 60 seconds (was 1000). DEFAULT_GLOBAL_RATE_LIMIT is exported from the api barrel and shared with server-runtime. authEndpointRateLimit keeps its default of 5 per 60 seconds.",
+    "migration": "Apps that use globalIpRateLimit directly and relied on 1000 pass limit explicitly. runProdApp users see no change."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Boot warning when /metrics is off in production",
+    "detail": "buildServer logs a warning in production when no metrics option is set, which happens when PROMETHEUS_METRICS_TOKEN is unset."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Package ships its event-store table catalog",
+    "detail": "kumiko-es-tables.json is included in the published files; no runtime change."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "Direct writes on event-fed tables throw at runtime",
+    "detail": "buildEntityTable and r.projection mark their tables. insertOne, updateMany, deleteMany, the upsert and counter helpers, ctx.db write methods and db.global() writes throw AccessDeniedError on a marked table unless the runner carries the framework write capability. The executor, projection apply, rebuild, unsafeProjectionDelete, tenant-destroy hooks and deleteRowsWithoutReplayableStream hold it; ctx.db.unsafeRaw() never does. Retention deletes only rows whose stream is gone or archived. The cascade delete hook, the soft-delete purge jobs and seedReferenceData now write through the executor, so their effect survives a rebuild; cascade children are written as the system user, and softDelete children are soft-deleted instead of hard-deleted. The direct-entity-writes guard has no exceptions left.",
+    "migration": "Write event-fed rows through the executor (r.crud, ctx.write, createEventStoreExecutor). Projection apply functions must use the db they receive. Test seeds and teardown use seedRow, seedRows, updateRows, deleteRows and clearTables from kumiko-testing instead of hand-written wipe helpers. Do not pass ctx.db.unsafeRaw() to code that deletes event-fed rows; pass ctx.db inside a tenant-destroy hook. Retention code calls deleteRowsWithoutReplayableStream after pruning or archiving the events. seedReferenceData takes the registry instead of a table map. Affects kumiko-enterprise, kumiko-studio and solon."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Tests pin the money units of form derivations",
+    "detail": "form-derivations tests now cover realistic money values (1234,56 EUR plus 234,57 EUR, 0,10 plus 0,20) and minor-unit list cells; no behaviour change.",
+    "migration": "None."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "A slow SSE client no longer buffers without bound",
+    "detail": "The SSE route tracks the writes a client has not consumed. A client whose queued frames make no progress for SSE_STALLED_CLIENT_TIMEOUT_MS (one heartbeat interval), or that queues SSE_MAX_PENDING_WRITES_PER_CLIENT frames, is aborted and unregistered; it reconnects and resyncs. A large broadcast batch does not drop a client that keeps reading, and one failing client no longer stops the broadcast to the others. SseRouteOptions.now makes the clock injectable."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Deprecations name their removal release",
+    "detail": "The three @deprecated APIs without a target release (the minor-units money accessor and the landingPath props of the invite and signup screens) now say they are removed in 0.390.0."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "buildEntityTableMeta and observabilityOptions removed",
+    "detail": "buildEntityTableMeta was a deprecated alias of deriveEntityTableMeta. The deprecated observabilityOptions option of the entrypoint and the prod and worker runners is gone as well, it had no effect since the HTTP route label no longer carries a query string.",
+    "migration": "Rename buildEntityTableMeta to deriveEntityTableMeta (same signature). Delete observabilityOptions from the entrypoint and runner options, nothing replaces it."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "readDatabaseNow(db) in framework/db",
+    "detail": "Typed read of the Postgres clock for a TenantDb without unsafeRaw. Inside a transaction now() is the transaction start, so repeated reads agree."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "SaveContext.event no longer reaches JSON responses",
+    "detail": "The event echoed on the SaveContext of create, update and restore is non-enumerable, so a handler returning the save result no longer leaks event data (PII) in its response; hooks and projections still read it by property."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Dashboard navigate params may bind a record",
+    "detail": "The boot validator accepts navigate params on a dashboard row action that has a record binding (record.param) but no filter; it still rejects params when the dashboard reads no filter, time range or record binding."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "Re-export shim packages removed",
+    "detail": "The shims headless, dispatcher-live, renderer-web, http and repo-manifest are gone. Their code lives in kumiko-renderer (/headless, /live, /web), kumiko-framework (/http) and kumiko-guards (/repo-manifest).",
+    "migration": "Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites the imports and package.json dependencies of all five shims to their target packages.",
+    "codemod": "scripts/codemod/package-merge.ts"
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "TenantDb.databaseNow",
+    "detail": "TenantDb has a databaseNow() method returning Postgres now(); custom TenantDb implementations must add it.",
+    "migration": "Add databaseNow(): Promise<Date> to hand-built TenantDb objects and mocks, returning the Postgres now()."
+  },
+  {
     "version": "0.378.0",
     "type": "improvement",
     "title": "actionForm can derive head totals from an embedded list",

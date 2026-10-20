@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Retry documentation matches the client",
+    "detail": "The client retries 502, 503 and network errors; other 5xx and client timeouts fail at once because the render already ran. The feature description no longer promises a retry for every 5xx."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Package ships its event-store table catalog",
+    "detail": "kumiko-es-tables.json is included in the published files; no runtime change."
+  },
+  {
     "version": "0.365.0",
     "type": "improvement",
     "title": "PDF steps block uses the branding accent colour",

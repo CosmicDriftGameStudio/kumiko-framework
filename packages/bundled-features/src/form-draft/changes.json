@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "Form draft content is encrypted per owner",
+    "detail": "The jsonb field draft carries personal: { of: \"ownerId\" }, so its content is stored as ciphertext in events and in read_form_drafts; the delete event no longer keeps the plaintext in previous. The PII event backfill (jsonb-objects-v3) encrypts existing events once on the next boot and rebuilds the table. The column type stays jsonb, so there is no schema change.",
+    "migration": "Nothing to run; the backfill happens on boot. Code that reads read_form_drafts.draft with raw SQL must decrypt it (decryptPiiFieldValues) or use the form-draft lookup helpers; the get and list queries are unchanged for clients."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated formDraftFeature constant is removed",

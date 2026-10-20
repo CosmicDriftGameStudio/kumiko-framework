@@ -1,5 +1,109 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "actionForm success box shows the message and every fact on its own line",
+    "detail": "The success message and the successFacts of an actionForm no longer run together (\"Fertig.Gebucht: 20Übersprungen: 0\"). The message is its own line, a fact with one value is one \"Label: value\" line, a fact with several lines (for example file names) is a label line followed by one line per value instead of a comma chain. New test ids action-form-success-text and action-form-success-fact-<n>-line-<i>.",
+    "migration": "None. Tests that read the textContent of a multi-line fact now see the label and the lines without the former \", \" separators."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Empty list with an active default filter offers \"Show all\"",
+    "detail": "A list that is empty only because its defaultFilters are on says so and offers a Show all button instead of the \"create the first one\" text. The hard-coded Loading… banners use the kumiko.widget.loading key, so they follow the locale."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Count messages use singular and plural forms",
+    "detail": "Nine count messages (template usage, mail preview entries, layout origin and footer, tag delete confirmation, embedded-list paste warnings) now come as .one and .other keys in en, de, es, fr and it, so \"1 template\" no longer reads \"1 templates\". Apps that override these keys must rename them to .one and .other."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Shell header: the parent crumb no longer slides under a long title",
+    "detail": "The page title truncates on its own; the parent crumb stays whole and is left out when the space beside the header actions gets narrower than 20rem (a container query on the header's left side instead of the sm viewport breakpoint). The h1 carries the full title as tooltip."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "A rejected empty embedded list shows its error at the list, once, without a banner-only failure",
+    "detail": "The empty state of an embedded list now shows list-level issues (min items, required), and the surrounding field no longer prints them a second time. An issue on a derived head total that is not laid out (an empty list leaves it without a value) no longer adds the generic form banner while another issue is shown; it still shows the banner when it is the only issue. A list below its minItems now reads \"At least 1 row required.\" / \"At least N rows required.\" (errors.validation.list_min_rows.one and .other) instead of the generic too-small text. Only embedded lists get the row wording (their schema reports a custom issue with params.i18nKey and minimum, which both zod bridges now forward); other arrays such as a required multiSelect keep errors.validation.too_small.",
+    "migration": "None."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "An embedded list does not repeat its section title as a visible label",
+    "detail": "When the label of an embedded-list field equals the title of the section it sits in (for example \"Positionen\" under \"Positionen\"), entityEdit and actionForm screens now keep the label for screen readers only instead of printing it twice. Applies by default, no setting.",
+    "migration": "None."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Embedded-list footer totals can sum several columns under their own label",
+    "detail": "EmbeddedFieldDef.totals entries are now a column name (as before) or { label, from } with an i18n label and the sub-fields to add up, for example Net { from: [\"amount\"] }, VAT { from: [\"vatAmount\"] } and Gross { from: [\"amount\", \"vatAmount\"] }. Display only, the server derivation is unchanged. The boot validator rejects an empty from and any from entry that is not a number, money or decimal sub-field. Money sums use the same format as string totals. The ui-walkthrough receive-invoice screen and the embedded recipe now lay out only the Positionen list with a footer of Net, VAT and Gross; the derived head totals are still computed on the server but not laid out, and the list requires at least one line (minItems 1).",
+    "migration": "Optional. Replace a totals string list with labelled entries where the footer should show Net, VAT and Gross (solon invoice screens)."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "projectionDetail shows the record again after a record action",
+    "detail": "After a writeHandler action on a projectionDetail (header or section action) the screen refetched the record but the shown fields kept their old values until a reload. The actions now reload through the same path as the reload button, which re-applies the refetched record to a form without user input.",
+    "migration": "None."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Live updates reconnect, resync and coalesce refetches",
+    "detail": "The web EventSource reconnects with exponential backoff and jitter after a refused handshake unless the session ended, rewires every subscribed entity on the new connection and sends each listener a LIVE_RESYNC_EVENT_TYPE event after a reconnect, because frames during the gap are lost. useQuery and the nav tree refetch in the background and collapse a burst of live events into one trailing run (LIVE_REFETCH_COALESCE_MS); an event during a running fetch queues exactly one follow-up. A failed refetch keeps the last data on screen and shows QueryErrorBanner with a retry button above it."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "Forms ask before unsaved input is discarded",
+    "detail": "A dirty entity form or writeForm section now asks with the discard dialog before an in-app navigation, a projectionDetail tab switch, browser back or forward, and the browser asks on tab close or reload (beforeunload). A successful save clears the form before its follow-up navigation, and wizards with layout.draft keep their draft instead of asking. requestLeave, hasUnsavedInput and useUnsavedInputSource are exported for custom screens.",
+    "migration": "End-to-end tests that fill a form and then navigate away without saving now meet the dialog (testId leave-guard-dialog); confirm it or save first. page.goto from a dirty form triggers the browser's beforeunload prompt."
+  },
+  {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "Form writes carry a requestId and reuse it only for a safe retry",
+    "detail": "The form controller passes { requestId } as third argument to dispatcher.write. After a transport failure without a server answer, a submit with the same values reuses the requestId, so the server idempotency guard does not run the write twice; any server answer or changed values get a new one. generateRequestId moved to the headless dispatcher module.",
+    "migration": "Tests that assert a mocked dispatcher.write with toHaveBeenCalledWith(type, payload) must accept the third argument, e.g. toHaveBeenCalledWith(type, payload, expect.objectContaining({ requestId: expect.any(String) })). Custom Dispatcher implementations should forward options.requestId."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Failed submits focus the first invalid field, clearer format errors",
+    "detail": "After a failed submit the web form focuses and scrolls to the first field with aria-invalid (FormProps.focusFirstErrorKey; native forms ignore it). Format errors for email, url, date, datetime and uuid name the expected format with an example, the error line no longer shifts the labels of neighbouring fields, and SegmentedControl options with up to four entries get equal widths."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Toolbar navigate actions are hidden when the user may not open the target screen",
+    "detail": "A toolbarAction of kind navigate on entityList, projectionList and relatedList now follows the access rule of its target screen, the same check metric jumps use. Before, the button showed for every role and led to an access-denied page.",
+    "migration": "None. Gate the target screen with its own access rule; the toolbar button follows it."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "actionForm loads a singleton row without a record id",
+    "detail": "load.singleton: true on an actionForm sends the load query without idParam and prefills the form from the tenant's single row, like projectionDetail. A route id is never forwarded. The boot validator rejects singleton together with idParam."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Dashboard text block link shown only to given roles",
+    "detail": "A text block of kind link ({ text, screen, roles? }) renders a link to a screen and is hidden unless the user holds one of the roles. This only gates the display; the target screen still checks access on the server. The boot validator rejects an unknown target screen and an empty roles list."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "DataTable no longer hides its last column under the sticky actions column",
+    "detail": "Header and text cells wrap instead of staying on one line (badges, dates and row actions keep their own nowrap), and a row-action group wraps when the column is narrow. A table whose cells could not shrink scrolled sideways without a visible scrollbar and its last column slid under the sticky actions column. Long values now wrap (up to max-w-xs per column) instead of being cut with an ellipsis."
+  },
+  {
     "version": "0.378.0",
     "type": "fix",
     "title": "Non-modal drawers narrow the content instead of covering it",

@@ -1,5 +1,49 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.379.0
+
+### Patch Changes
+
+- 94d55c0: Event-fed tables (r.entity and r.projection) reject direct writes at runtime. Only the entity executor, projection apply and rebuild, declared unsafe projection steps, tenant-destroy hooks and the new deleteRowsWithoutReplayableStream helper may write them. unsafeRaw() no longer unlocks them.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Direct writes on event-fed tables throw at runtime
+  detail: buildEntityTable and r.projection mark their tables. insertOne, updateMany, deleteMany, the upsert and counter helpers, ctx.db write methods and db.global() writes throw AccessDeniedError on a marked table unless the runner carries the framework write capability. The executor, projection apply, rebuild, unsafeProjectionDelete, tenant-destroy hooks and deleteRowsWithoutReplayableStream hold it; ctx.db.unsafeRaw() never does. Retention deletes only rows whose stream is gone or archived. The cascade delete hook, the soft-delete purge jobs and seedReferenceData now write through the executor, so their effect survives a rebuild; cascade children are written as the system user, and softDelete children are soft-deleted instead of hard-deleted. The direct-entity-writes guard has no exceptions left.
+  migration: Write event-fed rows through the executor (r.crud, ctx.write, createEventStoreExecutor). Projection apply functions must use the db they receive. Test seeds and teardown use seedRow, seedRows, updateRows, deleteRows and clearTables from kumiko-testing instead of hand-written wipe helpers. Do not pass ctx.db.unsafeRaw() to code that deletes event-fed rows; pass ctx.db inside a tenant-destroy hook. Retention code calls deleteRowsWithoutReplayableStream after pruning or archiving the events. seedReferenceData takes the registry instead of a table map. Affects kumiko-enterprise, kumiko-studio and solon.
+  -->
+- 7b01b0d: Internal peer dependencies between the Kumiko packages are `workspace:*`, so publish pins them to the exact release version instead of an open range.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: Internal peer dependencies are published as exact versions
+  detail: The peer dependencies between the Kumiko packages (cli, guards, bundled-features, testing) are workspace:* in the repo, so publish pins them to the release version instead of an open range.
+  -->
+- Updated dependencies [ba1a10e]
+- Updated dependencies [aa886cc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [632da48]
+- Updated dependencies [94d55c0]
+- Updated dependencies [d72e1fc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [632da48]
+- Updated dependencies [e71d63f]
+- Updated dependencies [9d81e04]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [434be6e]
+  - @cosmicdrift/kumiko-framework@0.379.0
+  - @cosmicdrift/kumiko-types@0.379.0
+  - @cosmicdrift/kumiko-guards@0.379.0
+
 ## 0.378.0
 
 ### Patch Changes

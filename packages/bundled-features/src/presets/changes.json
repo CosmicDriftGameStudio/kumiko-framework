@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.379.0",
+    "type": "breaking",
+    "title": "dsgvoSelfServiceFeatures removed",
+    "detail": "The deprecated preset dsgvoSelfServiceFeatures and its DsgvoSelfServiceOptions type are gone. composeGdprStack covers the same features.",
+    "migration": "Use composeGdprStack({ selfService: { userDataRights } }), or mount createSessionsFeature, createDataRetentionFeature, createComplianceProfilesFeature, createUserDataRightsFeature and createUserProfileFeature yourself."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "securityBaselineFeatures and dsgvoSelfServiceFeatures are deprecated",

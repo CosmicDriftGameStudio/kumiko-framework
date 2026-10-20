@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "Spanish admin notice for new waitlist entries",
+    "detail": "The operator notice \"new entry on the waitlist\" now exists in Spanish, like the entrant's confirmation. It follows the locale of the request that created the entry and falls back to English."
+  },
+  {
     "version": "0.377.0",
     "type": "fix",
     "title": "migrateLegacyWaitlist no longer replays legacy events on rebuild",

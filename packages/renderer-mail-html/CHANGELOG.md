@@ -1,5 +1,69 @@
 # @cosmicdrift/kumiko-renderer-mail-html
 
+## 0.379.0
+
+### Patch Changes
+
+- 5876d7b: Billing confirmation and termination receipt mails reach users again when PII encryption is active. The tests of the designer and renderer packages are now part of the root type check, and a DOM test no longer types into a form before its effects have run.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Contract mails reach users with encrypted email addresses
+  detail: With a KMS configured, the contract confirmation and the receipt for a termination from the user account used the stored, encrypted email address as recipient. The mail channel refuses such addresses, so neither mail was sent and the send job failed after its retries. Both now decrypt the address first; an erased user gets no mail, as before for deleted users.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Long template names wrap in the template overview
+  detail: In the template overview, a long template name such as "Kündigungshinweis an den Betreiber" now wraps to a second line instead of widening the first column. The overview fits at 1280 px again when billing-foundation templates are listed.
+  -->
+- ece210b: Mail rendering passes the registry to createTemplateResolverApi so locked overrides are not served.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Mail rendering follows the template delivery policy
+  detail: Resolves templates through createTemplateResolverApi(db, registry); overrides of locked templates fall back to the system version.
+  -->
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [aa886cc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [2a057b1]
+- Updated dependencies [5876d7b]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [632da48]
+- Updated dependencies [632da48]
+- Updated dependencies [94d55c0]
+- Updated dependencies [d72e1fc]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [9d81e04]
+- Updated dependencies [ba1a10e]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [7b01b0d]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [ece210b]
+- Updated dependencies [434be6e]
+  - @cosmicdrift/kumiko-renderer@0.379.0
+  - @cosmicdrift/kumiko-framework@0.379.0
+  - @cosmicdrift/kumiko-types@0.379.0
+  - @cosmicdrift/kumiko-bundled-features@0.379.0
+
 ## 0.378.0
 
 ### Patch Changes

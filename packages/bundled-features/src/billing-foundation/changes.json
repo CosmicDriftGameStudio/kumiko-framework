@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Late Stripe events are dropped",
+    "detail": "The Stripe plugin passes event.created as providerEventAt, process-event stores it as providerEventAtIso in the subscription event and drops a created, updated or canceled event that is older than one already stored (result stale: true). A canceled subscription is no longer reactivated by a late delivery. Providers without a timestamp are unaffected; no migration."
+  },
+  {
+    "version": "0.379.0",
+    "type": "fix",
+    "title": "Contract mails reach users with encrypted email addresses",
+    "detail": "With a KMS configured, the contract confirmation and the receipt for a termination from the user account used the stored, encrypted email address as recipient. The mail channel refuses such addresses, so neither mail was sent and the send job failed after its retries. Both now decrypt the address first; an erased user gets no mail, as before for deleted users."
+  },
+  {
+    "version": "0.379.0",
+    "type": "improvement",
+    "title": "\"This cancellation was not me\" link in the public cancellation receipt",
+    "detail": "When a public § 312k declaration matches an account, the receipt mail carries a one-time link (random token, only its sha256 is stored as revocationTokenHash in the declared event). The link opens a confirmation page; confirming with POST takes the cancellation back until it takes effect, resumes the provider subscription through the new optional SubscriptionProviderPlugin.resumeSubscription (Stripe sets cancel_at_period_end to false) or asks the operator to do it by hand, appends contract-termination.revoked and notifies the operator. Unknown requests and wrong tokens get the same answer; after the effective date the page says it is too late. Declarations stored before this release have no token and cannot be revoked by link."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "Optional contact card in the billing plan catalog",
