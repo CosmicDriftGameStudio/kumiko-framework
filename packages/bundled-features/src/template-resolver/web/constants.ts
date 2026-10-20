@@ -91,9 +91,8 @@ export const MAIL_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 
 export const TEST_MAIL_SUBJECT_PREFIX = "[TEST] ";
 
-// System-Templates leben unter der canonical SYSTEM_TENANT_ID-Sentinel-UUID.
-// Re-Export aus framework — single source of truth, vermeidet Drift.
-export { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+// System templates live under the SYSTEM_TENANT_ID sentinel; the client-safe types package is its single source.
+export { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 
 // Default-Locale wenn Tenant keinen eigenen Default konfiguriert. Resolver
 // fällt darauf zurück wenn requested locale + tenant-default fehlen.
