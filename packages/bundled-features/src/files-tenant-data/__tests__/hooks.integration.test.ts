@@ -229,6 +229,7 @@ describe("files-tenant-data :: job registration", () => {
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
+      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       _fileProviderResolver: async () => provider,
       ...bridgeStub(),
     };

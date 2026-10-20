@@ -36,7 +36,7 @@ describe("globalIpRateLimit (L1)", () => {
         limit: 3,
         windowSeconds: 60,
         trustedProxyHops: 1,
-        onFailClosed: () => {},
+        onFailOpen: () => {},
       }),
     );
     app.get("/api/probe", (c) => c.text("ok"));
@@ -70,7 +70,7 @@ describe("globalIpRateLimit (L1)", () => {
         limit: 2,
         windowSeconds: 60,
         trustedProxyHops: 1,
-        onFailClosed: () => {},
+        onFailOpen: () => {},
       }),
     );
     app.get("/api/probe", (c) => c.text("ok"));
@@ -96,7 +96,7 @@ describe("globalIpRateLimit (L1)", () => {
     const app = new Hono();
     app.use(
       "/api/*",
-      globalIpRateLimit({ resolver, limit: 1, windowSeconds: 60, onFailClosed: () => {} }),
+      globalIpRateLimit({ resolver, limit: 1, windowSeconds: 60, onFailOpen: () => {} }),
     );
     app.get("/api/probe", (c) => c.text("ok"));
 
@@ -106,7 +106,7 @@ describe("globalIpRateLimit (L1)", () => {
     expect(b.status).toBe(429);
   });
 
-  test("fail-closed when resolver throws non-RateLimit error (Redis down)", async () => {
+  test("fails open when resolver throws non-RateLimit error (Redis down)", async () => {
     let onFailCalled = false;
     const brokenResolver: RateLimitResolver = {
       check: async () => {
@@ -130,7 +130,7 @@ describe("globalIpRateLimit (L1)", () => {
         resolver: brokenResolver,
         limit: 5,
         windowSeconds: 60,
-        onFailClosed: () => {
+        onFailOpen: () => {
           onFailCalled = true;
         },
       }),
@@ -140,7 +140,7 @@ describe("globalIpRateLimit (L1)", () => {
     const res = await app.request("/api/probe", {
       headers: { "x-forwarded-for": "10.0.0.5" },
     });
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
     expect(onFailCalled).toBe(true);
   });
 });

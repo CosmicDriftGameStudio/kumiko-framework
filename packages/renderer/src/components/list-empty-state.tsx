@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
@@ -27,7 +28,7 @@ export function ListEmptyStateBody({
   readonly translate: (key: string) => string;
 }): ReactNode {
   const { Text, Button, Dialog, Banner } = usePrimitives();
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ErrorNotice | null>(null);
   if (narrowed) return <Text>{translate("kumiko.list.empty.filtered")}</Text>;
   if (defaultFilterActive) {
     return (
@@ -57,7 +58,8 @@ export function ListEmptyStateBody({
       )}
       {actionError !== null && (
         <Banner variant="error" testId="render-list-empty-state-action-error">
-          {actionError}
+          {actionError.message}
+          <ErrorReference requestId={actionError.requestId} />
         </Banner>
       )}
       {createButton}

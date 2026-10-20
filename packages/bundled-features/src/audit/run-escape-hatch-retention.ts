@@ -76,8 +76,10 @@ async function resolveExplicitRetentionDays(args: {
 const COMPLIANCE_PROFILE_ENTITY = "tenant-compliance-profile";
 const PRUNE_CHUNK_SIZE = 1000;
 const PRUNE_BATCH_SIZE = 5000;
+const SCAN_PAGE_SIZE = 2000;
 
 type AuditEventRow = {
+  readonly id: bigint;
   readonly aggregateId: string;
   readonly tenantId: TenantId;
   readonly createdAt: Temporal.Instant;
@@ -109,12 +111,25 @@ function targetTenantOf(payload: unknown): TenantId | null {
   return parsed.success ? parseTenantId(parsed.data.targetTenantId) : null;
 }
 
-async function storingTenantIds(db: DbConnection): Promise<readonly TenantId[]> {
+// No tenant's cutoff can be later than the shortest built-in retention: overrides only lengthen it.
+function latestPossibleCutoff(now: Temporal.Instant): Temporal.Instant {
+  const cutoffs = Object.values(COMPLIANCE_PROFILES).map((profile) =>
+    subtractRetentionSpec(now, profile.auditLog.retention),
+  );
+  return cutoffs.reduce((latest, cutoff) =>
+    Temporal.Instant.compare(cutoff, latest) > 0 ? cutoff : latest,
+  );
+}
+
+async function storingTenantIds(
+  db: DbConnection,
+  expirableBefore: Temporal.Instant,
+): Promise<readonly TenantId[]> {
   const groups = await aggregateWhere(
     db,
     eventsTable,
     { measure: { fn: "count" }, groupBy: [{ field: "tenantId" }] },
-    { aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE },
+    { aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE, createdAt: { lt: expirableBefore } },
   );
   return groups.flatMap((group) => {
     const tenantId = parseTenantId(group.keys[0]);
@@ -122,9 +137,24 @@ async function storingTenantIds(db: DbConnection): Promise<readonly TenantId[]> 
   });
 }
 
+async function pruneAggregates(db: DbConnection, aggregateIds: readonly string[]): Promise<number> {
+  const now = getTemporal().Now.instant();
+  let deletedCount = 0;
+  for (let i = 0; i < aggregateIds.length; i += PRUNE_CHUNK_SIZE) {
+    const result = await pruneEvents(db, {
+      aggregateTypes: [ESCAPE_HATCH_USE_AGGREGATE_TYPE],
+      aggregateIds: aggregateIds.slice(i, i + PRUNE_CHUNK_SIZE),
+      olderThan: now,
+    });
+    deletedCount += result.deletedCount;
+  }
+  return deletedCount;
+}
+
 async function pruneByTenantProfiles(
   db: DbConnection,
   operatorRetentionDays: number | undefined,
+  scanPageSize: number,
 ): Promise<number> {
   const now = getTemporal().Now.instant();
   const operatorFloor =
@@ -142,33 +172,42 @@ async function pruneByTenantProfiles(
 
   // The effective cutoff is never later than the storing tenant's, so only rows older than
   // that one can expire; everything younger stays in the database.
-  const expiredAggregateIds: string[] = [];
-  for (const storingTenantId of await storingTenantIds(db)) {
-    const storeCutoff = await cutoffOf(storingTenantId);
-    const candidates = await selectMany<AuditEventRow>(db, eventsTable, {
-      aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
-      tenantId: storingTenantId,
-      createdAt: { lt: storeCutoff },
-    });
-    for (const row of candidates) {
-      const targetTenantId = targetTenantOf(row.payload);
-      const cutoff = targetTenantId
-        ? earlierInstant(storeCutoff, await cutoffOf(targetTenantId))
-        : storeCutoff;
-      if (Temporal.Instant.compare(row.createdAt, cutoff) < 0) {
-        expiredAggregateIds.push(row.aggregateId);
-      }
-    }
-  }
-
   let deletedCount = 0;
-  for (let i = 0; i < expiredAggregateIds.length; i += PRUNE_CHUNK_SIZE) {
-    const result = await pruneEvents(db, {
-      aggregateTypes: [ESCAPE_HATCH_USE_AGGREGATE_TYPE],
-      aggregateIds: expiredAggregateIds.slice(i, i + PRUNE_CHUNK_SIZE),
-      olderThan: now,
-    });
-    deletedCount += result.deletedCount;
+  for (const storingTenantId of await storingTenantIds(db, latestPossibleCutoff(now))) {
+    const storeCutoff = await cutoffOf(storingTenantId);
+    // Keyset on id: pruning a page only removes rows at or below the cursor.
+    let afterId: bigint | undefined;
+    for (;;) {
+      const page = await selectMany<AuditEventRow>(
+        db,
+        eventsTable,
+        {
+          aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
+          tenantId: storingTenantId,
+          createdAt: { lt: storeCutoff },
+          ...(afterId !== undefined && { id: { gt: afterId } }),
+        },
+        {
+          fields: ["id", "aggregateId", "createdAt", "payload"],
+          orderBy: { col: "id", direction: "asc" },
+          limit: scanPageSize,
+        },
+      );
+      const expiredAggregateIds: string[] = [];
+      for (const row of page) {
+        const targetTenantId = targetTenantOf(row.payload);
+        const cutoff = targetTenantId
+          ? earlierInstant(storeCutoff, await cutoffOf(targetTenantId))
+          : storeCutoff;
+        if (Temporal.Instant.compare(row.createdAt, cutoff) < 0) {
+          expiredAggregateIds.push(row.aggregateId);
+        }
+      }
+      deletedCount += await pruneAggregates(db, expiredAggregateIds);
+      const lastRow = page[page.length - 1];
+      if (lastRow === undefined || page.length < scanPageSize) break;
+      afterId = lastRow.id;
+    }
   }
   return deletedCount;
 }
@@ -199,6 +238,7 @@ export async function runEscapeHatchRetention(args: {
   readonly configResolver: ConfigResolver | undefined;
   readonly userId: string;
   readonly batchSize?: number;
+  readonly scanPageSize?: number;
 }): Promise<{ readonly deletedCount: number }> {
   const { db } = args;
   if (!isDbConnection(db)) {
@@ -211,5 +251,11 @@ export async function runEscapeHatchRetention(args: {
   }
 
   const operatorRetentionDays = await resolveExplicitRetentionDays({ ...args, db });
-  return { deletedCount: await pruneByTenantProfiles(db, operatorRetentionDays) };
+  return {
+    deletedCount: await pruneByTenantProfiles(
+      db,
+      operatorRetentionDays,
+      args.scanPageSize ?? SCAN_PAGE_SIZE,
+    ),
+  };
 }

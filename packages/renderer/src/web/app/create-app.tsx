@@ -75,6 +75,7 @@ import { useBrowserTokensApi } from "../tokens.ts";
 import { UpdateChecker } from "../version/update-checker.tsx";
 import { AppSchemaFetchBoot } from "./app-schema-boot.tsx";
 import { createBrowserLocaleResolver } from "./browser-locale.ts";
+import { createClientErrorReporter } from "./client-error-reporter.ts";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin.tsx";
 import { WebDashboardBody } from "./dashboard-body.tsx";
 import { DocumentLangSync } from "./document-lang-sync.tsx";
@@ -157,7 +158,17 @@ export function buildNavProviderMaps(
 //
 //   createKumikoApp({ schema: clientSchema });
 
-export type BoundaryErrorHandler = (error: Error, info: ErrorInfo) => void;
+export type BoundaryErrorContext = {
+  readonly errorId: string;
+  /** Qualified name of the screen whose boundary caught the error; absent for the root boundary. */
+  readonly screen?: string;
+};
+
+export type BoundaryErrorHandler = (
+  error: Error,
+  info: ErrorInfo,
+  context: BoundaryErrorContext,
+) => void;
 
 const BoundaryErrorHandlerContext = createContext<BoundaryErrorHandler | undefined>(undefined);
 
@@ -165,6 +176,9 @@ export type CreateKumikoAppOptions = {
   /** Called when the screen or root error boundary catches an error, after it
    *  was logged with console.error — attach telemetry here. */
   readonly onError?: BoundaryErrorHandler;
+  /** POST caught render errors and unhandled window errors to `/api/client-errors`
+   *  (default true). A custom `onError` still runs in addition. */
+  readonly reportClientErrors?: boolean;
   /** App schema. Accepts AppSchema (multi-feature) or the legacy
    *  FeatureSchema (single-feature) — toAppSchema() normalizes internally.
    *
@@ -714,14 +728,26 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   const localeResolver = options.locale ?? createBrowserLocaleResolver();
   const navAdapter = options.navAdapter ?? useBrowserNavApi;
 
+  const reporter = options.reportClientErrors === false ? undefined : createClientErrorReporter();
+  reporter?.installGlobalHandlers();
+  const handleBoundaryError: BoundaryErrorHandler = (error, info, context) => {
+    reporter?.report({
+      kind: "render",
+      error,
+      errorId: context.errorId,
+      ...(context.screen !== undefined && { screen: context.screen }),
+    });
+    options.onError?.(error, info, context);
+  };
+
   const root = createRoot(container);
   root.render(
     <ErrorBoundary
       scope="root"
-      {...(options.onError !== undefined && { onError: options.onError })}
-      fallback={() => <RootErrorFallback />}
+      onError={handleBoundaryError}
+      fallback={({ errorId }) => <RootErrorFallback errorId={errorId} />}
     >
-      <BoundaryErrorHandlerContext.Provider value={options.onError}>
+      <BoundaryErrorHandlerContext.Provider value={handleBoundaryError}>
         <KumikoAppRoot
           initialApp={initialApp}
           screenQn={options.screenQn}
@@ -978,9 +1004,11 @@ function RoutedScreen({
     <ErrorBoundary
       key={`${qn}/${entityId ?? ""}`}
       scope="screen"
-      {...(onBoundaryError !== undefined && { onError: onBoundaryError })}
-      fallback={({ error, reset }) => (
-        <ScreenErrorFallback screen={qn} error={error} onReset={reset} />
+      {...(onBoundaryError !== undefined && {
+        onError: (error, info, context) => onBoundaryError(error, info, { ...context, screen: qn }),
+      })}
+      fallback={({ error, errorId, reset }) => (
+        <ScreenErrorFallback screen={qn} error={error} errorId={errorId} onReset={reset} />
       )}
     >
       <KumikoScreen

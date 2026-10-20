@@ -83,7 +83,6 @@ import {
   type LoginRateLimiter,
   loadJwtSecretOrKeyring,
   type PostAuthLandingResolver,
-  parseTrustedProxyHopsEnv,
   type SseBroker,
   type TokenVerifier,
   TRUSTED_PROXY_HOPS_ENV,
@@ -100,6 +99,7 @@ import {
   type DbRunner,
   dbConnectionOptionsFromEnv,
   outsideTransactionPoolOptionsFromEnv,
+  serverTimeoutOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectWriteHandlerQns,
@@ -127,7 +127,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/es-ops";
 import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
-import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import { createFallbackLogger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
@@ -146,6 +146,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createRedisCacheSyncBus,
+  logRedisConnectionState,
   redisClientOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -179,7 +180,9 @@ import {
   makeDispatchSystemWrite,
   type SystemWireDeps,
 } from "./extra-routes-deps.ts";
+import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
 import { assertPiiBootInvariants } from "./pii-boot-gate.ts";
+import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
 import { type RateLimitOption, resolveRateLimit } from "./rate-limit-defaults.ts";
 import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.ts";
 import { resolveUnsubscribeWiring, type UnsubscribeOption } from "./resolve-unsubscribe-wiring.ts";
@@ -201,6 +204,7 @@ import {
 } from "./seed-dispatcher.ts";
 import { assertSessionBootInvariants } from "./session-boot-gate.ts";
 import { shouldWireProdSessions } from "./session-wiring.ts";
+import { resolveTrustedProxyHops } from "./trusted-proxy-hops.ts";
 import { stripNoRouteMatchHeader } from "./try-hono-first.ts";
 
 export { parseRunMode } from "./boot/env-gate.ts";
@@ -823,14 +827,29 @@ export type ProdAppHandle = {
   readonly stop: () => Promise<void>;
 };
 
+const SERVER_GRACEFUL_STOP_MS = 10_000;
+
+// stop() without force waits for open connections (SSE never ends on its own); force-close after the grace period.
+async function stopServerGracefully(server: { stop(closeActiveConnections?: boolean): unknown }) {
+  let graceTimer: ReturnType<typeof setTimeout> | undefined;
+  const graceElapsed = new Promise<void>((resolve) => {
+    graceTimer = setTimeout(resolve, SERVER_GRACEFUL_STOP_MS);
+  });
+  try {
+    await Promise.race([server.stop(), graceElapsed]);
+  } finally {
+    clearTimeout(graceTimer);
+  }
+  await server.stop(true);
+}
+
 let warnedLegacyJwtSecret = false;
 function warnLegacyJwtSecretOnce(): void {
   // skip: already warned once this process — avoid log spam on every boot path.
   if (warnedLegacyJwtSecret) return;
   warnedLegacyJwtSecret = true;
-  // biome-ignore lint/suspicious/noConsole: boot-time ops hint, no logger configured this early
-  console.warn(
-    "[runProdApp] JWT keyring carries a legacy (pre-rotation) verify-only key — " +
+  createFallbackLogger("runProdApp").warn(
+    "JWT keyring carries a legacy (pre-rotation) verify-only key — " +
       "it never expires on its own. JWT_SECRET remains a required env (hmacSecret " +
       "fallback + boot requireEnv). To stop verifying with the pre-rotation secret: " +
       "set auth.mail.hmacSecret explicitly, then rotate JWT_SECRET to a fresh value " +
@@ -861,6 +880,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const envGate = await runEnvGate(options, "runProdApp");
   if (envGate.kind === "stopped") return makeDryRunHandle();
   const { runMode, decryptedEnvSource } = envGate;
+  const log = installProcessLogger(options.extraContext, "runProdApp");
 
   // Stacks whose boot options are missing and the declarative boot options
   // (mail, kmsMode, fileStorage, billing, demoMode, seed shortcuts) fail here, before any connection. Their defaults sit under
@@ -902,24 +922,24 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // kumiko-framework#1539 — options.auth.trustedProxyHops wins; falls back
   // to the env var so ops can close the XFF-spoofing hole per-deployment
   // without a code change (mirrors instanceId's env-first pattern above).
-  const trustedProxyHops =
-    options.trustedProxyHops ??
-    options.auth?.trustedProxyHops ??
-    parseTrustedProxyHopsEnv(readEnv(TRUSTED_PROXY_HOPS_ENV, envSource), "runProdApp");
+  const trustedProxyHops = resolveTrustedProxyHops({
+    option: options.trustedProxyHops,
+    authOption: options.auth?.trustedProxyHops,
+    envValue: readEnv(TRUSTED_PROXY_HOPS_ENV, envSource),
+    nodeEnv: process.env["NODE_ENV"],
+  });
   if (trustedProxyHops === undefined) {
     // With 0 hops every request appears to come from the proxy pod, so all IP-keyed
     // rate limiters collapse into one shared bucket behind a reverse proxy.
-    // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
-    console.warn(
-      `[runProdApp] trustedProxyHops / ${TRUSTED_PROXY_HOPS_ENV} is not set; client IP falls back to the socket address. ` +
+    log.warn(
+      `trustedProxyHops / ${TRUSTED_PROXY_HOPS_ENV} is not set; client IP falls back to the socket address. ` +
         "Behind a reverse proxy all clients share one rate-limit bucket, so the default L1/L2 limits throttle the whole site at once.",
     );
   }
   const resolvedRateLimit = resolveRateLimit(options.rateLimit);
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
 
-  // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-  console.log(`[runProdApp] booting Kumiko stack on port ${port}…`);
+  log.info(`booting Kumiko stack on port ${port}`);
 
   // auth.mail → expandiert in die expliziten Flow-Felder, bevor sie sowohl
   // die Feature-Side (buildComposeAuthOptions) als auch das Routes-Fragment
@@ -931,8 +951,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     : undefined;
   const authPublicOrigin = effectiveAuth
     ? resolveAuthPublicOrigin(effectiveAuth, envSource, (message) => {
-        // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
-        console.warn(message);
+        log.warn(message);
       })
     : undefined;
 
@@ -986,6 +1005,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       `[runProdApp] boot validation OK (${features.length} features, ${registry.features.size} registry entries)`,
     );
     await bootKms.close();
+    uninstallProcessLogger();
     if (options.envSource === undefined) {
       process.exit(0);
     }
@@ -1014,12 +1034,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const { db, close: closeDb } = createDbConnection({
     url: databaseUrl,
     ...dbConnectionOptionsFromEnv(envSource),
+    ...serverTimeoutOptionsFromEnv(envSource),
   });
   const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection({
     url: databaseUrl,
     ...outsideTransactionPoolOptionsFromEnv(envSource),
+    ...serverTimeoutOptionsFromEnv(envSource),
   });
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  logRedisConnectionState(redis, log);
 
   await waitForDatabase(db, { processName: "runProdApp" });
 
@@ -1062,14 +1085,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    `migrations: false` für custom Schema-Setups.
   if (options.migrations !== false) {
     const migrationsDir = options.migrations?.dir ?? "./kumiko/migrations";
-    // biome-ignore lint/suspicious/noConsole: boot-time progress hint
-    console.log(`[runProdApp] checking schema drift (${migrationsDir})…`);
+    log.info(`checking schema drift (${migrationsDir})`);
     try {
       await assertKumikoSchemaCurrent(db, migrationsDir);
     } catch (err) {
       if (err instanceof SchemaDriftError) {
-        // biome-ignore lint/suspicious/noConsole: terminal error message
-        console.error(`\n[runProdApp] BOOT ABORTED — ${err.message}\n`);
+        log.error(`BOOT ABORTED — ${err.message}`);
       }
       throw err;
     }
@@ -1132,6 +1153,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // silent-broken-auth.
   configureBlindIndexKey(bootKms.blindIndexKey);
   const bootLogger = loggerFromExtraContext(resolvedExtraContext);
+  if (bootLogger) setProcessLogger(bootLogger);
   const autoExtraContext = buildBootExtraContext({
     db,
     features,
@@ -1555,6 +1577,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     securedUpgradeFetch(req, env);
 
   let uninstallShutdownSignals: (() => void) | undefined;
+  let uninstallFatalHandlers: (() => void) | undefined;
   const handle: ProdAppHandle = {
     entrypoint,
     fetch: fetchHandler,
@@ -1594,14 +1617,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             drainTimeoutMs: options.signals.drainTimeoutMs,
           }),
         });
+        uninstallFatalHandlers?.();
+        uninstallFatalHandlers = installFatalErrorHandlers({
+          logger: log,
+          stop: () => handle.stop(),
+        });
       }
 
-      // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-      console.log(`[runProdApp] ready on http://0.0.0.0:${listenPort}`);
+      log.info(`ready on http://0.0.0.0:${listenPort}`);
     },
     stop: async () => {
+      uninstallFatalHandlers?.();
+      uninstallFatalHandlers = undefined;
       await entrypoint.stop();
-      handle.server?.stop();
+      if (handle.server) await stopServerGracefully(handle.server);
       await flushEscapeHatchAudits();
       await closeDb();
       await closeOutsideTransactionDb();
@@ -1609,6 +1638,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       await bootKms.close();
       uninstallShutdownSignals?.();
       uninstallShutdownSignals = undefined;
+      uninstallProcessLogger();
     },
   };
 

@@ -37,6 +37,7 @@ export const Routes = {
   authInviteInfo: "/auth/invite-info",
   files: "/files",
   schema: "/schema",
+  clientErrors: "/client-errors",
 } as const;
 
 // Routes that must be reachable WITHOUT a valid JWT.
@@ -63,6 +64,7 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.health}`,
   `/api${Routes.healthReady}`,
   `/api${Routes.version}`,
+  `/api${Routes.clientErrors}`,
 ]);
 
 // Every other route in `Routes` — explicit, so a route can never fall

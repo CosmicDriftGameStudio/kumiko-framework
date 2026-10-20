@@ -29,6 +29,7 @@ import {
 } from "../db/queries/pii-backfill-state.ts";
 import { upsertOnConflict } from "../db/query.ts";
 import { tableExists } from "../db/schema-inspection.ts";
+import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { unsafePushTables } from "../db/table-push.ts";
 import type { Registry } from "../engine/types/index.ts";
 import type { Logger } from "../logging/types.ts";
@@ -347,10 +348,20 @@ function reportRunOutcome(
   }
 }
 
-export async function runPiiEventBackfill(
+export function runPiiEventBackfill(
   db: DbConnection,
   registry: Registry,
   options: PiiEventBackfillOptions = {},
+): Promise<PiiEventBackfillResult> {
+  return withoutStatementTimeout(db, (unboundedDb) =>
+    backfillPiiEvents(unboundedDb, registry, options),
+  );
+}
+
+async function backfillPiiEvents(
+  db: DbConnection,
+  registry: Registry,
+  options: PiiEventBackfillOptions,
 ): Promise<PiiEventBackfillResult> {
   const log = createFallbackLogger("pii-event-backfill", options.logger);
   const kms = configuredPiiSubjectKms();

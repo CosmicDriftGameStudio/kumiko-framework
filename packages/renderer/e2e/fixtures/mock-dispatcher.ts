@@ -30,6 +30,8 @@ import type {
 import { dashboardQueryResponse } from "./dashboard-fixture";
 import { ROLE_AVAILABILITY_QUERY } from "./schema";
 
+export const FAILING_WRITE_REQUEST_ID = "req-7f9c2a1e-4b3d-4c8a-9e21-5d6f0a1b2c3d";
+
 type Row = Record<string, unknown> & { id: string };
 
 export type MockDispatcherState = {
@@ -104,6 +106,17 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
     const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
 
     switch (verb) {
+      case "fail":
+        return {
+          isSuccess: false,
+          error: {
+            code: "internal_error",
+            httpStatus: 500,
+            i18nKey: "errors.internal",
+            message: "The server could not complete the action.",
+            requestId: FAILING_WRITE_REQUEST_ID,
+          },
+        };
       case "create": {
         const id = (data["id"] as string | undefined) ?? generateId();
         const row: Row = { ...data, id };

@@ -7,6 +7,12 @@ import type { Meter, MetricDefinition } from "./types/index.ts";
 
 export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
   {
+    name: "kumiko_rate_limit_fail_open_total",
+    type: "counter",
+    description: "Requests let through because the rate-limit backend (Redis) failed.",
+    labels: ["label"],
+  },
+  {
     name: "kumiko_http_requests_total",
     type: "counter",
     description: "HTTP requests counted by route, method, and status.",
@@ -277,6 +283,10 @@ export function emitEventConsumerPendingGaps(
 // Caller (event-dispatcher.ts) is responsible for calling this exactly
 // once per (consumer, instanceId) transition into exhausted-dead — not
 // once per poll pass while it stays dead.
+export function emitRateLimitFailOpen(meter: Meter, label: string): void {
+  meter.counter("kumiko_rate_limit_fail_open_total").inc(1, { label });
+}
+
 export function emitEventConsumerRearmExhausted(
   meter: Meter,
   labels: { readonly consumer: string; readonly instanceId: string },

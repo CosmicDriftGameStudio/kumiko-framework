@@ -27,18 +27,20 @@ describe("inboundMailFoundationFeature — shape", () => {
   });
 
   test("declares the 'inboundMailProvider' extension-point", () => {
-    expect(
-      createInboundMailFoundationFeature().registrarExtensions[INBOUND_MAIL_PROVIDER_EXTENSION],
-    ).toBeDefined();
+    expect(Object.keys(createInboundMailFoundationFeature().registrarExtensions)).toContain(
+      INBOUND_MAIL_PROVIDER_EXTENSION,
+    );
   });
 
   test("5 domain-events registriert", () => {
     const events = createInboundMailFoundationFeature().events;
-    expect(events["mail-account-connected"]).toBeDefined();
-    expect(events["mail-account-updated"]).toBeDefined();
-    expect(events["mail-account-disconnected"]).toBeDefined();
-    expect(events["inbound-message-received"]).toBeDefined();
-    expect(events["mail-thread-updated"]).toBeDefined();
+    expect(Object.keys(events).sort()).toEqual([
+      "inbound-message-received",
+      "mail-account-connected",
+      "mail-account-disconnected",
+      "mail-account-updated",
+      "mail-thread-updated",
+    ]);
   });
 
   test("SyncCursor + SeenMessage sind unmanaged (NICHT event-sourced, Plan §3.4)", () => {

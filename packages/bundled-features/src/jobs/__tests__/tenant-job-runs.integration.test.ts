@@ -421,6 +421,21 @@ describe("tenant run state in the run-logger", () => {
     expect(failed?.finishedAt).not.toBeNull();
   });
 
+  test("a deferred run goes back to queued and leaves no run row behind", async () => {
+    const cb = logger(registry);
+    const meta = { attempt: 1, tenantVisibleRun: { tenantId: tenantA, subject: null } };
+    await cb.onJobQueued?.(job, "defer-1", { tenantId: tenantA, subject: null });
+    await cb.onJobStart?.(job, "defer-1", meta);
+    expect((await rowOf("defer-1"))?.status).toBe("running");
+    expect(await selectMany(db, jobRunsTable, { bullJobId: "defer-1" })).toHaveLength(1);
+
+    await cb.onJobDeferred?.(job, "defer-1", meta);
+    const deferred = await rowOf("defer-1");
+    expect(deferred?.status).toBe("queued");
+    expect(deferred?.startedAt).toBeNull();
+    expect(await selectMany(db, jobRunsTable, { bullJobId: "defer-1" })).toHaveLength(0);
+  });
+
   test("the same job id queued twice, or queued after it started, stays one row", async () => {
     const cb = logger(registry);
     await cb.onJobQueued?.(job, "dup-1", { tenantId: tenantA, subject: null });

@@ -21,6 +21,7 @@ export {
 export type { RedisClientOptions } from "./client.ts";
 export {
   createRedisClient,
+  logRedisConnectionState,
   redisChannelPrefixFromEnv,
   redisClientOptionsFromEnv,
 } from "./client.ts";

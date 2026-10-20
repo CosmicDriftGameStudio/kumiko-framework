@@ -225,6 +225,7 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
+      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       ...bridgeStub(),
     };
     await job.handler({}, ctx);

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
+import type { ErrorNotice } from "../../app/error-reference.tsx";
 import type { ButtonProps, DialogProps } from "../../primitives.tsx";
 import { RenderEditActionButton } from "../render-edit-action-button.tsx";
 import type { RenderEditAction } from "../render-edit-types.ts";
@@ -68,7 +69,7 @@ const TestDialog: ComponentType<DialogProps> = ({
 
 function renderAction(
   action: RenderEditAction,
-  onError: (text: string | null) => void = () => {},
+  onError: (notice: ErrorNotice | null) => void = () => {},
   extra: { readonly iconOnly?: boolean; readonly hideIcon?: boolean } = {},
 ) {
   return render(
@@ -177,7 +178,7 @@ describe("RenderEditActionButton", () => {
   });
 
   test("onPress failure reports via onError", async () => {
-    const errors: Array<string | null> = [];
+    const errors: Array<ErrorNotice | null> = [];
     renderAction(
       {
         id: "boom",
@@ -186,13 +187,13 @@ describe("RenderEditActionButton", () => {
           throw new Error("action exploded");
         },
       },
-      (text) => {
-        errors.push(text);
+      (notice) => {
+        errors.push(notice);
       },
     );
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-boom"));
-    await waitFor(() => expect(errors).toContain("action exploded"));
+    await waitFor(() => expect(errors).toContainEqual({ message: "action exploded" }));
     // Cleared at the start of trigger, then set on failure.
     expect(errors[0]).toBeNull();
   });

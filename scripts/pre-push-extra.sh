@@ -30,6 +30,9 @@ bun scripts/check-package-cycles.ts || fail=1
 echo "→ integration mock guard (bun integration.guard.ts)"
 bun integration.guard.ts || fail=1
 
+echo "→ doc screenshot freshness (warn-only)"
+bun scripts/check-doc-screenshots-fresh.ts || true
+
 echo "→ changeset required (scripts/changeset-required-check.sh, BASE_REF=main)"
 BASE_REF=main bash scripts/changeset-required-check.sh || fail=1
 

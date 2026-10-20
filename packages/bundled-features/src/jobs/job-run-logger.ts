@@ -59,7 +59,7 @@ export type JobRunLoggerOptions = {
 
 export type JobRunLoggerCallbacks = Pick<
   JobRunnerOptions,
-  "onJobStart" | "onJobComplete" | "onJobFailed" | "onJobQueued" | "onJobDropped"
+  "onJobStart" | "onJobComplete" | "onJobFailed" | "onJobDeferred" | "onJobQueued" | "onJobDropped"
 >;
 
 // Default cap on the bullJobId → runId cache. A worker that starts jobs
@@ -362,6 +362,25 @@ async function recordTenantRunOutcome(
   });
 }
 
+async function requeueTenantRun(
+  db: DbConnection,
+  jobName: string,
+  bullJobId: string,
+  meta: JobMeta,
+): Promise<void> {
+  // skip: job did not opt in to tenantVisibleRun
+  if (!meta.tenantVisibleRun) return;
+  const key = tenantRunKey(jobName, meta.tenantVisibleRun.tenantId, meta.tenantVisibleRun.subject);
+  // skip: system-tenant run, no tenant-scoped query reads it
+  if (!key) return;
+  await updateMany(
+    db,
+    tenantJobRunsTable,
+    { status: "queued", startedAt: null, finishedAt: null, updatedAt: Temporal.Now.instant() },
+    { tenantId: key.tenantId, jobName, bullJobId },
+  );
+}
+
 async function dropTenantRunQueued(
   db: DbConnection,
   jobName: string,
@@ -499,6 +518,20 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobName,
         bullJobId,
       );
+    },
+
+    // A deferred run is neither success nor failure: the same job id starts a fresh run later.
+    onJobDeferred: async (jobName: string, bullJobId: string, meta: JobMeta) => {
+      await isolateTenantRunWrite(
+        () => requeueTenantRun(db, jobName, bullJobId, meta),
+        jobName,
+        bullJobId,
+      );
+      const resolved = await resolveRun(bullJobId);
+      // skip: run row already gone (cache evicted and row unreachable)
+      if (!resolved) return;
+      await deleteMany(db, jobRunsTable, { id: resolved.runId });
+      runIdByBullJobId.delete(bullJobId);
     },
 
     onJobStart: async (jobName: string, bullJobId: string, meta: JobMeta) => {

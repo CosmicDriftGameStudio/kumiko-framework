@@ -8,6 +8,9 @@ import {
 import { requestContext } from "../api/request-context.ts";
 import type { HttpRouteRateLimit } from "../engine/types/http-route.ts";
 import { RateLimitError, serializeError } from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
+import { emitRateLimitFailOpen } from "../observability/standard-metrics.ts";
+import type { Meter } from "../observability/types/index.ts";
 import { toPublicBucketName } from "./bucket.ts";
 import type { RateLimitDecision, RateLimitResolver } from "./resolver.ts";
 
@@ -18,11 +21,11 @@ import type { RateLimitDecision, RateLimitResolver } from "./resolver.ts";
 // produced by the central serializeError() so L1/L2/L3 share the
 // `error.code`, `i18nKey`, `details`, `requestId`, `timestamp` envelope.
 //
-// Fail-mode policy (from docs/plans/features/core-rate-limiting.md):
-//   L1/L2 — **fail-closed** when Redis is down. The caller is most
-//           likely an attacker; refusing service is safer than letting
-//           an unbounded flood through.
-//   L3   — fail-closed too (dispatcher path, enforceRateLimit): a Redis
+// Fail-mode policy:
+//   L1 and http-route — **fail-open** when Redis is down: a cache outage must
+//           not take the whole API down. Counted and logged (throttled).
+//   L2 (auth endpoints) — **fail-closed**: brute-force protection must hold.
+//   L3   — fail-closed (dispatcher path, enforceRateLimit): a Redis
 //           failure answers 503 rate_limit_unavailable.
 
 export type GlobalIpRateLimitOptions = {
@@ -41,9 +44,10 @@ export type GlobalIpRateLimitOptions = {
   // Override IP extraction — useful when behind a non-standard proxy.
   // Default: the shared resolveClientIp, honoring `trustedProxyHops`.
   readonly extractIp?: (c: Context) => string | undefined;
-  // Hook for ops logging when fail-closed fires (Redis down). Default:
-  // emits to console.error so the misbehaviour is loud at minimum.
-  readonly onFailClosed?: (err: unknown) => void;
+  // Hook for ops logging when the limiter let a request through because Redis failed.
+  // Default: throttled warn plus the fail-open counter when `meter` is set.
+  readonly onFailOpen?: (err: unknown) => void;
+  readonly meter?: Meter;
 };
 
 // Shared with runProdApp (server-runtime re-exports it). The auth middleware default stays
@@ -58,7 +62,7 @@ export function globalIpRateLimit(opts: GlobalIpRateLimitOptions): MiddlewareHan
     createClientIpResolver(opts.trustedProxyHops ?? 0, "globalIpRateLimit");
   const extractIp =
     opts.extractIp ?? ((c) => clientIpResolver.resolve(clientIpSourceFromHonoContext(c)));
-  const onFailClosed = opts.onFailClosed ?? defaultOnFailClosed("l1-global-ip");
+  const onFailOpen = opts.onFailOpen ?? createFailOpenReporter("l1-global-ip", opts.meter);
 
   return async (c, next) => {
     const ip = extractIp(c);
@@ -75,14 +79,9 @@ export function globalIpRateLimit(opts: GlobalIpRateLimitOptions): MiddlewareHan
       }
       setRateLimitHeaders(c, decision);
     } catch (e) {
-      // Fail-closed: refuse rather than let a flood through with no cap.
       // resolver.check never throws RateLimitError (only enforce does),
       // so any throw here is an infrastructure failure (Redis down).
-      onFailClosed(e);
-      return c.json(
-        { error: { code: "rate_limit_unavailable", message: "Rate limiter unavailable" } },
-        503,
-      );
+      onFailOpen(e);
     }
     await next();
   };
@@ -94,14 +93,15 @@ export type HttpRouteRateLimitOptions = {
   // "METHOD path" — the bucket scope for per: "ip+handler".
   readonly routeKey: string;
   readonly clientIpResolver: ClientIpResolver;
-  readonly onFailClosed?: (err: unknown) => void;
+  readonly onFailOpen?: (err: unknown) => void;
+  readonly meter?: Meter;
 };
 
-// Per-route limit for r.httpRoute({ rateLimit }). Fail-closed like L1: these
-// routes are anonymous, so an outage must not turn into an unbounded flood.
+// Per-route limit for r.httpRoute({ rateLimit }). Fail-open like L1: a Redis outage must not
+// take anonymous routes (status pages, webhooks) down with it.
 export function httpRouteRateLimit(opts: HttpRouteRateLimitOptions): MiddlewareHandler {
   const { rateLimit, routeKey } = opts;
-  const onFailClosed = opts.onFailClosed ?? defaultOnFailClosed("http-route");
+  const onFailOpen = opts.onFailOpen ?? createFailOpenReporter("http-route", opts.meter);
   const config = {
     limit: rateLimit.limit,
     windowSeconds: rateLimit.windowSeconds,
@@ -117,11 +117,7 @@ export function httpRouteRateLimit(opts: HttpRouteRateLimitOptions): MiddlewareH
       if (!decision.allowed) return respondRateLimited(c, decision, bucket);
       setRateLimitHeaders(c, decision);
     } catch (e) {
-      onFailClosed(e);
-      return c.json(
-        { error: { code: "rate_limit_unavailable", message: "Rate limiter unavailable" } },
-        503,
-      );
+      onFailOpen(e);
     }
     await next();
   };
@@ -181,6 +177,29 @@ export function authEndpointRateLimit(opts: AuthEndpointRateLimitOptions): Middl
       );
     }
     await next();
+  };
+}
+
+const FAIL_OPEN_WARN_INTERVAL_MS = 30_000;
+
+export function createFailOpenReporter(
+  label: string,
+  meter?: Meter,
+  now: () => number = Date.now,
+): (err: unknown) => void {
+  const logger = createFallbackLogger("rate-limit");
+  let lastWarnAt: number | undefined;
+  return (err) => {
+    if (meter) emitRateLimitFailOpen(meter, label);
+    const nowMs = now();
+    // skip: throttled, the counter above still records every fail-open
+    if (lastWarnAt !== undefined && nowMs - lastWarnAt < FAIL_OPEN_WARN_INTERVAL_MS) return;
+    lastWarnAt = nowMs;
+    logger.warn("rate limiter unavailable, failing open", {
+      label,
+      // ioredis errors can carry the command args, i.e. the bucket key with IP/target.
+      error: err instanceof Error ? err.message : String(err),
+    });
   };
 }
 

@@ -53,6 +53,7 @@ export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens.tsx";
 export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body.tsx";
 export { DashboardBodyProvider, useDashboardBody } from "./app/dashboard-body.tsx";
+export { type ErrorNotice, ErrorReference, errorNoticeOf } from "./app/error-reference.tsx";
 export type {
   ExtensionFormRegistry,
   ExtensionFormSubmitHandler,

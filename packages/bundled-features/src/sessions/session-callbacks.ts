@@ -39,6 +39,15 @@ import {
 // Re-exported so existing `../sessions` importers keep working unchanged.
 export { isPrincipalBlocked };
 
+type SettledLookup<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
+
+function settleLookup<T>(lookup: Promise<T>): Promise<SettledLookup<T>> {
+  return lookup.then(
+    (value): SettledLookup<T> => ({ ok: true, value }),
+    (): SettledLookup<T> => ({ ok: false }),
+  );
+}
+
 // Why the callbacks live at the raw-DB level rather than going through the
 // dispatcher: session-create/revoke/check run on the hot path of every
 // login and every request. The (createdAt/revokedAt/ip/userAgent) columns
@@ -145,6 +154,14 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
 
     // kumiko-lint-ignore complexity-budget session check + lastSeen refresh on hot path
     async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionCheckResult> {
+      // The user lookup is keyed by the JWT's userId, not the session row, so it
+      // overlaps the session read. Settled eagerly: a throwing session read must
+      // not leave this promise as an unhandled rejection.
+      const userLookup = settleLookup(
+        fetchOne<{ status: UserStatus; isDeleted: boolean; roles: string | null }>(db, userTable, {
+          id: expectedUserId,
+        }),
+      );
       const row = await fetchOne<{
         userId: string;
         tenantId: TenantId;
@@ -164,6 +181,15 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       if (row.expiresAt.epochMilliseconds <= Temporal.Now.instant().epochMilliseconds) {
         return "expired";
       }
+
+      // Membership is keyed by the session's tenantId, so it can only start now;
+      // it overlaps the user lookup and the lastSeen refresh.
+      const membershipLookup = settleLookup(
+        fetchOne<{ roles: string | null }>(db, tenantMembershipsTable, {
+          userId: expectedUserId,
+          tenantId: row.tenantId,
+        }),
+      );
 
       // Hourly, not per-request: this check runs on every authenticated
       // request, so a write here has to stay off the hot path.
@@ -195,16 +221,9 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // missing row is a legitimate "no tenant roles" outcome. Both branches
       // return the bare "live" string (no re-derived roles) — the middleware
       // falls back to the JWT's frozen roles claim.
-      let user: { status: UserStatus; isDeleted: boolean; roles: string | null } | undefined;
-      try {
-        user = await fetchOne<{ status: UserStatus; isDeleted: boolean; roles: string | null }>(
-          db,
-          userTable,
-          { id: expectedUserId },
-        );
-      } catch {
-        return "live";
-      }
+      const userResult = await userLookup;
+      if (!userResult.ok) return "live";
+      const user = userResult.value;
       if (!user) return "live";
       if (isPrincipalRowBlocked(user)) return "blocked";
 
@@ -212,16 +231,9 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // DB error on the membership read must not lock the user out. A
       // missing row (not a throw) is a valid outcome: the user genuinely has
       // no tenant-scoped roles for row.tenantId, so membershipRoles is [].
-      let membershipRoles: readonly string[];
-      try {
-        const membership = await fetchOne<{ roles: string | null }>(db, tenantMembershipsTable, {
-          userId: expectedUserId,
-          tenantId: row.tenantId,
-        });
-        membershipRoles = membership ? parseRoles(membership.roles) : [];
-      } catch {
-        return "live";
-      }
+      const membershipResult = await membershipLookup;
+      if (!membershipResult.ok) return "live";
+      const membershipRoles = membershipResult.value ? parseRoles(membershipResult.value.roles) : [];
 
       const globalRoles = parseRoles(user.roles);
       const roles = buildSessionRoles(globalRoles, membershipRoles);

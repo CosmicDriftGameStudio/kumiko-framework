@@ -548,6 +548,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Ungültiges Datum mit Uhrzeit, z. B. 20.10.2026 14:30.",
   "errors.validation.invalid_format.uuid":
     "Ungültige ID, z. B. 123e4567-e89b-12d3-a456-426614174000.",
+  "errors.validation.invalid_format.iban": "Ungültige IBAN, z. B. DE89 3704 0044 0532 0130 00.",
   "errors.validation.invalid_key": "Ungültiger Schlüssel.",
   "errors.validation.invalid_option": "Ungültige Auswahl.",
   "errors.validation.invalid_type": "Ungültiger Wert.",
@@ -735,6 +736,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.screen-error.detail": "Screen: {screen}. {message}",
   "kumiko.screen-error.screen": "Screen: {screen}",
   "kumiko.screen-error.title": "Dieser Screen konnte nicht dargestellt werden.",
+  "kumiko.error.reference": "Fehler-ID: {id}",
+  "kumiko.error.copyReference": "Kopieren",
+  "kumiko.error.referenceCopied": "Kopiert!",
   "kumiko.screen-access-denied.title": "Du hast keinen Zugriff auf diese Seite.",
   "kumiko.screen-missing.home": "Zur Startseite",
   "kumiko.screen-missing.hint":

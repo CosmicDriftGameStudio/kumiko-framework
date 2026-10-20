@@ -954,6 +954,12 @@ export function validateJobBackoff(state: RegistryState): void {
 
 export function validateMaxPerTenant(state: RegistryState): void {
   for (const [jobName, jobDef] of state.jobMap) {
+    const { maxDefers } = jobDef;
+    if (maxDefers !== undefined && (!Number.isInteger(maxDefers) || maxDefers <= 0)) {
+      throw new Error(`Job "${jobName}" maxDefers must be a positive integer (got ${maxDefers})`);
+    }
+  }
+  for (const [jobName, jobDef] of state.jobMap) {
     const resolved = resolveMaxPerTenant(jobDef);
     if (!resolved) continue;
     if (!Number.isInteger(resolved.limit) || resolved.limit <= 0) {

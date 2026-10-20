@@ -171,7 +171,7 @@ describe("createFormController — validate()", () => {
 
     form.validate();
 
-    expect(form.getSnapshot().errors["address.city"]).toBeDefined();
+    expect(Object.keys(form.getSnapshot().errors)).toEqual(["address.city"]);
   });
 });
 
@@ -224,7 +224,7 @@ describe("createFormController — validate(scope)", () => {
       schema,
     });
     expect(form.validate(["address.city"])).toBe(false);
-    expect(form.getSnapshot().errors["address.city"]).toBeDefined();
+    expect(Object.keys(form.getSnapshot().errors)).toEqual(["address.city"]);
   });
 
   test("nested scope entry does not pull in sibling issues under the same root", () => {

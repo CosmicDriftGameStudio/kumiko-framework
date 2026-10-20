@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   access,
@@ -25,6 +25,7 @@ import { createConfigAccessorFactory, createConfigFeature } from "../../config/f
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { ConfigHandlers } from "../../config/web/constants.ts";
+import * as sharedModule from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenant } from "../../tenant/seeding.ts";
@@ -190,6 +191,52 @@ describe("cross-tenant cap limits read the target tenant's config", () => {
     expect(limitOf(TENANT_A)).toBe(111);
     expect(limitOf(TENANT_B)).toBe(222);
     expect(limitOf(TENANT_C)).toBe(SEATS_DEFAULT);
+  });
+});
+
+describe("tenant-caps:list decrypts only what the request needs", () => {
+  async function listWithDecryptCount(payload: Record<string, unknown>) {
+    const decryptSpy = spyOn(sharedModule, "decryptStoredPii");
+    try {
+      const list = await stack.http.queryOk<TenantCapsListResult & { total?: number }>(
+        CapOverviewQueries.tenantCapsList,
+        { totalCount: true, ...payload },
+        adminA,
+      );
+      return { list, decryptCalls: decryptSpy.mock.calls.length };
+    } finally {
+      decryptSpy.mockRestore();
+    }
+  }
+
+  test("a tier sort decrypts just the names of the returned page", async () => {
+    const { list, decryptCalls } = await listWithDecryptCount({
+      sort: "tier",
+      limit: 1,
+      offset: 1,
+    });
+    expect(list.total).toBeGreaterThanOrEqual(3);
+    expect(list.rows).toHaveLength(1);
+    expect(decryptCalls).toBe(1);
+    const row = list.rows[0];
+    expect(row?.["name"]).toBe(`Seats ${row?.tenantId}`);
+  });
+
+  test("a name sort has to decrypt every tenant and orders by the plaintext name", async () => {
+    const { list, decryptCalls } = await listWithDecryptCount({ sort: "name", limit: 50 });
+    expect(decryptCalls).toBe(list.total ?? -1);
+    const names = list.rows.map((row) => String(row["name"]));
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  });
+
+  test("a search decrypts every tenant and filters by plaintext name", async () => {
+    const { list, decryptCalls } = await listWithDecryptCount({
+      sort: "tier",
+      search: `Seats ${TENANT_B}`,
+      limit: 50,
+    });
+    expect(list.rows.map((row) => row.tenantId)).toEqual([TENANT_B]);
+    expect(decryptCalls).toBeGreaterThanOrEqual(3);
   });
 });
 

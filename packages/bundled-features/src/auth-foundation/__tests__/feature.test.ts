@@ -23,19 +23,27 @@ describe("authFoundationFeature — shape", () => {
 
 describe("authFoundationFeature — registers extension-point", () => {
   test("declares the tokenVerifier extension-point", () => {
-    expect(createAuthFoundationFeature().registrarExtensions[EXT_TOKEN_VERIFIER]).toBeDefined();
+    expect(Object.keys(createAuthFoundationFeature().registrarExtensions)).toContain(
+      EXT_TOKEN_VERIFIER,
+    );
   });
 
   test("declares the sessionStore extension-point", () => {
-    expect(createAuthFoundationFeature().registrarExtensions[EXT_SESSION_STORE]).toBeDefined();
+    expect(Object.keys(createAuthFoundationFeature().registrarExtensions)).toContain(
+      EXT_SESSION_STORE,
+    );
   });
 
   test("declares the tenantResolver extension-point", () => {
-    expect(createAuthFoundationFeature().registrarExtensions[EXT_TENANT_RESOLVER]).toBeDefined();
+    expect(Object.keys(createAuthFoundationFeature().registrarExtensions)).toContain(
+      EXT_TENANT_RESOLVER,
+    );
   });
 
   test("declares the tenantExistence extension-point", () => {
-    expect(createAuthFoundationFeature().registrarExtensions[EXT_TENANT_EXISTENCE]).toBeDefined();
+    expect(Object.keys(createAuthFoundationFeature().registrarExtensions)).toContain(
+      EXT_TENANT_EXISTENCE,
+    );
   });
 });
 

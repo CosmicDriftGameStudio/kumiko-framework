@@ -194,4 +194,99 @@ describe("renderer error boundaries", () => {
       ),
     ).toBe(true);
   });
+
+  describe("client error reporting", () => {
+    type Recorded = { readonly url: string; readonly init: RequestInit };
+    let calls: Recorded[];
+    let originalFetch: typeof fetch;
+
+    beforeEach(() => {
+      calls = [];
+      originalFetch = globalThis.fetch;
+      globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return new Response(null, { status: 204 });
+      }) as typeof fetch;
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    const reportsOnly = (): Recorded[] => calls.filter((c) => c.url === "/api/client-errors");
+
+    test("a screen error is reported once with the same errorId the fallback shows", async () => {
+      await mountApp({
+        schema,
+        screenQn: "probe:screen:boom",
+        clientFeatures: [{ name: "probe", components: { boom: Boom, calm: Calm } }],
+      });
+      const fallback = await screen.findByTestId(SCREEN_ERROR_FALLBACK_TEST_ID);
+      const reports = reportsOnly();
+      expect(reports).toHaveLength(1);
+      const body = JSON.parse(String(reports[0]?.init.body));
+      expect(body).toMatchObject({
+        kind: "render",
+        message: "kaputt-im-render",
+        screen: "probe:screen:boom",
+        path: "/boom",
+      });
+      expect(fallback.textContent).toContain(body.errorId);
+    });
+
+    test("reportClientErrors:false sends nothing", async () => {
+      await mountApp({
+        schema,
+        screenQn: "probe:screen:boom",
+        reportClientErrors: false,
+        clientFeatures: [{ name: "probe", components: { boom: Boom, calm: Calm } }],
+      });
+      await screen.findByTestId(SCREEN_ERROR_FALLBACK_TEST_ID);
+      expect(reportsOnly()).toHaveLength(0);
+    });
+
+    test("a custom onError runs in addition to the report and receives the errorId", async () => {
+      const seen: string[] = [];
+      await mountApp({
+        schema,
+        screenQn: "probe:screen:boom",
+        onError: (_error, _info, context) => seen.push(context.errorId),
+        clientFeatures: [{ name: "probe", components: { boom: Boom, calm: Calm } }],
+      });
+      await screen.findByTestId(SCREEN_ERROR_FALLBACK_TEST_ID);
+      const body = JSON.parse(String(reportsOnly()[0]?.init.body));
+      expect(seen).toEqual([body.errorId]);
+    });
+
+    test("the root fallback shows the errorId and copies it", async () => {
+      function ThrowingProvider(): ReactNode {
+        throw new Error("provider-kaputt");
+      }
+      const written: string[] = [];
+      const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: async (text: string) => void written.push(text) },
+      });
+      try {
+        await mountApp({
+          schema,
+          screenQn: "probe:screen:calm",
+          clientFeatures: [
+            { name: "probe", components: { calm: Calm }, providers: [ThrowingProvider] },
+          ],
+        });
+        const fallback = await screen.findByTestId(ROOT_ERROR_FALLBACK_TEST_ID);
+        const body = JSON.parse(String(reportsOnly()[0]?.init.body));
+        expect(body.screen).toBeUndefined();
+        expect(fallback.textContent).toContain(body.errorId);
+        await act(async () => {
+          fireEvent.click(screen.getByTestId(`${ROOT_ERROR_FALLBACK_TEST_ID}-copy`));
+        });
+        expect(written).toEqual([body.errorId]);
+      } finally {
+        if (originalClipboard) Object.defineProperty(navigator, "clipboard", originalClipboard);
+      }
+    });
+  });
 });

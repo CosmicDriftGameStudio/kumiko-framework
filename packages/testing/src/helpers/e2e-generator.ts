@@ -431,6 +431,7 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
     case "text": {
       if (field.format === "email") return `e2e-${name}@example.com`;
       if (field.format === "url") return "https://example.com";
+      if (field.format === "iban") return "DE89370400440532013000";
       return `e2e ${name}`;
     }
     case "longText":

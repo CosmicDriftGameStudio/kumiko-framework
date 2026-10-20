@@ -131,6 +131,42 @@ describe("reindexEntity", () => {
     expect(postResults.some((r) => r.entityId === created.data.id)).toBe(false);
   });
 
+  test("rows deleted while the scan runs do not make it skip later rows", async () => {
+    const executor = seedExecutor();
+    for (let n = 1; n <= 5; n++) {
+      const created = await executor.create({ name: `Keyset Widget ${n}` }, admin, tenantDb());
+      if (!created.isSuccess) throw new Error("seed failed");
+    }
+    const client = asRawClient(stack.db);
+    const [{ count } = { count: "0" }] = await client.unsafe<{ count: string }>(
+      `SELECT count(*)::text AS count FROM "read_reindex_widgets" WHERE "tenant_id" = $1 AND "is_deleted" IS NOT TRUE`,
+      [admin.tenantId],
+    );
+    const rowsBeforeScan = Number(count);
+    expect(rowsBeforeScan).toBeGreaterThanOrEqual(5);
+
+    // Removing each batch's rows right after it was read shifts an OFFSET window past the next rows.
+    const deletingAdapter = Object.assign(Object.create(stack.search), {
+      indexBatch: async (_tenantId: string, docs: readonly { entityId: string }[]) => {
+        for (const doc of docs) {
+          await client.unsafe(`DELETE FROM "read_reindex_widgets" WHERE "id" = $1`, [doc.entityId]);
+        }
+      },
+    });
+
+    const result = await reindexEntity(
+      stack.db,
+      stack.registry,
+      deletingAdapter,
+      "widget",
+      admin.tenantId,
+      { batchSize: 2 },
+    );
+
+    expect(result.scannedRows).toBe(rowsBeforeScan);
+    expect(result.failures).toHaveLength(0);
+  });
+
   test("dryRun scans without writing to the index", async () => {
     const executor = seedExecutor();
     await executor.create({ name: "DryRun Widget" }, admin, tenantDb());

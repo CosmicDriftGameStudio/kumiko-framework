@@ -84,6 +84,13 @@ export function setOrderFulfillWrite(fn: FulfillWrite): void {
   fulfillWrite = fn;
 }
 
+let carrierRetryAfterMs: () => number = () => 0;
+
+/** Stand-in for a rate-limited carrier API: ms until it accepts work again, 0 when free. */
+export function setCarrierRetryAfter(fn: () => number): void {
+  carrierRetryAfterMs = fn;
+}
+
 // Job payloads arrive as `Record<string, unknown>` (JobHandlerFn) — an
 // unchecked `as string` cast here would let a missing/non-string field
 // through silently, writing `orderKey: undefined` / `label: "label-
@@ -123,6 +130,9 @@ export function createApiWorkerSplitFeature() {
           );
         }
         const { customerName } = processOrderPayloadSchema.parse(payload);
+        // Busy is not a failure: ctx.defer re-runs the job later without burning a retry.
+        const retryAfterMs = carrierRetryAfterMs();
+        if (retryAfterMs > 0) return context.defer(retryAfterMs);
         const result = await fulfillWrite({
           handlerQn: "orders:write:fulfillment:create",
           payload: {

@@ -150,9 +150,6 @@ function ownershipPredicates(
 
 type MatchedRow = { id: string; tenant_id: string };
 
-// ponytail: LIMIT/OFFSET, not a keyset cursor — mirrors reindexEntity's same
-// tradeoff (id type varies uuid/serial across entities). A tenant-destroy
-// purge is a one-time sweep, not a hot path.
 const PURGE_BATCH_SIZE = 500;
 
 async function collectMatchingRowsForEntity(
@@ -162,19 +159,21 @@ async function collectMatchingRowsForEntity(
   params: readonly unknown[],
 ): Promise<readonly MatchedRow[]> {
   const rows: MatchedRow[] = [];
-  let offset = 0;
+  let lastId: string | undefined;
   for (;;) {
-    const offsetN = params.length + 1;
+    // Keyset, not OFFSET: rows deleted or changed while the loop runs must not shift the window.
+    const afterLastId =
+      lastId === undefined ? "" : ` AND ${quoteIdent("id")} > $${params.length + 1}`;
     const page = await executeRawQueryRead<MatchedRow>(
       db,
-      `SELECT id, tenant_id FROM ${quoteIdent(tableName)} WHERE ${whereSql}
+      `SELECT id, tenant_id FROM ${quoteIdent(tableName)} WHERE (${whereSql})${afterLastId}
         ORDER BY ${quoteIdent("id")} ASC
-        LIMIT ${PURGE_BATCH_SIZE} OFFSET $${offsetN}`,
-      [...params, offset],
+        LIMIT ${PURGE_BATCH_SIZE}`,
+      lastId === undefined ? params : [...params, lastId],
     );
     if (page.length === 0) break;
     rows.push(...page);
-    offset += page.length;
+    lastId = page[page.length - 1]?.id;
     if (page.length < PURGE_BATCH_SIZE) break;
   }
   return rows;

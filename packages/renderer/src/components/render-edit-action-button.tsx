@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { type ErrorNotice, errorNoticeOf } from "../app/error-reference.tsx";
 import type { usePrimitives } from "../primitives.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
 
@@ -63,7 +64,7 @@ export function RenderEditActionButton({
   readonly compactLabel?: boolean;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
-  readonly onError: (text: string | null) => void;
+  readonly onError: (notice: ErrorNotice | null) => void;
 }): ReactNode {
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -74,7 +75,7 @@ export function RenderEditActionButton({
     try {
       await action.onPress();
     } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
+      onError(errorNoticeOf(e));
     } finally {
       setBusy(false);
     }

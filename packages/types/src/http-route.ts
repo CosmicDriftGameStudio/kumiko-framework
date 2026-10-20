@@ -87,7 +87,7 @@ export type HttpRouteDefinition = {
    *  Response (sync oder async). */
   readonly handler: HttpRouteHandler;
   /** Enforced before the route's guards through the server's rate-limit
-   *  resolver (fail-closed like the global L1 limiter: a limiter outage
-   *  answers 503 instead of letting the request through). */
+   *  resolver (fail-open like the global L1 limiter: a limiter outage
+   *  lets the request through, counted and logged). */
   readonly rateLimit?: HttpRouteRateLimit;
 };

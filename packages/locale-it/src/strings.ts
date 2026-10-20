@@ -543,6 +543,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "errors.validation.invalid_format.datetime": "Data e ora non valide, ad es. 20/10/2026 14:30.",
   "errors.validation.invalid_format.uuid":
     "ID non valido, ad es. 123e4567-e89b-12d3-a456-426614174000.",
+  "errors.validation.invalid_format.iban": "IBAN non valido, ad es. DE89 3704 0044 0532 0130 00.",
   "errors.validation.invalid_key": "Chiave non valida.",
   "errors.validation.invalid_option": "Scelta non valida.",
   "errors.validation.invalid_type": "Valore non valido.",
@@ -729,6 +730,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.screen-error.detail": "Schermata: {screen}. {message}",
   "kumiko.screen-error.screen": "Schermata: {screen}",
   "kumiko.screen-error.title": "Impossibile visualizzare questa schermata.",
+  "kumiko.error.reference": "ID errore: {id}",
+  "kumiko.error.copyReference": "Copia",
+  "kumiko.error.referenceCopied": "Copiato!",
   "kumiko.screen-access-denied.title": "Non hai accesso a questa pagina.",
   "kumiko.screen-missing.home": "Vai alla pagina iniziale",
   "kumiko.screen-missing.hint": "Non è attivata per il tuo account oppure non esiste più.",

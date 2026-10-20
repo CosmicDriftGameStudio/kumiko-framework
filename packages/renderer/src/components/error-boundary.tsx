@@ -1,8 +1,11 @@
 import { ERROR_BOUNDARY_LOG_MARKER } from "@cosmicdrift/kumiko-types/error-boundary";
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { createErrorId } from "./error-id.ts";
 
 export type ErrorBoundaryFallbackProps = {
   readonly error: Error;
+  /** Shown to the user so a support request can be matched to the report. */
+  readonly errorId: string;
   readonly reset: () => void;
 };
 
@@ -12,27 +15,30 @@ export type ErrorBoundaryProps = {
   /** Prefix for the logged message, e.g. "screen" or "root". */
   readonly scope: string;
   /** Called after the default console.error log, e.g. to forward to telemetry. */
-  readonly onError?: (error: Error, info: ErrorInfo) => void;
+  readonly onError?: (error: Error, info: ErrorInfo, context: { readonly errorId: string }) => void;
 };
 
-type ErrorBoundaryState = { readonly error: Error | undefined };
+type ErrorBoundaryState = {
+  readonly caught: { readonly error: Error; readonly errorId: string } | undefined;
+};
 
 function toError(thrown: unknown): Error {
   return thrown instanceof Error ? thrown : new Error(String(thrown));
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  override state: ErrorBoundaryState = { error: undefined };
+  override state: ErrorBoundaryState = { caught: undefined };
 
   static getDerivedStateFromError(thrown: unknown): ErrorBoundaryState {
-    return { error: toError(thrown) };
+    return { caught: { error: toError(thrown), errorId: createErrorId() } };
   }
 
   override componentDidCatch(thrown: unknown, info: ErrorInfo): void {
     const error = toError(thrown);
+    const errorId = this.state.caught?.errorId ?? createErrorId();
     this.logCaught(error, info.componentStack);
     try {
-      this.props.onError?.(error, info);
+      this.props.onError?.(error, info, { errorId });
     } catch (handlerError) {
       // A throw escaping componentDidCatch hands the error to the next boundary up, so a broken telemetry hook would replace the screen card with the root fallback.
       this.logCaught(toError(handlerError), "onError handler threw");
@@ -45,12 +51,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   private reset = (): void => {
-    this.setState({ error: undefined });
+    this.setState({ caught: undefined });
   };
 
   override render(): ReactNode {
-    const { error } = this.state;
-    if (error === undefined) return this.props.children;
-    return this.props.fallback({ error, reset: this.reset });
+    const { caught } = this.state;
+    if (caught === undefined) return this.props.children;
+    return this.props.fallback({ ...caught, reset: this.reset });
   }
 }

@@ -4,6 +4,7 @@ import type { RenderEditAction } from "../components/render-edit-types.ts";
 import { useActionMenuItems } from "../components/use-action-menu-items.tsx";
 import { useTranslation } from "../i18n.tsx";
 import type { usePrimitives } from "../primitives.tsx";
+import type { ErrorNotice } from "./error-reference.tsx";
 import {
   compactHeaderPrimary,
   orderPlainHeaderActions,
@@ -39,7 +40,7 @@ export function HeaderActionsBar({
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly ActionOverflowMenu: ReturnType<typeof usePrimitives>["ActionOverflowMenu"];
-  readonly onError: (text: string | null) => void;
+  readonly onError: (notice: ErrorNotice | null) => void;
   /** Test id of the overflow menu; projectionDetail's by default. */
   readonly overflowTestId?: string;
 }): ReactNode {

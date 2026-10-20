@@ -15,6 +15,7 @@ import {
   type TenantId,
 } from "../engine/types/index.ts";
 import { NotFoundError, toKumikoError, toWriteErrorInfo } from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { parseRoles } from "../utils/serialization.ts";
@@ -637,6 +638,19 @@ function requestMeta(c: Context, resolver: ClientIpResolver): SessionMetadata {
   return { ip, userAgent };
 }
 
+let warnedInMemoryLimiterInProduction = false;
+
+// Without Redis-backed limiters each replica counts on its own, so the effective limit scales with replica count.
+export function inMemoryLoginRateLimiterFallback(): LoginRateLimiter {
+  if (process.env["NODE_ENV"] === "production" && !warnedInMemoryLimiterInProduction) {
+    warnedInMemoryLimiterInProduction = true;
+    createFallbackLogger("auth-routes").warn(
+      "login/MFA rate limiter falls back to in-memory; limits are per replica",
+    );
+  }
+  return createInMemoryLoginRateLimiter();
+}
+
 // Default: in-memory fixed window. Fine for a single Node process; for
 // multi-process deployments, inject a Redis-backed LoginRateLimiter instead
 // so attempts can't be spread across replicas.
@@ -893,7 +907,7 @@ export function createAuthRoutes(
     const rateLimiter =
       config.loginRateLimit === null
         ? null
-        : (config.loginRateLimit ?? createInMemoryLoginRateLimiter());
+        : (config.loginRateLimit ?? inMemoryLoginRateLimiterFallback());
 
     api.post(Routes.authLogin, async (c) => {
       const raw = await c.req.json().catch(() => null);
@@ -1000,7 +1014,7 @@ export function createAuthRoutes(
     const rateLimiter =
       config.mfaVerifyRateLimit === null
         ? null
-        : (config.mfaVerifyRateLimit ?? createInMemoryLoginRateLimiter());
+        : (config.mfaVerifyRateLimit ?? inMemoryLoginRateLimiterFallback());
 
     api.post(Routes.authMfaVerify, async (c) => {
       const raw = await c.req.json().catch(() => null);
@@ -1073,7 +1087,7 @@ export function createAuthRoutes(
     const rateLimiter =
       config.mfaPreauthEnableStartRateLimit === null
         ? null
-        : (config.mfaPreauthEnableStartRateLimit ?? createInMemoryLoginRateLimiter());
+        : (config.mfaPreauthEnableStartRateLimit ?? inMemoryLoginRateLimiterFallback());
 
     api.post(Routes.authMfaPreauthEnableStart, async (c) => {
       const raw = await c.req.json().catch(() => null);
@@ -1141,7 +1155,7 @@ export function createAuthRoutes(
     const rateLimiter =
       config.mfaPreauthConfirmRateLimit === null
         ? null
-        : (config.mfaPreauthConfirmRateLimit ?? createInMemoryLoginRateLimiter());
+        : (config.mfaPreauthConfirmRateLimit ?? inMemoryLoginRateLimiterFallback());
 
     api.post(Routes.authMfaPreauthConfirm, async (c) => {
       const raw = await c.req.json().catch(() => null);

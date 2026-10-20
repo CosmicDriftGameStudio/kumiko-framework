@@ -27,10 +27,12 @@ import type { WorkerEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint"
 import type { ComposedEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
+import { scrubLogText } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createMetricsForFactory,
   type ObservabilityProvider,
 } from "@cosmicdrift/kumiko-framework/observability";
+import { logRedisConnectionState } from "@cosmicdrift/kumiko-framework/redis";
 import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
@@ -57,6 +59,8 @@ import {
   makeDispatchSystemWrite,
   type SystemWireDeps,
 } from "./extra-routes-deps.ts";
+import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
+import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
 
 export type WorkerContextOption =
   | Record<string, unknown>
@@ -201,8 +205,8 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   assertSeedModeNotInProduction();
   const resolvedEnvSource = await resolveGatedEnvSource(options);
   if (resolvedEnvSource === undefined) return makeBootModeHandle();
-  // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-  console.log("[runWorkerApp] booting Kumiko worker…");
+  const log = installProcessLogger(options.extraContext, "runWorkerApp");
+  log.info("booting Kumiko worker");
 
   assertWorkerStackRequirements(options);
   const wiring = await resolveBootOptionWiring(options, resolvedEnvSource);
@@ -234,9 +238,11 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   }
   if (boot.kind === "dry-run") {
     await wiring.kms.close();
+    uninstallProcessLogger();
     return makeBootModeHandle();
   }
   const { db, redis, registry, entrypoint } = boot;
+  logRedisConnectionState(redis, log);
 
   // Metrics first: a port clash must fail the boot before start() begins
   // consuming jobs/events. boot.close() runs the "metrics-server" shutdown
@@ -254,11 +260,15 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     await wiring.kms.close().catch(() => {});
     throw error;
   }
+  let uninstallFatalHandlers: (() => void) | undefined;
   const handle: WorkerAppHandle = {
     entrypoint,
     stop: async () => {
+      uninstallFatalHandlers?.();
+      uninstallFatalHandlers = undefined;
       await boot.close();
       await wiring.kms.close();
+      uninstallProcessLogger();
     },
     ...(metricsServer && { metricsServer }),
   };
@@ -288,24 +298,23 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     // skip: shutdown already in progress, avoid double-drain
     if (shuttingDown) return;
     shuttingDown = true;
-    // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-    console.log(`[runWorkerApp] ${signal} received — draining…`);
+    log.info(`${signal} received, draining`);
     try {
       await handle.stop();
-      // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-      console.log("[runWorkerApp] graceful shutdown complete.");
+      log.info("graceful shutdown complete");
     } catch (e) {
-      // biome-ignore lint/suspicious/noConsole: shutdown-time error, only path is stderr
-      console.error("[runWorkerApp] error during shutdown:", e);
+      log.error("error during shutdown", {
+        error: scrubLogText(e instanceof Error ? e.message : String(e)),
+      });
     } finally {
       process.exit(0);
     }
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));
+  uninstallFatalHandlers = installFatalErrorHandlers({ logger: log, stop: () => handle.stop() });
 
-  // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-  console.log("[runWorkerApp] ready — worker running.");
+  log.info("ready, worker running");
 
   return handle;
 }

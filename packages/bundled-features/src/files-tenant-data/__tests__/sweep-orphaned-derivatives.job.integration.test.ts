@@ -71,6 +71,7 @@ function makeCtx(
     triggeredBy: null,
     attempt: 1,
     finalAttempt: true,
+    defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
     ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
     ...bridgeStub(),
   };

@@ -60,7 +60,7 @@
   "scripts": {
     "kumiko": "bun run bin/kumiko.ts",
     "test": "bun integration.guard.ts && bun test --dots",
-    "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=15000 .test.tsx",
+    "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=5000 .test.tsx",
     "test:run": "bun test --dots",
     "test:verbose": "bun test",
     "test:integration": "bun scripts/run-integration-tests.ts",

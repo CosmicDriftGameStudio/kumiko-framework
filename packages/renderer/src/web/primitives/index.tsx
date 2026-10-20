@@ -2601,12 +2601,15 @@ function useRowActionTrigger(row: ListRowViewModel) {
     } catch (e) {
       // Surfacing statt schlucken: ein verschluckter Write-Fehler sah für
       // den User wie "nichts passiert" aus (Prod-Bug 2026-06-07).
-      const docsUrl = e instanceof WriteFailedError ? e.dispatcherError.docsUrl : undefined;
+      const dispatcherError = e instanceof WriteFailedError ? e.dispatcherError : undefined;
+      const docsUrl = dispatcherError?.docsUrl;
+      const requestId = dispatcherError?.requestId;
       toast({
         title: t("kumiko.rowAction.failed"),
         description: e instanceof Error ? e.message : String(e),
         variant: "bad",
         ...(docsUrl !== undefined && { docsUrl }),
+        ...(requestId !== undefined && { requestId }),
       });
     } finally {
       setBusy(false);

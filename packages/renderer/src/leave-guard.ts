@@ -11,6 +11,8 @@ type LeaveConfirmer = (decision: {
 
 const sources = new Set<UnsavedInputSource>();
 let confirmer: LeaveConfirmer | undefined;
+// While a confirmed (or unguarded) leave runs, navigation calls nested inside it must not ask a second time.
+let runningLeaveDepth = 0;
 
 export function registerUnsavedInputSource(source: UnsavedInputSource): () => void {
   sources.add(source);
@@ -34,12 +36,21 @@ export function setLeaveConfirmer(next: LeaveConfirmer): () => void {
 /** Runs `proceed` right away when nothing is dirty (or no dialog host is
  *  mounted); otherwise asks the user first. */
 export function requestLeave(proceed: () => void, cancel: () => void = () => {}): void {
-  if (confirmer === undefined || !hasUnsavedInput()) {
-    proceed();
+  if (runningLeaveDepth > 0 || confirmer === undefined || !hasUnsavedInput()) {
+    runLeave(proceed);
     // skip: nothing to lose, no question needed
     return;
   }
-  confirmer({ proceed, cancel });
+  confirmer({ proceed: () => runLeave(proceed), cancel });
+}
+
+function runLeave(proceed: () => void): void {
+  runningLeaveDepth += 1;
+  try {
+    proceed();
+  } finally {
+    runningLeaveDepth -= 1;
+  }
 }
 
 /** `isDirty` is read lazily, at guard time, so a form can report "clean"

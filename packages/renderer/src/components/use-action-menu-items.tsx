@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { type ErrorNotice, errorNoticeOf } from "../app/error-reference.tsx";
 import type { ActionMenuItemSpec, usePrimitives } from "../primitives.tsx";
 import { needsActionConfirm, RenderEditActionConfirmDialog } from "./render-edit-action-button.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
@@ -10,7 +11,7 @@ export function useActionMenuItems({
   onError,
 }: {
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
-  readonly onError: (text: string | null) => void;
+  readonly onError: (notice: ErrorNotice | null) => void;
 }): {
   readonly toMenuItem: (action: RenderEditAction) => ActionMenuItemSpec;
   readonly confirmDialog: ReactNode;
@@ -24,7 +25,7 @@ export function useActionMenuItems({
     try {
       await action.onPress();
     } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
+      onError(errorNoticeOf(e));
     } finally {
       setBusyActionId(null);
     }

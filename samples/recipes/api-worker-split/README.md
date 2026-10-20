@@ -54,6 +54,14 @@ With only the API running, `read_orders` gains the row but
 `read_order_activity` stays empty. Start the worker and both the activity
 row and the `read_fulfillments` row appear.
 
+## Deferring a job
+
+`process-order` returns `context.defer(ms)` while the (simulated) carrier is busy. The job
+is re-run after `ms` on the same queue job: no retry attempt is used, no failure is logged
+or recorded, and the run log shows only the runs that actually executed. `maxDefers`
+(default 100) bounds it; beyond that the run fails. It needs a queued run: an inline boot
+gate throws.
+
 ## Test
 
 Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).

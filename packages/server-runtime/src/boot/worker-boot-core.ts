@@ -17,6 +17,7 @@ import {
   type DbConnection,
   dbConnectionOptionsFromEnv,
   outsideTransactionPoolOptionsFromEnv,
+  serverTimeoutOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
@@ -213,10 +214,12 @@ export async function bootWorkerProcess(
   const { db, close: closeDb } = createDbConnection({
     url: databaseUrl,
     ...dbConnectionOptionsFromEnv(envSource),
+    ...serverTimeoutOptionsFromEnv(envSource),
   });
   const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection({
     url: databaseUrl,
     ...outsideTransactionPoolOptionsFromEnv(envSource),
+    ...serverTimeoutOptionsFromEnv(envSource),
   });
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 

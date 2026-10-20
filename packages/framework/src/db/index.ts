@@ -24,6 +24,7 @@ export {
   DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
   dbConnectionOptionsFromEnv,
   outsideTransactionPoolOptionsFromEnv,
+  serverTimeoutOptionsFromEnv,
 } from "./connection.ts";
 export type { CursorQueryOptions, CursorResult, DecodedKeysetCursor } from "./cursor.ts";
 export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.ts";
@@ -201,6 +202,7 @@ export {
   retiredFrameworkTables,
 } from "./retired-framework-tables.ts";
 export { tableExists } from "./schema-inspection.ts";
+export { withoutStatementTimeout } from "./statement-timeout.ts";
 export {
   buildBaseColumns,
   buildEntityTable,

@@ -553,6 +553,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "errors.validation.invalid_format.datetime": "Date et heure invalides, p. ex. 20/10/2026 14:30.",
   "errors.validation.invalid_format.uuid":
     "Identifiant invalide, p. ex. 123e4567-e89b-12d3-a456-426614174000.",
+  "errors.validation.invalid_format.iban": "IBAN invalide, p. ex. DE89 3704 0044 0532 0130 00.",
   "errors.validation.invalid_key": "Clé invalide.",
   "errors.validation.invalid_option": "Choix invalide.",
   "errors.validation.invalid_type": "Valeur invalide.",
@@ -741,6 +742,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.screen-error.detail": "Écran : {screen}. {message}",
   "kumiko.screen-error.screen": "Écran : {screen}",
   "kumiko.screen-error.title": "Cet écran n'a pas pu s'afficher.",
+  "kumiko.error.reference": "ID d'erreur : {id}",
+  "kumiko.error.copyReference": "Copier",
+  "kumiko.error.referenceCopied": "Copié !",
   "kumiko.screen-access-denied.title": "Vous n'avez pas accès à cette page.",
   "kumiko.screen-missing.home": "Aller à la page d'accueil",
   "kumiko.screen-missing.hint": "Elle n'est pas activée pour votre compte ou n'existe plus.",

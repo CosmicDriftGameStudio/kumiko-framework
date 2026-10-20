@@ -159,4 +159,39 @@ describe("ToastProvider + useToast", () => {
     });
     expect(screen.queryByText("Stub")).toBeNull();
   });
+  test("requestId: zeigt die Fehler-ID und Kopieren schreibt sie in die Zwischenablage", async () => {
+    const written: string[] = [];
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (text: string) => void written.push(text) },
+    });
+    try {
+      render(
+        <ToastProvider>
+          <ToastTrigger
+            options={[{ title: "Failed", variant: "bad", requestId: "req-1234-abcd" }]}
+          />
+        </ToastProvider>,
+      );
+      expect(screen.getByTestId("toast-error-reference").textContent).toContain(
+        "Error ID: req-1234-abcd",
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("toast-error-reference-copy"));
+      });
+      expect(written).toEqual(["req-1234-abcd"]);
+    } finally {
+      if (originalClipboard) Object.defineProperty(navigator, "clipboard", originalClipboard);
+    }
+  });
+
+  test("ohne requestId bleibt der Toast ohne Fehler-ID-Zeile", () => {
+    render(
+      <ToastProvider>
+        <ToastTrigger options={[{ title: "Failed", variant: "bad" }]} />
+      </ToastProvider>,
+    );
+    expect(screen.queryByTestId("toast-error-reference")).toBeNull();
+  });
 });

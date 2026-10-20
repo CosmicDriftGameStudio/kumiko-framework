@@ -35,6 +35,7 @@ export type ToastOptions = {
   // kumiko.toast.learn-more).
   readonly docsUrl?: string;
   readonly docsLinkLabel?: string;
+  readonly requestId?: string;
 };
 
 type ToastEntry = ToastOptions & {
@@ -120,6 +121,32 @@ const TONE_CLASS: Record<StatusTone, string> = {
   muted: "border bg-background text-foreground",
 };
 
+function ToastErrorReference({ requestId }: { readonly requestId: string }): ReactNode {
+  const t = useTranslation();
+  const [copied, setCopied] = useState(false);
+  async function copyRequestId(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(requestId);
+      setCopied(true);
+    } catch {
+      // Clipboard denied: the id stays visible and selectable.
+    }
+  }
+  return (
+    <div className="flex items-center gap-2 text-xs opacity-90" data-testid="toast-error-reference">
+      <span className="break-all select-all">{t("kumiko.error.reference", { id: requestId })}</span>
+      <button
+        type="button"
+        className="rounded underline focus:outline-none focus:ring-1 focus:ring-current"
+        data-testid="toast-error-reference-copy"
+        onClick={() => void copyRequestId()}
+      >
+        {copied ? t("kumiko.error.referenceCopied") : t("kumiko.error.copyReference")}
+      </button>
+    </div>
+  );
+}
+
 function ToastItem({
   entry,
   onClose,
@@ -144,6 +171,7 @@ function ToastItem({
             {entry.description}
           </Primitive.Description>
         )}
+        {entry.requestId !== undefined && <ToastErrorReference requestId={entry.requestId} />}
         {entry.docsUrl !== undefined && (
           <Primitive.Action altText={learnMore} asChild>
             <a

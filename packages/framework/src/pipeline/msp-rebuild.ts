@@ -16,6 +16,7 @@ import {
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
+import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
@@ -140,7 +141,16 @@ function createRebuildCtx(
   };
 }
 
-export async function rebuildMultiStreamProjection(
+export function rebuildMultiStreamProjection(
+  mspName: string,
+  deps: MspRebuildDeps,
+): Promise<RebuildResult> {
+  return withoutStatementTimeout(deps.db, (db) =>
+    replayMultiStreamProjectionIntoShadow(mspName, { ...deps, db }),
+  );
+}
+
+async function replayMultiStreamProjectionIntoShadow(
   mspName: string,
   deps: MspRebuildDeps,
 ): Promise<RebuildResult> {

@@ -176,10 +176,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     // so the renderer/web fallback fails and resolves to undefined.
     await writeFile(join(tmp, "package.json"), `{"name":"build-it-fixture","private":true}`);
 
-    execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
-      stdio: "pipe",
-      timeout: BUILD_PROCESS_TIMEOUT_MS,
-    });
+    buildOrThrow(tmp);
 
     const manifest = JSON.parse(await readFile(join(tmp, "dist/manifest.json"), "utf8")) as Record<
       string,
@@ -203,19 +200,8 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
     await writeFile(join(tmp, "package.json"), `{"name":"no-html","private":true}`);
 
-    let stderr = "";
-    expect(() => {
-      try {
-        execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
-          stdio: "pipe",
-          timeout: BUILD_PROCESS_TIMEOUT_MS,
-        });
-      } catch (err) {
-        const e = err as { stderr?: Buffer };
-        stderr = e.stderr?.toString() ?? "";
-        throw err;
-      }
-    }).toThrow();
+    const { status, stderr } = runKumikoBuild(tmp);
+    expect(status).not.toBe(0);
 
     expect(stderr).toContain("kein index.html gefunden");
     expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
@@ -231,30 +217,35 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     );
     await writeFile(join(tmp, "package.json"), `{"name":"no-placeholder","private":true}`);
 
-    let stderr = "";
-    expect(() => {
-      try {
-        execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
-          stdio: "pipe",
-          timeout: BUILD_PROCESS_TIMEOUT_MS,
-        });
-      } catch (err) {
-        const e = err as { stderr?: Buffer };
-        stderr = e.stderr?.toString() ?? "";
-        throw err;
-      }
-    }).toThrow();
+    const { status, stderr } = runKumikoBuild(tmp);
+    expect(status).not.toBe(0);
 
     expect(stderr).toContain("keinen Entry-Tag für /client.js");
     expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
   });
 
+  // A killed child (ETIMEDOUT) used to surface as a bare spawn error; naming the elapsed time and the child's output shows whether the build or the process start stalled.
   function runKumikoBuild(cwd: string): { status: number | null; stdout: string; stderr: string } {
+    const startedAt = performance.now();
     const result = spawnSync("bun", [KUMIKO_BUILD_BIN, cwd], {
       encoding: "utf8",
       timeout: BUILD_PROCESS_TIMEOUT_MS,
     });
+    if (result.error !== undefined) {
+      const elapsedMs = Math.round(performance.now() - startedAt);
+      throw new Error(
+        `kumiko-build did not finish after ${elapsedMs}ms (${result.error.message}); stdout: ${result.stdout} stderr: ${result.stderr}`,
+        { cause: result.error },
+      );
+    }
     return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+  }
+
+  function buildOrThrow(cwd: string): void {
+    const result = runKumikoBuild(cwd);
+    if (result.status !== 0) {
+      throw new Error(`kumiko-build exited ${result.status}: ${result.stderr}`);
+    }
   }
 
   test("src/client-admin.tsx without a kumiko.clientEntries declaration → exit 1 with the declaration snippet on stderr", async () => {
@@ -346,19 +337,13 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     );
     await writeFile(join(tmp, "package.json"), `{"name":"hash-stability","private":true}`);
 
-    execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
-      stdio: "pipe",
-      timeout: BUILD_PROCESS_TIMEOUT_MS,
-    });
+    buildOrThrow(tmp);
     const manifest1 = JSON.parse(await readFile(join(tmp, "dist/manifest.json"), "utf8")) as Record<
       string,
       string
     >;
 
-    execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
-      stdio: "pipe",
-      timeout: BUILD_PROCESS_TIMEOUT_MS,
-    });
+    buildOrThrow(tmp);
     const manifest2 = JSON.parse(await readFile(join(tmp, "dist/manifest.json"), "utf8")) as Record<
       string,
       string

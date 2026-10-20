@@ -234,12 +234,21 @@ function ensureCommand(redis: Redis): CommandClient {
   return redis as CommandClient; // @cast-boundary engine-bridge
 }
 
+// ioredis queues commands while reconnecting; waiting out commandTimeout per request would
+// stall every caller, so a non-ready connection counts as a failure immediately.
+function assertRedisReady(redis: Redis): void {
+  if (redis.status !== "ready") {
+    throw new Error(`rate-limit redis connection not ready (status: ${redis.status})`);
+  }
+}
+
 export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLimitResolver {
   const client = ensureCommand(opts.redis);
   const prefix = opts.keyPrefix ?? RedisKeys.rateLimit;
   const now = opts.nowMs ?? (() => Date.now());
 
   async function check(bucket: string, config: RateLimitConfig): Promise<RateLimitDecision> {
+    assertRedisReady(opts.redis);
     const cost = config.cost ?? 1;
     const refillRatePerMs = config.limit / (config.windowSeconds * 1000);
     const ttlSeconds = Math.max(1, config.windowSeconds * 2);
@@ -284,6 +293,7 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     requests: readonly RateLimitBucketRequest[],
   ): Promise<readonly RateLimitDecision[]> {
     if (requests.length === 0) return [];
+    assertRedisReady(opts.redis);
     const nowMs = now();
     const keys = requests.map(({ bucket }) => `${prefix}${bucket}`);
     // The script writes each key back once, so a repeated key would deduct only one of its costs.
@@ -338,6 +348,7 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     bucket: string,
     config: Omit<RateLimitConfig, "cost">,
   ): Promise<RateLimitDecision> {
+    assertRedisReady(opts.redis);
     const refillRatePerMs = config.limit / (config.windowSeconds * 1000);
     const nowMs = now();
 

@@ -56,6 +56,16 @@ describe("leave guard registry", () => {
     expect(proceed).toHaveBeenCalledTimes(1);
   });
 
+  test("a leave requested while a confirmed leave runs does not ask again", () => {
+    const confirmer = mock((d: { proceed: () => void; cancel: () => void }) => d.proceed());
+    cleanups.push(setLeaveConfirmer(confirmer));
+    cleanups.push(registerUnsavedInputSource(() => true));
+    const inner = mock(() => {});
+    requestLeave(() => requestLeave(inner));
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(confirmer).toHaveBeenCalledTimes(1);
+  });
+
   test("without a mounted dialog host a dirty leave is not blocked", () => {
     cleanups.push(registerUnsavedInputSource(() => true));
     const proceed = mock(() => {});

@@ -11,6 +11,7 @@ import {
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
 import type {
   DispatcherError,
   EditExtensionSectionViewModel,
@@ -548,7 +549,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // the shared formError-adjacent banner region instead of inside the
   // button row (fw#2166 review: a full-width Banner there breaks the
   // flex justify-end action bar).
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ErrorNotice | null>(null);
   const [rawStep, setRawStep] = useState(0);
   const [passedStepKeys, setPassedStepKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [extensionStepComplete, setExtensionStepComplete] = useState<
@@ -2413,7 +2414,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           )}
           {actionError !== null && (
             <Banner variant="error" testId="render-edit-action-error">
-              {actionError}
+              {actionError.message}
+              <ErrorReference requestId={actionError.requestId} />
             </Banner>
           )}
           {onDelete !== undefined && (

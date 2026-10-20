@@ -234,7 +234,7 @@ describe("defineFeature", () => {
       });
     });
 
-    expect(feature.queryHandlers["user:detail"]).toBeDefined();
+    expect(feature.queryHandlers["user:detail"]?.name).toBe("user:detail");
   });
 
   test("collects query handlers via object form (defineQueryHandler)", () => {
@@ -387,7 +387,7 @@ describe("createRegistry", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getFeature("admin")).toBeDefined();
+    expect(registry.getFeature("admin")?.name).toBe("admin");
   });
 
   test("looks up entities across features", () => {
@@ -423,8 +423,12 @@ describe("createRegistry", () => {
     });
 
     const registry = createRegistry([f1, f2]);
-    expect(registry.getWriteHandler("admin:write:user:invite")).toBeDefined();
-    expect(registry.getQueryHandler("profile:query:profile:me")).toBeDefined();
+    expect(registry.getWriteHandler("admin:write:user:invite")?.name).toBe(
+      "admin:write:user:invite",
+    );
+    expect(registry.getQueryHandler("profile:query:profile:me")?.name).toBe(
+      "profile:query:profile:me",
+    );
   });
 
   test("throws on duplicate entity names (same feature name)", () => {
@@ -470,8 +474,8 @@ describe("createRegistry", () => {
 
     // No error — "a:write:user:invite" and "b:write:user:invite" are distinct
     const registry = createRegistry([f1, f2]);
-    expect(registry.getWriteHandler("a:write:user:invite")).toBeDefined();
-    expect(registry.getWriteHandler("b:write:user:invite")).toBeDefined();
+    expect(registry.getWriteHandler("a:write:user:invite")?.name).toBe("a:write:user:invite");
+    expect(registry.getWriteHandler("b:write:user:invite")?.name).toBe("b:write:user:invite");
   });
 
   test("throws on duplicate feature names", () => {
@@ -1250,7 +1254,7 @@ describe("createApp", () => {
   test("createApp returns registry", () => {
     const feature = defineFeature("test", () => {});
     const app = createApp({ roles: ["Admin"] as const, features: [feature] });
-    expect(app.registry.getFeature("test")).toBeDefined();
+    expect(app.registry.getFeature("test")?.name).toBe("test");
   });
 
   test("softDeleteDefault is true by default, configurable via softDelete", () => {
@@ -2271,7 +2275,7 @@ describe("registry relations", () => {
 
     const registry = createRegistry([f1]);
     const rels = registry.getRelations("user");
-    expect(rels["roles"]).toBeDefined();
+    expect(rels["roles"]).toMatchObject({ type: "manyToMany", target: "role" });
   });
 
   test("throws on relation to non-existent entity", () => {

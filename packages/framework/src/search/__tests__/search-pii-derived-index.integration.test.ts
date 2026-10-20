@@ -212,6 +212,46 @@ describe("searchable PII derived index (#1610)", () => {
     expect(after.some((h) => String(h.entityId) === id)).toBe(false);
   });
 
+  test("purgeSearchDocumentsForSubject pages through more matching rows than one batch holds", async () => {
+    const created = await executor().create(
+      { label: "MultiPagePurge1610", note: "n" },
+      admin,
+      tenantDb(),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const seedId = String(created.data.id);
+    const client = asRawClient(stack.db);
+    const columns = await client.unsafe<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'read_search_pii_contacts' AND column_name <> 'id'`,
+    );
+    const columnList = columns.map((c) => `"${c.column_name}"`).join(", ");
+    const copies = 1100;
+    await client.unsafe(
+      `INSERT INTO read_search_pii_contacts ("id", ${columnList})
+         SELECT gen_random_uuid(), ${columnList} FROM read_search_pii_contacts, generate_series(1, ${copies})
+         WHERE "id" = $1`,
+      [seedId],
+    );
+
+    const removed: string[] = [];
+    const recordingAdapter = Object.assign(Object.create(stack.search), {
+      removeBatch: async (_tenantId: string, items: readonly { entityId: string }[]) => {
+        for (const item of items) removed.push(String(item.entityId));
+      },
+    });
+    const subject = { kind: "user" as const, userId: seedId };
+    await purgeSearchDocumentsForSubject(
+      stack.db,
+      stack.registry.features,
+      recordingAdapter,
+      subjectIdToKey(subject),
+      subject,
+    );
+
+    expect(removed).toHaveLength(copies + 1);
+    expect(new Set(removed).size).toBe(copies + 1);
+  });
+
   test("purgeSearchDocumentsForSubject skips missing projection tables (fw#2550)", async () => {
     const plain = "MissingTableStillPurges1610";
     const created = await executor().create({ label: plain, note: "n" }, admin, tenantDb());

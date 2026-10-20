@@ -72,6 +72,7 @@ describe("template overview cells", () => {
       title: "moneyHorse:template.creditSchedule.title",
     });
     expect(screen.getByText("Credit repayment schedule")).toBeTruthy();
+    expect(screen.queryByText("moneyHorse:template.creditSchedule.title")).toBeNull();
   });
 
   test("a plain title is shown unchanged", () => {

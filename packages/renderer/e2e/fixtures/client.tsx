@@ -24,6 +24,10 @@ function BoomScreen(): ReactNode {
   throw new Error("e2e-screen-boom");
 }
 
+function CrashingProvider(): ReactNode {
+  throw new Error("e2e-provider-boom");
+}
+
 async function boot(): Promise<void> {
   const path = window.location.pathname;
 
@@ -76,7 +80,15 @@ async function boot(): Promise<void> {
     schema: e2eSchema,
     dispatcher,
     shell: AppShell,
-    clientFeatures: [{ name: "test", components: { [BOOM_SCREEN_ID]: BoomScreen } }],
+    clientFeatures: [
+      {
+        name: "test",
+        components: { [BOOM_SCREEN_ID]: BoomScreen },
+        ...(new URLSearchParams(window.location.search).has("crash-root") && {
+          providers: [CrashingProvider],
+        }),
+      },
+    ],
   });
 }
 

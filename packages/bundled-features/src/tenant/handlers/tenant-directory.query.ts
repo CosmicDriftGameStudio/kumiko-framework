@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptTenantNames } from "../decrypt-tenant-names.ts";
+import { decryptTenantNames, takeTenantsMatchingDecryptedName } from "../decrypt-tenant-names.ts";
 import { tenantTable } from "../schema/tenant.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
 
@@ -60,18 +60,22 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
     }
     // name is ciphertext at rest, so the SQL page is keyed by the plaintext
     // `key`; label order and search happen in memory after decrypting.
-    const decrypted = await decryptTenantNames(tenants, "tenant:tenant-directory");
-    const labeled = decrypted
+    const needle = search?.toLowerCase();
+    const named =
+      needle === undefined
+        ? await decryptTenantNames(tenants, "tenant:tenant-directory")
+        : await takeTenantsMatchingDecryptedName(
+            tenants,
+            (label) => label.toLowerCase().includes(needle),
+            limit,
+            "tenant:tenant-directory",
+          );
+    const rows = named
       .map((tenant) => {
         const id = String(tenant.id);
         return { id, label: typeof tenant.name === "string" ? tenant.name : id };
       })
       .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
-    const needle = search?.toLowerCase();
-    const rows =
-      needle === undefined
-        ? labeled
-        : labeled.filter((row) => row.label.toLowerCase().includes(needle)).slice(0, limit);
     return { rows, nextCursor: null };
   },
 });

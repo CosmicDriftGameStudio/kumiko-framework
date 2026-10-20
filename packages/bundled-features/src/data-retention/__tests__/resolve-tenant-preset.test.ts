@@ -13,13 +13,13 @@ import { PROFILE_TO_PRESET, resolveTenantRetentionPreset } from "../resolve-tena
 describe("PROFILE_TO_PRESET map", () => {
   test("deckt jeden ComplianceProfileKey ab", () => {
     for (const key of Object.keys(COMPLIANCE_PROFILES)) {
-      expect(PROFILE_TO_PRESET[key as keyof typeof PROFILE_TO_PRESET]).toBeDefined();
+      expect(typeof PROFILE_TO_PRESET[key as keyof typeof PROFILE_TO_PRESET]).toBe("string");
     }
   });
 
   test("mappt nur auf echte RetentionPreset-Keys", () => {
     for (const preset of Object.values(PROFILE_TO_PRESET)) {
-      expect(RETENTION_PRESETS[preset]).toBeDefined();
+      expect(Object.keys(RETENTION_PRESETS)).toContain(preset);
     }
   });
 
