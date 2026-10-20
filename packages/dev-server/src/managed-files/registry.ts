@@ -18,6 +18,7 @@ import {
   renderDeployFiles,
 } from "../scaffold-deploy.ts";
 import { addManagedMarker, type MarkerCommentStyle } from "./marker.ts";
+import { findKumikoPinErrors } from "./pins.ts";
 
 export const BIOME_PRESET = "@cosmicdrift/kumiko-framework/biome";
 export const TSCONFIG_PRESET = "@cosmicdrift/kumiko-framework/tsconfig.app.json";
@@ -40,6 +41,9 @@ export type ManagedAppFacts = {
 
 /** Ref used in the workflow templates while `kumiko.deploy.infraRef` is unset. */
 export const DEFAULT_INFRA_REF = "main";
+
+/** Infra tag a new app is scaffolded with; Renovate keeps it current via the reusables-v* rule. */
+export const CURRENT_INFRA_REF = "reusables-v1.2.0";
 
 /** Byte-compared after the marker lines are stripped. */
 export type ManagedTemplateFile = {
@@ -107,14 +111,23 @@ export function resolveManagedAppFacts(input: ManagedAppInput): ManagedAppFacts 
   };
 }
 
-/** Findings that do not fail `kumiko check managed`. */
-export function listManagedWarnings(facts: ManagedAppFacts): readonly string[] {
+function readPackageJsonOrEmpty(appRoot: string): unknown {
+  const path = join(appRoot, "package.json");
+  return existsSync(path) ? parseJsonOrThrow<unknown>(readFileSync(path, "utf-8"), path) : {};
+}
+
+/** Findings that fail `kumiko check managed` whether or not the app adopted kumiko.config.ts. */
+export function listManagedErrors(facts: ManagedAppFacts): readonly string[] {
+  const errors: string[] = [];
   if (facts.deploy.visibility === "private" && facts.deploy.infraRef === undefined) {
-    return [
-      `package.json#kumiko.deploy.infraRef is not set: ci.yml and release.yml call the infra workflows at @${DEFAULT_INFRA_REF}. Set it to an infra tag; a missing value will fail this check in a later release.`,
-    ];
+    errors.push(
+      "package.json#kumiko.deploy.infraRef is not set. Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z); ci.yml and release.yml would otherwise call the infra workflows at @" +
+        DEFAULT_INFRA_REF +
+        ".",
+    );
   }
-  return [];
+  errors.push(...findKumikoPinErrors(readPackageJsonOrEmpty(facts.appRoot)));
+  return errors;
 }
 
 function marked(

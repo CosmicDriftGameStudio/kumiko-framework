@@ -729,7 +729,7 @@
     "@cosmicdrift/kumiko-testing": "workspace:*"
   },
   "peerDependencies": {
-    "@cosmicdrift/kumiko-testing": ">=0.366.0 <1.0.0"
+    "@cosmicdrift/kumiko-testing": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@cosmicdrift/kumiko-testing": {

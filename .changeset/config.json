@@ -5,15 +5,11 @@
   "fixed": [
     [
       "@cosmicdrift/kumiko-framework",
-      "@cosmicdrift/kumiko-http",
       "@cosmicdrift/kumiko-types",
       "@cosmicdrift/kumiko-bundled-features",
       "@cosmicdrift/kumiko-dev-server",
       "@cosmicdrift/kumiko-server-runtime",
-      "@cosmicdrift/kumiko-dispatcher-live",
-      "@cosmicdrift/kumiko-headless",
       "@cosmicdrift/kumiko-renderer",
-      "@cosmicdrift/kumiko-renderer-web",
       "@cosmicdrift/kumiko-locale-de",
       "@cosmicdrift/kumiko-locale-es",
       "@cosmicdrift/kumiko-locale-fr",
@@ -24,7 +20,6 @@
       "@cosmicdrift/kumiko-cli",
       "create-kumiko-app",
       "@cosmicdrift/kumiko-guards",
-      "@cosmicdrift/kumiko-repo-manifest",
       "@cosmicdrift/kumiko-testing",
       "@cosmicdrift/kumiko-samples"
     ]

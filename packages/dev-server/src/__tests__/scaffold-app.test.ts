@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { CURRENT_INFRA_REF } from "../managed-files/index.ts";
 import { FRAMEWORK_AGENTS_IMPORT } from "../scaffold-agent-docs.ts";
 import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app.ts";
 
@@ -84,12 +85,12 @@ describe("scaffoldApp", () => {
     expect(pkg.kumiko.deploy.infraRef).toBe("infra-v1");
   });
 
-  test("without an infraRef the package.json sets none", async () => {
+  test("without an infraRef option the package.json sets the current infra tag", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
     const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8"));
-    expect(pkg.kumiko?.deploy?.infraRef).toBeUndefined();
+    expect(pkg.kumiko.deploy.infraRef).toBe(CURRENT_INFRA_REF);
   });
 
   test("CLAUDE.md imports the framework guide and AGENTS.md points at it", async () => {

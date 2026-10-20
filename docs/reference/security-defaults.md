@@ -53,7 +53,7 @@ Check it on a running app: `curl -sI https://host/ | grep -i content-security-po
 
 `rateLimit: false` disables both. `rateLimit: { global: { limit: 100 } }` changes only that field; the window and the other layer keep their defaults. `global: false` or `auth: false` disables a single layer. The limiter is a token bucket in Redis, so a burst may exceed the limit by what refilled during the burst.
 
-A handler adds its own L3 limit with `rateLimit: { per, limit, windowSeconds }`. A list such as `rateLimit: [{ per: "user", ... }, { per: "tenant+handler", ... }]` enforces several buckets together: every bucket must have a token, and a rejected request charges none of them. See [`samples/recipes/rate-limiting`](../../samples/recipes/rate-limiting/).
+A handler adds its own L3 limit with `rateLimit: { per, limit, windowSeconds }`. A list such as `rateLimit: [{ per: "user", ... }, { per: "tenant+handler", ... }]` enforces several buckets together: every bucket must have a token, and a rejected request charges none of them. See [`samples/recipes/rate-limiting`](https://github.com/CosmicDriftGameStudio/kumiko-framework/tree/main/samples/recipes/rate-limiting).
 
 ## Client IP behind a proxy
 

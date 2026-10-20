@@ -89,26 +89,21 @@ done
 
 [ "${#names[@]}" -gt 0 ] || fail "no package with publishConfig.exports found"
 
-# kumiko-testing ships TS source (no dist) and is reached from the shim paths and the `*/testing` subpaths of other packages; it is installed so Bun can load them, but not import-checked itself.
+# kumiko-testing ships TS source (no dist) and is reached from the `*/testing` subpaths of other packages; it is installed so Bun can load them, but not import-checked itself.
 testing_dir="$repo_root/packages/testing"
 testing_tarball="$(cd "$testing_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)"
 [ -n "$testing_tarball" ] || fail "pack produced no tarball for $testing_dir"
 mv "$testing_dir/$testing_tarball" "$scratch/$testing_tarball"
 
-# kumiko-guards is source-only too (dev-server managed-files, testing preload and the repo-manifest shim reach it); kumiko-repo-manifest is a source-only shim over guards.
+# kumiko-guards is source-only too (dev-server managed-files and the testing preload reach it).
 guards_dir="$repo_root/packages/guards"
 guards_tarball="$(cd "$guards_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)"
 [ -n "$guards_tarball" ] || fail "pack produced no tarball for $guards_dir"
 mv "$guards_dir/$guards_tarball" "$scratch/$guards_tarball"
 
-manifest_dir="$repo_root/packages/repo-manifest"
-manifest_tarball="$(cd "$manifest_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)"
-[ -n "$manifest_tarball" ] || fail "pack produced no tarball for $manifest_dir"
-mv "$manifest_dir/$manifest_tarball" "$scratch/$manifest_tarball"
-
 consumer="$scratch/consumer"
 mkdir -p "$consumer"
-deps="$(jq -n --arg t "file:$scratch/$testing_tarball" --arg g "file:$scratch/$guards_tarball" --arg m "file:$scratch/$manifest_tarball" '{"@cosmicdrift/kumiko-testing": $t, "@cosmicdrift/kumiko-guards": $g, "@cosmicdrift/kumiko-repo-manifest": $m}')"
+deps="$(jq -n --arg t "file:$scratch/$testing_tarball" --arg g "file:$scratch/$guards_tarball" '{"@cosmicdrift/kumiko-testing": $t, "@cosmicdrift/kumiko-guards": $g}')"
 for i in "${!names[@]}"; do
   deps="$(jq --arg n "${names[$i]}" --arg t "file:${tarballs[$i]}" '.[$n] = $t' <<<"$deps")"
 done
@@ -147,9 +142,8 @@ if [ -d "$consumer/node_modules/@cosmicdrift/kumiko-server-runtime" ] && [ -d "$
     || problems+=("server-runtime: @cosmicdrift/kumiko-renderer/web/styles.css does not resolve from the installed package")
 fi
 
-# The published stylesheet finds class names only through its @source lines; a wrong path in the installed layout compiles fine but ships unstyled UI. Compile it from the installed package and look for one class from the web layer and one that exists only in the renderer's compiled dist. The deprecated kumiko-renderer-web shim stylesheet must compile to the same classes.
+# The published stylesheet finds class names only through its @source lines; a wrong path in the installed layout compiles fine but ships unstyled UI. Compile it from the installed package and look for one class from the web layer and one that exists only in the renderer's compiled dist.
 renderer_pkg="$consumer/node_modules/@cosmicdrift/kumiko-renderer"
-renderer_web_shim="$consumer/node_modules/@cosmicdrift/kumiko-renderer-web"
 if [ -d "$renderer_pkg/dist" ]; then
   tailwind_bin="$repo_root/node_modules/.bin/tailwindcss"
   compiled_css="$scratch/compiled-styles.css"
@@ -162,11 +156,6 @@ if [ -d "$renderer_pkg/dist" ]; then
       || problems+=("published styles.css: class from the web layer (min-h-screen) missing after compile")
     grep -qF 'first-child\]\:pb-2' "$compiled_css" \
       || problems+=("published styles.css: class that only exists in kumiko-renderer/dist is missing, @source does not reach the installed renderer dist")
-  fi
-  if [ -d "$renderer_web_shim" ]; then
-    shim_css="$scratch/compiled-shim-styles.css"
-    "$tailwind_bin" -i "$renderer_web_shim/src/styles.css" -o "$shim_css" >/dev/null 2>&1 && grep -qF '.min-h-screen' "$shim_css" \
-      || problems+=("kumiko-renderer-web shim: src/styles.css does not compile to the renderer web stylesheet")
   fi
 fi
 
@@ -220,11 +209,11 @@ else
 fi
 # Only diagnostics located in third-party node_modules are ignored (unscoped and
 # scoped alike, e.g. @types/*); every other error counts: entry file, config/option
-# errors without a path, and @cosmicdrift .d.ts. kumiko-testing, kumiko-guards and kumiko-repo-manifest ship TS source (bun-types, .ts specifiers), so their own diagnostics are covered by the repo typecheck instead.
+# errors without a path, and @cosmicdrift .d.ts. kumiko-testing and kumiko-guards ship TS source (bun-types, .ts specifiers), so their own diagnostics are covered by the repo typecheck instead.
 diagnostics="$(grep -E 'error TS[0-9]+' <<<"$typecheck_output" || true)"
 own_errors="$({
   grep -v 'node_modules/' <<<"$diagnostics" || true
-  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" | grep -vE '^[^(]*node_modules/@cosmicdrift/kumiko-(testing|guards|repo-manifest)/[^(]*\([0-9]+,[0-9]+\): error TS' || true
+  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" | grep -vE '^[^(]*node_modules/@cosmicdrift/kumiko-(testing|guards)/[^(]*\([0-9]+,[0-9]+\): error TS' || true
 } | sed '/^$/d')"
 if [ -n "$own_errors" ]; then
   sed -n "1,40p" <<<"$own_errors" | sed -E 's#^.*node_modules/##' >&2

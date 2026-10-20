@@ -31,6 +31,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
@@ -48,7 +49,9 @@ const EXCLUDE =
 
 // packages/framework/src/http/egress.ts IS the egress() implementation.
 const ALLOWLIST = [/^kumiko-framework\/packages\/framework\/src\/http\/egress\.ts$/];
-const ALLOW_MARKER = "guard-allow: same-origin fetch";
+const IGNORE_TAG = "kumiko-lint-ignore direct-fetch";
+const IGNORE_TAG_WITH_REASON_RE =
+  /kumiko-lint-ignore\s+(?:[\w-]+,)*direct-fetch(?:,[\w-]+)*(?=\s|$)(.*)$/;
 
 interface Violation {
   line: number;
@@ -61,14 +64,12 @@ const GLOBAL_FETCH_RECEIVERS = new Set(["globalThis", "window"]);
 
 // The marker is a per-line skip for a security guard, so it only counts with a
 // non-generic reason after it — a bare marker still reports the finding.
-function hasAllowMarkerWithReason(sf: SourceFile, line: number): boolean {
+function hasIgnoreTagWithReason(sf: SourceFile, line: number): boolean {
   const lines = sf.getFullText().split("\n");
   const idx = line - 1;
   return [lines[idx] ?? "", lines[idx - 1] ?? ""].some((text) => {
-    const markerAt = text.indexOf(ALLOW_MARKER);
-    if (markerAt < 0) return false;
-    const reason = text
-      .slice(markerAt + ALLOW_MARKER.length)
+    if (!lineHasIgnoreTag(text, IGNORE_TAG)) return false;
+    const reason = (IGNORE_TAG_WITH_REASON_RE.exec(text)?.[1] ?? "")
       .replace(/^\s*(?:—|–|-|:)\s*/, "")
       .trim();
     return !isGenericReason(reason);
@@ -127,7 +128,7 @@ export const guard: AstGuard = {
   security: true,
   hint:
     "Replace raw fetch(...) with egress(policy)(...) from @cosmicdrift/kumiko-framework/http (framework#2147). " +
-    'Same-origin path literal (`"/api/..."`) is allowed; otherwise put `// guard-allow: same-origin fetch — <specific reason>` on the line above (a bare marker does not count). ' +
+    'Same-origin path literal (`"/api/..."`) is allowed; otherwise put `// kumiko-lint-ignore direct-fetch <specific reason>` on the line above (a bare marker does not count). ' +
     "Local bindings named fetch are flagged (false positive — unblock via that marker). " +
     'Known gap: bracket access (globalThis["fetch"](...)).',
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
@@ -142,7 +143,7 @@ export const guard: AstGuard = {
         root === undefined ? undefined : `${root.name}/${pathRelative(root.absPath, file)}`;
       if (key !== undefined && isAllowlisted(key, ALLOWLIST)) continue;
       for (const v of findRawFetchCalls(sf)) {
-        if (hasAllowMarkerWithReason(sf, v.line)) continue;
+        if (hasIgnoreTagWithReason(sf, v.line)) continue;
         violations.push({
           // cwd-relative, not repo-relative `rel` — the security baseline
           // needs an unambiguous path to resolve back to (repo, relPath).

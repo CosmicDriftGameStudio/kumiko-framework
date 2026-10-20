@@ -51,7 +51,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@cosmicdrift/kumiko-framework": ">=0.366.0 <1.0.0"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@cosmicdrift/kumiko-framework": {

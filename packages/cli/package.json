@@ -45,9 +45,9 @@
   },
   "peerDependencies": {
     "sharp": "^0.35.5",
-    "@cosmicdrift/kumiko-bundled-features": ">=0.353.0 <1.0.0",
-    "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0",
-    "@cosmicdrift/kumiko-renderer": ">=0.353.0 <1.0.0"
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-renderer": "workspace:*"
   },
   "peerDependenciesMeta": {
     "sharp": {

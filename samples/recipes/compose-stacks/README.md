@@ -18,8 +18,7 @@ the option.
   `securityBaselineFeatures()`.
 - **`composeGdprStack({ tenantLifecycle, selfService })`**: `data-retention`
   and `compliance-profiles`, optionally `tenant-lifecycle`. `selfService` adds
-  `sessions`, `user-data-rights` and `user-profile` (needs `mail`) and
-  replaces `dsgvoSelfServiceFeatures()`.
+  `sessions`, `user-data-rights` and `user-profile` (needs `mail`).
 - **`composeSaasStack({ billing, tiers, caps, waitlist })`**:
   `billing-foundation` and `tier-engine`, plus `cap-counter`/`cap-overview`
   and `waitlist` when configured. `billing: "stripe"` leaves

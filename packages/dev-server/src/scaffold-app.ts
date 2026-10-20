@@ -21,7 +21,12 @@ import {
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { isKebabSegment } from "./kebab.ts";
-import { PREPARE_SCRIPT, resolveManagedAppFacts, syncManagedFiles } from "./managed-files/index.ts";
+import {
+  CURRENT_INFRA_REF,
+  PREPARE_SCRIPT,
+  resolveManagedAppFacts,
+  syncManagedFiles,
+} from "./managed-files/index.ts";
 import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.ts";
 import {
   createDemoTasksFeature,
@@ -91,8 +96,7 @@ export type ScaffoldAppOptions = {
    *  @cosmicdrift/kumiko-testing/scaffold. Without it the app gets the managed
    *  bunfigs but no example tests and fewer standard scripts. */
   readonly testSetup?: ScaffoldTestSetupFactory;
-  /** Infra tag written to `package.json#kumiko.deploy.infraRef`. Unset: the managed
-   *  workflows call infra at `main` and `kumiko check managed` warns. */
+  /** Infra tag written to `package.json#kumiko.deploy.infraRef`. Default: CURRENT_INFRA_REF. */
   readonly infraRef?: string;
 };
 
@@ -122,7 +126,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   write(
     join(destination, "package.json"),
-    renderPackageJson(options.name, version, testSetup, options.infraRef),
+    renderPackageJson(options.name, version, testSetup, options.infraRef ?? CURRENT_INFRA_REF),
   );
   files.push("package.json");
 
@@ -243,7 +247,7 @@ function renderPackageJson(
   name: string,
   version: string,
   testSetup: ScaffoldTestSetup | undefined,
-  infraRef: string | undefined,
+  infraRef: string,
 ): string {
   return `${JSON.stringify(
     {
@@ -251,7 +255,7 @@ function renderPackageJson(
       version: "0.1.0",
       private: true,
       type: "module",
-      ...(infraRef === undefined ? {} : { kumiko: { deploy: { infraRef } } }),
+      kumiko: { deploy: { infraRef } },
       scripts: appScripts(testSetup),
       dependencies: {
         "@cosmicdrift/kumiko-bundled-features": version,

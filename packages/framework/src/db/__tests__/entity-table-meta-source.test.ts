@@ -50,11 +50,6 @@ describe("deriveEntityTableMeta — options.source (#1210)", () => {
     expect(diff.droppedTables).toEqual([]);
     expect(diff.changedTables).toEqual([]);
   });
-
-  test("deprecated buildEntityTableMeta alias still works", async () => {
-    const { buildEntityTableMeta } = await import("../entity-table-meta.ts");
-    expect(buildEntityTableMeta("source-probe", entity).source).toBe("managed");
-  });
 });
 
 describe("unmanaged builders reject read_ prefix (#1208)", () => {

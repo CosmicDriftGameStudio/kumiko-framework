@@ -1,14 +1,14 @@
 ---
 status: reference
 verified: 2026-10-19
-evidence: "packages/*/package.json (23 directories, none private); shim re-exports under packages/{headless,dispatcher-live,renderer-web,http,repo-manifest}/src; codemod in packages/framework/src/scripts/codemod/package-merge.ts"
+evidence: "packages/*/package.json (18 directories, none private); .changeset/config.json fixed group; codemod in packages/framework/src/scripts/codemod/package-merge.ts"
 ---
 
 # Package set
 
-The framework repo holds 23 package directories. 18 of them are real packages and 5 are
-deprecated re-export shims that exist only for one migration wave. Wave 3 folds the shim
-packages into their target packages. This page lists the set as it stands after the fold.
+The framework repo holds 18 package directories, all released in one lockstep version
+group (`.changeset/config.json`). The five former re-export shims are gone; this page lists
+where their code lives now.
 
 ## Real packages (18)
 
@@ -33,11 +33,11 @@ packages into their target packages. This page lists the set as it stands after 
 | `@cosmicdrift/kumiko-locale-it` | Opt-in UI and mail copy (Italian) |
 | `@cosmicdrift/kumiko-samples` | Packaged source of recipes and sample apps |
 
-## Deprecated shims (5)
+## Removed packages (5)
 
-Each shim re-exports its target and is removed after wave 4.
+These names are no longer published. The code lives in the target package.
 
-| Shim | Moved to |
+| Removed package | Moved to |
 | --- | --- |
 | `@cosmicdrift/kumiko-headless` | `@cosmicdrift/kumiko-renderer/headless/*` |
 | `@cosmicdrift/kumiko-dispatcher-live` | `@cosmicdrift/kumiko-renderer/live` |

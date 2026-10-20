@@ -134,7 +134,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/migrations";
 import {
   createMetricsForFactory,
-  type ObservabilityOptions,
   type ObservabilityProvider,
 } from "@cosmicdrift/kumiko-framework/observability";
 import {
@@ -776,8 +775,6 @@ export type RunProdAppOptions = {
    *  kein `/metrics`-Endpoint). Setze `createPrometheusMeter()`-basierten
    *  Provider + `metrics` um `/metrics` real zu exposen (publicstatus#91). */
   readonly observability?: ObservabilityProvider;
-  /** @deprecated No effect: the HTTP route label carries no query string anymore. Removed in 0.390.0. */
-  readonly observabilityOptions?: ObservabilityOptions;
   /** Aktiviert den `/metrics`-Endpoint (Open-Metrics-Format). Ohne einen
    *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`
    *  mit 503 + Misconfiguration-Hinweis statt echter Metriken. */

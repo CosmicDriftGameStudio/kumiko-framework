@@ -41,7 +41,7 @@ export async function runManagedCheckStep(
   const local = result.files.filter((report) => report.state === "local");
   const okCount = result.files.length - drift.length - local.length;
   out.log(`    ${okCount}/${result.files.length} managed file(s) match the installed template`);
-  for (const warning of result.warnings) out.log(`    ! ${warning}`);
+  for (const error of result.errors) out.log(`    ✗ ${error}`);
   for (const report of local) out.log(`    ~ ${report.path}: ${describeReport(report)}`);
   for (const report of drift) {
     out.log(`    ${result.adopted ? "✗" : "!"} ${report.path}: ${describeReport(report)}`);
@@ -49,11 +49,10 @@ export async function runManagedCheckStep(
       printIndented(out, report.diff);
     }
   }
-  if (drift.length === 0) return 0;
-  out.log("    Fix: kumiko sync-managed --write (files without a marker: add --adopt)");
-  if (!result.adopted) {
-    out.log(`    ${NOT_ADOPTED_NOTE}`);
-    return 0;
+  if (drift.length > 0) {
+    out.log("    Fix: kumiko sync-managed --write (files without a marker: add --adopt)");
+    if (!result.adopted) out.log(`    ${NOT_ADOPTED_NOTE}`);
   }
-  return 1;
+  const driftFails = result.adopted && drift.length > 0;
+  return driftFails || result.errors.length > 0 ? 1 : 0;
 }

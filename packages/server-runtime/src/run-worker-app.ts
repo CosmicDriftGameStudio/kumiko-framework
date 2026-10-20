@@ -29,7 +29,6 @@ import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/eve
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createMetricsForFactory,
-  type ObservabilityOptions,
   type ObservabilityProvider,
 } from "@cosmicdrift/kumiko-framework/observability";
 import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
@@ -156,8 +155,6 @@ export type RunWorkerAppOptions = {
    *  cannot derive them; without this it reads the env as is. */
   readonly kmsSlots?: readonly string[];
   readonly observability?: ObservabilityProvider;
-  /** @deprecated No effect: the HTTP route label carries no query string anymore. Removed in 0.390.0. */
-  readonly observabilityOptions?: ObservabilityOptions;
   /** Serves `/metrics` on its own port (the worker has no HTTP app). Needs a
    *  PrometheusMeter-based `observability`; both are validated at boot,
    *  including KUMIKO_DRY_RUN_ENV=boot. Same `token`/`path` as runProdApp. */

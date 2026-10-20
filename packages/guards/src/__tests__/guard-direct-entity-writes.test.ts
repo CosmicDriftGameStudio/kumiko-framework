@@ -101,12 +101,12 @@ describe("collectEntityProjectionTables", () => {
     expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(1);
   });
 
-  test("r.unmanagedTable(buildEntityTableMeta(...)) wird NICHT gesammelt — das ist der #498-Fix-Pfad", () => {
+  test("r.unmanagedTable(deriveEntityTableMeta(...)) wird NICHT gesammelt — das ist der #498-Fix-Pfad", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
-        declare function buildEntityTableMeta(name: string, e: unknown): unknown;
+        declare function deriveEntityTableMeta(name: string, e: unknown): unknown;
         function setup(r: { unmanagedTable: (m: unknown, o: unknown) => void }) {
-          r.unmanagedTable(buildEntityTableMeta("foo", fooEntity), { reason: "read_side.foo" });
+          r.unmanagedTable(deriveEntityTableMeta("foo", fooEntity), { reason: "read_side.foo" });
         }
       `,
     });

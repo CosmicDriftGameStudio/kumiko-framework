@@ -54,7 +54,7 @@ import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner.ts";
 import { createJobRunner } from "../jobs/job-runner.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import { createLifecycle } from "../lifecycle/index.ts";
-import type { ObservabilityOptions, ObservabilityProvider } from "../observability/index.ts";
+import type { ObservabilityProvider } from "../observability/index.ts";
 import { createNoopProvider } from "../observability/index.ts";
 import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.ts";
 import { dispatcherToWriteRef } from "../pipeline/dispatcher.ts";
@@ -70,8 +70,6 @@ export type BaseEntrypointOptions = {
   readonly jwtSecret: string | JwtKeyring;
   readonly jwtIssuer?: string;
   readonly observability?: ObservabilityProvider;
-  /** @deprecated No effect: the HTTP route label carries no query string anymore, so there is nothing left to configure. Removed in 0.390.0. */
-  readonly observabilityOptions?: ObservabilityOptions;
   readonly dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   readonly systemHooks?: SystemHooks;
   readonly eventDedup?: EventDedup;

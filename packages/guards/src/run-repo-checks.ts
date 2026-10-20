@@ -7,8 +7,10 @@ import { check as realProviderIsolation } from "./check-real-provider-isolation"
 import { check as runtimeIsolation } from "./check-runtime-isolation";
 import { check as secretLiterals } from "./check-secret-literals";
 import { check as singleRuntimeInstance } from "./check-single-runtime-instance";
+import { check as subpathExports } from "./check-subpath-exports";
 import { check as agentDocsDrift } from "./guard-agent-docs-drift";
 import { check as featureIntegrationTests } from "./guard-feature-integration-tests";
+import { check as guardsDocDrift } from "./guard-guards-doc-drift";
 import { check as noDirectProcessEnv } from "./guard-no-direct-process-env";
 import { check as primitivesDiscipline } from "./guard-primitives-discipline";
 import { check as rawSql } from "./guard-raw-sql";
@@ -31,6 +33,8 @@ export const REPO_CHECKS = [
   realProviderIsolation,
   singleRuntimeInstance,
   agentDocsDrift,
+  subpathExports,
+  guardsDocDrift,
 ];
 
 export const REPO_CHECK_FLAGS: readonly string[] = ["--write-baseline"];

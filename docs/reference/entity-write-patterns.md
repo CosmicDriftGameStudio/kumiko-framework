@@ -52,9 +52,8 @@ mandate `store_` — a plain unprefixed name (e.g. `in_app_messages`) is still
 legal. `store_` is the recommended default.
 
 Use `deriveEntityTableMeta` to turn an EntityDefinition into DDL meta (defaults
-to `source: "managed"`). The old name `buildEntityTableMeta` remains as a
-deprecated alias — it looked like the unmanaged escape hatch next to
-`buildEntityTable`, which caused production wipes when direct-write stores were
+to `source: "managed"`). The name is deliberately unlike the unmanaged escape hatch next to
+`buildEntityTable`: a look-alike caused production wipes when direct-write stores were
 misclassified as rebuildable (#1208). Hand-built columns without entity base
 columns still go through `defineUnmanagedTable`.
 

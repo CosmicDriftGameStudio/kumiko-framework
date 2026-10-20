@@ -73,7 +73,6 @@ export type {
   UnmanagedTableInput,
 } from "./entity-table-meta.ts";
 export {
-  buildEntityTableMeta,
   defineUnmanagedTable,
   deriveEntityTableMeta,
 } from "./entity-table-meta.ts";

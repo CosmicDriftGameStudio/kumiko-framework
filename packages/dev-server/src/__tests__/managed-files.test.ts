@@ -13,6 +13,7 @@ import { join } from "node:path";
 import {
   checkAppScripts,
   checkManagedFiles,
+  findKumikoPinErrors,
   isManagedDrift,
   type ManagedAppFacts,
   type ManagedFileReport,
@@ -233,16 +234,18 @@ describe("infraRef, visibility and app jobs", () => {
     expect(ci).toContain("@infra-v3");
     expect(ci).not.toContain("@main");
     expect(release).toContain("_app-deploy.yml@infra-v3");
-    expect(checkManagedFiles(facts()).warnings).toEqual([]);
+    expect(checkManagedFiles(facts()).errors).toEqual([]);
   });
 
-  test("a missing infraRef renders @main and warns instead of failing", () => {
+  test("a missing infraRef on a private app is an error that names the fix", () => {
     syncAll();
     expect(read(".github/workflows/ci.yml")).toContain("@main");
     expect(read(".github/workflows/release.yml")).toContain("_app-deploy.yml@main");
     const result = checkManagedFiles(facts());
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("infraRef");
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(
+      "Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z)",
+    );
     expect(result.files.filter(isManagedDrift).map((file) => file.path)).not.toContain(
       ".github/workflows/ci.yml",
     );
@@ -264,7 +267,7 @@ describe("infraRef, visibility and app jobs", () => {
     expect(release).toContain(
       "gh workflow run public-app-rollout.yml --repo cosmicdriftgamestudio/infra -f app=shop-app",
     );
-    expect(checkManagedFiles(facts()).warnings).toEqual([]);
+    expect(checkManagedFiles(facts()).errors).toEqual([]);
   });
 
   test("docStatusGuard false renders the input, the default does not", () => {
@@ -338,5 +341,77 @@ describe("script standard", () => {
   test("test:dom is only required with uiRoots", () => {
     expect(checkAppScripts({}, { hasUi: false }).missing).not.toContain("test:dom");
     expect(checkAppScripts({}, { hasUi: true }).missing).toContain("test:dom");
+  });
+});
+
+describe("Kumiko dependency pins", () => {
+  function pins(
+    dependencies: Record<string, string>,
+    devDependencies: Record<string, string> = {},
+  ) {
+    return findKumikoPinErrors({ name: "shop-app", dependencies, devDependencies });
+  }
+
+  test("peerDependencies keep their lower bound", () => {
+    expect(
+      findKumikoPinErrors({ peerDependencies: { "@cosmicdrift/kumiko-framework": ">=0.379.0" } }),
+    ).toEqual([]);
+  });
+
+  test("exact versions on one version per scope pass", () => {
+    expect(
+      pins(
+        {
+          "@cosmicdrift/kumiko-framework": "0.379.0",
+          "@cosmicdrift/kumiko-renderer": "0.379.0",
+          "@cosmicdriftgamestudio/kumiko-enterprise": "0.61.0",
+          react: "^19.0.0",
+        },
+        { "create-kumiko-app": "0.379.0", "@cosmicdrift/kumiko-testing": "0.379.0" },
+      ),
+    ).toEqual([]);
+  });
+
+  test("workspace: specs are allowed", () => {
+    expect(pins({ "@cosmicdrift/kumiko-framework": "workspace:*" })).toEqual([]);
+  });
+
+  test("a caret range is an error naming the package", () => {
+    const errors = pins({ "@cosmicdrift/kumiko-framework": "^0.379.0" });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("@cosmicdrift/kumiko-framework@^0.379.0");
+  });
+
+  test("tilde, dist-tag and git specs are errors too", () => {
+    expect(
+      pins({
+        "@cosmicdrift/kumiko-types": "~0.379.0",
+        "@cosmicdrift/kumiko-cli": "latest",
+        "@cosmicdriftgamestudio/kumiko-enterprise": "github:org/repo",
+      }),
+    ).toHaveLength(3);
+  });
+
+  test("two versions inside one scope are an error, across scopes they are not", () => {
+    const errors = pins(
+      { "@cosmicdrift/kumiko-framework": "0.379.0" },
+      { "@cosmicdrift/kumiko-testing": "0.378.0" },
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain(
+      "@cosmicdrift packages are pinned to 2 versions (0.378.0, 0.379.0)",
+    );
+  });
+
+  test("check reports pin errors from the app's package.json", () => {
+    writeFileSync(
+      join(appRoot, "package.json"),
+      JSON.stringify({
+        name: "shop-app",
+        kumiko: { deploy: { infraRef: "reusables-v1.0.0" } },
+        dependencies: { "@cosmicdrift/kumiko-framework": "^0.379.0" },
+      }),
+    );
+    expect(checkManagedFiles(facts()).errors).toHaveLength(1);
   });
 });
