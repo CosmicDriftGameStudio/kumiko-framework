@@ -13,12 +13,12 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 
 ## What it shows
 
-- `header` (title/subtitle/status) and `metrics` (labeled via `fieldLabels`)
+- `header` (title/subtitle/status) and `metrics` (each with its own i18n `label`)
   rendered from the columns of the screen's own query row
 - `layout.mode: "tabs"` with two `relatedList` tabs (order items, payments)
   and one `fields` tab (master data) — each `relatedList` runs its own query
 - boot-validator catching two common author mistakes: a `metrics` entry
-  without a `fieldLabels` override, and a `tabs` layout with fewer than two
+  with an empty `label`, and a `tabs` layout with fewer than two
   sections
 
 ## Source
@@ -43,7 +43,7 @@ bun test
 //     exactly as declared (column names, not literals)
 //   - relatedList columns collapse the string shorthand like entityList columns do
 //   - the boot-validator catches the two mistakes the projectionDetail tabs
-//     layout introduces: a metric without a fieldLabels entry, and a tabs
+//     layout introduces: a metric with an empty label, and a tabs
 //     layout with fewer than two sections
 
 import { describe, expect, test } from "bun:test";
@@ -82,7 +82,12 @@ describe("record-detail-layout showcase — registration", () => {
       subtitle: "orderNumber",
       status: "status",
     });
-    expect(screen.metrics).toEqual(["totalAmount", "outstandingAmount", "itemCount", "placedAt"]);
+    expect(screen.metrics?.map((metric) => metric.field)).toEqual([
+      "totalAmount",
+      "outstandingAmount",
+      "itemCount",
+      "placedAt",
+    ]);
   });
 
   test("layout.mode is tabs with two relatedList sections, one fields section, and one extension section", () => {
@@ -113,7 +118,7 @@ describe("record-detail-layout showcase — registration", () => {
 });
 
 describe("record-detail-layout showcase — boot-validator catches author mistakes", () => {
-  test("metric without a fieldLabels entry fails boot — no fallback to the raw column name", () => {
+  test("metric with an empty label fails boot — no fallback to the raw column name", () => {
     const broken = defineFeature("broken-order-desk", (r) => {
       r.queryHandler({
         name: "order:detail",
@@ -125,13 +130,11 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
         id: "order-detail",
         type: "projectionDetail",
         query: "broken-order-desk:query:order:detail",
-        metrics: ["totalAmount"],
+        metrics: [{ field: "totalAmount", label: "" }],
         layout: { sections: [{ title: "Details", fields: ["id"] }] },
       });
     });
-    expect(() => validateBoot([broken])).toThrow(
-      /metric "totalAmount" has no entry in fieldLabels/,
-    );
+    expect(() => validateBoot([broken])).toThrow(/metric "totalAmount" has no "label"/);
   });
 
   test("tabs with only one section fails boot", () => {
@@ -165,8 +168,8 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //   1. `header` renders the query row's customer/order/status columns above
 //      the layout — the identity a support agent scans first.
 //   2. `metrics` renders a labeled band of key numbers from the same row —
-//      labels come from `fieldLabels`, there is no fallback to the raw
-//      column name.
+//      each metric carries its own i18n `label`, there is no fallback to the
+//      raw column name.
 //   3. `layout.mode: "tabs"` splits the record into four tabs: two
 //      `relatedList` sections (own query, own pagination, mounts only when
 //      active), one `fields` section (master data from the detail row), and
@@ -238,13 +241,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
       header: { title: "customerName", subtitle: "orderNumber", status: "status" },
-      metrics: ["totalAmount", "outstandingAmount", "itemCount", "placedAt"],
-      fieldLabels: {
-        totalAmount: "order-desk.metric.totalAmount",
-        outstandingAmount: "order-desk.metric.outstandingAmount",
-        itemCount: "order-desk.metric.itemCount",
-        placedAt: "order-desk.metric.placedAt",
-      },
+      metrics: [
+        { field: "totalAmount", label: "order-desk.metric.totalAmount" },
+        { field: "outstandingAmount", label: "order-desk.metric.outstandingAmount" },
+        { field: "itemCount", label: "order-desk.metric.itemCount" },
+        { field: "placedAt", label: "order-desk.metric.placedAt" },
+      ],
       layout: {
         mode: "tabs",
         sections: [

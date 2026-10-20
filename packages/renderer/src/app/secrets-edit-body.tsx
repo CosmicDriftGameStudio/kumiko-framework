@@ -27,7 +27,6 @@ function groupSectionsByTitle(
   const byTitle = new Map<string, string[]>();
   for (const section of sections) {
     const title = section.title ?? "config.secrets.section";
-    // kumiko-lint-ignore section-fields-raw secretsEdit section fields are field-id strings, not EditFieldSpec
     byTitle.set(title, [...(byTitle.get(title) ?? []), ...section.fields]);
   }
   return [...byTitle].map(([title, fields]) => ({ title, fields }));
@@ -200,7 +199,6 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
             subtitle={effectiveTranslate("config.secrets.description")}
           >
             <Grid columns={1} list>
-              {/* kumiko-lint-ignore section-fields-raw secretsEdit section fields are field-id strings, not EditFieldSpec */}
               {section.fields.map((fieldId) => {
                 const qualified = screen.secretKeys[fieldId];
                 if (qualified === undefined) return null;

@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
 // Usability mistakes in screen definitions that are statically decidable and
-// otherwise come back screen by screen: a metric without a label, a
-// relatedList section whose rows lead nowhere, a row action labelled "edit"
-// that does something else. Opt-in per app repo via _app-test.yml.
+// otherwise come back screen by screen: a relatedList section whose rows
+// lead nowhere, a row action labelled "edit" that does something else. Opt-in per app repo via _app-test.yml.
 
 import { type ObjectLiteralExpression, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
@@ -54,40 +53,6 @@ function hasDeclaredProperty(obj: ObjectLiteralExpression, name: string): boolea
   if (!prop?.isKind(SyntaxKind.PropertyAssignment)) return false;
   const init = prop.getInitializer();
   return init !== undefined && init.getKind() !== SyntaxKind.UndefinedKeyword;
-}
-
-// R1: MetricSpec's plain-string shorthand carries no label — every metrics
-// entry on a projectionDetail screen must be the object form with `label`.
-function checkMetrics(
-  root: ObjectLiteralExpression,
-  sf: SourceFile,
-  violations: GuardViolation[],
-): void {
-  const metricsProp = root.getProperty("metrics");
-  // skip: screens without a literal metrics array have no entries to check
-  if (!metricsProp?.isKind(SyntaxKind.PropertyAssignment)) return;
-  const init = metricsProp.getInitializer();
-  // skip: a computed metrics value cannot be checked statically
-  if (!init?.isKind(SyntaxKind.ArrayLiteralExpression)) return;
-  for (const el of init.getElements()) {
-    if (hasIgnoreTag(el, IGNORE_TAG)) continue;
-    if (el.isKind(SyntaxKind.StringLiteral)) {
-      violations.push({
-        file: sf.getFilePath(),
-        line: el.getStartLineNumber(),
-        message: `metrics entry "${el.getLiteralValue()}" is a plain string (a number with no meaning) — use the object form with \`label\`.`,
-      });
-      continue;
-    }
-    if (el.isKind(SyntaxKind.ObjectLiteralExpression) && !hasDeclaredProperty(el, "label")) {
-      violations.push({
-        file: sf.getFilePath(),
-        line: el.getStartLineNumber(),
-        message:
-          "metrics entry without `label` (a number with no meaning) — the object form needs a label.",
-      });
-    }
-  }
 }
 
 // R2: a relatedList section with neither rowClick nor rowActions renders a
@@ -142,8 +107,8 @@ export const guard: AstGuard = {
   name: "Screen-Conventions Guard",
   scan: SCAN,
   hint:
-    "metrics entries need the object form with `label`; relatedList sections need " +
-    '`rowClick` or `rowActions`; a rowAction label must not end in ".action.edit" ' +
+    "relatedList sections need `rowClick` or `rowActions`; a rowAction label " +
+    'must not end in ".action.edit" ' +
     'when the `id` is not "edit". ' +
     `Justified exception: // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
@@ -151,7 +116,6 @@ export const guard: AstGuard = {
     for (const sf of files) {
       if (EXCLUDE.test(sf.getFilePath())) continue;
       for (const root of findScreenObjectLiterals(sf)) {
-        checkMetrics(root, sf, violations);
         checkRelatedListSections(root, sf, violations);
         checkRowActions(root, sf, violations);
       }

@@ -60,9 +60,8 @@ export function synthesizeProjectionDetailScreen(
     if (!isFieldsEditSection(section)) return section;
     return {
       ...section,
-      // kumiko-lint-ignore section-fields-raw rewrites both sources in place — the groups branch below does the same for groups[].fields
-      fields: section.fields.map(forceReadOnly),
-      ...(section.groups !== undefined && {
+      ...("fields" in section && { fields: section.fields.map(forceReadOnly) }),
+      ...("groups" in section && {
         groups: section.groups.map((group) => ({
           ...group,
           fields: group.fields.map(forceReadOnly),

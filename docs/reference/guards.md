@@ -26,15 +26,12 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-access-denied-test` | Guard: role-restricted write handlers need an access-denied test. | - |
 | `guard-admin-api` | Guard: blocks calls to the event-store admin API (`appendRaw`/`appendRawBatch`) outside allowed paths. | - |
 | `guard-agent-docs-drift` | Guard: the generated agent docs under `packages/framework/agents/` must match what `bun run gen:agent-docs` renders from the current sources (feature manifest, renderer web exports, sample recipes), and every `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md` points at must exist in that generated set. | - |
-| `guard-api-object-form` | Guard: the registrar methods `r.writeHandler`, `r.queryHandler`, `r.entity`, `r.requires` and `r.hook` only take the object form; `registerEntityCrud(r, …)` is replaced by `r.crud(…)`. | - |
 | `guard-app-feature-structure` | App features follow the bundled-features convention (reference: tenant/): feature.ts = registration only, screens under web/, handlers under handlers/. | `kumiko-lint-ignore app-feature-structure` |
-| `guard-broker-subscribe` | Guard R8: forbids `broker.subscribe(...)` outside the framework. | - |
 | `guard-comment-lang` | - | `kumiko-lint-ignore comment-lang` |
 | `guard-cross-feature-imports` | Guard: blocks cross-feature deep imports. | `kumiko-lint-ignore cross-feature-import` |
 | `guard-direct-entity-writes` | Guard: forbids direct DB writes on tables registered as ES-entity projections. | - |
 | `guard-direct-fetch` | Guard: finds raw `fetch(` calls in server code outside the client-scoped exceptions. | `kumiko-lint-ignore direct-fetch` |
 | `guard-error-reasons` | Guard: `details.reason` strings and the first arg to UnprocessableError / failUnprocessable must follow the reason convention: | - |
-| `guard-escape-hatch-declared` | Guard: escape-hatch declarations for the cross-tenant/system-identity surface (ctx.db.raw / ctx.systemDb.unsafeRaw / ctx.queryAs\|writeAs(system)). | - |
 | `guard-event-store-writes` | Guard: flags string/template literals containing UPDATE/DELETE FROM/INSERT INTO against kumiko_events, kumiko_snapshots or kumiko_archived_streams outside the event store's own files. | - |
 | `guard-fake-tests` | Guard: tests must actually assert something. | - |
 | `guard-feature-integration-tests` | Guard: every feature in packages/bundled-features/src/<name>/feature.ts must be imported by at least one *.integration.ts. | - |
@@ -46,7 +43,6 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-i18n-ui-strings` | No hardcoded UI text in app web code: JSX text nodes and label-like string props must go through t("…") keys (guard-i18n-keys then checks that the keys are defined — this guard closes the gap before that: strings that never became keys, e.g. | `kumiko-lint-ignore i18n-ui-strings` |
 | `guard-import-extensions` | Guard: relative imports in TypeScript sources name the source file (`./foo.ts`), not the emitted one (`./foo.js`). | - |
 | `guard-lib-test-coverage` | lib/ is the home of extracted logic (computation, parsing, mapping) — the no-logic-in-views guard pushes it there, this guard ensures it is also TESTED at the new location. | `kumiko-lint-ignore lib-test-coverage` |
-| `guard-loadall-events` | Guard: blocks calls of `loadAllEventsByType()` outside tests, ops scripts and the definition itself. | - |
 | `guard-no-custom-primitives` | Apps no longer build their own UI primitives: components with primitive names (…Card, …Table, …Badge, …Button, …Chart, ProgressBar, MiniStat, …) exist in the framework (usePrimitives() resp. | `kumiko-lint-ignore no-custom-primitives` |
 | `guard-no-date-api` | Guard: finds Date-API patterns in production code where they are banned. | - |
 | `guard-no-direct-fs` | Guard: finds direct `node:fs`/`fs` imports outside an allowlist. | `kumiko-lint-ignore direct-fs` |
@@ -56,9 +52,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-no-logic-in-views` | web/ contains components and hooks — computation, parsing and aggregation belong in lib/ (with a test). | `kumiko-lint-ignore no-logic-in-views` |
 | `guard-no-raw-hooks` | Rerender protection: raw useEffect/useLayoutEffect + fetch() in app screens are the source of the endless-rerender class (unstable deps, setState-in-effect) and bypass the framework hook set (useQuery/ useMutation/useDisclosure — useQuery can go live via SSE). | `kumiko-lint-ignore no-raw-hooks` |
 | `guard-no-temporal-polyfill-import` | Guard: finds value imports from `temporal-polyfill` outside kumiko-types. | - |
-| `guard-open-to-all-reason` | Guard: `openToAll` access declarations need a real reason. | - |
 | `guard-pii-annotations` | Guard: PII-typical entity field names without annotation, with a baseline regression guard like check-complexity.ts. | - |
-| `guard-pre-es-patterns` | Guard: finds pre-ES patterns that were removed with the event-sourcing pivot and must not return. | - |
 | `guard-primitives-discipline` | Guard: enforces that app-/feature-web code uses UI building blocks from the framework primitives, not hand-rolled Tailwind on raw HTML tags. | `kumiko-lint-ignore primitives-discipline` |
 | `guard-public-exports-changelog` | - | - |
 | `guard-raw-classname` | Design comes from widgets/theme tokens, not raw Tailwind in app code. | `kumiko-lint-ignore raw-classname` |
@@ -66,16 +60,13 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-raw-sql` | Raw-SQL Guard — blocks `.unsafe()` / `asRawClient()` outside allowed paths. | `kumiko-lint-ignore raw-sql` |
 | `guard-renderer-boundaries` | Guard: prevents `@cosmicdrift/kumiko-renderer` (shared, platform-neutral) from touching DOM- or platform-specific APIs. | - |
 | `guard-restricted-symbols` | Guard: finds imports/re-exports of the unscoped stream primitives outside an allowlist. | - |
-| `guard-screen-conventions` | Usability mistakes in screen definitions that are statically decidable and otherwise come back screen by screen: a metric without a label, a relatedList section whose rows lead nowhere, a row action labelled "edit" that does something else. | `kumiko-lint-ignore screen-conventions` |
-| `guard-section-fields-raw` | Guard: raw iteration over a section's `fields` instead of `sectionFieldSpecs`. | `kumiko-lint-ignore section-fields-raw` |
+| `guard-screen-conventions` | Usability mistakes in screen definitions that are statically decidable and otherwise come back screen by screen: a relatedList section whose rows lead nowhere, a row action labelled "edit" that does something else. | `kumiko-lint-ignore screen-conventions` |
 | `guard-silent-skip` | Guard: finds "silent skip" spots in production code. | - |
-| `guard-table-ddl` | Table-DDL Guard (WARNING, no fail). | - |
 | `guard-tailwind-scan-surface` | Guard: `className` string-literal tokens under kumiko-framework's `packages/bundled-features/src/**` must already be reachable through the real Tailwind `@source` scan surface (`packages/renderer/src` + `samples/**\/src`, see `packages/renderer/src/web/styles.css`). | `kumiko-lint-ignore tailwind-scan-surface` |
 | `guard-tenant-escalation` | Guard: tenant / privilege-escalation safety. | - |
 | `guard-test-stack-drift` | Guard: *.integration.ts / *.integration.test.ts files must not construct a parallel server stack. | - |
 | `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns (#3118). | - |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | - |
-| `guard-text-field-stance` | Guard: `createTextField`/`createLongTextField` calls without a `personal` stance, with a baseline regression guard like guard-pii-annotations.ts. | - |
 | `guard-thin-wrappers` | Thin-Wrapper Guard (warning, never fails). | - |
 | `guard-unsafe-append-event` | Guard: reports `ctx.unsafeAppendEvent` (also `ctx["unsafeAppendEvent"]` and destructuring) outside `migrations/`, `upcasters/` and tests. | - |
 | `guard-unsafe-json-parse` | Guard: JSON.parse calls must be inside a try/catch OR routed through the safe-json helpers (parseJsonSafe / parseJsonOrThrow). | - |

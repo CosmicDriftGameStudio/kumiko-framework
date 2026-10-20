@@ -439,43 +439,6 @@ export async function loadEventsAfterVersion(
   return rows.map(toStoredEvent);
 }
 
-// Load every event for an aggregate_type across all tenants. Ordered by
-// (created_at, id) — chronological replay order for projection rebuilds.
-// Mostly called from tests today — production rebuild goes through
-// projection-rebuild's own streaming path.
-//
-// Fails loud past LOAD_ALL_EVENTS_ROW_LIMIT rather than silently buffering
-// an unbounded result set — that's the memory cliff this guard exists to
-// prevent.
-export const LOAD_ALL_EVENTS_ROW_LIMIT = 100_000;
-
-/** Buffers ALL matching events in memory — a memory cliff for large stores. Use `streamAllEventsByType` (yields batchwise) for production reads; this is test-only in practice. */
-export async function loadAllEventsByType(
-  db: DbRunner,
-  aggregateType: string,
-  rowLimit: number = LOAD_ALL_EVENTS_ROW_LIMIT,
-): Promise<readonly StoredEvent[]> {
-  const rows = await selectMany<SelectedEvent>(
-    db,
-    eventsTable,
-    { aggregateType },
-    {
-      orderBy: [
-        { col: "createdAt", direction: "asc" },
-        { col: "id", direction: "asc" },
-      ],
-      limit: rowLimit + 1,
-    },
-  );
-  if (rows.length > rowLimit) {
-    throw new Error(
-      `loadAllEventsByType("${aggregateType}") exceeds ${rowLimit} rows — ` +
-        "use streamAllEventsByType instead of buffering the full result set in memory.",
-    );
-  }
-  return rows.map(toStoredEvent);
-}
-
 // Stream every event for an aggregate_type across all tenants, batchwise
 // instead of buffered. Memory-bounded: never more than `batchSize` rows
 // resident. Cursor walks `events.id` (bigserial monotonic, but ids are
@@ -485,8 +448,7 @@ export async function loadAllEventsByType(
 // (projection-rebuild, tests) that don't need live, just-committed rows.
 //
 // Use case: projection-rebuild on a large event log (>100k events per
-// aggregate-type). loadAllEventsByType would OOM; this iterator yields
-// in batches and the caller accumulates only what it needs.
+// aggregate-type); the caller accumulates only what it needs.
 //
 // Default batchSize 1000 — trade-off between DB round-trips (smaller =
 // more queries) and memory (larger = more resident).

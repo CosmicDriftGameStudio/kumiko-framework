@@ -566,7 +566,10 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         type: "projectionDetail",
         query: "app:query:tenant:detail",
         layout: { sections: [{ fields: ["id"] }] },
-        metrics: ["balance", "ghost-metric"],
+        metrics: [
+          { field: "balance", label: "app:screen:tenant-detail.metric.balance" },
+          { field: "ghost-metric", label: "app:screen:tenant-detail.metric.ghost-metric" },
+        ],
         fieldLabels: {
           balance: "app:screen:tenant-detail.metric.balance",
           "ghost-metric": "app:screen:tenant-detail.metric.ghost-metric",
@@ -603,7 +606,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         query: "app:query:tenant:detail",
         layout: { sections: [{ fields: ["id"] }] },
         header: { title: "name" },
-        metrics: ["balance"],
+        metrics: [{ field: "balance", label: "app:screen:tenant-detail.metric.balance" }],
         fieldLabels: { balance: "app:screen:tenant-detail.metric.balance" },
       });
       r.translations({

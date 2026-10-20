@@ -18,7 +18,7 @@ import { InternalError } from "../errors/index.ts";
 import { isSystemIdentity } from "../pipeline/system-identity-switch.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.ts";
-import { codemodPlaceholderReasonProblem } from "./escape-hatch-reason.ts";
+import { assertReason } from "./escape-hatch-reason.ts";
 import { dropEmptyWriteOnlyValues } from "./field-access.ts";
 import { instructionFieldNames } from "./instruction-fields.ts";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder.ts";
@@ -140,11 +140,7 @@ function resolveCrossTenantReason(
   kind: "write" | "query",
 ): string | undefined {
   if (options.escapeHatch === undefined) return undefined;
-  if (options.escapeHatch.reason.trim().length === 0) {
-    throw new Error(`"${name}": escapeHatch requires a non-empty reason.`);
-  }
-  const placeholderProblem = codemodPlaceholderReasonProblem(options.escapeHatch.reason);
-  if (placeholderProblem !== undefined) throw new Error(`"${name}": ${placeholderProblem}`);
+  assertReason(`"${name}": escapeHatch`, options.escapeHatch.reason);
   assertEscapeHatchAccessIsSystemAdminOnly(name, kind, options.access);
   return options.escapeHatch.reason;
 }
@@ -751,6 +747,9 @@ export function defineProjectionQueryHandler(
     escapeHatch?: EscapeHatchDeclaration;
   },
 ): QueryHandlerDef {
+  if (typeof options.unsafeAllTenants === "object") {
+    assertReason(`"${name}": unsafeAllTenants`, options.unsafeAllTenants.reason);
+  }
   const escapeHatch: EscapeHatchDeclaration | undefined =
     options.escapeHatch ??
     (typeof options.unsafeAllTenants === "object"

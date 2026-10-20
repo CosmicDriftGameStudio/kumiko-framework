@@ -120,7 +120,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
           escapeHatch: { reason: "" },
         });
       });
-    }).toThrow(/non-empty string/);
+    }).toThrow(/non-empty/);
   });
 
   test("entity-wide hook WITHOUT escapeHatch does not inherit the handler's resolveActiveMembership grant", async () => {

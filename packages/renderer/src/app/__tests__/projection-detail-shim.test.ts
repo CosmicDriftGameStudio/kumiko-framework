@@ -78,7 +78,6 @@ describe("groups-sections (fw#2982)", () => {
       sections: [
         {
           title: "Stammdaten",
-          fields: [],
           groups: [
             {
               title: "Kontakt",
@@ -99,10 +98,10 @@ describe("groups-sections (fw#2982)", () => {
   test("synthesizeProjectionDetailScreen forces readOnly:true on a group field even when the author set readOnly:false", () => {
     const result = synthesizeProjectionDetailScreen(groupsOnlyScreen);
     const [section] = result.layout.sections;
-    if (section === undefined || !("fields" in section) || "kind" in section) {
+    if (section === undefined || "kind" in section) {
       throw new Error("expected the section to stay a plain fields section");
     }
-    if (!("groups" in section) || section.groups === undefined) {
+    if (!("groups" in section)) {
       throw new Error("expected the section to keep its groups");
     }
     expect(section.groups[0]?.fields).toEqual([
@@ -121,7 +120,6 @@ describe("groups-sections (fw#2982)", () => {
           { title: "Basics", fields: [{ field: "amount", readOnly: false }] },
           {
             title: "Parties",
-            fields: [],
             groups: [{ title: "Tenant", fields: ["tenantName"] }],
           },
         ],
@@ -139,11 +137,7 @@ describe("groups-sections (fw#2982)", () => {
     }
     expect(fieldsSection.fields[0]).toMatchObject({ field: "amount", readOnly: true });
 
-    if (
-      groupsSection === undefined ||
-      !("groups" in groupsSection) ||
-      groupsSection.groups === undefined
-    ) {
+    if (groupsSection === undefined || !("groups" in groupsSection)) {
       throw new Error("expected the second section to keep its groups");
     }
     expect(groupsSection.groups[0]?.fields).toEqual([{ field: "tenantName", readOnly: true }]);
@@ -175,14 +169,9 @@ describe("groups-sections (fw#2982)", () => {
 
     const result = synthesizeProjectionDetailScreen(bothScreen);
     const [section] = result.layout.sections;
-    if (section === undefined || !("fields" in section) || "kind" in section) {
-      throw new Error("expected the section to stay a plain fields section");
-    }
-    expect(section.fields[0]).toMatchObject({ field: "amount", readOnly: true });
-
-    if (!("groups" in section) || section.groups === undefined) {
-      throw new Error("expected the section to keep its groups");
-    }
-    expect(section.groups[0]?.fields).toEqual([{ field: "tenantName", readOnly: true }]);
+    expect(section).toMatchObject({
+      fields: [{ field: "amount", readOnly: true }],
+      groups: [{ fields: [{ field: "tenantName", readOnly: true }] }],
+    });
   });
 });

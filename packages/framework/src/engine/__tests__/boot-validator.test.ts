@@ -2712,7 +2712,7 @@ describe("boot-validator", () => {
       readonly fields?: Record<string, unknown>;
       readonly sections?: ReadonlyArray<{
         readonly title: string;
-        readonly fields: ReadonlyArray<string | Record<string, unknown>>;
+        readonly fields?: ReadonlyArray<string | Record<string, unknown>>;
         readonly groups?: ReadonlyArray<{
           readonly title: string;
           readonly fields: readonly string[];
@@ -2953,10 +2953,23 @@ describe("boot-validator", () => {
       ).toThrow(/section "Empty" with zero fields/);
     });
 
-    test("section mit fields: [] und groups: [] → Throw (leere Card)", () => {
+    test("section mit leeren groups → Throw (leere Card)", () => {
       expect(() =>
-        validateBoot([makeFeature({ sections: [{ title: "Empty", fields: [], groups: [] }] })]),
+        validateBoot([makeFeature({ sections: [{ title: "Empty", groups: [] }] })]),
       ).toThrow(/section "Empty" with zero fields/);
+    });
+
+    test.each([
+      ["fields: []", []],
+      ["non-empty fields", ["name"]],
+    ])("section mit %s neben groups → Throw, Migration nennt fields: []", (_label, fields) => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            sections: [{ title: "Both", fields, groups: [{ title: "G", fields: ["name"] }] }],
+          }),
+        ]),
+      ).toThrow(/section "Both" declares both fields and groups — remove `fields: \[\]`/);
     });
 
     test("layout referenziert unknown field → Throw", () => {
@@ -2985,9 +2998,7 @@ describe("boot-validator", () => {
       expect(() =>
         validateBoot([
           makeFeature({
-            sections: [
-              { title: "Approval", fields: [], groups: [{ title: "Priority", fields: ["ghost"] }] },
-            ],
+            sections: [{ title: "Approval", groups: [{ title: "Priority", fields: ["ghost"] }] }],
           }),
         ]),
       ).toThrow(/layout references unknown field "ghost"/);
@@ -3000,7 +3011,6 @@ describe("boot-validator", () => {
             sections: [
               {
                 title: "Approval",
-                fields: [],
                 groups: [
                   { title: "Basics", fields: ["note"] },
                   { title: "Priority", fields: ["priority"] },
@@ -5311,7 +5321,6 @@ describe("boot-validator", () => {
               {
                 id: "billing",
                 title: "Billing",
-                fields: [],
                 groups: [{ title: "Amounts", fields: ["name"] }],
                 actions: [
                   { kind: "navigate", id: "edit", label: "actions.edit", screen: "order-detail" },

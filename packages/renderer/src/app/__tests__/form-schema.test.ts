@@ -51,7 +51,7 @@ describe("buildFormSchema", () => {
       id: "s",
       type: "entityEdit",
       entity: "e",
-      layout: { sections: [{ fields: [], groups: [{ title: "g", fields: ["name"] }] }] },
+      layout: { sections: [{ groups: [{ title: "g", fields: ["name"] }] }] },
     };
 
     const result = buildFormSchema(entity, screen, "create").safeParse({ name: "" });

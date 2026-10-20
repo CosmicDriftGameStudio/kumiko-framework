@@ -216,7 +216,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
       id: "s",
       type: "entityEdit",
       entity: "e",
-      layout: { sections: [{ fields: [], groups: [{ title: "g", fields: ["status"] }] }] },
+      layout: { sections: [{ groups: [{ title: "g", fields: ["status"] }] }] },
     };
     const fields: Record<string, FieldDef> = { status: { type: "text", default: "draft" } };
     const result = mergeWithAllFieldsUrlPrefillable(

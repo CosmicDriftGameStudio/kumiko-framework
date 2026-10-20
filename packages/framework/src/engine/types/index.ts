@@ -432,7 +432,6 @@ export type {
   UnitKey,
 } from "@cosmicdrift/kumiko-types/screen";
 export {
-  metricField,
   relatedListGroupHeaderLabel,
   relatedListGroupKey,
 } from "@cosmicdrift/kumiko-types/screen";

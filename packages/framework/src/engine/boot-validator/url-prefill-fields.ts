@@ -81,9 +81,7 @@ function projectionDetailNavigateActions(
           ],
     ),
     ...(screen.metrics ?? []).flatMap((metric) =>
-      typeof metric === "string" || metric.navigate === undefined
-        ? []
-        : scopeActions([metric.navigate], undefined),
+      metric.navigate === undefined ? [] : scopeActions([metric.navigate], undefined),
     ),
     ...subtitlePartNavigates(screen).flatMap((navigate) => scopeActions([navigate], undefined)),
   ];

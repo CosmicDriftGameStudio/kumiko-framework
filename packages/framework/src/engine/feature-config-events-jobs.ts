@@ -3,6 +3,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { isValidIanaTimeZone } from "../time/iana.ts";
+import { reasonProblem } from "./escape-hatch-reason.ts";
 import { createEventDef } from "./event-def.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
@@ -157,13 +158,13 @@ export function buildConfigEventsJobsMethods<TName extends string>(
               const { name: definedJobName, handler: h, ...rest } = jobNameOrDefinition;
               return [definedJobName, rest, h] as const;
             })();
-      if (
-        jobOptions.escapeHatch !== undefined &&
-        jobOptions.escapeHatch.reason.trim().length === 0
-      ) {
+      const jobReasonProblem =
+        jobOptions.escapeHatch !== undefined
+          ? reasonProblem(jobOptions.escapeHatch.reason)
+          : undefined;
+      if (jobReasonProblem !== undefined) {
         throw new Error(
-          `[Feature ${name}] r.job("${jobName}") declares { escapeHatch: { reason: "" } } — ` +
-            "the reason must be a non-empty string explaining why this job needs unfiltered database access.",
+          `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobReasonProblem}`,
         );
       }
       const jobGrantsProblem =

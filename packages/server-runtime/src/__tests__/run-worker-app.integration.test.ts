@@ -35,7 +35,7 @@ import {
   APP_STARTED_EVENT_TYPE,
   createArchivedStreamsTable,
   createEventsTable,
-  loadAllEventsByType,
+  streamAllEventsByType,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createNoopProvider,
@@ -199,7 +199,7 @@ describe("runWorkerApp", () => {
 
     const { db, close } = createDbConnection({ url: dbUrl });
     try {
-      const events = await loadAllEventsByType(db, APP_INSTANCE_STREAM_TYPE);
+      const events = await Array.fromAsync(streamAllEventsByType(db, APP_INSTANCE_STREAM_TYPE));
       const mine = events.filter(
         (event) =>
           event.type === APP_STARTED_EVENT_TYPE &&

@@ -9,7 +9,7 @@ import {
   APP_STARTED_EVENT_TYPE,
   createArchivedStreamsTable,
   createEventsTable,
-  loadAllEventsByType,
+  streamAllEventsByType,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEventConsumerStateTable,
@@ -46,7 +46,7 @@ function bootWith(extraEnv: Record<string, string>): Promise<ProdAppHandle> {
 async function loadAppStartedEvents() {
   const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
-    const events = await loadAllEventsByType(db, APP_INSTANCE_STREAM_TYPE);
+    const events = await Array.fromAsync(streamAllEventsByType(db, APP_INSTANCE_STREAM_TYPE));
     return events.filter((event) => event.type === APP_STARTED_EVENT_TYPE);
   } finally {
     await close();

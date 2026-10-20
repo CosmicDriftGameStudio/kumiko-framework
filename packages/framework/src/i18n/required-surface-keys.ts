@@ -446,7 +446,6 @@ export function requiredKeysFromScreen(
           pushKey(out, section.title);
           pushKey(out, section.description);
           pushKey(out, section.submitLabel);
-          // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
           for (const f of section.fields) {
             pushEditFieldTextKeys(out, f);
             const fieldName = editFieldName(f);

@@ -26,7 +26,7 @@ describe("entity convention handlers: escapeHatch option", () => {
         ...sysadminAccess,
         escapeHatch: { reason: "" },
       }),
-    ).toThrow(/non-empty reason/);
+    ).toThrow(/non-empty/);
   });
 
   test("throws when escapeHatch.reason is whitespace-only", () => {
@@ -35,7 +35,7 @@ describe("entity convention handlers: escapeHatch option", () => {
         ...sysadminAccess,
         escapeHatch: { reason: "   " },
       }),
-    ).toThrow(/non-empty reason/);
+    ).toThrow(/non-empty/);
   });
 
   test("WriteHandlerDef from an escapeHatch update handler carries no escapeHatch field", () => {

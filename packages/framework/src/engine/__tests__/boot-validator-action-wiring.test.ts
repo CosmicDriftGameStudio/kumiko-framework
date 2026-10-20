@@ -476,7 +476,6 @@ describe("validateBoot — action wiring (no function values)", () => {
           sections: [
             {
               columns: 1,
-              fields: [],
               groups: [
                 {
                   title: "Basis",

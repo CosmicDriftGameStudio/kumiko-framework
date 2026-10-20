@@ -201,20 +201,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
     );
   });
 
-  test("metric without a fieldLabels entry throws — no fallback to the raw column name", () => {
-    const feature = defineFeature("app", (r) => {
-      r.screen({
-        id: "rent-detail",
-        type: "projectionDetail",
-        query: "app:query:rent:detail",
-        layout: { sections: [{ title: "s", fields: ["description"] }] },
-        metrics: ["balance"],
-      });
-    });
-    expect(() => validateBoot([feature])).toThrow(/metric "balance" has no entry in fieldLabels/);
-  });
-
-  test("object-form metric with its own label needs no fieldLabels entry", () => {
+  test("metric with its own label needs no fieldLabels entry", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler({
         name: "rent:detail",
@@ -233,19 +220,17 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  test("object-form metric with neither its own label nor a fieldLabels entry throws", () => {
+  test("metric with an empty label throws — no fallback to the raw column name", () => {
     const feature = defineFeature("app", (r) => {
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
         query: "app:query:rent:detail",
         layout: { sections: [{ title: "s", fields: ["description"] }] },
-        metrics: [{ field: "balance" }],
+        metrics: [{ field: "balance", label: "" }],
       });
     });
-    expect(() => validateBoot([feature])).toThrow(
-      /metric "balance" has no entry in fieldLabels and no own "label"/,
-    );
+    expect(() => validateBoot([feature])).toThrow(/metric "balance" has no "label"/);
   });
 
   test("metric navigate.tab with no screen/entity — unknown section id throws", () => {
@@ -307,7 +292,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
         type: "projectionDetail",
         query: "app:query:rent:detail",
         header: { title: "name", subtitle: "address", status: "state" },
-        metrics: ["balance", { field: "overdueDays", label: "rent.overdueDays" }],
+        metrics: [
+          { field: "balance", label: "rent.balance" },
+          { field: "overdueDays", label: "rent.overdueDays" },
+        ],
         fieldLabels: { balance: "rent.balance" },
         layout: {
           mode: "tabs",

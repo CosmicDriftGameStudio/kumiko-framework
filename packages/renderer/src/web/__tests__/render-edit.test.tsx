@@ -269,7 +269,6 @@ describe("RenderEdit", () => {
           {
             id: "overview",
             title: "Overview",
-            fields: [],
             groups: [
               { title: "Contact", fields: [{ field: "email" }] },
               { title: "Billing", fields: [{ field: "plan" }] },
@@ -424,7 +423,6 @@ describe("RenderEdit", () => {
       layout: {
         sections: [
           {
-            fields: [],
             groups: [
               {
                 title: "Details",

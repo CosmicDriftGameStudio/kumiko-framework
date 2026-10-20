@@ -85,8 +85,8 @@ function runTailwindPublishedSurfaceFixture(sf: SourceFile): GuardOutcome {
 
 // Paths need the "packages/"/"samples/" marker: relFromRepoRoot() classifies
 // in-memory paths above it because they don't sit under any real repo root.
-// Anchored under process.cwd() because guard-cross-feature-imports,
-// guard-pre-es-patterns, etc. relativize their paths against
+// Anchored under process.cwd() because guard-cross-feature-imports
+// etc. relativize their paths against
 // `ROOT = process.cwd()`, and a path outside that becomes "../../..", which
 // hits no regex.
 const CWD = process.cwd();
@@ -95,16 +95,6 @@ const FEAT = `${CWD}/packages/bundled-features/src`;
 const APP = `${CWD}/packages/app/src`;
 
 const ENFORCING: Record<string, Violating> = {
-  "Raw section.fields Guard": {
-    path: `${PKG}/engine/reader.ts`,
-    code: "declare const section: { fields: { field: string }[] };\nfor (const rawField of section.fields) { void rawField; }",
-    expectedMessage: /raw section\.fields read\(s\) over baseline/,
-  },
-  "Pre-ES-Patterns Guard": {
-    path: `${PKG}/features/x/log.ts`,
-    code: 'import { createEventLog } from "k";\nexport const l = createEventLog("x");',
-    expectedMessage: /\[createEventLog\]/,
-  },
   "Direct-Entity-Writes Guard": {
     path: `${PKG}/features/x/handler.ts`,
     code: "declare const xTable: unknown;\ndeclare function createEventStoreExecutor(table: unknown, entity: unknown): unknown;\ndeclare const someEntityDef: unknown;\nexport const executor = createEventStoreExecutor(xTable, someEntityDef);\n\nexport function directWrite(db: any) {\n\tdb.insert(xTable);\n}\n",
@@ -156,11 +146,6 @@ const ENFORCING: Record<string, Violating> = {
     code: 'import { Temporal } from "temporal-polyfill";\nexport const now = () => Temporal.Now.instant();',
     expectedMessage: /\[temporal-polyfill\] direct temporal-polyfill import/,
   },
-  "No-Broker-Subscribe Guard": {
-    path: `${PKG}/features/x/sub.ts`,
-    code: 'import { broker } from "k";\nexport const s = () => broker.subscribe("topic", () => {});',
-    expectedMessage: /\[broker\.subscribe\]/,
-  },
   "Error-Reasons Guard": {
     path: `${PKG}/features/x/err.ts`,
     code: 'export const fail = () => ({ reason: "something went wrong" });',
@@ -207,25 +192,10 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare function defineWriteHandler(cfg: unknown): unknown;\ndeclare const z: any;\nexport const h = defineWriteHandler({ name: "grantRole", schema: z.object({ role: z.string() }), access: { roles: ["TenantAdmin"] }, handler: async () => ({ isSuccess: true, data: {} }) });',
     expectedMessage: /has no escalation test/,
   },
-  "Escape-Hatch-Declared Guard": {
-    path: `${FEAT}/x/handlers/ack.write.ts`,
-    code: 'export async function h(ctx: any) { return ctx.systemDb.acknowledgeCrossTenant("todo"); }',
-    expectedMessage: /uses a placeholder reason/,
-  },
   "Access-Denied-Test Guard": {
     path: `${FEAT}/x/handlers/approve.write.ts`,
     code: 'declare function defineWriteHandler(cfg: unknown): unknown;\nconst h = defineWriteHandler({ name: "approve-invoice", access: { roles: ["TenantAdmin"] }, handler: async () => ({}) });',
     expectedMessage: /has no access-denied test/,
-  },
-  "API-Object-Form Guard": {
-    path: `${FEAT}/x/feature.ts`,
-    code: 'export const f = defineFeature("x", (r) => { r.requires("users"); });',
-    expectedMessage: /positional r\.requires\(…\) removed in 0\.366/,
-  },
-  "Open-To-All-Reason Guard": {
-    path: `${FEAT}/x/handlers/ack.write.ts`,
-    code: 'export const a = { access: { openToAll: { reason: "todo" } } };',
-    expectedMessage: /uses a placeholder reason/,
   },
   "No-Logic-in-Views Guard (App-Repos)": {
     path: `${APP}/features/x/web/calc.tsx`,
@@ -269,8 +239,8 @@ const ENFORCING: Record<string, Violating> = {
   },
   "Screen-Conventions Guard": {
     path: `${PKG}/features/x/screens.ts`,
-    code: 'declare const r: { screen: (x: unknown) => unknown };\nr.screen({ metrics: ["42"] });',
-    expectedMessage: /metrics entry "42" is a plain string/,
+    code: 'declare const r: { screen: (x: unknown) => unknown };\nr.screen({ layout: { sections: [{ kind: "relatedList" }] } });',
+    expectedMessage: /relatedList section without `rowClick`\/`rowActions`/,
   },
   "i18n-UI-Strings Guard (App-Repos)": {
     path: `${APP}/features/x/web/screen.tsx`,
@@ -281,11 +251,6 @@ const ENFORCING: Record<string, Violating> = {
     path: `${PKG}/features/x/web/screen.tsx`,
     code: 'declare const dispatcher: { write: (qn: string, payload?: unknown) => unknown };\nexport const run = () => dispatcher.write("bad-qn-format");',
     expectedMessage: /invalid QN format/,
-  },
-  "loadAllEventsByType Guard": {
-    path: `${PKG}/features/x/events.ts`,
-    code: 'declare function loadAllEventsByType(t: string): unknown;\nexport const load = () => loadAllEventsByType("x");',
-    expectedMessage: /loadAllEventsByType\(\.\.\.\) in load/,
   },
   "Event-Store-Writes Guard": {
     path: `${PKG}/features/x/move.ts`,
@@ -328,14 +293,10 @@ const WARNING_ONLY: Record<string, string> = {
     "baseline-ratchet pattern (infra#654) — findings become violations as soon as a baseline file exists; without one (a repo that has not bootstrapped it with --write-baseline) it stays warning-only",
   "PII-Annotations Guard":
     "same baseline-ratchet pattern as Raw-Interactive-Elements Guard (infra#412) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
-  "Text-Field Personal-Stance Guard":
-    "same baseline-ratchet pattern as PII-Annotations Guard (kumiko-framework#2810) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Complexity Check":
     "same baseline-ratchet pattern as Raw-Interactive-Elements Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
   "Predicate Extraction Check":
     "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
-  "Table-DDL Guard":
-    "documented warning-only in its own module header (unsafe* bypass calls outside the allowlist are reported via console, never blocking)",
 };
 
 describe("every registered guard catches its own violation", () => {
@@ -382,11 +343,6 @@ describe("every registered guard catches its own violation", () => {
         withTmpDir("fires-raw-interactive-baseline-", (baselineRoot) =>
           createRawInteractiveGuard({ baselineRoot }).run([sf]),
         ),
-    },
-    "Table-DDL Guard": {
-      path: `${PKG}/features/x/tables.ts`,
-      code: "declare function unsafePushTables(): void;\nexport const run = () => unsafePushTables();",
-      expectedMessage: /.*/,
     },
   };
 

@@ -40,6 +40,22 @@ describe("validateAccessDeclarations", () => {
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:create"/);
   });
 
+  test("openToAll with a placeholder reason throws, naming the handler", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity({ name: "note", ...noteEntity });
+      r.writeHandler({
+        name: "note:create",
+        schema: z.object({ title: z.string() }),
+        handler: async () => ({
+          isSuccess: true as const,
+          data: {},
+        }),
+        access: { openToAll: { reason: "TODO" } },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:create".*placeholder/);
+  });
+
   test("openToAll with a non-empty reason boots fine", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity({ name: "note", ...noteEntity });
@@ -95,6 +111,23 @@ describe("validateAccessDeclarations", () => {
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:create"/);
+  });
+
+  test("escapeHatch with a placeholder reason throws, naming the handler", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity({ name: "note", ...noteEntity });
+      r.writeHandler({
+        name: "note:create",
+        schema: z.object({ title: z.string() }),
+        handler: async () => ({
+          isSuccess: true as const,
+          data: {},
+        }),
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "legacy" },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:create".*placeholder/);
   });
 
   test("escapeHatch with a non-empty reason boots fine", () => {

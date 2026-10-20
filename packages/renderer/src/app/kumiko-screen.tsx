@@ -14,7 +14,6 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   MetricNavigate,
-  MetricSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RecordHeaderSubtitlePart,
@@ -29,7 +28,6 @@ import {
   evalFieldCondition,
   isRecordLocked,
   isWriteFormEditSection,
-  metricField,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
@@ -3341,18 +3339,6 @@ function ProjectionListBody({
   );
 }
 
-function metricLabelKey(
-  metric: MetricSpec,
-  fieldLabels: Readonly<Record<string, string>> | undefined,
-): string | undefined {
-  if (typeof metric !== "string" && metric.label !== undefined) return metric.label;
-  return fieldLabels?.[metricField(metric)];
-}
-
-function metricNavigateSpec(metric: MetricSpec): MetricNavigate | undefined {
-  return typeof metric === "string" ? undefined : metric.navigate;
-}
-
 // Reuses runProjectionRowNavigate (row-actions.ts) instead of re-deriving
 // navigate execution — a metric click has the same entity/screen/params
 // shape as a RowActionNavigate, minus the fields (id, label, style) that
@@ -3921,12 +3907,11 @@ function ProjectionDetailBody({
   // slots.header shares the header card with the actions (one card, actions
   // top right) instead of rendering as an unframed block above it.
   const metricItems = screen.metrics?.map((metric) => {
-    const field = metricField(metric);
-    const labelKey = metricLabelKey(metric, screen.fieldLabels);
-    const label = labelKey !== undefined ? effectiveTranslate(labelKey) : field;
+    const field = metric.field;
+    const label = effectiveTranslate(metric.label);
     const value = String(record[field] ?? "");
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
-    const navigate = metricNavigateSpec(metric);
+    const navigate = metric.navigate;
     const onPress =
       navigate !== undefined && navigateTargetAllows(navigate, appFeatures, userRoles)
         ? () => runMetricNavigate(nav, navigate, record, host)

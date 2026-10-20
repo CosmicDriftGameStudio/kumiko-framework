@@ -186,7 +186,6 @@ export type {
   ToolbarAction,
 } from "../engine/types/screen.ts";
 export {
-  metricField,
   relatedListGroupHeaderLabel,
   relatedListGroupKey,
 } from "../engine/types/screen.ts";

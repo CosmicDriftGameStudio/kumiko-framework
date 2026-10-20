@@ -121,7 +121,10 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
   test("renders the metrics band with fieldLabels-translated labels and query-row values", async () => {
     const metricsScreen: ProjectionDetailScreenDefinition = {
       ...baseScreen,
-      metrics: ["balance", "overdueDays"],
+      metrics: [
+        { field: "balance", label: "rentals.detail.metric.balance" },
+        { field: "overdueDays", label: "rentals.detail.metric.overdueDays" },
+      ],
       fieldLabels: {
         balance: "rentals.detail.metric.balance",
         overdueDays: "rentals.detail.metric.overdueDays",
@@ -701,7 +704,10 @@ describe("KumikoScreen / projectionDetail — screen-form column with a header c
   const headerCardScreen: ProjectionDetailScreenDefinition = {
     ...baseScreen,
     header: { title: "tenantName" },
-    metrics: ["balance", "overdueDays"],
+    metrics: [
+      { field: "balance", label: "rentals.detail.metric.balance" },
+      { field: "overdueDays", label: "rentals.detail.metric.overdueDays" },
+    ],
   };
   const columnWidthSelector = ".max-w-4xl, .max-w-3xl, .max-w-full, .max-w-\\[640px\\]";
 
@@ -784,7 +790,7 @@ describe("KumikoScreen / projectionDetail — header actions sit in the title ro
   const headerActionsScreen: ProjectionDetailScreenDefinition = {
     ...baseScreen,
     header: { title: "tenantName", subtitle: "address", status: "state" },
-    metrics: ["balance"],
+    metrics: [{ field: "balance", label: "rentals.detail.metric.balance" }],
     actions: [
       {
         kind: "navigate",
@@ -878,7 +884,7 @@ describe("KumikoScreen / projectionDetail — header actions sit in the title ro
 describe("KumikoScreen / projectionDetail — metric tiles render through the Metric primitive", () => {
   const metricsScreen: ProjectionDetailScreenDefinition = {
     ...baseScreen,
-    metrics: ["balance"],
+    metrics: [{ field: "balance", label: "rentals.detail.metric.balance" }],
   };
 
   test("goes through the Metric primitive, not naked Text, when one is registered", async () => {
@@ -1302,7 +1308,7 @@ describe("KumikoScreen / projectionDetail — switching records remounts the bod
 describe("KumikoScreen / projectionDetail — PageHeader without MetricBand", () => {
   test.each([
     ["without metrics", undefined],
-    ["with metrics", ["balance"]],
+    ["with metrics", [{ field: "balance", label: "rentals.detail.metric.balance" }]],
   ])("the header subtitle stays visible %s", async (_label, metrics) => {
     const screenDef: ProjectionDetailScreenDefinition = {
       ...baseScreen,

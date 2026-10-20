@@ -54,6 +54,11 @@ describe("acknowledgeConventionCrossTenant", () => {
     expect(() => acknowledgeConventionCrossTenant(tdb, "   ")).toThrow();
   });
 
+  test("throws for a placeholder reason", () => {
+    const tdb = createTenantDb({ db: fakeRunner(), tenantId });
+    expect(() => acknowledgeConventionCrossTenant(tdb, "todo")).toThrow(/placeholder/);
+  });
+
   test("throws InternalError for a TenantDb not built by createTenantDb", () => {
     const handBuilt = { tenantId, mode: "tenant" } as unknown as TenantDb;
     expect(() => acknowledgeConventionCrossTenant(handBuilt, REASON)).toThrow(InternalError);

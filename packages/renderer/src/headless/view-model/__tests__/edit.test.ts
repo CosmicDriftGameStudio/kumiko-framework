@@ -1454,7 +1454,6 @@ describe("computeEditViewModel: writeExcludedFields", () => {
     {
       sections: [
         {
-          fields: [],
           groups: [
             { title: "Main", fields: ["customerName", "notes"] },
             { title: "Status", fields: ["kind"] },
@@ -1495,7 +1494,6 @@ describe("computeEditViewModel: writeExcludedFields", () => {
           { title: "Only kind", fields: ["kind"] },
           {
             title: "Grouped",
-            fields: [],
             groups: [{ title: "Kind group", fields: ["kind"] }],
           },
         ],

@@ -40,7 +40,6 @@ import type {
   FieldDefinition,
   NavDefinition,
 } from "../types/index.ts";
-import { metricField } from "../types/index.ts";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -1124,13 +1123,13 @@ function validateFieldsXorGroups(
   errorPrefix: string,
   section: FieldsOrGroupsSection & { readonly title?: string },
 ): void {
-  if (section.fields.length > 0 && section.groups !== undefined) {
+  if (section.fields !== undefined && section.groups !== undefined) {
     throw new Error(
-      `${errorPrefix} section "${section.title}" declares both fields and groups — pass fields: [] ` +
-        `when using groups.`,
+      `${errorPrefix} section "${section.title}" declares both fields and groups — remove ` +
+        `\`fields: []\` when using groups.`,
     );
   }
-  if (section.fields.length === 0 && (section.groups?.length ?? 0) === 0) {
+  if ((section.fields?.length ?? 0) === 0 && (section.groups?.length ?? 0) === 0) {
     throw new Error(
       `${errorPrefix} has a section "${section.title}" with zero fields — drop the section or add ` +
         `fields (or groups) to it.`,
@@ -2303,8 +2302,11 @@ export function validateScreens(
       if (screen.layout.mode === "tabs") {
         validateTabSections(feature.name, screenId, "projectionDetail", screen.layout.sections);
         for (const section of screen.layout.sections) {
-          const isFieldsSection = section.kind === undefined || section.kind === "fields";
-          if (isFieldsSection && section.groups !== undefined && section.actions !== undefined) {
+          if (
+            isFieldsEditSection(section) &&
+            "groups" in section &&
+            section.actions !== undefined
+          ) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.id}" ` +
                 `declares both groups and actions in tabs mode — actions has no single group's Card to sit ` +
@@ -2316,16 +2318,15 @@ export function validateScreens(
       }
       if (screen.metrics !== undefined) {
         for (const metric of screen.metrics) {
-          const field = metricField(metric);
-          const hasOwnLabel = typeof metric !== "string" && metric.label !== undefined;
-          if (!hasOwnLabel && screen.fieldLabels?.[field] === undefined) {
+          const field = metric.field;
+          if (typeof metric.label !== "string" || metric.label.length === 0) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" has ` +
-                `no entry in fieldLabels and no own "label" — every metrics field needs one of the two, ` +
+                `no "label" — every metric needs an i18n label key, ` +
                 `there is no fallback to the raw column name.`,
             );
           }
-          const navigate = typeof metric === "string" ? undefined : metric.navigate;
+          const navigate = metric.navigate;
           if (navigate !== undefined) {
             if (navigate.screen === undefined && navigate.entity === undefined) {
               if (
@@ -2541,7 +2542,6 @@ export function validateScreens(
           }
           // A ref to a fieldDef the form never renders would never resolve.
           const writeFormFieldNames = new Set(
-            // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
             section.fields.map((f) => normalizeEditField(f).field),
           );
           for (const [defName, fdef] of Object.entries(section.fieldDefs)) {
@@ -2561,7 +2561,6 @@ export function validateScreens(
               fdef,
             );
           }
-          // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
           for (const f of section.fields) {
             const fieldName = normalizeEditField(f).field;
             if (section.fieldDefs[fieldName] === undefined) {
