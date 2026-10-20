@@ -155,6 +155,10 @@ test("mail-editor-resource-row-wraps", async ({ page }) => {
     return label.getBoundingClientRect().right <= action.getBoundingClientRect().left;
   });
   expect(labelEndsBeforeAction).toBe(true);
+  const metaFits = await resourceRow
+    .locator("span.basis-full")
+    .evaluate((meta) => meta.scrollWidth <= meta.clientWidth);
+  expect(metaFits).toBe(true);
   await shot(page, "mail-editor-resource-row");
 });
 
@@ -168,12 +172,14 @@ test("mail-editor-without-mail", async ({ page }) => {
   });
   await openEditor(page);
   await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
-  await expect(page.getByText("Test-Mails brauchen den E-Mail-Kanal")).toBeVisible();
+  const noChannelHint = page.getByText("Test-Mails brauchen den E-Mail-Kanal");
+  await expect(noChannelHint).toBeVisible();
   await expect(page.getByTestId("mail-test-send")).toBeDisabled();
   const footerMessage = page.getByTestId("mail-editor-footer-message");
   await expect(footerMessage).toContainText("Veröffentlichen ist gesperrt");
   await expect(footerMessage).not.toContainText("Test-Mail");
   await expect(page.getByTestId("mail-preview-checks")).toBeVisible();
+  await noChannelHint.scrollIntoViewIfNeeded();
   await shot(page, "mail-editor-without-mail");
 });
 

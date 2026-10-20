@@ -28,7 +28,7 @@ detail: The operator notice "new entry on the waitlist" now exists in Spanish, l
 feature: document-designer
 type: fix
 title: Designer rails wrap instead of clipping
-detail: A rail section wraps its action below the heading instead of clipping it, a resource name without spaces wraps inside its row instead of running under "Remove", the footer no longer offers a test mail when send-test-status says none can be sent, and the header label placeholder reads "e.g. Reminder" instead of an incident example.
+detail: A rail section wraps its action below the heading instead of clipping it, a resource name without spaces wraps inside its row instead of running under "Remove" and its meta text takes its own line instead of an ellipsis, the footer no longer offers a test mail when send-test-status says none can be sent, and the header label placeholder reads "e.g. Reminder" instead of an incident example.
 -->
 
 <!-- kumiko-changes

@@ -97,7 +97,8 @@ export function RailRow({
       {trailing !== undefined && (
         <span
           className={cn(
-            "min-w-0 truncate text-right text-xs",
+            "min-w-0 text-xs",
+            action !== undefined ? "basis-full wrap-anywhere" : "truncate text-right",
             bad === true ? "text-status-bad" : TRAILING_TONE[trailingTone],
           )}
           title={typeof trailing === "string" ? trailing : undefined}
@@ -107,7 +108,12 @@ export function RailRow({
       )}
     </>
   );
-  const rowClass = "flex min-h-10 min-w-0 grow items-center gap-2 px-3.5 text-left";
+  // Beside an action the row is too narrow for label and trailing text: the trailing text takes its
+  // own line and wraps there instead of being clipped to an ellipsis.
+  const rowClass = cn(
+    "flex min-h-10 min-w-0 grow items-center gap-2 px-3.5 text-left",
+    action !== undefined && "flex-wrap gap-y-0.5 py-1",
+  );
   return (
     <div
       className={cn("flex items-center border-b", bad === true && "bg-status-bad-surface")}
