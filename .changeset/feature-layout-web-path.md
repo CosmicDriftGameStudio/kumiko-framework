@@ -8,7 +8,7 @@
 The runtime of a feature file now follows from its path: `src/<feature>/web/**` is client code, everything else is server or isomorphic. The `@runtime` markers are gone from bundled-features and the document designer, and the isomorphic constants, i18n and name files moved under `web/`. Every existing export subpath stays valid and points at the new file.
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: user-data-rights
 type: improvement
 title: Client files of a feature live under web/
 detail: Files that carried a runtime-client marker moved into <feature>/web/ (constants.ts, i18n.ts, qualified-names and similar), so the runtime-isolation guard reads the runtime from the path. Export subpaths such as ./tenant/constants are unchanged; only relative imports into the old file locations break. The web-side translation glue of user-data-rights, managed-pages, admin-shell, audit, jobs and the document designer is now web/default-translations.ts.
