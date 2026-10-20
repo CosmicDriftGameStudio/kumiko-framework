@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.382.0",
+    "type": "improvement",
+    "title": "withEnv and readSseFrames test helpers",
+    "detail": "withEnv restores process.env after a callback so parallel no-isolate runs do not leak variables; readSseFrames replaces hand-written SSE stream parsers in tests."
+  },
+  {
     "version": "0.381.0",
     "type": "improvement",
     "title": "Deterministic concurrency test helpers",
