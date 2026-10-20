@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.381.0
+
+### Minor Changes
+
+- 5470b13: Adds `createBarrier` and `burst` to `@cosmicdrift/kumiko-testing/helpers` and exposes the resolved pool size as `TestStack.dbPoolMax`, so concurrency tests prove that handler calls overlapped instead of racing a sleep.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Deterministic concurrency test helpers
+  detail: createBarrier proves handler calls overlapped, burst fires N requests and tallies statuses with a guard against the pool size, TestStack exposes dbPoolMax.
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.381.0
+  - @cosmicdrift/kumiko-guards@0.381.0
+  - @cosmicdrift/kumiko-types@0.381.0
+
 ## 0.380.0
 
 ### Patch Changes

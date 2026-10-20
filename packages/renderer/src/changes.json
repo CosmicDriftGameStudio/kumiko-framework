@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.381.0",
+    "type": "improvement",
+    "title": "ExtensionSectionProps.markSaved marks host form values as saved",
+    "detail": "ExtensionSectionProps gains an optional markSaved callback, set in entityEdit sections and the entityEdit footer slot. An extension section that writes the host entity's values through its own command calls it after the write succeeds; the host form then counts as clean and a following navigation passes the leave guard without the discard dialog. Additive API.",
+    "migration": "None. Additive API."
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
     "title": "actionForm success box shows the message and every fact on its own line",

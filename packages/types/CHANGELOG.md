@@ -1,5 +1,9 @@
 # @cosmicdrift/kumiko-types
 
+## 0.381.0
+
+No changes in this release.
+
 ## 0.380.0
 
 ### Minor Changes
