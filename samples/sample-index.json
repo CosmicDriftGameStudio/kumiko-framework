@@ -64,7 +64,8 @@
     },
     "billing-foundation": {
       "samples": [
-        "apps-cap-billing-demo"
+        "apps-cap-billing-demo",
+        "apps-ui-walkthrough"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
@@ -99,6 +100,7 @@
     "compliance-profiles": {
       "samples": [
         "apps-cap-billing-demo",
+        "apps-ui-walkthrough",
         "apps-user-data-rights-demo",
         "recipes-apex-surface-auth",
         "recipes-compliance-profiles-demo",
@@ -415,7 +417,8 @@
     },
     "tenant-lifecycle": {
       "samples": [
-        "apps-cap-billing-demo"
+        "apps-cap-billing-demo",
+        "apps-ui-walkthrough"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
