@@ -28,7 +28,7 @@ describe("SessionProvider provides the renderer's current user", () => {
   }
 
   beforeEach(() => {
-    document.cookie = "kumiko_csrf=current-user-test-token";
+    document.cookie = "kumiko_csrf=current-user-test-token; path=/";
   });
 
   afterEach(() => {
@@ -84,7 +84,7 @@ describe("CurrentUser reference stability", () => {
   });
 
   test("a refresh that returns an identical profile keeps the same CurrentUser reference", async () => {
-    document.cookie = "kumiko_csrf=current-user-test-token";
+    document.cookie = "kumiko_csrf=current-user-test-token; path=/";
     // Fresh response objects per call, so the profile object differs each time.
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input.toString();

@@ -60,7 +60,7 @@ describe("session-ended signal through SessionProvider and auth gate", () => {
   }
 
   beforeEach(() => {
-    document.cookie = "kumiko_csrf=session-ended-test-token";
+    document.cookie = "kumiko_csrf=session-ended-test-token; path=/";
   });
 
   afterEach(() => {
