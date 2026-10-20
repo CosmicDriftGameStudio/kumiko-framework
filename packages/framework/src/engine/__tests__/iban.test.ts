@@ -64,11 +64,15 @@ describe("text field format iban", () => {
     if (parsed.success) return;
     const issue = parsed.error.issues.find((i) => i.path[0] === "iban");
     expect(issue).toMatchObject({ code: "invalid_format", format: "iban" });
-    expect(validationErrorFromZod(parsed.error).details?.fields).toContainEqual({
-      path: "iban",
-      code: "invalid_format",
-      i18nKey: "errors.validation.invalid_format",
-      params: { format: "iban" },
+    expect(validationErrorFromZod(parsed.error).details).toMatchObject({
+      fields: expect.arrayContaining([
+        {
+          path: "iban",
+          code: "invalid_format",
+          i18nKey: "errors.validation.invalid_format",
+          params: { format: "iban" },
+        },
+      ]),
     });
   });
 

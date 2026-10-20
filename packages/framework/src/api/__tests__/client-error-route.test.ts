@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createClientIpResolver } from "../client-ip.ts";
 import { createClientErrorRoute } from "../client-error-route.ts";
+import { createClientIpResolver } from "../client-ip.ts";
 
 function setup(now: () => number) {
   const app = createClientErrorRoute({

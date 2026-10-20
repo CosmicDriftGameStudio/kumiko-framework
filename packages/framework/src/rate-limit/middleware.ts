@@ -228,7 +228,11 @@ function setRateLimitHeaders(c: Context, decision: RateLimitDecision): void {
   c.header("X-RateLimit-Reset", String(Math.floor(decision.resetAt.epochMilliseconds / 1000)));
 }
 
-export function respondRateLimited(c: Context, decision: RateLimitDecision, bucket: string): Response {
+export function respondRateLimited(
+  c: Context,
+  decision: RateLimitDecision,
+  bucket: string,
+): Response {
   // Build a RateLimitError so the wire shape is identical to the L3
   // dispatcher path. serializeError adds i18nKey, requestId, timestamp —
   // fields a hand-rolled body would silently miss.

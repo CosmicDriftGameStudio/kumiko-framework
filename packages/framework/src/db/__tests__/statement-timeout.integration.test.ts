@@ -25,7 +25,7 @@ afterAll(async () => {
 });
 
 async function currentStatementTimeout(runner: typeof client): Promise<string> {
-  const rows = await runner.unsafe<{ statement_timeout: string }>("SHOW statement_timeout");
+  const rows = await runner.unsafe<{ statement_timeout: string }[]>("SHOW statement_timeout");
   return rows[0]?.statement_timeout ?? "";
 }
 
@@ -41,7 +41,8 @@ describe("server statement_timeout", () => {
   test("withoutStatementTimeout lets the long statement finish and restores the timeout afterwards", async () => {
     await withoutStatementTimeout(db, async (unbounded) => {
       await unbounded.unsafe(`SELECT pg_sleep(${SLEEP_PAST_TIMEOUT_SECONDS})`);
-      const rows = await unbounded.unsafe<{ statement_timeout: string }>("SHOW statement_timeout");
+      const rows =
+        await unbounded.unsafe<{ statement_timeout: string }[]>("SHOW statement_timeout");
       expect(rows[0]?.statement_timeout).toBe("0");
     });
     expect(await currentStatementTimeout(client)).toBe(`${STATEMENT_TIMEOUT_MS}ms`);

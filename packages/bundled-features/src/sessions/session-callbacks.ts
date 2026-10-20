@@ -233,7 +233,9 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // no tenant-scoped roles for row.tenantId, so membershipRoles is [].
       const membershipResult = await membershipLookup;
       if (!membershipResult.ok) return "live";
-      const membershipRoles = membershipResult.value ? parseRoles(membershipResult.value.roles) : [];
+      const membershipRoles = membershipResult.value
+        ? parseRoles(membershipResult.value.roles)
+        : [];
 
       const globalRoles = parseRoles(user.roles);
       const roles = buildSessionRoles(globalRoles, membershipRoles);

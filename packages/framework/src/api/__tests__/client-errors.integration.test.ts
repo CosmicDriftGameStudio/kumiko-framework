@@ -50,11 +50,13 @@ function report(
   headers: Record<string, string> = {},
   ip = uniqueIp(),
 ): Promise<Response> {
-  return stack.app.request("/api/client-errors", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-forwarded-for": ip, ...headers },
-    body: typeof body === "string" ? body : JSON.stringify(body),
-  });
+  return Promise.resolve(
+    stack.app.request("/api/client-errors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": ip, ...headers },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    }),
+  );
 }
 
 function clientErrorLines(): Record<string, unknown>[] {

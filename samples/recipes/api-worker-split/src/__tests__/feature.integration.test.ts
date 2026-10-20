@@ -211,7 +211,7 @@ describe("api-worker-split", () => {
       });
       expect(busyChecks).toBe(2);
     } finally {
-      setCarrierRetryAfter(() => false);
+      setCarrierRetryAfter(() => 0);
       await Promise.all([api.stop(), worker.stop()]);
     }
   });
