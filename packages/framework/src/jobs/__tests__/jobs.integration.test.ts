@@ -760,8 +760,6 @@ describe("concurrency: maxPerTenant", () => {
       expect(idA2).not.toBe("skipped:max-per-tenant");
 
       // Third for tenantA hits the cap before BullMQ drains the first.
-      // Small sleep so we don't race the queue.add of the first two.
-      await sleep(50);
       const idA3 = await runner.dispatch("test:job:per-tenant-limited", {
         n: 3,
         _tenantId: tenantA,
@@ -775,17 +773,15 @@ describe("concurrency: maxPerTenant", () => {
       });
       expect(idB1).not.toBe("skipped:max-per-tenant");
 
-      // After the 500ms-handlers settle the bucket empties. jobLog.push runs
-      // at handler START, so a log entry doesn't mean the job is "done" —
-      // it's still in `active` for the rest of the sleep. Wait long enough
-      // that the slowest 500ms handler has returned, then a fresh tenantA
-      // dispatch lands again.
-      await sleep(900);
-      const idA4 = await runner.dispatch("test:job:per-tenant-limited", {
-        n: 5,
-        _tenantId: tenantA,
+      // jobLog.push runs at handler START, so a log entry doesn't mean the job is
+      // done: poll until the 500ms handlers have returned and the bucket accepts again.
+      await waitFor(async () => {
+        const idA4 = await runner.dispatch("test:job:per-tenant-limited", {
+          n: 5,
+          _tenantId: tenantA,
+        });
+        return idA4 !== "skipped:max-per-tenant";
       });
-      expect(idA4).not.toBe("skipped:max-per-tenant");
     });
   });
 
@@ -1565,8 +1561,11 @@ describe("boot gates", () => {
     const second = createGateRunner(feature, prefix);
     try {
       await second.start();
+      await waitFor(() => {
+        expect(gateLog.filter((e) => e === "gate").length).toBe(2);
+      });
+      // A wrongly re-enqueued boot job runs asynchronously; give it time before asserting absence.
       await sleep(300);
-      expect(gateLog.filter((e) => e === "gate").length).toBe(2);
       // The persistent boot-enqueued marker set from the first start is
       // still present in Redis, so the second start skips re-enqueueing —
       // that dedup is why runOnBoot cannot gate a deploy.

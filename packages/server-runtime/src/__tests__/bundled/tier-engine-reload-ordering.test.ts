@@ -11,6 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { CACHE_SYNC_TOPICS, type CacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 
 const TIER_MAP: TierMap<{ readonly maxItems: number }> = {
@@ -78,7 +79,7 @@ describe("tier cache reload ordering", () => {
       registry: createRegistry(features),
       cacheSync: captured.bus,
     });
-    await Bun.sleep(0);
+    await waitFor(() => manual.pending.length > 0);
     manual.pending.shift()?.resolve([]);
     const resolver = await building;
 
@@ -90,7 +91,7 @@ describe("tier cache reload ordering", () => {
     expect(resync).toBeDefined();
 
     resync?.resolve([{ tenant_id: tenant, tier: "pro" }]);
-    await Bun.sleep(0);
+    await waitFor(() => resolver(tenant).has("feat-pro"));
     expect(resolver(tenant).has("feat-pro")).toBe(true);
 
     singleReload?.resolve([{ tenant_id: tenant, tier: "free" }]);

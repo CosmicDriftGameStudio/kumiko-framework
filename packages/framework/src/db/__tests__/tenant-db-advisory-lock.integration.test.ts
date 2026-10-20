@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { TestUsers } from "../../seeding/seed-users.ts";
@@ -98,11 +99,11 @@ describe("TenantDb.advisoryXactLock", () => {
 });
 
 async function waitForAdvisoryWaiter(): Promise<void> {
-  for (;;) {
+  await waitFor(async () => {
     const rows = await asRawClient(testDb.db).unsafe(
       `SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`,
       [],
     );
-    if (rows.length > 0) return;
-  }
+    return rows.length > 0;
+  });
 }

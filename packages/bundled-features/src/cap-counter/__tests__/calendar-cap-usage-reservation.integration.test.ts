@@ -36,6 +36,7 @@ import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { capReservationsTable } from "../tables.ts";
 import { withCapEnforcement } from "../with-cap-enforcement.ts";
+import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
 
@@ -328,16 +329,8 @@ function adminFor(tenantNumber: number) {
   });
 }
 
-async function readCounterValue(
-  user: ReturnType<typeof adminFor>,
-  capName: string,
-): Promise<number | undefined> {
-  const row = (await stack.http.queryOk(
-    CapCounterQueries.getCounter,
-    { capName, periodStartIso: PERIOD },
-    user,
-  )) as Record<string, unknown> | null;
-  return row === null ? undefined : (row["value"] as number);
+function readCounterValue(user: ReturnType<typeof adminFor>, capName: string) {
+  return fetchCounterValue(stack, user, capName, PERIOD);
 }
 
 async function reservationRows(tenantNumber: number) {

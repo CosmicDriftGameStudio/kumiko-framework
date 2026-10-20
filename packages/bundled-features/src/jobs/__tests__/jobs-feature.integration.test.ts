@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
@@ -150,8 +150,9 @@ describe("scenario 1: trigger job → JobRun logged", () => {
     expect(result.data.jobName).toBe("app:job:sync-data");
     expect(result.data.bullJobId).toBeDefined();
 
-    // Wait for BullMQ to process
-    await sleep(1000);
+    await waitFor(() => {
+      expect(jobExecutions.some((e) => e.name === "app:job:sync-data")).toBe(true);
+    });
 
     // Job actually ran
     const executed = jobExecutions.filter((e) => e.name === "app:job:sync-data");
@@ -180,8 +181,13 @@ describe("scenario 2: failed job gets logged", () => {
     });
     expect(result.isSuccess).toBe(true);
 
-    // Wait for BullMQ to process and fail
-    await sleep(1500);
+    await waitFor(async () => {
+      const listed = await query(systemAdmin, JobQueries.list, {
+        jobName: "app:job:failing-import",
+        status: "failed",
+      });
+      expect(listed.data.rows.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   test("JobRun has status=failed with error message", async () => {
@@ -364,14 +370,13 @@ describe("scenario 5: retry failed job", () => {
     expect(result.data.jobName).toBe("app:job:failing-import");
     expect(result.data.retriedFromRunId).toBe(failedRunId);
 
-    // Wait for BullMQ to process (will fail again)
-    await sleep(1500);
-
     // Should have a new run (also failed)
-    const afterList = await query(systemAdmin, JobQueries.list, {
-      jobName: "app:job:failing-import",
+    await waitFor(async () => {
+      const afterList = await query(systemAdmin, JobQueries.list, {
+        jobName: "app:job:failing-import",
+      });
+      expect(afterList.data.rows.length).toBeGreaterThanOrEqual(2);
     });
-    expect(afterList.data.rows.length).toBeGreaterThanOrEqual(2);
   });
 
   test("retry on non-failed job is rejected", async () => {
@@ -396,15 +401,16 @@ describe("scenario 6: cross-tenant job monitoring", () => {
     });
     expect(triggerResult.isSuccess).toBe(true);
     const bullJobId = triggerResult.data.bullJobId;
-    await sleep(1000);
 
-    const listResult = await query(otherTenantSystemAdmin, JobQueries.list, {
-      jobName: "app:job:sync-data",
+    let run: { id: string } | undefined;
+    await waitFor(async () => {
+      const listResult = await query(otherTenantSystemAdmin, JobQueries.list, {
+        jobName: "app:job:sync-data",
+      });
+      run = listResult.data.rows.find((r: Record<string, unknown>) => r["bullJobId"] === bullJobId);
+      expect(run).toBeDefined();
     });
-    const run = listResult.data.rows.find(
-      (r: Record<string, unknown>) => r["bullJobId"] === bullJobId,
-    );
-    expect(run).toBeDefined();
+    if (!run) throw new Error("run not found");
 
     const detailResult = await query(otherTenantSystemAdmin, JobQueries.details, {
       runId: run.id,
@@ -418,13 +424,17 @@ describe("scenario 6: cross-tenant job monitoring", () => {
       jobName: "app:job:failing-import",
     });
     expect(triggerResult.isSuccess).toBe(true);
-    await sleep(1500);
 
-    const listResult = await query(otherTenantSystemAdmin, JobQueries.list, {
-      jobName: "app:job:failing-import",
-      status: "failed",
+    let failedRunId: string | undefined;
+    await waitFor(async () => {
+      const listResult = await query(otherTenantSystemAdmin, JobQueries.list, {
+        jobName: "app:job:failing-import",
+        status: "failed",
+      });
+      failedRunId = listResult.data.rows[0]?.id;
+      expect(failedRunId).toBeDefined();
     });
-    const failedRunId = listResult.data.rows[0].id;
+    if (!failedRunId) throw new Error("failed run not found");
 
     const retryResult = await write(otherTenantSystemAdmin, JobHandlers.retry, {
       runId: failedRunId,

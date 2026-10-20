@@ -15,7 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
@@ -298,8 +298,9 @@ describe("perTenant jobs", () => {
 
     await jobRunner.dispatch("billing:job:monthly-report", {});
     // This dispatches _perTenant:billing.monthlyReport which fans out
-    // Wait for fan-out + processing
-    await sleep(2000);
+    await waitFor(() => {
+      expect(jobExecutions.length).toBeGreaterThanOrEqual(2);
+    });
 
     // Should have run for each active tenant (we created 2)
     expect(jobExecutions.length).toBe(2);

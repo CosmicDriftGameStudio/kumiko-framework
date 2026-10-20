@@ -14,6 +14,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives, PlainContentEditor } from "@cosmicdrift/kumiko-renderer/web";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { textBlocksClient } from "../client-plugin.tsx";
@@ -145,8 +146,7 @@ describe("textBlocksClient — Provider unwrappt den Content-Container", () => {
     provider()((nodes) => {
       emitted = nodes;
     });
-    // fetch().then(...) is async → wait one macrotask until emit has run.
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => emitted !== undefined);
 
     expect(emitted).toBeDefined();
     const labels = (emitted ?? []).map((n) => n.label).sort();
@@ -224,7 +224,7 @@ describe("textBlocksClient — content collections", () => {
     provider()((nodes) => {
       emitted = nodes;
     });
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => emitted !== undefined);
 
     // The collection's own handler carries its access rule — a shared one
     // taking a kind would have to admit every collection's roles at once.
@@ -251,7 +251,7 @@ describe("textBlocksClient — content collections", () => {
       collection("pages", "text-block"),
     ]);
     derived?.providers["mail:nav:pages"]?.()(() => {});
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => sentType !== "");
 
     // Same kind as the public tree, but declared as a collection → it gets the
     // access the app declared, not anonymous reach.
@@ -272,7 +272,7 @@ describe("textBlocksClient — content collections", () => {
     // session — that path must not move onto a collection handler.
     const navId = "publicstatus:nav:content";
     textBlocksClient({ navId }).navProviders?.[navId]?.()(() => {});
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => sentType !== "");
 
     expect(sentType).toBe("template-resolver:query:by-tenant");
   });

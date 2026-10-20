@@ -153,6 +153,25 @@ expect(barrier.arrived).toBe(2);
 
 A `sleep` is no substitute for the barrier. It passes when the calls happen to overlap and fails when the machine is slow, which is exactly the flakiness this document rules out.
 
+## Environment and streams
+
+Use `withEnv` instead of bare `process.env` assignments. With `--parallel=4 --no-isolate` a variable that is not reset leaks into other files running in the same worker. `withEnv` restores the previous values in a `finally`, and a key that was unset before is deleted again rather than set to the string `"undefined"`.
+
+```ts illustration
+await withEnv({ FEATURE_X: "on", LEGACY_KEY: undefined }, async () => {
+  await runScenario();
+});
+```
+
+Use `readSseFrames` instead of a hand-written stream parser. It buffers across chunk boundaries, joins multi-line `data:` fields, skips pings, and stops at the first frame that satisfies `until`. It throws when the stream ends early or the timeout (default 5000 ms) passes, and always cancels the reader.
+
+```ts illustration
+const frames = await readSseFrames(response, {
+  until: (frame) => frame.event === "entity.changed",
+});
+expect(JSON.parse(frames.at(-1)?.data ?? "{}")).toMatchObject({ id });
+```
+
 ## Apps with MFA
 
 Against an app that enforces MFA, the e2e `seedTenant` fixture enrolls the

@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.ts";
 import { tableExists } from "../db/index.ts";
 import { asRawClient } from "../db/query.ts";
@@ -184,43 +185,33 @@ describe("runSchemaCli — no-DB paths", () => {
   });
 
   test("apply without DATABASE_URL exits 1", async () => {
-    const dbUrl = process.env["DATABASE_URL"];
-    delete process.env["DATABASE_URL"];
-    try {
+    await withEnv({ DATABASE_URL: undefined }, async () => {
       const cap = captureOut();
       const code = await runSchemaCli(["apply"], appCwd, cap.out);
       expect(code).toBe(1);
       expect(cap.err.join("\n")).toContain("DATABASE_URL not set");
-    } finally {
-      if (dbUrl !== undefined) process.env["DATABASE_URL"] = dbUrl;
-    }
+    });
   });
 
   test("status without DATABASE_URL exits 1", async () => {
-    const dbUrl = process.env["DATABASE_URL"];
-    delete process.env["DATABASE_URL"];
-    try {
+    await withEnv({ DATABASE_URL: undefined }, async () => {
       const cap = captureOut();
       const code = await runSchemaCli(["status"], appCwd, cap.out);
       expect(code).toBe(1);
       expect(cap.err.join("\n")).toContain("DATABASE_URL not set");
-    } finally {
-      if (dbUrl !== undefined) process.env["DATABASE_URL"] = dbUrl;
-    }
+    });
   });
 
   test("status without kumiko/migrations exits 0 (legacy drizzle path)", async () => {
-    const prevDbUrl = process.env["DATABASE_URL"];
-    process.env["DATABASE_URL"] = "postgresql://placeholder:placeholder@localhost:1/placeholder";
-    try {
-      const cap = captureOut();
-      const code = await runSchemaCli(["status"], appCwd, cap.out);
-      expect(code).toBe(0);
-      expect(cap.log.join("\n")).toContain("alten drizzle-Pfad");
-    } finally {
-      if (prevDbUrl !== undefined) process.env["DATABASE_URL"] = prevDbUrl;
-      else delete process.env["DATABASE_URL"];
-    }
+    await withEnv(
+      { DATABASE_URL: "postgresql://placeholder:placeholder@localhost:1/placeholder" },
+      async () => {
+        const cap = captureOut();
+        const code = await runSchemaCli(["status"], appCwd, cap.out);
+        expect(code).toBe(0);
+        expect(cap.log.join("\n")).toContain("alten drizzle-Pfad");
+      },
+    );
   });
 });
 
@@ -403,17 +394,13 @@ export const FEATURES = [
 `,
     );
     await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
-    const previous = process.env["FILE_STORAGE_PROVIDER"];
-    delete process.env["FILE_STORAGE_PROVIDER"];
-    try {
+    await withEnv({ FILE_STORAGE_PROVIDER: undefined }, async () => {
       const cap = captureOut();
       const code = await runSchemaCli(["validate"], appCwd, cap.out);
       expect(cap.err.join("\n")).not.toContain("FILE_STORAGE_PROVIDER");
       expect(cap.log.join("\n")).toContain("feature configuration is valid");
       expect(code).toBe(0);
-    } finally {
-      if (previous !== undefined) process.env["FILE_STORAGE_PROVIDER"] = previous;
-    }
+    });
   });
 
   test("FEATURES with a bad nav→screen ref → validateBoot fails, exit 1 (512/1)", async () => {

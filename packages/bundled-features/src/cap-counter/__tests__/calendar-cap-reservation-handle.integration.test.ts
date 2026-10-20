@@ -31,10 +31,11 @@ import {
   reserveCalendarCapUsage,
 } from "../calendar-cap-usage-reservation.ts";
 import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.ts";
-import { CAP_RESERVATION_TTL_MINUTES, CapCounterQueries } from "../constants.ts";
+import { CAP_RESERVATION_TTL_MINUTES } from "../constants.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { capReservationsTable } from "../tables.ts";
+import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
 
@@ -158,16 +159,8 @@ function adminFor(tenantNumber: number) {
   });
 }
 
-async function readCounterValue(
-  user: ReturnType<typeof adminFor>,
-  capName: string,
-): Promise<number | undefined> {
-  const row = await stack.http.queryOk<{ value: number } | null>(
-    CapCounterQueries.getCounter,
-    { capName, periodStartIso: PERIOD },
-    user,
-  );
-  return row === null ? undefined : row.value;
+function readCounterValue(user: ReturnType<typeof adminFor>, capName: string) {
+  return fetchCounterValue(stack, user, capName, PERIOD);
 }
 
 async function sweepAfterTtl(user: ReturnType<typeof adminFor>, capName: string) {

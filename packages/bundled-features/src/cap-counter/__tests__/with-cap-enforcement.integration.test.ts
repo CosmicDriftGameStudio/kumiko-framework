@@ -39,11 +39,12 @@ import {
 import * as z from "zod";
 import { capCounterAggregateId } from "../aggregate-id.ts";
 import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.ts";
-import { CapCounterHandlers, CapCounterQueries } from "../constants.ts";
+import { CapCounterHandlers } from "../constants.ts";
 import type { SoftHitNotifier } from "../enforce-cap.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.ts";
+import { fetchCounterRow } from "./read-counter.ts";
 
 // =============================================================================
 // Test-Probe — newsletter-send-Handler with cap-enforcement
@@ -352,12 +353,8 @@ function tenantAdminOnlyFor(tenantNumber: number) {
   });
 }
 
-async function readCounter(user: ReturnType<typeof adminFor>, capName: string, period: string) {
-  return (await stack.http.queryOk(
-    CapCounterQueries.getCounter,
-    { capName, periodStartIso: period },
-    user,
-  )) as Record<string, unknown> | null;
+function readCounter(user: ReturnType<typeof adminFor>, capName: string, period: string) {
+  return fetchCounterRow(stack, user, capName, period);
 }
 
 function resetState() {
