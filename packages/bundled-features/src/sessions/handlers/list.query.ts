@@ -8,7 +8,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
-import { parsedDeviceSchema, parseUserAgent } from "../user-agent.ts";
+import { parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy
 // has no column-existence check — an unrecognised field just gets

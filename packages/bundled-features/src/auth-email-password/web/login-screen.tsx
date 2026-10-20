@@ -15,13 +15,13 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { DEFAULT_AUTH_PATHS, DEFAULT_FORGOT_PASSWORD_PATH } from "../auth-paths.ts";
 import {
   type KnownLoginFailureReason,
   type LoginFailure,
   requestEmailVerification,
 } from "./auth-client.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
+import { DEFAULT_AUTH_PATHS, DEFAULT_FORGOT_PASSWORD_PATH } from "./auth-paths.ts";
 import { followNextOrLandingAfterLogin } from "./auth-redirect.ts";
 import { AuthQueries } from "./constants.ts";
 import { useSession } from "./session.tsx";

@@ -53,6 +53,10 @@ export const CONSUMER_ID_SEPARATOR = "@" as const;
 export const CONSUMER_STATUSES = ["idle", "processing", "dead", "disabled", "never-run"] as const;
 export type ConsumerStatus = (typeof CONSUMER_STATUSES)[number];
 
+export function isConsumerStatus(value: string): value is ConsumerStatus {
+  return CONSUMER_STATUSES.some((status) => status === value);
+}
+
 export const CONSUMER_STATUS_OPTION_KEY_PREFIX = "jobs.consumers.status.";
 
 export const CONSUMER_INSTANCE_OPTION_KEY_PREFIX = "jobs.consumers.instance.";

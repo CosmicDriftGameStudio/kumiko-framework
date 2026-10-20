@@ -3,7 +3,7 @@ import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
-import { parsedDeviceSchema, parseUserAgent } from "../user-agent.ts";
+import { parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
 // Admin single-session inspector — mirrors list.query's decrypt handling for
 // the one-row case. ctx.db (TenantDb) applies tenant-scoping automatically.

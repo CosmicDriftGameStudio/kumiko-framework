@@ -213,6 +213,20 @@ async function invisibleWindowGap(
   };
 }
 
+function assertRequiredStatus(
+  row: { readonly status: string },
+  name: string,
+  instanceId: string,
+  requiredStatus: string | undefined,
+): void {
+  if (requiredStatus !== undefined && row.status !== requiredStatus) {
+    throw new ConsumerTransitionError(
+      "wrong-status",
+      `Consumer "${name}" (instance_id="${instanceId}") is "${row.status}", not "${requiredStatus}"; nothing skipped.`,
+    );
+  }
+}
+
 // skipPoisonEvent skips the event whose handler failed last
 // (last_failed_event_id, set by the delivery's halt-on-poison branch): inside
 // pending_gaps it is split out of its range, otherwise the cursor moves onto
@@ -230,12 +244,7 @@ export async function skipPoisonEvent(
     // Locked read: a dispatcher turn committing new gaps between an unlocked
     // read and the pending_gaps overwrite below would have them dropped.
     const before = await requireConsumerRowForUpdate(tx, name, instanceId);
-    if (options.requireStatus !== undefined && before.status !== options.requireStatus) {
-      throw new ConsumerTransitionError(
-        "wrong-status",
-        `Consumer "${name}" (instance_id="${instanceId}") is "${before.status}", not "${options.requireStatus}"; nothing skipped.`,
-      );
-    }
+    assertRequiredStatus(before, name, instanceId, options.requireStatus);
     const pendingGaps = before.pendingGaps;
     const failedEventId = before.lastFailedEventId;
     const failedIsPending =

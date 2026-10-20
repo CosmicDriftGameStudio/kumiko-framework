@@ -3,7 +3,7 @@ import { definePagedQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
-import { parsedDeviceSchema, parseUserAgent } from "../user-agent.ts";
+import { parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
 // "My live sessions" — the backing data for a devices/sessions UI. Returns
 // ONLY the current user's own, currently-live sessions, ordered by most-

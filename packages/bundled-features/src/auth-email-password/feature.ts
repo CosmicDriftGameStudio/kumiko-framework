@@ -198,8 +198,7 @@ export function createAuthEmailPasswordFeature(
         { key: "accountUnlock", label: "Account-Unlock-Flow", type: "boolean", default: false },
       ],
     });
-    r.requires({ features: ["user"] });
-    r.requires({ features: ["tenant"] });
+    r.requires({ features: ["user", "tenant"] });
     // All five magic-link flows (reset/verify/signup/invite/unlock) dispatch
     // via ctx.notify → delivery must be mounted. Fail closed at boot instead
     // of silently dropping the mail.

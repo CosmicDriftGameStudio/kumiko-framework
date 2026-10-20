@@ -2,7 +2,7 @@
 
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { parsedDeviceSchema } from "../user-agent.ts";
+import { parsedDeviceSchema } from "./user-agent.ts";
 
 export function SessionDeviceCell({ value }: ColumnRendererProps): ReactNode {
   const t = useTranslation();

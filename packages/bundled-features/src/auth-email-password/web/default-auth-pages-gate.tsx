@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { DEFAULT_AUTH_PATHS, DEFAULT_FORGOT_PASSWORD_PATH } from "../auth-paths.ts";
+import { DEFAULT_AUTH_PATHS, DEFAULT_FORGOT_PASSWORD_PATH } from "./auth-paths.ts";
 import { ConfirmAccountUnlockScreen } from "./confirm-account-unlock-screen.tsx";
 import { ForgotPasswordScreen } from "./forgot-password-screen.tsx";
 import { RequestAccountUnlockScreen } from "./request-account-unlock-screen.tsx";

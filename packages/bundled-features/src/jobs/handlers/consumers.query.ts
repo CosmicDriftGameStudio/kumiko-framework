@@ -8,7 +8,12 @@ import {
   SSE_BROADCAST_CONSUMER_NAME,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import * as z from "zod";
-import { CONSUMER_ID_SEPARATOR, CONSUMER_STATUSES, type ConsumerStatus } from "../web/constants.ts";
+import {
+  CONSUMER_ID_SEPARATOR,
+  CONSUMER_STATUSES,
+  type ConsumerStatus,
+  isConsumerStatus,
+} from "../web/constants.ts";
 
 const LAST_ERROR_PREVIEW_LENGTH = 90;
 
@@ -93,7 +98,8 @@ export const consumersQuery = defineQueryHandler({
       if (sort === "name") return a.name.localeCompare(b.name) * direction;
       if (sort === "lag") return Number(a.lag - b.lag) * direction;
       if (sort === "attempts") return (a.attempts - b.attempts) * direction;
-      const rank = (c: ConsumerProgress) => STATUS_RANK[c.status as ConsumerStatus] ?? 5;
+      const rank = (c: ConsumerProgress) =>
+        isConsumerStatus(c.status) ? STATUS_RANK[c.status] : 5;
       return (rank(a) - rank(b)) * direction || a.name.localeCompare(b.name);
     };
     return { rows: [...visible].sort(compare).map(toRow), nextCursor: null };

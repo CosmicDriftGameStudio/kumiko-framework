@@ -1,7 +1,6 @@
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { SESSIONS_FEATURE } from "../constants.ts";
-import { SESSION_DEVICE_CELL_COMPONENT } from "./constants.ts";
+import { SESSION_DEVICE_CELL_COMPONENT, SESSIONS_FEATURE } from "./constants.ts";
 import { defaultTranslations } from "./default-translations.ts";
 import { SessionDeviceCell } from "./session-device-cell.tsx";
 

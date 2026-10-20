@@ -1,4 +1,6 @@
-export const SESSIONS_FEATURE = "sessions" as const;
+import { SESSIONS_FEATURE } from "./web/constants.ts";
+
+export { SESSIONS_FEATURE };
 export const USER_SESSION_ENTITY_NAME = "user-session" as const;
 
 // Qualified write handler names — entity prefix is "userSession", snake_case

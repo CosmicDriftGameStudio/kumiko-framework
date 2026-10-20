@@ -6,13 +6,6 @@
 // hashPassword/verifyPassword; removing it is a breaking change that needs
 // its own changeset + deliberate deprecation window, not a silent drop.
 export { hashPassword, verifyPassword } from "../shared/password-hashing.ts";
-export {
-  type AuthPath,
-  type AuthPaths,
-  DEFAULT_AUTH_PATHS,
-  DEFAULT_FORGOT_PASSWORD_PATH,
-  makeAuthPaths,
-} from "./auth-paths.ts";
 export type {
   BootstrapConfigValue,
   BootstrapDeps,
@@ -60,6 +53,13 @@ export {
   SIGNUP_TOKEN_KEY_PREFIXES,
   storeSignupToken,
 } from "./signup-token-store.ts";
+export {
+  type AuthPath,
+  type AuthPaths,
+  DEFAULT_AUTH_PATHS,
+  DEFAULT_FORGOT_PASSWORD_PATH,
+  makeAuthPaths,
+} from "./web/auth-paths.ts";
 export {
   AUTH_EMAIL_PASSWORD_FEATURE,
   AuthErrors,
