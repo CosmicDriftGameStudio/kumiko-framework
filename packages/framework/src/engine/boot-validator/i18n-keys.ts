@@ -105,12 +105,13 @@ export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]):
 
 export function validateTranslationLocaleConsistency(features: readonly FeatureDefinition[]): void {
   const gaps = findTranslationLocaleGaps(features);
-  if (gaps.length === 0) return;
-  const lines = gaps.map(
-    (gap) =>
-      `[i18n] Feature "${gap.featureName}": translation key "${gap.key}" is missing locale(s) ${gap.missingLocales.join(", ")}.`,
-  );
-  throw new Error(
-    `${lines.join("\n")}\nEvery locale a feature uses must be maintained for every one of its translation keys; otherwise move that locale into a locale package.`,
-  );
+  if (gaps.length > 0) {
+    const lines = gaps.map(
+      (gap) =>
+        `[i18n] Feature "${gap.featureName}": translation key "${gap.key}" is missing locale(s) ${gap.missingLocales.join(", ")}.`,
+    );
+    throw new Error(
+      `${lines.join("\n")}\nEvery locale a feature uses must be maintained for every one of its translation keys; otherwise move that locale into a locale package.`,
+    );
+  }
 }
