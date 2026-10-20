@@ -1,4 +1,5 @@
 ---
+"@cosmicdrift/kumiko-framework": minor
 "@cosmicdrift/kumiko-types": minor
 ---
 
