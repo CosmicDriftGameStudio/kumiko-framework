@@ -81,10 +81,9 @@ export const userSessionEntity = createEntity({
   indexes: [{ columns: ["tenantId", "lastSeenAt"] }],
 });
 
-// Plain EntityTableMeta, NOT a branded EntityTable: user-session is an
-// unmanaged direct-write store (r.storeTable in feature.ts, no event stream —
+// Unmanaged direct-write store (r.storeTable in feature.ts, no event stream —
 // revocation is a column write, not an aggregate). Handlers write via ctx.db;
-// the meta carries no executor-only brand so those writes stay legal. See
+// source: "unmanaged" makes the meta Writable so those writes compile. See
 // feature.ts for the rebuild-exclusion rationale (#494/#498).
 export const userSessionTable = deriveEntityTableMeta(USER_SESSION_ENTITY_NAME, userSessionEntity, {
   source: "unmanaged",

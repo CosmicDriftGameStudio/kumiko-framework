@@ -1,4 +1,5 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { Writable } from "@cosmicdrift/kumiko-types/executor-brand";
 import {
   KUMIKO_COLUMNS_SYMBOL,
   KUMIKO_META_SYMBOL,
@@ -86,4 +87,9 @@ export function columnSqlNameOf(table: unknown, field: string): string | undefin
   if (!isPlainObject(handle)) return undefined;
   const name = handle["name"];
   return typeof name === "string" ? name : undefined;
+}
+
+export function brandWritable<T extends EntityTableMeta>(table: T): T & Writable {
+  // @cast-boundary phantom-brand — Writable is a phantom marker with no runtime representation.
+  return table as T & Writable;
 }

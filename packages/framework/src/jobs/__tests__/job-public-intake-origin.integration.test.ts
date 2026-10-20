@@ -11,7 +11,6 @@ import { Queue } from "bullmq";
 import * as z from "zod";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import type { SchemaTable } from "../../db/index.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
@@ -90,7 +89,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
 
   r.job("write-direct", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     try {
-      await ctx.db.insertOne(secretDirectTable as unknown as SchemaTable, {
+      await ctx.db.insertOne(secretDirectTable, {
         // @cast-boundary test-fixture
         value: payload["value"] as string, // @cast-boundary test-fixture
       });
@@ -120,7 +119,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     { trigger: { on: "jobsx:write:trigger-source-no-declare" }, retries: 0 },
     async (payload, ctx) => {
       try {
-        await ctx.db.insertOne(secretDirectTable as unknown as SchemaTable, {
+        await ctx.db.insertOne(secretDirectTable, {
           // @cast-boundary test-fixture
           value: payload["value"] as string, // @cast-boundary test-fixture
         });
@@ -134,7 +133,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     { trigger: { on: "jobsx:write:trigger-source-declare" }, retries: 0 },
     async (payload, ctx) => {
       try {
-        await ctx.db.insertOne(secretDirectTable as unknown as SchemaTable, {
+        await ctx.db.insertOne(secretDirectTable, {
           // @cast-boundary test-fixture
           value: payload["value"] as string, // @cast-boundary test-fixture
         });
@@ -148,7 +147,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     { trigger: { on: "jobsx:event:leaked" }, retries: 0 },
     async (payload, ctx) => {
       try {
-        await ctx.db.insertOne(secretDirectTable as unknown as SchemaTable, {
+        await ctx.db.insertOne(secretDirectTable, {
           // @cast-boundary test-fixture
           value: payload["value"] as string, // @cast-boundary test-fixture
         });
@@ -311,10 +310,7 @@ const systemJobFeature = defineFeature("systemjob", (r) => {
         db: raw,
         tenantId: ctx.systemUser.tenantId,
         mode: "system",
-      }).insertOne(
-        secretDirectTable as unknown as SchemaTable, // @cast-boundary test-fixture
-        { value: payload["value"] as string },
-      );
+      }).insertOne(secretDirectTable, { value: payload["value"] as string });
     } catch (err) {
       recordGatedFailure("systemjob:job:write-systemdb", err);
     }
@@ -368,7 +364,7 @@ describe("job/event write-origin inheritance", () => {
   });
 
   async function rowCount(): Promise<number> {
-    const rows = await selectMany(stack.db, secretDirectTable as unknown as SchemaTable); // @cast-boundary test-fixture
+    const rows = await selectMany(stack.db, secretDirectTable);
     return rows.length;
   }
 

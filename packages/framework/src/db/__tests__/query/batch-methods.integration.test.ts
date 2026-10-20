@@ -11,6 +11,8 @@ import {
   upsertByPk,
   upsertOnConflict,
 } from "../../query.ts";
+import type { WritableTable } from "../../table-builder.ts";
+import { brandWritable } from "../../table-introspection.ts";
 import { closeDb, getDb, renderCreateTable, uniqueTableName, withTable } from "./_helpers.ts";
 
 afterAll(async () => {
@@ -21,8 +23,8 @@ const scoreCols = [
   { name: "score", pgType: "integer" as const, notNull: true, defaultSql: "0" },
 ] as const;
 
-function makeCodePkMeta(tableName: string): EntityTableMeta {
-  return {
+function makeCodePkMeta(tableName: string): WritableTable {
+  return brandWritable<EntityTableMeta>({
     tableName,
     source: "unmanaged",
     indexes: [],
@@ -30,11 +32,11 @@ function makeCodePkMeta(tableName: string): EntityTableMeta {
       { name: "code", pgType: "text", notNull: true, primaryKey: true },
       { name: "score", pgType: "integer", notNull: true, defaultSql: "0" },
     ],
-  };
+  });
 }
 
 async function withCodeTable<T>(
-  fn: (ctx: { db: unknown; meta: EntityTableMeta }) => Promise<T>,
+  fn: (ctx: { db: unknown; meta: WritableTable }) => Promise<T>,
 ): Promise<T> {
   const db = await getDb();
   const tableName = uniqueTableName("upsert");
@@ -101,13 +103,13 @@ describe("incrementCounter", () => {
 
   test("supports set on conflict with sql expression", async () => {
     await withCodeTable(async ({ db, meta }) => {
-      const withUpdated: EntityTableMeta = {
+      const withUpdated = brandWritable<EntityTableMeta>({
         ...meta,
         columns: [
           ...meta.columns,
           { name: "updated_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
         ],
-      };
+      });
       await asRawClient(db).unsafe(`DROP TABLE IF EXISTS "${meta.tableName}"`);
       await asRawClient(db).unsafe(renderCreateTable(withUpdated));
       await incrementCounter(

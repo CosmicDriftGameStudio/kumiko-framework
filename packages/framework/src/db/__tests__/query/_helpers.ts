@@ -7,8 +7,13 @@
 // Test tables consist of an id (uuid) plus the columns under test.
 
 import { randomUUID } from "node:crypto";
+import type { WritableTable } from "@cosmicdrift/kumiko-types/executor-brand";
 import { createDbConnection } from "../../connection.ts";
-import type { ColumnMeta, EntityTableMeta } from "../../entity-table-meta.ts";
+import {
+  type ColumnMeta,
+  defineUnmanagedTable,
+  type EntityTableMeta,
+} from "../../entity-table-meta.ts";
 
 const DATABASE_URL =
   process.env["TEST_DATABASE_URL"] ??
@@ -45,11 +50,9 @@ export function uniqueTableName(prefix = "sqltest"): string {
 export function makeTableMeta(
   tableName: string,
   extraColumns: readonly ColumnMeta[],
-): EntityTableMeta {
-  return {
+): WritableTable {
+  return defineUnmanagedTable({
     tableName,
-    source: "unmanaged",
-    indexes: [],
     columns: [
       {
         name: "id",
@@ -60,7 +63,7 @@ export function makeTableMeta(
       },
       ...extraColumns,
     ],
-  };
+  });
 }
 
 // Deliberately minimal DDL: no indexes and no complex defaults, which the test matrix does not need.
@@ -81,7 +84,7 @@ export function renderCreateTable(meta: EntityTableMeta): string {
 // fn bekommt {db, meta} — alle SQL-Operationen laufen direkt darauf.
 export async function withTable<T>(
   columns: readonly ColumnMeta[],
-  fn: (ctx: { db: unknown; meta: EntityTableMeta }) => Promise<T>,
+  fn: (ctx: { db: unknown; meta: WritableTable }) => Promise<T>,
   prefix?: string,
 ): Promise<T> {
   const db = await getDb();

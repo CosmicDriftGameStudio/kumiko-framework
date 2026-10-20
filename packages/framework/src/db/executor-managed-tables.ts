@@ -1,4 +1,8 @@
-import { AccessDeniedError } from "../errors/index.ts";
+import type {
+  ExecutorManagedWriteCapability,
+  Writable,
+} from "@cosmicdrift/kumiko-types/executor-brand";
+import { AccessDeniedError, InternalError } from "../errors/index.ts";
 import { asEntityTableMeta, tableNameOf } from "./table-introspection.ts";
 
 const executorManagedTables = new WeakSet<object>();
@@ -23,7 +27,9 @@ export function registerExecutorManagedWriteRunner(runner: object): void {
 
 // WeakSet.has never reads a property off runner, so a fail-closed guard Proxy stays untouched.
 // postgres.js clients are callable (tagged templates), so a runner can be a function.
-export function hasExecutorManagedWriteCapability(runner: unknown): boolean {
+export function hasExecutorManagedWriteCapability(
+  runner: unknown,
+): runner is ExecutorManagedWriteCapability {
   if (typeof runner !== "object" && typeof runner !== "function") return false;
   return runner !== null && executorManagedWriteRunners.has(runner);
 }
@@ -42,4 +48,13 @@ export function executorManagedWriteDenied(
       "Write it through the entity executor (r.crud, ctx.write, createEventStoreExecutor) or inside a " +
       "projection apply; a direct write drifts from the event stream and a rebuild drops or resurrects the row.",
   });
+}
+
+// Unmanaged tables are the Writable ones; callers invoke this only after executorManagedWriteDenied passed without a capable runner.
+export function assertWritableTable<T extends object>(table: T): asserts table is T & Writable {
+  if (isExecutorManagedTable(table)) {
+    throw new InternalError({
+      message: `assertWritableTable: "${tableNameOf(table)}" is executor-managed and the runner holds no write capability.`,
+    });
+  }
 }

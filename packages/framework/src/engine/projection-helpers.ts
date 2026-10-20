@@ -1,4 +1,4 @@
-import type { DbRunner } from "../db/connection.ts";
+import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import { updateMany } from "../db/query.ts";
 import type { StoredEvent } from "../event-store/event-store.ts";
 import type { MultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.ts";
@@ -27,7 +27,11 @@ import type {
 // Verhalten für Apply-Handler die ohne Type-Argument geschrieben sind. Der
 // `table`-Param ist optional zu nutzen — 2-arg-Applies bleiben gültig.
 export function defineApply<TPayload = Record<string, unknown>>(
-  fn: (event: StoredEvent<TPayload>, tx: DbRunner, table: ProjectionTable) => Promise<void>,
+  fn: (
+    event: StoredEvent<TPayload>,
+    tx: ExecutorManagedRunner,
+    table: ProjectionTable,
+  ) => Promise<void>,
 ): SingleStreamApplyFn {
   // @cast-boundary engine-bridge — typed user-fn → erased internal storage
   return fn as SingleStreamApplyFn;
@@ -35,7 +39,11 @@ export function defineApply<TPayload = Record<string, unknown>>(
 
 // Pendant für r.multiStreamProjection.apply — bekommt zusätzlich ctx.
 export function defineMspApply<TPayload = Record<string, unknown>>(
-  fn: (event: StoredEvent<TPayload>, tx: DbRunner, ctx: MultiStreamApplyContext) => Promise<void>,
+  fn: (
+    event: StoredEvent<TPayload>,
+    tx: ExecutorManagedRunner,
+    ctx: MultiStreamApplyContext,
+  ) => Promise<void>,
 ): MultiStreamApplyFn {
   // @cast-boundary engine-bridge — typed user-fn → erased internal storage
   return fn as MultiStreamApplyFn;

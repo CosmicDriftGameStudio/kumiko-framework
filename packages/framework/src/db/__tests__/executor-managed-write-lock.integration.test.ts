@@ -24,6 +24,7 @@ import {
   upsertOnConflict,
 } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
+import { brandWritable } from "../table-introspection.ts";
 import {
   createTenantDataDestroyDb,
   createTenantDb,
@@ -36,8 +37,8 @@ const entity = createEntity({
   fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
 });
 const managedTable = buildEntityTable("managedLockItem", entity);
-// Deliberate bypass attempt: the compile-time ExecutorOnly brand is erased, only the runtime lock is left.
-const erasedManagedTable = managedTable as unknown as EntityTableMeta;
+// Deliberate bypass: brandWritable erases the compile-time lock, only the runtime lock is left.
+const erasedManagedTable = brandWritable(managedTable);
 
 const unmanagedTable = defineUnmanagedTable({
   tableName: "store_managed_lock_free",
@@ -123,7 +124,9 @@ describe("executor-managed write lock: raw runner", () => {
     const meta = asEntityTableMeta(managedTable);
     expect(meta).toBeDefined();
     expect(isExecutorManagedTable(meta)).toBe(true);
-    await expectDenied(async () => insertOne(testDb.db, meta as EntityTableMeta, { name: "x" }));
+    await expectDenied(async () =>
+      insertOne(testDb.db, brandWritable(meta as EntityTableMeta), { name: "x" }),
+    );
   });
 });
 

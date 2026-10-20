@@ -207,12 +207,18 @@ export {
   declareGlobalTenancy,
   type EntityRow,
   type EntityTable,
+  type ExecutorManagedRunner,
+  type ExecutorManagedWriteCapability,
   physicalColumnName,
   toSnakeCase,
   toTableName,
+  type Writable,
+  type WritableSchemaTable,
+  type WritableTable,
 } from "./table-builder.ts";
 export type {
   CreateTenantDbOptions,
+  ExecutorManagedTenantDb,
   OutsideTransactionContext,
   TenantDb,
   TenantDbGrants,

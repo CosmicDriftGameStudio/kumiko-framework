@@ -1,3 +1,4 @@
+import type { WritableTable } from "@cosmicdrift/kumiko-types/executor-brand";
 import type {
   FileProviderResolver,
   FileUploadLedger,
@@ -5,7 +6,7 @@ import type {
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-types/file-storage-provider-types";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { DbConnection, DbRunner } from "../db/connection.ts";
-import { defineUnmanagedTable, type EntityTableMeta } from "../db/entity-table-meta.ts";
+import { defineUnmanagedTable } from "../db/entity-table-meta.ts";
 import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import { tenantDbRunner } from "../db/tenant-db-runner.ts";
 
@@ -14,7 +15,7 @@ const CREATED_AT_INDEX = "store_file_upload_ledger_created_at_idx";
 // One row per upload whose bytes are in storage but whose fileRef row is not committed yet. The
 // commit path deletes it inside the transaction that creates the fileRef; the sweep finds the
 // rows that never got there. Unmanaged: a coordination aid, not state with an event history.
-export const fileUploadLedgerTable: EntityTableMeta = defineUnmanagedTable({
+export const fileUploadLedgerTable: WritableTable = defineUnmanagedTable({
   tableName: "store_file_upload_ledger",
   indexes: [{ name: CREATED_AT_INDEX, columns: ["created_at"] }],
   columns: [

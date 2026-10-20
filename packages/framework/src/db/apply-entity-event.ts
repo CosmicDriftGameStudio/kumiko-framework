@@ -14,7 +14,7 @@
 // (DEK erased → Wert unlesbar, bidx NULL). Load-bearing Test:
 // db/__tests__/implicit-projection-equivalence.integration.test.ts.
 //
-// Tenant isolation: applyEntityEvent expects a raw DbRunner (tx or pool), NOT
+// Tenant isolation: applyEntityEvent expects an ExecutorManagedRunner (tx or pool), NOT
 // a TenantDb wrapper. Two sources keep it safe:
 //   1. The live path reads the target row through the tenant-scoped TenantDb
 //      before writing — loadById() for update/delete/forget, db.fetchOne() for
@@ -44,6 +44,7 @@
 //   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
 //     Aggregate). Caller no-op.
 
+import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { requestContext } from "../api/request-context.ts";
 import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index.ts";
@@ -58,7 +59,7 @@ import { deleteMany, insertOne, updateMany } from "../db/query.ts";
 import type { EntityDefinition } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
-import type { DbRow, DbRunner } from "./connection.ts";
+import type { DbRow } from "./connection.ts";
 import type { TableColumns } from "./dialect.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle-Tabellen sind generisch typed; framework code erasiert die Spalten-Union absichtlich.
@@ -113,7 +114,7 @@ export async function applyEntityEvent(
   event: StoredEvent,
   table: Table,
   entity: EntityDefinition,
-  tx: DbRunner,
+  tx: ExecutorManagedRunner,
 ): Promise<ApplyResult> {
   const verb = parseAutoVerb(event);
   if (verb === null) return { kind: "skipped" };

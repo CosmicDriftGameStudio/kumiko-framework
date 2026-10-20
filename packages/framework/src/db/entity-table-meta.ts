@@ -16,6 +16,7 @@
 //      hand-built path; app author owns tenant scoping / versioning. Prefer a
 //      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
+import type { Writable } from "@cosmicdrift/kumiko-types/executor-brand";
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.ts";
 import type { EntityDefinition, FieldDefinition } from "../engine/types/index.ts";
@@ -33,6 +34,7 @@ import {
   toSnakeCase,
   toTableName,
 } from "./table-builder.ts";
+import { brandWritable } from "./table-introspection.ts";
 
 export type {
   BuildEntityTableMetaOptions,
@@ -259,6 +261,16 @@ export function resolveTableName(
 export function deriveEntityTableMeta(
   entityName: string,
   entity: EntityDefinition,
+  options: BuildEntityTableMetaOptions & { readonly source: "unmanaged" },
+): EntityTableMeta & Writable;
+export function deriveEntityTableMeta(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: BuildEntityTableMetaOptions,
+): EntityTableMeta;
+export function deriveEntityTableMeta(
+  entityName: string,
+  entity: EntityDefinition,
   options?: BuildEntityTableMetaOptions,
 ): EntityTableMeta {
   const tableName = resolveTableName(entityName, entity, options?.featureName);
@@ -401,7 +413,7 @@ export function deriveEntityTableMeta(
   }
 
   const piiSubjectFields = collectPiiEncryptedFields(entity);
-  return {
+  const meta: EntityTableMeta = {
     tableName,
     columns,
     indexes,
@@ -409,6 +421,7 @@ export function deriveEntityTableMeta(
     ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
     ...(entity.tenancy === "global" && { tenancy: "global" as const }),
   };
+  return source === "unmanaged" ? brandWritable(meta) : meta;
 }
 
 function sqlExpressionText(where: unknown): string | undefined {
@@ -467,7 +480,7 @@ function columnsByNameMeta(meta: EntityTableMeta): Map<string, ColumnMeta> {
  */
 export function defineUnmanagedTable<const T extends EntityTenancy = "tenant">(
   input: UnmanagedTableInput & { readonly tenancy?: T },
-): EntityTableMeta & TenancyBrand<T> {
+): EntityTableMeta & TenancyBrand<T> & Writable {
   assertUnmanagedTableName(input.tableName, "defineUnmanagedTable");
   if (input.tenancy === "global" && input.columns.some((c) => c.name === "tenant_id")) {
     throw new Error(
@@ -476,7 +489,7 @@ export function defineUnmanagedTable<const T extends EntityTenancy = "tenant">(
         "tenant identity.",
     );
   }
-  return {
+  return brandWritable({
     tableName: input.tableName,
     columns: input.columns,
     indexes: input.indexes ?? [],
@@ -486,7 +499,7 @@ export function defineUnmanagedTable<const T extends EntityTenancy = "tenant">(
     source: "unmanaged",
     ...(input.tenancy === "global" && { tenancy: "global" as const }),
     // @cast-boundary phantom-brand — TenancyBrand<T> is a phantom marker with no runtime representation.
-  } as EntityTableMeta & TenancyBrand<T>;
+  } as EntityTableMeta & TenancyBrand<T>);
 }
 
 function assertUnmanagedTableName(tableName: string, via: string): void {

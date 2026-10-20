@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "generated": "2026-10-19",
-  "totalSuspect": 179,
+  "generated": "2026-10-20",
+  "totalSuspect": 168,
   "perFile": {
     "packages/bundled-features/src/auth-email-password/handlers/switch-tenant-mfa-gate.write.ts": {
       "TenantId": 1
@@ -37,9 +37,6 @@
     "packages/bundled-features/src/inbound-mail-foundation/connect-routes.ts": {
       "{ accountId?: unknown } | undefined": 1
     },
-    "packages/bundled-features/src/inbound-mail-foundation/retention-sweep.ts": {
-      "EntityTableMeta": 1
-    },
     "packages/bundled-features/src/inbound-provider-imap/feature.ts": {
       "MailboxObject": 2
     },
@@ -63,7 +60,6 @@
       "{ begin?: (f: (tx: DbRunner) => Promise<T>) => Promise<T>; s": 1
     },
     "packages/bundled-features/src/template-resolver/seeding.ts": {
-      "EntityTableMeta": 1,
       "Partial<TemplateResourceRow>": 1
     },
     "packages/bundled-features/src/tenant-lifecycle/run-tenant-destroy.ts": {
@@ -204,9 +200,6 @@
     "packages/framework/src/engine/steps/retry.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/engine/steps/unsafe-projection-delete.ts": {
-      "EntityTableMeta": 1
-    },
     "packages/framework/src/engine/validate-projection-allowlist.ts": {
       "{ readonly perform?: PipelineDef }": 1,
       "readonly StepInstance[]": 1,
@@ -240,12 +233,6 @@
       "TenantDb": 1
     },
     "packages/framework/src/pipeline/member-read-only-transaction.ts": {
-      "DbTx": 1
-    },
-    "packages/framework/src/pipeline/msp-rebuild.ts": {
-      "DbRunner": 2
-    },
-    "packages/framework/src/pipeline/projection-rebuild.ts": {
       "DbTx": 1
     },
     "packages/framework/src/pipeline/system-identity-switch.ts": {
@@ -351,14 +338,8 @@
       "readonly Readonly<Record<string, unknown>>[]": 1,
       "TData": 1
     },
-    "packages/testing/src/helpers/db-cleanup.ts": {
-      "EntityTableMeta": 1
-    },
     "packages/testing/src/helpers/late-bound.ts": {
       "T": 1
-    },
-    "packages/testing/src/helpers/seed.ts": {
-      "EntityTableMeta": 4
     },
     "packages/testing/src/preload/dom.ts": {
       "typeof import(\"@testing-library/react/pure\")": 1

@@ -1,23 +1,14 @@
 import type { AggregateRow, AggregateSpec } from "./aggregate-types.ts";
 import type { DbRunner } from "./db-connection.ts";
 import type { EntityTableMeta } from "./entity-table-meta-types.ts";
-import type { ExecutorOnly, NotExecutorOnly } from "./executor-brand.ts";
+import type { ExecutorManagedWriteCapability, Writable, WritableTable } from "./executor-brand.ts";
 import type { TenantId } from "./identifiers.ts";
 import type { SchemaTable } from "./schema-table-types.ts";
 import type { TenancyBrand } from "./tenancy-brand.ts";
 import type { SelectOptions, WhereObject } from "./where-clause-types.ts";
 
-// Method-form writes reject the executor-only brand exactly like the free-function
-// helpers (#742): a managed EntityTable is a rebuildable projection, so writing it
-// directly — free-function OR method-form — drifts the row past its event stream and
-// a rebuild wipes it. The permissive base stays (raw pgTables AND unmanaged entity
-// metas are not projections → writable); `& NotExecutorOnly` strips only branded
-// EntityTables (its `[EXECUTOR_ONLY]: true` violates the optional-never). Reads keep
-// the plain `SchemaTable` param.
-type WritableTable = (SchemaTable | EntityTableMeta) & NotExecutorOnly;
-
-// db.global(table)'s surface: reads are unrestricted; writes require the managed
-// EntityTable's executor-only brand to be absent (mirrors WritableTable above).
+// db.global(table)'s surface: reads are unrestricted; writes require the table's Writable brand
+// (a managed EntityTable lacks it, so it can only be written by the executor).
 type GlobalReads = {
   selectMany<T = Record<string, unknown>>(
     where?: WhereObject,
@@ -33,10 +24,8 @@ type GlobalWrites = {
   ): Promise<readonly T[]>;
   deleteMany(where: WhereObject): Promise<void>;
 };
-// Checks `extends ExecutorOnly`, not `NotExecutorOnly` — the latter's optional-never
-// property is a TS "weak type" that would silently collapse every TTable to GlobalReads.
 export type GlobalTableDb<TTable> = GlobalReads &
-  (TTable extends ExecutorOnly ? unknown : GlobalWrites);
+  (TTable extends Writable ? GlobalWrites : unknown);
 
 /**
  * TenantDb scope modes:
@@ -54,7 +43,23 @@ export type TenantDbMode = "tenant" | "system";
 // Read-only, tenant-unfiltered subset of TenantDb for jobs that declared the unsafeRaw grant.
 export type CrossTenantReads = Pick<TenantDb, "selectMany" | "fetchOne" | "count">;
 
-export type TenantDb = {
+// Generic over the table so ExecutorManagedTenantDb can accept event-fed tables; the plain
+// TenantDb only accepts Writable ones.
+export type TenantDbWrites<TTable> = {
+  insertOne<T = Record<string, unknown>>(
+    table: TTable,
+    values: Record<string, unknown>,
+  ): Promise<T | undefined>;
+  updateMany<T = Record<string, unknown>>(
+    table: TTable,
+    set: Record<string, unknown>,
+    where: WhereObject,
+  ): Promise<readonly T[]>;
+  // Resolves to the number of deleted rows.
+  deleteMany(table: TTable, where: WhereObject): Promise<number>;
+};
+
+type TenantDbNonWrites = {
   readonly tenantId: TenantId;
   readonly mode: TenantDbMode;
   /**
@@ -91,18 +96,14 @@ export type TenantDb = {
     spec: AggregateSpec,
     where?: WhereObject,
   ): Promise<readonly AggregateRow[]>;
-  insertOne<T = Record<string, unknown>>(
-    table: WritableTable,
-    values: Record<string, unknown>,
-  ): Promise<T | undefined>;
-  updateMany<T = Record<string, unknown>>(
-    table: WritableTable,
-    set: Record<string, unknown>,
-    where: WhereObject,
-  ): Promise<readonly T[]>;
-  // Resolves to the number of deleted rows.
-  deleteMany(table: WritableTable, where: WhereObject): Promise<number>;
 };
+
+export type TenantDb = TenantDbNonWrites & TenantDbWrites<WritableTable>;
+
+// Handle for apply/rebuild/tenant-destroy contexts: may also write event-fed tables.
+export type ExecutorManagedTenantDb = TenantDbNonWrites &
+  TenantDbWrites<EntityTableMeta> &
+  ExecutorManagedWriteCapability;
 
 // Symbol.for (global registry) so the brand identity matches even if kumiko-types
 // resolves to two independent copies (workspace symlink vs. published npm) — a plain

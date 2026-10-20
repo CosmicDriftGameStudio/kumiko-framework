@@ -6,6 +6,7 @@ import {
   table as pgTable,
   serial,
   text,
+  type WritableTable,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -67,11 +68,11 @@ export const jobRunEntity = createEntity({
   indexes: [{ columns: ["startedAt"] }],
 });
 
-// Plain EntityTableMeta, NOT a branded EntityTable (buildEntityTable would
-// mark it executor-only): job-run is an unmanaged direct-write store, so
+// Unmanaged meta, NOT buildEntityTable (its table is not Writable and only the
+// executor may write it): job-run is an unmanaged direct-write store, so
 // onJobStart/-Complete/-Failed need to write via ctx.db/insertOne directly
 // (same pattern as sessions/schema/user-session.ts).
-export const jobRunsTable: EntityTableMeta = deriveEntityTableMeta("job-run", jobRunEntity, {
+export const jobRunsTable: WritableTable = deriveEntityTableMeta("job-run", jobRunEntity, {
   source: "unmanaged",
 });
 export const jobRunsTableMeta = jobRunsTable;

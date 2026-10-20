@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { TenantId } from "../../../engine/types/index.ts";
-import type { ColumnMeta, EntityTableMeta } from "../../entity-table-meta.ts";
+import type { ColumnMeta } from "../../entity-table-meta.ts";
 import {
   aggregateWhere,
   asRawClient,
@@ -14,6 +14,7 @@ import {
   selectInnerJoin,
   selectMany,
 } from "../../query.ts";
+import type { WritableTable } from "../../table-builder.ts";
 import { createTenantDb } from "../../tenant-db.ts";
 import { closeDb, getDb, makeTableMeta, renderCreateTable, uniqueTableName } from "./_helpers.ts";
 
@@ -25,7 +26,7 @@ type TableDef = { readonly columns: readonly ColumnMeta[]; readonly extraDdl?: r
 
 async function withTables<T>(
   defs: readonly TableDef[],
-  fn: (ctx: { db: unknown; metas: readonly EntityTableMeta[] }) => Promise<T>,
+  fn: (ctx: { db: unknown; metas: readonly WritableTable[] }) => Promise<T>,
 ): Promise<T> {
   const db = await getDb();
   const raw = asRawClient(db);
@@ -49,7 +50,7 @@ function only<T>(items: readonly T[]): T {
   return first;
 }
 
-function pair(metas: readonly EntityTableMeta[]): [EntityTableMeta, EntityTableMeta] {
+function pair(metas: readonly WritableTable[]): [WritableTable, WritableTable] {
   const [left, right] = metas;
   if (!left || !right) throw new Error("fixture: expected two tables");
   return [left, right];
@@ -140,8 +141,8 @@ const ownerOn = [{ left: "ownerRef", right: "ownerRef" }] as const;
 describe("selectInnerJoin", () => {
   async function seedJoin(
     db: unknown,
-    left: EntityTableMeta,
-    right: EntityTableMeta,
+    left: WritableTable,
+    right: WritableTable,
   ): Promise<{ ownerA: string; ownerB: string }> {
     const ownerA = randomUUID();
     const ownerB = randomUUID();
@@ -290,7 +291,7 @@ const docCols: readonly ColumnMeta[] = [
 ];
 
 describe("where jsonText", () => {
-  async function seedDocs(db: unknown, table: EntityTableMeta, tenantId: string): Promise<void> {
+  async function seedDocs(db: unknown, table: WritableTable, tenantId: string): Promise<void> {
     await insertOne(db, table, {
       tenantId,
       payload: { handlerName: "h1", respondedModel: "m-resp", requestedModel: "m-req" },
@@ -311,11 +312,7 @@ describe("where jsonText", () => {
     });
   }
 
-  async function labelsFor(
-    db: unknown,
-    table: EntityTableMeta,
-    payload: unknown,
-  ): Promise<string[]> {
+  async function labelsFor(db: unknown, table: WritableTable, payload: unknown): Promise<string[]> {
     const rows = await selectMany<{ label: string }>(db, table, { payload });
     return rows.map((r) => r.label).sort();
   }
@@ -433,7 +430,7 @@ describe("aggregateWhere orderByKeys", () => {
   const eventCols: readonly ColumnMeta[] = [
     { name: "occurred_at", pgType: "timestamptz", notNull: true },
   ];
-  async function seedTimes(db: unknown, table: EntityTableMeta): Promise<void> {
+  async function seedTimes(db: unknown, table: WritableTable): Promise<void> {
     for (const day of ["01", "02", "03", "04"]) {
       await insertOne(db, table, { occurredAt: Temporal.Instant.from(`2026-02-${day}T00:00:00Z`) });
     }

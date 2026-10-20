@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
-import { createTenantDb } from "../../../db/tenant-db.ts";
+import { createTenantDataDestroyDb, createTenantDb } from "../../../db/tenant-db.ts";
 import { testTenantId } from "../../../seeding/seed-users.ts";
 import type { TenantDataHookCtx } from "../tenant-data.ts";
 import type { UserDataHookCtx } from "../user-data.ts";
@@ -26,7 +26,7 @@ function fakeRunner(): DbRunner {
 describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner", () => {
   test("compile-time: ctx.db has no raw .unsafe()/.begin() surface", () => {
     const tenantCtx: TenantDataHookCtx = {
-      db: createTenantDb({ db: fakeRunner(), tenantId }),
+      db: createTenantDataDestroyDb({ db: fakeRunner(), tenantId }),
       registry: {} as TenantDataHookCtx["registry"],
       tenantId,
     };
@@ -49,7 +49,7 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
 
   test("compile-time: ctx.db does not structurally satisfy DbRunner", () => {
     const tenantCtx: TenantDataHookCtx = {
-      db: createTenantDb({ db: fakeRunner(), tenantId }),
+      db: createTenantDataDestroyDb({ db: fakeRunner(), tenantId }),
       registry: {} as TenantDataHookCtx["registry"],
       tenantId,
     };
@@ -63,10 +63,9 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
   test("declared escape hatch: ctx.db.unsafeRaw() returns a real DbRunner", () => {
     const runner = fakeRunner();
     const tenantCtx: TenantDataHookCtx = {
-      db: createTenantDb({
+      db: createTenantDataDestroyDb({
         db: runner,
         tenantId,
-        mode: "tenant",
         grants: {
           unsafeRaw: { reason: "test: declared escape hatch" },
         },

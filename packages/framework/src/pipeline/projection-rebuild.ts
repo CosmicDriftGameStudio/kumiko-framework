@@ -275,7 +275,7 @@ export async function rebuildProjection(
         // savepoint-scoped handle so its statements are confined.
         try {
           await runInSavepoint(applyTx, async (sp) => {
-            await applyFn(storedEvent, sp as DbTx, projection.table);
+            await applyFn(storedEvent, sp, projection.table);
           });
         } catch (e) {
           skipped.push({ event: storedEvent, error: e });

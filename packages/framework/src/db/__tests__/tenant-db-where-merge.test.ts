@@ -4,6 +4,7 @@ import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import type { TableColumns } from "../dialect.ts";
 import { deriveEntityTableMeta } from "../entity-table-meta.ts";
+import { brandWritable } from "../table-introspection.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 // Tenant-isolation: a caller-supplied `where.tenantId` must NEVER override the
@@ -163,7 +164,7 @@ describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (deriveEnti
       name: createTextField({ personal: false, reason: "test_fixture" }),
     },
   });
-  const unmanagedTable = deriveEntityTableMeta("merge-meta-item", unmanagedEntity);
+  const unmanagedTable = brandWritable(deriveEntityTableMeta("merge-meta-item", unmanagedEntity));
 
   test("selectMany still applies the tenant scope (pre-fix: no WHERE at all)", async () => {
     const captured: Captured[] = [];

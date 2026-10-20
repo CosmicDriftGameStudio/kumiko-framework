@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import { deleteManyBatched } from "../../query.ts";
+import { brandWritable } from "../../table-introspection.ts";
 
 describe("deleteManyBatched (mock)", () => {
   test("requires non-empty where", async () => {
-    const meta: EntityTableMeta = {
+    const meta = brandWritable<EntityTableMeta>({
       source: "unmanaged",
       tableName: "read_items",
       indexes: [],
@@ -12,7 +13,7 @@ describe("deleteManyBatched (mock)", () => {
         { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
         { name: "flag", pgType: "boolean", notNull: true },
       ],
-    };
+    });
     const db = { unsafe: async () => [] as unknown[] };
     await expect(deleteManyBatched(db, meta, {}, { limit: 10 })).rejects.toThrow(
       "where clause required",

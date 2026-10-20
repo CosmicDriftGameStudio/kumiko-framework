@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import { instantToTimestamptzParam, selectMany } from "../../query.ts";
+import { brandWritable } from "../../table-introspection.ts";
 
-const meta: EntityTableMeta = {
+const meta = brandWritable<EntityTableMeta>({
   source: "unmanaged",
   tableName: "probe_rows",
   indexes: [],
@@ -13,7 +14,7 @@ const meta: EntityTableMeta = {
     { name: "at", pgType: "timestamptz", notNull: false },
     { name: "doc", pgType: "jsonb", notNull: false },
   ],
-};
+});
 
 // Captures the params selectMany binds, so the write-side coercion of Temporal
 // values is observable without a database.

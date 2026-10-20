@@ -13,6 +13,7 @@ import { randomBytes } from "node:crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
+  createTenantDataDestroyDb,
   createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -448,7 +449,7 @@ describe("files-tenant-data :: destroy hooks respect deadlineAt", () => {
     await seedFileRef(tenantA.tenantId, `${tenantA.tenantId}/second.bin`);
 
     const hookCtx = (deadlineAt: number) => ({
-      db: createTenantDb({ db, tenantId: tenantA.tenantId, mode: "system" }),
+      db: createTenantDataDestroyDb({ db, tenantId: tenantA.tenantId }),
       registry: stack.registry,
       tenantId: tenantA.tenantId,
       deadlineAt,
