@@ -91,6 +91,7 @@ describe("admin-shell boot + workspace composition", () => {
     expect(navs).toEqual([
       "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
+      "audit:nav:audit-log-all-tenants",
       "jobs:nav:job-runs",
       "admin-shell:nav:tier-admin",
     ]);
@@ -129,6 +130,7 @@ describe("admin-shell boot + workspace composition", () => {
     expect(registry.getWorkspaceNavs("admin-shell:workspace:sysadmin")).toEqual([
       "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
+      "audit:nav:audit-log-all-tenants",
       "jobs:nav:job-runs",
     ]);
   });
@@ -207,6 +209,7 @@ describe("admin-shell boot + workspace composition", () => {
       "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
       "admin-shell:nav:tenant-caps",
+      "audit:nav:audit-log-all-tenants",
       "jobs:nav:job-runs",
       "admin-shell:nav:tier-admin",
     ]);

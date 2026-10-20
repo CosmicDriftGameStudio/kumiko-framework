@@ -3,12 +3,11 @@
 // can only read events in their own tenant; a SystemAdmin can pass scope
 // "system" to read app-instance system events (e.g. app.started).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";
-import { redactPiiCiphertext } from "../../shared/index.ts";
 import { AUDIT_SCOPE_VALUES } from "../constants.ts";
+import { auditEventIdSchema, loadAuditEvent } from "./audit-events.ts";
+import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
 
 export const detailsQuery = defineQueryHandler({
@@ -16,46 +15,19 @@ export const detailsQuery = defineQueryHandler({
   description:
     'Returns one audit-trail event of the caller\'s tenant by its event-store id, with full payload and metadata; use it to inspect the exact change behind a row of the audit log list. A SystemAdmin can set scope "system" to read an app-instance system event (e.g. app.started).',
   schema: z.object({
-    id: z.string().regex(/^[1-9]\d*$/, "id must be a positive integer"),
+    id: auditEventIdSchema,
     scope: z.enum(AUDIT_SCOPE_VALUES).optional(),
   }),
   access: { roles: access.admin },
   handler: async (query, ctx) => {
     const scopeFilter = resolveAuditScopeFilter(query.user, query.payload.scope);
-    const rows = await selectMany<{
-      id: bigint;
-      aggregateId: string;
-      aggregateType: string;
-      version: number;
-      type: string;
-      payload: Record<string, unknown>;
-      metadata: Record<string, unknown>;
-      createdAt: unknown;
-      createdBy: string;
-    }>(
-      ctx.db,
-      eventsTable,
-      {
-        tenantId: scopeFilter.tenantId,
-        ...(scopeFilter.aggregateType !== undefined && {
-          aggregateType: scopeFilter.aggregateType,
-        }),
-        id: BigInt(query.payload.id),
-      },
-      { limit: 1 },
+    const db = requireAuditSystemDb(ctx.systemDb, "audit:query:details").assertTenantMatch(
+      query.user.tenantId,
     );
-    const row = rows[0];
-    if (row === undefined) return null;
-    return {
-      id: String(row.id),
-      aggregateId: row.aggregateId,
-      aggregateType: row.aggregateType,
-      version: row.version,
-      type: row.type,
-      payload: redactPiiCiphertext(row.payload),
-      metadata: row.metadata,
-      createdAt: row.createdAt,
-      createdBy: row.createdBy,
-    };
+    return loadAuditEvent(db, {
+      tenantId: scopeFilter.tenantId,
+      ...(scopeFilter.aggregateType !== undefined && { aggregateType: scopeFilter.aggregateType }),
+      id: BigInt(query.payload.id),
+    });
   },
 });

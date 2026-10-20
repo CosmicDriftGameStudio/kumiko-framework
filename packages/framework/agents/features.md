@@ -10,7 +10,7 @@ Requires: `sessions`, `auth-mfa`
 
 ## admin-shell
 
-Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.
+Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `audit:screen:audit-log-all-tenants`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.
 
 Category: operations
 
@@ -24,7 +24,7 @@ Category: ai
 
 ## audit
 
-Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection — the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: "system"` to read the app-instance system events such as `app.started`. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).
+Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection — the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: "system"` to read the app-instance system events such as `app.started`, and reads the events of every tenant (system tenant excluded) through `audit:query:list-all-tenants` and the `audit-log-all-tenants` screen. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).
 
 Category: compliance
 
