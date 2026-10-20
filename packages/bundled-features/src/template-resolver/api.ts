@@ -22,8 +22,9 @@ import {
   deliveryPolicyOf,
   isRowServed,
   isServedByCollectionOnly,
+  type TemplateDeliveryPolicy,
 } from "./template-delivery-policy.ts";
-import { activeVersionOf, servedVersionOf } from "./template-draft.ts";
+import { activeVersionOf, isSystemAdmin, servedVersionOf } from "./template-draft.ts";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.ts";
 
 // Public TemplateResource: what consumers see. Hides DB-internal columns
@@ -130,13 +131,7 @@ export function createTemplateResolverApi(
 ): TemplateResolverApi {
   const deliveryPolicy = deliveryPolicyOf(registry);
   // A collection entry must not shadow a system template of the same slug that the app did not unlock.
-  const isServed = async (row: TemplateResourceRow): Promise<boolean> => {
-    if (!isRowServed(deliveryPolicy, row)) return false;
-    if (row.tenantId === SYSTEM_TENANT_ID || !isServedByCollectionOnly(deliveryPolicy, row)) {
-      return true;
-    }
-    return !(await systemTemplateExists(db, row.kind, row.slug));
-  };
+  const isServed = (row: TemplateResourceRow) => isRowDelivered(db, deliveryPolicy, row);
   return {
     findExact: async ({ tenantId, slug, kind, locale, scope }) => {
       const effectiveTenantId = scope === "system" ? SYSTEM_TENANT_ID : tenantId;
@@ -178,6 +173,37 @@ export function createTemplateResolverApi(
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
   };
+}
+
+// The one delivery rule for a stored row: unlocked, and a collection entry never shadows a system
+// template of the same slug that the app did not unlock.
+export async function isRowDelivered(
+  db: DbRunner | TenantDb,
+  policy: TemplateDeliveryPolicy,
+  row: TemplateResourceRow,
+): Promise<boolean> {
+  if (!isRowServed(policy, row)) return false;
+  if (row.tenantId === SYSTEM_TENANT_ID || !isServedByCollectionOnly(policy, row)) return true;
+  return !(await systemTemplateExists(db, row.kind, row.slug));
+}
+
+export async function isRowDeliveredTo(
+  db: DbRunner | TenantDb,
+  policy: TemplateDeliveryPolicy,
+  user: { readonly roles: readonly string[] },
+  row: TemplateResourceRow,
+): Promise<boolean> {
+  return isSystemAdmin(user) || (await isRowDelivered(db, policy, row));
+}
+
+export async function filterDeliveredTo(
+  db: DbRunner | TenantDb,
+  policy: TemplateDeliveryPolicy,
+  user: { readonly roles: readonly string[] },
+  rows: readonly TemplateResourceRow[],
+): Promise<TemplateResourceRow[]> {
+  const flags = await Promise.all(rows.map((row) => isRowDeliveredTo(db, policy, user, row)));
+  return rows.filter((_, index) => flags[index]);
 }
 
 export async function systemTemplateExists(

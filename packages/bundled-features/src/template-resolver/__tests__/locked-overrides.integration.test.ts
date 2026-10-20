@@ -1,5 +1,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createAnonymousUser,
+  defineFeature,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -400,6 +404,67 @@ describe("locked template overrides :: a collection does not open system templat
         tenantAdmin,
       );
       expect(await resolveContent(stack, FREE_SLUG, "document-pdf")).toContain("Freier Eintrag");
+    } finally {
+      await stack.cleanup();
+    }
+  });
+});
+
+describe("locked template overrides :: public text-block paths follow the same rule", () => {
+  test("a collection text-block that shadows a system block is not served anonymously", async () => {
+    const stack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature({
+          collections: [
+            {
+              id: "pages",
+              kind: "text-block",
+              access: { roles: ["TenantAdmin"] },
+              nav: { label: "x:nav.pages" },
+            },
+          ],
+        }),
+      ],
+    });
+    try {
+      await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+      const block = (blockTenantId: string, slug: string, content: string) =>
+        seedRow(stack.db, templateResourcesTable, {
+          tenantId: blockTenantId,
+          slug,
+          kind: "text-block",
+          locale: "de",
+          scope: blockTenantId === SYSTEM_TENANT_ID ? "system" : "tenant",
+          status: "active",
+          title: slug,
+          content,
+          contentFormat: "markdown",
+          variableSchema: "{}",
+          linkedResources: "{}",
+          meta: "{}",
+          insertedById: "test",
+          modifiedById: "test",
+        });
+      await block(SYSTEM_TENANT_ID, "imprint", "System-Impressum");
+      await block(tenantId, "imprint", "Tenant-Impressum");
+      await block(tenantId, "about", "Ueber uns");
+
+      const anonymous = createAnonymousUser(tenantId);
+      const bySlug = (slug: string) =>
+        stack.http.queryOk<{ content: string } | null>(
+          TemplateResolverQueries.bySlug,
+          { slug, locale: "de" },
+          anonymous,
+        );
+      expect(await bySlug("imprint")).toBeNull();
+      expect((await bySlug("about"))?.content).toBe("Ueber uns");
+
+      const listed = await stack.http.queryOk<{ blocks: { slug: string }[] }>(
+        TemplateResolverQueries.byTenant,
+        {},
+        anonymous,
+      );
+      expect(listed.blocks.map((entry) => entry.slug)).toEqual(["about"]);
     } finally {
       await stack.cleanup();
     }

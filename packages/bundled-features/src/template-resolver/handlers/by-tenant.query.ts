@@ -2,10 +2,10 @@ import { castTenantRows, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { filterDeliveredTo } from "../api.ts";
 import { TEXT_BLOCK_KIND } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
-import { deliveryPolicyOf, isRowServed } from "../template-delivery-policy.ts";
-import { isSystemAdmin } from "../template-draft.ts";
+import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 
 // All text-blocks of one tenant — feeds the public content tree sidebar.
 // Anonymous is listed explicitly so no-JWT visitors get the sidebar on public
@@ -42,9 +42,7 @@ export const byTenantQuery = defineQueryHandler({
       await selectMany(ctx.db, templateResourcesTable, { tenantId, kind: TEXT_BLOCK_KIND }),
     );
     const policy = deliveryPolicyOf(ctx.registry);
-    const served = isSystemAdmin(query.user)
-      ? rows
-      : rows.filter((row) => isRowServed(policy, row));
+    const served = await filterDeliveredTo(ctx.db, policy, query.user, rows);
     return {
       blocks: served.map((row) => ({
         slug: row.slug,
