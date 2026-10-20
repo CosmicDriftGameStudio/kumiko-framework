@@ -46,6 +46,7 @@ import {
   defineWriteHandler,
   QnTypes,
   qn,
+  type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
@@ -355,7 +356,7 @@ afterEach(() => {
 async function uploadImageFor(
   templateId: string,
   key: string,
-  user: typeof TestUsers.systemAdmin = TestUsers.systemAdmin,
+  user: SessionUser = TestUsers.systemAdmin,
 ): Promise<void> {
   const token = await stack.jwt.sign(user);
   const fd = new FormData();
@@ -381,7 +382,7 @@ async function uploadImageFor(
 }
 
 async function uploadFile(
-  user: typeof TestUsers.systemAdmin,
+  user: SessionUser,
   name: string,
   mimeType: string,
   bytes: Uint8Array,

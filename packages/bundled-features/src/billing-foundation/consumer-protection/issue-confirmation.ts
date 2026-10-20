@@ -29,6 +29,7 @@ import {
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
 import { contractConfirmationVariables } from "./confirmation-mail.ts";
 import { resolveConsentLocale } from "./consent-text.ts";
+import { openStoredUserEmail } from "./stored-user-email.ts";
 
 export const issueContractConfirmationSchema = z
   .object({
@@ -142,7 +143,14 @@ export function createIssueContractConfirmationHandler(
           id: consent.actorUserId,
         }),
       );
-      if (!recipient.success || recipient.data.isDeleted === true) {
+      const recipientEmail =
+        recipient.success && recipient.data.isDeleted !== true
+          ? await openStoredUserEmail(
+              recipient.data.email,
+              "billing-foundation:issue-contract-confirmation",
+            )
+          : null;
+      if (!recipient.success || recipientEmail === null) {
         ctx.log?.warn(
           `[billing-foundation:issue-contract-confirmation] recipient of consent ${payload.consentId} not found; no mail sent`,
         );
@@ -219,7 +227,7 @@ export function createIssueContractConfirmationHandler(
       await stream.appendOne({ type: CONTRACT_CONFIRMATION_ISSUED_EVENT_QN, payload: issued });
 
       await ctx.notify(CONTRACT_CONFIRMATION_NOTIFICATION_TYPE, {
-        route: { email: recipient.data.email },
+        route: { email: recipientEmail },
         data: variables,
         locale,
         priority: "critical",

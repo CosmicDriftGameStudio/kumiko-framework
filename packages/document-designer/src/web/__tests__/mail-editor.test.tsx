@@ -74,7 +74,22 @@ function storedRow(
   };
 }
 
-const validation = {
+type ValidationIssue = { path: string; code: string; i18nKey: string };
+
+type ValidationAnswer = {
+  canSave: boolean;
+  canPublish: boolean;
+  issues: ValidationIssue[];
+  publishIssues: ValidationIssue[];
+  used: string[];
+  unknown: string[];
+  missingRequired: string[];
+  warnings: ValidationIssue[];
+  variables: Record<string, { type: string; label: string; required?: boolean }>;
+  systemPlaceholders: string[];
+};
+
+const validation: ValidationAnswer = {
   canSave: true,
   canPublish: false,
   issues: [],
@@ -96,6 +111,8 @@ const validation = {
   systemPlaceholders: ["tenantName"],
 };
 
+const previewSampleValues: Record<string, unknown> = { invoiceNumber: "RE-1" };
+
 const preview = {
   kind: "mail",
   subject: "Ihre Rechnung",
@@ -105,7 +122,7 @@ const preview = {
   text: "Hallo",
   attachments: [{ kind: "file", name: "agb.pdf", sizeBytes: 2048 }],
   layout: { slug: "default", scope: "system" },
-  sampleValues: { invoiceNumber: "RE-1" },
+  sampleValues: previewSampleValues,
   checks: [{ code: "text_present", ok: true, i18nKey: "templateResolver.checks.textPresent" }],
   validation,
 };
@@ -476,7 +493,7 @@ describe("MailEditor", () => {
     const upsert = calls.find((call) => call.type === "template-resolver:write:upsert-tenant");
     const meta = (upsert?.payload as { meta?: Record<string, unknown> } | undefined)?.meta;
     expect(meta).toBeDefined();
-    expect(meta?.tone).toBeUndefined();
+    expect(meta?.["tone"]).toBeUndefined();
   });
 
   test("saving an active row writes a draft without asking", async () => {

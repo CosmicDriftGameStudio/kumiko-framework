@@ -13,7 +13,8 @@ import {
   type Scenario,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { loginAsAdmin } from "./_helpers/login";
+import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
+import { loginAs, loginAsAdmin } from "./_helpers/login";
 
 const RENDER_MARKERS =
   '[data-testid="render-edit-form"], [data-testid="render-list-table"], [data-testid="render-list-empty"]';
@@ -22,6 +23,13 @@ const open = (path: string) => async (page: Page) => {
   await loginAsAdmin(page);
   await page.goto(path);
 };
+
+const PLAN_CARD = '[data-testid="billing-plan-card-starter"]';
+
+async function openPlansAsTenantAdmin(page: Page): Promise<void> {
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto("/billing-plans");
+}
 
 const SCENARIOS: readonly Scenario[] = [
   {
@@ -35,6 +43,21 @@ const SCENARIOS: readonly Scenario[] = [
     description: "Generated edit screen",
     flow: open("/task-edit"),
     waitFor: RENDER_MARKERS,
+  },
+  {
+    name: "billing-plans",
+    description: "Plan overview with the contact card",
+    flow: openPlansAsTenantAdmin,
+    waitFor: PLAN_CARD,
+  },
+  {
+    name: "billing-consent",
+    description: "Checkout consent dialog after choosing the Starter plan",
+    flow: async (page) => {
+      await openPlansAsTenantAdmin(page);
+      await page.locator(PLAN_CARD).getByRole("button").click();
+    },
+    waitFor: '[data-testid="checkout-consent-dialog"]',
   },
 ];
 

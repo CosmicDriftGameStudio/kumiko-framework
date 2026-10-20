@@ -31,6 +31,7 @@ import {
 import { purchaseRolesOf } from "../plan-catalog.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
 import { resolveConsentLocale } from "./consent-text.ts";
+import { openStoredUserEmail } from "./stored-user-email.ts";
 import { type TerminationDeclaration, terminationReceiptVariables } from "./termination-mail.ts";
 import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.ts";
 import { mayMailReceipt } from "./termination-receipt-limit.ts";
@@ -291,7 +292,11 @@ export function createTerminateContractHandler(
           id: event.user.id,
         }),
       );
-      if (!caller.success || !caller.data.email || caller.data.isDeleted === true) {
+      const callerEmail =
+        caller.success && caller.data.email && caller.data.isDeleted !== true
+          ? await openStoredUserEmail(caller.data.email, "billing-foundation:terminate-contract")
+          : null;
+      if (callerEmail === null) {
         throw new InternalError({
           message: "billing-foundation:terminate-contract: calling user has no email on record",
         });
@@ -323,7 +328,7 @@ export function createTerminateContractHandler(
         declaration: {
           declarationType,
           terminationKind,
-          email: caller.data.email,
+          email: callerEmail,
           ...(payload.reason !== undefined && { reason: payload.reason }),
         },
         reasons: [

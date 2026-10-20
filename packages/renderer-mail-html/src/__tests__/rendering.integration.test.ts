@@ -180,7 +180,10 @@ describe("renderer-mail-html :: registration", () => {
   });
 
   test("a request of another kind is rejected as invalid_payload", async () => {
-    const request: RenderRequest = { kind: "document-pdf", payload: {} };
+    const request: RenderRequest = {
+      kind: "document-pdf",
+      payload: { slug: "welcome", locale: "de", variables: {} },
+    };
     const failure = await plugin
       .render(request, { db: stack.db, registry: stack.registry, tenantId: tenantId(1) })
       .catch((error: unknown) => error);
@@ -215,10 +218,10 @@ describe("renderer-mail-html :: seeded template", () => {
       locale: LOCALE,
     });
     const result = await renderMail(tenantId(1));
-    expect(seeded).not.toBeNull();
+    if (seeded === null) throw new Error("seeded system template not found");
     expect(result.template).toEqual({
-      templateId: seeded?.id,
-      templateVersion: seeded?.version,
+      templateId: seeded.id,
+      templateVersion: seeded.version,
       scope: "system",
     });
   });
@@ -357,9 +360,10 @@ describe("renderer-mail-html :: layout resolution", () => {
       kind: "mail-layout",
       locale: LOCALE,
     });
+    if (systemLayout === null) throw new Error("system layout not found");
     expect(result.layout).toEqual({
-      templateId: systemLayout?.id,
-      templateVersion: systemLayout?.version,
+      templateId: systemLayout.id,
+      templateVersion: systemLayout.version,
       scope: "system",
     });
   });

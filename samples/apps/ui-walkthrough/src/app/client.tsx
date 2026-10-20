@@ -2,6 +2,7 @@
 // übergibt Shell + clientFeatures an createKumikoApp.
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import { billingFoundationClient } from "@cosmicdrift/kumiko-bundled-features/billing-foundation/web";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { documentDesignerClient } from "@cosmicdrift/kumiko-document-designer/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
@@ -21,6 +22,7 @@ createKumikoApp({
     rentalClient,
     vehiclesClient,
     billingClient,
+    billingFoundationClient(),
     textBlocksClient(),
     documentDesignerClient(),
   ],

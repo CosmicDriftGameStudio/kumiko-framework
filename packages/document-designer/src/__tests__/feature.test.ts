@@ -25,7 +25,7 @@ describe("document-designer feature", () => {
         registry.getScreen("document-designer:screen:layout-editor")?.access,
         registry.getScreen("document-designer:screen:mail-editor")?.access,
         registry.getScreen(`document-designer:screen:${PDF_TEMPLATE_EDITOR_SCREEN_ID}`)?.access,
-      ].map((rule) => rule?.roles);
+      ].map((rule) => (rule !== undefined && "roles" in rule ? rule.roles : undefined));
     expect(
       tenantRules(createRegistry(features)).every((r) => r?.length === 1 && r[0] === "SystemAdmin"),
     ).toBe(true);
