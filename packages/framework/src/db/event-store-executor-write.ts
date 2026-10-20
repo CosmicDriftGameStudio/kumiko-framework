@@ -65,8 +65,8 @@ import { tenantDbWriteRunner } from "./tenant-db-runner.ts";
 
 // The echoed event carries entity PII and must never reach a handler's JSON response, while
 // hooks and projections still read it by property. Non-enumerable keeps it out of spread/stringify.
-function withoutEventInJson<T extends { readonly event: unknown }>(save: T): T {
-  return Object.defineProperty(save, "event", { value: save.event, enumerable: false });
+function withoutEventInJson<T extends { readonly event: unknown }>(result: T): T {
+  return Object.defineProperty(result, "event", { value: result.event, enumerable: false });
 }
 
 // Custom projections for a write that did not go through the dispatcher (hook or
@@ -961,14 +961,14 @@ export function createWriteVerbs(
 
       return {
         isSuccess: true,
-        data: {
+        data: withoutEventInJson({
           kind: "delete",
           id: payload.id,
           data: existing,
           entityName,
           event: echoEvent,
           ...(isLockGuardBypassed(user, options) && { lockGuardBypassed: true }),
-        },
+        }),
       };
     },
 
@@ -1075,14 +1075,14 @@ export function createWriteVerbs(
 
       return {
         isSuccess: true,
-        data: {
+        data: withoutEventInJson({
           kind: "delete",
           id: payload.id,
           data: existing,
           entityName,
           event: echoEvent,
           lockGuardBypassed: true,
-        },
+        }),
       };
     },
 

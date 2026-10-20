@@ -49,6 +49,7 @@ import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-r
 import { buildDisplayHtml } from "./preview-display-html.ts";
 import { TemplateResolverErrors } from "./qualified-names.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
+import { deliveryPolicyOf, isRowServedTo } from "./template-delivery-policy.ts";
 import {
   isMailTemplateMeta,
   type MailTemplateMeta,
@@ -326,6 +327,9 @@ async function loadEditedRowResources(
     { limit: 1 },
   );
   const row = rows[0];
+  if (row !== undefined && !isRowServedTo(deliveryPolicyOf(ctx.registry), user, row)) {
+    return undefined;
+  }
   return row === undefined ? undefined : parseLinkedResourceEntries(row.linkedResources);
 }
 

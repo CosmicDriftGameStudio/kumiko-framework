@@ -149,7 +149,10 @@ export function effectiveMailLayoutSlugs(
   }
   const bySlug = new Map<string, Map<string, string>>();
   for (const group of byLocale.values()) {
-    const effective = effectiveRowsOf(group, policy)?.rows[0];
+    const effectiveRows = effectiveRowsOf(group, policy);
+    // A locked tenant row without a system row is not delivered, so it names no layout.
+    if (effectiveRows?.lockedOverride && effectiveRows.origin === "tenant") continue;
+    const effective = effectiveRows?.rows[0];
     // All-archived: the renderer falls back to the code-registered template.
     if (effective === undefined || effective.status === "archived") continue;
     const locales = bySlug.get(effective.slug) ?? new Map<string, string>();

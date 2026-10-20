@@ -33,6 +33,12 @@ const feature = defineFeature("echo-event", (r) => {
     handler: async (event, ctx) => executor().update(event.payload, event.user, ctx.db),
     access: { roles: ["Admin"] },
   });
+  r.writeHandler({
+    name: "item:delete",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => executor().delete(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
   for (const target of ["item:create", "item:update"]) {
     r.hook({
       type: "postSave",
@@ -71,6 +77,13 @@ describe("SaveContext.event stays out of JSON responses", () => {
       TestUsers.admin,
     );
     expect(updated).not.toHaveProperty("event");
+
+    const deleted = await stack.http.writeOk(
+      "echo-event:write:item:delete",
+      { id: created["id"] },
+      TestUsers.admin,
+    );
+    expect(deleted).not.toHaveProperty("event");
 
     expect(postSaveEvents).toHaveLength(2);
     expect(postSaveEvents.every((e) => e !== undefined)).toBe(true);

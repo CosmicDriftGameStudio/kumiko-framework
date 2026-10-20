@@ -78,6 +78,8 @@ export type TemplateResolverApi = {
    * den übergebenen tenantId). Default = Lookup gegen den übergebenen
    * tenantId direkt (Caller wählt entweder Tenant oder System per
    * tenantId).
+   *
+   * Tenant rows of a template that is not tenantEditable are not returned.
    */
   readonly findExact: (args: {
     readonly tenantId: TenantId;
@@ -127,7 +129,7 @@ export function createTemplateResolverApi(
     findExact: async ({ tenantId, slug, kind, locale, scope }) => {
       const effectiveTenantId = scope === "system" ? SYSTEM_TENANT_ID : tenantId;
       const row = await fetchTemplate(db, effectiveTenantId, slug, kind, locale);
-      return row ? toPublic(row) : null;
+      return row && isRowServed(deliveryPolicy, row) ? toPublic(row) : null;
     },
 
     resolveTemplate: async ({ tenantId, slug, kind, locale }) => {

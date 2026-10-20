@@ -1,15 +1,18 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { createTemplateResolverApi } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { OverviewResponse } from "../index.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
-import { templateResourceEntity } from "../table.ts";
+import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const MAIL_SLUG = "locked-ov:notify:welcome";
@@ -134,7 +137,7 @@ describe("locked template overrides :: mail free, linked PDF and layout locked",
     expect(await resolveLayoutContent(current.stack)).toBe(SYSTEM_LAYOUT);
   });
 
-  test("a SystemAdmin sees the locked override flagged and may reset it, a TenantAdmin does not see it", async () => {
+  test("a SystemAdmin sees the locked override flagged and may reset it, the template-resolver queries do not show it to a TenantAdmin", async () => {
     await ready;
     const { stack, overrideIds } = current;
     const asSystemAdmin = await overview(stack, systemAdmin);
@@ -194,6 +197,122 @@ describe("locked template overrides :: nothing unlocked, then unlocked", () => {
         `override ${PDF_SLUG}`,
       );
       expect(await resolveLayoutContent(stack)).toBe(TENANT_LAYOUT);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+});
+
+const USE_SLUG = "locked-use:notify:welcome";
+const LOCKED_LAYOUT = "promo";
+const BANNER_KEY = "banner";
+const BANNER_FILE_REF = "00000000-0000-4000-8000-0000000000bb";
+
+const lockedUse = defineFeature("locked-use", (r) => {
+  r.writeHandler({
+    name: "welcome",
+    schema: z.object({}),
+    access: { roles: ["TenantAdmin"] },
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+  });
+  r.notification("welcome", {
+    trigger: { on: "welcome" },
+    recipient: () => null,
+    data: () => ({}),
+    template: { de: { body: "<p>Willkommen</p>" } },
+    meta: { de: { subject: "Willkommen" } },
+  });
+});
+
+describe("locked template overrides :: side channels stay closed", () => {
+  test("a locked row leaks neither its image keys nor its layout choice nor an exact lookup", async () => {
+    const stack = await setupTestStack({
+      features: [createTemplateResolverFeature(), lockedUse],
+    });
+    try {
+      await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+      await seedRow(stack.db, templateResourcesTable, {
+        tenantId,
+        slug: USE_SLUG,
+        kind: "mail",
+        locale: "de",
+        scope: "tenant",
+        status: "active",
+        content: "<p>Eigen</p>",
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: JSON.stringify({ [BANNER_KEY]: BANNER_FILE_REF }),
+        meta: JSON.stringify({ subject: "Eigen", layoutSlug: LOCKED_LAYOUT }),
+        insertedById: "test",
+        modifiedById: "test",
+      });
+
+      const validation = await stack.http.queryOk<{ warnings: { detail: string }[] }>(
+        TemplateResolverQueries.validate,
+        {
+          slug: USE_SLUG,
+          kind: "mail",
+          contentFormat: "html",
+          content: `<p>Hallo</p><img data-resource="${BANNER_KEY}" alt="Banner">`,
+          meta: { subject: "Betreff" },
+          locale: "de",
+        },
+        tenantAdmin,
+      );
+      expect(validation.warnings.map((warning) => warning.detail)).toContain(BANNER_KEY);
+
+      const usage = (layout: string) =>
+        stack.http.queryOk<{ usedBy: { qualifiedName: string }[] }>(
+          TemplateResolverQueries.usage,
+          { slug: layout, kind: "mail-layout" },
+          tenantAdmin,
+        );
+      expect((await usage(LOCKED_LAYOUT)).usedBy).toEqual([]);
+      expect((await usage(LAYOUT_SLUG)).usedBy.map((entry) => entry.qualifiedName)).toContain(
+        USE_SLUG,
+      );
+
+      const exact = await createTemplateResolverApi(stack.db, stack.registry).findExact({
+        tenantId,
+        slug: USE_SLUG,
+        kind: "mail",
+        locale: "de",
+      });
+      expect(exact).toBeNull();
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("document-blocks does not list the image keys of a locked row", async () => {
+    const { stack } = await stackWith([[], []]);
+    try {
+      await stack.http.writeOk(
+        TemplateResolverHandlers.upsertSystem,
+        document("locked-ov:doc", "document-pdf", "system doc"),
+        systemAdmin,
+      );
+      await seedRow(stack.db, templateResourcesTable, {
+        tenantId,
+        slug: "locked-ov:doc",
+        kind: "document-pdf",
+        locale: "de",
+        scope: "tenant",
+        status: "active",
+        content: "<p>Eigen</p>",
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: JSON.stringify({ [BANNER_KEY]: BANNER_FILE_REF }),
+        meta: "{}",
+        insertedById: "test",
+        modifiedById: "test",
+      });
+      const blocks = await stack.http.queryOk<{ resourceKeys: string[] }>(
+        TemplateResolverQueries.documentBlocks,
+        { slug: "locked-ov:doc", kind: "document-pdf", locale: "de" },
+        tenantAdmin,
+      );
+      expect(blocks.resourceKeys).not.toContain(BANNER_KEY);
     } finally {
       await stack.cleanup();
     }

@@ -10,6 +10,7 @@ import type { ContentFormat, UpsertKind } from "../constants.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import { imageResourceKeysOf } from "../linked-resources.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { isSystemAdmin } from "../template-draft.ts";
 import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-validation.ts";
 import { contentFormatSchema, kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
@@ -67,7 +68,8 @@ export async function knownResourceKeysFor(
       scope: "system",
       locale,
     })),
-    ...(scope === "tenant"
+    ...(scope === "tenant" &&
+    isRowServedTo(deliveryPolicyOf(ctx.registry), user, { tenantId: user.tenantId, kind, slug })
       ? await knownResourceKeys(ctx.db, { tenantId: user.tenantId, slug, kind, scope, locale })
       : []),
   ];

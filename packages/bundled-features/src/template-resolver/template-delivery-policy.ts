@@ -34,7 +34,7 @@ export function isRowServed(
 }
 
 // A SystemAdmin sees every stored row, so a locked override can still be reset; everyone else
-// sees only what is delivered, which keeps a locked override invisible to a TenantAdmin.
+// sees only what is delivered, which keeps a locked override out of the template-resolver queries for a TenantAdmin (the audit log keeps the history).
 export function isRowServedTo(
   policy: TemplateDeliveryPolicy,
   user: { readonly roles: readonly string[] },

@@ -98,6 +98,13 @@ const invMailer = defineFeature("inv-mailer", (r) => {
     },
     meta: { de: { subject: "Rechnung {{invoiceNumber}}" } },
   });
+  r.notification("locked", {
+    trigger: { on: "create" },
+    recipient: () => null,
+    data: () => ({}),
+    template: { de: { body: "<p>Gesperrt</p>" } },
+    meta: { de: { subject: "Gesperrt" } },
+  });
   r.translations({
     keys: {
       "inv-mailer:mail.example.headline": { de: "Neue Rechnung", en: "New invoice" },
@@ -884,5 +891,55 @@ describe("template-resolver :: preview resources of an edited row without resour
     expect(preview.html).not.toContain("cid:logo");
     expect(preview.attachments).toEqual([]);
     expect(checkOf(preview, "resources_resolved")?.ok).toBe(false);
+  });
+});
+
+describe("template-resolver :: preview ignores the resources of a locked row", () => {
+  const LOCKED_SLUG = "inv-mailer:notify:locked";
+
+  test("the file attachment stored on a locked tenant row is not offered", async () => {
+    const admin = adminOf(60);
+    const row = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: LOCKED_SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        content: "<p>Eigen</p>",
+        contentFormat: "html",
+        meta: { subject: "Eigen" },
+        variableSchema: {},
+        status: "active",
+        tenantIdOverride: admin.tenantId,
+      },
+      TestUsers.systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId: await uploadFile(TestUsers.systemAdmin, PDF_BYTES, {
+          name: "offer.pdf",
+          type: "application/pdf",
+        }),
+        templateId: row.id,
+        key: "offer",
+        purpose: "attachment",
+        fileName: "offer.pdf",
+        tenantIdOverride: admin.tenantId,
+      },
+      TestUsers.systemAdmin,
+    );
+    const preview = await stack.http.queryOk<{ attachments: Array<{ name: string }> }>(
+      TemplateResolverQueries.preview,
+      {
+        slug: LOCKED_SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        content: "<p>Entwurf</p>",
+        meta: { subject: "Entwurf" },
+      },
+      admin,
+    );
+    expect(preview.attachments.map((attachment) => attachment.name)).not.toContain("offer.pdf");
   });
 });
