@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.381.0",
+    "type": "improvement",
+    "title": "Deterministic concurrency test helpers",
+    "detail": "createBarrier proves handler calls overlapped, burst fires N requests and tallies statuses with a guard against the pool size, TestStack exposes dbPoolMax."
+  },
+  {
     "version": "0.376.0",
     "type": "fix",
     "title": "MEILI_URL in the test preload follows the app's Meilisearch port",
