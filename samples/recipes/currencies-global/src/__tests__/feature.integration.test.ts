@@ -24,7 +24,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { currencyEntity, currencyTable } from "../entities/currency";
+import { currencyEntity } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";
 import { tenantCurrencyEntity } from "../entities/tenant-currency";
 import { currenciesGlobalFeature } from "../feature";
@@ -49,8 +49,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Seed global currency table — same as r.referenceData() does at boot
-  const tables = new Map([["currency", currencyTable]]);
-  await seedReferenceData(currenciesGlobalFeature.referenceData, tables, stack.db);
+  await seedReferenceData(currenciesGlobalFeature.referenceData, stack.registry, stack.db);
 
   // --- Assign currencies to tenant 1: EUR, USD (standard) + BHD, XYZ (custom) ---
   for (const currencyCode of ["EUR", "USD", "BHD", "XYZ"]) {

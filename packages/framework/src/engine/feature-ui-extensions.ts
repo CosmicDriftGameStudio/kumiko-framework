@@ -7,6 +7,7 @@ import {
   type WebSocketRouteDefinition,
 } from "@cosmicdrift/kumiko-types/websocket-route";
 import type { EntityTableMeta } from "../db/entity-table-meta.ts";
+import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
 import { LifecycleHookTypes } from "./constants.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
@@ -411,6 +412,9 @@ export function buildUiExtensionsMethods<TName extends string>(
           `[Feature ${name}] Projection "${definition.name}" already registered. ` +
             `Projection names must be unique per feature.`,
         );
+      }
+      if (typeof definition.table === "object" && definition.table !== null) {
+        markExecutorManagedTable(definition.table);
       }
       state.projections[definition.name] = definition;
     },

@@ -4,6 +4,7 @@
 // validation, so the row could only be fed outside the replay and the ghost-row
 // guard aborted the rebuild.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -110,7 +111,7 @@ beforeEach(async () => {
 // separate path, e.g. an MSP sync), so the test seeds the live rows the way
 // that path would: id = run aggregate id, state = what the stream implies.
 async function seedLiveRow(id: string, status: string, version: number): Promise<void> {
-  await insertOne(stack.db, writableRunViewTable, {
+  await seedRow(stack.db, writableRunViewTable, {
     id,
     tenantId: admin.tenantId,
     version,

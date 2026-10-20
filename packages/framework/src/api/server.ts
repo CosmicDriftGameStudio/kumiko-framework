@@ -3,7 +3,7 @@ import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-st
 import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import type { DbConnection, PgListenClient } from "../db/connection.ts";
-import { createProjectingTenantDb } from "../db/tenant-db.ts";
+import { createProjectingTenantDb, withExecutorManagedWrites } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { buildAppSchema } from "../engine/build-app-schema.ts";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.ts";
@@ -736,9 +736,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
       const mspFiles = fileProviderResolver
         ? createTenantFileContext(fileProviderResolver, event.tenantId)
         : undefined;
+      const mspDb = withExecutorManagedWrites(baseDb);
       const applyCtx = createMultiStreamApplyContext({
         registry: options.registry,
-        db: baseDb,
+        db: mspDb,
         tenantId: event.tenantId,
         userId: event.metadata.userId,
         ...(mspOwner && { callerFeature: mspOwner }),
@@ -754,7 +755,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
           }),
         }),
       });
-      await applyFn(event, baseDb, applyCtx);
+      await applyFn(event, mspDb, applyCtx);
       // Keep ctx reachable to satisfy the EventConsumerHandler signature.
       void ctx;
     },

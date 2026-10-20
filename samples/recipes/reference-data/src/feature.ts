@@ -1,7 +1,7 @@
 // Reference Data Sample
 // Shows: r.referenceData() for static seed data with upsert logic
 
-import { table, text } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const categoryEntity = createEntity({
@@ -13,12 +13,8 @@ export const categoryEntity = createEntity({
   },
 });
 
-// Drizzle table for direct DB queries in tests
-export const categoryTable = table("read_sample_categories", {
-  code: text("code").notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-});
+// Read-model table for direct DB queries in tests
+export const categoryTable = buildEntityTable("category", categoryEntity);
 
 export const categoryFeature = defineFeature("catalog", (r) => {
   r.entity({ name: "category", ...categoryEntity });

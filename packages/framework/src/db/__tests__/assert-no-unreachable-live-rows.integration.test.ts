@@ -10,8 +10,9 @@
 // guard leaves them alone — proven by the "direct column-write" test below.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
 import {
   createBooleanField,
   createEntity,
@@ -104,11 +105,9 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     const [liveRow] = await selectMany(testDb.db, userTable, { id: a.data.id as string });
     if (!liveRow) throw new Error("live row missing");
     const ghostId = crypto.randomUUID();
-    // Deliberately bypass the EXECUTOR_ONLY brand: the whole point is to write
-    // the entity table WITHOUT going through the executor — the production bug
-    // the guard defends against.
-    const writable = userTable as unknown as Parameters<typeof insertOne>[1];
-    await insertOne(tdb, writable, { ...liveRow, id: ghostId, email: "ghost@test.de" });
+    // The sanctioned test seam writes the entity table WITHOUT going through the executor —
+    // the production bug the guard defends against.
+    await seedRow(tdb, userTable, { ...liveRow, id: ghostId, email: "ghost@test.de" });
     expect(await snapshotTable()).toHaveLength(2);
 
     await expect(rebuildProjection(projectionName, { db: testDb.db, registry })).rejects.toThrow(

@@ -1,13 +1,13 @@
 import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
 import type { Logger } from "@cosmicdrift/kumiko-types/logger";
-import { deleteMany, selectMany, type WhereObject } from "../db/query.ts";
+import { selectMany, type WhereObject } from "../db/query.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { deleteFileRefBytes } from "../derivatives/delete-stored-file.ts";
 
 export const EXPIRED_FILE_REF_PURGE_BATCH = 500;
 
 type PurgeLog = Pick<Logger, "warn"> | undefined;
-type PurgeTable = Parameters<typeof deleteMany>[1];
+type PurgeTable = Parameters<typeof selectMany>[1];
 type ExpiredRow = { id: string; storageKey: string; deletedAt: unknown };
 
 const PAGE_ORDER = [
@@ -46,7 +46,7 @@ async function selectNextPage(args: {
 }
 
 // Deletes the bytes (original + derivatives) of expired soft-deleted fileRef rows, then the
-// rows. Bytes first and fail-closed: once the row is gone nobody knows the storageKey, so a
+// rows (forgotten through the executor, so a rebuild keeps them gone). Bytes first and fail-closed: once the row is gone nobody knows the storageKey, so a
 // row whose bytes could not be removed stays and the next run retries it. A run walks the
 // expired rows page by page along (deletedAt, id), so rows that keep failing cannot hide the
 // rows behind them; the run ends on the first empty page.
@@ -57,9 +57,10 @@ export async function purgeExpiredFileRefsWithBytes(args: {
   readonly expiredBefore: Temporal.Instant;
   readonly files: FileContext | undefined;
   readonly log: PurgeLog;
+  readonly forgetRow: (id: string) => Promise<void>;
   readonly pageSize?: number;
 }): Promise<void> {
-  const { db, table, where, expiredBefore, files, log } = args;
+  const { db, table, where, expiredBefore, files, log, forgetRow } = args;
   const pageSize = args.pageSize ?? EXPIRED_FILE_REF_PURGE_BATCH;
   if (!files) {
     log?.warn("[soft-delete-cleanup] no file storage available, expired fileRef rows kept");
@@ -87,6 +88,14 @@ export async function purgeExpiredFileRefsWithBytes(args: {
         );
       }
     }
-    if (purgedIds.length > 0) await deleteMany(db, table, { ...where, id: { in: purgedIds } });
+    for (const id of purgedIds) {
+      try {
+        await forgetRow(id);
+      } catch (err) {
+        log?.warn(
+          `[soft-delete-cleanup] fileRef ${id} bytes deleted but row not forgotten: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
   }
 }

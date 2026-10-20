@@ -18,6 +18,7 @@
 
 import type { EntityTableMeta } from "../../db/entity-table-meta.ts";
 import { deleteMany, type WhereObject } from "../../db/query.ts";
+import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { tenantDbWriteRunner } from "../../db/tenant-db-runner.ts";
 import { defineStep } from "../define-step.ts";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
@@ -42,7 +43,7 @@ defineStep<UnsafeProjectionDeleteArgs, void>({
     // to bypass the executor deliberately (boot-validated allowlist + reviewer
     // gate). The brand-strip cast makes that explicit at the one blessed seam.
     await deleteMany(
-      tenantDbWriteRunner(ctx.db, "unsafe projection delete"),
+      withExecutorManagedWrites(tenantDbWriteRunner(ctx.db, "unsafe projection delete")),
       args.table as EntityTableMeta,
       where,
     );

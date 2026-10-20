@@ -384,17 +384,6 @@ describe("scanDirectWrites :: table argument wrapped in casts", () => {
     );
     expect(hitsFor(`function ok() { db.delete(tables.foo as unknown); }`)).toHaveLength(0);
   });
-
-  test("ALLOW: only the named orphan-cleanup function in seeding.ts is excepted", () => {
-    const seeding = "/repo/packages/bundled-features/src/template-resolver/seeding.ts";
-    const deleteIn = (fn: string) =>
-      `async function ${fn}() { await deleteMany(db, templateResourcesTable, {}); }`;
-    const prelude = (fn: string) =>
-      `export const templateResourcesTable = buildEntityTable("tr", fooEntity);\n${deleteIn(fn)}`;
-    expect(hitsFor(prelude("resolveExistingForEventStoreSeed"), seeding)).toHaveLength(0);
-    expect(hitsFor(prelude("someOtherFunction"), seeding)).toHaveLength(1);
-    expect(hitsFor(prelude("resolveExistingForEventStoreSeed"), "/repo/other.ts")).toHaveLength(1);
-  });
 });
 
 describe("guard.run() :: entity-only repo (kein createEventStoreExecutor mehr)", () => {
@@ -715,35 +704,5 @@ describe("r.projection tables", () => {
     const sf = project.getSourceFileOrThrow("/repo/foo.ts");
     const hits = scanDirectWrites(sf, collectProjectionTables(project.getSourceFiles()));
     expect(hits.map((hit) => hit.receiver)).toEqual(["db"]);
-  });
-});
-
-describe("scanDirectWrites :: DIRECT_WRITE_EXCEPTIONS", () => {
-  const EXCEPTION_FILE = "/repo/packages/bundled-features/src/delivery/attempt-log-retention.ts";
-  const SOURCE = (functionName: string) => `
-    declare const t: unknown;
-    declare function buildEntityTable(name: string, e: unknown): unknown;
-    declare function deleteMany(db: unknown, table: unknown, where: unknown): Promise<{ deleted: number }>;
-    export const deliveryAttemptsTable = buildEntityTable("delivery-attempt", t);
-    declare const r: { projection: (d: unknown) => void };
-    r.projection({ name: "x", table: deliveryAttemptsTable, apply: {} });
-    export async function ${functionName}(db: unknown) {
-      const rows = await deleteMany(db, deliveryAttemptsTable, {});
-      return rows.deleted;
-    }
-  `;
-
-  function hitsFor(functionName: string) {
-    const project = makeProject({ [EXCEPTION_FILE]: SOURCE(functionName) });
-    const sf = project.getSourceFileOrThrow(EXCEPTION_FILE);
-    return scanDirectWrites(sf, collectProjectionTables(project.getSourceFiles()));
-  }
-
-  test("ALLOW: write in the excepted function, even when assigned to a local `rows`", () => {
-    expect(hitsFor("runAttemptLogRetention")).toHaveLength(0);
-  });
-
-  test("BLOCK: the same write in any other function of that file", () => {
-    expect(hitsFor("somethingElse")).toHaveLength(1);
   });
 });

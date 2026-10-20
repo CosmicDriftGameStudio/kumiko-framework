@@ -37,6 +37,7 @@ import { applyEntityEvent } from "../../db/apply-entity-event.ts";
 import { backfillEventPiiEncryption } from "../../db/queries/backfill-pii.ts";
 import { asRawClient, fetchOne } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createFileField, createTextField } from "../../engine/factories.ts";
 import { createRegistry } from "../../engine/registry.ts";
@@ -552,7 +553,12 @@ describe("backfillEventPiiEncryption", () => {
     const events = await loadAggregate(testDb.db, c1, TENANT);
     const created = events[0];
     if (!created) throw new Error("missing created event");
-    await applyEntityEvent(created, contactTable, contactEntity, testDb.db);
+    await applyEntityEvent(
+      created,
+      contactTable,
+      contactEntity,
+      withExecutorManagedWrites(testDb.db),
+    );
 
     const row = await fetchOne(testDb.db, contactTable, { id: c1 });
     expect(isPiiCiphertext(row?.["email"])).toBe(true);

@@ -16,6 +16,7 @@ import {
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { AnyDb } from "@cosmicdrift/kumiko-framework/internal/stack-support";
+import { withExecutorManagedWritesForTests } from "@cosmicdrift/kumiko-framework/internal/testing";
 
 type SeedTable = EntityTable | EntityTableMeta;
 
@@ -24,7 +25,7 @@ export function seedRow<TRow = unknown>(
   table: SeedTable,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
-  return insertOne<TRow>(db, table as EntityTableMeta, values);
+  return insertOne<TRow>(withExecutorManagedWritesForTests(db), table as EntityTableMeta, values);
 }
 
 export function seedRows<TRow = unknown>(
@@ -32,7 +33,7 @@ export function seedRows<TRow = unknown>(
   table: SeedTable,
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]> {
-  return insertMany<TRow>(db, table as EntityTableMeta, rows);
+  return insertMany<TRow>(withExecutorManagedWritesForTests(db), table as EntityTableMeta, rows);
 }
 
 export function updateRows<TRow = unknown>(
@@ -41,9 +42,14 @@ export function updateRows<TRow = unknown>(
   set: Record<string, unknown>,
   where: WhereObject,
 ): Promise<readonly TRow[]> {
-  return updateMany<TRow>(db, table as EntityTableMeta, set, where);
+  return updateMany<TRow>(
+    withExecutorManagedWritesForTests(db),
+    table as EntityTableMeta,
+    set,
+    where,
+  );
 }
 
 export function deleteRows(db: AnyDb, table: SeedTable, where: WhereObject): Promise<number> {
-  return deleteMany(db, table as EntityTableMeta, where);
+  return deleteMany(withExecutorManagedWritesForTests(db), table as EntityTableMeta, where);
 }

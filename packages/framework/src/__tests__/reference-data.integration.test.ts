@@ -1,68 +1,71 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.ts";
-import { integer, table as pgTable, serial, text, timestamp } from "../db/dialect.ts";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { selectMany } from "../db/query.ts";
 import { seedReferenceData } from "../db/reference-data.ts";
-import type { ReferenceDataDef } from "../engine/types/index.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
+import {
+  createEntity,
+  createNumberField,
+  createTextField,
+  defineFeature,
+  type ReferenceDataDef,
+} from "../engine/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
-import { ensureTemporalPolyfill } from "../time/polyfill.ts";
+import { rebuildProjection } from "../pipeline/index.ts";
 
-// --- Tables ---
+const refField = { personal: false, reason: "is_reference_data" } as const;
 
-const countryTable = pgTable("ref_countries", {
-  code: text("code").primaryKey(),
-  name: text("name").notNull(),
-  region: text("region"),
+const countryEntity = createEntity({
+  table: "ref_countries",
+  fields: {
+    code: createTextField({ ...refField, required: true }),
+    name: createTextField({ ...refField, required: true }),
+    region: createTextField(refField),
+  },
+});
+const statusEntity = createEntity({
+  table: "ref_statuses",
+  fields: {
+    slug: createTextField({ ...refField, required: true }),
+    label: createTextField({ ...refField, required: true }),
+    sortOrder: createNumberField(refField),
+  },
+});
+const countryTable = buildEntityTable("country", countryEntity);
+const statusTable = buildEntityTable("status", statusEntity);
+
+const feature = defineFeature("refdata", (r) => {
+  r.entity({ name: "country", ...countryEntity });
+  r.entity({ name: "status", ...statusEntity });
 });
 
-const statusTable = pgTable("ref_statuses", {
-  id: serial("id").primaryKey(),
-  slug: text("slug").notNull(),
-  label: text("label").notNull(),
-  sortOrder: integer("sort_order").default(0),
-});
-
-const scopedTable = pgTable("ref_scoped", {
-  key: text("key").primaryKey(),
-  label: text("label").notNull(),
-  tenantId: text("tenant_id"),
-  version: integer("version"),
-  insertedAt: timestamp("inserted_at"),
-});
-
-// --- Test state ---
-
-let testDb: BunTestDb;
+let stack: TestStack;
 
 beforeAll(async () => {
-  await ensureTemporalPolyfill();
-  testDb = await createTestDb();
-  await unsafePushTables(testDb.db, { countryTable, statusTable, scopedTable });
+  stack = await setupTestStack({ features: [feature] });
+  await unsafeCreateEntityTable(stack.db, countryEntity, "country");
+  await unsafeCreateEntityTable(stack.db, statusEntity, "status");
 });
 
 afterAll(async () => {
-  await testDb?.cleanup();
+  await stack?.cleanup();
 });
 
-// Helper: read all rows from a table
 async function readCountries() {
-  const rows = await selectMany(testDb.db, countryTable);
-  return rows.toSorted((a, b) => a.code.localeCompare(b.code));
+  const rows = await selectMany(stack.db, countryTable);
+  return rows.toSorted((a, b) => String(a["code"]).localeCompare(String(b["code"])));
 }
 
 async function readStatuses() {
-  const rows = await selectMany(testDb.db, statusTable);
-  return rows.toSorted((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const rows = await selectMany(stack.db, statusTable);
+  return rows.toSorted((a, b) => Number(a["sortOrder"] ?? 0) - Number(b["sortOrder"] ?? 0));
 }
 
 describe("seedReferenceData", () => {
-  const tables = new Map<string, typeof countryTable | typeof statusTable | typeof scopedTable>([
-    ["country", countryTable],
-    ["status", statusTable],
-    ["scoped", scopedTable],
-  ]);
-
   test("inserts initial reference data", async () => {
     const defs: ReferenceDataDef[] = [
       {
@@ -75,7 +78,7 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
+    const result = await seedReferenceData(defs, stack.registry, stack.db);
 
     expect(result).toEqual({ inserted: 3, updated: 0 });
 
@@ -98,7 +101,7 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
+    const result = await seedReferenceData(defs, stack.registry, stack.db);
 
     expect(result).toEqual({ inserted: 0, updated: 0 });
 
@@ -119,7 +122,7 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
+    const result = await seedReferenceData(defs, stack.registry, stack.db);
 
     expect(result).toEqual({ inserted: 0, updated: 2 });
 
@@ -140,7 +143,7 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
+    const result = await seedReferenceData(defs, stack.registry, stack.db);
 
     expect(result).toEqual({ inserted: 1, updated: 0 });
 
@@ -165,7 +168,7 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
+    const result = await seedReferenceData(defs, stack.registry, stack.db);
     expect(result).toEqual({ inserted: 3, updated: 0 });
 
     // Update label via same upsertKey
@@ -180,7 +183,7 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const updateResult = await seedReferenceData(updateDefs, tables, testDb.db);
+    const updateResult = await seedReferenceData(updateDefs, stack.registry, stack.db);
     expect(updateResult).toEqual({ inserted: 0, updated: 1 });
 
     const rows = await readStatuses();
@@ -203,30 +206,43 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
+    const result = await seedReferenceData(defs, stack.registry, stack.db);
     expect(result).toEqual({ inserted: 0, updated: 0 });
   });
 
-  test("stamps framework columns (tenantId/version/insertedAt) on insert when the table has them", async () => {
+  test("stamps the system tenant and version 1 on insert, and the rows survive a rebuild", async () => {
     const defs: ReferenceDataDef[] = [
       {
-        entityName: "scoped",
-        data: [{ key: "k1", label: "One" }],
+        entityName: "status",
+        data: [{ slug: "pending", label: "Pending", sortOrder: 9 }],
+        upsertKey: "slug",
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
-    expect(result).toEqual({ inserted: 1, updated: 0 });
-
-    const rows = await selectMany(testDb.db, scopedTable);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      key: "k1",
-      label: "One",
-      tenantId: SYSTEM_TENANT_ID,
-      version: 1,
+    expect(await seedReferenceData(defs, stack.registry, stack.db)).toEqual({
+      inserted: 1,
+      updated: 0,
     });
-    expect(rows[0]?.insertedAt).toBeTruthy();
+
+    const before = (await readStatuses()).filter((r) => r["slug"] === "pending");
+    expect(before).toHaveLength(1);
+    expect(before[0]).toMatchObject({ tenantId: SYSTEM_TENANT_ID, version: 1, label: "Pending" });
+
+    await rebuildProjection("refdata:projection:status-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    await rebuildProjection("refdata:projection:country-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    const after = await readStatuses();
+    expect(after.filter((r) => r["slug"] === "pending")).toHaveLength(1);
+    expect(after.find((r) => r["slug"] === "draft")).toMatchObject({ label: "Entwurf" });
+    const countries = await readCountries();
+    expect(countries.find((r) => r["code"] === "DE")).toMatchObject({ name: "Germany" });
+    expect(countries.find((r) => r["code"] === "CH")).toMatchObject({ name: "Schweiz" });
   });
 
   test("skips empty data arrays", async () => {
@@ -237,7 +253,7 @@ describe("seedReferenceData", () => {
       },
     ];
 
-    const result = await seedReferenceData(defs, tables, testDb.db);
+    const result = await seedReferenceData(defs, stack.registry, stack.db);
     expect(result).toEqual({ inserted: 0, updated: 0 });
   });
 });

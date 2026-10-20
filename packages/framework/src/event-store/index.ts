@@ -18,6 +18,10 @@ export {
   restoreStream,
 } from "./archive.ts";
 export {
+  type DeleteRowsWithoutReplayableStreamArgs,
+  deleteRowsWithoutReplayableStream,
+} from "./delete-rows-without-replayable-stream.ts";
+export {
   ArchivedStreamError,
   IdempotentAppendConflictError,
   SeedTimeOrderError,

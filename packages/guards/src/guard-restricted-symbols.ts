@@ -42,6 +42,8 @@ const RESTRICTED_SYMBOLS = new Set([
   // an audited unsafeRaw escape hatch, so new callers need an explicit allowlist entry.
   "appendEventInTenantDb",
   "getStreamVersionInTenantDb",
+  // Grants the ES-write capability on the tenant being destroyed; only the destroy stage and its definition may use it.
+  "createTenantDataDestroyDb",
 ]);
 
 const ALLOWLIST = [
@@ -50,6 +52,9 @@ const ALLOWLIST = [
   /^packages\/framework\/src\/event-store\/tenant-db-append\.ts$/,
   /^packages\/bundled-features\/src\/cap-counter\/cap-reservation\.ts$/,
   /^packages\/bundled-features\/src\/user-data-rights-defaults\/hooks\/delivery-attempt\.userdata-hook\.ts$/,
+  /^packages\/framework\/src\/db\/tenant-db\.ts$/,
+  /^packages\/framework\/src\/db\/index\.ts$/,
+  /^packages\/bundled-features\/src\/tenant-lifecycle\/stages\.ts$/,
   /^packages\/bundled-features\/src\/tenant\/seeding\.ts$/,
   /^packages\/bundled-features\/src\/tier-engine\/feature\.ts$/,
 ];
@@ -121,7 +126,7 @@ function findRestrictedSymbolReferences(sf: SourceFile): Violation[] {
 export const guard: AstGuard = {
   name: "Restricted-Symbols Guard",
   scan: SCAN,
-  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. appendEventInTenantDb/getStreamVersionInTenantDb bypass the feature-ownership check of ctx.appendEvent — only framework-internal coordination code may use them. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
+  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. appendEventInTenantDb/getStreamVersionInTenantDb bypass the feature-ownership check of ctx.appendEvent — only framework-internal coordination code may use them. createTenantDataDestroyDb grants direct writes on event-fed tables and belongs to the tenant-destroy stage only. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
   run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

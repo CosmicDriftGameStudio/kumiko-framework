@@ -23,6 +23,7 @@ import type { StoredEvent } from "../../event-store/index.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { applyEntityEvent } from "../apply-entity-event.ts";
 import { buildEntityTable } from "../table-builder.ts";
+import { withExecutorManagedWrites } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const entity = createEntity({
@@ -82,7 +83,12 @@ function syntheticCreateEvent(payload: Record<string, unknown>): StoredEvent {
 describe("applyEntityEvent — tenantId-Defaulting", () => {
   test("payload OHNE tenantId → row.tenantId fällt auf event.tenantId zurück (Replay-Default)", async () => {
     const event = syntheticCreateEvent({ name: "without-tenantId-in-payload" });
-    const result = await applyEntityEvent(event, table, entity, testDb.db);
+    const result = await applyEntityEvent(
+      event,
+      table,
+      entity,
+      withExecutorManagedWrites(testDb.db),
+    );
     expect(result.kind).toBe("applied");
 
     const [row] = await selectMany(testDb.db, table, { id: event.aggregateId });
@@ -98,7 +104,12 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
       name: "tenantId-override",
       tenantId: TENANT_TARGET,
     });
-    const result = await applyEntityEvent(event, table, entity, testDb.db);
+    const result = await applyEntityEvent(
+      event,
+      table,
+      entity,
+      withExecutorManagedWrites(testDb.db),
+    );
     expect(result.kind).toBe("applied");
 
     const [row] = await selectMany(testDb.db, table, { id: event.aggregateId });
@@ -116,9 +127,9 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
       name: "empty-tenantId",
       tenantId: "",
     });
-    await expect(applyEntityEvent(event, table, entity, testDb.db)).rejects.toThrow(
-      /payload\.tenantId set but invalid/,
-    );
+    await expect(
+      applyEntityEvent(event, table, entity, withExecutorManagedWrites(testDb.db)),
+    ).rejects.toThrow(/payload\.tenantId set but invalid/);
   });
 
   test("payload.tenantId === null → wirft (fail-loud)", async () => {
@@ -129,9 +140,9 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
       name: "null-tenantId",
       tenantId: null,
     });
-    await expect(applyEntityEvent(event, table, entity, testDb.db)).rejects.toThrow(
-      /payload\.tenantId set but invalid/,
-    );
+    await expect(
+      applyEntityEvent(event, table, entity, withExecutorManagedWrites(testDb.db)),
+    ).rejects.toThrow(/payload\.tenantId set but invalid/);
   });
 
   test("Spread-Reihenfolge: payload-Felder bleiben erhalten, framework-Defaults nicht überschrieben", async () => {
@@ -145,7 +156,12 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
       version: 999,
       insertedById: "fake-user",
     });
-    const result = await applyEntityEvent(event, table, entity, testDb.db);
+    const result = await applyEntityEvent(
+      event,
+      table,
+      entity,
+      withExecutorManagedWrites(testDb.db),
+    );
     expect(result.kind).toBe("applied");
 
     const [row] = await selectMany(testDb.db, table, { id: event.aggregateId });

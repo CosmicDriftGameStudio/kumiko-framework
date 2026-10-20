@@ -12,6 +12,7 @@ import type {
 import { toSnakeCase } from "../utils/case.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import type { Table } from "./event-store-executor-context.ts";
+import { markExecutorManagedTable } from "./executor-managed-tables.ts";
 import type { LocatedTimestampRead } from "./located-timestamp.ts";
 import type { MoneyRead } from "./money.ts";
 import { columnHandleName } from "./table-introspection.ts";
@@ -741,5 +742,6 @@ export function buildEntityTable<E extends EntityDefinition>(
   ) as unknown as EntityTable<E>;
 
   stampEntityTableMeta(built, entity);
+  markExecutorManagedTable(built);
   return built;
 }

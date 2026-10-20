@@ -21,6 +21,7 @@ import {
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query.ts";
+import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import type { EventMetadata } from "../event-store/event-store.ts";
 import {
@@ -255,6 +256,7 @@ export async function rebuildProjection(
       lastProcessedEventId,
       REBUILD_BATCH_SIZE,
     );
+    const applyTx = withExecutorManagedWrites(tx);
     for (const r of rawEvents) {
       deps.signal?.throwIfAborted();
       const row = coerceRow<StoredEventRow>(r, eventsInfo);
@@ -272,14 +274,14 @@ export async function rebuildProjection(
         // begin() even after a caught error. The apply runs on the
         // savepoint-scoped handle so its statements are confined.
         try {
-          await runInSavepoint(tx, async (sp) => {
+          await runInSavepoint(applyTx, async (sp) => {
             await applyFn(storedEvent, sp as DbTx, projection.table);
           });
         } catch (e) {
           skipped.push({ event: storedEvent, error: e });
         }
       } else {
-        await applyFn(storedEvent, tx, projection.table);
+        await applyFn(storedEvent, applyTx, projection.table);
       }
       eventsProcessed++;
       lastProcessedEventId = row.id;

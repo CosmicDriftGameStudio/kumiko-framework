@@ -3,6 +3,7 @@
 // then checks live rows against the derived ids. workflowRunAggregateId does not
 // fold in the tenant, so two tenants can record the same run id.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -100,7 +101,7 @@ beforeEach(async () => {
 });
 
 async function seedLiveRow(id: string, tenantId: string): Promise<void> {
-  await insertOne(stack.db, writableRunViewTable, {
+  await seedRow(stack.db, writableRunViewTable, {
     id,
     tenantId,
     version: 1,

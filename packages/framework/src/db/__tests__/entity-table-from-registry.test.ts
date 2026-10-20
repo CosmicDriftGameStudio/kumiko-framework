@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { createRegistry } from "../../engine/registry.ts";
-import { extractTableName, type SchemaTable } from "../dialect.ts";
+import { extractTableName } from "../dialect.ts";
 import { entityTableFromRegistry } from "../entity-table-from-registry.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
@@ -27,7 +27,7 @@ describe("entityTableFromRegistry", () => {
     );
 
     expect(projection).toBeDefined();
-    expect(fromRegistry).toBe(projection?.table as SchemaTable);
+    expect<unknown>(fromRegistry).toBe(projection?.table);
   });
 
   // An entity nobody registered has no projection to read — the caller still

@@ -25,6 +25,17 @@ describe("Restricted-Symbols Guard", () => {
     expect(violations[0]?.message).toContain("getUnscopedAggregateStreamMaxVersion");
   });
 
+  test("flags createTenantDataDestroyDb outside the destroy stage and allows the stage", () => {
+    const source = `
+					import { createTenantDataDestroyDb } from "@cosmicdrift/kumiko-framework/db";
+					void createTenantDataDestroyDb;
+				`;
+    const rogue = files({ "packages/bundled-features/src/rogue/feature.ts": source });
+    expect(guard.run(rogue).violations).toHaveLength(1);
+    const stage = files({ "packages/bundled-features/src/tenant-lifecycle/stages.ts": source });
+    expect(guard.run(stage).violations).toHaveLength(0);
+  });
+
   test("flags a renamed import (alias does not evade the guard)", () => {
     const sfs = files({
       "packages/bundled-features/src/rogue/feature.ts": `

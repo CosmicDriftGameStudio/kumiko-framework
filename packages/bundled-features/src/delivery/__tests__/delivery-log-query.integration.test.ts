@@ -3,8 +3,8 @@
 // field-mapping the query handler now owns (see log.query.ts).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -36,7 +36,7 @@ beforeAll(async () => {
     features: [createConfigFeature(), createTenantFeature(), createDeliveryFeature()],
   });
   await unsafePushTables(stack.db, { deliveryAttemptsTable, notificationPreferencesTable });
-  await insertMany(stack.db, deliveryAttemptsTable, [
+  await seedRows(stack.db, deliveryAttemptsTable, [
     {
       id: crypto.randomUUID(),
       tenantId,
@@ -194,7 +194,7 @@ describe("delivery:query:log — error masking", () => {
   const legacyAdmin = createTestUser({ id: 703, roles: ["TenantAdmin"], tenantId: legacyTenantId });
 
   test("a stored free-text error is delivered as channel_error; codes pass through", async () => {
-    await insertMany(stack.db, deliveryAttemptsTable, [
+    await seedRows(stack.db, deliveryAttemptsTable, [
       {
         id: crypto.randomUUID(),
         tenantId: legacyTenantId,

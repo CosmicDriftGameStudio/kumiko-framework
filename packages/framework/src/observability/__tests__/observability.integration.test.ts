@@ -12,8 +12,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { TableColumns } from "../../db/dialect.ts";
-import { buildEntityTable } from "../../db/table-builder.ts";
+import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, SaveContext } from "../../engine/types/index.ts";
 import { createJobRunner } from "../../jobs/index.ts";
@@ -63,6 +62,7 @@ const errorFeature = defineFeature("err", (r) => {
 // column with an integer one; the insert then got a UUID-string and Postgres
 // failed the cast, surfacing as internal_error.
 const todoEntity = {
+  table: "store_todos",
   fields: {
     title: { type: "text" as const, required: true },
   },
@@ -70,9 +70,7 @@ const todoEntity = {
 
 let postSaveInvocations = 0;
 const todoFeature = defineFeature("todo", (r) => {
-  // Brand (#742) is compile-time-only; the unbranded TableColumns view keeps the
-  // method-form insert (and its observability span) working — runtime shape is identical.
-  const todoTable: TableColumns = buildEntityTable("todo", todoEntity);
+  const todoTable = deriveEntityTableMeta("todo", todoEntity, { source: "unmanaged" });
   r.entity({ name: "todo", ...todoEntity });
 
   r.writeHandler({
@@ -221,7 +219,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
     const insertSpan = dbSpans.find((s) => s.attributes["db.operation"] === "insert");
     expect(insertSpan).toBeDefined();
     expect(insertSpan?.traceId).toBe(httpSpan.traceId);
-    expect(insertSpan?.attributes["db.table"]).toBe("read_todos");
+    expect(insertSpan?.attributes["db.table"]).toBe("store_todos");
     expect(insertSpan?.attributes["db.system"]).toBe("postgresql");
     // parent chain: insert → ... → dispatcher
     const dispatcherId = dispatcherSpan.spanId;
@@ -247,7 +245,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
         e.type === "histogram.observe" &&
         e.name === "kumiko_db_query_duration_seconds" &&
         e.labels?.["operation"] === "insert" &&
-        e.labels?.["table"] === "read_todos",
+        e.labels?.["table"] === "store_todos",
     );
     expect(dbMetric).toBeDefined();
   });

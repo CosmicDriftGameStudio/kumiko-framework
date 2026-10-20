@@ -1,6 +1,7 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { deleteMany } from "@cosmicdrift/kumiko-framework/db";
 import type { AnyDb } from "@cosmicdrift/kumiko-framework/internal/stack-support";
+import { withExecutorManagedWritesForTests } from "@cosmicdrift/kumiko-framework/internal/testing";
 
 /** EntityTableMeta, a built table, or a plain table name string. */
 export type ClearableTable = string | { readonly tableName?: string } | unknown;
@@ -31,7 +32,11 @@ export async function clearTables(db: AnyDb, tables: readonly ClearableTable[]):
     // Test-teardown truncate: resolveClearableTable returns `unknown` (string
     // name or table object). The brand-strip cast is the sanctioned bypass —
     // clearing a managed projection between tests is not a production write.
-    await deleteMany(db, resolveClearableTable(table) as EntityTableMeta, {});
+    await deleteMany(
+      withExecutorManagedWritesForTests(db),
+      resolveClearableTable(table) as EntityTableMeta,
+      {},
+    );
   }
 }
 

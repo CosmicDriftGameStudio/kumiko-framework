@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
+  createTenantDataDestroyDb,
   createTenantDb,
   type DbRunner,
   selectMany,
@@ -143,10 +144,9 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<StageRunOut
       log: ctx.escapeHatchAuditLog ?? createFallbackLogger("tenant-lifecycle"),
     });
     const hookCtx: TenantDataHookCtx = {
-      db: createTenantDb({
+      db: createTenantDataDestroyDb({
         db: ctx.db,
         tenantId: ctx.tenantId,
-        mode: "tenant",
         grants: {
           unsafeRaw: reason !== undefined ? { reason } : undefined,
           report,

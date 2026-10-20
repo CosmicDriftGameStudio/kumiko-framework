@@ -22,7 +22,7 @@ import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encrypt
 import { createEventStoreExecutor, WritePurposes } from "../event-store-executor.ts";
 import { buildExecutorContext } from "../event-store-executor-context.ts";
 import { buildEntityTable } from "../table-builder.ts";
-import { createTenantDb, type TenantDb } from "../tenant-db.ts";
+import { createTenantDb, type TenantDb, withExecutorManagedWrites } from "../tenant-db.ts";
 
 const entity = createEntity({
   table: "read_es_exec_users",
@@ -1063,7 +1063,12 @@ describe("event-store-executor — pii subject encryption", () => {
       0,
     );
     if (!storedEvent) throw new Error("no persisted event for the aggregate");
-    const applied = await applyEntityEvent(storedEvent, piiTable, piiEntity, testDb.db);
+    const applied = await applyEntityEvent(
+      storedEvent,
+      piiTable,
+      piiEntity,
+      withExecutorManagedWrites(testDb.db),
+    );
     expect(applied.kind).toBe("applied");
 
     const rawRows = (await asRawClient(testDb.db).unsafe(

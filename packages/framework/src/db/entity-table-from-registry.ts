@@ -11,6 +11,7 @@
 // executor: seeds, jobs and consumers that talk to a feature's read model
 // directly.
 
+import type { ExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";
 import type { Registry } from "../engine/index.ts";
 import type { SchemaTable } from "./dialect.ts";
 import { buildEntityTable } from "./table-builder.ts";
@@ -19,13 +20,13 @@ export function entityTableFromRegistry(
   registry: Registry,
   entityName: string,
   entity: Parameters<typeof buildEntityTable>[1],
-): SchemaTable {
+): SchemaTable & ExecutorOnly {
   for (const projection of registry.getAllProjections().values()) {
     if (!projection.isImplicit) continue;
     if (projection.source !== entityName) continue;
     // @cast-boundary projection-table — ProjectionDefinition.table is the
     // untyped table object every projection registrar accepts.
-    return projection.table as SchemaTable;
+    return projection.table as SchemaTable & ExecutorOnly;
   }
   return buildEntityTable(entityName, entity);
 }

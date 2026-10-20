@@ -12,8 +12,6 @@
 import {
   createTenantDb,
   type DbConnection,
-  deleteMany,
-  type EntityTableMeta,
   fetchOne,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -25,6 +23,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  deleteRowsWithoutReplayableStream,
   getStreamVersion,
   getUnscopedStreamMaxVersionForSeed,
 } from "@cosmicdrift/kumiko-framework/event-store";
@@ -60,8 +59,7 @@ async function resolveExistingForEventStoreSeed(
         `seed orphan check: projection ${id} has no events for tenant ${tenantId} but unscoped stream version is ${unscoped} — refusing delete/recreate to avoid wiping a live stream`,
       );
     }
-    // The cast strips the executor-only brand that WritableTable rejects; the orphan row has no events, so no executor verb applies.
-    await deleteMany(tdb, templateResourcesTable as EntityTableMeta, { id, tenantId });
+    await deleteRowsWithoutReplayableStream(tdb, { table: templateResourcesTable, ids: [id] });
     return null;
   }
   return { id, version: streamVersion };

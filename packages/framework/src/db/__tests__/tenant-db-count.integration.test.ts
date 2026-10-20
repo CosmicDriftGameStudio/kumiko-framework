@@ -7,8 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createEntity, createTextField } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import type { TableColumns } from "../dialect.ts";
-import { buildEntityTable } from "../table-builder.ts";
+import { deriveEntityTableMeta } from "../entity-table-meta.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 const entity = createEntity({
@@ -18,7 +17,7 @@ const entity = createEntity({
   },
 });
 
-const table: TableColumns = buildEntityTable("tenantDbCountItem", entity);
+const table = deriveEntityTableMeta("tenantDbCountItem", entity, { source: "unmanaged" });
 
 let testDb: TestDb;
 const tenantA = TestUsers.admin; // tenantId: 1
