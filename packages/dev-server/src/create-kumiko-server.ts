@@ -117,9 +117,10 @@ export type DevClientEntry = {
   readonly htmlPath?: string;
 };
 
-/** Discriminated union, identical in shape to `runProdApp.hostDispatch`, so
- *  dev/prod routing mirrors 1:1 — an apex 404 in prod is an apex 404 in dev
- *  (with an `/etc/hosts` entry for the affected domain). HTML never carries
+/** Dev counterpart of `runProdApp.hostDispatch`. Not the same shape: dev names
+ *  bundled entries (`entryName`), prod serves built files (`file`). Derive the
+ *  dev dispatch from the prod one with `toDevHostDispatch` (host-dispatch-adapter.ts)
+ *  instead of writing both by hand, so dev routing cannot drift from prod. HTML never carries
  *  a schema, in dev or prod — createKumikoApp fetches it itself from the
  *  authenticated GET /api/schema. */
 export type DevHostDispatchResult =
