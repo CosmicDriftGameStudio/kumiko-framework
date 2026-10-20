@@ -52,6 +52,7 @@
   },
   "files": [
     "dist",
+    "kumiko-es-tables.json",
     "src/changes.json",
     "README.md",
     "LICENSE"

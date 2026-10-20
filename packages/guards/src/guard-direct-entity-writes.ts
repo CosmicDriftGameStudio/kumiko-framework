@@ -18,6 +18,11 @@
  *         (dash vs. underscore) but share the `ent` symbol. Plus an explicit
  *         `backingTable` override. Tables that are NOT statically resolvable
  *         are skipped (a miss is preferable to a false block).
+ *      c) Tables of external packages (node_modules, workspace links), read from the
+ *         `kumiko-es-tables.json` catalog each published package ships; a package whose
+ *         sources live in the checked repo must keep that catalog current (checked here,
+ *         rewritten with `--write-baseline --guard=<name>`).
+ *      d) `r.projection({ table })` tables: event-fed read models, only the apply may write.
  *
  *   2. **Find direct writes.** Two forms:
  *      - Method form `<receiver>.insert(<tableIdent>)` / `.update` / `.delete`.
@@ -46,13 +51,21 @@
 import * as path from "node:path";
 import {
   type CallExpression,
+  type FileSystemHost,
   type Identifier,
   Node,
   type ObjectLiteralExpression,
+  type Project,
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  ALL_REPO_KINDS,
+  type AstGuard,
+  isExternalSourcePath,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
 
@@ -110,6 +123,20 @@ const DIRECT_WRITE_EXCEPTIONS: readonly DirectWriteException[] = [
     table: "templateResourcesTable",
     justification: "Orphan projection row without events, no event-store verb possible",
   },
+  {
+    file: /(^|\/)packages\/bundled-features\/src\/delivery\/attempt-log-retention\.ts$/,
+    functionName: "runAttemptLogRetention",
+    table: "deliveryAttemptsTable",
+    justification:
+      "Retention: pruneEvents removes the events first, so a rebuild cannot resurrect the rows",
+  },
+  {
+    file: /(^|\/)packages\/bundled-features\/src\/inbound-mail-foundation\/retention-sweep\.ts$/,
+    functionName: "purgeExpiredMessages",
+    table: "inboundMessagesProjectionTable",
+    justification:
+      "Retention: each stream is archived before its row is deleted, so a rebuild skips it",
+  },
 ];
 
 // First named container: `function f`, `const f = () =>`, or `run: () =>` in an object literal.
@@ -117,7 +144,11 @@ function enclosingFunctionName(node: Node): string | undefined {
   for (const ancestor of node.getAncestors()) {
     if (Node.isFunctionDeclaration(ancestor)) return ancestor.getName();
     if (Node.isVariableDeclaration(ancestor) || Node.isPropertyAssignment(ancestor)) {
-      return ancestor.getName();
+      // `const rows = await deleteMany(...)` names a result, not the enclosing function.
+      const initializer = ancestor.getInitializer();
+      if (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer)) {
+        return ancestor.getName();
+      }
     }
   }
   return undefined;
@@ -288,6 +319,39 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
   return tables;
 }
 
+const PROJECTION_METHOD_ACCESS = /\.\s*projection\b/;
+
+// The `table` of `r.projection({ table, apply })`: an event-fed read model, so only its apply
+// (tx receiver) may write it. Shorthand `{ table }` is a name-only reference to the same symbol.
+export function collectProjectionTables(files: readonly SourceFile[]): Set<TableId> {
+  const tables = new Set<TableId>();
+  for (const sf of files) {
+    if (!PROJECTION_METHOD_ACCESS.test(sf.getFullText())) continue;
+    for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      const callee = call.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
+      if (callee?.getName() !== "projection") continue;
+      const definition = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+      const property = definition?.getProperty("table");
+      const identifier =
+        property?.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getNameNode() ??
+        unwrapTableExpression(
+          property?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer() ?? call,
+        ).asKind(SyntaxKind.Identifier);
+      const did = identifier && declIdOf(identifier);
+      if (did) tables.add(did);
+    }
+  }
+  return tables;
+}
+
+function collectScopeEsTables(files: readonly SourceFile[]): Set<TableId> {
+  return new Set<TableId>([
+    ...collectEsTables(files),
+    ...collectEntityProjectionTables(files),
+    ...collectProjectionTables(files),
+  ]);
+}
+
 type Violation = {
   file: string;
   line: number;
@@ -456,9 +520,218 @@ function importedBindingNames(sf: SourceFile): Set<string> {
   return names;
 }
 
+const ES_TABLE_CATALOG_FILE = "kumiko-es-tables.json";
+
+type CatalogEntry = { readonly module: string; readonly export: string };
+
+function tableIdFilePath(tableId: TableId): string {
+  return tableId.slice(0, tableId.lastIndexOf("::"));
+}
+
+function tableIdName(tableId: TableId): string {
+  return tableId.slice(tableId.lastIndexOf("::") + 2);
+}
+
+function packageRootOf(host: FileSystemHost, filePath: string): string | undefined {
+  let dir = path.dirname(filePath);
+  while (dir !== path.dirname(dir)) {
+    if (host.fileExistsSync(path.join(dir, "package.json"))) return dir;
+    dir = path.dirname(dir);
+  }
+  return undefined;
+}
+
+// Source (`src/x.ts`, workspace link) and published (`dist/x.d.ts`) layouts must yield one key.
+function moduleOf(packageRoot: string, filePath: string): string {
+  return path
+    .relative(packageRoot, filePath)
+    .split(path.sep)
+    .join("/")
+    .replace(/^(src|dist)\//, "")
+    .replace(/\.d\.ts$|\.(ts|tsx|js)$/, "");
+}
+
+function catalogKey(module: string, exportName: string): string {
+  return `${module}::${exportName}`;
+}
+
+function isCatalogEntry(value: unknown): value is CatalogEntry {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "module" in value &&
+    "export" in value &&
+    typeof value.module === "string" &&
+    typeof value.export === "string"
+  );
+}
+
+function parseCatalog(text: string): CatalogEntry[] | undefined {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) && parsed.every(isCatalogEntry) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readCatalogKeys(host: FileSystemHost, packageRoot: string): Set<string> {
+  const catalogPath = path.join(packageRoot, ES_TABLE_CATALOG_FILE);
+  if (!host.fileExistsSync(catalogPath)) return new Set();
+  const entries = parseCatalog(host.readFileSync(catalogPath)) ?? [];
+  return new Set(entries.map((entry) => catalogKey(entry.module, entry.export)));
+}
+
+export type ExternalEsTables = { has(tableId: TableId): boolean };
+
+// A published package ships `kumiko-es-tables.json` (module + export of its ES tables), because
+// its sources are not on disk in a consumer (only dist/*.d.ts). Missing catalog: no ES tables.
+export function createExternalEsTables(project: Project): ExternalEsTables {
+  const host = project.getFileSystem();
+  const keysByPackageRoot = new Map<string, ReadonlySet<string>>();
+  return {
+    has(tableId) {
+      const filePath = tableIdFilePath(tableId);
+      const root = packageRootOf(host, filePath);
+      if (root === undefined) return false;
+      let keys = keysByPackageRoot.get(root);
+      if (!keys) {
+        keys = readCatalogKeys(host, root);
+        keysByPackageRoot.set(root, keys);
+      }
+      return keys.has(catalogKey(moduleOf(root, filePath), tableIdName(tableId)));
+    },
+  };
+}
+
+function isPublishedPackage(host: FileSystemHost, packageRoot: string): boolean {
+  try {
+    const manifest: unknown = JSON.parse(host.readFileSync(path.join(packageRoot, "package.json")));
+    return !(
+      typeof manifest === "object" &&
+      manifest !== null &&
+      "private" in manifest &&
+      manifest.private === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Owner side: the exported scope ES tables of every published package, grouped by package root.
+function deriveCatalogs(
+  files: readonly SourceFile[],
+  esTables: ReadonlySet<TableId>,
+): Map<string, CatalogEntry[]> {
+  const catalogs = new Map<string, CatalogEntry[]>();
+  const firstFile = files[0];
+  if (!firstFile) return catalogs;
+  const project = firstFile.getProject();
+  const host = project.getFileSystem();
+  const scopePaths = new Set<string>(files.map((file) => file.getFilePath()));
+  const publishedByRoot = new Map<string, boolean>();
+  for (const tableId of esTables) {
+    const filePath = tableIdFilePath(tableId);
+    if (!scopePaths.has(filePath) || EXCLUDE.test(filePath)) continue;
+    const name = tableIdName(tableId);
+    if (!project.getSourceFile(filePath)?.getVariableDeclaration(name)?.isExported()) continue;
+    const root = packageRootOf(host, filePath);
+    if (root === undefined) continue;
+    let published = publishedByRoot.get(root);
+    if (published === undefined) {
+      published = isPublishedPackage(host, root);
+      publishedByRoot.set(root, published);
+    }
+    if (!published) continue;
+    const entries = catalogs.get(root) ?? [];
+    entries.push({ module: moduleOf(root, filePath), export: name });
+    catalogs.set(root, entries);
+  }
+  for (const [root, entries] of catalogs) {
+    entries.sort(
+      (a, b) => a.module.localeCompare(b.module, "en") || a.export.localeCompare(b.export, "en"),
+    );
+    catalogs.set(root, [
+      ...new Map(entries.map((e) => [catalogKey(e.module, e.export), e])).values(),
+    ]);
+  }
+  return catalogs;
+}
+
+const REWRITE_CATALOGS_COMMAND =
+  'bun packages/guards/src/run-guards.ts --write-baseline --guard="Direct-Entity-Writes Guard"';
+
+// Published packages whose catalog exists on disk although they define no ES table any more.
+function publishedRootsWithCatalog(files: readonly SourceFile[]): Set<string> {
+  const roots = new Set<string>();
+  const firstFile = files[0];
+  if (!firstFile) return roots;
+  const host = firstFile.getProject().getFileSystem();
+  const rootByDir = new Map<string, string | undefined>();
+  for (const sf of files) {
+    const dir = path.dirname(sf.getFilePath());
+    if (!rootByDir.has(dir)) rootByDir.set(dir, packageRootOf(host, dir));
+    const root = rootByDir.get(dir);
+    if (root !== undefined && host.fileExistsSync(path.join(root, ES_TABLE_CATALOG_FILE))) {
+      roots.add(root);
+    }
+  }
+  return roots;
+}
+
+function catalogViolations(
+  files: readonly SourceFile[],
+  esTables: ReadonlySet<TableId>,
+): { file: string; line: number; message: string; neverFrozen: boolean }[] {
+  const firstFile = files[0];
+  if (!firstFile) return [];
+  const host = firstFile.getProject().getFileSystem();
+  const expected = deriveCatalogs(files, esTables);
+  const roots = new Set([...expected.keys(), ...publishedRootsWithCatalog(files)]);
+  const violations: { file: string; line: number; message: string; neverFrozen: boolean }[] = [];
+  for (const root of roots) {
+    const wanted = new Set((expected.get(root) ?? []).map((e) => catalogKey(e.module, e.export)));
+    const actual = readCatalogKeys(host, root);
+    const missing = [...wanted].filter((key) => !actual.has(key));
+    const surplus = [...actual].filter((key) => !wanted.has(key));
+    if (missing.length === 0 && surplus.length === 0) continue;
+    const catalogPath = path.join(root, ES_TABLE_CATALOG_FILE);
+    const detail = [
+      missing.length > 0 ? `missing: ${missing.join(", ")}` : "",
+      surplus.length > 0 ? `surplus: ${surplus.join(", ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+    violations.push({
+      file: path.relative(ROOT, catalogPath),
+      line: 0,
+      message: `ES table catalog out of date (${detail}). Rewrite it: ${REWRITE_CATALOGS_COMMAND}`,
+      neverFrozen: true,
+    });
+  }
+  return violations;
+}
+
+function writeCatalogs(files: readonly SourceFile[], esTables: ReadonlySet<TableId>): void {
+  const firstFile = files[0];
+  if (!firstFile) throw new Error("No scanned files: refusing to rewrite ES table catalogs");
+  const host = firstFile.getProject().getFileSystem();
+  const expected = deriveCatalogs(files, esTables);
+  for (const root of publishedRootsWithCatalog(files)) {
+    if (!expected.has(root)) host.deleteSync(path.join(root, ES_TABLE_CATALOG_FILE));
+  }
+  for (const [root, entries] of expected) {
+    host.writeFileSync(
+      path.join(root, ES_TABLE_CATALOG_FILE),
+      `${JSON.stringify(entries, null, 2)}\n`,
+    );
+  }
+}
+
 export function scanDirectWrites(
   sf: SourceFile,
   esTables: ReadonlySet<TableId>,
+  externalEsTables: ExternalEsTables = createExternalEsTables(sf.getProject()),
 ): Omit<Violation, "file">[] {
   const out: Omit<Violation, "file">[] = [];
   // Superset of every name a write may use for an ES table: definition names plus import bindings.
@@ -478,7 +751,10 @@ export function scanDirectWrites(
     const receiverName = receiver.getText();
 
     const did = declIdOf(w.tableArg);
-    if (!did || !esTables.has(did)) continue;
+    if (!did) continue;
+    if (!esTables.has(did)) {
+      if (!isExternalSourcePath(tableIdFilePath(did)) || !externalEsTables.has(did)) continue;
+    }
     if (isDirectWriteException(call, w.tableArg.getText())) continue;
 
     if (TX_RECEIVER_NAMES.has(receiverName)) {
@@ -518,14 +794,9 @@ export const guard: AstGuard = {
     "Write ES-entity tables through the entity write handlers / event-store executor or inside an r.projection apply (tx receiver); a direct insert/update/delete lets the projection row drift from the event stream. " +
     "For a BLOCKED scan, check that the scan still covers the files declaring r.entity / createEventStoreExecutor.",
   run(files) {
-    // Merge both collections BEFORE the empty-set check — otherwise a repo
-    // that only uses r.entity (no createEventStoreExecutor anymore) would
-    // skip every scan: the canary violation fires falsely, and writes on
-    // entity tables go undetected.
-    const esTables = new Set<TableId>([
-      ...collectEsTables(files),
-      ...collectEntityProjectionTables(files),
-    ]);
+    // Merge all collections BEFORE the empty-set check — otherwise a repo that only uses r.entity
+    // would skip every scan: the canary fires falsely and writes on entity tables go undetected.
+    const esTables = collectScopeEsTables(files);
     if (esTables.size === 0) {
       // An empty set means either the repo has no event store at all, or the
       // scan lost the ES definitions while table writes are still present.
@@ -542,13 +813,23 @@ export const guard: AstGuard = {
       };
     }
 
-    const violations: Array<{ file: string; line: number; message: string }> = [];
+    const violations: Array<{
+      file: string;
+      line: number;
+      message: string;
+      neverFrozen?: boolean;
+    }> = catalogViolations(files, esTables);
+
+    const firstFile = files[0];
+    const externalEsTables = firstFile
+      ? createExternalEsTables(firstFile.getProject())
+      : { has: () => false };
 
     for (const sf of files) {
       const file = sf.getFilePath();
       if (EXCLUDE.test(file)) continue;
 
-      for (const hit of scanDirectWrites(sf, esTables)) {
+      for (const hit of scanDirectWrites(sf, esTables, externalEsTables)) {
         violations.push({
           file: path.relative(ROOT, file),
           line: hit.line,
@@ -558,6 +839,9 @@ export const guard: AstGuard = {
     }
 
     return { violations };
+  },
+  writeBaseline(files) {
+    writeCatalogs(files, collectScopeEsTables(files));
   },
 };
 

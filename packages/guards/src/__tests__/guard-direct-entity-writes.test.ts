@@ -13,6 +13,7 @@ import { Project } from "ts-morph";
 import {
   collectEntityProjectionTables,
   collectEsTables,
+  collectProjectionTables,
   guard,
   scanDirectWrites,
 } from "../guard-direct-entity-writes";
@@ -580,5 +581,169 @@ describe("scanDirectWrites :: tables imported from another file", () => {
       `,
     });
     expect(hits).toHaveLength(0);
+  });
+});
+
+describe("scanDirectWrites :: tables from external packages (catalog)", () => {
+  const CATALOG = JSON.stringify([{ module: "t", export: "listedTable" }]);
+
+  function externalHits(packageFiles: Record<string, string>, importFrom: string, table: string) {
+    const project = makeProject({
+      "/repo/consumer.ts": `
+        import { ${table} } from "${importFrom}";
+        export async function bad(db: { insert: (t: unknown) => unknown }) { db.insert(${table}); }
+      `,
+    });
+    for (const [file, text] of Object.entries(packageFiles)) {
+      project.getFileSystem().writeFileSync(file, text);
+    }
+    const consumer = project.getSourceFileOrThrow("/repo/consumer.ts");
+    return scanDirectWrites(consumer, new Set());
+  }
+
+  const SOURCE_PACKAGE = {
+    "/node_modules/@x/pkg/package.json": "{}",
+    "/node_modules/@x/pkg/kumiko-es-tables.json": CATALOG,
+    "/node_modules/@x/pkg/src/t.ts": "export const listedTable = {}; export const otherTable = {};",
+  };
+  const PUBLISHED_PACKAGE = {
+    "/node_modules/@x/pkg/package.json": "{}",
+    "/node_modules/@x/pkg/kumiko-es-tables.json": CATALOG,
+    "/node_modules/@x/pkg/dist/t.d.ts":
+      "export declare const listedTable: {}; export declare const otherTable: {};",
+  };
+
+  test("BLOCK: catalog table resolved to a package src path", () => {
+    const hits = externalHits(SOURCE_PACKAGE, "/node_modules/@x/pkg/src/t", "listedTable");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.table).toBe("listedTable");
+  });
+
+  test("BLOCK: catalog table resolved to a published dist .d.ts path", () => {
+    const hits = externalHits(PUBLISHED_PACKAGE, "/node_modules/@x/pkg/dist/t", "listedTable");
+    expect(hits).toHaveLength(1);
+  });
+
+  test("ALLOW: external table that is not in the catalog", () => {
+    expect(externalHits(SOURCE_PACKAGE, "/node_modules/@x/pkg/src/t", "otherTable")).toHaveLength(
+      0,
+    );
+  });
+
+  test("ALLOW: package without a catalog", () => {
+    const { "/node_modules/@x/pkg/kumiko-es-tables.json": _omitted, ...withoutCatalog } =
+      SOURCE_PACKAGE;
+    expect(externalHits(withoutCatalog, "/node_modules/@x/pkg/src/t", "listedTable")).toHaveLength(
+      0,
+    );
+  });
+});
+
+describe("guard.run :: ES table catalog of the owning repo", () => {
+  const OWNER_FILES = {
+    "/repo/pkg/package.json": "{}",
+    "/repo/pkg/src/foo.ts": SINGLE_FILE_PRELUDE,
+  };
+
+  function catalogOutcome(catalog: string | undefined) {
+    const project = makeProject(OWNER_FILES);
+    const host = project.getFileSystem();
+    for (const [file, text] of Object.entries(OWNER_FILES)) host.writeFileSync(file, text);
+    if (catalog !== undefined) host.writeFileSync("/repo/pkg/kumiko-es-tables.json", catalog);
+    return guard.run(project.getSourceFiles()).violations;
+  }
+
+  test("up to date catalog: no finding", () => {
+    const catalog = JSON.stringify([{ module: "foo", export: "fooTable" }]);
+    expect(catalogOutcome(catalog)).toHaveLength(0);
+  });
+
+  test("missing catalog: finding with the rewrite command", () => {
+    const violations = catalogOutcome(undefined);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("missing: foo::fooTable");
+    expect(violations[0]?.message).toContain("--write-baseline");
+  });
+
+  test("stale catalog: finding names the surplus entry", () => {
+    const stale = JSON.stringify([
+      { module: "foo", export: "fooTable" },
+      { module: "gone", export: "goneTable" },
+    ]);
+    const violations = catalogOutcome(stale);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("surplus: gone::goneTable");
+  });
+
+  test("writeBaseline writes the catalog the check then accepts", () => {
+    const project = makeProject(OWNER_FILES);
+    const host = project.getFileSystem();
+    for (const [file, text] of Object.entries(OWNER_FILES)) host.writeFileSync(file, text);
+    guard.writeBaseline?.(project.getSourceFiles());
+    expect(host.readFileSync("/repo/pkg/kumiko-es-tables.json")).toContain('"fooTable"');
+    expect(guard.run(project.getSourceFiles()).violations).toHaveLength(0);
+  });
+});
+
+describe("r.projection tables", () => {
+  const PROJECTION_PRELUDE = `
+    declare const t: unknown;
+    declare function buildEntityTable(name: string, e: unknown): unknown;
+    export const fooProjectionTable = buildEntityTable("foo", t);
+    declare const r: { projection: (d: unknown) => void };
+    r.projection({ name: "foo", table: fooProjectionTable, apply: {} });
+  `;
+
+  test("collectProjectionTables finds the table of r.projection", () => {
+    const project = makeProject({ "/repo/foo.ts": PROJECTION_PRELUDE });
+    expect([...collectProjectionTables(project.getSourceFiles())]).toEqual([
+      "/repo/foo.ts::fooProjectionTable",
+    ]);
+  });
+
+  test("BLOCK: write outside the apply; ALLOW: tx write inside the apply", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${PROJECTION_PRELUDE}
+        export async function sweep(db: { delete: (t: unknown) => unknown }) {
+          db.delete(fooProjectionTable);
+        }
+        declare const r2: { projection: (d: unknown) => void };
+        declare const tx: { insert: (t: unknown) => unknown };
+        r2.projection({ name: "x", table: fooProjectionTable, apply: (event: unknown, tx: { insert: (t: unknown) => unknown }) => { tx.insert(fooProjectionTable); } });
+      `,
+    });
+    const sf = project.getSourceFileOrThrow("/repo/foo.ts");
+    const hits = scanDirectWrites(sf, collectProjectionTables(project.getSourceFiles()));
+    expect(hits.map((hit) => hit.receiver)).toEqual(["db"]);
+  });
+});
+
+describe("scanDirectWrites :: DIRECT_WRITE_EXCEPTIONS", () => {
+  const EXCEPTION_FILE = "/repo/packages/bundled-features/src/delivery/attempt-log-retention.ts";
+  const SOURCE = (functionName: string) => `
+    declare const t: unknown;
+    declare function buildEntityTable(name: string, e: unknown): unknown;
+    declare function deleteMany(db: unknown, table: unknown, where: unknown): Promise<{ deleted: number }>;
+    export const deliveryAttemptsTable = buildEntityTable("delivery-attempt", t);
+    declare const r: { projection: (d: unknown) => void };
+    r.projection({ name: "x", table: deliveryAttemptsTable, apply: {} });
+    export async function ${functionName}(db: unknown) {
+      const rows = await deleteMany(db, deliveryAttemptsTable, {});
+      return rows.deleted;
+    }
+  `;
+
+  function hitsFor(functionName: string) {
+    const project = makeProject({ [EXCEPTION_FILE]: SOURCE(functionName) });
+    const sf = project.getSourceFileOrThrow(EXCEPTION_FILE);
+    return scanDirectWrites(sf, collectProjectionTables(project.getSourceFiles()));
+  }
+
+  test("ALLOW: write in the excepted function, even when assigned to a local `rows`", () => {
+    expect(hitsFor("runAttemptLogRetention")).toHaveLength(0);
+  });
+
+  test("BLOCK: the same write in any other function of that file", () => {
+    expect(hitsFor("somethingElse")).toHaveLength(1);
   });
 });
