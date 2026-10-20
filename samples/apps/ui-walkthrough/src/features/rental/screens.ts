@@ -476,7 +476,11 @@ export const receiveInvoiceLines = createEmbeddedListField(
   },
   {
     derived: { vatAmount: { op: "percent", from: ["amount", "vatRate"] } },
-    totals: ["amount", "vatAmount"],
+    totals: [
+      { label: "rental.total.net", from: ["amount"] },
+      { label: "rental.total.vat", from: ["vatAmount"] },
+      { label: "rental.total.gross", from: ["amount", "vatAmount"] },
+    ],
   },
 );
 

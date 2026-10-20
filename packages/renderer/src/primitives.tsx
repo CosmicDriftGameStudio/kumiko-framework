@@ -979,6 +979,9 @@ export type EmbeddedListTotal = {
   readonly field: string;
   readonly label: string;
   readonly value: number;
+  /** Set for labelled multi-column totals, which have no single column to
+   *  read the money type from. */
+  readonly money?: boolean;
 };
 
 /** Row-array + totals table for a `createEmbeddedListField` (invoice-

@@ -336,8 +336,11 @@ export type EditFieldViewModel = {
       { readonly op: "multiply" | "sum" | "subtract" | "percent"; readonly from: readonly string[] }
     >
   >;
-  /** Numeric sub-field names to sum in a totals row. From EmbeddedFieldDef.totals. */
-  readonly embeddedListTotals?: readonly string[];
+  /** Footer totals: a sub-field name, or a labelled sum of several. From EmbeddedFieldDef.totals. */
+  readonly embeddedListTotals?: readonly (
+    | string
+    | { readonly label: string; readonly from: readonly string[] }
+  )[];
   /** No add, remove, duplicate or move; cells stay editable. From
    *  EditFieldSpec.embeddedList.fixedRows. */
   readonly embeddedListFixedRows?: boolean;

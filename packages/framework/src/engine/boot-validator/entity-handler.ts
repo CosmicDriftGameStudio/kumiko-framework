@@ -883,12 +883,19 @@ function validateEmbeddedTotalsColumns(
 ): void {
   // skip: no totals columns declared — nothing to validate
   if (field.totals === undefined) return;
-  for (const totalName of field.totals) {
-    const totalSubField = field.schema[totalName];
-    if (!totalSubField || !NUMERIC_EMBEDDED_SUB_TYPES.has(totalSubField.type)) {
+  for (const total of field.totals) {
+    if (typeof total !== "string" && total.from.length === 0) {
       throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" lists "${totalName}" in totals, but it is not a number/money/decimal sub-field. List only number, money or decimal sub-fields in totals.`,
+        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totals entry "${total.label}" with an empty "from". List at least one number, money or decimal sub-field.`,
       );
+    }
+    for (const totalName of typeof total === "string" ? [total] : total.from) {
+      const totalSubField = field.schema[totalName];
+      if (!totalSubField || !NUMERIC_EMBEDDED_SUB_TYPES.has(totalSubField.type)) {
+        throw new Error(
+          `Embedded-list field "${fieldName}" on entity "${entityName}" lists "${totalName}" in totals, but it is not a number/money/decimal sub-field. List only number, money or decimal sub-fields in totals.`,
+        );
+      }
     }
   }
 }

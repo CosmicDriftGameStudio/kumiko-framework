@@ -117,6 +117,9 @@ export const rentalTranslations: TranslationsByLocale = {
     "screen:receive-invoice.title": "Eingangsrechnung erfassen",
     "rental.section.invoiceLines": "Rechnungspositionen",
     "rental.section.invoiceTotals": "Summen",
+    "rental.total.net": "Netto",
+    "rental.total.vat": "USt.",
+    "rental.total.gross": "Brutto",
     "rental.section.invoiceTotalsHint":
       "Mit Positionen sind die Summen berechnet. Ohne Positionen tragen Sie Netto und USt.-Satz ein.",
     "rental.action.receiveInvoice": "Rechnung erfassen",
@@ -266,6 +269,9 @@ export const rentalTranslations: TranslationsByLocale = {
     "screen:receive-invoice.title": "Record incoming invoice",
     "rental.section.invoiceLines": "Invoice lines",
     "rental.section.invoiceTotals": "Totals",
+    "rental.total.net": "Net",
+    "rental.total.vat": "VAT",
+    "rental.total.gross": "Gross",
     "rental.section.invoiceTotalsHint":
       "With lines the totals are computed. Without lines, enter the net amount and the VAT rate.",
     "rental.action.receiveInvoice": "Record invoice",

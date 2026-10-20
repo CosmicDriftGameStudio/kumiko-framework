@@ -745,6 +745,10 @@ export type EmbeddedDerivedCellDef = {
   readonly from: readonly string[];
 };
 
+export type EmbeddedTotalDef =
+  | string
+  | { readonly label: string; readonly from: readonly string[] };
+
 export type EmbeddedFieldDef = {
   readonly type: "embedded";
   readonly description?: string;
@@ -771,9 +775,12 @@ export type EmbeddedFieldDef = {
    *  sub-fields of the same row, rounded to that sub-field's declared
    *  precision. Only valid with `multiple: true`. */
   readonly derived?: Readonly<Record<string, EmbeddedDerivedCellDef>>;
-  /** Renderer metadata: numeric sub-field names to sum in a totals row. Only
-   *  valid with `multiple: true`. */
-  readonly totals?: readonly string[];
+  /** Renderer metadata: footer totals. A string is the sum of that numeric
+   *  sub-field under the column label; an object shows the sum of all `from`
+   *  sub-fields under its own i18n `label` (e.g. net, VAT, gross). Display
+   *  only; the server derivation is unchanged. Only valid with
+   *  `multiple: true`. */
+  readonly totals?: readonly EmbeddedTotalDef[];
   /** Maps an embedded-list subfield name to a sibling top-level money field
    *  name — the sum of that subfield across all rows must equal the sibling
    *  field's amount. Validated both client- and server-side (schema-builder

@@ -153,8 +153,8 @@ function formatTotalValue(
   currency: string,
   locale: string,
 ): string {
-  const column = columns.find((c) => c.field === total.field);
-  if (column?.type === "money") return formatMoney(total.value, currency, locale);
+  const isMoney = total.money ?? columns.find((c) => c.field === total.field)?.type === "money";
+  if (isMoney) return formatMoney(total.value, currency, locale);
   return total.value.toLocaleString(locale);
 }
 

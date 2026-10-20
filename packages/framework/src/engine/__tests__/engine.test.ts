@@ -1645,6 +1645,46 @@ describe("createApp", () => {
     );
   });
 
+  test("rejects a labelled totals entry with an empty from", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity({
+        name: "doc",
+        ...createEntity({
+          table: "Docs",
+          fields: {
+            lines: createEmbeddedListField(
+              { amount: { type: "number" } },
+              { totals: [{ label: "doc.net", from: [] }] },
+            ),
+          },
+        }),
+      });
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'totals entry "doc.net" with an empty "from"',
+    );
+  });
+
+  test("rejects a labelled totals entry whose from names an unknown sub-field", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity({
+        name: "doc",
+        ...createEntity({
+          table: "Docs",
+          fields: {
+            lines: createEmbeddedListField(
+              { amount: { type: "number" } },
+              { totals: [{ label: "doc.gross", from: ["amount", "vatAmount"] }] },
+            ),
+          },
+        }),
+      });
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'lists "vatAmount" in totals, but it is not a number/money/decimal sub-field',
+    );
+  });
+
   test("rejects totalsMatch entry whose sub-field is not a money sub-field (fw#1839)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
