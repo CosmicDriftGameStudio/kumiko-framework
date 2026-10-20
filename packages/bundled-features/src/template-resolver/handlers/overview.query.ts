@@ -11,6 +11,7 @@ import {
   parseTemplateDraft,
   servedVersionOf,
 } from "../template-draft.ts";
+import { mayEditTemplate, type TemplateEditPolicy } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.ts";
 import { storedRecord } from "./template-gates.ts";
@@ -271,68 +272,71 @@ const filterSchema = z.object({
   value: z.array(z.string()),
 });
 
-export const overviewQuery = defineQueryHandler({
-  name: "overview",
-  schema: z.object({
-    search: z.string().optional(),
-    filters: z.array(filterSchema).optional(),
-    layoutSlug: z.string().optional(),
-    sort: z.string().optional(),
-    sortDirection: z.enum(["asc", "desc"]).optional(),
-    limit: z.number().int().min(1).max(200).default(50),
-    offset: z.number().int().min(0).optional(),
-    totalCount: z.boolean().optional(),
-  }),
-  access: { roles: ["TenantAdmin", "SystemAdmin"] },
-  description:
-    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; templates of notifications registered with `systemOnly` are listed for SystemAdmins only; use it to browse and filter all templates at a glance.",
-  handler: async (query, ctx) => {
-    const payload = query.payload;
-    const fetchedRows = await selectMany<TemplateResourceRow>(
-      ctx.db,
-      templateResourcesTable,
-      { kind: { in: [...OVERVIEW_KINDS] } },
-      { orderBy: { col: "id", direction: "asc" }, limit: OVERVIEW_ROW_LIMIT + 1 },
-    );
-    const truncated = fetchedRows.length > OVERVIEW_ROW_LIMIT;
-    const rows = truncated ? fetchedRows.slice(0, OVERVIEW_ROW_LIMIT) : fetchedRows;
-    if (truncated) {
-      ctx.log?.warn("template overview: row limit reached, result is incomplete", {
-        limit: OVERVIEW_ROW_LIMIT,
-      });
-    }
+export function makeOverviewQuery(policy: TemplateEditPolicy) {
+  return defineQueryHandler({
+    name: "overview",
+    schema: z.object({
+      search: z.string().optional(),
+      filters: z.array(filterSchema).optional(),
+      layoutSlug: z.string().optional(),
+      sort: z.string().optional(),
+      sortDirection: z.enum(["asc", "desc"]).optional(),
+      limit: z.number().int().min(1).max(200).default(50),
+      offset: z.number().int().min(0).optional(),
+      totalCount: z.boolean().optional(),
+    }),
+    access: { roles: ["TenantAdmin", "SystemAdmin"] },
+    description:
+      "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; templates of notifications registered with `systemOnly` are listed for SystemAdmins only, and a TenantAdmin sees only the templates the app lists in tenantEditable; use it to browse and filter all templates at a glance.",
+    handler: async (query, ctx) => {
+      const payload = query.payload;
+      const fetchedRows = await selectMany<TemplateResourceRow>(
+        ctx.db,
+        templateResourcesTable,
+        { kind: { in: [...OVERVIEW_KINDS] } },
+        { orderBy: { col: "id", direction: "asc" }, limit: OVERVIEW_ROW_LIMIT + 1 },
+      );
+      const truncated = fetchedRows.length > OVERVIEW_ROW_LIMIT;
+      const rows = truncated ? fetchedRows.slice(0, OVERVIEW_ROW_LIMIT) : fetchedRows;
+      if (truncated) {
+        ctx.log?.warn("template overview: row limit reached, result is incomplete", {
+          limit: OVERVIEW_ROW_LIMIT,
+        });
+      }
 
-    const visibleRows = rows.filter(
-      (row) =>
-        !isHiddenSystemDraft(query.user, row) &&
-        !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row),
-    );
-    const { drafts, layoutSlugByDocument } = buildDrafts(
-      groupBySlugAndKind(visibleRows),
-      query.user,
-    );
-    const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows);
-    const overviewRows = drafts.map((draft) =>
-      withUsage(draft, layoutSlugByDocument, ctx.registry, effectiveLayouts),
-    );
-    const filtered = filterRows(
-      overviewRows,
-      payload.search,
-      payload.filters ?? [],
-      payload.layoutSlug,
-    );
+      const visibleRows = rows.filter(
+        (row) =>
+          !isHiddenSystemDraft(query.user, row) &&
+          !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row) &&
+          mayEditTemplate(policy, query.user, row),
+      );
+      const { drafts, layoutSlugByDocument } = buildDrafts(
+        groupBySlugAndKind(visibleRows),
+        query.user,
+      );
+      const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows);
+      const overviewRows = drafts.map((draft) =>
+        withUsage(draft, layoutSlugByDocument, ctx.registry, effectiveLayouts),
+      );
+      const filtered = filterRows(
+        overviewRows,
+        payload.search,
+        payload.filters ?? [],
+        payload.layoutSlug,
+      );
 
-    const sortField: SortField =
-      payload.sort !== undefined && isSortField(payload.sort) ? payload.sort : "modifiedAt";
-    const direction = (payload.sortDirection ?? "desc") === "desc" ? -1 : 1;
-    filtered.sort((a, b) => direction * compareBy(sortField, a, b) || a.id.localeCompare(b.id));
+      const sortField: SortField =
+        payload.sort !== undefined && isSortField(payload.sort) ? payload.sort : "modifiedAt";
+      const direction = (payload.sortDirection ?? "desc") === "desc" ? -1 : 1;
+      filtered.sort((a, b) => direction * compareBy(sortField, a, b) || a.id.localeCompare(b.id));
 
-    const offset = payload.offset ?? 0;
-    return {
-      rows: filtered.slice(offset, offset + payload.limit),
-      nextCursor: null,
-      total: filtered.length,
-      truncated,
-    } satisfies OverviewResponse;
-  },
-});
+      const offset = payload.offset ?? 0;
+      return {
+        rows: filtered.slice(offset, offset + payload.limit),
+        nextCursor: null,
+        total: filtered.length,
+        truncated,
+      } satisfies OverviewResponse;
+    },
+  });
+}

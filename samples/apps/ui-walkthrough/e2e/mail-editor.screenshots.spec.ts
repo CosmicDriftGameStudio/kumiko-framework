@@ -63,6 +63,22 @@ test("mail-editor-preview", async ({ page }) => {
   await shot(page, "mail-editor-preview");
 });
 
+test("mail-editor-preview-mobile", async ({ page }) => {
+  await openEditor(page);
+  await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
+  await page.getByTestId("mail-preview-width").locator("button").nth(1).click();
+  await expect(page.getByTestId("mail-preview-iframe")).toHaveClass(/w-\[375px\]/);
+  await shot(page, "mail-editor-preview-mobile");
+});
+
+test("mail-editor-preview-text", async ({ page }) => {
+  await openEditor(page);
+  await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
+  await page.getByTestId("mail-preview-format").locator("button").nth(1).click();
+  await expect(page.getByTestId("mail-preview-text")).toBeVisible();
+  await shot(page, "mail-editor-preview-text");
+});
+
 // Nothing is saved: the preview renders the unsaved draft, so the seeded template stays as it is.
 test("mail-editor-chrome-rail", async ({ page }) => {
   await openEditor(page);
@@ -127,20 +143,11 @@ test("mail-editor-right-rail-fits", async ({ page }) => {
   await shot(page, "mail-editor-right-rail-long-action");
 });
 
-// This app has file storage and mail delivery; the answer of an app without them is stubbed.
-test("mail-editor-without-files-and-mail", async ({ page }) => {
-  await page.route("**/api/query", async (route) => {
-    const body: unknown = route.request().postDataJSON();
-    const type = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
-    if (type !== "template-resolver:query:editor-capabilities") return route.continue();
-    return route.fulfill({ json: { data: { fileUploads: false, testMail: false } } });
-  });
+test("mail-editor-resource-row-wraps", async ({ page }) => {
   await openEditor(page);
-  await expect(page.getByTestId("mail-resource-uploads-unavailable")).toBeVisible();
-  await expect(page.getByTestId("mail-resource-upload-open")).toHaveCount(0);
-  await page.getByTestId("mail-resource-uploads-unavailable").scrollIntoViewIfNeeded();
-  // The seeded file name has no spaces; it has to wrap inside its row, not run under "Entfernen".
   const resourceRow = page.getByTestId("mail-resource-row");
+  await resourceRow.scrollIntoViewIfNeeded();
+  // The seeded file name has no spaces; it has to wrap inside its row, not run under "Entfernen".
   const labelEndsBeforeAction = await resourceRow.evaluate((row) => {
     const action = row.querySelector("[data-testid^='mail-resource-remove-']");
     const label = row.querySelector("span.text-sm");
@@ -148,10 +155,21 @@ test("mail-editor-without-files-and-mail", async ({ page }) => {
     return label.getBoundingClientRect().right <= action.getBoundingClientRect().left;
   });
   expect(labelEndsBeforeAction).toBe(true);
-  await shot(page, "mail-editor-without-files");
+  await shot(page, "mail-editor-resource-row");
+});
+
+// This app has mail delivery; the answer of an app without an email channel is stubbed.
+test("mail-editor-without-mail", async ({ page }) => {
+  await page.route("**/api/query", async (route) => {
+    const body: unknown = route.request().postDataJSON();
+    const type = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
+    if (type !== "template-resolver:query:send-test-status") return route.continue();
+    return route.fulfill({ json: { data: { canSend: false, reason: "no_channel" } } });
+  });
+  await openEditor(page);
   await page.getByTestId("mail-mode-switch").getByText("Vorschau", { exact: true }).click();
-  await expect(page.getByTestId("mail-test-unavailable")).toBeVisible();
-  await expect(page.getByTestId("mail-test-send")).toHaveCount(0);
+  await expect(page.getByText("Test-Mails brauchen den E-Mail-Kanal")).toBeVisible();
+  await expect(page.getByTestId("mail-test-send")).toBeDisabled();
   const footerMessage = page.getByTestId("mail-editor-footer-message");
   await expect(footerMessage).toContainText("Veröffentlichen ist gesperrt");
   await expect(footerMessage).not.toContainText("Test-Mail");

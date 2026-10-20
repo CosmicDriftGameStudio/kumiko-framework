@@ -1567,6 +1567,13 @@ export type JsonViewProps = {
   readonly testId?: string;
 };
 
+/** Read-only list of stored files (FileRef ids): name, download link and, for
+ *  PDFs, an inline preview. Used for `renderer: { format: "file" }` on a detail field. */
+export type FileValueListProps = {
+  readonly fileIds: readonly string[];
+  readonly testId?: string;
+};
+
 /** Band above the tabs of a record detail: optional subtitle line plus the
  *  metrics as a definition list. `children` are `Metric` tiles. */
 export type MetricBandProps = {
@@ -1749,6 +1756,10 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly JsonView?: ComponentType<JsonViewProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly FileValueList?: ComponentType<FileValueListProps>;
   /** Optional (unlike the other Core-Primitives) so existing partial
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */

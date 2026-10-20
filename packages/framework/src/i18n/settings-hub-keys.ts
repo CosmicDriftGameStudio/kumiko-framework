@@ -21,6 +21,7 @@ export const SETTINGS_HUB_I18N: TranslationKeys = {
     en: "Choose a provider. Its settings appear below and are saved together with it.",
   },
   "config.settings.provider": { en: "Provider" },
+  "config.settings.provider.platformDefault": { en: "Platform default" },
   "config.settings.audience.system": {
     en: "Applies to every tenant unless a tenant sets its own value.",
   },

@@ -148,3 +148,25 @@ describe("validateTemplatePlaceholders :: data-if", () => {
     expect(result.unknown).toEqual(["label"]);
   });
 });
+
+describe("validateTemplatePlaceholders :: images", () => {
+  const withPhotos = { ...variables, photos: templateVariable.images() };
+  const run = (body: string) =>
+    validateTemplatePlaceholders({ kind: "document-pdf", body, meta: null, variables: withPhotos });
+
+  test("an images block counts a declared images variable as used", () => {
+    expect(run('<div data-images="photos"></div>')).toMatchObject({
+      used: ["photos"],
+      unknown: [],
+    });
+  });
+
+  test("an images block bound to a text or undeclared variable is unknown", () => {
+    expect(run('<div data-images="name"></div>').unknown).toEqual(["name"]);
+    expect(run('<div data-images="gone"></div>').unknown).toEqual(["gone"]);
+  });
+
+  test("an images variable used as text is unknown", () => {
+    expect(run('<span data-variable="photos"></span>').unknown).toEqual(["photos"]);
+  });
+});

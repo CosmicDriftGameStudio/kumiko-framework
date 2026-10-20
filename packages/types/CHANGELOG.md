@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-types
 
+## 0.378.0
+
+### Minor Changes
+
+- 2d7ee3e: Document PDFs can embed the images of a record
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Document PDFs embed the images of a record
+  detail: A template variable of type images (templateVariable.images()) holds FileRef ids of the record. The new Images block (div[data-images], PDF templates only, rejected for mail kinds) renders them as data-URI images in the real PDF render. Only files of the rendering tenant are read, only png, jpeg, gif and webp, at most 24 images and 20 MB per document; missing, foreign, oversized or non-image ids are dropped silently. Previews and draft PDFs never read files and show one placeholder box per block. An images variable never renders as inline text. i18n keys template-resolver.documentEditor.images, template-resolver.documentEditor.imagesVariable and templateResolver.errors.document.imagesBlockPdfOnly ship in de, es, fr and it.
+  migration: Declare a template variable with type `images`, place the Images block, and pass FileRef ids of the record in `variables`. Images resolve only in the real PDF render, previews show placeholders. The ids must come from the record on the server, never from client input: a resolved id is read for the whole tenant without an entity access check.
+  -->
+- 0250376: actionForm can derive head totals from an embedded list
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: actionForm can derive head totals from an embedded list
+  detail: An actionForm screen declares `derive` for head fields: sum, subtract, multiply, percent over other fields, or listSum over one cell of an embedded list with an optional whenEmpty fallback. The renderer recomputes them live and shows them read-only; a listSum without whenEmpty becomes an input while the list is empty. withFormDerivations(schema, screen) recomputes them on the server before validation, so client totals are never trusted; boot fails when the handler schema is not wrapped with the screen's own derive. A field that only feeds a `whenEmpty` fallback is read-only while the lists have rows. New embedded derived op `percent` (from[0] * from[1] / 100).
+  migration: Add `derive` to the actionForm screen and wrap the handler schema with `withFormDerivations(schema, screen)`; new embedded derived op `percent`.
+  -->
+
 ## 0.377.0
 
 ### Minor Changes

@@ -15,6 +15,9 @@
 //             on its `lines` sub-fields (Issue #1835), plus a declarative
 //             entityEdit screen that renders the list end-to-end via
 //             EmbeddedListField, no custom-screen code required
+//   invoice-receive — actionForm whose net/VAT/gross head fields are derived
+//             from the lines (`derive`); the handler recomputes them with
+//             `withFormDerivations`, so client-sent totals are never trusted
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { contactEntity } from "./entities/contact";
@@ -22,6 +25,8 @@ import { invoiceEntity } from "./entities/invoice";
 import { productEntity } from "./entities/product";
 import { contactCreate } from "./handlers/contact-create.write";
 import { contactDetail } from "./handlers/contact-detail.query";
+import { invoiceReceive } from "./handlers/invoice-receive.write";
+import { invoiceReceiveScreen } from "./screens/invoice-receive.screen";
 
 export { contactEntity } from "./entities/contact";
 export { invoiceEntity } from "./entities/invoice";
@@ -43,6 +48,7 @@ export const embeddedFeature = defineFeature("contacts", (r) => {
 
   r.writeHandler(contactCreate);
   r.queryHandler(contactDetail);
+  r.writeHandler(invoiceReceive);
 
   r.crud("product", productEntity, { write: adminWrite, read: openRead });
   r.crud("invoice", invoiceEntity, { write: adminWrite, read: openRead });
@@ -55,4 +61,6 @@ export const embeddedFeature = defineFeature("contacts", (r) => {
       sections: [{ columns: 1, fields: ["customer", "lines"] }],
     },
   });
+
+  r.screen(invoiceReceiveScreen);
 });

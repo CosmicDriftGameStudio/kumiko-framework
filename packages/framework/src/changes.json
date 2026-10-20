@@ -1,5 +1,37 @@
 [
   {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "actionForm can derive head totals from an embedded list",
+    "detail": "An actionForm screen declares `derive` for head fields: sum, subtract, multiply, percent over other fields, or listSum over one cell of an embedded list with an optional whenEmpty fallback. The renderer recomputes them live and shows them read-only; a listSum without whenEmpty becomes an input while the list is empty. withFormDerivations(schema, screen) recomputes them on the server before validation, so client totals are never trusted; boot fails when the handler schema is not wrapped with the screen's own derive. A field that only feeds a `whenEmpty` fallback is read-only while the lists have rows. New embedded derived op `percent` (from[0] * from[1] / 100).",
+    "migration": "Add `derive` to the actionForm screen and wrap the handler schema with `withFormDerivations(schema, screen)`; new embedded derived op `percent`."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "Extension-selector settings form is one standard configEdit screen",
+    "detail": "Without owner panels the provider form is the `<owner>-tenant` screen itself (no dashboard, no `<owner>-tenant-selection`). The provider select offers an empty \"platform default\" option next to the plugin ids."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "Search index setup helpers",
+    "detail": "collectSearchableFieldNames(registry) returns the deduplicated searchable fields of all entities and configureTenantSearchIndex(adapter, registry, tenantId) configures a tenant index with them, both exported from the search entry."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "TenantDb.advisoryXactLock",
+    "detail": "ctx.db.advisoryXactLock(namespace, key) takes a transaction-scoped pg_advisory_xact_lock keyed on the handle's own tenantId plus key, so tenants never contend and the caller cannot pick another tenant. It needs no unsafeRaw grant."
+  },
+  {
+    "version": "0.378.0",
+    "type": "breaking",
+    "title": "Boot check for projectionList writeHandler actions",
+    "detail": "Boot now rejects projectionList rowActions and toolbarActions of kind writeHandler whose handler is not a registered write-handler QN. Such actions only failed on click before.",
+    "migration": "Fix the handler QN to \"<feature>:write:<short>\" of a handler declared via r.writeHandler(...), or remove the action. Apps that fail to boot name the screen and action id in the error."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "design decisions log",

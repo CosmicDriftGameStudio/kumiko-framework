@@ -131,16 +131,6 @@ export function RailRow({
   );
 }
 
-export function RailHint({
-  testId,
-  children,
-}: {
-  readonly testId?: string;
-  readonly children: ReactNode;
-}): ReactNode {
-  return (
-    <p className="px-3.5 pt-1 pb-2 text-xs text-muted-foreground" data-testid={testId}>
-      {children}
-    </p>
-  );
+export function RailHint({ children }: { readonly children: ReactNode }): ReactNode {
+  return <p className="px-3.5 pt-1 pb-2 text-xs text-muted-foreground">{children}</p>;
 }

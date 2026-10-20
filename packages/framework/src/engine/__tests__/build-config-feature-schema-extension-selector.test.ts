@@ -106,10 +106,11 @@ const gatedFeatures = () => [secretsFeature(), mailFoundation(), smtp, inmemory,
 describe("buildConfigFeatureSchema — extension selector", () => {
   test("selector key renders as select of plugin ids, at every scope it shows up", () => {
     const schema = build(gatedFeatures());
-    const selection = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    const selection = screenOf(schema, "mail-foundation-tenant", "configEdit");
     expect(selection.fields["provider"]).toMatchObject({
       type: "select",
-      options: ["inmemory", "smtp"],
+      options: ["", "inmemory", "smtp"],
+      display: "radio",
     });
   });
 
@@ -119,24 +120,20 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(screen.fields["provider"]?.type).toBe("text");
   });
 
-  test("owner tenant screen is a dashboard around one provider form", () => {
+  test("without extra panels the owner tenant screen is the provider form itself", () => {
     const schema = build(gatedFeatures());
-    const dashboard = screenOf(schema, "mail-foundation-tenant", "dashboard");
-    expect(dashboard.description).toBeUndefined();
-    expect(dashboard.showUpdatedAt).toBe(false);
-    expect(dashboard.panels).toEqual([
-      {
-        kind: "screen",
-        id: "selection",
-        screen: "mail-foundation-tenant-selection",
-        chromeless: true,
-      },
-    ]);
+    const ids = schema.screens.map((s) => s.id);
+    expect(ids).toContain("mail-foundation-tenant");
+    expect(ids).not.toContain("mail-foundation-tenant-selection");
+    expect(schema.screens.some((s) => s.type === "dashboard")).toBe(false);
+    const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
+    expect(form.dormant).toBeUndefined();
+    expect(form.layout.variant).toBe("settings-list");
   });
 
   test("the provider form holds every provider's settings and secrets, each shown only while it is picked", () => {
     const schema = build(gatedFeatures());
-    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
     expect(form.submitLabel).toBeUndefined();
     expect(form.configKeys).toEqual({
       provider: "mail-foundation:config:provider",
@@ -149,7 +146,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(form.requiredFields).toEqual(["mail-smtp-password"]);
     expect(form.layout.sections).toEqual([
       {
-        title: "config.settings.provider",
+        title: "mail-foundation.settings",
         description: "config.settings.extensionSelectorHint",
         fields: ["provider"],
       },
@@ -177,7 +174,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
       r.secret("password", { label: { en: "SMTP password" }, scope: "tenant" });
     });
     const schema = build([secretsFeature(), mailFoundation(), titledSmtp]);
-    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
     expect(form.layout.sections[1]).toEqual({
       title: "mail-smtp.settings.secrets",
       description: "config.secrets.description",
@@ -205,7 +202,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
       });
     });
     const schema = build([secretsFeature(), mailFoundation(), gatedSecret]);
-    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
     expect(Object.keys(form.configKeys)).toEqual(["provider", "mail-smtp-host"]);
     expect(form.secretKeys).toBeUndefined();
     expect(Object.keys(screenOf(schema, "secrets", "secretsEdit").secretKeys)).toEqual([
@@ -221,17 +218,15 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     const registry = createRegistry([secretsFeature(), mailFoundation(), smtp, testInbox]);
     const form = screenOf(
       buildConfigFeatureSchema(registry),
-      "mail-foundation-tenant-selection",
+      "mail-foundation-tenant",
       "configEdit",
     );
-    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["smtp"] });
+    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["", "smtp"] });
     expect(selectablePluginIds(registry, "mailTransport")).toEqual(["smtp", "test-inbox"]);
   });
 
-  test("embedded form is dormant and plugin features lose their tenant screens and nav", () => {
+  test("plugin features lose their tenant screens and nav", () => {
     const schema = build(gatedFeatures());
-    expect(screenOf(schema, "mail-foundation-tenant-selection", "configEdit").dormant).toBe(true);
-    expect(screenOf(schema, "mail-foundation-tenant", "dashboard").dormant).toBeUndefined();
     const screenIds = schema.screens.map((s) => s.id);
     for (const id of ["mail-smtp-tenant", "mail-inmemory-tenant", "mail-smtp-tenant-secrets"]) {
       expect(screenIds).not.toContain(id);
@@ -243,7 +238,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(navIds).not.toContain("mail-inmemory-tenant");
   });
 
-  test("owner nav keeps id/label/screen and the dashboard access is the union incl. secrets", () => {
+  test("owner nav keeps id/label/screen and the form access is the union incl. secrets", () => {
     const schema = build(gatedFeatures());
     const nav = schema.navs.find((n) => n.id === "mail-foundation-tenant");
     expect(nav).toMatchObject({
@@ -252,12 +247,9 @@ describe("buildConfigFeatureSchema — extension selector", () => {
       parent: "audience-tenant",
       icon: "mail",
     });
-    const dashboard = screenOf(schema, "mail-foundation-tenant", "dashboard");
-    expect(dashboard.access).toEqual({ roles: ["TenantAdmin", "Admin", "SystemAdmin"] });
-    expect(nav?.access).toEqual(dashboard.access);
-    expect(screenOf(schema, "mail-foundation-tenant-selection", "configEdit").access).toEqual(
-      dashboard.access,
-    );
+    const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
+    expect(form.access).toEqual({ roles: ["TenantAdmin", "Admin", "SystemAdmin"] });
+    expect(nav?.access).toEqual(form.access);
   });
 
   test("global secrets screen drops gated secrets", () => {
@@ -278,13 +270,20 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(audience?.access).toEqual({ roles: ["TenantAdmin", "Admin", "SystemAdmin"] });
   });
 
-  test("selection panel is titled Provider regardless of the owner's label", () => {
-    const schema = build(gatedFeatures());
-    expect(schema.translations?.["screen:mail-foundation-tenant-selection.title"]).toEqual({
-      en: "Provider",
-      de: "Anbieter",
-      es: "Proveedor",
+  test("the empty provider option is labelled by the selector's own text, else the generic one", () => {
+    const optionKey = "config:entity:__config-edit__:field:provider:option:";
+    const generic = { en: "Platform default" };
+    const hub = defineFeature("config", (r) => {
+      r.translations({ keys: { "config.settings.provider.platformDefault": generic } });
     });
+    expect(build([hub, ...gatedFeatures()]).translations?.[optionKey]).toEqual(generic);
+
+    const own = { en: "Platform mail" };
+    const ownerLabelled = mailFoundation((r) =>
+      r.translations({ keys: { "mail.provider.platformDefault": own } }),
+    );
+    const schema = build([hub, secretsFeature(), ownerLabelled, smtp, inmemory, stripe]);
+    expect(schema.translations?.[optionKey]).toEqual(own);
   });
 
   test("plugin system-scope screen and nav stay ungated", () => {
@@ -317,7 +316,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(Object.keys(screenOf(schema, "secrets", "secretsEdit").secretKeys)).toEqual([
       "mail-smtp-password",
     ]);
-    const form = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
     expect(Object.keys(form.configKeys)).toEqual(["provider", "mail-inmemory-capture"]);
   });
 

@@ -78,10 +78,15 @@ function valueExpression(
   return `{{${path}}}`;
 }
 
+// Never interpolated as text: its value is a list of file ids.
+function isImagesVariable(def: TemplateVariableDef | undefined): boolean {
+  return def?.type === "images";
+}
+
 function rewriteVariable(element: ScanElement, state: CompileState): void {
   const name = element.getAttribute("data-variable") ?? "";
   const replacement = element.ownerDocument.createTextNode(
-    isDocumentReferenceName(name)
+    isDocumentReferenceName(name) && !isImagesVariable(pathAndDef(name, element, state)[1])
       ? marker(
           state,
           valueExpression(
@@ -131,6 +136,8 @@ function wrapVariableOnlyBlock(block: ScanElement, state: CompileState): void {
   // skip: a line with static content or several placeholders stays as it is
   if (name === null) return;
   const [path, def] = pathAndDef(name, block, state);
+  // skip: images blocks are rewritten by rewriteImagesBlock
+  if (isImagesVariable(def)) return;
   const host =
     def?.type === "richText" && block.tagName === "P" ? richTextBlockHost(block, state) : block;
   const document = host.ownerDocument;
@@ -158,8 +165,8 @@ function rewriteLink(element: ScanElement, state: CompileState): void {
   if (isDocumentPlaceholderHref(href)) {
     const name = href.slice(2, -2);
     if (isDocumentReferenceName(name)) {
-      const [path] = pathAndDef(name, element, state);
-      element.setAttribute("href", marker(state, `{{link ${path}}}`));
+      const [path, def] = pathAndDef(name, element, state);
+      element.setAttribute("href", isImagesVariable(def) ? "#" : marker(state, `{{link ${path}}}`));
     } else {
       element.setAttribute("href", "#");
     }
@@ -225,7 +232,13 @@ export type CompileDocumentBodyOptions = {
   readonly headingAsInlineStyle?: boolean;
   // Bar color of reached stages in a steps block; ignored unless it is a #rrggbb hex.
   readonly stepsColor?: string;
+  // Data URIs of the record's images for the images block bound to `variable`.
+  readonly recordImagesSrc?: (variable: string) => readonly string[];
+  // Previews and drafts never read the record's files; each images block shows one neutral box.
+  readonly recordImagesPlaceholder?: boolean;
 };
+
+const IMAGES_PLACEHOLDER_STYLE = "height:96px;margin:8px 0;border-radius:4px;background:#e5e7eb";
 
 const MAIL_BUTTON_STYLE =
   "display:inline-block;padding:10px 20px;border-radius:6px;background-color:#1f5468;color:#ffffff;font-weight:600;text-decoration:none";
@@ -256,6 +269,48 @@ export function collectDocumentResourceKeys(html: string): readonly string[] {
     }
     return [...keys];
   });
+}
+
+// Unique valid names of the images blocks in document order.
+export function collectDocumentImageVariables(html: string): readonly string[] {
+  return withParsedDocument(html, (root) => {
+    const names = new Set<string>();
+    for (const element of Array.from(root.querySelectorAll("div[data-images]"))) {
+      const name = element.getAttribute("data-images") ?? "";
+      if (isDocumentReferenceName(name)) names.add(name);
+    }
+    return [...names];
+  });
+}
+
+function rewriteImagesBlock(
+  element: ScanElement,
+  state: CompileState,
+  options: CompileDocumentBodyOptions,
+): void {
+  const name = element.getAttribute("data-images") ?? "";
+  const declared =
+    isDocumentReferenceName(name) && isImagesVariable(ownVariable(state.variables, name));
+  if (!declared) {
+    element.remove();
+    // skip: an images block bound to anything but a declared images variable renders nothing
+    return;
+  }
+  const document = element.ownerDocument;
+  element.removeAttribute("data-images");
+  if (options.recordImagesPlaceholder === true) {
+    element.setAttribute("class", "kumiko-doc-image-placeholder");
+    element.setAttribute("style", IMAGES_PLACEHOLDER_STYLE);
+    // skip: preview and drafts never resolve record images
+    return;
+  }
+  element.setAttribute("class", "kumiko-doc-images");
+  for (const src of options.recordImagesSrc?.(name) ?? []) {
+    const image = document.createElement("img");
+    image.setAttribute("src", src);
+    image.setAttribute("alt", "");
+    element.append(image);
+  }
 }
 
 export function toResourceDataUri(contentType: string, bytes: Uint8Array): string {
@@ -373,6 +428,9 @@ export function compileDocumentBodyToHandlebars(
         pathOf: (name, at) => pathAndDef(name, at, state)[0],
         color: options.stepsColor,
       });
+    }
+    for (const element of Array.from(root.querySelectorAll("div[data-images]"))) {
+      rewriteImagesBlock(element, state, options);
     }
     for (const block of Array.from(root.querySelectorAll(`[${DOCUMENT_CONDITION_ATTRIBUTE}]`))) {
       rewriteConditionalBlock(block, state);

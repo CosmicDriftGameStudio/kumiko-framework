@@ -16,6 +16,8 @@ export const BRANDING_QUERY_QN = "managed-pages:query:branding" as const;
 
 // Pinned like the branding names: the user features' constants are not exported to the web barrel.
 export const USER_ME_QUERY_QN = "user:query:user:me" as const;
+// Pinned like the profile names: the framework's files constant is not exported to the web barrel.
+export const FILES_FEATURE_NAME = "files" as const;
 export const PROFILE_FEATURE_NAME = "user-profile" as const;
 export const PROFILE_SCREEN_ID = "profile" as const;
 

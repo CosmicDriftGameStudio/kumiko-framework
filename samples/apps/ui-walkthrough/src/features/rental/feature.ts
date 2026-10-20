@@ -1,12 +1,18 @@
 import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, defineWriteHandler, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  renderPdfBeforeTransaction,
+  storeRenderedPdf,
+} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { z } from "zod";
 import { openToAllSignedIn, toKeyFirst } from "../translations";
 import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
 import { rentalTranslations } from "./i18n";
+import { receiveInvoicePayloadSchema } from "./invoice-receive";
 import {
   dayBefore,
+  fileRefIdsPayloadSchema,
   formatGermanDate,
   formatGermanMoney,
   germanStatusLabel,
@@ -18,6 +24,7 @@ import {
   positionExecutor,
   positionListRowSchema,
   positionRowSchema,
+  propertyExposePayloadSchema,
   type RecordedPositionItem,
   recordPositionsPayloadSchema,
   rentAdjustPayloadSchema,
@@ -32,8 +39,10 @@ import {
   leaseListScreen,
   leaseListShortScreen,
   leaseSuccessionListScreen,
+  leaseUnterlagenScreen,
   partyEditScreen,
   positionEditScreen,
+  receiveInvoiceScreen,
   recordPositionsScreen,
   rentalDashboardScreen,
 } from "./screens";
@@ -94,6 +103,17 @@ export const rentalFeature = defineFeature("rental", (r) => {
     },
   });
   r.crud("leaseParty", leasePartyEntity, { write: open, read: open });
+
+  r.queryHandler({
+    name: "lease:unterlagen",
+    schema: fileRefIdsPayloadSchema,
+    handler: async (query) => ({
+      id: "unterlagen",
+      titel: "Unterlagen",
+      unterlagen: query.payload.id,
+    }),
+    ...open,
+  });
 
   r.queryHandler({
     name: "lease:akte",
@@ -218,6 +238,28 @@ export const rentalFeature = defineFeature("rental", (r) => {
   });
 
   r.writeHandler({
+    name: "invoice:receive",
+    schema: receiveInvoicePayloadSchema,
+    handler: async (event) => ({ isSuccess: true, data: event.payload }),
+    ...open,
+  });
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate-property-expose",
+      schema: propertyExposePayloadSchema,
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: async (event, ctx) =>
+        renderPdfBeforeTransaction(ctx, {
+          slug: "rental:property-expose",
+          locale: "de",
+          variables: event.payload,
+        }),
+      handler: async (event, ctx) => storeRenderedPdf(ctx, event.prepared),
+    }),
+  );
+
+  r.writeHandler({
     name: "rent:adjust",
     schema: rentAdjustPayloadSchema,
     handler: async (event, ctx) => {
@@ -270,6 +312,14 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
   r.screen(recordPositionsScreen);
+  r.screen(receiveInvoiceScreen);
+  r.screen(leaseUnterlagenScreen);
+  r.screen({
+    id: "upload-standard-layout",
+    type: "custom",
+    renderer: { react: { __component: "upload-standard-layout" } },
+    description: "Receipt upload on the standard form screen layout.",
+  });
 
   r.nav({
     id: "contracts",
@@ -289,5 +339,19 @@ export const rentalFeature = defineFeature("rental", (r) => {
     parent: "rental:nav:contracts",
     screen: "rental:screen:rental-dashboard",
     order: 20,
+  });
+  r.nav({
+    id: "receive-invoice",
+    label: i18nKey("rental.nav.receiveInvoice"),
+    parent: "rental:nav:contracts",
+    screen: "rental:screen:receive-invoice",
+    order: 40,
+  });
+  r.nav({
+    id: "upload-standard-layout",
+    label: i18nKey("rental.nav.upload"),
+    parent: "rental:nav:contracts",
+    screen: "rental:screen:upload-standard-layout",
+    order: 30,
   });
 });

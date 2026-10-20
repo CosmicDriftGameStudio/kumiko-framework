@@ -20,6 +20,25 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "mail-layout", "document-pdf"],
+  [
+    "layout-copy-source",
+    "mjml",
+    "set-layout-a",
+    "set-layout-b",
+    "set-layout-c",
+    "set-layout-d",
+    "pipe-mailer:notify:hello",
+    "layout-a",
+    "layout-b",
+    "layout-c",
+    "layout-validate-scope",
+    "set-layout-e",
+  ],
+);
 
 const mailer = defineFeature("pipe-mailer", (r) => {
   r.writeHandler({
@@ -48,7 +67,9 @@ const systemTenantAdmin = createTestUser({
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature(), mailer] });
+  stack = await setupTestStack({
+    features: [createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }), mailer],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
 });
 

@@ -28,6 +28,7 @@ import { evalRowExtractor } from "../app/row-actions.ts";
 import { screenAccessAllows } from "../app/screen-access.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import { fileIdsOf } from "../file-ids-of.ts";
 import {
   applyFormatSpec,
   currencyDecimals,
@@ -624,7 +625,7 @@ function FieldRendererOutput({
   readonly row?: Readonly<Record<string, unknown>>;
   readonly appLocale: string;
 }): ReactNode {
-  const { Text, JsonView } = usePrimitives();
+  const { Text, JsonView, FileValueList } = usePrimitives();
   const t = useTranslation();
   const componentName =
     !isFormatSpec(renderer) && typeof renderer === "object" && renderer !== null
@@ -643,6 +644,12 @@ function FieldRendererOutput({
           testId={`field-value-${field.field}`}
         />
       );
+    }
+    if (renderer.format === "file" && FileValueList !== undefined) {
+      const fileIds = fileIdsOf(field.value);
+      if (fileIds.length === 0)
+        return <Text testId={`field-value-${field.field}`}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
+      return <FileValueList fileIds={fileIds} testId={`field-value-${field.field}`} />;
     }
     // App locale as default when the FormatSpec declares none of its own —
     // otherwise locale-sensitive formats (timestamp/date/number/decimal/

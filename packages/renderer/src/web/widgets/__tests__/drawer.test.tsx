@@ -829,4 +829,139 @@ describe("Drawer", () => {
       expect(onOpenChange).not.toHaveBeenCalled();
     });
   });
+
+  describe("content inset of a non-modal side drawer", () => {
+    const INSET_RIGHT = "--kumiko-drawer-inset-right";
+    const INSET_LEFT = "--kumiko-drawer-inset-left";
+    const originals = new Map<string, PropertyDescriptor | undefined>();
+    let observerCallbacks: Array<() => void> = [];
+
+    function stub(target: object, name: string, value: unknown): void {
+      originals.set(name, Object.getOwnPropertyDescriptor(target, name));
+      Object.defineProperty(target, name, { configurable: true, writable: true, value });
+    }
+
+    function restore(target: object, name: string): void {
+      const original = originals.get(name);
+      if (original) Object.defineProperty(target, name, original);
+      else delete (target as Record<string, unknown>)[name];
+    }
+
+    function mockLayout(narrow: boolean, layout: { left: number; width: number }): void {
+      stub(window, "matchMedia", (query: string) => ({
+        matches: narrow,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }));
+      stub(window, "innerWidth", 1280);
+      stub(HTMLElement.prototype, "offsetLeft", undefined);
+      Object.defineProperty(HTMLElement.prototype, "offsetLeft", {
+        configurable: true,
+        get: () => layout.left,
+      });
+      Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+        configurable: true,
+        get: () => layout.width,
+      });
+    }
+
+    beforeEach(() => {
+      observerCallbacks = [];
+      stub(
+        globalThis,
+        "ResizeObserver",
+        class {
+          constructor(callback: () => void) {
+            observerCallbacks.push(callback);
+          }
+          observe(): void {}
+          disconnect(): void {}
+        },
+      );
+      originals.set(
+        "offsetWidth",
+        Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth"),
+      );
+    });
+
+    afterEach(() => {
+      restore(window, "matchMedia");
+      restore(window, "innerWidth");
+      restore(globalThis, "ResizeObserver");
+      restore(HTMLElement.prototype, "offsetLeft");
+      restore(HTMLElement.prototype, "offsetWidth");
+      document.documentElement.style.removeProperty(INSET_RIGHT);
+      document.documentElement.style.removeProperty(INSET_LEFT);
+    });
+
+    const insetOf = (property: string): string =>
+      document.documentElement.style.getPropertyValue(property);
+
+    test("an open non-modal right drawer publishes its occupied width, closing removes it", () => {
+      mockLayout(false, { left: 880, width: 400 });
+      const view = render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" modal={false} testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(insetOf(INSET_RIGHT)).toBe("400px");
+      expect(insetOf(INSET_LEFT)).toBe("");
+
+      view.rerender(
+        <Drawer open={false} onOpenChange={() => {}} side="right" modal={false} testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(insetOf(INSET_RIGHT)).toBe("");
+    });
+
+    test("a resize of the sheet republishes the width, unmount removes it", () => {
+      const layout = { left: 880, width: 400 };
+      mockLayout(false, layout);
+      const view = render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" modal={false}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      layout.left = 780;
+      act(() => {
+        for (const callback of observerCallbacks) callback();
+      });
+      expect(insetOf(INSET_RIGHT)).toBe("500px");
+      view.unmount();
+      expect(insetOf(INSET_RIGHT)).toBe("");
+    });
+
+    test("a left drawer publishes the left inset", () => {
+      mockLayout(false, { left: 0, width: 360 });
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="left" modal={false}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(insetOf(INSET_LEFT)).toBe("360px");
+      expect(insetOf(INSET_RIGHT)).toBe("");
+    });
+
+    test("a modal drawer never publishes an inset", () => {
+      mockLayout(false, { left: 880, width: 400 });
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(insetOf(INSET_RIGHT)).toBe("");
+    });
+
+    test("a narrow viewport keeps overlaying and publishes no inset", () => {
+      mockLayout(true, { left: 0, width: 1280 });
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" modal={false}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(insetOf(INSET_RIGHT)).toBe("");
+    });
+  });
 });

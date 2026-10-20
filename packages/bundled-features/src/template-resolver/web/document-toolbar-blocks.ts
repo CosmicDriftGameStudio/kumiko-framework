@@ -22,6 +22,8 @@ export type DocumentEditorChrome = "default" | "canvas";
 
 export type DocumentEditorProps = ContentEditorProps & {
   readonly blocks?: readonly DocumentToolbarBlock[];
+  /** Names of the template's images variables; the photo block offers exactly these and is hidden without any. */
+  readonly imageVariables?: readonly string[];
   /** Display label per variable name, as inserted (list item fields use the
    *  dotted form, e.g. "lines.description"). A chip shows label and name. */
   readonly variableLabels?: Readonly<Record<string, string>>;

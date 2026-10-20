@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { templateVariable } from "@cosmicdrift/kumiko-framework/engine";
 import Handlebars from "handlebars";
 import {
+  collectDocumentImageVariables,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   toResourceDataUri,
@@ -316,5 +317,51 @@ describe("compileDocumentBodyToHandlebars :: data-if", () => {
 
   test("a condition with an invalid name drops the block", () => {
     expect(compile('<p data-if="a b">hidden</p><p>shown</p>')).toBe("<p>shown</p>");
+  });
+});
+
+describe("compileDocumentBodyToHandlebars :: images block", () => {
+  const photoVariables = { ...variables, photos: templateVariable.images() };
+  const block = '<div data-images="photos"></div>';
+  const render = (html: string, options: Parameters<typeof compileDocumentBodyToHandlebars>[2]) =>
+    Handlebars.compile(compileDocumentBodyToHandlebars(html, photoVariables, options))({
+      photos: "file-id-must-not-leak",
+    });
+
+  test("renders one data-URI img per entry of the resolver", () => {
+    const out = render(block, {
+      recordImagesSrc: (name) =>
+        name === "photos" ? ["data:image/png;base64,AA", "data:image/png;base64,BB"] : [],
+    });
+    expect(out).toContain('class="kumiko-doc-images"');
+    expect(out.match(/<img src="data:image\/png;base64,/g)).toHaveLength(2);
+    expect(out).toContain('alt=""');
+    expect(out).not.toContain("data-images");
+  });
+
+  test("renders an empty container without images and a single box as placeholder", () => {
+    expect(render(block, { recordImagesSrc: () => [] })).not.toContain("<img");
+    const placeholder = render(block, { recordImagesPlaceholder: true });
+    expect(placeholder).toContain("kumiko-doc-image-placeholder");
+    expect(placeholder).not.toContain("<img");
+  });
+
+  test("an images block bound to a text or undeclared variable is dropped", () => {
+    expect(compile('<div data-images="name"></div><p>z</p>')).toBe("<p>z</p>");
+    expect(compile('<div data-images="gone"></div><p>z</p>')).toBe("<p>z</p>");
+  });
+
+  test("an images variable used as text or link never renders its ids", () => {
+    const out = render(
+      '<p><span data-variable="photos"></span><a href="{{photos}}">x</a>{{photos}}</p>',
+      {},
+    );
+    expect(out).not.toContain("file-id-must-not-leak");
+  });
+
+  test("collectDocumentImageVariables lists unique valid names", () => {
+    expect(
+      collectDocumentImageVariables(`${block}${block}<div data-images="a b"></div><p>x</p>`),
+    ).toEqual(["photos"]);
   });
 });

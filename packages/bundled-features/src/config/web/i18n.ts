@@ -34,6 +34,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "config.settings.extensionSelectorHint":
       "Choose a provider. Its settings appear below and are saved together with it.",
     "config.settings.provider": "Provider",
+    "config.settings.provider.platformDefault": "Platform default",
     "config.settings.audience.system":
       "Applies to every tenant unless a tenant sets its own value.",
     "config.settings.audience.tenant":

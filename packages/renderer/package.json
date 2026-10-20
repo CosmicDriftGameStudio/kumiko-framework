@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-renderer",
-  "version": "0.377.0",
+  "version": "0.378.0",
   "description": "React renderer for Kumiko screens. The root export holds the platform-agnostic logic (primitives contract, hooks, KumikoScreen, navigation and SSE abstractions); ./headless the DOM-free UI logic, ./live the HTTP dispatcher, ./web the browser bindings (HTML primitives, history navigation, EventSource live events, createKumikoApp).",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -16,6 +16,10 @@
     "./headless": {
       "types": "./src/headless/index.ts",
       "default": "./src/headless/index.ts"
+    },
+    "./flow-diagram": {
+      "types": "./src/flow-diagram/index.ts",
+      "default": "./src/flow-diagram/index.ts"
     },
     "./headless/apex": {
       "types": "./src/headless/apex/index.ts",
@@ -64,6 +68,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "lucide-react": "^1.14.0",
+    "pdfjs-dist": "6.3.289",
     "qrcode": "^1.5.4",
     "radix-ui": "^1.4.3",
     "react": "^19.2.6",
@@ -117,6 +122,10 @@
       "./headless": {
         "types": "./dist/headless/index.d.ts",
         "default": "./dist/headless/index.js"
+      },
+      "./flow-diagram": {
+        "types": "./dist/flow-diagram/index.d.ts",
+        "default": "./dist/flow-diagram/index.js"
       },
       "./headless/apex": {
         "types": "./dist/headless/apex/index.d.ts",

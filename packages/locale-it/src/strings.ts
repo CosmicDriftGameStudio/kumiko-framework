@@ -457,6 +457,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Scegli un provider. Le sue impostazioni compaiono qui sotto e vengono salvate insieme ad esso.",
   "config.settings.provider": "Provider",
+  "config.settings.provider.platformDefault": "Piattaforma (predefinito)",
   "config.settings.system": "Piattaforma",
   "config.settings.tenant": "Organizzazione",
   "config.settings.title": "Impostazioni",
@@ -540,6 +541,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "errors.validation.too_big": "Troppo grande o troppo lungo (massimo: {maximum}).",
   "kumiko.boolean.no": "No",
   "kumiko.boolean.yes": "Sì",
+  "kumiko.field.file-list.download": "Scarica",
+  "kumiko.field.file-list.hidePreview": "Nascondi anteprima",
+  "kumiko.field.file-list.preview": "Anteprima",
   "kumiko.validation.number.min": "Deve essere almeno {minimum}.",
   "kumiko.validation.number.max": "Deve essere {maximum} o meno.",
   "errors.validation.too_small": "Troppo piccolo o troppo corto (minimo: {minimum}).",
@@ -867,6 +871,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.floatingPanel.resizeRight": "Ridimensiona il pannello dal bordo destro",
   "kumiko.widget.floatingPanel.resizeTop": "Ridimensiona il pannello dal bordo superiore",
   "kumiko.widget.loading": "Caricamento…",
+  "kumiko.widget.pdf-preview.loading": "Caricamento del PDF…",
+  "kumiko.widget.pdf-preview.pageOf": "Pagina {page} di {pages}",
+  "kumiko.widget.pdf-preview.renderFailed": "Impossibile visualizzare il PDF.",
   "kumiko.widget.step-bar.done": "Fatto",
   "kumiko.widget.upload.done": "Caricato",
   "kumiko.widget.upload.error": "Non riuscito",
@@ -1155,6 +1162,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Rimuovi il link",
   "template-resolver.documentEditor.repeat": "Ripeti",
   "template-resolver.documentEditor.repeatList": "Elenco da ripetere",
+  "template-resolver.documentEditor.images": "Foto",
+  "template-resolver.documentEditor.imagesVariable": "Foto da",
   "template-resolver.documentEditor.steps": "Passaggi",
   "template-resolver.documentEditor.stepsVariable": "Passaggio attuale da",
   "template-resolver.documentEditor.stepsList": "Passaggi separati da virgole (valore=etichetta)",
@@ -1176,6 +1185,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Salvato.",
   "template-resolver.editor.saving": "Salvataggio…",
   "template-resolver.editor.titleLabel": "Titolo",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "I blocchi di foto sono consentiti solo nei documenti PDF.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La destinazione del pulsante «{detail}» deve essere un segnaposto.",
   "templateResolver.errors.document.disallowedLinkHref":
@@ -1210,6 +1221,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Questo link non è valido o è scaduto. Usa il link per annullare l'iscrizione di un'e-mail più recente.",
   "templateResolver.errors.systemOnlyTemplate":
     "Solo la piattaforma gestisce questo modello; non può essere sostituito per singola organizzazione.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Solo la piattaforma può modificare questo modello.",
   "templateResolver.errors.template.targetExists":
     "Esiste già un modello per la lingua «{detail}»; sovrascrivilo esplicitamente per sostituirlo.",
   "templateResolver.warnings.resourceNotUploaded": "Immagine non caricata: {detail}",
@@ -1694,8 +1707,12 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Risorse",
   "documentDesigner.mail.resource.upload": "+ Carica",
   "documentDesigner.mail.resource.saveFirst": "Salva prima, poi carica.",
-  "documentDesigner.uploads.unavailable":
-    "Il caricamento richiede un archivio file che questa app non ha configurato.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "I caricamenti richiedono la funzione file, che questa app non ha incluso.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Le e-mail di prova richiedono il canale e-mail, che questa app non ha incluso.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "Non è salvato alcun indirizzo e-mail per te, quindi non è possibile inviare un'e-mail di prova.",
   "documentDesigner.mail.resource.inline": "In linea",
   "documentDesigner.mail.resource.attachment": "Allegato",
   "documentDesigner.mail.resource.fromPdf": "Allegato · da «{title}»",
@@ -1825,19 +1842,18 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.send": "Invia l'e-mail di prova",
   "documentDesigner.mail.testMail.hint":
     "Inviata al tuo indirizzo tramite il normale percorso di invio dell'organizzazione.",
-  "documentDesigner.mail.testMail.unavailable":
-    "Le e-mail di prova richiedono l'invio di e-mail e un indirizzo e-mail nel tuo account, e qui manca uno dei due.",
   "documentDesigner.mail.testMail.sent": "E-mail di prova inviata al tuo indirizzo: {subject}",
   "documentDesigner.mail.testMail.rateLimited": "Troppe e-mail di prova, riprova più tardi.",
   "screen:mail-foundation-tenant.title": "Invio delle e-mail",
   "mail-foundation.settings": "Invio delle e-mail",
-  "mail-foundation.provider": "Server di posta proprio",
+  "mail-foundation.provider": "Invia tramite",
   "mail-foundation.provider.description":
-    "Senza un server proprio, le e-mail vengono inviate dalla piattaforma. Reimposta la scelta per tornare a questa modalità.",
+    "Scegli chi invia le tue e-mail. L'invio dalla piattaforma non richiede impostazioni proprie.",
+  "mail-foundation.provider.platformDefault": "Invio dalla piattaforma (predefinito)",
   "mail-transport-inmemory.settings": "Casella di prova (in memoria)",
-  "mail-transport-smtp.settings": "Server SMTP",
-  "screen:mail-foundation-tenant-selection.title": "Provider",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Server SMTP",
+  "mail-transport-smtp.settings": "Server SMTP proprio",
+  "config:entity:__config-edit__:field:provider:option:": "Invio dalla piattaforma (predefinito)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Server SMTP proprio",
   "mail-transport-smtp.settings.secrets": "Accesso SMTP",
   "mail-transport-smtp.settings.description":
     "I dati di connessione provengono dal tuo provider di posta, ad esempio Brevo, Postmark, Amazon SES o il tuo server.",

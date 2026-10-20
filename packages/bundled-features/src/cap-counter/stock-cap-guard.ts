@@ -24,6 +24,10 @@ export type CapLimitContext = {
   readonly config?: ConfigAccessor;
 };
 
+// pg_advisory_xact_lock namespace (int4): 'scap' as ASCII, disjoint from the
+// framework's other fixed advisory-lock keys.
+const STOCK_CAP_LOCK_NAMESPACE = 0x73636170;
+
 // What the cap guards need from a write handler's ctx.
 export type CapGuardContext = CapLimitContext & { readonly db: TenantDb };
 
@@ -53,6 +57,7 @@ export function createStockCapGuard<TCaps>(
     spec: StockCapSpec<TCaps>,
     context: CapLimitContext = {},
   ): Promise<WriteFailure | null> {
+    // Lock-free on its own: a direct call outside withStockCap is not atomic.
     const caps = await resolveTierCaps(db, context);
     const current = await db.count(spec.table, { ...spec.where, tenantId: db.tenantId });
     const { state, limit } = enforceStockCap({
@@ -73,6 +78,10 @@ export function createStockCapGuard<TCaps>(
     return {
       ...handler,
       handler: async (event, ctx) => {
+        // ctx.db is the handler's transaction, so the xact lock releases with its commit or
+        // rollback. A handler wrapped in several caps must list them in the same order
+        // everywhere; Postgres aborts one side of an inverse order with a deadlock error.
+        await ctx.db.advisoryXactLock(STOCK_CAP_LOCK_NAMESPACE, spec.code);
         const failure = await checkStockCap(ctx.db, spec, { config: ctx.config });
         return failure ?? handler.handler(event, ctx);
       },

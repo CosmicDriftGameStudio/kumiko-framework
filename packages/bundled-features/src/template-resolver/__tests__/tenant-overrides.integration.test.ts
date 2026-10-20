@@ -16,6 +16,9 @@ import { seedUser } from "../../user/seeding.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(["mail"], ["overrides-count", "overrides-diff"]);
 
 const SLUG = "overrides-count";
 const systemAdmin = TestUsers.systemAdmin;
@@ -44,7 +47,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
     ],
   });
   await unsafeCreateEntityTable(stack.db, userEntity);

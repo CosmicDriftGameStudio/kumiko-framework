@@ -157,6 +157,7 @@ import {
 import { EmbeddedListInput } from "./embedded-list-input.tsx";
 import { CardLeadingImage, FileDisplayCell } from "./file-thumbnail.tsx";
 import { FileUploadInput } from "./file-upload.tsx";
+import { FileValueList } from "./file-value-list.tsx";
 import { DefaultJsonView } from "./json-view.tsx";
 import {
   screenFormColumnWidthClassName,
@@ -4948,7 +4949,7 @@ export function DefaultCard({
           {children}
         </div>
       )}
-      {s.footer !== undefined && (
+      {s.footer !== undefined && s.footer !== null && s.footer !== false && (
         <div
           className={cn(
             cardFooter,
@@ -5099,6 +5100,7 @@ export const defaultPrimitives: CorePrimitives = {
   MetricBand: DefaultMetricBand,
   PageHeader: DefaultPageHeader,
   JsonView: DefaultJsonView,
+  FileValueList,
   FillContainer: DefaultFillContainer,
   ActionOverflowMenu,
   SecretReveal: DefaultSecretReveal,

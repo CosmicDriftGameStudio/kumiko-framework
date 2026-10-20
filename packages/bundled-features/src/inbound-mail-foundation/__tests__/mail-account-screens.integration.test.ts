@@ -127,6 +127,19 @@ describe("mailbox screens over the real handlers", () => {
       admin,
     );
 
+    const screenListed = (await stack.http.queryOk(
+      InboundMailFoundationQueries.listAccounts,
+      { limit: 200 },
+      admin,
+    )) as { rows: readonly ListedAccount[] };
+    expect(screenListed.rows).toHaveLength(2);
+    const truncated = (await stack.http.queryOk(
+      InboundMailFoundationQueries.listAccounts,
+      { limit: 1 },
+      admin,
+    )) as { rows: readonly ListedAccount[] };
+    expect(truncated.rows).toHaveLength(1);
+
     const after = (await stack.http.queryOk(
       InboundMailFoundationQueries.listAccounts,
       {},

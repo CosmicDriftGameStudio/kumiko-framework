@@ -1,5 +1,179 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.378.0
+
+### Minor Changes
+
+- 2d7ee3e: Document PDFs can embed the images of a record
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Document PDFs embed the images of a record
+  detail: A template variable of type images (templateVariable.images()) holds FileRef ids of the record. The new Images block (div[data-images], PDF templates only, rejected for mail kinds) renders them as data-URI images in the real PDF render. Only files of the rendering tenant are read, only png, jpeg, gif and webp, at most 24 images and 20 MB per document; missing, foreign, oversized or non-image ids are dropped silently. Previews and draft PDFs never read files and show one placeholder box per block. An images variable never renders as inline text. i18n keys template-resolver.documentEditor.images, template-resolver.documentEditor.imagesVariable and templateResolver.errors.document.imagesBlockPdfOnly ship in de, es, fr and it.
+  migration: Declare a template variable with type `images`, place the Images block, and pass FileRef ids of the record in `variables`. Images resolve only in the real PDF render, previews show placeholders. The ids must come from the record on the server, never from client input: a resolved id is read for the whole tenant without an entity access check.
+  -->
+- a08f6d6: The tenant "Email sending" screen is a standard settings form. The provider is a select with "Platform sending (default)" and "Own SMTP server"; the SMTP fields sit in the same form with one save.
+  
+  A selector owner without panels now generates one configEdit screen `<owner>-tenant` instead of a dashboard around a dormant `<owner>-tenant-selection` form. The provider select gets an empty option for "no own provider", labelled by `<field label key>.platformDefault` or the generic `config.settings.provider.platformDefault`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Extension-selector settings form is one standard configEdit screen
+  detail: Without owner panels the provider form is the `<owner>-tenant` screen itself (no dashboard, no `<owner>-tenant-selection`). The provider select offers an empty "platform default" option next to the plugin ids.
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-foundation
+  type: improvement
+  title: Email sending offers a platform default and an own SMTP server
+  detail: The provider field is labelled "Send via" with the options "Platform sending (default)" (empty, saved as "") and "Own SMTP server"; the SMTP fields show only while the own server is picked.
+  -->
+- a08f6d6: Only the SystemAdmin edits templates by default. An app unlocks TenantAdmins per kind and slug with `createTemplateResolverFeature({ tenantEditable: [{ kind, slug, access }] })`; reading and delivery are unchanged. Template collections without an `access` rule are SystemAdmin-only. The document designer takes `createDocumentDesignerFeature({ access })` for its editor screens, and `composeRendererStack` passes `templateResolver` options through.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Template editing is SystemAdmin-only unless the app unlocks it
+  detail: Every tenant write handler, the overview and resource upload accept SystemAdmin only, plus the roles of the tenantEditable entries. A write on a template that is not unlocked fails with templateNotTenantEditable. The test send follows the same rule. For a non-SystemAdmin an unknown template id answers 403 like a locked one, so the response does not reveal whether it exists. Collections without an access rule default to SystemAdmin.
+  migration: Where TenantAdmins must keep editing a template, pass tenantEditable to createTemplateResolverFeature, for example tenantEditable: [{ kind: "mail", slug: "billing:notify:invoice-issued", access: { roles: ["TenantAdmin"] } }]. Give template collections an explicit access rule if tenants should manage them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: breaking
+  title: Designer screens are SystemAdmin-only unless the app passes access
+  detail: The templates screen, layout, PDF and mail editors are visible to SystemAdmin only by default. createDocumentDesignerFeature takes an optional access rule whose roles are added.
+  migration: Pass createDocumentDesignerFeature({ access: templateEditAccess(tenantEditable) }) with the same entries given to the template resolver when TenantAdmins edit templates.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeRendererStack forwards templateResolver options
+  detail: RendererStackOptions.templateResolver is passed to createTemplateResolverFeature, so an app can set tenantEditable.
+  -->
+- 6352d97: The pre-push shim no longer executes a `kumiko-pre-push` from an untrusted ancestor. The upward walk ends at `$HOME` (inclusive) and skips ancestors owned by another user or writable by group or others, such as `/tmp`.
+  
+  `@cosmicdrift/kumiko-framework/search` exports `collectSearchableFieldNames` and `configureTenantSearchIndex`, so apps stop copying the per-tenant index setup. `@cosmicdrift/kumiko-server-runtime` exports `diskFileRoute`, an anonymous GET route that serves allowlisted disk files with ETag and 304. `@cosmicdrift/kumiko-renderer/flow-diagram` exports `renderFlow` and the `FlowSpec` types for static animated SVG flow diagrams.
+  
+  Stock caps reserve atomically under a per-tenant advisory lock, so two parallel writes can no longer both pass the cap. The document designer ships its own stylesheet, disables Upload when the files feature is not mounted, and disables the test mail with a hint when the server cannot resolve an address (new `send-test-status` query).
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Pre-push shim skips untrusted ancestors and stops at $HOME
+  detail: The shim walked up to / and could exec a kumiko-pre-push planted in /tmp or another shared directory. The walk now ends at $HOME and skips ancestors that another user owns or that group or others can write to.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Search index setup helpers
+  detail: collectSearchableFieldNames(registry) returns the deduplicated searchable fields of all entities and configureTenantSearchIndex(adapter, registry, tenantId) configures a tenant index with them, both exported from the search entry.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: diskFileRoute for allowlisted disk files
+  detail: diskFileRoute({ path, resolveFile }) returns an anonymous GET extra route with a :file parameter. resolveFile maps the raw name to a disk path or null for 404; the file is served with mime type, ETag and 304 handling.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: flow-diagram subpath
+  detail: "@cosmicdrift/kumiko-renderer/flow-diagram" exports renderFlow(spec) and the FlowSpec, FlowNode, FlowEdge, FlowIcon types, a pure string function that renders an animated SVG flow diagram.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Stock caps are atomic under parallel writes
+  detail: withStockCap now takes a transaction-scoped advisory lock per tenant and cap, so concurrent creates cannot both pass the check and exceed the cap.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: send-test-status query for the template test mail
+  detail: template-resolver:query:send-test-status answers whether a test mail can be sent (canSend) and, if not, why (no_channel or no_address), so clients can disable the action instead of failing on send.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Stylesheet export for the designer
+  detail: "@cosmicdrift/kumiko-document-designer/web/styles.css" registers the designer's own Tailwind sources. Apps that embed the designer import it after the renderer stylesheet.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Upload and test mail follow the server's capabilities
+  detail: Upload is disabled with a hint when the files feature is not mounted, and the test mail button is disabled with a hint when the server has no email channel or no address for the user.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Renderer stylesheet no longer scans the document designer
+  detail: The renderer stylesheet stopped scanning the document designer sources by relative path, which broke in isolated installs.
+  migration: Apps that embed the document designer add `@import "@cosmicdrift/kumiko-document-designer/web/styles.css";` after the renderer stylesheet import in their styles.css.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: TenantDb.advisoryXactLock
+  detail: ctx.db.advisoryXactLock(namespace, key) takes a transaction-scoped pg_advisory_xact_lock keyed on the handle's own tenantId plus key, so tenants never contend and the caller cannot pick another tenant. It needs no unsafeRaw grant.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: withStockCap no longer widens the handler's grants
+  detail: withStockCap serialises through TenantDb.advisoryXactLock instead of ctx.db.unsafeRaw(), so wrapped handlers no longer receive an implicit unsafeRaw grant.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot check for projectionList writeHandler actions
+  detail: Boot now rejects projectionList rowActions and toolbarActions of kind writeHandler whose handler is not a registered write-handler QN. Such actions only failed on click before.
+  migration: Fix the handler QN to "<feature>:write:<short>" of a handler declared via r.writeHandler(...), or remove the action. Apps that fail to boot name the screen and action id in the error.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Pre-push shim also vets node_modules/.bin
+  detail: The shim now requires node_modules/.bin itself to be owned by the user and not group or world writable before executing kumiko-pre-push from it, in the guards hook and the dev-server husky template.
+  -->
+
+### Patch Changes
+
+- a08f6d6: The mailbox list query accepts the `limit` the list screen sends and applies it after the visibility filter in a stable order.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Mailbox list accepts the screen's limit
+  detail: account:list accepted an empty payload only, so the projectionList screen's limit was rejected. It now takes limit up to MAX_LIST_LIMIT and returns the visible mailboxes ordered by id.
+  -->
+- Updated dependencies [2d7ee3e]
+- Updated dependencies [ebdac5c]
+- Updated dependencies [f47cbd1]
+- Updated dependencies [0250376]
+- Updated dependencies [bde6050]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [6352d97]
+  - @cosmicdrift/kumiko-types@0.378.0
+  - @cosmicdrift/kumiko-framework@0.378.0
+  - @cosmicdrift/kumiko-renderer@0.378.0
+
 ## 0.377.0
 
 ### Minor Changes

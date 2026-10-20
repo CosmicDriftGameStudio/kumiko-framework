@@ -1,5 +1,77 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.378.0
+
+### Minor Changes
+
+- a08f6d6: The tenant "Email sending" screen is a standard settings form. The provider is a select with "Platform sending (default)" and "Own SMTP server"; the SMTP fields sit in the same form with one save.
+  
+  A selector owner without panels now generates one configEdit screen `<owner>-tenant` instead of a dashboard around a dormant `<owner>-tenant-selection` form. The provider select gets an empty option for "no own provider", labelled by `<field label key>.platformDefault` or the generic `config.settings.provider.platformDefault`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Extension-selector settings form is one standard configEdit screen
+  detail: Without owner panels the provider form is the `<owner>-tenant` screen itself (no dashboard, no `<owner>-tenant-selection`). The provider select offers an empty "platform default" option next to the plugin ids.
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-foundation
+  type: improvement
+  title: Email sending offers a platform default and an own SMTP server
+  detail: The provider field is labelled "Send via" with the options "Platform sending (default)" (empty, saved as "") and "Own SMTP server"; the SMTP fields show only while the own server is picked.
+  -->
+- a08f6d6: Only the SystemAdmin edits templates by default. An app unlocks TenantAdmins per kind and slug with `createTemplateResolverFeature({ tenantEditable: [{ kind, slug, access }] })`; reading and delivery are unchanged. Template collections without an `access` rule are SystemAdmin-only. The document designer takes `createDocumentDesignerFeature({ access })` for its editor screens, and `composeRendererStack` passes `templateResolver` options through.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Template editing is SystemAdmin-only unless the app unlocks it
+  detail: Every tenant write handler, the overview and resource upload accept SystemAdmin only, plus the roles of the tenantEditable entries. A write on a template that is not unlocked fails with templateNotTenantEditable. The test send follows the same rule. For a non-SystemAdmin an unknown template id answers 403 like a locked one, so the response does not reveal whether it exists. Collections without an access rule default to SystemAdmin.
+  migration: Where TenantAdmins must keep editing a template, pass tenantEditable to createTemplateResolverFeature, for example tenantEditable: [{ kind: "mail", slug: "billing:notify:invoice-issued", access: { roles: ["TenantAdmin"] } }]. Give template collections an explicit access rule if tenants should manage them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: breaking
+  title: Designer screens are SystemAdmin-only unless the app passes access
+  detail: The templates screen, layout, PDF and mail editors are visible to SystemAdmin only by default. createDocumentDesignerFeature takes an optional access rule whose roles are added.
+  migration: Pass createDocumentDesignerFeature({ access: templateEditAccess(tenantEditable) }) with the same entries given to the template resolver when TenantAdmins edit templates.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeRendererStack forwards templateResolver options
+  detail: RendererStackOptions.templateResolver is passed to createTemplateResolverFeature, so an app can set tenantEditable.
+  -->
+
+### Patch Changes
+
+- 2d7ee3e: Document PDFs can embed the images of a record
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Document PDFs embed the images of a record
+  detail: A template variable of type images (templateVariable.images()) holds FileRef ids of the record. The new Images block (div[data-images], PDF templates only, rejected for mail kinds) renders them as data-URI images in the real PDF render. Only files of the rendering tenant are read, only png, jpeg, gif and webp, at most 24 images and 20 MB per document; missing, foreign, oversized or non-image ids are dropped silently. Previews and draft PDFs never read files and show one placeholder box per block. An images variable never renders as inline text. i18n keys template-resolver.documentEditor.images, template-resolver.documentEditor.imagesVariable and templateResolver.errors.document.imagesBlockPdfOnly ship in de, es, fr and it.
+  migration: Declare a template variable with type `images`, place the Images block, and pass FileRef ids of the record in `variables`. Images resolve only in the real PDF render, previews show placeholders. The ids must come from the record on the server, never from client input: a resolved id is read for the whole tenant without an entity access check.
+  -->
+- f47cbd1: Files fields show download and PDF preview on detail screens
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Files fields show download and PDF preview
+  detail: A read-only detail field with renderer { format: "file" } (projectionDetail, readOnly edit field) lists each file with its name and a download link; PDFs get an inline preview toggle. New optional primitive FileValueList, and PdfPreview (moved here from the document designer) with a per-source bounded document cache so several PDFs can share a page. i18n keys kumiko.field.file-list.download/preview/hidePreview and kumiko.widget.pdf-preview.* ship in de, es, fr and it.
+  migration: PdfPreview is now exported from @cosmicdrift/kumiko-renderer/web (props: source {base64}|{url}, testId).
+  -->
+- Updated dependencies [2d7ee3e]
+- Updated dependencies [0250376]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [6352d97]
+  - @cosmicdrift/kumiko-framework@0.378.0
+
 ## 0.377.0
 
 ### Patch Changes

@@ -38,6 +38,7 @@ export {
   resolveBundledAsset,
 } from "./bundled-assets.ts";
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.ts";
+export { type DiskFileRouteOptions, diskFileRoute } from "./disk-file-route.ts";
 export type { RateLimitOption } from "./rate-limit-defaults.ts";
 export type { RunBootstrapOptions } from "./run-bootstrap.ts";
 export { runBootstrap } from "./run-bootstrap.ts";

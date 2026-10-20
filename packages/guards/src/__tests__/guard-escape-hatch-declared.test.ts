@@ -1518,3 +1518,62 @@ export const x = withUnsafeRawGrant(db, { reason: "append provenance event" }).u
     ]);
   });
 });
+
+describe("anchors split across lines or reached via optional chaining", () => {
+  const HANDLER_PATH = "/r/packages/bundled-features/src/foo/handlers/x.write.ts";
+
+  function rulesFor(source: string): string[] {
+    return findEscapeHatchFindings(files({ [HANDLER_PATH]: source }), "/r").map((f) => f.rule);
+  }
+
+  test("R1 flags ctx.db broken before .raw and optional-chained db?.raw", () => {
+    expect(rulesFor("declare const ctx: any;\nexport const a = ctx.db\n  .raw(1);")).toEqual([
+      "raw-outside-system-scope",
+    ]);
+    expect(
+      rulesFor("declare const ctx: any;\nconst db = ctx.db;\nexport const a = db?.raw;"),
+    ).toEqual(["raw-outside-system-scope"]);
+  });
+
+  test("R2 flags unsafeRaw broken before the member name and optional-called", () => {
+    const rule = ["unsafe-raw-outside-system-scope"];
+    expect(
+      rulesFor('declare const ctx: any;\nexport const a = ctx.systemDb\n  .unsafeRaw("x");'),
+    ).toEqual(rule);
+    expect(
+      rulesFor('declare const ctx: any;\nexport const a = ctx.systemDb?.unsafeRaw("x");'),
+    ).toEqual(rule);
+  });
+
+  test("R3 flags writeAs / queryAs with a system identity across lines and with ?.", () => {
+    const rule = ["system-identity-outside-declared-scope"];
+    expect(
+      rulesFor("declare const ctx: any;\nexport const a = ctx\n  .writeAs(systemUser, 1);"),
+    ).toEqual(rule);
+    expect(
+      rulesFor("declare const ctx: any;\nexport const a = ctx?.queryAs(systemUser, 1);"),
+    ).toEqual(rule);
+  });
+
+  test("R5 flags unsafeAllTenants on its own line", () => {
+    expect(
+      rulesFor(
+        "declare const ctx: any;\nexport const a = ctx.queryProjection('p', {\n  unsafeAllTenants:\n    true,\n});",
+      ),
+    ).toEqual(["unsafe-all-tenants-outside-declared-scope"]);
+  });
+
+  test("R4 flags placeholder reasons for acknowledgeCrossTenant (multi-line, ?.), declareEscapeHatch and escapeHatch/unsafeAllTenants properties", () => {
+    const source = [
+      "declare const ctx: any;",
+      "declare function declareEscapeHatch(o: { reason: string }): void;",
+      'export const a = ctx.systemDb\n  .acknowledgeCrossTenant("todo");',
+      'export const b = ctx.systemDb?.acknowledgeCrossTenant("todo");',
+      'export const c = () => declareEscapeHatch({ reason: "todo" });',
+      'export const d = { escapeHatch: { reason: "todo" } };',
+      'export const e = { unsafeAllTenants: { reason: "todo" } };',
+    ].join("\n");
+    const found = findGenericReasonCalls(files({ [HANDLER_PATH]: source }), "/r");
+    expect(found.map((f) => f.line)).toEqual([3, 5, 6, 7, 8]);
+  });
+});

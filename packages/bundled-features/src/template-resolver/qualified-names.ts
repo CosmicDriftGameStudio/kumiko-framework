@@ -35,7 +35,7 @@ export const TemplateResolverQueries = {
   preview: "template-resolver:query:preview",
   documentBlocks: "template-resolver:query:document-blocks",
   exportBundle: "template-resolver:query:export-bundle",
-  editorCapabilities: "template-resolver:query:editor-capabilities",
+  sendTestStatus: "template-resolver:query:send-test-status",
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
   byTenant: "template-resolver:query:by-tenant",
@@ -64,6 +64,7 @@ export const TemplateResolverErrors = {
   targetExists: "target_exists",
   systemResourcesNeedSystemTenant: "system_resources_need_system_tenant",
   systemOnlyTemplate: "system_only_template",
+  templateNotTenantEditable: "template_not_tenant_editable",
   bundleLocalesDiffer: "bundle_locales_differ",
   resourceTooLarge: "template_resource_too_large",
   resourceUnsupportedImage: "template_resource_unsupported_image",

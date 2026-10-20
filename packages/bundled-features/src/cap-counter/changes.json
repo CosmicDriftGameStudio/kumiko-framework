@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Stock caps are atomic under parallel writes",
+    "detail": "withStockCap now takes a transaction-scoped advisory lock per tenant and cap, so concurrent creates cannot both pass the check and exceed the cap."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "withStockCap no longer widens the handler's grants",
+    "detail": "withStockCap serialises through TenantDb.advisoryXactLock instead of ctx.db.unsafeRaw(), so wrapped handlers no longer receive an implicit unsafeRaw grant."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated capCounterFeature constant is removed",

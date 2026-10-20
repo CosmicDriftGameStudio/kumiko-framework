@@ -22,6 +22,7 @@ import {
   SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
   TemplateResolverQueries,
+  type TenantEditableTemplate,
   templateResourceEntity,
   templateResourcesTable,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -44,6 +45,11 @@ import { seedSystemMailLayout } from "../seeding";
 localeDe();
 
 const SLUG = "mail-demo:notify:welcome";
+const TENANT_EDITABLE: TenantEditableTemplate[] = [
+  { kind: "mail", slug: SLUG, access: { roles: ["TenantAdmin"] } },
+  { kind: "mail-layout", slug: "default", access: { roles: ["TenantAdmin"] } },
+];
+
 const LOCALE = "de";
 
 const mailDemo = defineFeature("mail-demo", (r) => {
@@ -77,7 +83,7 @@ const mailDemo = defineFeature("mail-demo", (r) => {
         ].join(""),
       },
     },
-    meta: { de: { subject: "Willkommen {{name}}" } },
+    meta: { de: { subject: "Willkommen {{name}}", previewText: "Summe {{total}} fällig {{due}}" } },
   });
 });
 
@@ -99,7 +105,7 @@ let plugin: RendererPlugin;
 beforeAll(async () => {
   stack = await setupAppTestStack(
     [
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       mailDemo,
@@ -194,6 +200,11 @@ describe("renderer-mail-html :: seeded template", () => {
     expect(result.html).toContain("Posten A");
     expect(result.html).toContain("<table");
     expect(result.text).toContain("Hallo Anna");
+  });
+
+  test("money and date references in the preview text use the body's formatting", async () => {
+    const result = await renderMail(tenantId(1));
+    expect(result.previewText).toMatch(/^Summe 1\.234,56\s€ fällig 5\. März 2026$/);
   });
 
   test("the response names the seeded system row it was rendered from", async () => {

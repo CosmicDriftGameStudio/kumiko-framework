@@ -1,5 +1,6 @@
 export const RENTAL_QUERIES = {
   leaseAkte: "rental:query:lease:akte",
+  leaseUnterlagen: "rental:query:lease:unterlagen",
   partyList: "rental:query:lease-party:list",
   positionList: "rental:query:lease:positions",
   kennzahlen: "rental:query:lease:kennzahlen",
@@ -9,4 +10,5 @@ export const RENTAL_WRITES = {
   leaseTerminate: "rental:write:lease:terminate",
   rentAdjust: "rental:write:rent:adjust",
   positionsRecord: "rental:write:lease:record-positions",
+  invoiceReceive: "rental:write:invoice:receive",
 } as const;

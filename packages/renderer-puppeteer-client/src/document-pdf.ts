@@ -18,10 +18,12 @@ import {
   type RenderRequest,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
+  collectDocumentImageVariables,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
   DEFAULT_PDF_LAYOUT_SLUG,
+  isResourceImageContentType,
   type LayoutRegions,
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,
@@ -39,7 +41,7 @@ import {
   type TemplateResource,
   toResourceDataUri,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID, type TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import {
   collectRegionResourceKeys,
   compileDocumentSource,
@@ -61,6 +63,8 @@ export type DocumentPdfRequest = {
 
 const LINE_BREAKS = /[\r\n]+/g;
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
+const MAX_RECORD_IMAGES = 24;
+const MAX_RECORD_IMAGES_TOTAL_BYTES = 20 * 1024 * 1024;
 const PREVIEW_PAGE_NUMBER = "1";
 const EMPTY_CHROMIUM_REGION = "<span></span>";
 const PAGE_NUMBER_HTML = '<span class="pageNumber"></span>';
@@ -79,6 +83,9 @@ const PRINT_CSS = [
   "[data-align=justify]{text-align:justify}",
   "[data-size=small]{font-size:8pt;color:#555}",
   "img{max-width:100%}",
+  ".kumiko-doc-images{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}",
+  ".kumiko-doc-images:empty{display:none}",
+  ".kumiko-doc-images img{width:100%;break-inside:avoid;page-break-inside:avoid}",
 ].join("");
 
 const EMPTY_REGIONS: LayoutRegions = { header: "", signature: "", footer: "" };
@@ -212,6 +219,86 @@ async function loadResourceDataUris(
   return dataUris;
 }
 
+function fileRefIdsOf(value: unknown): readonly string[] {
+  if (typeof value === "string") return [value];
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+type RecordImage = { readonly dataUri: string; readonly size: number };
+
+// Own tenant only (no system files): the ids come from the app's record, so a foreign or
+// unreadable id drops silently like a missing image instead of failing the document.
+async function readRecordImage(
+  ctx: RendererContext,
+  filesForTenant: NonNullable<RendererContext["filesForTenant"]>,
+  fileRefId: string,
+  maxBytes: number,
+): Promise<RecordImage | null> {
+  try {
+    const found = await readFileRefContent({
+      db: ctx.db,
+      filesForTenant,
+      fileRefId,
+      allowedTenantIds: [ctx.tenantId],
+      maxBytes,
+    });
+    if (found === null || !isResourceImageContentType(found.contentType)) return null;
+    return { dataUri: toResourceDataUri(found.contentType, found.content), size: found.size };
+  } catch (e) {
+    if (e instanceof FileRefTooLargeError) return null;
+    throw e;
+  }
+}
+
+async function loadRecordImageDataUris(
+  ctx: RendererContext,
+  variables: Readonly<Record<string, unknown>>,
+  imageVariableNames: readonly string[],
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  const dataUrisByVariable = new Map<string, readonly string[]>();
+  const { filesForTenant } = ctx;
+  if (filesForTenant === undefined || imageVariableNames.length === 0) return dataUrisByVariable;
+  const maxBytes = await readTemplateResourceMaxBytes(ctx.config, ctx.registry);
+  const seenIds = new Set<string>();
+  let loadedCount = 0;
+  let loadedBytes = 0;
+  for (const name of imageVariableNames) {
+    const dataUris: string[] = [];
+    for (const fileRefId of fileRefIdsOf(variables[name])) {
+      if (seenIds.has(fileRefId)) continue;
+      seenIds.add(fileRefId);
+      if (loadedCount >= MAX_RECORD_IMAGES) break;
+      const image = await readRecordImage(
+        ctx,
+        filesForTenant,
+        fileRefId,
+        Math.min(maxBytes, MAX_RECORD_IMAGES_TOTAL_BYTES - loadedBytes),
+      );
+      if (image === null) continue;
+      loadedCount += 1;
+      loadedBytes += image.size;
+      dataUris.push(image.dataUri);
+    }
+    dataUrisByVariable.set(name, dataUris);
+  }
+  return dataUrisByVariable;
+}
+
+// Text context without images variables: their value is file ids, which no placeholder,
+// title or file name pattern may print.
+function withoutImageVariables(
+  variables: Readonly<Record<string, unknown>>,
+  definitions: TemplateVariables,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(variables).filter(
+      ([name]) => !(Object.hasOwn(definitions, name) && definitions[name]?.type === "images"),
+    ),
+  );
+}
+
 type Hbs = ReturnType<typeof createDocumentHandlebars>;
 
 function renderRegion(
@@ -281,6 +368,10 @@ type DocumentInput = {
 };
 
 type PageMarkers = "chromium" | "preview";
+
+// Only the server render path resolves the record's images. Preview and draft paths take
+// variables a TenantAdmin can choose, so they must not read files by those ids.
+type RecordImages = "resolve" | "placeholder";
 
 type AssembledDocument = {
   readonly template: TemplateResource;
@@ -379,6 +470,7 @@ async function assembleDocument(
   input: DocumentInput,
   ctx: RendererContext,
   markers: PageMarkers,
+  recordImages: RecordImages = "placeholder",
 ): Promise<AssembledDocument> {
   const { slug, locale, variables } = input;
   const tplApi = createTemplateResolverApi(ctx.db);
@@ -403,7 +495,27 @@ async function assembleDocument(
       readBrandingAccentColor(ctx),
     ]);
     const hbs = createDocumentHandlebars(format);
-    const context = { ...variables, tenantName, signature: "", imprint: "", page: "", pages: "" };
+    const variableDefinitions = resolveTemplateVariables(
+      ctx.registry,
+      slug,
+      template.variableSchema,
+    );
+    const context = {
+      ...withoutImageVariables(variables, variableDefinitions),
+      tenantName,
+      signature: "",
+      imprint: "",
+      page: "",
+      pages: "",
+    };
+    const recordImageUris =
+      recordImages === "resolve"
+        ? await loadRecordImageDataUris(
+            ctx,
+            variables,
+            collectDocumentImageVariables(template.content),
+          )
+        : new Map<string, readonly string[]>();
 
     const bodyKeys = collectDocumentResourceKeys(template.content);
     const layoutKeys = collectRegionResourceKeys(layout.regions);
@@ -418,11 +530,12 @@ async function assembleDocument(
       (key) => !dataUris.has(key),
     );
 
-    const bodySource = compileDocumentBodyToHandlebars(
-      template.content,
-      resolveTemplateVariables(ctx.registry, slug, template.variableSchema),
-      { resourceSrc, ...(accentColor !== undefined && { stepsColor: accentColor }) },
-    );
+    const bodySource = compileDocumentBodyToHandlebars(template.content, variableDefinitions, {
+      resourceSrc,
+      recordImagesSrc: (variable) => recordImageUris.get(variable) ?? [],
+      recordImagesPlaceholder: recordImages === "placeholder",
+      ...(accentColor !== undefined && { stepsColor: accentColor }),
+    });
     const bodyHtml = prepareDocumentForPrint(compileDocumentSource(hbs, bodySource)(context));
     const signatureHtml = renderRegion(hbs, layout.regions.signature, context, resourceSrc);
 
@@ -470,7 +583,10 @@ export async function buildDocumentPdfRequest(
   req: Extract<RenderRequest, { kind: "document-pdf" }>,
   ctx: RendererContext,
 ): Promise<DocumentPdfRequest> {
-  return toPdfRequest(await assembleDocument(req.payload, ctx, "chromium"), req.payload.locale);
+  return toPdfRequest(
+    await assembleDocument(req.payload, ctx, "chromium", "resolve"),
+    req.payload.locale,
+  );
 }
 
 // Prints an unsaved draft; the stored template of the slug only supplies images and the variable schema.

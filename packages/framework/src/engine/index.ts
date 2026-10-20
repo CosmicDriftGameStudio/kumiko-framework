@@ -260,6 +260,8 @@ export {
   filterReadFields,
   maskWriteOnlyFields,
 } from "./field-access.ts";
+export type { FormDerivationScreen } from "./form-derivations.ts";
+export { applyFormDerivations, isFormDerivationInputMode } from "./form-derivations.ts";
 export {
   HANDLER_FIELD_REFERENCES_META_KEY,
   type HandlerFieldPathSegment,
@@ -655,6 +657,7 @@ export type {
   StreamHandlerFn,
   Subscribe,
   TargetRef,
+  TemplateImagesVariableDef,
   TemplateListVariableDef,
   TemplateScalarVariableDef,
   TemplateVariableDef,
@@ -709,3 +712,4 @@ export type {
   StepResolver,
 } from "./types/step.ts";
 export { runValidation } from "./validation.ts";
+export { formDerivationsOfSchema, withFormDerivations } from "./with-form-derivations.ts";

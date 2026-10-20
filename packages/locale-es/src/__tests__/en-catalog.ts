@@ -440,6 +440,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Choose a provider. Its settings appear below and are saved together with it.",
   "config.settings.provider": "Provider",
+  "config.settings.provider.platformDefault": "Platform default",
   "config.settings.system": "Platform",
   "config.settings.tenant": "Tenant",
   "config.settings.title": "Settings",
@@ -521,6 +522,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.validation.too_big": "Too big or too long (maximum: {maximum}).",
   "kumiko.boolean.no": "No",
   "kumiko.boolean.yes": "Yes",
+  "kumiko.field.file-list.download": "Download",
+  "kumiko.field.file-list.hidePreview": "Hide preview",
+  "kumiko.field.file-list.preview": "Preview",
   "kumiko.validation.number.min": "Must be at least {minimum}.",
   "kumiko.validation.number.max": "Must be {maximum} or less.",
   "errors.validation.too_small": "Too small or too short (minimum: {minimum}).",
@@ -844,6 +848,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.widget.floatingPanel.resizeRight": "Resize panel from the right edge",
   "kumiko.widget.floatingPanel.resizeTop": "Resize panel from the top edge",
   "kumiko.widget.loading": "Loading…",
+  "kumiko.widget.pdf-preview.loading": "Loading PDF…",
+  "kumiko.widget.pdf-preview.pageOf": "Page {page} of {pages}",
+  "kumiko.widget.pdf-preview.renderFailed": "The PDF could not be displayed.",
   "kumiko.widget.step-bar.done": "Done",
   "kumiko.widget.upload.done": "Uploaded",
   "kumiko.widget.upload.error": "Failed",
@@ -1126,6 +1133,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Remove link",
   "template-resolver.documentEditor.repeat": "Repeat",
   "template-resolver.documentEditor.repeatList": "List to repeat",
+  "template-resolver.documentEditor.images": "Photos",
+  "template-resolver.documentEditor.imagesVariable": "Photos from",
   "template-resolver.documentEditor.steps": "Steps",
   "template-resolver.documentEditor.stepsVariable": "Current step from",
   "template-resolver.documentEditor.stepsList": "Steps, separated by commas (value=label)",
@@ -1147,6 +1156,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Saved.",
   "template-resolver.editor.saving": "Saving…",
   "template-resolver.editor.titleLabel": "Title",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "Photo blocks are only allowed in PDF documents.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "The button target “{detail}” must be a placeholder.",
   "templateResolver.errors.document.disallowedLinkHref":
@@ -1181,6 +1192,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "This link is invalid or has expired. Please use the unsubscribe link in a more recent email.",
   "templateResolver.errors.systemOnlyTemplate":
     "Only the platform maintains this template; it cannot be overridden per tenant.",
+  "templateResolver.errors.templateNotTenantEditable": "Only the platform may edit this template.",
   "templateResolver.errors.template.targetExists":
     "A template for locale “{detail}” already exists; overwrite it explicitly to replace it.",
   "templateResolver.warnings.resourceNotUploaded": "Image not uploaded: {detail}",
@@ -1654,8 +1666,12 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Resources",
   "documentDesigner.mail.resource.upload": "+ Upload",
   "documentDesigner.mail.resource.saveFirst": "Save first, then upload.",
-  "documentDesigner.uploads.unavailable":
-    "Uploads need file storage, which this app has not set up.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "Uploads need the files feature, which this app has not mounted.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Test mails need the email channel, which this app has not mounted.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "No email address is stored for you, so no test mail can be sent.",
   "documentDesigner.mail.resource.inline": "Inline",
   "documentDesigner.mail.resource.attachment": "Attachment",
   "documentDesigner.mail.resource.fromPdf": 'Attachment · from "{title}"',
@@ -1780,19 +1796,18 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.send": "Send test mail",
   "documentDesigner.mail.testMail.hint":
     "Sent through the tenant's normal delivery path to your own address.",
-  "documentDesigner.mail.testMail.unavailable":
-    "Test mails need mail delivery and an email address on your account, and one of them is missing here.",
   "documentDesigner.mail.testMail.sent": "Test mail sent to your address: {subject}",
   "documentDesigner.mail.testMail.rateLimited": "Too many test mails, please try again later.",
   "screen:mail-foundation-tenant.title": "Email sending",
   "mail-foundation.settings": "Email sending",
-  "mail-foundation.provider": "Own mail server",
+  "mail-foundation.provider": "Send via",
   "mail-foundation.provider.description":
-    "Without one, the platform sends the mails. Reset the choice to go back to that.",
+    "Choose who sends your emails. The platform default needs no settings of your own.",
+  "mail-foundation.provider.platformDefault": "Platform sending (default)",
   "mail-transport-inmemory.settings": "Test inbox (in memory)",
-  "mail-transport-smtp.settings": "SMTP server",
-  "screen:mail-foundation-tenant-selection.title": "Provider",
-  "config:entity:__config-edit__:field:provider:option:smtp": "SMTP server",
+  "mail-transport-smtp.settings": "Own SMTP server",
+  "config:entity:__config-edit__:field:provider:option:": "Platform sending (default)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Own SMTP server",
   "mail-transport-smtp.settings.secrets": "SMTP sign-in",
   "mail-transport-smtp.settings.description":
     "The connection details come from your mail provider, for example Brevo, Postmark, Amazon SES or your own server.",

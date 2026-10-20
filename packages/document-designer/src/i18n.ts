@@ -412,9 +412,17 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Save first, then upload.",
     de: "Erst speichern, dann hochladen.",
   },
-  "documentDesigner.uploads.unavailable": {
-    en: "Uploads need file storage, which this app has not set up.",
-    de: "Hochladen braucht einen Dateispeicher, den diese App nicht eingerichtet hat.",
+  "documentDesigner.mail.resource.noFilesFeature": {
+    en: "Uploads need the files feature, which this app has not mounted.",
+    de: "Uploads brauchen das Files-Feature, das diese App nicht eingebunden hat.",
+  },
+  "documentDesigner.mail.testMail.unavailable.noChannel": {
+    en: "Test mails need the email channel, which this app has not mounted.",
+    de: "Test-Mails brauchen den E-Mail-Kanal, den diese App nicht eingebunden hat.",
+  },
+  "documentDesigner.mail.testMail.unavailable.noAddress": {
+    en: "No email address is stored for you, so no test mail can be sent.",
+    de: "Für dich ist keine E-Mail-Adresse hinterlegt, daher kann keine Test-Mail gesendet werden.",
   },
   "documentDesigner.mail.resource.inline": {
     en: "Inline",
@@ -843,10 +851,6 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.mail.testMail.hint": {
     en: "Sent through the tenant's normal delivery path to your own address.",
     de: "Versand über den normalen Zustellweg des Mandanten an deine eigene Adresse.",
-  },
-  "documentDesigner.mail.testMail.unavailable": {
-    en: "Test mails need mail delivery and an email address on your account, and one of them is missing here.",
-    de: "Test-Mails brauchen einen Mail-Versand und eine E-Mail-Adresse in deinem Konto, und eins davon fehlt hier.",
   },
   "documentDesigner.mail.testMail.sent": {
     en: "Test mail sent to your address: {subject}",

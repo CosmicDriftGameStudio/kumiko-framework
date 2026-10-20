@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   accessSync,
+  chmodSync,
   constants,
   cpSync,
   existsSync,
@@ -148,8 +149,8 @@ describe("hooks/pre-push shim", () => {
   });
 
   test("no node_modules anywhere above the repo fails closed with the bun install hint", () => {
-    // The upward walk in the shim goes all the way to "/"; this only holds
-    // if no real ancestor of the tmp fixture happens to carry the bin.
+    // The shim only trusts user-owned, non-writable ancestors up to $HOME; this
+    // precondition (no real ancestor carries the bin) keeps the test independent of that.
     let dir = tmp;
     while (true) {
       expect(existsSync(join(dir, "node_modules", ".bin", "kumiko-pre-push"))).toBe(false);
@@ -283,6 +284,87 @@ describe("hooks/pre-push shim", () => {
     expect(exitCode).toBe(0);
     expect(output).toContain("BIN_RAN");
     expect(output).toContain(`PWD=${repoDir}`);
+  });
+
+  test.each([
+    ["world-writable", 0o777],
+    ["group-writable", 0o775],
+  ])("a bin in a %s ancestor is never exec'd", (_label, mode) => {
+    const parentDir = join(tmp, "parent");
+    const repoDir = join(parentDir, "repo");
+    initGitRepo(repoDir);
+    writeStubBin(join(parentDir, "node_modules", ".bin"), stubBinScript());
+    chmodSync(parentDir, mode);
+
+    const { output, exitCode } = runHook(repoDir, tmp);
+
+    expect(exitCode).not.toBe(0);
+    expect(output).not.toContain("BIN_RAN");
+    expect(output).toContain("kumiko-pre-push not found");
+  });
+
+  test("a world-writable node_modules/.bin is skipped in favor of a trusted ancestor's bin", () => {
+    const parentDir = join(tmp, "parent");
+    const repoDir = join(parentDir, "repo");
+    initGitRepo(repoDir);
+    writeStubBin(join(parentDir, "node_modules", ".bin"), stubBinScript());
+    const plantedBinDir = join(repoDir, "node_modules", ".bin");
+    writeStubBin(plantedBinDir, 'echo "PLANTED_RAN"\n');
+    chmodSync(plantedBinDir, 0o777);
+
+    const { output, exitCode } = runHook(repoDir, tmp);
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("BIN_RAN");
+    expect(output).not.toContain("PLANTED_RAN");
+  });
+
+  test("the walk ignores a bin above $HOME", () => {
+    const homeDir = join(tmp, "home");
+    const repoDir = join(homeDir, "a", "repo");
+    initGitRepo(repoDir);
+    writeStubBin(join(tmp, "node_modules", ".bin"), stubBinScript());
+
+    const { output, exitCode } = runHook(repoDir, tmp, [], "", { HOME: homeDir });
+
+    expect(exitCode).not.toBe(0);
+    expect(output).not.toContain("BIN_RAN");
+    expect(output).toContain("kumiko-pre-push not found");
+  });
+
+  test.each([
+    ["a trailing slash", (homeDir: string) => `${homeDir}/`],
+    [
+      "a symlink",
+      (homeDir: string) => {
+        const link = join(dirname(homeDir), "home-link");
+        symlinkSync(homeDir, link);
+        return link;
+      },
+    ],
+  ])("the walk still ends at $HOME spelled with %s", (_label, spellHome) => {
+    const homeDir = join(tmp, "home");
+    const repoDir = join(homeDir, "a", "repo");
+    initGitRepo(repoDir);
+    writeStubBin(join(tmp, "node_modules", ".bin"), stubBinScript());
+
+    const { output, exitCode } = runHook(repoDir, tmp, [], "", { HOME: spellHome(homeDir) });
+
+    expect(exitCode).not.toBe(0);
+    expect(output).not.toContain("BIN_RAN");
+    expect(output).toContain("kumiko-pre-push not found");
+  });
+
+  test("a bin directly in $HOME is still found", () => {
+    const homeDir = join(tmp, "home");
+    const repoDir = join(homeDir, "a", "repo");
+    initGitRepo(repoDir);
+    writeStubBin(join(homeDir, "node_modules", ".bin"), stubBinScript());
+
+    const { output, exitCode } = runHook(repoDir, tmp, [], "", { HOME: homeDir });
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("BIN_RAN");
   });
 });
 

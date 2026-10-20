@@ -39,6 +39,21 @@ import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { seedNotificationTemplates } from "../seeding.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail-layout", "pdf-layout", "mail", "document-pdf"],
+  [
+    "default",
+    "contract-frame",
+    "contract",
+    "viel",
+    "morgen",
+    "x",
+    "inv-mailer:notify:invoice",
+    "preview:system-logo-only",
+  ],
+);
 
 const LOCALE = "de";
 const SLUG = "inv-mailer:notify:invoice";
@@ -104,7 +119,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),

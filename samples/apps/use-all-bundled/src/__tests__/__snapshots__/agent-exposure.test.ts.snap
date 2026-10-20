@@ -198,6 +198,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "template-resolver:query:preview expose=true risk=low",
   "template-resolver:query:reply-snippets-item expose=true risk=low",
   "template-resolver:query:reply-snippets-list expose=true risk=low",
+  "template-resolver:query:send-test-status expose=true risk=low",
   "template-resolver:query:signatures-item expose=true risk=low",
   "template-resolver:query:signatures-list expose=true risk=low",
   "template-resolver:query:tenant-overrides expose=true risk=low",

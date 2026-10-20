@@ -4,14 +4,20 @@
 // from here — migration and runtime cannot drift.
 
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
+import { AuthMailNotificationTypes } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   createChannelEmailFeature,
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import {
+  createTemplateResolverFeature,
+  type TenantEditableTemplate,
+  templateEditAccess,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
@@ -23,6 +29,27 @@ import { rentalFeature } from "./features/rental";
 import { taskFeature } from "./features/tasks";
 import { vehiclesFeature } from "./features/vehicles";
 
+// The walkthrough shows the tenant admin editing these templates; every other template stays with the platform.
+const TENANT_EDITABLE_TEMPLATES: readonly TenantEditableTemplate[] = [
+  ...[
+    "billing:notify:invoice-issued",
+    "billing:notify:invoice-corrected",
+    "billing:notify:payment-reminder",
+    "billing:notify:terms-changed",
+    AuthMailNotificationTypes.passwordReset,
+  ].map((slug) => ({ kind: "mail" as const, slug, access: { roles: ["TenantAdmin"] } })),
+  ...["billing:invoice", "rental:utility-statement"].map((slug) => ({
+    kind: "document-pdf" as const,
+    slug,
+    access: { roles: ["TenantAdmin"] },
+  })),
+  ...(["mail-layout", "pdf-layout"] as const).map((kind) => ({
+    kind,
+    slug: "default",
+    access: { roles: ["TenantAdmin"] },
+  })),
+];
+
 export const APP_FEATURES = [
   localeDe(),
   // Spanish mail copy: subscribers whose mails go out in Spanish land on Spanish unsubscribe pages.
@@ -31,11 +58,13 @@ export const APP_FEATURES = [
   rentalFeature,
   vehiclesFeature,
   billingFeature,
-  createTemplateResolverFeature(),
+  createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE_TEMPLATES }),
   // Only the branding rail of the layout editor needs managed-pages; the sample
   // serves no public pages, so no host resolves to a tenant.
   createManagedPagesFeature({ resolveApexTenant: () => null }),
-  createDocumentDesignerFeature(),
+  // The mail editor offers uploads only when the files feature is mounted.
+  createFilesFeature(),
+  createDocumentDesignerFeature({ access: templateEditAccess(TENANT_EDITABLE_TEMPLATES) }),
   // Mounted individually: composeRendererStack() would add a second template-resolver.
   createRendererFoundationFeature(),
   createRendererMailHtmlFeature({

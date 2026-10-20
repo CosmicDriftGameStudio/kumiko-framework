@@ -61,14 +61,15 @@ describe("mail transport settings for tenant admins", () => {
 
   test("one form saves the provider, the SMTP connection and the SMTP password", () => {
     const built = schema();
-    const dashboard = screenOf(built, "mail-foundation-tenant", "dashboard");
-    expect(dashboard.panels.map((panel) => panel.id)).toEqual(["selection"]);
-    expect(dashboard.access).toEqual({ roles: ["TenantAdmin"] });
+    expect(built.screens.map((s) => s.type)).not.toContain("dashboard");
+    expect(built.screens.map((s) => s.id)).not.toContain("mail-foundation-tenant-selection");
     expect(built.screens.map((s) => s.id)).not.toContain("mail-transport-smtp-tenant");
     expect(built.screens.map((s) => s.id)).not.toContain("mail-transport-smtp-tenant-secrets");
 
-    const form = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
-    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["smtp"] });
+    const form = screenOf(built, "mail-foundation-tenant", "configEdit");
+    expect(form.dormant).toBeUndefined();
+    expect(form.access).toEqual({ roles: ["TenantAdmin"] });
+    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["", "smtp"] });
     expect(Object.values(form.configKeys)).toEqual([
       "mail-foundation:config:provider",
       "mail-transport-smtp:config:host",
@@ -87,7 +88,7 @@ describe("mail transport settings for tenant admins", () => {
     expect(
       form.layout.sections.map((section) => ("title" in section ? section.title : "")),
     ).toEqual([
-      "config.settings.provider",
+      "mail-foundation.settings",
       "mail-transport-smtp.settings",
       "mail-transport-smtp.settings.secrets",
     ]);
@@ -112,16 +113,19 @@ describe("mail transport settings for tenant admins", () => {
     const built = buildConfigFeatureSchema(createRegistry([germanOnly, ...features()]));
     const optionKey = "config:entity:__config-edit__:field:provider:option:";
     expect(built.translations?.[`${optionKey}smtp`]).toEqual({
-      en: "SMTP server",
+      en: "Own SMTP server",
       de: "SMTP-Server",
+    });
+    expect(built.translations?.[optionKey]).toEqual({
+      en: "Platform sending (default)",
     });
   });
 
   test("the in-memory test inbox is never offered, but stays a valid stored provider", () => {
     const registry = createRegistry([...features(), createMailTransportInMemoryFeature()]);
     const built = buildConfigFeatureSchema(registry);
-    const form = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
-    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["smtp"] });
+    const form = screenOf(built, "mail-foundation-tenant", "configEdit");
+    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["", "smtp"] });
     expect(
       built.translations?.["config:entity:__config-edit__:field:provider:option:inmemory"],
     ).toBeUndefined();
@@ -143,7 +147,7 @@ describe("mail transport settings for tenant admins", () => {
       if (text !== undefined) en.set(key, translationValueOtherText(text));
     }
 
-    const form = screenOf(built, "mail-foundation-tenant-selection", "configEdit");
+    const form = screenOf(built, "mail-foundation-tenant", "configEdit");
     const nav = built.navs.find((n) => n.id === "mail-foundation-tenant");
     const ownKeys = [
       nav?.label,

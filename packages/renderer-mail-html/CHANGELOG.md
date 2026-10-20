@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-renderer-mail-html
 
+## 0.378.0
+
+### Patch Changes
+
+- e75268c: Money, date and percent placeholders in subject, preview text, chip and footer note are formatted like in the body
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: Typed placeholders in mail subject lines are formatted
+  detail: A money placeholder in the subject or preview text rendered as "[object Object]" and a date as its raw ISO string, because only the body compiler added the format helpers. Subject, preview text, header chip, tone and footer note now use the same money, date and percent formatting as the body. Attachment file names keep the raw values.
+  -->
+- Updated dependencies [2d7ee3e]
+- Updated dependencies [ebdac5c]
+- Updated dependencies [f47cbd1]
+- Updated dependencies [0250376]
+- Updated dependencies [bde6050]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [6352d97]
+  - @cosmicdrift/kumiko-types@0.378.0
+  - @cosmicdrift/kumiko-framework@0.378.0
+  - @cosmicdrift/kumiko-bundled-features@0.378.0
+  - @cosmicdrift/kumiko-renderer@0.378.0
+
 ## 0.377.0
 
 ### Minor Changes

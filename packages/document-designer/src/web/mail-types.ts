@@ -121,4 +121,9 @@ export type UpsertResponse = { readonly id: string };
 
 export type SendTestResponse = { readonly subject: string };
 
+export type SendTestStatus = {
+  readonly canSend: boolean;
+  readonly reason: "no_channel" | "no_address" | null;
+};
+
 export type PickedValues = Readonly<Record<string, unknown>>;

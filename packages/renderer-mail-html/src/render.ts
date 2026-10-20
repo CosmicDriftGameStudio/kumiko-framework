@@ -43,7 +43,7 @@ import {
   type TemplateResolverApi,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID, type TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
 import { DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.ts";
@@ -105,6 +105,8 @@ export type MailHtmlRenderOptions = {
 };
 
 const LINE_BREAKS = /[\r\n]+/g;
+const PLAIN_REFERENCE = /\{\{\s*([\w.]+)\s*\}\}/g;
+const FORMATTED_VARIABLE_TYPES: ReadonlySet<string> = new Set(["money", "date", "percent"]);
 
 function describe(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -391,12 +393,26 @@ async function renderMailBody(
   }
 }
 
+// Meta lines only hold plain {{name}} references (checked on save); typed values
+// need the same format helpers the body compiler adds, or money renders as "[object Object]".
+function withFormatHelpers(source: string, variables: TemplateVariables): string {
+  return source.replace(PLAIN_REFERENCE, (reference, name: string) => {
+    const type = variables[name]?.type;
+    return type !== undefined && FORMATTED_VARIABLE_TYPES.has(type)
+      ? `{{${type} ${name}}}`
+      : reference;
+  });
+}
+
 function renderSubjectLine(
   hbs: typeof Handlebars,
   source: string,
   context: Readonly<Record<string, unknown>>,
+  variables: TemplateVariables,
 ): string {
-  return compileDocumentSource(hbs, source, { noEscape: true })(context).replace(LINE_BREAKS, "");
+  return compileDocumentSource(hbs, withFormatHelpers(source, variables), { noEscape: true })(
+    context,
+  ).replace(LINE_BREAKS, "");
 }
 
 function renderFileNamePattern(
@@ -406,7 +422,8 @@ function renderFileNamePattern(
   context: Readonly<Record<string, unknown>>,
 ): string {
   try {
-    return renderSubjectLine(hbs, pattern, context);
+    // File names keep raw values: a formatted date or amount would put spaces into the name.
+    return renderSubjectLine(hbs, pattern, context, {});
   } catch (e) {
     throw new RendererError(
       `renderer-mail-html: rendering the attachment file name "${pattern}" of "${slug}" failed — ${describe(e)}`,
@@ -420,14 +437,15 @@ function renderSubjectLines(
   meta: MailTemplateMeta,
   slug: string,
   context: Readonly<Record<string, unknown>>,
+  variables: TemplateVariables,
 ): { readonly subject: string; readonly previewText: string | undefined } {
   try {
     return {
-      subject: renderSubjectLine(hbs, meta.subject, context),
+      subject: renderSubjectLine(hbs, meta.subject, context, variables),
       previewText:
         meta.previewText === undefined
           ? undefined
-          : renderSubjectLine(hbs, meta.previewText, context),
+          : renderSubjectLine(hbs, meta.previewText, context, variables),
     };
   } catch (e) {
     throw new RendererError(
@@ -449,10 +467,11 @@ function renderMailChrome(
   meta: MailTemplateMeta,
   slug: string,
   context: Readonly<Record<string, unknown>>,
+  variables: TemplateVariables,
   brandColor: string | undefined,
 ): MailChrome {
   const render = (source: string | undefined): string =>
-    source === undefined ? "" : renderSubjectLine(hbs, source, context).trim();
+    source === undefined ? "" : renderSubjectLine(hbs, source, context, variables).trim();
   try {
     const headerChip = render(meta.headerChip);
     const tone = readMailTone(render(meta.tone));
@@ -829,9 +848,14 @@ export async function mailHtmlRender(
     unsubscribeUrl: unsubscribeUrl ?? "",
   };
   const context = { ...variables, ...systemPlaceholders };
+  const variableDefs = resolveTemplateVariables(
+    ctx.registry,
+    template.slug,
+    template.variableSchema,
+  );
 
   const { appearance, accentColor, brandColor } = await resolveMailBranding(ctx, layout);
-  const chrome = renderMailChrome(hbs, meta, slug, context, brandColor);
+  const chrome = renderMailChrome(hbs, meta, slug, context, variableDefs, brandColor);
   const body = await renderMailBody(
     tplApi,
     ctx,
@@ -854,7 +878,7 @@ export async function mailHtmlRender(
     locale,
     renderFileName: (pattern) => renderFileNamePattern(hbs, pattern, slug, context),
   });
-  const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
+  const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context, variableDefs);
 
   const mjmlSource = compileLayoutMjml({
     layout,

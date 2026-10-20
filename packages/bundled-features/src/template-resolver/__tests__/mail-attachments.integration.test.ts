@@ -25,6 +25,49 @@ import sharp from "sharp";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "document-pdf"],
+  [
+    "att-copy",
+    "att-bundle",
+    "att-bundle-many",
+    "link-round",
+    "link-bundle-bad",
+    "att-system-copy",
+    "att-system-denied",
+    "copy-archived-source",
+    "copy-system-files",
+    "export-mixed-format",
+    "att-basic",
+    "att-foreign",
+    "att-invalid",
+    "att-key-in-use",
+    "att-limit",
+    "att-pdf-kind",
+    "att-remove",
+    "att-type",
+    "link-archived",
+    "link-archived-doc",
+    "link-basic",
+    "link-foreign",
+    "link-foreign-doc",
+    "link-invalid",
+    "link-kind",
+    "link-kind-doc",
+    "link-limit",
+    "link-limit-doc",
+    "link-missing",
+    "link-nonexistent",
+    "link-only-mail",
+    "link-round-doc",
+    "link-scope",
+    "link-scope-doc",
+    "link-valid-doc",
+    "rendered-pdf",
+  ],
+);
 
 const tenantA = createTestUser({ id: 2, roles: ["TenantAdmin"], tenantId: testTenantId(10) });
 const tenantB = createTestUser({ id: 3, roles: ["TenantAdmin"], tenantId: testTenantId(20) });
@@ -39,7 +82,10 @@ let stack: TestStack;
 beforeAll(async () => {
   patchFileInstanceofForBunTest();
   stack = await setupTestStack({
-    features: [createFilesFeature(), createTemplateResolverFeature()],
+    features: [
+      createFilesFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
+    ],
     files: { storageProvider: provider },
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
@@ -509,7 +555,7 @@ describe("template-resolver :: linked PDF template", () => {
       templateSlug: "link-scope-doc",
       fileName: "a.pdf",
     });
-    expect(res.httpStatus).toBe(404);
+    expect(res.httpStatus).toBe(403);
     expect(await linkedOf(foreignId, tenantB)).toEqual({});
   });
 

@@ -7,7 +7,8 @@ export type DocumentToolbarBlock =
   | "repeat"
   | "pageBreak"
   | "align"
-  | "steps";
+  | "steps"
+  | "images";
 
 export const MAIL_DOCUMENT_BLOCKS = [
   "image",
@@ -25,6 +26,7 @@ export const PDF_DOCUMENT_BLOCKS = [
   "divider",
   "repeat",
   "steps",
+  "images",
   "pageBreak",
 ] as const satisfies readonly DocumentToolbarBlock[];
 

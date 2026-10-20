@@ -10,7 +10,12 @@ import {
   useTranslation,
   useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
-import { ErrorState, LoadingState, uploadFileRef } from "@cosmicdrift/kumiko-renderer/web";
+import {
+  ErrorState,
+  LoadingState,
+  PdfPreview,
+  uploadFileRef,
+} from "@cosmicdrift/kumiko-renderer/web";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { BRANDING_QUERY_QN } from "../constants.ts";
@@ -27,12 +32,12 @@ import { fileUrl } from "./file-name.ts";
 import type { BrandingView } from "./layout-types.ts";
 import { systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import { PlaceholderSection, SystemPlaceholderSection } from "./mail-left-rail.tsx";
+import type { MailVariable } from "./mail-types.ts";
 import { OverridesDrawer } from "./overrides-drawer.tsx";
 import { PageCanvas } from "./page-canvas.tsx";
 import { pdfFooterMessage } from "./pdf-footer.ts";
 import { PdfResourceSection, visibleSystemPlaceholders } from "./pdf-left-rail.tsx";
 import { EMPTY_PDF_META, type PdfMetaDraft, parsePdfMeta, serializePdfMeta } from "./pdf-meta.ts";
-import { PdfPreview } from "./pdf-preview.tsx";
 import { SettingsPanel } from "./settings-panel.tsx";
 import { draftBesideActiveSentence } from "./status-label.ts";
 import { localesOf, parseJsonObject, pickRow, resolveLocale } from "./template-rows.ts";
@@ -51,13 +56,45 @@ import {
   type ValidationResult,
   type VariableInfo,
 } from "./types.ts";
-import { useEditorCapabilities } from "./use-editor-capabilities.ts";
+import { useFilesCapability } from "./use-files-capability.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
 import { templateTitle } from "./used-by-label.ts";
 
 const SETTLE_MS = 500;
 const NO_VARIABLES: Readonly<Record<string, VariableInfo>> = {};
+
+// Only the label of an images variable is needed, for the Images block and its picker.
+function imageLabelSource(
+  variables: Readonly<Record<string, VariableInfo>>,
+): Readonly<Record<string, MailVariable>> {
+  const result: Record<string, MailVariable> = {};
+  for (const [name, info] of Object.entries(variables)) {
+    if (info.type === "images" && info.label !== undefined) {
+      result[name] = { type: "text", label: info.label };
+    }
+  }
+  return result;
+}
+
+function textVariablesOf(
+  variables: Readonly<Record<string, VariableInfo>>,
+): Readonly<Record<string, MailVariable>> {
+  const result: Record<string, MailVariable> = {};
+  for (const [name, info] of Object.entries(variables)) {
+    if (info.type === "images") continue;
+    const { item, ...rest } = info;
+    const columns = Object.entries(item ?? {}).flatMap(([column, def]) =>
+      def.type === "images" ? [] : [[column, { ...def, type: def.type }] as const],
+    );
+    result[name] = {
+      ...rest,
+      type: info.type,
+      ...(item !== undefined && { item: Object.fromEntries(columns) }),
+    };
+  }
+  return result;
+}
 
 type Draft = { readonly content: string; readonly meta: PdfMetaDraft };
 
@@ -100,10 +137,10 @@ export function PdfTemplateEditor({
   onLocaleChange,
 }: PdfTemplateEditorProps): ReactNode {
   const t = useTranslation();
-  const capabilities = useEditorCapabilities();
   const dispatcher = useDispatcher();
   const { Button, Banner, Dialog } = usePrimitives();
   const insert = useInsertTargets();
+  const filesAvailable = useFilesCapability();
   const overview = useOverviewRows(DOCUMENT_PDF_KIND);
   const roles = useUserRoles();
   const scope: TemplateScope = roles?.includes("SystemAdmin") === true ? "system" : "tenant";
@@ -206,15 +243,25 @@ export function PdfTemplateEditor({
     { enabled: showOrigin && detail !== null },
   );
 
-  const variables = validation?.variables ?? NO_VARIABLES;
+  const allVariables = validation?.variables ?? NO_VARIABLES;
+  // Photos are record data, never an inline placeholder: images variables only feed the Images block.
+  const variables = useMemo(() => textVariablesOf(allVariables), [allVariables]);
+  const imageVariables = useMemo(
+    () => Object.keys(allVariables).filter((name) => allVariables[name]?.type === "images"),
+    [allVariables],
+  );
   const systemVariables = useMemo(
     () => visibleSystemPlaceholders(validation?.systemPlaceholders ?? []),
     [validation?.systemPlaceholders],
   );
   const systemLabels = useMemo(() => systemLabelMap(t, systemVariables), [t, systemVariables]);
   const variableLabels = useMemo(
-    () => ({ ...systemLabels, ...variableLabelMap(t, variables) }),
-    [systemLabels, variables, t],
+    () => ({
+      ...systemLabels,
+      ...variableLabelMap(t, variables),
+      ...variableLabelMap(t, imageLabelSource(allVariables)),
+    }),
+    [systemLabels, variables, allVariables, t],
   );
   const variableNames = useMemo(() => Object.keys(variables), [variables]);
   const linkedResources = detail?.linkedResources ?? null;
@@ -379,6 +426,7 @@ export function PdfTemplateEditor({
       ? null
       : {
           ...validation,
+          variables,
           systemPlaceholders: visibleSystemPlaceholders(validation.systemPlaceholders),
         };
   const layoutFills = (name: string): boolean =>
@@ -518,7 +566,7 @@ export function PdfTemplateEditor({
               <PdfResourceSection
                 resourceKeys={resourceKeys}
                 canUpload={detail.scope === scope}
-                fileUploads={capabilities.fileUploads}
+                filesAvailable={filesAvailable}
                 layoutName={layoutName}
                 onInsert={insert.insertResource}
                 onUpload={uploadResource}
@@ -543,6 +591,7 @@ export function PdfTemplateEditor({
                 systemVariables={systemVariables}
                 systemLabels={systemLabels}
                 variableNames={variableNames}
+                imageVariables={imageVariables}
                 resourcePreviews={resourcePreviews}
                 onEditorReady={insert.register("body")}
               />
@@ -550,7 +599,10 @@ export function PdfTemplateEditor({
           ) : (
             <div className="min-h-0 flex-1 overflow-auto">
               {generated !== null && generatedFresh ? (
-                <PdfPreview pdfBase64={generated.result.pdfBase64} />
+                <PdfPreview
+                  source={{ base64: generated.result.pdfBase64 }}
+                  testId="document-designer-pdf-preview"
+                />
               ) : (
                 <div
                   className="flex flex-col items-start gap-3 p-6"

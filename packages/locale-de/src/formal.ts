@@ -9,6 +9,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "documentDesigner.editor.origin.system":
     "Sie sehen das System-Layout. Speichern legt eine Anpassung für Ihren Mandanten an.",
   "documentDesigner.editor.diff.identical": "Ihr Layout entspricht dem System-Layout.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "Für Sie ist keine E-Mail-Adresse hinterlegt, daher kann keine Test-Mail gesendet werden.",
   "documentDesigner.editor.reset.description":
     "Ihr eigenes Layout wird entfernt, danach gilt wieder das System-Layout.",
   "documentDesigner.editor.dirtySwitch.description":
@@ -33,8 +35,6 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.hint":
     "Versand über den normalen Zustellweg des Mandanten an Ihre eigene Adresse.",
   "documentDesigner.mail.testMail.sent": "Test-Mail an Ihre Adresse gesendet: {subject}",
-  "documentDesigner.mail.testMail.unavailable":
-    "Test-Mails brauchen einen Mail-Versand und eine E-Mail-Adresse in Ihrem Konto, und eins davon fehlt hier.",
   "auth.errors.accountRestricted":
     "Konto nach Art. 18 DSGVO eingeschränkt. Heben Sie die Einschränkung auf, um sich wieder anzumelden.",
   "auth.errors.invalidResetToken":
@@ -239,7 +239,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "auth.mfa.setup.intro":
     "Scannen Sie den QR-Code mit einer Authenticator-App wie Google Authenticator oder 1Password.",
   "mail-foundation.provider.description":
-    "Ohne eigenen Server verschickt die Plattform die Mails. Setzen Sie die Auswahl zurück, um dorthin zurückzukehren.",
+    "Legen Sie fest, über wen Ihre E-Mails verschickt werden. Der Plattform-Versand braucht keine eigenen Einstellungen.",
   "mail-transport-smtp.settings.description":
     "Die Zugangsdaten bekommen Sie von Ihrem Mail-Anbieter, zum Beispiel Brevo, Postmark, Amazon SES oder Ihrem eigenen Server.",
   "mail-transport-smtp.port.description":

@@ -15,6 +15,31 @@ import { createTemplateResolverApi, TemplateNotFoundError } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "document-pdf", "mail-layout"],
+  [
+    "invoice-pdf",
+    "invoice-pdf-bad",
+    "guard-system-row",
+    "lifecycle-system-row",
+    "lifecycle-tenant-row",
+    "default",
+    "layout",
+    "fancy",
+    "tenant-fancy",
+    "overrides-no-tenant-feature",
+    "diff-foreign",
+    "reset-target",
+    "reset-orphan",
+    "lifecycle-mailer:notify:bare",
+    "lifecycle-mailer:notify:branded",
+    "lifecycle-mailer:notify:hello",
+    "lifecycle-mailer:notify:plain",
+    "lifecycle-archived-system",
+  ],
+);
 
 const MAIL_SLUG = "lifecycle-mailer:notify:hello";
 const PLAIN_SLUG = "lifecycle-mailer:notify:plain";
@@ -69,7 +94,9 @@ const otherTenantAdmin = createTestUser({
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature(), mailer] });
+  stack = await setupTestStack({
+    features: [createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }), mailer],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
 });
 
@@ -179,7 +206,7 @@ describe("template-resolver :: own-tenant status handlers", () => {
       { id: created.id },
       tenantAdmin,
     );
-    expect(err.code).toBe("not_found");
+    expect(err.code).toBe("access_denied");
     expect((await findById(created.id)).status).toBe("active");
   });
 });
@@ -536,13 +563,13 @@ describe("template-resolver :: reset-to-system", () => {
     expect(again.status).toBe("archived");
   });
 
-  test("the system row id is NotFound", async () => {
+  test("the system row id is refused like a locked template", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.resetToSystem,
       { id: systemRowId },
       tenantAdmin,
     );
-    expect(err.code).toBe("not_found");
+    expect(err.code).toBe("access_denied");
   });
 
   test("an override without an active system counterpart is a validation error", async () => {

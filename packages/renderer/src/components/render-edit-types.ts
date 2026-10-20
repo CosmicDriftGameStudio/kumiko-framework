@@ -2,6 +2,7 @@ import type {
   ActionFormFooterAction,
   EntityDefinition,
   EntityEditScreenDefinition,
+  FormDerivationScreen,
   IconKey,
   RowAction,
   RowActionDrawer,
@@ -219,6 +220,9 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  `disabled`, which locks the whole form. For a gate the host owns, e.g.
    *  an acknowledgement checkbox in `leadContent`. */
   readonly submitBlocked?: boolean;
+  /** actionForm `derive`: derived fields are recomputed into the form state on every
+   *  change and render read-only. */
+  readonly formDerivation?: FormDerivationScreen;
   /** Show the unsaved-changes footer (count, Discard, "Save changes") even
    *  without an entity id or a screen-height form — for hosts that edit an
    *  existing server-side record through `customSubmit` (configEdit, also when

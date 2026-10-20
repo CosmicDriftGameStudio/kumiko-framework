@@ -24,6 +24,48 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["text-block"],
+  [
+    "imprint",
+    "privacy",
+    "alt",
+    "neu",
+    "system-imprint-write",
+    "about",
+    "x",
+    "override-target",
+    "update-target",
+    "updated",
+    "evil-override",
+    "ok",
+    "shared-row",
+    "first",
+    "second",
+    "edited",
+    "string",
+    "does-not-exist",
+    "tenant-only",
+    "system-imprint",
+    "list-filter-block",
+    "stub-page",
+    "later-filled",
+    "max-length-ok",
+    "max-length-fail",
+    "xss-test",
+    "race-test",
+    "from-a",
+    "from-b",
+    "fulfilled",
+    "seed-test",
+    "seed-skip",
+    "from-write",
+    "page-hero",
+    "from-seed",
+  ],
+);
 
 let stack: TestStack;
 let db: DbConnection;
@@ -32,7 +74,7 @@ const systemAdmin = TestUsers.systemAdmin;
 const tenantAdmin = createTestUser({ id: 2, roles: ["TenantAdmin"] });
 const normalUser = createTestUser({ id: 3 });
 
-const feature = createTemplateResolverFeature();
+const feature = createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });

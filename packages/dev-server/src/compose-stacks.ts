@@ -51,7 +51,10 @@ import {
   createSubscriptionMollieFeature,
   type SubscriptionMollieOptions,
 } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
-import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import {
+  createTemplateResolverFeature,
+  type TemplateResolverOptions,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import {
   type CreateTierEngineOptions,
@@ -173,11 +176,13 @@ export type RendererStackOptions = {
   readonly mailFooter?: MailFooterResolver;
   /** Word after the tenant name in the mail's brand row, e.g. "Status". */
   readonly mailBrandSuffix?: MailBrandSuffixResolver;
+  /** Passed to createTemplateResolverFeature, e.g. `tenantEditable` to let a TenantAdmin edit chosen templates. */
+  readonly templateResolver?: TemplateResolverOptions;
 };
 
 export function composeRendererStack(options: RendererStackOptions = {}): FeatureDefinition[] {
   return [
-    createTemplateResolverFeature(),
+    createTemplateResolverFeature(options.templateResolver),
     createRendererFoundationFeature(),
     createRendererMailHtmlFeature({
       ...(options.mailFooter !== undefined && { footer: options.mailFooter }),

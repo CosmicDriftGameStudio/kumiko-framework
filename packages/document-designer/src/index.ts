@@ -11,4 +11,4 @@ export {
   TEMPLATES_SCREEN_ID,
   type TemplateEditorKind,
 } from "./constants.ts";
-export { createDocumentDesignerFeature } from "./feature.ts";
+export { createDocumentDesignerFeature, type DocumentDesignerOptions } from "./feature.ts";

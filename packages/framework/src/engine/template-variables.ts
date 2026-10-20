@@ -2,6 +2,7 @@ import * as z from "zod";
 import { InternalError } from "../errors/index.ts";
 import type {
   Registry,
+  TemplateImagesVariableDef,
   TemplateListVariableDef,
   TemplateScalarVariableDef,
   TemplateVariableDef,
@@ -35,6 +36,7 @@ export const templateVariable = {
   percent: (
     opts: CommonOptions & { readonly example?: number } = {},
   ): TemplateScalarVariableDef => ({ type: "percent", ...opts }),
+  images: (opts: CommonOptions = {}): TemplateImagesVariableDef => ({ type: "images", ...opts }),
   list: (
     item: Readonly<Record<string, TemplateScalarVariableDef>>,
     opts: CommonOptions & { readonly example?: readonly Readonly<Record<string, unknown>>[] } = {},
@@ -80,7 +82,10 @@ function scalarToZod(def: TemplateScalarVariableDef): z.ZodType {
   }
 }
 
+const imagesSchema = z.union([z.string(), z.array(z.string())]);
+
 function variableToZod(def: TemplateVariableDef): z.ZodType {
+  if (def.type === "images") return imagesSchema;
   if (def.type !== "list") return scalarToZod(def);
   return z.array(
     z.object(

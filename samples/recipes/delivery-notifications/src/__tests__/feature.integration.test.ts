@@ -74,7 +74,9 @@ const assignee = createTestUser({ id: 5, roles: ["Support"] });
 const features = [
   createConfigFeature(),
   createTenantFeature(),
-  createTemplateResolverFeature(),
+  createTemplateResolverFeature({
+    tenantEditable: [{ kind: "mail", slug: TICKET_ASSIGNED, access: { roles: ["TenantAdmin"] } }],
+  }),
   createRendererFoundationFeature(),
   createRendererMailHtmlFeature(),
   createDeliveryFeature(),
@@ -210,6 +212,27 @@ describe("delivery-notifications sample", () => {
     const email = emailTransport.sent.find((e: EmailMessage) => e.to === testEmail(assignee.id));
     expect(email?.subject).toContain("Tenant subject #");
     expect(email?.html).toContain("Tenant text: Printer on fire");
+  });
+
+  test("a tenant admin may not override a mail the app did not list in tenantEditable", async () => {
+    const tenantAdmin = { ...admin, roles: ["TenantAdmin"] };
+
+    const error = await stack.http.writeErr(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "support:notify:ticket-closed",
+        kind: "mail",
+        locale: "en",
+        content: "<p>Closed</p>",
+        contentFormat: "html",
+        meta: { subject: "Closed" },
+        variableSchema: {},
+      },
+      tenantAdmin,
+    );
+
+    expect(error.code).toBe("access_denied");
+    expect(error.i18nKey).toBe("templateResolver.errors.templateNotTenantEditable");
   });
 
   test("ticket without assignee skips notification (recipient returns null)", async () => {

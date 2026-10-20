@@ -1,3 +1,4 @@
+export { isResourceImageContentType } from "../shared/index.ts";
 export {
   createTemplateResolverApi,
   type ResolveRequest,
@@ -8,6 +9,7 @@ export {
 } from "./api.ts";
 export {
   type CompileDocumentBodyOptions,
+  collectDocumentImageVariables,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   toResourceDataUri,
@@ -75,7 +77,7 @@ export {
   isDocumentReferenceName,
   isDocumentResourceKey,
 } from "./document-schema.ts";
-export { createTemplateResolverFeature } from "./feature.ts";
+export { createTemplateResolverFeature, type TemplateResolverOptions } from "./feature.ts";
 export type { LayoutSourceResponse, LayoutSourceRow } from "./handlers/layout-source.query.ts";
 export type {
   OverviewKindGroup,
@@ -126,6 +128,11 @@ export {
   templateResourcesTable,
 } from "./table.ts";
 export { type TemplateBundle, templateBundleSchema } from "./template-bundle.ts";
+export {
+  type TemplateEditPolicy,
+  type TenantEditableTemplate,
+  templateEditAccess,
+} from "./template-edit-policy.ts";
 export {
   isMailTemplateMeta,
   type LayoutTemplateMeta,

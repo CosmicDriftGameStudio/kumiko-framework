@@ -8,6 +8,7 @@ import { Extension, type Extensions, Node } from "@tiptap/core";
 import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
+import { createDocumentImagesNode } from "./document-images.ts";
 import { createDocumentStepsNode } from "./document-steps.ts";
 
 const PLACEHOLDER_HREF = /^\{\{(.+)\}\}$/;
@@ -73,6 +74,7 @@ export const DOCUMENT_NODE_NAMES = [
   "divider",
   "pageBreak",
   "steps",
+  "images",
 ] as const;
 
 export const DocumentVariable = Node.create({
@@ -183,6 +185,8 @@ export const DocumentPageBreak = Node.create({
 });
 
 export const DocumentSteps = createDocumentStepsNode(isDocumentReferenceName);
+
+export const DocumentImages = createDocumentImagesNode(isDocumentReferenceName);
 
 // A repeat row is a table row carrying `each`: prosemirror-tables requires
 // the tableRow node type, so a separate node type is not an option.
@@ -378,6 +382,7 @@ export const documentExtensions: Extensions = [
   DocumentDivider,
   DocumentPageBreak,
   DocumentSteps,
+  DocumentImages,
   DocumentTextAlign,
   DocumentTextSize,
   DocumentCondition,

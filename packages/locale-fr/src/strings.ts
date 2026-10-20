@@ -466,6 +466,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Choisissez un fournisseur. Ses paramètres apparaissent ci-dessous et sont enregistrés avec lui.",
   "config.settings.provider": "Fournisseur",
+  "config.settings.provider.platformDefault": "Plateforme (par défaut)",
   "config.settings.system": "Plateforme",
   "config.settings.tenant": "Organisation",
   "config.settings.title": "Paramètres",
@@ -550,6 +551,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "errors.validation.too_big": "Trop grand ou trop long (maximum : {maximum}).",
   "kumiko.boolean.no": "Non",
   "kumiko.boolean.yes": "Oui",
+  "kumiko.field.file-list.download": "Télécharger",
+  "kumiko.field.file-list.hidePreview": "Masquer l'aperçu",
+  "kumiko.field.file-list.preview": "Aperçu",
   "kumiko.validation.number.min": "Doit être au moins {minimum}.",
   "kumiko.validation.number.max": "Doit être {maximum} ou moins.",
   "errors.validation.too_small": "Trop petit ou trop court (minimum : {minimum}).",
@@ -879,6 +883,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.floatingPanel.resizeRight": "Redimensionner le panneau depuis le bord droit",
   "kumiko.widget.floatingPanel.resizeTop": "Redimensionner le panneau depuis le bord supérieur",
   "kumiko.widget.loading": "Chargement…",
+  "kumiko.widget.pdf-preview.loading": "Chargement du PDF…",
+  "kumiko.widget.pdf-preview.pageOf": "Page {page} sur {pages}",
+  "kumiko.widget.pdf-preview.renderFailed": "Le PDF n'a pas pu être affiché.",
   "kumiko.widget.step-bar.done": "Terminé",
   "kumiko.widget.upload.done": "Téléversé",
   "kumiko.widget.upload.error": "Échec",
@@ -1167,6 +1174,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Supprimer le lien",
   "template-resolver.documentEditor.repeat": "Répéter",
   "template-resolver.documentEditor.repeatList": "Liste à répéter",
+  "template-resolver.documentEditor.images": "Photos",
+  "template-resolver.documentEditor.imagesVariable": "Photos issues de",
   "template-resolver.documentEditor.steps": "Étapes",
   "template-resolver.documentEditor.stepsVariable": "Étape actuelle issue de",
   "template-resolver.documentEditor.stepsList": "Étapes séparées par des virgules (valeur=libellé)",
@@ -1188,6 +1197,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Enregistré.",
   "template-resolver.editor.saving": "Enregistrement…",
   "template-resolver.editor.titleLabel": "Titre",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "Les blocs de photos ne sont autorisés que dans les documents PDF.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La cible du bouton « {detail} » doit être un espace réservé.",
   "templateResolver.errors.document.disallowedLinkHref":
@@ -1222,6 +1233,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Ce lien est invalide ou a expiré. Utilisez le lien de désabonnement d'un e-mail plus récent.",
   "templateResolver.errors.systemOnlyTemplate":
     "Seule la plateforme gère ce modèle ; il ne peut pas être remplacé par organisation.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Seule la plateforme peut modifier ce modèle.",
   "templateResolver.errors.template.targetExists":
     "Un modèle existe déjà pour la langue « {detail} » ; écrasez-le explicitement pour le remplacer.",
   "templateResolver.warnings.resourceNotUploaded": "Image non téléversée : {detail}",
@@ -1713,8 +1726,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Ressources",
   "documentDesigner.mail.resource.upload": "+ Téléverser",
   "documentDesigner.mail.resource.saveFirst": "Enregistrez d'abord, puis téléversez.",
-  "documentDesigner.uploads.unavailable":
-    "Le téléversement nécessite un stockage de fichiers que cette application n'a pas configuré.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "Les téléversements nécessitent la fonctionnalité de fichiers, que cette application n'a pas intégrée.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Les e-mails de test nécessitent le canal e-mail, que cette application n'a pas intégré.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "Aucune adresse e-mail n'est enregistrée pour vous, donc aucun e-mail de test ne peut être envoyé.",
   "documentDesigner.mail.resource.inline": "En ligne",
   "documentDesigner.mail.resource.attachment": "Pièce jointe",
   "documentDesigner.mail.resource.fromPdf": "Pièce jointe · issue de « {title} »",
@@ -1844,20 +1861,19 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.send": "Envoyer l'e-mail de test",
   "documentDesigner.mail.testMail.hint":
     "Envoyé à votre propre adresse par le circuit d'envoi habituel de l'organisation.",
-  "documentDesigner.mail.testMail.unavailable":
-    "Les e-mails de test nécessitent un envoi d'e-mails et une adresse e-mail dans votre compte, et l'un des deux manque ici.",
   "documentDesigner.mail.testMail.sent": "E-mail de test envoyé à votre adresse : {subject}",
   "documentDesigner.mail.testMail.rateLimited":
     "Trop d'e-mails de test, veuillez réessayer plus tard.",
   "screen:mail-foundation-tenant.title": "Envoi d'e-mails",
   "mail-foundation.settings": "Envoi d'e-mails",
-  "mail-foundation.provider": "Serveur de messagerie propre",
+  "mail-foundation.provider": "Envoyer via",
   "mail-foundation.provider.description":
-    "Sans serveur propre, la plateforme envoie les e-mails. Réinitialisez le choix pour revenir à ce fonctionnement.",
+    "Choisissez qui envoie vos e-mails. L'envoi par la plateforme ne demande aucun réglage propre.",
+  "mail-foundation.provider.platformDefault": "Envoi par la plateforme (par défaut)",
   "mail-transport-inmemory.settings": "Boîte de test (en mémoire)",
-  "mail-transport-smtp.settings": "Serveur SMTP",
-  "screen:mail-foundation-tenant-selection.title": "Fournisseur",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Serveur SMTP",
+  "mail-transport-smtp.settings": "Serveur SMTP propre",
+  "config:entity:__config-edit__:field:provider:option:": "Envoi par la plateforme (par défaut)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Serveur SMTP propre",
   "mail-transport-smtp.settings.secrets": "Connexion SMTP",
   "mail-transport-smtp.settings.description":
     "Les informations de connexion proviennent de votre fournisseur de messagerie, par exemple Brevo, Postmark, Amazon SES ou votre propre serveur.",

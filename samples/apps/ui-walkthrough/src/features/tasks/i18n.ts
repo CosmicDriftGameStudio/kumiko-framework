@@ -9,6 +9,10 @@ export const tasksTranslations: TranslationsByLocale = {
     "tasks.assistant.label": "Assistent",
     "tasks.assistant.description": "Der Assistent ist im Walkthrough nicht angebunden.",
     "tasks.assistant.close": "Schließen",
+    "tasks.help.label": "Hilfe",
+    "tasks.help.description": "Kurzhilfe zur aktuellen Seite.",
+    "tasks.help.body":
+      "Die Seite bleibt bedienbar: Sie rückt neben das Hilfefenster, statt darunter zu verschwinden.",
     "tasks.nav.group": "Allgemein",
     "tasks.nav.list": "Aufgaben",
     "tasks.nav.new": "Neue Aufgabe",
@@ -29,6 +33,10 @@ export const tasksTranslations: TranslationsByLocale = {
     "tasks.assistant.label": "Assistant",
     "tasks.assistant.description": "The assistant is not connected in the walkthrough.",
     "tasks.assistant.close": "Close",
+    "tasks.help.label": "Help",
+    "tasks.help.description": "Quick help for the current page.",
+    "tasks.help.body":
+      "The page stays usable: it moves next to the help panel instead of disappearing under it.",
     "tasks.nav.group": "General",
     "tasks.nav.list": "Tasks",
     "tasks.nav.new": "New task",

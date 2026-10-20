@@ -55,6 +55,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `NavTree` |  |
 | `NumberField` | Zahlenfeld = Field + Input(kind:"number") in einem — nimmt der Screen die wiederholte id/name/value/onChange-Verdrahtung ab. |
 | `PageSection` |  |
+| `PdfPreview` |  |
 | `PercentField` |  |
 | `PhotoSlots` | Guided photo capture: one tile per requested shot in a two-column grid, each its own camera/gallery picker, filled tiles show the thumbnail. |
 | `PlainContentEditor` |  |

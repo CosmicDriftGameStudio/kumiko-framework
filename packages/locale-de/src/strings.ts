@@ -460,6 +460,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Wähle einen Anbieter. Seine Einstellungen erscheinen darunter und werden mit ihm gespeichert.",
   "config.settings.provider": "Anbieter",
+  "config.settings.provider.platformDefault": "Plattform (Standard)",
   "config.settings.system": "Plattform",
   "config.settings.tenant": "Mandant",
   "config.settings.title": "Einstellungen",
@@ -544,6 +545,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.validation.too_big": "Zu groß oder zu lang. Maximal erlaubt: {maximum}.",
   "kumiko.boolean.no": "Nein",
   "kumiko.boolean.yes": "Ja",
+  "kumiko.field.file-list.download": "Herunterladen",
+  "kumiko.field.file-list.hidePreview": "Vorschau ausblenden",
+  "kumiko.field.file-list.preview": "Vorschau",
   "kumiko.validation.number.min": "Muss mindestens {minimum} sein.",
   "kumiko.validation.number.max": "Darf höchstens {maximum} sein.",
   "errors.validation.too_small": "Zu klein oder zu kurz. Mindestens erforderlich: {minimum}.",
@@ -873,6 +877,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.floatingPanel.resizeRight": "Panel am rechten Rand skalieren",
   "kumiko.widget.floatingPanel.resizeTop": "Panel am oberen Rand skalieren",
   "kumiko.widget.loading": "Lade…",
+  "kumiko.widget.pdf-preview.loading": "PDF wird geladen…",
+  "kumiko.widget.pdf-preview.pageOf": "Seite {page} von {pages}",
+  "kumiko.widget.pdf-preview.renderFailed": "Das PDF konnte nicht angezeigt werden.",
   "kumiko.widget.step-bar.done": "Erledigt",
   "kumiko.widget.upload.done": "Hochgeladen",
   "kumiko.widget.upload.error": "Fehlgeschlagen",
@@ -1160,6 +1167,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Link entfernen",
   "template-resolver.documentEditor.repeat": "Wiederholung",
   "template-resolver.documentEditor.repeatList": "Liste für die Wiederholung",
+  "template-resolver.documentEditor.images": "Fotos",
+  "template-resolver.documentEditor.imagesVariable": "Fotos aus",
   "template-resolver.documentEditor.steps": "Stufen",
   "template-resolver.documentEditor.stepsVariable": "Aktuelle Stufe aus",
   "template-resolver.documentEditor.stepsList": "Stufen, durch Komma getrennt (Wert=Beschriftung)",
@@ -1181,6 +1190,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Gespeichert.",
   "template-resolver.editor.saving": "Speichern…",
   "template-resolver.editor.titleLabel": "Titel",
+  "templateResolver.errors.document.imagesBlockPdfOnly":
+    "Fotoblöcke sind nur in PDF-Dokumenten erlaubt.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "Das Ziel der Schaltfläche „{detail}“ muss ein Platzhalter sein.",
   "templateResolver.errors.document.disallowedLinkHref":
@@ -1216,6 +1227,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieser Link ist ungültig oder abgelaufen. Bitte den Abmeldelink aus einer neueren E-Mail verwenden.",
   "templateResolver.errors.systemOnlyTemplate":
     "Diese Vorlage pflegt nur die Plattform; sie lässt sich nicht pro Mandant überschreiben.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Diese Vorlage darf nur die Plattform bearbeiten.",
   "templateResolver.errors.template.targetExists":
     "Für die Sprache „{detail}“ gibt es schon eine Vorlage; überschreibe sie ausdrücklich, um sie zu ersetzen.",
   "templateResolver.warnings.resourceNotUploaded": "Bild nicht hochgeladen: {detail}",
@@ -1696,8 +1709,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.title": "Ressourcen",
   "documentDesigner.mail.resource.upload": "+ Hochladen",
   "documentDesigner.mail.resource.saveFirst": "Erst speichern, dann hochladen.",
-  "documentDesigner.uploads.unavailable":
-    "Hochladen braucht einen Dateispeicher, den diese App nicht eingerichtet hat.",
+  "documentDesigner.mail.resource.noFilesFeature":
+    "Uploads brauchen das Files-Feature, das diese App nicht eingebunden hat.",
+  "documentDesigner.mail.testMail.unavailable.noChannel":
+    "Test-Mails brauchen den E-Mail-Kanal, den diese App nicht eingebunden hat.",
+  "documentDesigner.mail.testMail.unavailable.noAddress":
+    "Für dich ist keine E-Mail-Adresse hinterlegt, daher kann keine Test-Mail gesendet werden.",
   "documentDesigner.mail.resource.inline": "Inline",
   "documentDesigner.mail.resource.attachment": "Anhang",
   "documentDesigner.mail.resource.fromPdf": "Anhang · aus „{title}“",
@@ -1825,20 +1842,19 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.send": "Test-Mail senden",
   "documentDesigner.mail.testMail.hint":
     "Versand über den normalen Zustellweg des Mandanten an deine eigene Adresse.",
-  "documentDesigner.mail.testMail.unavailable":
-    "Test-Mails brauchen einen Mail-Versand und eine E-Mail-Adresse in deinem Konto, und eins davon fehlt hier.",
   "documentDesigner.mail.testMail.sent": "Test-Mail an deine Adresse gesendet: {subject}",
   "documentDesigner.mail.testMail.rateLimited":
     "Zu viele Test-Mails, bitte später erneut versuchen.",
   "screen:mail-foundation-tenant.title": "E-Mail-Versand",
   "mail-foundation.settings": "E-Mail-Versand",
-  "mail-foundation.provider": "Eigener Mailserver",
+  "mail-foundation.provider": "Versand über",
   "mail-foundation.provider.description":
-    "Ohne eigenen Server verschickt die Plattform die Mails. Setz die Auswahl zurück, um dorthin zurückzukehren.",
+    "Lege fest, über wen deine E-Mails verschickt werden. Der Plattform-Versand braucht keine eigenen Einstellungen.",
+  "mail-foundation.provider.platformDefault": "Plattform-Versand (Standard)",
   "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",
-  "mail-transport-smtp.settings": "SMTP-Server",
-  "screen:mail-foundation-tenant-selection.title": "Anbieter",
-  "config:entity:__config-edit__:field:provider:option:smtp": "SMTP-Server",
+  "mail-transport-smtp.settings": "Eigener SMTP-Server",
+  "config:entity:__config-edit__:field:provider:option:": "Plattform-Versand (Standard)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Eigener SMTP-Server",
   "mail-transport-smtp.settings.secrets": "SMTP-Anmeldung",
   "mail-transport-smtp.settings.description":
     "Die Zugangsdaten bekommst du von deinem Mail-Anbieter, zum Beispiel Brevo, Postmark, Amazon SES oder deinem eigenen Server.",

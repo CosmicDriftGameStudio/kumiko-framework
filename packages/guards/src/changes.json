@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Direct-entity-writes guard catches imported event-store tables",
+    "detail": "Table identifiers are resolved through import aliases to their definition, so direct insert/update/delete on an event-store table imported from another file of the scanned repo is no longer missed. Findings now show the full receiver (ctx.db). Existing consumers can get new findings that were previously hidden."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "Faster, leaner guard run",
+    "detail": "Four AST guards skip files that cannot contain their anchor names before walking every node, and Direct-Entity-Writes only resolves symbols for table arguments named like an event-sourced table. Findings are identical."
+  },
+  {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Pre-push shim skips untrusted ancestors and stops at $HOME",
+    "detail": "The shim walked up to / and could exec a kumiko-pre-push planted in /tmp or another shared directory. The walk now ends at $HOME and skips ancestors that another user owns or that group or others can write to."
+  },
+  {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Pre-push shim also vets node_modules/.bin",
+    "detail": "The shim now requires node_modules/.bin itself to be owned by the user and not group or world writable before executing kumiko-pre-push from it, in the guards hook and the dev-server husky template."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "guard-unsafe-append-event",

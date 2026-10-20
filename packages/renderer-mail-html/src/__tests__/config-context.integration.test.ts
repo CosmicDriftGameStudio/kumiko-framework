@@ -24,6 +24,7 @@ import {
 import {
   createTemplateResolverFeature,
   TemplateResolverHandlers,
+  type TenantEditableTemplate,
   templateResourceEntity,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
@@ -52,6 +53,10 @@ import { createRendererMailHtmlFeature } from "../feature";
 localeDe();
 
 const SLUG = "mail-config-demo:notify:invoice";
+const TENANT_EDITABLE: TenantEditableTemplate[] = [
+  { kind: "mail", slug: SLUG, access: { roles: ["TenantAdmin"] } },
+  { kind: "mail-layout", slug: "default", access: { roles: ["TenantAdmin"] } },
+];
 
 const mailConfigDemo = defineFeature("mail-config-demo", (r) => {
   r.writeHandler({
@@ -98,7 +103,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantSettingsFeature(),
       createManagedPagesFeature({ resolveApexTenant: () => null }),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature({
         footer: ({ locale }) => ({

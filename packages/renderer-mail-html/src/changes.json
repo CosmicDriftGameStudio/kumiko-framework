@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Typed placeholders in mail subject lines are formatted",
+    "detail": "A money placeholder in the subject or preview text rendered as \"[object Object]\" and a date as its raw ISO string, because only the body compiler added the format helpers. Subject, preview text, header chip, tone and footer note now use the same money, date and percent formatting as the body. Attachment file names keep the raw values."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "Document dates can print the time in the tenant time zone",

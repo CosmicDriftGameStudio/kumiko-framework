@@ -4,13 +4,22 @@ import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
+import { AuthMailNotificationTypes } from "../mail-notifications.ts";
 
 // Auth mails are stored templates rendered by the mail renderer, so every
 // stack that sends one needs these features plus the boot seed (setupTestStack
 // does not run boot seeds).
 export function authMailRendererFeatures(): FeatureDefinition[] {
   return [
-    createTemplateResolverFeature(),
+    createTemplateResolverFeature({
+      tenantEditable: [
+        {
+          kind: "mail",
+          slug: AuthMailNotificationTypes.invite,
+          access: { roles: ["TenantAdmin"] },
+        },
+      ],
+    }),
     createRendererFoundationFeature(),
     createRendererMailHtmlFeature(),
   ];
