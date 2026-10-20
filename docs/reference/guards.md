@@ -68,7 +68,6 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns (#3118). | - |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | - |
 | `guard-thin-wrappers` | Thin-Wrapper Guard (warning, never fails). | - |
-| `guard-unsafe-append-event` | Guard: reports `ctx.unsafeAppendEvent` (also `ctx["unsafeAppendEvent"]` and destructuring) outside `migrations/`, `upcasters/` and tests. | - |
 | `guard-unsafe-json-parse` | Guard: JSON.parse calls must be inside a try/catch OR routed through the safe-json helpers (parseJsonSafe / parseJsonOrThrow). | - |
 | `guard-upgrade-state` | Guard: a consumer repo's `.kumiko/upgrade-state.json` marker must be caught up with the installed Kumiko framework version. | - |
 | `guard-write-handler-qns` | Guard: checks that `dispatcher.write("qn:literal:...")` calls in custom screens reference valid write-handler QNs. | - |
