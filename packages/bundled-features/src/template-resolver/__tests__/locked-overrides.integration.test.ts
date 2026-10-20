@@ -11,7 +11,11 @@ import * as z from "zod";
 import { createTemplateResolverApi } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { OverviewResponse } from "../index.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import {
+  collectionHandlerName,
+  TemplateResolverHandlers,
+  TemplateResolverQueries,
+} from "../qualified-names.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
@@ -313,6 +317,89 @@ describe("locked template overrides :: side channels stay closed", () => {
         tenantAdmin,
       );
       expect(blocks.resourceKeys).not.toContain(BANNER_KEY);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+});
+
+describe("locked template overrides :: a collection does not open system templates", () => {
+  const SNIPPETS_SET = collectionHandlerName("reply-snippets");
+  const SHADOWED_SLUG = "shadowed-pdf";
+  const FREE_SLUG = "free-snippet";
+  const entry = (slug: string, content: string) => ({
+    slug,
+    locale: "de",
+    title: "Eintrag",
+    content,
+    contentFormat: "html" as const,
+  });
+
+  async function collectionStack() {
+    const stack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature({
+          collections: [
+            {
+              id: "reply-snippets",
+              kind: "document-pdf",
+              access: { roles: ["TenantAdmin"] },
+              nav: { label: "x:nav.snippets" },
+            },
+          ],
+        }),
+      ],
+    });
+    await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      document(SHADOWED_SLUG, "document-pdf", "system pdf"),
+      systemAdmin,
+    );
+    return stack;
+  }
+
+  test("collection-set refuses a slug that has a system template outside tenantEditable", async () => {
+    const stack = await collectionStack();
+    try {
+      const error = await stack.http.writeErr(
+        SNIPPETS_SET,
+        entry(SHADOWED_SLUG, "<p>Tenant</p>"),
+        tenantAdmin,
+      );
+      expect(error.code).toBe("access_denied");
+      expect(await resolveContent(stack, SHADOWED_SLUG, "document-pdf")).toContain("system pdf");
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("a stored collection row does not shadow the system template, a plain entry is delivered", async () => {
+    const stack = await collectionStack();
+    try {
+      await seedRow(stack.db, templateResourcesTable, {
+        tenantId,
+        slug: SHADOWED_SLUG,
+        kind: "document-pdf",
+        locale: "de",
+        scope: "tenant",
+        status: "active",
+        content: "<p>Tenant</p>",
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: "{}",
+        meta: "{}",
+        insertedById: "test",
+        modifiedById: "test",
+      });
+      expect(await resolveContent(stack, SHADOWED_SLUG, "document-pdf")).toContain("system pdf");
+
+      await stack.http.writeOk(
+        SNIPPETS_SET,
+        entry(FREE_SLUG, "<p>Freier Eintrag</p>"),
+        tenantAdmin,
+      );
+      expect(await resolveContent(stack, FREE_SLUG, "document-pdf")).toContain("Freier Eintrag");
     } finally {
       await stack.cleanup();
     }

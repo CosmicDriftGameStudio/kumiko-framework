@@ -26,6 +26,18 @@ export function isTenantOverrideServed(
   );
 }
 
+// Served only because its kind belongs to a collection with `access`, not because the template
+// is listed in tenantEditable. For these a system row of the same slug must win.
+export function isServedByCollectionOnly(
+  policy: TemplateDeliveryPolicy,
+  target: DeliveryTarget,
+): boolean {
+  return (
+    policy.collectionKinds.includes(target.kind) &&
+    !policy.tenantEditable.some((entry) => entry.kind === target.kind && entry.slug === target.slug)
+  );
+}
+
 export function isRowServed(
   policy: TemplateDeliveryPolicy,
   row: DeliveryTarget & { readonly tenantId: string },

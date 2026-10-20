@@ -18,7 +18,11 @@ import {
   type TemplatePdfAttachmentLink,
 } from "./linked-resources.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
-import { deliveryPolicyOf, isRowServed } from "./template-delivery-policy.ts";
+import {
+  deliveryPolicyOf,
+  isRowServed,
+  isServedByCollectionOnly,
+} from "./template-delivery-policy.ts";
 import { activeVersionOf, servedVersionOf } from "./template-draft.ts";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.ts";
 
@@ -125,11 +129,19 @@ export function createTemplateResolverApi(
   registry: Registry,
 ): TemplateResolverApi {
   const deliveryPolicy = deliveryPolicyOf(registry);
+  // A collection entry must not shadow a system template of the same slug that the app did not unlock.
+  const isServed = async (row: TemplateResourceRow): Promise<boolean> => {
+    if (!isRowServed(deliveryPolicy, row)) return false;
+    if (row.tenantId === SYSTEM_TENANT_ID || !isServedByCollectionOnly(deliveryPolicy, row)) {
+      return true;
+    }
+    return !(await systemTemplateExists(db, row.kind, row.slug));
+  };
   return {
     findExact: async ({ tenantId, slug, kind, locale, scope }) => {
       const effectiveTenantId = scope === "system" ? SYSTEM_TENANT_ID : tenantId;
       const row = await fetchTemplate(db, effectiveTenantId, slug, kind, locale);
-      return row && isRowServed(deliveryPolicy, row) ? toPublic(row) : null;
+      return row && (await isServed(row)) ? toPublic(row) : null;
     },
 
     resolveTemplate: async ({ tenantId, slug, kind, locale }) => {
@@ -147,7 +159,7 @@ export function createTemplateResolverApi(
       for (const c of candidates) {
         if (!isRowServed(deliveryPolicy, { tenantId: c.tid, kind, slug })) continue;
         const row = await fetchTemplate(db, c.tid, slug, kind, c.loc);
-        if (row && row.status === "active") return toPublic(row);
+        if (row && row.status === "active" && (await isServed(row))) return toPublic(row);
       }
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
@@ -166,6 +178,20 @@ export function createTemplateResolverApi(
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
   };
+}
+
+export async function systemTemplateExists(
+  db: DbRunner | TenantDb,
+  kind: string,
+  slug: string,
+): Promise<boolean> {
+  const rows = await selectMany(
+    db,
+    templateResourcesTable,
+    { tenantId: SYSTEM_TENANT_ID, slug, kind },
+    { limit: 1 },
+  );
+  return rows.length > 0;
 }
 
 function pickActiveLayoutRow(

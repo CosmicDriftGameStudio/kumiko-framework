@@ -199,7 +199,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       });
       r.queryHandler(makeCollectionListQuery(collection));
       r.queryHandler(makeCollectionItemQuery(collection));
-      r.writeHandler(makeCollectionSetWrite(collection));
+      r.writeHandler(makeCollectionSetWrite(collection, policy));
     }
 
     // Visual-tree actions for the text-block content tree. The handle is
