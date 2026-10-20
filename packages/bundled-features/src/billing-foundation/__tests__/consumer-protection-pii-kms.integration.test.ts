@@ -142,7 +142,7 @@ beforeAll(async () => {
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
-      templateResolver: createTemplateResolverApi(deps.db),
+      templateResolver: createTemplateResolverApi(deps.db, deps.registry),
       configResolver,
       _configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
     }),
