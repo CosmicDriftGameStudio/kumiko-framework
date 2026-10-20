@@ -18,6 +18,7 @@ import {
   runGuards,
 } from "./_lib/guard-kit";
 import type { RepoRoot } from "./_lib/roots";
+import { acquireGuardRunSlot } from "./_lib/run-slots";
 import { writeSecurityBaselines } from "./_lib/security-baseline-cli";
 import { guard as asCasts } from "./check-as-casts";
 import { guard as complexity } from "./check-complexity";
@@ -176,9 +177,15 @@ export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {
   }
   const strictSecurityBaseline = flags.includes("--strict-security-baseline");
   const guards = strictSecurityBaseline ? GUARDS.filter(isSecurityGuard) : GUARDS;
-  const project = buildSharedProject(guards);
-  printGuardKitBanner(guards.length, project);
-  return reportResults(runGuards(guards, project, { strictSecurityBaseline }));
+  // Taken before the ts-morph project is built: that is where the memory goes.
+  const releaseSlot = acquireGuardRunSlot();
+  try {
+    const project = buildSharedProject(guards);
+    printGuardKitBanner(guards.length, project);
+    return reportResults(runGuards(guards, project, { strictSecurityBaseline }));
+  } finally {
+    releaseSlot();
+  }
 }
 
 // Only run on direct invocation — otherwise `import { GUARDS }` would kick
