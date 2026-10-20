@@ -87,7 +87,7 @@ if (typeof globalThis.Element !== "undefined") {
 // test files in one process, so without afterEach, React components from
 // file N stay mounted in file N+1's DOM.
 //
-// FIVE leak sources (b is NOT cleaned here):
+// SIX leak sources (b is NOT cleaned here):
 //
 //   a) testing-library/react container: cleanup() unmounts and removes
 //      every container node render() created.
@@ -103,6 +103,8 @@ if (typeof globalThis.Element !== "undefined") {
 //   d) Radix-injected style tags in head.
 //
 //   e) window.location / history.pushState.
+//
+//   f) document.cookie.
 afterEach(() => {
   // skip: this preload module runs its own afterEach unconditionally; plain
   // unit test files (no --dom) never get happy-dom registered, so document
@@ -132,6 +134,18 @@ afterEach(() => {
   for (const el of doc.head.querySelectorAll("style")) {
     if (el.id?.startsWith("radix-")) {
       el.remove();
+    }
+  }
+
+  // (f) Cookies outlive the test file (e.g. an auth test's kumiko_csrf turns
+  //     up in a later CSRF-header assertion). happy-dom deletes a cookie only
+  //     for its exact stored path, which is '' when it was set without path.
+  for (const cookie of doc.cookie.split(";")) {
+    const name = cookie.split("=")[0]?.trim();
+    if (!name) continue;
+    for (const pathAttribute of ["", "; path=/"]) {
+      // biome-ignore lint/suspicious/noDocumentCookie: happy-dom has no Cookie Store API
+      doc.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT${pathAttribute}`;
     }
   }
 
