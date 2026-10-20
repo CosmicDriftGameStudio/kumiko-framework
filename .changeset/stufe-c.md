@@ -25,7 +25,7 @@ detail: Up to 100 comma-separated file ids per call (more answers 400 too_many_i
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: template-resolver
 type: improvement
 title: Template overview reports tenant overrides per template
 detail: template-resolver has a SystemAdmin query tenant-override-counts, and the overview rows for system templates carry overriddenBy { active, total } for SystemAdmins. The designer's overview reads it instead of issuing one tenant-overrides query per row. Reading it uses a declared unsafeRaw escape hatch because it counts across tenants.
