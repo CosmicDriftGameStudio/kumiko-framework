@@ -62,6 +62,14 @@ With only the API running, `read_orders` gains the row but
 `read_order_activity` stays empty. Start the worker and both the activity
 row and the `read_fulfillments` row appear.
 
+## Deferring a job
+
+`process-order` returns `context.defer(ms)` while the (simulated) carrier is busy. The job
+is re-run after `ms` on the same queue job: no retry attempt is used, no failure is logged
+or recorded, and the run log shows only the runs that actually executed. `maxDefers`
+(default 100) bounds it; beyond that the run fails. It needs a queued run: an inline boot
+gate throws.
+
 ## Test
 
 Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
@@ -125,6 +133,7 @@ import {
   fulfillmentEntity,
   orderActivityTable,
   orderEntity,
+  setCarrierRetryAfter,
   setOrderFulfillWrite,
 } from "../feature";
 
@@ -258,6 +267,44 @@ describe("api-worker-split", () => {
       await Promise.all([api.stop(), worker.stop()]);
     }
   });
+
+  test("a busy carrier defers the job without failing it, then the fulfillment lands", async () => {
+    const prefix = uniquePrefix();
+    const api = createApiEntrypoint({
+      registry: createRegistry([createApiWorkerSplitFeature()]),
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      jobs: { redisUrl: redisUrl(), queueNamePrefix: prefix },
+    });
+    const worker = createWorkerEntrypoint({
+      registry: createRegistry([createApiWorkerSplitFeature()]),
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl: redisUrl(),
+      queueNamePrefix: prefix,
+    });
+    setOrderFulfillWrite(makeDispatchSystemWrite(worker.dispatcher));
+    let busyChecks = 0;
+    setCarrierRetryAfter(() => {
+      busyChecks += 1;
+      return busyChecks === 1 ? 200 : 0;
+    });
+
+    await Promise.all([api.start(), worker.start()]);
+    try {
+      expect(await writeOrder(api, "Initech AG", 250)).toBe(true);
+      await waitFor(async () => {
+        const fulfillments = await selectMany<{ orderKey: string }>(testDb.db, fulfillmentTable, {
+          tenantId: adminUser.tenantId,
+        });
+        expect(fulfillments.some((row) => row.orderKey === "Initech AG")).toBe(true);
+      });
+      expect(busyChecks).toBe(2);
+    } finally {
+      setCarrierRetryAfter(() => 0);
+      await Promise.all([api.stop(), worker.stop()]);
+    }
+  });
 });
 ```
 
@@ -350,6 +397,13 @@ export function setOrderFulfillWrite(fn: FulfillWrite): void {
   fulfillWrite = fn;
 }
 
+let carrierRetryAfterMs: () => number = () => 0;
+
+/** Stand-in for a rate-limited carrier API: ms until it accepts work again, 0 when free. */
+export function setCarrierRetryAfter(fn: () => number): void {
+  carrierRetryAfterMs = fn;
+}
+
 // Job payloads arrive as `Record<string, unknown>` (JobHandlerFn) — an
 // unchecked `as string` cast here would let a missing/non-string field
 // through silently, writing `orderKey: undefined` / `label: "label-
@@ -389,6 +443,9 @@ export function createApiWorkerSplitFeature() {
           );
         }
         const { customerName } = processOrderPayloadSchema.parse(payload);
+        // Busy is not a failure: ctx.defer re-runs the job later without burning a retry.
+        const retryAfterMs = carrierRetryAfterMs();
+        if (retryAfterMs > 0) return context.defer(retryAfterMs);
         const result = await fulfillWrite({
           handlerQn: "orders:write:fulfillment:create",
           payload: {

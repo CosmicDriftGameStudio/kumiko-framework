@@ -4,11 +4,16 @@
 // sees only their own tenant, while a SystemAdmin keeps the global reach the
 // entity-convention list gave them.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  type SubjectId,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { REFERENCE_LOOKUP_SOURCES } from "@cosmicdrift/kumiko-framework/ui-types";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -17,7 +22,6 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.ts";
 import { configValuesTable } from "../../config/table.ts";
-import * as sharedModule from "../../shared/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { seedUser } from "../../user/seeding.ts";
@@ -161,26 +165,38 @@ describe("tenant:query:tenant-directory (fw#3142)", () => {
       displayName: "Decrypt Bound Operator",
       emailVerified: true,
     });
-    const bulkCount = 12;
-    for (let n = 1; n <= bulkCount; n++) {
-      await seedTenant(stack.db, {
-        id: testTenantId(100 + n),
-        key: `directory-bulk-${String(n).padStart(2, "0")}`,
-        name: `Bulk ${n}`,
-      });
-    }
+    // Each tenant name is its own PII subject, so one DEK fetch is one decrypted name.
+    class CountingKmsAdapter extends InMemoryKmsAdapter {
+      getKeyCalls = 0;
 
-    const decryptSpy = spyOn(sharedModule, "decryptStoredPii");
+      override async getKey(subject: SubjectId) {
+        this.getKeyCalls++;
+        return super.getKey(subject);
+      }
+    }
+    const kms = new CountingKmsAdapter();
+    configurePiiSubjectKms(kms);
     try {
+      const bulkCount = 12;
+      for (let n = 1; n <= bulkCount; n++) {
+        await seedTenant(stack.db, {
+          id: testTenantId(100 + n),
+          key: `directory-bulk-${String(n).padStart(2, "0")}`,
+          name: `Bulk ${n}`,
+        });
+      }
+
+      kms.getKeyCalls = 0;
       const rows = await queryDirectory(
         { id: operatorId, tenantId: ownTenantId, roles: ["SystemAdmin"] },
         { limit: 2, search: "bulk" },
       );
 
       expect(rows).toHaveLength(2);
-      expect(decryptSpy.mock.calls.length).toBeLessThan(bulkCount);
+      expect(kms.getKeyCalls).toBeGreaterThanOrEqual(2);
+      expect(kms.getKeyCalls).toBeLessThan(bulkCount);
     } finally {
-      decryptSpy.mockRestore();
+      resetPiiSubjectKmsForTests();
     }
   });
 

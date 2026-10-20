@@ -7,7 +7,8 @@ import { TEST_TIMEOUT_MS } from "@cosmicdrift/kumiko-testing/bunfig";
 // a warning (#3078, #2796) — only `--timeout` on the CLI raises the 5000ms
 // default, so the DOM runs must carry it on every invocation.
 const repoRoot = join(import.meta.dir, "..", "..");
-const DOM_TIMEOUT_FLAG = "--timeout=15000";
+// The repo suite and consumer apps use different DOM budgets; what must hold is that one is passed.
+const DOM_TIMEOUT_FLAG = /--timeout=\d+/;
 const DOM_CONFIG = /--config=bunfig\.(?:ci-)?dom\.toml/;
 const INTEGRATION_CONFIG = /--config=bunfig\.integration\.toml/;
 
@@ -38,7 +39,7 @@ describe("bun test timeout comes from the CLI, not from bunfig", () => {
     for (const source of sources) {
       for (const segment of readRepoFile(source).split("\n").flatMap(splitCommands)) {
         if (!DOM_CONFIG.test(segment)) continue;
-        if (!segment.includes(DOM_TIMEOUT_FLAG)) missing.push(`${source}: ${segment.trim()}`);
+        if (!DOM_TIMEOUT_FLAG.test(segment)) missing.push(`${source}: ${segment.trim()}`);
       }
     }
 

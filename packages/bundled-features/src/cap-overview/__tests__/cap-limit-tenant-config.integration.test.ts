@@ -1,5 +1,9 @@
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  type SubjectId,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import {
   access,
   createSystemUser,
@@ -25,7 +29,6 @@ import { createConfigAccessorFactory, createConfigFeature } from "../../config/f
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { ConfigHandlers } from "../../config/web/constants.ts";
-import * as sharedModule from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenant } from "../../tenant/seeding.ts";
@@ -45,6 +48,17 @@ const TENANT_A = testTenantId(9301);
 const TENANT_B = testTenantId(9302);
 const TENANT_C = testTenantId(9303);
 const READ_FOR_QUERY = "cap-seats-probe:query:read-for";
+
+// Each tenant name is its own PII subject, so one DEK fetch is one decrypted name.
+class CountingKmsAdapter extends InMemoryKmsAdapter {
+  getKeyCalls = 0;
+
+  override async getKey(subject: SubjectId) {
+    this.getKeyCalls++;
+    return super.getKey(subject);
+  }
+}
+const kms = new CountingKmsAdapter();
 
 const seatsFeature = defineFeature("cap-seats-probe", (r) => {
   r.requires({ features: ["config"] });
@@ -116,7 +130,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  configurePiiSubjectKms(new InMemoryKmsAdapter());
+  configurePiiSubjectKms(kms);
 
   for (const id of [TENANT_A, TENANT_B, TENANT_C]) {
     await seedTenant(stack.db, { id, key: `cap-seats-${id}`, name: `Seats ${id}` });
@@ -196,17 +210,13 @@ describe("cross-tenant cap limits read the target tenant's config", () => {
 
 describe("tenant-caps:list decrypts only what the request needs", () => {
   async function listWithDecryptCount(payload: Record<string, unknown>) {
-    const decryptSpy = spyOn(sharedModule, "decryptStoredPii");
-    try {
-      const list = await stack.http.queryOk<TenantCapsListResult & { total?: number }>(
-        CapOverviewQueries.tenantCapsList,
-        { totalCount: true, ...payload },
-        adminA,
-      );
-      return { list, decryptCalls: decryptSpy.mock.calls.length };
-    } finally {
-      decryptSpy.mockRestore();
-    }
+    kms.getKeyCalls = 0;
+    const list = await stack.http.queryOk<TenantCapsListResult & { total?: number }>(
+      CapOverviewQueries.tenantCapsList,
+      { totalCount: true, ...payload },
+      adminA,
+    );
+    return { list, decryptCalls: kms.getKeyCalls };
   }
 
   test("a tier sort decrypts just the names of the returned page", async () => {
