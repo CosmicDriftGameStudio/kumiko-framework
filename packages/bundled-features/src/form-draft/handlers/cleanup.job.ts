@@ -126,14 +126,27 @@ export async function deleteStaleDraftsBatch(
   db: DbConnection,
   retentionDays: number,
   log: AppContext["log"],
-): Promise<{ readonly deletedRows: readonly StaleDraftRow[]; readonly skippedCount: number }> {
+): Promise<{
+  readonly deletedRows: readonly StaleDraftRow[];
+  readonly skippedCount: number;
+  readonly deferredIds: readonly string[];
+}> {
   const deletedRows: StaleDraftRow[] = [];
+  const deferredIds: string[] = [];
   let skippedCount = 0;
   const byId = new Map(batch.map((row) => [row.id, row]));
   for (const [tenantId, ids] of groupStaleDraftIdsByTenant(batch)) {
     const systemUser = createSystemUser(tenantId);
     const tenantDb = createTenantDb({ db, tenantId, mode: "system" });
     for (const id of ids) {
+      // skip: an unreadable blob hides its FileRefs; deleting now would orphan them, so the next run retries.
+      if (byId.get(id)?.draftUnreadable) {
+        log?.warn?.(
+          `[form-draft:cleanup] draft id=${id} tenant=${tenantId} could not be decrypted — kept for the next run`,
+        );
+        deferredIds.push(id);
+        continue;
+      }
       // Race: user may have saved between select and here — skip if no longer stale.
       if (!(await isDraftStillStale(db, tenantId, id, retentionDays))) {
         skippedCount++;
@@ -150,7 +163,7 @@ export async function deleteStaleDraftsBatch(
       }
     }
   }
-  return { deletedRows, skippedCount };
+  return { deletedRows, skippedCount, deferredIds };
 }
 
 export async function cleanupDraftsJob(
@@ -181,9 +194,12 @@ export async function cleanupDraftsJob(
   const fileProviderResolver = ctx._fileProviderResolver;
 
   let deleted = 0;
+  const deferred = new Set<string>();
   while (true) {
     if (ctx.signal?.aborted) break;
-    const batch = await selectStaleDraftsBatch(db, retentionDays, DEFAULT_BATCH_SIZE);
+    const batch = await selectStaleDraftsBatch(db, retentionDays, DEFAULT_BATCH_SIZE, [
+      ...deferred,
+    ]);
     if (batch.length === 0) break;
 
     // Rows span arbitrary tenants (this job sweeps the whole table under
@@ -193,12 +209,13 @@ export async function cleanupDraftsJob(
     // entirely for rows with no FileRefs in the blob, the common case.
     // Delete first (with staleness re-check), then release binaries from rows
     // that actually disappeared — never release a draft the user just saved.
-    const { deletedRows, skippedCount } = await deleteStaleDraftsBatch(
+    const { deletedRows, skippedCount, deferredIds } = await deleteStaleDraftsBatch(
       batch,
       db,
       retentionDays,
       ctx.log,
     );
+    for (const id of deferredIds) deferred.add(id);
     for (const row of deletedRows) {
       await releaseRowFileRefs(row, db, fileProviderResolver, ctx.log);
     }
@@ -206,7 +223,11 @@ export async function cleanupDraftsJob(
     // A skipped row is no longer stale, so the next select drops it — a fully
     // skipped batch still makes progress. Only a batch with neither deletes nor
     // skips (all failed) would reselect the same rows forever.
-    if (deletedRows.length + skippedCount === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
+    if (
+      deletedRows.length + skippedCount + deferredIds.length === 0 ||
+      batch.length < DEFAULT_BATCH_SIZE
+    )
+      break;
   }
   ctx.log?.info?.(`[form-draft:cleanup] deleted=${deleted} retentionDays=${retentionDays}`);
 }

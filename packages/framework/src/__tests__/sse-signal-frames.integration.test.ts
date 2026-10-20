@@ -157,7 +157,7 @@ beforeEach(async () => {
 });
 
 describe("GET /api/sse signal-only frames", () => {
-  test("a member without read access gets a signal for the private entity, never its field values", async () => {
+  test("a member without read access gets no signal for the private entity, only for the one they may read", async () => {
     const connection = await openMemberSse();
     const pii = `pii-${randomUUID()}@example.test`;
 
@@ -165,22 +165,18 @@ describe("GET /api/sse signal-only frames", () => {
     await createBanner("sentinel-banner");
     await stack.eventDispatcher?.runOnce();
 
+    // The banner signal is sent after the ledger one, so once it arrives a ledger signal
+    // would already be on the wire if the stream carried it.
     const sentinel = await connection.readUntilFrame("banner");
-    const ledgerFrame = await connection.readUntilFrame("ledger");
     await connection.close();
 
+    expect(connection.frames().map((frame) => frame.event)).toEqual(["banner"]);
     const raw = connection.rawBytes();
     expect(raw).not.toContain(pii);
     expect(raw).not.toContain("sentinel-banner");
     expect(raw).not.toContain('"payload"');
     expect(raw).not.toContain('"changes"');
     expect(raw).not.toContain('"previous"');
-
-    const ledgerSignal = JSON.parse(ledgerFrame.data);
-    expect(ledgerSignal.aggregateType).toBe("ledger");
-    expect(typeof ledgerSignal.id).toBe("string");
-    expect(typeof ledgerSignal.eventType).toBe("string");
-    expect(ledgerSignal.version).toBe(1);
     expect(JSON.parse(sentinel.data).aggregateType).toBe("banner");
   });
 

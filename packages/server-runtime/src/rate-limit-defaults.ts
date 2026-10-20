@@ -1,4 +1,4 @@
-import type { ServerOptions } from "@cosmicdrift/kumiko-framework/api";
+import { DEFAULT_GLOBAL_RATE_LIMIT, type ServerOptions } from "@cosmicdrift/kumiko-framework/api";
 
 type ServerRateLimit = NonNullable<ServerOptions["rateLimit"]>;
 
@@ -10,7 +10,7 @@ export type RateLimitOption =
       readonly auth?: false | ServerRateLimit["auth"];
     };
 
-export const DEFAULT_GLOBAL_RATE_LIMIT = { limit: 600, windowSeconds: 60 } as const;
+export { DEFAULT_GLOBAL_RATE_LIMIT };
 export const DEFAULT_AUTH_RATE_LIMIT = { limit: 30, windowSeconds: 60 } as const;
 
 /** Layers the app did not mention keep their default; a layer it did mention

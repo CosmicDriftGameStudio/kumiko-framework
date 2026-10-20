@@ -111,6 +111,7 @@ export {
   I18N_KEY_PARAM,
   isSafeHref,
   parseRefTarget,
+  pluralKey,
   RawHtml,
   raw,
   relevantFieldIssues,

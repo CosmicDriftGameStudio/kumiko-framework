@@ -2,6 +2,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { readStoredDraft } from "../../decrypt-draft.ts";
 import type { FormDraftBlob } from "../../schemas.ts";
 
 export type StaleDraftRow = {
@@ -9,7 +10,10 @@ export type StaleDraftRow = {
   readonly tenantId: TenantId;
   readonly ownerId: string;
   readonly draftKey: string;
-  readonly draft: FormDraftBlob;
+  readonly draft: FormDraftBlob | null;
+  // Decryption failed (e.g. KMS outage): `draft: null` then does not mean "empty", so the row must
+  // not be deleted — its FileRefs could not be released.
+  readonly draftUnreadable?: true;
   readonly insertedAt: Temporal.Instant;
 };
 
@@ -28,30 +32,40 @@ export async function selectStaleDraftsBatch(
   db: DbConnection,
   olderThanDays: number,
   batchSize: number,
+  excludeIds: readonly string[] = [],
 ): Promise<readonly StaleDraftRow[]> {
   const rows = await unsafeReadRetrying<{
     id: string;
     tenant_id: string;
     owner_id: string;
     draft_key: string;
-    draft: FormDraftBlob;
+    draft: unknown;
     inserted_at: Date;
   }>(
     db,
     `SELECT "id", "tenant_id", "owner_id", "draft_key", "draft", "inserted_at" FROM "read_form_drafts"
      WHERE COALESCE("modified_at", "inserted_at") < now() - ($1::int * interval '1 day')
+     AND NOT ("id"::text = ANY($3::text[]))
      ORDER BY COALESCE("modified_at", "inserted_at") ASC
      LIMIT $2`,
-    [olderThanDays, batchSize],
+    [olderThanDays, batchSize, [...excludeIds]],
   );
-  return rows.map((row) => ({
-    id: row.id,
-    tenantId: row.tenant_id as TenantId, // @cast-boundary db-row
-    ownerId: row.owner_id,
-    draftKey: row.draft_key,
-    draft: row.draft,
-    insertedAt: Temporal.Instant.fromEpochMilliseconds(+row.inserted_at), // @cast-boundary db-row
-  }));
+  return Promise.all(
+    rows.map(async (row) => {
+      const base = {
+        id: row.id,
+        tenantId: row.tenant_id as TenantId, // @cast-boundary db-row
+        ownerId: row.owner_id,
+        draftKey: row.draft_key,
+        insertedAt: Temporal.Instant.fromEpochMilliseconds(+row.inserted_at), // @cast-boundary db-row
+      };
+      try {
+        return { ...base, draft: await readStoredDraft(row.draft) };
+      } catch {
+        return { ...base, draft: null, draftUnreadable: true as const };
+      }
+    }),
+  );
 }
 
 /** Re-check staleness after the select→release window so a freshly saved draft is not deleted. */

@@ -27,7 +27,11 @@ import {
   defineFeature,
 } from "../../engine/index.ts";
 import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.ts";
-import { createSnapshotsTable, saveSnapshot } from "../../event-store/index.ts";
+import {
+  backfillEventPiiEncryption,
+  createSnapshotsTable,
+  saveSnapshot,
+} from "../../event-store/index.ts";
 import { getConsumerState } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { createPendingRebuildsTable } from "../pending-rebuilds.ts";
@@ -413,6 +417,21 @@ describe("runPiiEventBackfill", () => {
       expect(await decryptField(event.payload["email"], "email")).toBe(original.email);
       expect(await decryptField(event.payload["phone"], "phone")).toBe(original.phone);
     }
+    // Both runs rebuild the queued projections outside the advisory lock; the read
+    // models must still end up complete and encrypted.
+    for (const result of results) expect(expectRan(result).rebuild?.failed ?? []).toEqual([]);
+    const readRows = (await asRawClient(stack.db).unsafe(
+      `SELECT "email", "phone" FROM "${CONTACT_TABLE}"`,
+    )) as ReadonlyArray<{ email: unknown; phone: unknown }>;
+    expect(readRows).toHaveLength(5);
+    for (const row of readRows) {
+      expect(isPiiCiphertext(row.email)).toBe(true);
+      expect(isPiiCiphertext(row.phone)).toBe(true);
+    }
+    const mspRows = await readMspRows();
+    expect(mspRows).toHaveLength(5);
+    for (const row of mspRows) expect(isPiiCiphertext(row.phone)).toBe(true);
+    expect(await countPendingRebuilds()).toBe(0);
   });
 
   test("KMS outage mid-run: failures reported and recorded, cursor moves past them, run completes; a healthy rerun retries only the failed ids", async () => {
@@ -503,6 +522,72 @@ describe("runPiiEventBackfill", () => {
 
     expect(result.mode).toBe("full");
     expect(result.scannedEvents).toBeGreaterThan(0);
+  });
+
+  // Replicas boot at the same time on the first deploy that ships the state table:
+  // every replica must finish its run instead of crashing on half-created infra.
+  test("concurrent first boots: every parallel run from a missing state table completes", async () => {
+    const contacts = [];
+    for (let i = 1; i <= 3; i++) contacts.push(await createContact(i));
+    armKms();
+    const raw = asRawClient(stack.db);
+    // A loaded CI database runs DDL slower than a laptop; this event trigger stretches
+    // every ALTER TABLE so the window between a peer's CREATE and its ALTER is reliably hit.
+    await raw.unsafe(`CREATE OR REPLACE FUNCTION "test_slow_alter_table"() RETURNS event_trigger
+      LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.3); END $$`);
+    await raw.unsafe(`CREATE EVENT TRIGGER "test_slow_alter_table" ON ddl_command_start
+      WHEN TAG IN ('ALTER TABLE') EXECUTE FUNCTION "test_slow_alter_table"()`);
+    const crashes: string[] = [];
+    try {
+      for (let round = 0; round < 3; round++) {
+        await raw.unsafe(`DROP TABLE IF EXISTS "kumiko_pii_backfill_state"`);
+        const settled = await Promise.allSettled(
+          Array.from({ length: 4 }, () => runPiiEventBackfill(stack.db, registryV2)),
+        );
+        for (const outcome of settled) {
+          if (outcome.status === "rejected") crashes.push(String(outcome.reason));
+        }
+      }
+    } finally {
+      await raw.unsafe(`DROP EVENT TRIGGER IF EXISTS "test_slow_alter_table"`);
+      await raw.unsafe(`DROP FUNCTION IF EXISTS "test_slow_alter_table"()`);
+    }
+    expect(crashes).toEqual([]);
+    for (const event of await readEvents()) {
+      const original = requireContact(contacts, event.aggregate_id);
+      expect(await decryptField(event.payload["email"], "email")).toBe(original.email);
+    }
+  });
+
+  // The operator CLI (kumiko ops backfill-pii) takes no advisory lock: running it while
+  // a pod's boot backfill is active must still leave every value encrypted exactly once.
+  test("operator CLI backfill concurrent with the boot backfill encrypts every value exactly once", async () => {
+    const contacts = [];
+    for (let i = 1; i <= 12; i++) contacts.push(await createContact(i));
+    armKms();
+
+    const [bootRun] = await Promise.all([
+      runPiiEventBackfill(stack.db, registryV2, { batchSize: 2 }),
+      backfillEventPiiEncryption(stack.db, registryV2, {
+        batchSize: 3,
+        resolveOwnerFromProjection: true,
+        rekeyTenantKeyedOwnerFields: true,
+      }),
+      backfillEventPiiEncryption(stack.db, registryV2, {
+        batchSize: 5,
+        resolveOwnerFromProjection: true,
+        rekeyTenantKeyedOwnerFields: true,
+      }),
+    ]);
+
+    expect(expectRan(bootRun).failures).toEqual([]);
+    const events = await readEvents();
+    expect(events).toHaveLength(12);
+    for (const event of events) {
+      const original = requireContact(contacts, event.aggregate_id);
+      expect(await decryptField(event.payload["email"], "email")).toBe(original.email);
+      expect(await decryptField(event.payload["phone"], "phone")).toBe(original.phone);
+    }
   });
 
   test("no KMS configured: skipped, events untouched", async () => {

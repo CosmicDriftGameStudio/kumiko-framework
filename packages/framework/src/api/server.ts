@@ -103,6 +103,7 @@ import {
   createClientIpResolver,
 } from "./client-ip.ts";
 import { csrfMiddleware } from "./csrf-middleware.ts";
+import { collectEntityReadAccess } from "./entity-read-access.ts";
 import {
   type ExtraRouteDefinition,
   ExtraRouteEntries,
@@ -836,6 +837,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   if (options.metrics) {
     registerMetricsRoute(app, observability.meter, options.metrics);
+  } else if (process.env["NODE_ENV"] === "production") {
+    console.warn(
+      "[kumiko:boot] /metrics is off: no `metrics` option, so nothing is measured or scraped. " +
+        "Set PROMETHEUS_METRICS_TOKEN (min 32 chars) and spread resolveObservabilityWiring(token) into the server options.",
+    );
   }
 
   app.use(
@@ -1053,6 +1059,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     "/api",
     createSseRoute(sseBroker, {
       anonymousLiveEntities: collectAnonymousLiveEntities(options.registry),
+      entityReadAccess: collectEntityReadAccess(options.registry),
     }),
   );
 

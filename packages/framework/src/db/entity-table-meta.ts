@@ -411,7 +411,7 @@ export function deriveEntityTableMeta(
   };
 }
 
-/** @deprecated Use {@link deriveEntityTableMeta} — the old name read as an unmanaged escape hatch (#1208). */
+/** @deprecated Use {@link deriveEntityTableMeta} — the old name read as an unmanaged escape hatch (#1208). Removed in 0.390.0. */
 export const buildEntityTableMeta = deriveEntityTableMeta;
 
 function sqlExpressionText(where: unknown): string | undefined {

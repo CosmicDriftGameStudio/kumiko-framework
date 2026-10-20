@@ -73,6 +73,7 @@ import { isPlainUserOwnedField } from "../../crypto/owner-transition-rekey.ts";
 import {
   configuredPiiSubjectKms,
   decryptPiiValueForSubject,
+  encryptPiiJsonValueForSubject,
   encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
@@ -502,10 +503,11 @@ export async function backfillEventPiiEncryptionBatch(
         for (const field of target.piiFields) {
           const value = section[field];
           if (value === null || value === undefined) continue;
-          // jsonb PII is not retro-encrypted (consumer wave); a legacy string
-          // value here would otherwise get the v2 text format into a jsonb column.
-          if (target.entity.fields[field]?.type === "jsonb") continue;
-          if (typeof value !== "string") continue;
+          // A jsonb field holds any JSON value; a string that is neither ciphertext nor the
+          // sentinel is a plaintext scalar and gets the JSON format (the v2 text format must
+          // not reach a jsonb column).
+          const isJsonbField = target.entity.fields[field]?.type === "jsonb";
+          if (!isJsonbField && typeof value !== "string") continue;
           // Already-ciphertext/sentinel fields must never enter the encrypt/erase
           // owner resolution — an unresolvable owner on an already-handled field
           // must stay untouched, not get erased by stage 3.
@@ -545,7 +547,7 @@ export async function backfillEventPiiEncryptionBatch(
             throw resolution.error;
           }
           if (resolution.viaProjection) counters.ownerFromProjection++;
-          const outcome = await encryptField(section, field, resolution.subject);
+          const outcome = await encryptField(section, field, resolution.subject, isJsonbField);
           bump(outcome);
         }
       }
@@ -592,18 +594,25 @@ export async function backfillEventPiiEncryptionBatch(
       section: Record<string, unknown>,
       field: string,
       subject: SubjectId,
+      isJsonbField = false,
     ): Promise<FieldOutcome> {
       const value = section[field];
       if (value === null || value === undefined) return "unchanged";
-      if (typeof value !== "string") return "unchanged";
-      if (isPiiCiphertext(value) || value === PII_ERASED_SENTINEL) return "unchanged";
+      if (!isBackfillCandidate(value, isJsonbField)) return "unchanged";
       if (await isForgottenSubject(subject, row.aggregate_id)) {
         section[field] = PII_ERASED_SENTINEL;
         return "erased";
       }
       if (options.dryRun) return predictEncryptOutcome(subject);
       try {
-        section[field] = await encryptPiiValueForSubject(subjectKms, subject, value, kmsCtx, field);
+        section[field] = await encryptBackfillValue(
+          subjectKms,
+          subject,
+          value,
+          kmsCtx,
+          field,
+          isJsonbField,
+        );
         return "encrypted";
       } catch (e) {
         if (e instanceof KeyErasedError) {
@@ -650,6 +659,26 @@ export async function backfillEventPiiEncryptionBatch(
     scanCache.destroyedTenants = new Set(rows.map((r) => r.id));
     return scanCache.destroyedTenants;
   }
+}
+
+// Text fields only hold strings; a jsonb field holds any JSON value, scalars included.
+// Ciphertext and the erased sentinel are already handled.
+function isBackfillCandidate(value: unknown, isJsonbField: boolean): boolean {
+  if (typeof value === "string") return !isPiiCiphertext(value) && value !== PII_ERASED_SENTINEL;
+  return isJsonbField || (typeof value === "object" && value !== null);
+}
+
+function encryptBackfillValue(
+  subjectKms: Parameters<typeof encryptPiiValueForSubject>[0],
+  subject: SubjectId,
+  value: unknown,
+  kmsCtx: KmsContext,
+  field: string,
+  isJsonbField: boolean,
+): Promise<unknown> {
+  return typeof value === "string" && !isJsonbField
+    ? encryptPiiValueForSubject(subjectKms, subject, value, kmsCtx, field)
+    : encryptPiiJsonValueForSubject(subjectKms, subject, value, kmsCtx, field);
 }
 
 type ProjectionOwner = {

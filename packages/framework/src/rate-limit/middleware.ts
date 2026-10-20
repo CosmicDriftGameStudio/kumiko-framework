@@ -46,9 +46,13 @@ export type GlobalIpRateLimitOptions = {
   readonly onFailClosed?: (err: unknown) => void;
 };
 
+// Shared with runProdApp (server-runtime re-exports it). The auth middleware default stays
+// stricter than runProdApp's auth limit (30): a bare authEndpointRateLimit guards brute force.
+export const DEFAULT_GLOBAL_RATE_LIMIT = { limit: 600, windowSeconds: 60 } as const;
+
 export function globalIpRateLimit(opts: GlobalIpRateLimitOptions): MiddlewareHandler {
-  const limit = opts.limit ?? 1000;
-  const windowSeconds = opts.windowSeconds ?? 60;
+  const limit = opts.limit ?? DEFAULT_GLOBAL_RATE_LIMIT.limit;
+  const windowSeconds = opts.windowSeconds ?? DEFAULT_GLOBAL_RATE_LIMIT.windowSeconds;
   const clientIpResolver =
     opts.clientIpResolver ??
     createClientIpResolver(opts.trustedProxyHops ?? 0, "globalIpRateLimit");

@@ -1,5 +1,5 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS } from "../constants.ts";
+import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../constants.ts";
 import { tagAssignmentExecutor, tagExecutor } from "../executor.ts";
 import { type DeleteTagPayload, deleteTagPayloadSchema } from "../schemas.ts";
 
@@ -30,6 +30,9 @@ export function createDeleteTagHandler(
     handler: async (event, ctx) => {
       const payload = event.payload as DeleteTagPayload; // @cast-boundary engine-payload
 
+      // Serialises with assign-tag (see there): the cascade must see every
+      // assignment that a concurrent assign-tag committed before the tag goes.
+      await ctx.db.advisoryXactLock(TAG_LOCK_NAMESPACE, payload.id);
       const existing = await tagExecutor.detail({ id: payload.id }, event.user, ctx.db);
       if (!existing) {
         return { isSuccess: true as const, data: { id: payload.id } };

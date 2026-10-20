@@ -124,7 +124,11 @@ import type { FeatureSchema } from "./feature-schema.ts";
 import { buildFormSchema } from "./form-schema.ts";
 import { HeaderActionsBar } from "./header-actions-bar.tsx";
 import { hiddenRequiredFieldsFilled, layoutEditFields, layoutFieldNames } from "./layout-fields.ts";
-import { isListNarrowed, useListEmptyContent } from "./list-empty-content.ts";
+import {
+  isDefaultFilterActive,
+  isListNarrowed,
+  useListEmptyContent,
+} from "./list-empty-content.ts";
 import {
   buildDateRangePayload,
   buildEntityFilterFacets,
@@ -300,7 +304,6 @@ function ScreenVisibilityGate({
   readonly translate?: Translate;
   readonly children: ReactNode;
 }): ReactNode {
-  const { Banner } = usePrimitives();
   const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
   const wasShown = useRef(false);
   const verdict = evalVisibleWhenAfterShown(visibleWhen, result, wasShown.current);
@@ -309,11 +312,7 @@ function ScreenVisibilityGate({
   }, [verdict]);
   if (verdict === "visible") return children;
   if (verdict === "loading") {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   if (fallback !== undefined) {
     return <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />;
@@ -1369,7 +1368,6 @@ function EntityEditCreateBody({
   // new row.
   readonly onSaved?: () => void;
 }): ReactNode {
-  const { Banner } = usePrimitives();
   const nav = useNav();
   const handoffValues = useInitialValuesHandoff(screen.id);
   const appFeatures = useAppFeatures();
@@ -1471,11 +1469,7 @@ function EntityEditCreateBody({
   // Never seed a tenant-declared money field with entityDefaultCurrency while
   // its real tenant currency is still in flight (fw#2933) — wait instead.
   if (currencyLoading) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   // Deliberately no `actions` prop here: `screen.actions` targets an
   // EXISTING record (publish/archive/duplicate and friends), which the
@@ -1543,11 +1537,7 @@ function EntityEditUpdateBody({
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
 
   if (detailQuery.loading && detailQuery.data === null) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   if (detailQuery.error) {
     return (
@@ -1618,7 +1608,6 @@ function EntityEditUpdateForm({
   readonly onSaved?: () => void;
   readonly onDeleted?: () => void;
 }): ReactNode {
-  const { Banner } = usePrimitives();
   // Seed the form with the server values for the entity's declared
   // fields; anything else (id, tenant_id, created_at…) stays out of
   // the form and lives in the closure. The record's `version` is
@@ -1839,11 +1828,7 @@ function EntityEditUpdateForm({
   // stored (non-empty) value is unaffected — it never reaches this branch's
   // fallback because `initial` above already prefers `record[name]`.
   if (currencyLoading) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
 
   // Evaluated against the stored record only, so typing in a form can never
@@ -1932,11 +1917,7 @@ function EntityEditSingletonBody({
   const listQuery = useQuery<PagedRows>(listQn, { limit: 1 });
 
   if (listQuery.loading && listQuery.data === null) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   if (listQuery.error) {
     return (
@@ -2818,11 +2799,7 @@ function EntityListBody({
   );
 
   if (rowsQuery.loading && rowsQuery.data === null) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   if (rowsQuery.error) {
     return (
@@ -2897,6 +2874,7 @@ function EntityListBody({
         featureName={featureName}
         searchable={searchable}
         narrowed={isListNarrowed(urlState.q, urlState.filters, defaultFilters)}
+        defaultFilterActive={isDefaultFilterActive(urlState.q, urlState.filters, defaultFilters)}
         {...(screen.description !== undefined && {
           description: effectiveTranslate(screen.description),
         })}
@@ -3199,11 +3177,7 @@ function ProjectionListBody({
   });
 
   if (rowsQuery.loading && rowsQuery.data === null) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   if (rowsQuery.error) {
     return (
@@ -3752,11 +3726,7 @@ function ProjectionDetailBody({
     );
   }
   if (detailQuery.loading && detailQuery.data === null) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   if (detailQuery.error) {
     return (
@@ -4528,11 +4498,7 @@ function ActionFormBody({
   // Rendering the form before a tenant-declared currency lands would show the
   // fallback and, on a fast click, submit it (fw#2933) — hold instead.
   if (currencyLoading) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
   if (currencyUnresolved) {
     return (

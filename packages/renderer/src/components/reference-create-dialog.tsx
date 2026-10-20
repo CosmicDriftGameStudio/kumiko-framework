@@ -95,7 +95,7 @@ export function ReferenceCreateDialog({
     >
       {currencyLoading ? (
         <Banner padded variant="loading" testId="reference-create-dialog-loading">
-          Loading…
+          {t("kumiko.widget.loading")}
         </Banner>
       ) : (
         <RenderEdit

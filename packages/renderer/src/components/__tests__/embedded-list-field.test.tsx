@@ -379,7 +379,7 @@ describe("EmbeddedListField — paste coercion", () => {
         {
           path: "lines",
           code: "paste-rows-truncated",
-          i18nKey: "kumiko.field.embedded-list.paste-rows-truncated",
+          i18nKey: "kumiko.field.embedded-list.paste-rows-truncated.one",
           params: { count: 1 },
         },
       ]);
@@ -404,7 +404,7 @@ describe("EmbeddedListField — paste coercion", () => {
         {
           path: "lines",
           code: "paste-cells-unmatched",
-          i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched",
+          i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched.one",
           params: { count: 1 },
         },
       ]);
@@ -453,7 +453,7 @@ describe("EmbeddedListField — paste coercion", () => {
         {
           path: "lines",
           code: "paste-cells-unmatched",
-          i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched",
+          i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched.one",
           params: { count: 1 },
         },
       ]);

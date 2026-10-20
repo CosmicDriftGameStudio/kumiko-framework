@@ -76,16 +76,23 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.embedded-list.move-down": "Move down",
     "kumiko.field.embedded-list.empty": "No rows yet.",
     "kumiko.field.embedded-list.empty-cta": "Add first row",
-    "kumiko.field.embedded-list.paste-rows-truncated":
-      "{count} pasted row(s) were dropped (max row count reached).",
-    "kumiko.field.embedded-list.paste-cells-unmatched":
-      "{count} cell(s) had no matching option and were left unchanged.",
+    "kumiko.field.embedded-list.paste-rows-truncated.one":
+      "1 pasted row was dropped (max row count reached).",
+    "kumiko.field.embedded-list.paste-rows-truncated.other":
+      "{count} pasted rows were dropped (max row count reached).",
+    "kumiko.field.embedded-list.paste-cells-unmatched.one":
+      "1 cell had no matching option and was left unchanged.",
+    "kumiko.field.embedded-list.paste-cells-unmatched.other":
+      "{count} cells had no matching option and were left unchanged.",
     "kumiko.field.multiSelect.select-all": "Select all",
     "kumiko.field.multiSelect.deselect-all": "Deselect all",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",
     "kumiko.list.empty.filtered": "No entries match the current search or filters.",
+    "kumiko.list.empty.defaultFiltered":
+      "No entries match the default filter. Show all to include entries outside it.",
+    "kumiko.list.empty.showAll": "Show all",
     "kumiko.list.empty.hint": "Create the first one to get started.",
     "kumiko.list.no-entries": "No entries.",
     "kumiko.record.not-found.title": "This record was not found.",

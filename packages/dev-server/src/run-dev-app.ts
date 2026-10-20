@@ -515,7 +515,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   configurePiiSubjectKms(piiKms.kms);
   configureBlindIndexKey(piiKms.blindIndexKey);
   const releaseEphemeralPiiKms = captureEphemeralDevPiiKms(piiKms);
+  // The auth features bind database-backed revokers onto their (possibly shared) instances;
+  // stop() swaps them for inert ones so a later stack in the same process never reaches this
+  // app's closed connection.
+  const resetLateBindings: Array<() => void> = [];
   const releasePiiKms = async (): Promise<void> => {
+    for (const reset of resetLateBindings) reset();
     releaseEphemeralPiiKms();
     await wiring.kms.close();
   };
@@ -762,14 +767,27 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         });
         const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
         if (sessionsFeature) {
-          bindAutoRevokeFromFeature(sessionsFeature)?.(store.massRevoker);
+          bindReleasable(
+            bindAutoRevokeFromFeature(sessionsFeature),
+            store.massRevoker,
+            INERT_REVOKER,
+            resetLateBindings,
+          );
         }
         if (mfaFeature) {
-          bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(store.revokeAllOthers);
+          bindReleasable(
+            bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature),
+            store.revokeAllOthers,
+            INERT_REVOKER,
+            resetLateBindings,
+          );
         }
         if (mfaFeature && patFeature) {
-          bindRevokeAllPatTokensFromFeature(mfaFeature)?.((userId) =>
-            revokeAllPatTokensForUser(stack.db, userId),
+          bindReleasable(
+            bindRevokeAllPatTokensFromFeature(mfaFeature),
+            (userId) => revokeAllPatTokensForUser(stack.db, userId),
+            INERT_REVOKER,
+            resetLateBindings,
           );
         }
         sessionStore = store;
@@ -779,8 +797,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           resolveTokenVerifier({ db: stack.db, registry: stack.registry }, rawToken);
         // Password-change → PAT-revoke: independent of sessions/MFA being
         // mounted, so wired unconditionally here whenever PAT itself is.
-        bindPatAutoRevokeOnPasswordChangeFromFeature(patFeature)?.((userId) =>
-          revokeAllPatTokensForUser(stack.db, userId),
+        bindReleasable(
+          bindPatAutoRevokeOnPasswordChangeFromFeature(patFeature),
+          (userId) => revokeAllPatTokensForUser(stack.db, userId),
+          INERT_REVOKER,
+          resetLateBindings,
         );
       }
       if (effectiveAuth) {
@@ -835,6 +856,21 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
     },
   };
+}
+
+const INERT_REVOKER = async (): Promise<number> => 0;
+
+// Binds a late-bound revoker and records how to swap it for an inert one when the app stops.
+function bindReleasable<Revoker>(
+  bind: ((revoker: Revoker) => void) | undefined,
+  revoker: Revoker,
+  inert: NoInfer<Revoker>,
+  resets: Array<() => void>,
+): void {
+  if (bind) {
+    bind(revoker);
+    resets.push(() => bind(inert));
+  }
 }
 
 // Exported for the wiring-contract test (config-resolver-default.integration):

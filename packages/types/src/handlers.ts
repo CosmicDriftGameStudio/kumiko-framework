@@ -559,7 +559,7 @@ type SharedContextFields = {
   readonly forTenant?: (tenantId: TenantId) => TenantWriteTarget;
   /** Mints the per-request `ctx.config`; set by the boot (`addConfigAccessorFactory`) from the effective `configResolver`, overriding an app-supplied value. */
   readonly configAccessorFactory?: ConfigAccessorFactory;
-  /** @deprecated Use `configAccessorFactory`; the underscore name is removed in the next major. */
+  /** @deprecated Use `configAccessorFactory`; the underscore name is removed in 0.390.0. */
   readonly _configAccessorFactory?: ConfigAccessorFactory;
   // Encryption round-trip partner for the config feature. Separate from
   // configResolver so the read-only resolver contract stays clean — the
@@ -727,7 +727,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // r.systemScope() handlers (use `systemDb.outsideTransaction` there).
   /**
    * @deprecated Use `runInOwnTransaction(ctx.dbOutsideTransaction, fn)` from
-   * `@cosmicdrift/kumiko-framework/db`; removed in the next major.
+   * `@cosmicdrift/kumiko-framework/db`; removed in 0.390.0.
    */
   readonly outsideTransaction?: <T>(fn: (db: TenantDb) => Promise<T>) => Promise<T>;
   // Only present for r.systemScope() handlers. Non-system handlers never
@@ -1156,7 +1156,7 @@ export type EventPiiSubject =
   | { readonly personal: "tenant" }
   | { readonly personal: "self" }
   | {
-      /** @deprecated use `{ personal: { of: "<ownerField>" } }` instead. */
+      /** @deprecated use `{ personal: { of: "<ownerField>" } }` instead. Removed in 0.390.0. */
       readonly subjectField: string;
     };
 

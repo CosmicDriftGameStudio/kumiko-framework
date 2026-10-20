@@ -1,3 +1,4 @@
+export { DEFAULT_GLOBAL_RATE_LIMIT } from "../rate-limit/middleware.ts";
 export type { SetTenantCookieOptions } from "./anonymous-cookie.ts";
 export { deleteTenantCookie, setTenantCookie } from "./anonymous-cookie.ts";
 export { collectAnonymousLiveEntities } from "./anonymous-live-entities.ts";

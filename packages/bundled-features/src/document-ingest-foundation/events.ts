@@ -8,6 +8,10 @@ import * as z from "zod";
 // worker job (kumiko-enterprise LiteParse provider) subscribes to.
 export const DOCUMENT_INGEST_AGGREGATE_TYPE = "document-ingest";
 
+// Stream name of stored extract events; differs from the camelCase r.entity name
+// "documentExtract", so the projection replays this stream through an extension.
+export const DOCUMENT_EXTRACT_AGGREGATE_TYPE = "document-extract";
+
 export const DOCUMENT_INGEST_REQUESTED_EVENT_SHORT = "documentIngest.requested" as const;
 
 // Qualified name — what ctx.unsafeAppendEvent's `type` actually needs

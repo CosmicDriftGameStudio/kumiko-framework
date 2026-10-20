@@ -754,10 +754,14 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.empty-cta": "Ajouter la première ligne",
   "kumiko.field.embedded-list.move-down": "Descendre",
   "kumiko.field.embedded-list.move-up": "Monter",
-  "kumiko.field.embedded-list.paste-cells-unmatched":
-    "{count} cellule(s) sans option correspondante ont été laissées inchangées.",
-  "kumiko.field.embedded-list.paste-rows-truncated":
-    "{count} ligne(s) collée(s) ont été ignorées (nombre maximal de lignes atteint).",
+  "kumiko.field.embedded-list.paste-cells-unmatched.one":
+    "1 cellule sans option correspondante a été laissée inchangée.",
+  "kumiko.field.embedded-list.paste-cells-unmatched.other":
+    "{count} cellules sans option correspondante ont été laissées inchangées.",
+  "kumiko.field.embedded-list.paste-rows-truncated.one":
+    "1 ligne collée a été ignorée (nombre maximal de lignes atteint).",
+  "kumiko.field.embedded-list.paste-rows-truncated.other":
+    "{count} lignes collées ont été ignorées (nombre maximal de lignes atteint).",
   "kumiko.field.embedded-list.remove-row": "Supprimer la ligne",
   "kumiko.field.file-list.add": "Ajouter un fichier",
   "kumiko.field.file-list.empty": "Aucun fichier pour l'instant.",
@@ -815,6 +819,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.list.count.other": "{count} entrées",
   "kumiko.list.empty.filtered":
     "Aucune entrée ne correspond à la recherche ou aux filtres actuels.",
+  "kumiko.list.empty.defaultFiltered":
+    "Aucune entrée ne correspond au filtre par défaut. Affichez tout pour inclure les entrées hors filtre.",
+  "kumiko.list.empty.showAll": "Tout afficher",
   "kumiko.list.empty.hint": "Créez la première pour commencer.",
   "kumiko.list.empty.title": "Aucune entrée pour l'instant.",
   "kumiko.list.end-of-list": "— Fin de la liste —",
@@ -1099,7 +1106,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "tags.manage.cancel": "Annuler",
   "tags.manage.create": "Créer une étiquette",
   "tags.manage.delete": "Supprimer",
-  "tags.manage.deleteConfirmDesc": "La supprime de {count} objets. Cette action est irréversible.",
+  "tags.manage.deleteConfirmDesc.one": "La retire d'1 objet. Cette action est irréversible.",
+  "tags.manage.deleteConfirmDesc.other":
+    "La retire de {count} objets. Cette action est irréversible.",
   "tags.manage.deleteConfirmTitle": "Supprimer l'étiquette « {name} » ?",
   "tags.manage.edit": "Modifier",
   "tags.manage.namePlaceholder": "Nom de l'étiquette",
@@ -1572,7 +1581,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.status.draftVersion": "Brouillon v{version}",
   "documentDesigner.usedBy.allMails": "tous les e-mails",
   "documentDesigner.usedBy.allPdfs": "tous les PDF",
-  "documentDesigner.usedBy.templates": "{count} modèles",
+  "documentDesigner.usedBy.templates.one": "1 modèle",
+  "documentDesigner.usedBy.templates.other": "{count} modèles",
   "documentDesigner.usedBy.title": "Utilisé par",
   "documentDesigner.usedBy.none": "Aucun modèle n'utilise encore cette mise en page.",
   "documentDesigner.overriddenBy.tenants": "{active} organisations",
@@ -1638,9 +1648,13 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.editor.origin.none": "Il n'existe pas encore de mise en page.",
   "documentDesigner.editor.origin.system":
     "Vous consultez la mise en page système. L'enregistrer crée une personnalisation pour votre organisation.",
-  "documentDesigner.editor.origin.tenant.mails":
+  "documentDesigner.editor.origin.tenant.mails.one":
+    "Remplace la mise en page système v{version}. S'applique à 1 modèle d'e-mail de cette organisation.",
+  "documentDesigner.editor.origin.tenant.mails.other":
     "Remplace la mise en page système v{version}. S'applique à {count} modèles d'e-mail de cette organisation.",
-  "documentDesigner.editor.origin.tenant.pdfs":
+  "documentDesigner.editor.origin.tenant.pdfs.one":
+    "Remplace le papier à en-tête système v{version}. S'applique à 1 modèle PDF de cette organisation.",
+  "documentDesigner.editor.origin.tenant.pdfs.other":
     "Remplace le papier à en-tête système v{version}. S'applique à {count} modèles PDF de cette organisation.",
   "documentDesigner.editor.origin.platformPlain": "Mise en page système v{version}",
   "documentDesigner.editor.origin.platformCount":
@@ -1666,9 +1680,13 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Le contenu de chaque modèle d'e-mail est inséré ici. L'objet et le texte d'aperçu proviennent du modèle.",
   "documentDesigner.editor.slot.pdf": "Le contenu de chaque modèle PDF est inséré ici.",
   "documentDesigner.editor.footer.checking": "Vérification de la mise en page …",
-  "documentDesigner.editor.footer.okMail":
+  "documentDesigner.editor.footer.okMail.one":
+    "Espace réservé du contenu présent. Après la publication, la modification s'applique à 1 modèle.",
+  "documentDesigner.editor.footer.okMail.other":
     "Espace réservé du contenu présent. Après la publication, la modification s'applique à {count} modèles.",
-  "documentDesigner.editor.footer.okPdf":
+  "documentDesigner.editor.footer.okPdf.one":
+    "Espace réservé du contenu présent. Après la publication, la modification s'applique à 1 modèle.",
+  "documentDesigner.editor.footer.okPdf.other":
     "Espace réservé du contenu présent. Après la publication, la modification s'applique à {count} modèles.",
   "documentDesigner.editor.discard": "Abandonner les modifications",
   "documentDesigner.editor.save": "Enregistrer",
@@ -1847,7 +1865,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.preview.samplesHint":
     "Les montants et les dates sont mis en forme selon les paramètres de l'organisation.",
   "documentDesigner.mail.preview.missingInContent": "absent du contenu",
-  "documentDesigner.mail.preview.entries": "{count} entrées",
+  "documentDesigner.mail.preview.entries.one": "1 entrée",
+  "documentDesigner.mail.preview.entries.other": "{count} entrées",
   "documentDesigner.mail.preview.checks": "Vérifications",
   "documentDesigner.mail.preview.checksHint":
     "Ce que le serveur a constaté lors du rendu de cet e-mail.",

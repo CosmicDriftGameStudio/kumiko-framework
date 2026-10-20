@@ -13,6 +13,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { cn, ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { BRANDING_QUERY_QN } from "../constants.ts";
@@ -237,9 +238,12 @@ export function LayoutEditorBody({
           : {
               tone: "ok",
               text: t(
-                isMail
-                  ? "documentDesigner.editor.footer.okMail"
-                  : "documentDesigner.editor.footer.okPdf",
+                pluralKey(
+                  isMail
+                    ? "documentDesigner.editor.footer.okMail"
+                    : "documentDesigner.editor.footer.okPdf",
+                  userCount,
+                ),
                 { count: userCount },
               ),
             };

@@ -17,9 +17,12 @@ import {
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
 import {
+  BILLING_SUBSCRIPTION_LOCK_NAMESPACE,
   isSubscriptionBlockingCheckout,
   isSwitchableSubscriptionStatus,
   SubscriptionEventTypes,
@@ -70,6 +73,7 @@ export const processEventSchema = z.object({
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
   cancelAtIso: z.string().min(1).nullable().optional(),
+  providerEventAtIso: z.iso.datetime().optional(),
   consentId: z.string().min(1).max(100).optional(),
 });
 export type ProcessEventPayload = z.infer<typeof processEventSchema>;
@@ -83,6 +87,37 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
   [SubscriptionEventTypes.invoicePaymentFailed]: INVOICE_PAYMENT_FAILED_EVENT_QN,
 } satisfies Readonly<Record<string, string>>;
 
+const STATE_EVENT_TYPES: ReadonlySet<string> = new Set([
+  SubscriptionEventTypes.created,
+  SubscriptionEventTypes.updated,
+  SubscriptionEventTypes.canceled,
+]);
+
+function isLateStateEvent(
+  storedEvents: readonly {
+    readonly payload: unknown;
+    readonly metadata: { readonly headers?: Record<string, unknown> };
+  }[],
+  payload: ProcessEventPayload,
+): boolean {
+  if (payload.providerEventAtIso === undefined || !STATE_EVENT_TYPES.has(payload.type)) {
+    return false;
+  }
+  const incoming = Temporal.Instant.from(payload.providerEventAtIso);
+  return storedEvents.some((stored) => {
+    const storedAt = propertyOf(stored.payload, "providerEventAtIso");
+    if (stored.metadata.headers?.["providerName"] !== payload.providerName) return false;
+    if (typeof storedAt !== "string") return false;
+    // A stored value that does not parse can never prove a newer event; skip it instead of
+    // failing every later delivery of this tenant's stream.
+    try {
+      return Temporal.Instant.compare(Temporal.Instant.from(storedAt), incoming) > 0;
+    } catch {
+      return false;
+    }
+  });
+}
+
 // =============================================================================
 // appendSubscriptionEvent — the append-body, shared by processEventHandler
 // (webhook path) and sync-subscription.write.ts (backfill path). Both call
@@ -90,12 +125,37 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
 // who constructs `payload` and what `providerEventId` they use.
 // =============================================================================
 
+// A provider timestamp far in the future would make every later, genuine event look late.
+const PROVIDER_EVENT_CLOCK_SKEW_SECONDS = 300;
+
+export function clampProviderEventAt(
+  payload: ProcessEventPayload,
+  now: Temporal.Instant,
+): ProcessEventPayload {
+  if (payload.providerEventAtIso === undefined) return payload;
+  const ceiling = now.add({ seconds: PROVIDER_EVENT_CLOCK_SKEW_SECONDS });
+  return Temporal.Instant.compare(Temporal.Instant.from(payload.providerEventAtIso), ceiling) > 0
+    ? { ...payload, providerEventAtIso: ceiling.toString() }
+    : payload;
+}
+
 export async function appendSubscriptionEvent(
   ctx: HandlerContext,
   tenantId: string,
-  payload: ProcessEventPayload,
-): Promise<{ readonly duplicate: boolean; readonly subscriptionAggregateId: string }> {
+  rawPayload: ProcessEventPayload,
+  now: Temporal.Instant = Temporal.Now.instant(),
+): Promise<{
+  readonly duplicate: boolean;
+  readonly stale?: true;
+  readonly subscriptionAggregateId: string;
+}> {
   const aggId = subscriptionAggregateId(tenantId);
+  const payload = clampProviderEventAt(rawPayload, now);
+
+  // Serialises the read (idempotency + late check) with the append: the append re-reads the
+  // stream version itself, so without the lock a concurrent delivery could slip in between and
+  // the late check would have judged an outdated stream.
+  await ctx.db.advisoryXactLock(BILLING_SUBSCRIPTION_LOCK_NAMESPACE, aggId);
 
   // ---------------------------------------------------------------
   // 1. Idempotency: load the subscription stream and check whether this
@@ -118,6 +178,16 @@ export async function appendSubscriptionEvent(
   });
   if (alreadySeen) {
     return { duplicate: true, subscriptionAggregateId: aggId };
+  }
+
+  // A state event the provider emitted before the newest one already stored is a
+  // late delivery: appending it would roll the row back (a canceled subscription
+  // would come back active). Invoice events carry the live state, not a snapshot.
+  if (isLateStateEvent(existingEvents, payload)) {
+    ctx.log?.warn(
+      `[billing-foundation:process-event] dropped late ${payload.type} ${payload.providerEventId}: a newer provider event is already stored`,
+    );
+    return { duplicate: false, stale: true, subscriptionAggregateId: aggId };
   }
 
   // ---------------------------------------------------------------
@@ -175,6 +245,9 @@ export async function appendSubscriptionEvent(
     currentPeriodEndIso: payload.currentPeriodEndIso,
     ...(payload.cancelAtIso !== undefined && { cancelAtIso: payload.cancelAtIso }),
     ...(payload.consentId !== undefined && { consentId: payload.consentId }),
+    ...(payload.providerEventAtIso !== undefined && {
+      providerEventAtIso: payload.providerEventAtIso,
+    }),
   };
   const headers: SubscriptionEventHeaders = {
     providerEventId: payload.providerEventId,
@@ -243,7 +316,7 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
           },
         };
       }
-      const result = await appendSubscriptionEvent(ctx, event.user.tenantId, payload);
+      const result = await appendSubscriptionEvent(ctx, event.user.tenantId, payload, now());
       return { isSuccess: true as const, data: result };
     },
   };

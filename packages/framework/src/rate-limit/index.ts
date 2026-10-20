@@ -9,6 +9,7 @@ export {
 export {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,
+  DEFAULT_GLOBAL_RATE_LIMIT,
   type GlobalIpRateLimitOptions,
   globalIpRateLimit,
   type HttpRouteRateLimitOptions,

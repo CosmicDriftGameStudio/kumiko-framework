@@ -89,6 +89,10 @@ export type SubscriptionEvent = {
    *  Mollie), so projection.ts leaves the column unchanged instead of
    *  nulling it. */
   readonly cancelAt?: string | null;
+  /** ISO instant the provider emitted this event. process-event drops a
+   *  state event older than the newest one already stored, since providers
+   *  do not guarantee delivery order. Omitted by providers that report none. */
+  readonly providerEventAt?: string;
 };
 
 // =============================================================================

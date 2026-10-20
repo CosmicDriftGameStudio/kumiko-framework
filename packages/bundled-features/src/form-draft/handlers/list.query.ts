@@ -39,12 +39,18 @@ export const listDraftsQuery = defineQueryHandler({
       query.payload.screenId,
     );
     const drafts = rows
-      .map((row) => ({
-        id: row.id,
-        draftKey: row.draftKey,
-        stepIndex: row.draft.stepIndex,
-        savedAt: row.draft.savedAt,
-      }))
+      .flatMap((row) =>
+        row.draft
+          ? [
+              {
+                id: row.id,
+                draftKey: row.draftKey,
+                stepIndex: row.draft.stepIndex,
+                savedAt: row.draft.savedAt,
+              },
+            ]
+          : [],
+      )
       .sort(byNewestFirst)
       // Matches listDraftsByScreen selectMany limit — JS sort cannot push the
       // ceiling into SQL while savedAt lives inside jsonb.

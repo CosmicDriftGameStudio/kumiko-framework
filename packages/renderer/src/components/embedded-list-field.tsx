@@ -11,6 +11,7 @@ import {
   roundDerivedCellValue,
   sumEmbeddedListColumn,
 } from "../headless/index.ts";
+import { pluralKey } from "../headless/plural-key.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";
@@ -225,7 +226,10 @@ function EmbeddedListFieldInner({
                 {
                   path: field.field,
                   code: "paste-rows-truncated",
-                  i18nKey: "kumiko.field.embedded-list.paste-rows-truncated",
+                  i18nKey: pluralKey(
+                    "kumiko.field.embedded-list.paste-rows-truncated",
+                    pasteWarning.droppedRows,
+                  ),
                   params: { count: pasteWarning.droppedRows },
                 },
               ]
@@ -235,7 +239,10 @@ function EmbeddedListFieldInner({
                 {
                   path: field.field,
                   code: "paste-cells-unmatched",
-                  i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched",
+                  i18nKey: pluralKey(
+                    "kumiko.field.embedded-list.paste-cells-unmatched",
+                    pasteWarning.unmatchedCells,
+                  ),
                   params: { count: pasteWarning.unmatchedCells },
                 },
               ]

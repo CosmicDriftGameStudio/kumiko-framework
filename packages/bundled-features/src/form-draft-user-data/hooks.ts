@@ -27,8 +27,8 @@ export const formDraftExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-// Real physical delete, not crypto-shredding — `draft` is jsonb (entity.ts
-// explains why it can't use the string-only PII field-encryption engine).
+// Deletes the row through the event store; `draft` is ciphertext under the
+// owner's key in the row and in every event (previous of the delete included).
 // A drafted form is pure pre-submit scratch state with no value once the
 // owner is gone, so both forget strategies (delete/anonymize) remove the
 // row outright rather than anonymizing in place. Per-row via the executor

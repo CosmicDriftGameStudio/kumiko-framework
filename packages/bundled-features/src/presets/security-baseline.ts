@@ -9,7 +9,7 @@ export type SecurityBaselineOptions = {
 };
 
 // Host app must mount user, tenant, auth-foundation (sessions/audit requires).
-/** @deprecated Removed in the next release. Use `composeSecurityStack({ includeSessions })`
+/** @deprecated Removed in 0.390.0. Use `composeSecurityStack({ includeSessions })`
  *  from `@cosmicdrift/kumiko-dev-server/compose-stacks`. */
 export function securityBaselineFeatures(opts: SecurityBaselineOptions = {}): FeatureDefinition[] {
   return [

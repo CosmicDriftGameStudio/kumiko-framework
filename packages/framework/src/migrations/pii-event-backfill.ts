@@ -60,20 +60,32 @@ export const piiBackfillStateTable = pgTable("kumiko_pii_backfill_state", {
   updatedAt: instant("updated_at", { precision: 3 }).notNull().default(sql`now()`),
 });
 
+const PII_EVENT_BACKFILL_DDL_LOCK_KEY = "pii-event-backfill:ddl";
+
+// CREATE and the follow-up ALTER are not atomic: without the lock a peer that sees the
+// freshly created table skips its own bootstrap and reads before the column exists.
+// The lock holder's transaction only carries the lock; the DDL runs on `db` itself.
 export async function createPiiBackfillStateTable(db: DbConnection): Promise<void> {
-  if (!(await tableExists(db, "public.kumiko_pii_backfill_state"))) {
-    await unsafePushTables(db, { kumikoPiiBackfillState: piiBackfillStateTable });
-  }
-  // Added after the table's first deploy; IF NOT EXISTS keeps concurrent replica boots safe.
-  await alterTableAddColumn(
-    db,
-    "kumiko_pii_backfill_state",
-    "failed_event_ids",
-    "bigint[]",
-    " DEFAULT '{}'::bigint[]",
-    " NOT NULL",
-    /* ifNotExists */ true,
-  );
+  await db.begin(async (lockTx: DbRunner) => {
+    await acquireNamespacedAdvisoryLock(
+      lockTx,
+      PII_EVENT_BACKFILL_LOCK_NAMESPACE,
+      PII_EVENT_BACKFILL_DDL_LOCK_KEY,
+    );
+    if (!(await tableExists(db, "public.kumiko_pii_backfill_state"))) {
+      await unsafePushTables(db, { kumikoPiiBackfillState: piiBackfillStateTable });
+    }
+    // Added after the table's first deploy; IF NOT EXISTS keeps older deployments upgradable.
+    await alterTableAddColumn(
+      db,
+      "kumiko_pii_backfill_state",
+      "failed_event_ids",
+      "bigint[]",
+      " DEFAULT '{}'::bigint[]",
+      " NOT NULL",
+      /* ifNotExists */ true,
+    );
+  });
 }
 
 // Replicas boot concurrently: two of them can both pass the tableExists gate and
@@ -104,7 +116,7 @@ export function piiAnnotationEntries(registry: Registry): readonly string[] {
 // Bump when the backfill gains a transform stage: completed states keyed by the
 // old fingerprint must run one more full pass. Kept out of piiAnnotationEntries,
 // whose emptiness gates no_pii.
-const PII_BACKFILL_TRANSFORM_VERSION = "owner-rekey-v2";
+const PII_BACKFILL_TRANSFORM_VERSION = "jsonb-objects-v3";
 
 export function piiAnnotationFingerprint(registry: Registry): string {
   return createHash("sha256")

@@ -743,10 +743,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.empty-cta": "Añadir la primera fila",
   "kumiko.field.embedded-list.move-down": "Mover abajo",
   "kumiko.field.embedded-list.move-up": "Mover arriba",
-  "kumiko.field.embedded-list.paste-cells-unmatched":
-    "{count} celda(s) no tenían una opción coincidente y no se modificaron.",
-  "kumiko.field.embedded-list.paste-rows-truncated":
-    "Se descartaron {count} fila(s) pegadas (se alcanzó el número máximo de filas).",
+  "kumiko.field.embedded-list.paste-cells-unmatched.one":
+    "1 celda no tenía una opción coincidente y no se modificó.",
+  "kumiko.field.embedded-list.paste-cells-unmatched.other":
+    "{count} celdas no tenían una opción coincidente y no se modificaron.",
+  "kumiko.field.embedded-list.paste-rows-truncated.one":
+    "Se descartó 1 fila pegada (se alcanzó el número máximo de filas).",
+  "kumiko.field.embedded-list.paste-rows-truncated.other":
+    "Se descartaron {count} filas pegadas (se alcanzó el número máximo de filas).",
   "kumiko.field.embedded-list.remove-row": "Quitar fila",
   "kumiko.field.file-list.add": "Añadir archivo",
   "kumiko.field.file-list.empty": "Aún no hay archivos.",
@@ -803,6 +807,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.list.count.one": "1 entrada",
   "kumiko.list.count.other": "{count} entradas",
   "kumiko.list.empty.filtered": "Ninguna entrada coincide con la búsqueda o los filtros.",
+  "kumiko.list.empty.defaultFiltered":
+    "Ninguna entrada coincide con el filtro predeterminado. Muestra todo para incluir las entradas fuera de él.",
+  "kumiko.list.empty.showAll": "Mostrar todo",
   "kumiko.list.empty.hint": "Crea la primera para empezar.",
   "kumiko.list.empty.title": "Todavía no hay entradas.",
   "kumiko.list.end-of-list": "— Fin de la lista —",
@@ -1086,7 +1093,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "tags.manage.cancel": "Cancelar",
   "tags.manage.create": "Crear etiqueta",
   "tags.manage.delete": "Eliminar",
-  "tags.manage.deleteConfirmDesc": "Se quitará de {count} objetos. Esto no se puede deshacer.",
+  "tags.manage.deleteConfirmDesc.one": "Se quitará de 1 objeto. Esto no se puede deshacer.",
+  "tags.manage.deleteConfirmDesc.other":
+    "Se quitará de {count} objetos. Esto no se puede deshacer.",
   "tags.manage.deleteConfirmTitle": "¿Eliminar la etiqueta «{name}»?",
   "tags.manage.edit": "Editar",
   "tags.manage.namePlaceholder": "Nombre de la etiqueta",
@@ -1554,7 +1563,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.status.draftVersion": "Borrador v{version}",
   "documentDesigner.usedBy.allMails": "todos los correos",
   "documentDesigner.usedBy.allPdfs": "todos los PDF",
-  "documentDesigner.usedBy.templates": "{count} plantillas",
+  "documentDesigner.usedBy.templates.one": "1 plantilla",
+  "documentDesigner.usedBy.templates.other": "{count} plantillas",
   "documentDesigner.usedBy.title": "Usada por",
   "documentDesigner.usedBy.none": "Ninguna plantilla usa todavía este diseño.",
   "documentDesigner.overriddenBy.tenants": "{active} organizaciones",
@@ -1619,9 +1629,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.editor.origin.none": "Todavía no hay ningún diseño.",
   "documentDesigner.editor.origin.system":
     "Ves el diseño del sistema. Al guardar se crea una personalización para tu organización.",
-  "documentDesigner.editor.origin.tenant.mails":
+  "documentDesigner.editor.origin.tenant.mails.one":
+    "Sustituye el diseño del sistema v{version}. Se aplica a 1 plantilla de correo de esta organización.",
+  "documentDesigner.editor.origin.tenant.mails.other":
     "Sustituye el diseño del sistema v{version}. Se aplica a {count} plantillas de correo de esta organización.",
-  "documentDesigner.editor.origin.tenant.pdfs":
+  "documentDesigner.editor.origin.tenant.pdfs.one":
+    "Sustituye el papel de carta del sistema v{version}. Se aplica a 1 plantilla PDF de esta organización.",
+  "documentDesigner.editor.origin.tenant.pdfs.other":
     "Sustituye el papel de carta del sistema v{version}. Se aplica a {count} plantillas PDF de esta organización.",
   "documentDesigner.editor.origin.platformPlain": "Diseño del sistema v{version}",
   "documentDesigner.editor.origin.platformCount":
@@ -1645,9 +1659,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Aquí se inserta el contenido de cada plantilla de correo. El asunto y el texto de vista previa provienen de la plantilla.",
   "documentDesigner.editor.slot.pdf": "Aquí se inserta el contenido de cada plantilla PDF.",
   "documentDesigner.editor.footer.checking": "Comprobando el diseño …",
-  "documentDesigner.editor.footer.okMail":
+  "documentDesigner.editor.footer.okMail.one":
+    "Marcador de contenido presente. Tras publicar, el cambio se aplica a 1 plantilla.",
+  "documentDesigner.editor.footer.okMail.other":
     "Marcador de contenido presente. Tras publicar, el cambio se aplica a {count} plantillas.",
-  "documentDesigner.editor.footer.okPdf":
+  "documentDesigner.editor.footer.okPdf.one":
+    "Marcador de contenido presente. Tras publicar, el cambio se aplica a 1 plantilla.",
+  "documentDesigner.editor.footer.okPdf.other":
     "Marcador de contenido presente. Tras publicar, el cambio se aplica a {count} plantillas.",
   "documentDesigner.editor.discard": "Descartar cambios",
   "documentDesigner.editor.save": "Guardar",
@@ -1823,7 +1841,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.preview.samplesHint":
     "Los importes y las fechas se formatean según los ajustes de la organización.",
   "documentDesigner.mail.preview.missingInContent": "falta en el contenido",
-  "documentDesigner.mail.preview.entries": "{count} entradas",
+  "documentDesigner.mail.preview.entries.one": "1 entrada",
+  "documentDesigner.mail.preview.entries.other": "{count} entradas",
   "documentDesigner.mail.preview.checks": "Comprobación",
   "documentDesigner.mail.preview.checksHint":
     "Lo que encontró el servidor al renderizar este correo.",

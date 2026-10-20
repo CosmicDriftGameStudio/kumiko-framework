@@ -1077,3 +1077,21 @@ describe("fileRef.created — no provider mounted", () => {
     });
   });
 });
+
+describe("documentExtract projection rebuild", () => {
+  test("replays the stored document-extract events into read_document_extracts", async () => {
+    const fileRefId = generateId();
+    const id = await seedDocumentExtract(admin.tenantId, fileRefId);
+    const [before] = await selectMany(stack.db, documentExtractsTable, { id });
+    expect(before?.["fileRefId"]).toBe(fileRefId);
+
+    await createProjectionStateTable(stack.db);
+    await rebuildProjection("document-ingest-foundation:projection:document-extract-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    const [after] = await selectMany(stack.db, documentExtractsTable, { id });
+    expect(after).toEqual(before);
+  });
+});

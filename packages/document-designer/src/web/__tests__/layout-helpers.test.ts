@@ -7,7 +7,8 @@ import { templateTitle, usedByLabel } from "../used-by-label.ts";
 const messages: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.allMails": "all mails",
   "documentDesigner.usedBy.allPdfs": "all PDFs",
-  "documentDesigner.usedBy.templates": "{count} templates",
+  "documentDesigner.usedBy.templates.one": "1 template",
+  "documentDesigner.usedBy.templates.other": "{count} templates",
   "billing:feature.label": "Invoices",
   "billing:notify.invoice-issued.label": "Invoice issued",
 };
@@ -64,6 +65,9 @@ describe("usedByLabel", () => {
   test("a named layout counts the templates that use it", () => {
     expect(usedByLabel(t, viewOf({ kind: "mail-layout", slug: "dunning", usedByCount: 3 }))).toBe(
       "3 templates",
+    );
+    expect(usedByLabel(t, viewOf({ kind: "mail-layout", slug: "dunning", usedByCount: 1 }))).toBe(
+      "1 template",
     );
     expect(usedByLabel(t, viewOf({ kind: "mail-layout", slug: "dunning", usedByCount: 0 }))).toBe(
       EMPTY_VALUE_PLACEHOLDER,

@@ -3,7 +3,7 @@ import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tagAssignmentAggregateId } from "../aggregate-id.ts";
-import { DEFAULT_TAG_ACCESS } from "../constants.ts";
+import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../constants.ts";
 import { tagAssignmentExecutor, tagExecutor } from "../executor.ts";
 import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas.ts";
 
@@ -20,9 +20,9 @@ import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas.ts";
 // create(), the loser's create() version_conflicts, and the handler treats
 // that as success since the winner already wrote the desired end state.
 //
-// Referential integrity: there is no FK (event-sourced, no JOIN), so before a
-// first-time create we verify the tag exists in the catalog — a malformed call
-// with an unknown tagId would otherwise project a dangling assignment.
+// Referential integrity: there is no FK (event-sourced, no JOIN), so we verify
+// the tag exists in the catalog before any restore/create — otherwise a call
+// racing delete-tag would resurrect or project an assignment for a gone tag.
 //
 // Host reference: entityType/entityId are never trusted client input either —
 // the aggregate-id is tenant-scoped, so this is not a cross-tenant hole, but
@@ -48,6 +48,13 @@ export function createAssignTagHandler(
         ctx.db,
       );
       if (denied) return denied;
+
+      // Same lock as delete-tag: the existence check below and the assignment
+      // write must not interleave with a delete-tag cascade, or the cascade
+      // misses the new assignment and leaves an orphan.
+      await ctx.db.advisoryXactLock(TAG_LOCK_NAMESPACE, payload.tagId);
+      const tag = await tagExecutor.detail({ id: payload.tagId }, event.user, ctx.db);
+      if (!tag) return writeFailure(new NotFoundError("tag", payload.tagId));
 
       const id = tagAssignmentAggregateId(
         event.user.tenantId,
@@ -75,9 +82,6 @@ export function createAssignTagHandler(
         return { isSuccess: true as const, data: { id } };
       }
       if (restored.error.code !== "not_found") return restored;
-
-      const tag = await tagExecutor.detail({ id: payload.tagId }, event.user, ctx.db);
-      if (!tag) return writeFailure(new NotFoundError("tag", payload.tagId));
 
       const created = await assignmentExecutor.create(
         {

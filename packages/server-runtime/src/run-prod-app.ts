@@ -488,7 +488,7 @@ export type HostDispatchResult =
       readonly kind: "html";
       readonly file: string;
       /** @deprecated Ignored — HTML never carries the schema; createKumikoApp
-       *  fetches it from the authenticated GET /api/schema. */
+       *  fetches it from the authenticated GET /api/schema. Removed in 0.390.0. */
       readonly injectSchema?: boolean;
       readonly csp?: string;
     }
@@ -776,7 +776,7 @@ export type RunProdAppOptions = {
    *  kein `/metrics`-Endpoint). Setze `createPrometheusMeter()`-basierten
    *  Provider + `metrics` um `/metrics` real zu exposen (publicstatus#91). */
   readonly observability?: ObservabilityProvider;
-  /** @deprecated No effect: the HTTP route label carries no query string anymore. */
+  /** @deprecated No effect: the HTTP route label carries no query string anymore. Removed in 0.390.0. */
   readonly observabilityOptions?: ObservabilityOptions;
   /** Aktiviert den `/metrics`-Endpoint (Open-Metrics-Format). Ohne einen
    *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`

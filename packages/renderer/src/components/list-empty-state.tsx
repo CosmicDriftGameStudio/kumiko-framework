@@ -12,18 +12,35 @@ export type ListEmptyStateContent = {
 export function ListEmptyStateBody({
   content,
   narrowed,
+  defaultFilterActive = false,
+  onShowAll,
   createButton,
   translate,
 }: {
   readonly content: ListEmptyStateContent | undefined;
   /** A search term or changed filter produced the empty result, so "create the first one" would mislead. */
   readonly narrowed: boolean;
+  /** A default filter is on and nothing else narrows: rows may exist outside it. */
+  readonly defaultFilterActive?: boolean;
+  readonly onShowAll?: () => void;
   readonly createButton: ReactNode;
   readonly translate: (key: string) => string;
 }): ReactNode {
   const { Text, Button, Dialog, Banner } = usePrimitives();
   const [actionError, setActionError] = useState<string | null>(null);
   if (narrowed) return <Text>{translate("kumiko.list.empty.filtered")}</Text>;
+  if (defaultFilterActive) {
+    return (
+      <>
+        <Text>{translate("kumiko.list.empty.defaultFiltered")}</Text>
+        {onShowAll !== undefined && (
+          <Button variant="secondary" onClick={onShowAll} testId="render-list-empty-show-all">
+            {translate("kumiko.list.empty.showAll")}
+          </Button>
+        )}
+      </>
+    );
+  }
   const description =
     content === undefined ? translate("kumiko.list.empty.hint") : content.description;
   return (

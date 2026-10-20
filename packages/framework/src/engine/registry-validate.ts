@@ -611,8 +611,11 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
     //      or `jobRun` (BullMQ-callback-driven lifecycle, no executor).
     //      A "Shape-Anchor"-entity is no longer needed for this case.
     const isEventsOnlySource = !sources.every((src) => state.entityMap.has(src));
+    // An extension source may be a stream whose events the executor writes under a
+    // name that is no registered entity (document-extract); its auto-verbs count.
+    const extensionSources = projDef.extraSources ?? [];
     for (const src of rebuildSources) {
-      if (state.entityMap.has(src)) {
+      if (state.entityMap.has(src) || extensionSources.includes(src)) {
         for (const verb of ENTITY_LIFECYCLE_VERBS) validEventTypes.add(`${src}.${verb}`);
       }
     }

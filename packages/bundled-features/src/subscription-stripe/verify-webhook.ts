@@ -176,6 +176,7 @@ export function verifyAndParseStripeWebhook(
       ...(consentId !== undefined && { consentId }),
       providerCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
       providerSubscriptionId: sub.id,
+      providerEventAt: Temporal.Instant.fromEpochMilliseconds(event.created * 1000).toString(),
       ...state,
     };
   };

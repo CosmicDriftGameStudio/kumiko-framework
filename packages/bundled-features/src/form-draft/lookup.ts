@@ -2,13 +2,14 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { readStoredDraft } from "./decrypt-draft.ts";
 import { formDraftTable } from "./executor.ts";
 import type { FormDraftBlob } from "./schemas.ts";
 
 export type FormDraftRow = {
   readonly id: string;
   readonly version: number;
-  readonly draft: FormDraftBlob;
+  readonly draft: FormDraftBlob | null;
   readonly insertedAt: Temporal.Instant;
 };
 
@@ -21,13 +22,15 @@ export async function lookupDraft(
   ownerId: string,
   draftKey: string,
 ): Promise<FormDraftRow | undefined> {
-  return fetchOne<FormDraftRow>(db, formDraftTable, { tenantId, ownerId, draftKey });
+  const row = await fetchOne<FormDraftRow>(db, formDraftTable, { tenantId, ownerId, draftKey });
+  if (!row) return undefined;
+  return { ...row, draft: await readStoredDraft(row.draft) };
 }
 
 export type FormDraftSummaryRow = {
   readonly id: string;
   readonly draftKey: string;
-  readonly draft: FormDraftBlob;
+  readonly draft: FormDraftBlob | null;
 };
 
 // LIKE metacharacters in a caller-controlled screenId must not widen the
@@ -49,7 +52,7 @@ export async function listDraftsByScreen(
 ): Promise<readonly FormDraftSummaryRow[]> {
   // ponytail: hard cap — savedAt lives in jsonb so SQL ORDER BY+LIMIT is wrong;
   // promote savedAt to a column when callers need correct newest-N under the ceiling.
-  return selectMany<FormDraftSummaryRow>(
+  const rows = await selectMany<FormDraftSummaryRow>(
     db,
     formDraftTable,
     {
@@ -58,5 +61,8 @@ export async function listDraftsByScreen(
       draftKey: { like: `${escapeLikePattern(screenId)}:%` },
     },
     { limit: 200 },
+  );
+  return Promise.all(
+    rows.map(async (row) => ({ ...row, draft: await readStoredDraft(row.draft) })),
   );
 }

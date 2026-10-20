@@ -1,12 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import * as z from "zod";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { createEntity, createTextField } from "../../engine/factories.ts";
+import { createRegistry } from "../../engine/registry.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { authMiddleware } from "../auth-middleware.ts";
+import { collectEntityReadAccess } from "../entity-read-access.ts";
 import { createJwtHelper } from "../jwt.ts";
 import type { AccessInvalidationCredential, SseBroker, SseEvent } from "../sse-broker.ts";
 import { createSseRoute, type SseRouteOptions } from "../sse-route.ts";
 
-const NO_ANONYMOUS_ENTITIES: SseRouteOptions = { anonymousLiveEntities: new Set() };
+const NO_ANONYMOUS_ENTITIES: SseRouteOptions = {
+  anonymousLiveEntities: new Set(),
+  entityReadAccess: new Map([["user", [{ roles: ["User"] }]]]),
+};
 
 const JWT_SECRET = "sse-route-unit-test-secret-at-least-32-characters";
 
@@ -38,13 +46,16 @@ function createTrackingBroker(): { broker: SseBroker; subscribedChannel: Promise
   return { broker, subscribedChannel };
 }
 
-async function buildSseApp(broker: SseBroker): Promise<{ app: Hono; token: string }> {
+async function buildSseApp(
+  broker: SseBroker,
+  options: SseRouteOptions = NO_ANONYMOUS_ENTITIES,
+): Promise<{ app: Hono; token: string }> {
   const jwt = createJwtHelper(JWT_SECRET);
   const token = await jwt.sign(TestUsers.user); // tenantId = 1
 
   const app = new Hono();
   app.use("/api/*", authMiddleware(jwt));
-  app.route("/api", createSseRoute(broker, NO_ANONYMOUS_ENTITIES));
+  app.route("/api", createSseRoute(broker, options));
   return { app, token };
 }
 
@@ -250,6 +261,134 @@ describe("sse-route frame naming", () => {
 
     expect(frame.data).not.toContain("leak@example.test");
     expect(JSON.parse(frame.data)).not.toHaveProperty("payload");
+  });
+
+  test("an entity no query lets the connection's role read gets no frame", async () => {
+    const { broker, send } = createSendCapturingBroker();
+    const { app, token } = await buildSseApp(broker);
+
+    const controller = new AbortController();
+    const responsePromise = Promise.resolve(
+      app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }),
+    );
+
+    const sendEvent = await send;
+    const response = await responsePromise;
+    const reader = response.body!.getReader();
+
+    const createdAt = "2026-01-01T00:00:00.000Z";
+    sendEvent({
+      type: "export-job.created",
+      data: { id: "hidden", aggregateType: "export-job", version: 1, createdAt },
+    });
+    sendEvent({
+      type: "user.created",
+      data: { id: "visible", aggregateType: "user", version: 1, createdAt },
+    });
+
+    const frame = await readNextEntityFrame(reader);
+    controller.abort();
+
+    expect(frame.event).toBe("user");
+  });
+
+  test("an entity readable through an openToAll query only signals the change, without id or version", async () => {
+    const { broker, send } = createSendCapturingBroker();
+    const { app, token } = await buildSseApp(broker, {
+      anonymousLiveEntities: new Set(),
+      entityReadAccess: new Map([
+        ["form-draft", [{ openToAll: { reason: "owner check lives in the handler" } }]],
+      ]),
+    });
+
+    const controller = new AbortController();
+    const responsePromise = Promise.resolve(
+      app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }),
+    );
+
+    const sendEvent = await send;
+    const response = await responsePromise;
+    const reader = response.body!.getReader();
+
+    sendEvent({
+      type: "form-draft.updated",
+      data: {
+        id: "someone-elses-draft",
+        aggregateType: "form-draft",
+        version: 7,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    const frame = await readNextEntityFrame(reader);
+    controller.abort();
+
+    expect(frame.event).toBe("form-draft");
+    const wire = JSON.parse(frame.data);
+    expect(wire).not.toHaveProperty("id");
+    expect(wire).not.toHaveProperty("version");
+  });
+
+  test("a camelCase entity signalled under its kebab-case aggregate type follows the entity's read rules", async () => {
+    const registry = createRegistry([
+      defineFeature("demo", (r) => {
+        r.entity({
+          name: "documentExtract",
+          ...createEntity({
+            table: "document_extracts",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        });
+        r.queryHandler({
+          name: "list-extracts",
+          schema: z.object({}),
+          handler: async () => ({}),
+          access: { openToAll: { reason: "owner check lives in the handler" } },
+          liveEntities: ["documentExtract"],
+        });
+      }),
+    ]);
+    const { broker, send } = createSendCapturingBroker();
+    const { app, token } = await buildSseApp(broker, {
+      anonymousLiveEntities: new Set(),
+      entityReadAccess: collectEntityReadAccess(registry),
+    });
+
+    const controller = new AbortController();
+    const responsePromise = Promise.resolve(
+      app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }),
+    );
+
+    const sendEvent = await send;
+    const response = await responsePromise;
+    const reader = response.body!.getReader();
+
+    sendEvent({
+      type: "document-extract.updated",
+      data: {
+        id: "someone-elses-extract",
+        aggregateType: "document-extract",
+        version: 3,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    const frame = await readNextEntityFrame(reader);
+    controller.abort();
+
+    expect(frame.event).toBe("document-extract");
+    const wire = JSON.parse(frame.data);
+    expect(wire).not.toHaveProperty("id");
+    expect(wire).not.toHaveProperty("version");
   });
 
   test("non-entity events (no aggregateType) keep event.type as the frame name", async () => {

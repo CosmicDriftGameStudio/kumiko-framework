@@ -20,6 +20,7 @@ import {
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
 import { useInitialValuesHandoff, useNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
+import { QueryLoadingBanner } from "./query-state-banners.tsx";
 import { navigateToReturnOr, useReturnTarget } from "./return-to.tsx";
 
 export type SecretMintBodyProps = {
@@ -320,11 +321,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
       // Hold until a tenant-declared currency lands, else the form would seed (and
       // on a fast click submit) the fallback currency (fw#2933).
       if (confirmCurrencyLoading) {
-        return (
-          <Banner padded variant="loading" testId="kumiko-screen-loading">
-            Loading…
-          </Banner>
-        );
+        return <QueryLoadingBanner />;
       }
       return (
         <RenderEdit
@@ -364,11 +361,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   }
 
   if (mintCurrencyLoading) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
+    return <QueryLoadingBanner />;
   }
 
   return (

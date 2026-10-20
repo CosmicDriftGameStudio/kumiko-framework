@@ -42,6 +42,18 @@ export function useListEmptyContent(
   }, [spec, translate, nav, host, dispatcher, openDrawer, onWriteSuccess, clientActions]);
 }
 
+// Empty although the user changed nothing: a default filter hides rows the list would otherwise show.
+export function isDefaultFilterActive(
+  search: string,
+  filters: Readonly<Record<string, readonly string[]>>,
+  defaultFilters: Readonly<Record<string, readonly string[]>>,
+): boolean {
+  return (
+    !isListNarrowed(search, filters, defaultFilters) &&
+    Object.values(defaultFilters).some((values) => values.length > 0)
+  );
+}
+
 // Facets with a default are only "narrowed" once the user moved off that default.
 export function isListNarrowed(
   search: string,
