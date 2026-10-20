@@ -126,24 +126,28 @@ export function EditorHeader({
       actions={
         <span className="flex items-center gap-2 [&_button]:px-2.5 [&_button]:text-sm">
           {children}
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!actions.canSave}
-            loading={actions.busy}
-            onClick={actions.onSave}
-            testId="document-designer-header-save"
-          >
-            {t("documentDesigner.editor.save")}
-          </Button>
-          <Button
-            size="sm"
-            disabled={!actions.canPublish}
-            onClick={actions.onPublish}
-            testId="document-designer-header-publish"
-          >
-            {t("documentDesigner.editor.publish")}
-          </Button>
+          {/* The footer carries the same two buttons; below 1280px the header leaves them to it so
+              the title keeps its room. */}
+          <span className="hidden items-center gap-2 xl:flex">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!actions.canSave}
+              loading={actions.busy}
+              onClick={actions.onSave}
+              testId="document-designer-header-save"
+            >
+              {t("documentDesigner.editor.save")}
+            </Button>
+            <Button
+              size="sm"
+              disabled={!actions.canPublish}
+              onClick={actions.onPublish}
+              testId="document-designer-header-publish"
+            >
+              {t("documentDesigner.editor.publish")}
+            </Button>
+          </span>
         </span>
       }
     />

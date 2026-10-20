@@ -111,26 +111,24 @@ test("a long template title truncates without sliding over the parent crumb", as
   expect(crumbBox.x + crumbBox.width).toBeLessThanOrEqual(titleBox.x);
 });
 
-test("in a narrow window the parent crumb gives way to the title instead of running under the status", async ({
+// At 1024px beside the app sidebar three columns would squeeze the page to a strip: the header
+// leaves save and publish to the footer, and both rails share the left column.
+test("in a narrow window the title stays readable and the page keeps its room", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 820 });
-  // Not openEditor: at this width the title may truncate, which is the point here.
-  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
-  await page.goto(EDITOR_URL);
-  await expect(page.getByTestId("pdf-editor-footer-message")).toContainText("Pflicht-Platzhalter");
+  await openEditor(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await expect(page.getByTestId("document-designer-header-save")).toBeHidden();
+  await expect(page.getByTestId("document-designer-save")).toBeVisible();
   const header = page.locator('[data-kumiko-layout="shell-header"]');
-  await expect(header.getByRole("link", { name: "Vorlagen" })).toBeHidden();
-  const crumbsFit = await header
-    .locator("nav")
-    .evaluate((nav) => (nav.firstElementChild?.scrollWidth ?? 0) <= nav.clientWidth);
-  expect(crumbsFit).toBe(true);
   const titleBox = await header.locator("h1").boundingBox();
   const statusBox = await header.locator('[data-kumiko-layout="page-header-status"]').boundingBox();
   expect(titleBox).not.toBeNull();
   expect(statusBox).not.toBeNull();
   if (titleBox === null || statusBox === null) return;
   expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(statusBox.x);
+  const pageBox = await page.getByTestId("document-designer-page").boundingBox();
+  expect(pageBox?.width ?? 0).toBeGreaterThan(450);
   await shot(page, "pdf-template-editor-narrow-header");
 });
 
