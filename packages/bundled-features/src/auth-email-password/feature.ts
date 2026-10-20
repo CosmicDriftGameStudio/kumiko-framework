@@ -14,6 +14,7 @@ import {
 import { inviteInfoQuery } from "./handlers/invite-info.query.ts";
 import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write.ts";
 import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write.ts";
+import { loginOptionsQuery } from "./handlers/login-options.query.ts";
 import { logoutWrite } from "./handlers/logout.write.ts";
 import {
   createRequestAccountUnlockHandler,
@@ -256,6 +257,7 @@ export function createAuthEmailPasswordFeature(
     }
 
     const queries = {
+      loginOptions: r.queryHandler(loginOptionsQuery),
       ...(opts.signup && {
         signupRegistrationStatus: r.queryHandler(selfRegistrationStatusQuery),
       }),

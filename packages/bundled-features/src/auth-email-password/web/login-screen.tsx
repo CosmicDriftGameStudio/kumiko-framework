@@ -8,8 +8,14 @@
 // gemappt (reasonToI18nKey) — neue Reason-Codes brauchen nur eine
 // neue Zeile im Bundle + hier im Mapping.
 
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  useOptionalDispatcher,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
+import { DEFAULT_AUTH_PATHS, DEFAULT_FORGOT_PASSWORD_PATH } from "../auth-paths.ts";
 import {
   type KnownLoginFailureReason,
   type LoginFailure,
@@ -17,6 +23,7 @@ import {
 } from "./auth-client.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
 import { followNextOrLandingAfterLogin } from "./auth-redirect.ts";
+import { AuthQueries } from "./constants.ts";
 import { useSession } from "./session.tsx";
 
 // Resend-Status für den "Bestätigungs-Mail erneut senden"-Flow, der bei
@@ -42,15 +49,18 @@ export type LoginScreenProps = {
   /** Optional href zum ForgotPasswordScreen. Wenn gesetzt rendert die
    *  LoginScreen unter dem Submit-Button einen "Passwort vergessen?"-
    *  Link. Apps die den Reset-Flow NICHT anbieten (z.B. nur Magic-Link),
-   *  setzen das einfach nicht — Login bleibt minimalistisch. */
-  readonly forgotPasswordHref?: string;
+   *  setzen das einfach nicht — Login bleibt minimalistisch. Ungesetzt:
+   *  Default-Pfad, sobald der Server den Reset-Flow anbietet (login-options);
+   *  `null` = bewusst kein Link. */
+  readonly forgotPasswordHref?: string | null;
   /** Optional href to RequestAccountUnlockScreen (#1266). When set, an
    *  account_locked login error renders an "Unlock account?" link inline —
    *  the account-lockout escape hatch, since forgotPasswordHref does NOT
    *  help here: the lockout gate blocks login before password verify even
    *  runs, so it also blocks the post-reset login. Apps without
-   *  accountUnlock configured just leave this unset. */
-  readonly unlockAccountHref?: string;
+   *  accountUnlock configured just leave this unset. Unset: default path once
+   *  the server offers the flow (login-options); `null` = deliberately no link. */
+  readonly unlockAccountHref?: string | null;
   /** Optional href zum SignupScreen. Wenn gesetzt rendert die LoginScreen
    *  einen "Account erstellen"-Link. Apps die kein Self-Signup wollen
    *  (closed-invite-only) setzen das einfach nicht. */
@@ -112,7 +122,7 @@ function reasonToKey(failure: LoginFailure): {
   }
 }
 
-export function LoginScreen({
+function LoginScreenBody({
   title,
   subtitle,
   submitLabel,
@@ -122,7 +132,8 @@ export function LoginScreen({
   legalLinks,
   onMfaChallenge,
   onMfaSetupRequired,
-}: LoginScreenProps): ReactNode {
+  loginOptions,
+}: LoginScreenProps & { readonly loginOptions: LoginOptions | null }): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const session = useSession();
@@ -135,6 +146,18 @@ export function LoginScreen({
   // Email-Eingabe ändert — sonst würde Resend silent an die geänderte
   // (potentiell typoed) Adresse gehen ohne User-Feedback.
   const [failedLoginEmail, setFailedLoginEmail] = useState<string | null>(null);
+  const effectiveForgotHref =
+    forgotPasswordHref === undefined
+      ? loginOptions?.passwordReset === true
+        ? DEFAULT_FORGOT_PASSWORD_PATH
+        : null
+      : forgotPasswordHref;
+  const effectiveUnlockHref =
+    unlockAccountHref === undefined
+      ? loginOptions?.accountUnlock === true
+        ? DEFAULT_AUTH_PATHS.unlockAccount
+        : null
+      : unlockAccountHref;
 
   const doSubmit = async (): Promise<void> => {
     setSubmitting(true);
@@ -252,9 +275,9 @@ export function LoginScreen({
                     </Button>
                   </span>
                 )}
-              {error.reason === "account_locked" && unlockAccountHref !== undefined && (
+              {error.reason === "account_locked" && effectiveUnlockHref !== null && (
                 <span className="self-start">
-                  <Link href={unlockAccountHref} variant="default">
+                  <Link href={effectiveUnlockHref} variant="default">
                     {t("auth.login.unlockAccount")}
                   </Link>
                 </span>
@@ -272,8 +295,8 @@ export function LoginScreen({
           {submitting ? t("auth.login.submitting") : effectiveSubmit}
         </Button>
       </Form>
-      {forgotPasswordHref !== undefined && (
-        <Link href={forgotPasswordHref} variant="muted" className="self-center">
+      {effectiveForgotHref !== null && (
+        <Link href={effectiveForgotHref} variant="muted" className="self-center">
           {t("auth.login.forgotPassword")}
         </Link>
       )}
@@ -295,5 +318,27 @@ export function LoginScreen({
         </nav>
       )}
     </AuthCard>
+  );
+}
+
+type LoginOptions = { readonly passwordReset: boolean; readonly accountUnlock: boolean };
+
+function LoginScreenWithQueriedOptions(props: LoginScreenProps): ReactNode {
+  const { data } = useQuery<LoginOptions>(
+    AuthQueries.loginOptions,
+    {},
+    { enabled: props.forgotPasswordHref === undefined || props.unlockAccountHref === undefined },
+  );
+  return <LoginScreenBody {...props} loginOptions={data} />;
+}
+
+// Without a mounted dispatcher (standalone mounts, tests) the query is skipped
+// and only explicit hrefs render.
+export function LoginScreen(props: LoginScreenProps): ReactNode {
+  const dispatcher = useOptionalDispatcher();
+  return dispatcher === undefined ? (
+    <LoginScreenBody {...props} loginOptions={null} />
+  ) : (
+    <LoginScreenWithQueriedOptions {...props} />
   );
 }

@@ -16,6 +16,9 @@ export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = 
   "userDataRights.privacyCenter.subtitle": {
     en: "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
   },
+  "userDataRights.privacyCenter.subtitleWithoutDeletion": {
+    en: "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20) and restricts processing of their account (Art. 18).",
+  },
   "user-data-rights:entity:export-job:field:userId": { en: "User" },
   "user-data-rights:entity:export-job:field:status": { en: "Status" },
   "user-data-rights:entity:export-job:field:requestedAt": { en: "Requested" },

@@ -13,6 +13,7 @@ import {
   makeSessionAuthGate,
 } from "./auth-gate.tsx";
 import { emailPasswordClientActions } from "./client-actions.ts";
+import { DefaultAuthPagesGate } from "./default-auth-pages-gate.tsx";
 import { defaultTranslations, mergeTranslations } from "./i18n.ts";
 import type { LoginScreenProps } from "./login-screen.tsx";
 
@@ -45,6 +46,11 @@ export type EmailPasswordClientOptions = {
    *  Für Branding ("Sign in" → "Login to Acme") oder weitere Sprachen
    *  (`fr`, `es`, …) zusätzlich. */
   readonly translations?: TranslationsByLocale;
+  /** Serve the forgot-password, reset-password and unlock-account pages at
+   *  their convention paths for signed-out visitors. Apps with their own
+   *  screens at those paths either register an earlier gate (it wins) or
+   *  set this to false. Default: true. */
+  readonly defaultAuthPages?: boolean;
 };
 
 // Structurally identical to the renderer/web ClientFeatureDefinition, but
@@ -66,6 +72,7 @@ export function emailPasswordClient(
     name: "auth-email-password",
     providers: [],
     gates: [
+      ...(options.defaultAuthPages === false ? [] : [DefaultAuthPagesGate]),
       makeSessionAuthGate({
         loginScreen: options.loginScreen,
         loginScreenProps: options.loginScreenProps,

@@ -26,6 +26,7 @@ import { randomBytes } from "node:crypto";
 import {
   AuthErrors,
   AuthHandlers,
+  AuthQueries,
   hashPassword,
   signToken,
   TokenPurpose,
@@ -51,7 +52,7 @@ import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundle
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
@@ -128,6 +129,7 @@ async function bootStack(
       ...createDeliveryTestContext(deps),
       configResolver: createConfigResolver(),
     }),
+    anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
@@ -209,12 +211,17 @@ async function bootMailConventionStack(
       ...createDeliveryTestContext(deps),
       configResolver: createConfigResolver(),
     }),
+    anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
+      },
+      accountUnlock: {
+        requestHandler: AuthHandlers.requestAccountUnlock,
+        confirmHandler: AuthHandlers.confirmAccountUnlock,
       },
     },
   });
@@ -529,6 +536,17 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
     expect(res.status).toBe(200);
     expect(suite.emailTransport.sent).toHaveLength(0);
   });
+
+  test("login-options reports no optional flow without auth options", async () => {
+    const res = await suite.stack.http.raw("POST", "/api/query", {
+      type: AuthQueries.loginOptions,
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      data: { passwordReset: false, accountUnlock: false },
+    });
+  });
 });
 
 describe("composeFeatures wiring — auth.mail convenience locale + secret", () => {
@@ -576,6 +594,35 @@ describe("composeFeatures wiring — auth.mail convenience locale + secret", () 
       newPassword: "brand-new-pw-9876",
     });
     expect(confirmRes.status).toBe(200);
+  });
+
+  test("auth.mail without an accountUnlock block still mails an unlock link to /unlock-account", async () => {
+    await seedUser(suite.stack, { email: "ida@example.com", password: "old-password-1234" });
+
+    const res = await suite.stack.http.raw("POST", "/api/auth/request-account-unlock", {
+      email: "ida@example.com",
+    });
+    expect(res.status).toBe(200);
+    const sent = suite.emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    const unlockUrl = tokenUrlFromMailText(sent.text ?? "");
+    expect(unlockUrl.origin).toBe("https://app.example.com");
+    expect(unlockUrl.pathname).toBe("/unlock-account");
+    const token = unlockUrl.searchParams.get("token");
+    if (!token) throw new Error("no token in mail link");
+    const confirmRes = await suite.stack.http.raw("POST", "/api/auth/confirm-account-unlock", {
+      token,
+    });
+    expect(confirmRes.status).toBe(200);
+  });
+
+  test("login-options reports both flows as available", async () => {
+    const res = await suite.stack.http.raw("POST", "/api/query", {
+      type: AuthQueries.loginOptions,
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ data: { passwordReset: true, accountUnlock: true } });
   });
 
   test("no X-Locale → reset link falls back to the default path", async () => {

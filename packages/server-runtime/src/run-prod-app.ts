@@ -195,7 +195,11 @@ import {
   resolveAuthMail,
   wireProdPatAutoRevoke,
 } from "./run-prod-app-boot-context.ts";
-import { buildStaticFallback, resolveCspScriptHashes } from "./run-prod-app-static-files.ts";
+import {
+  buildStaticFallback,
+  resolveCspScriptHashes,
+  resolveHostDispatchScriptHashes,
+} from "./run-prod-app-static-files.ts";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.ts";
 import {
   makeSeedCreateFileRef,
@@ -306,10 +310,11 @@ export type InviteSetup = InviteOptions;
 
 /** Wrapper API for the account-unlock flow (#1266). = AccountUnlockOptions
  *  (appUrl via delivery, symmetric to PasswordResetSetup). Self-service
- *  escape hatch for accountLockout's monotonic failure counter — only
- *  meaningful when `auth.accountLockout` is also set, but wired
- *  independently like the other flows. */
-export type AccountUnlockSetup = AccountUnlockOptions;
+ *  escape hatch for accountLockout's failure counter; the lockout is always
+ *  on, so `auth.mail` mounts this flow by default. */
+export type AccountUnlockSetup = Omit<AccountUnlockOptions, "hmacSecret"> & {
+  readonly hmacSecret?: string;
+};
 
 /** Wrapper API for the account-lockout brute-force guard on the login
  *  handler. = AccountLockoutOptions (maxFailedAttempts, lockoutDurationMinutes
@@ -320,7 +325,7 @@ export type AccountUnlockSetup = AccountUnlockOptions;
 export type AccountLockoutSetup = AccountLockoutOptions;
 
 /** Auth-Mail-Convenience-Optionen — shared zwischen runProdApp + runDevApp.
- *  Verdrahtet alle 4 Mail-Flows aus einem env-SMTP-Transport + Standard-
+ *  Verdrahtet alle 5 Mail-Flows aus einem env-SMTP-Transport + Standard-
  *  Templates (siehe `auth.mail` + resolveAuthMail). */
 export type AuthMailOptions = {
   /** App-Basis-URL inkl. Schema (z.B. "https://app.example.com"). */
@@ -348,8 +353,8 @@ export type RunProdAppAuthOptions = {
   readonly admin?: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
-  /** Auth-Mail-Convenience: verdrahtet alle 4 Mail-Flows (passwordReset,
-   *  emailVerification, signup, invite) aus `auth.mail.baseUrl` + Standard-
+  /** Auth-Mail-Convenience: verdrahtet alle 5 Mail-Flows (passwordReset,
+   *  emailVerification, signup, invite, accountUnlock) aus `auth.mail.baseUrl` + Standard-
    *  Pfaden. Alle vier mailen via delivery (ctx.notify) — ersetzt das per-App
    *  hand-gerollte `send*Email`-Callback-Wiring.
    *
@@ -358,7 +363,7 @@ export type RunProdAppAuthOptions = {
    *  Flow custom braucht, setzt `passwordReset`/`signup`/… explizit —
    *  der explizite Block gewinnt über den mail-Default.
    *
-   *  Bewusste Entscheidung: `mail` mountet ALLE 4 Flows inkl. signup +
+   *  Bewusste Entscheidung: `mail` mountet ALLE 5 Flows inkl. signup +
    *  invite (Self-Registration on). Wer nur reset+verify will, lässt `mail`
    *  weg und setzt die gewünschten Flows explizit — kein impliziter
    *  Self-Signup. */
@@ -511,7 +516,11 @@ export type HostDispatchFn = (
    *  hostDispatch is reachable by any public visitor, same access gate as a
    *  real anonymous request. Lets a Multi-Tenant hostDispatch look up the
    *  tenant for a subdomain instead of needing its own db handle. */
-  deps: { readonly systemQuery: PageHeadSystemQuery },
+  deps: {
+    readonly systemQuery: PageHeadSystemQuery;
+    /** Raw `sha256-…` hashes of the build's inline scripts (csp-hashes.json), for a per-host CSP without 'unsafe-inline'. */
+    readonly cspScriptHashes: readonly string[];
+  },
 ) => HostDispatchResult | Promise<HostDispatchResult>;
 
 // PageHeadMeta/PageHeadResolver/PageHeadSystemQuery moved to
@@ -1539,6 +1548,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     owns the rest. Tests use this directly; listen() wraps it in
   //     Bun.serve.
   const cspScriptHashes = await resolveCspScriptHashes(options.staticDir, options.securityHeaders);
+  const hostDispatchScriptHashes =
+    options.hostDispatch !== undefined && options.staticDir !== undefined
+      ? await resolveHostDispatchScriptHashes(
+          options.staticDir,
+          options.securityHeaders,
+          cspScriptHashes,
+        )
+      : [];
   const fetchHandler = withSecurityHeaders(
     bootOptionWiring.wrapFetch(
       options.staticDir
@@ -1551,6 +1568,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
               : undefined,
             entrypoint.dispatcher,
             trustedProxyHops ?? 0,
+            hostDispatchScriptHashes,
           )
         : // No staticDir (split-deploy / API-only container) → app.fetch's
           // response goes straight to the client, bypassing buildStaticFallback

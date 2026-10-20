@@ -1477,6 +1477,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Restrict processing (Art. 18)",
   "userDataRights.privacyCenter.subtitle":
     "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
+  "userDataRights.privacyCenter.subtitleWithoutDeletion":
+    "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20) and restricts processing of their account (Art. 18).",
   "admin-shell.screen.platform-overview.subtitle":
     "Tenant, user, job and delivery health across the whole installation.",
   "admin-shell.screen.tenant-overview.subtitle":

@@ -1523,6 +1523,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Verarbeitung einschränken · Art. 18",
   "userDataRights.privacyCenter.subtitle":
     "DSGVO-Self-Service für angemeldete Nutzer: Anfordern und Herunterladen eines Datenexports (Art. 20), Einschränken der Verarbeitung des eigenen Kontos (Art. 18) und Beantragen der Löschung (Art. 17).",
+  "userDataRights.privacyCenter.subtitleWithoutDeletion":
+    "DSGVO-Self-Service für angemeldete Nutzer: Anfordern und Herunterladen eines Datenexports (Art. 20) und Einschränken der Verarbeitung des eigenen Kontos (Art. 18).",
   "admin-shell.screen.platform-overview.subtitle":
     "Zustand von Mandanten, Benutzern, Jobs und Zustellungen der gesamten Installation.",
   "admin-shell.screen.tenant-overview.subtitle":

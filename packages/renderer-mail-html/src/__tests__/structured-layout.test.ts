@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mailLayoutAppearance } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import {
+  mailLayoutAppearance,
+  sanitizeLayoutHtml,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import mjml2html from "mjml";
 import { compileDocumentSource, createDocumentHandlebars } from "../document-kit";
 import { toneColors } from "../mail-chrome";
@@ -95,5 +98,37 @@ describe("structured mail layout :: card chrome", () => {
     const source = render({ headerChip: "Ignored without tone" });
     expect(source).toContain('background-color="#2b3fe0" border-radius="14px 14px 0 0"');
     expect(source).not.toContain("Ignored without tone");
+  });
+});
+
+describe("structured mail layout :: hostile tenant input", () => {
+  const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
+  const HOSTILE_PREVIEW = "<img src=x onerror=alert(1)>";
+  const HOSTILE_TEXT =
+    '{{{previewText}}} &lt;script&gt;alert(1)&lt;/script&gt; "&gt;&lt;img src=x onerror=alert(1)&gt;';
+
+  test("the sanitizer rejects a raw script element in a region", () => {
+    const result = sanitizeLayoutHtml(
+      "<div data-header><p>x</p><script>alert(1)</script></div><div data-content></div>",
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  test("handlebars syntax and markup typed as text stay inert text in the rendered mail", async () => {
+    const sanitized = sanitizeLayoutHtml(
+      `<div data-header><p>${HOSTILE_TEXT}</p></div><div data-content></div><div data-footer><p>${HOSTILE_TEXT}</p></div>`,
+    );
+    if (!sanitized.ok) throw new Error("layout with escaped text must pass the sanitizer");
+    const source = renderStructuredLayoutMjml({
+      layoutHtml: sanitized.html,
+      contentHtml: BODY,
+      context: { lang: "de", subject: HOSTILE_PREVIEW, previewText: HOSTILE_PREVIEW },
+      compile: (frame) => compileDocumentSource(hbs, frame),
+    });
+    const { html } = await mjml2html(source, { validationLevel: "soft" });
+    expect(html).not.toContain("<script");
+    expect(html).not.toMatch(/<img[^>]*onerror=/i);
+    expect(html).not.toContain("<img src=x");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
   });
 });

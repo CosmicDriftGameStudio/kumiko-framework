@@ -1517,6 +1517,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Limita il trattamento (art. 18)",
   "userDataRights.privacyCenter.subtitle":
     "Pagina GDPR self-service per utenti connessi, in cui si richiede e si scarica un'esportazione dei propri dati (art. 20), si limita il trattamento del proprio account (art. 18) e se ne richiede l'eliminazione (art. 17).",
+  "userDataRights.privacyCenter.subtitleWithoutDeletion":
+    "Pagina GDPR self-service per utenti connessi, in cui si richiede e si scarica un'esportazione dei propri dati (art. 20) e si limita il trattamento del proprio account (art. 18).",
   "admin-shell.screen.platform-overview.subtitle":
     "Stato di organizzazioni, utenti, job e invii sull'intera installazione.",
   "admin-shell.screen.tenant-overview.subtitle":

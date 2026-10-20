@@ -1532,6 +1532,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Restreindre le traitement (art. 18)",
   "userDataRights.privacyCenter.subtitle":
     "Page RGPD en libre-service, réservée aux utilisateurs connectés, où l'on demande et télécharge un export de ses données (art. 20), restreint le traitement de son compte (art. 18) et demande sa suppression (art. 17).",
+  "userDataRights.privacyCenter.subtitleWithoutDeletion":
+    "Page RGPD en libre-service, réservée aux utilisateurs connectés, où l'on demande et télécharge un export de ses données (art. 20) et restreint le traitement de son compte (art. 18).",
   "admin-shell.screen.platform-overview.subtitle":
     "État des organisations, des utilisateurs, des tâches et des envois sur l'ensemble de l'installation.",
   "admin-shell.screen.tenant-overview.subtitle":

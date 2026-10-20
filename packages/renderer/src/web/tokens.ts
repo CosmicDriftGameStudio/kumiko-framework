@@ -27,7 +27,8 @@ import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.ts";
 // AppTheme.defaultColorScheme (CSS variable) applies, otherwise the HTML state.
 //
 // Against FOUC the host HTML also needs a synchronous inline script BEFORE
-// the stylesheet link (nonce/hash under a strict CSP):
+// the stylesheet link. Under a strict CSP its hash is the sha256 in the build's
+// csp-hashes.json, which runProdApp also hands to hostDispatch as deps.cspScriptHashes:
 //
 //   <script>try{var s=localStorage.getItem("kumiko:theme");
 //     if(s==="dark"||(s==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))

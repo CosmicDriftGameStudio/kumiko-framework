@@ -152,7 +152,11 @@ export type DevHostDispatchResult =
  *  Multi-Entry-Apps gesetzt; im Single-Entry-Mode irrelevant. */
 export type DevHostDispatch = (
   req: Request,
-  deps: { readonly systemQuery: PageHeadSystemQuery },
+  deps: {
+    readonly systemQuery: PageHeadSystemQuery;
+    /** Always empty: dev serves no per-host CSP. */
+    readonly cspScriptHashes: readonly string[];
+  },
 ) => DevHostDispatchResult | Promise<DevHostDispatchResult>;
 
 export type CreateKumikoServerOptions = {
@@ -1277,6 +1281,7 @@ export async function createKumikoServer(
       if (options.hostDispatch !== undefined) {
         const dispatch = await options.hostDispatch(req, {
           systemQuery: buildDevSystemQuery(req, socketAddress),
+          cspScriptHashes: [],
         });
         if (dispatch.kind === "redirect") {
           return new Response(null, {

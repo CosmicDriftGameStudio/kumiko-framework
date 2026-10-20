@@ -183,5 +183,11 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
     expect(actionIds).not.toContain("request-deletion");
     expect(actionIds).not.toContain("cancel-deletion");
     expect(actionIds).toContain("restrict");
+    expect(screen.description).toBe("userDataRights.privacyCenter.subtitleWithoutDeletion");
+  });
+
+  test("subtitle keeps the deletion wording while deletion is shown", () => {
+    const screen = createUserDataRightsFeature().screens["privacy-center"];
+    expect(screen?.description).toBe("userDataRights.privacyCenter.subtitle");
   });
 });

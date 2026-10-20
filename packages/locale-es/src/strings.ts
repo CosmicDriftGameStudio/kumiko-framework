@@ -1514,6 +1514,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Limitar el tratamiento (art. 18)",
   "userDataRights.privacyCenter.subtitle":
     "Página de autoservicio del RGPD para usuarios con sesión iniciada: solicitar y descargar una exportación de datos (art. 20), restringir el tratamiento de su cuenta (art. 18) y solicitar su eliminación (art. 17).",
+  "userDataRights.privacyCenter.subtitleWithoutDeletion":
+    "Página de autoservicio del RGPD para usuarios con sesión iniciada: solicitar y descargar una exportación de datos (art. 20) y restringir el tratamiento de su cuenta (art. 18).",
   "admin-shell.screen.platform-overview.subtitle":
     "Estado de organizaciones, usuarios, trabajos y entregas de toda la instalación.",
   "admin-shell.screen.tenant-overview.subtitle":

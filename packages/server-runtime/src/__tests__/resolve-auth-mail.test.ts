@@ -37,10 +37,31 @@ describe("resolveAuthMail", () => {
     expect(out.passwordReset?.hmacSecret).toBe("secret");
   });
 
+  test("mail + SMTP_HOST → account unlock wired by default, mail link points at /unlock-account", () => {
+    const out = resolveAuthMail(withMail, "secret", { SMTP_HOST: "localhost" });
+    expect(out.accountUnlock?.appUrl).toBe("https://app.example.com/unlock-account");
+    expect(out.accountUnlock?.hmacSecret).toBe("secret");
+  });
+
+  test("explicit accountUnlock wins and is backfilled from mail.hmacSecret", () => {
+    const out = resolveAuthMail(
+      {
+        admin,
+        mail: { baseUrl: "https://app.example.com", hmacSecret: "mail-only-secret" },
+        accountUnlock: { appUrl: "https://custom.example.com/unlock" },
+      },
+      "jwt-secret",
+      { SMTP_HOST: "localhost" },
+    );
+    expect(out.accountUnlock?.appUrl).toBe("https://custom.example.com/unlock");
+    expect(out.accountUnlock?.hmacSecret).toBe("mail-only-secret");
+  });
+
   test("mail but NO SMTP_HOST → null-transport guard, flows stay unwired", () => {
     const out = resolveAuthMail(withMail, "secret", {});
     expect(out.passwordReset).toBeUndefined();
     expect(out.signup).toBeUndefined();
+    expect(out.accountUnlock).toBeUndefined();
   });
 
   test("explicit per-flow setup wins over the mail default", () => {

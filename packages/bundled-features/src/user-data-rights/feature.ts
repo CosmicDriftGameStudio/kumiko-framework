@@ -399,7 +399,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         },
       },
       dormant: true,
-      description: "userDataRights.privacyCenter.subtitle",
+      description: showDeletion
+        ? "userDataRights.privacyCenter.subtitle"
+        : "userDataRights.privacyCenter.subtitleWithoutDeletion",
       fieldLabels: {
         status: i18nKey("userDataRights.privacyCenter.field.status"),
         gracePeriodEnd: i18nKey("userDataRights.privacyCenter.field.gracePeriodEnd"),
