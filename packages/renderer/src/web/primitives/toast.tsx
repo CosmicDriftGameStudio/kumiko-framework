@@ -22,6 +22,7 @@ import {
 import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import type { StatusTone } from "../widgets/status-badge.tsx";
+import { CopyButton } from "./share-actions.tsx";
 
 export type ToastVariant = StatusTone;
 
@@ -123,26 +124,23 @@ const TONE_CLASS: Record<StatusTone, string> = {
 
 function ToastErrorReference({ requestId }: { readonly requestId: string }): ReactNode {
   const t = useTranslation();
-  const [copied, setCopied] = useState(false);
-  async function copyRequestId(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(requestId);
-      setCopied(true);
-    } catch {
-      // Clipboard denied: the id stays visible and selectable.
-    }
-  }
+  const reference = t("kumiko.error.reference", { id: requestId });
   return (
-    <div className="flex items-center gap-2 text-xs opacity-90" data-testid="toast-error-reference">
-      <span className="break-all select-all">{t("kumiko.error.reference", { id: requestId })}</span>
-      <button
-        type="button"
-        className="rounded underline focus:outline-none focus:ring-1 focus:ring-current"
-        data-testid="toast-error-reference-copy"
-        onClick={() => void copyRequestId()}
-      >
-        {copied ? t("kumiko.error.referenceCopied") : t("kumiko.error.copyReference")}
-      </button>
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+      data-testid="toast-error-reference"
+    >
+      <span className="min-w-0 truncate whitespace-nowrap select-all opacity-90" title={reference}>
+        {reference}
+      </span>
+      <CopyButton
+        text={requestId}
+        label={t("kumiko.error.copyReference")}
+        copiedLabel={t("kumiko.error.referenceCopied")}
+        variant="secondary"
+        className="min-h-0 h-7 shrink-0"
+        testId="toast-error-reference-copy"
+      />
     </div>
   );
 }
@@ -164,7 +162,7 @@ function ToastItem({
         if (!open) onClose();
       }}
     >
-      <div className="grid gap-1">
+      <div className="grid min-w-0 gap-1">
         <Primitive.Title className="text-sm font-semibold">{entry.title}</Primitive.Title>
         {entry.description !== undefined && (
           <Primitive.Description className="text-sm opacity-90">

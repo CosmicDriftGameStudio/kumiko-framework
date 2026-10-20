@@ -1,7 +1,8 @@
 import { ROOT_ERROR_FALLBACK_TEST_ID } from "@cosmicdrift/kumiko-types/error-boundary";
+import { Check, Copy } from "lucide-react";
 import { type CSSProperties, type ReactNode, useState } from "react";
 
-// Renders outside every provider and possibly without loaded CSS, so no i18n/theme/primitives: plain DOM, inline text and inline styles.
+// Renders outside every provider and possibly without loaded CSS, so no i18n/theme/primitives: plain DOM, inline text and inline styles (lucide icons are self-contained SVG).
 const ROOT_ERROR_TEXTS = {
   de: {
     title: "Etwas ist schiefgelaufen.",
@@ -59,17 +60,21 @@ const referenceStyle: CSSProperties = {
   fontSize: "13px",
   color: "#555555",
 };
-const codeStyle: CSSProperties = {
-  fontFamily: "ui-monospace, Menlo, monospace",
-  wordBreak: "break-all",
-};
+const errorIdStyle: CSSProperties = { whiteSpace: "nowrap" };
 const buttonStyle: CSSProperties = {
-  padding: "8px 16px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  padding: "6px 12px",
+  fontFamily: "inherit",
   fontSize: "14px",
+  fontWeight: 500,
+  lineHeight: "20px",
   borderRadius: "6px",
-  border: "1px solid #888888",
-  background: "#f4f4f5",
+  border: "1px solid #e4e4e7",
+  background: "#ffffff",
   color: "#1a1a1a",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
   cursor: "pointer",
 };
 
@@ -93,7 +98,7 @@ export function RootErrorFallback({ errorId }: { readonly errorId?: string }): R
       {errorId !== undefined && (
         <div style={referenceStyle} data-testid={`${ROOT_ERROR_FALLBACK_TEST_ID}-reference`}>
           <span>
-            {texts.reference}: <span style={codeStyle}>{errorId}</span>
+            {texts.reference}: <span style={errorIdStyle}>{errorId}</span>
           </span>
           <button
             type="button"
@@ -101,6 +106,11 @@ export function RootErrorFallback({ errorId }: { readonly errorId?: string }): R
             data-testid={`${ROOT_ERROR_FALLBACK_TEST_ID}-copy`}
             onClick={() => void copyErrorId()}
           >
+            {copied ? (
+              <Check size={14} aria-hidden="true" />
+            ) : (
+              <Copy size={14} aria-hidden="true" />
+            )}
             {copied ? texts.copied : texts.copy}
           </button>
         </div>
