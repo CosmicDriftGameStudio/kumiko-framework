@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { StatusCell, TitleCell } from "../cells.tsx";
+import { OverriddenByCell, StatusCell, TitleCell } from "../cells.tsx";
 import { documentDesignerClient } from "../client-plugin.tsx";
 
 const translations = mergeTranslations(
@@ -78,5 +78,28 @@ describe("template overview cells", () => {
   test("a plain title is shown unchanged", () => {
     renderCell(TitleCell as never, { ...baseRow, title: "Rechnung Hausverwaltung" });
     expect(screen.getByText("Rechnung Hausverwaltung")).toBeTruthy();
+  });
+
+  test("the overridden-by cell reads the count from the row", () => {
+    renderCell(OverriddenByCell as never, {
+      ...baseRow,
+      title: "T",
+      overriddenBy: { active: 1, total: 2 },
+    });
+    expect(screen.getByText("1 of 2 tenants")).toBeTruthy();
+  });
+
+  test("the overridden-by cell shows the tenants count without a tenant total", () => {
+    renderCell(OverriddenByCell as never, {
+      ...baseRow,
+      title: "T",
+      overriddenBy: { active: 3, total: null },
+    });
+    expect(screen.getByText("3 tenants")).toBeTruthy();
+  });
+
+  test("the overridden-by cell shows a placeholder when the row has no count", () => {
+    renderCell(OverriddenByCell as never, { ...baseRow, title: "T" });
+    expect(screen.queryByText(/tenants/)).toBeNull();
   });
 });

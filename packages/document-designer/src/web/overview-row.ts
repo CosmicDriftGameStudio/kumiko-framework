@@ -24,6 +24,8 @@ export type OverviewRowView = {
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsageView[];
   readonly usedByCount: number;
+  /** SystemAdmin only, system-origin rows; total is null without the tenant feature. */
+  readonly overriddenBy: { readonly active: number; readonly total: number | null } | null;
 };
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -57,6 +59,11 @@ const stringOr = (value: unknown, fallback: string): string =>
 const numberOr = <T extends number | null>(value: unknown, fallback: T): number | T =>
   typeof value === "number" ? value : fallback;
 
+function overriddenByOf(value: unknown): OverviewRowView["overriddenBy"] {
+  if (!isRecord(value) || typeof value["active"] !== "number") return null;
+  return { active: value["active"], total: numberOr(value["total"], null) };
+}
+
 export function parseOverviewRow(row: Readonly<Record<string, unknown>>): OverviewRowView | null {
   const {
     id,
@@ -75,6 +82,7 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     modifiedAt,
     usedBy,
     usedByCount,
+    overriddenBy,
   } = row;
   if (typeof slug !== "string" || !isTemplateKind(kind) || !isStatus(status)) return null;
   if (origin !== "tenant" && origin !== "system") return null;
@@ -98,5 +106,6 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     modifiedAt: stringOr(modifiedAt, ""),
     usedBy: usages,
     usedByCount: numberOr(usedByCount, usages.length),
+    overriddenBy: overriddenByOf(overriddenBy),
   };
 }

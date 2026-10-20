@@ -112,6 +112,15 @@ const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
 // credential (see "Signed-URL default expiry" in core-files.md).
 const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
 
+const MAX_BATCH_META_IDS = 100;
+// Each detail() read decrypts through the KMS pool; a bounded chunk keeps one batch from hogging it.
+const BATCH_META_CONCURRENCY = 10;
+
+type FileMeta = Pick<
+  FileRef,
+  "id" | "fileName" | "mimeType" | "size" | "entityType" | "entityId" | "fieldName"
+>;
+
 // Default guard: on attached files, allow the uploader or a privileged role,
 // and for reads also everyone who may read the record. Delete stays with the
 // uploader and privileged roles: reading a record is no right to remove its
@@ -355,6 +364,23 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return c.json(outcome.fileRef, 201);
   });
 
+  // GET /files/meta?ids=a,b,c — meta of many files in one request (list/card
+  // cells otherwise fire one request per row). Unreadable and unknown ids are
+  // left out of the answer, same as /files/:id/meta answering 404 for them.
+  // Registered before /files/:id so "meta" is never taken for an id.
+  api.get("/files/meta", async (c) => {
+    const user = getUser(c);
+    const ids = [...new Set((c.req.query("ids") ?? "").split(",").filter((id) => isUuid(id)))];
+    if (ids.length > MAX_BATCH_META_IDS) return c.json({ error: "too_many_ids" }, 400);
+    const files: FileMeta[] = [];
+    for (let start = 0; start < ids.length; start += BATCH_META_CONCURRENCY) {
+      const chunk = ids.slice(start, start + BATCH_META_CONCURRENCY);
+      const metas = await Promise.all(chunk.map((id) => loadReadableFileMeta(id, user)));
+      for (const meta of metas) if (meta) files.push(meta);
+    }
+    return c.json({ files });
+  });
+
   // GET /files/:id — download.
   //
   // Authorization stack:
@@ -538,30 +564,26 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return c.json({ url, expiresAt });
   });
 
-  // GET /files/:id/meta — metadata without the bytes. Unlike the byte-serving
-  // routes above, this returns fileName as JSON — and fileName is
-  // `personal: "self"` (fw#2423), so it must go through the entity executor's
-  // detail() to decrypt instead of loadFileForTenant's raw, still-encrypted read.
-  api.get("/files/:id/meta", async (c) => {
-    const user = getUser(c);
-    const id = c.req.param("id");
+  // Metadata without the bytes. Unlike the byte-serving routes, this returns
+  // fileName as JSON — and fileName is `personal: "self"` (fw#2423), so it must
+  // go through the entity executor's detail() to decrypt instead of
+  // loadFileForTenant's raw, still-encrypted read.
+  async function loadReadableFileMeta(id: string, user: SessionUser): Promise<FileMeta | null> {
     // Same 22P02-avoidance as loadFileForTenant — detail() doesn't validate
     // id shape before it hits the UUID column.
-    if (!isUuid(id)) return c.json({ error: "not_found" }, 404);
+    if (!isUuid(id)) return null;
     const row = await executor.detail({ id }, user, tenantDbFor(user.tenantId));
-    if (!row) return c.json({ error: "not_found" }, 404);
+    if (!row) return null;
     const fileRef = row as FileRef; // @cast-boundary db-row (decrypted via executor.detail)
     // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM),
     // narrower in loadFileForTenant's selectMany. Restore that here so meta
     // doesn't leak reference-tenant rows.
-    if (fileRef.tenantId !== user.tenantId) {
-      return c.json({ error: "not_found" }, 404);
-    }
+    if (fileRef.tenantId !== user.tenantId) return null;
 
     const decision = await guard({ fileRef, user, operation: "read" });
-    if (decision === "deny") return c.json({ error: "not_found" }, 404);
+    if (decision === "deny") return null;
 
-    return c.json({
+    return {
       id: fileRef.id,
       fileName: fileRef.fileName,
       mimeType: fileRef.mimeType,
@@ -569,7 +591,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       entityType: fileRef.entityType,
       entityId: fileRef.entityId,
       fieldName: fileRef.fieldName,
-    });
+    };
+  }
+
+  api.get("/files/:id/meta", async (c) => {
+    const meta = await loadReadableFileMeta(c.req.param("id"), getUser(c));
+    return meta ? c.json(meta) : c.json({ error: "not_found" }, 404);
   });
 
   async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {

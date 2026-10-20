@@ -12,6 +12,7 @@ import {
   activeVersionOf,
   draftViewerTenantId,
   isHiddenSystemDraft,
+  isSystemAdmin,
   parseTemplateDraft,
   servedVersionOf,
 } from "../template-draft.ts";
@@ -23,7 +24,9 @@ import {
   FALLBACK_LOCALE,
   type TemplateStatus,
 } from "../web/constants.ts";
+import { TemplateResolverQueries } from "../web/qualified-names.ts";
 import { storedRecord } from "./template-gates.ts";
+import { tenantOverrideCountsResultSchema } from "./tenant-override-counts.query.ts";
 
 const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as const;
 type OverviewKind = (typeof OVERVIEW_KINDS)[number];
@@ -65,6 +68,8 @@ export type OverviewRow = {
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsage[];
   readonly usedByCount: number;
+  /** SystemAdmin only, system-origin rows: tenants overriding this template; total is null without the tenant feature. */
+  readonly overriddenBy?: { readonly active: number; readonly total: number | null };
 };
 
 export type OverviewResponse = {
@@ -308,6 +313,26 @@ function withUsage(
   return { ...draft, usedBy, usedByCount: usedBy.length };
 }
 
+function withOverriddenBy(
+  rows: readonly OverviewRow[],
+  overrides: z.infer<typeof tenantOverrideCountsResultSchema>,
+): OverviewRow[] {
+  const activeByKey = new Map(
+    overrides.counts.map((entry) => [`${entry.kind}|${entry.slug}`, entry.activeOverrides]),
+  );
+  return rows.map((row) =>
+    row.origin === "system"
+      ? {
+          ...row,
+          overriddenBy: {
+            active: activeByKey.get(`${row.kind}|${row.slug}`) ?? 0,
+            total: overrides.totalTenants,
+          },
+        }
+      : row,
+  );
+}
+
 function filterRows(
   rows: readonly OverviewRow[],
   search: string | undefined,
@@ -373,9 +398,17 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
         deliveryPolicy,
       );
       const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows, deliveryPolicy);
-      const overviewRows = drafts.map((draft) =>
+      const rowsWithUsage = drafts.map((draft) =>
         withUsage(draft, layoutSlugByDocument, ctx.registry, effectiveLayouts),
       );
+      const overviewRows = isSystemAdmin(query.user)
+        ? withOverriddenBy(
+            rowsWithUsage,
+            tenantOverrideCountsResultSchema.parse(
+              await ctx.query(TemplateResolverQueries.tenantOverrideCounts, {}),
+            ),
+          )
+        : rowsWithUsage;
       const filtered = filterRows(
         overviewRows,
         payload.search,

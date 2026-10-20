@@ -13,14 +13,18 @@ import {
 import { FileUploadInput } from "../primitives/file-upload.tsx";
 import { render } from "./test-utils.tsx";
 
-const FILE_ID = "11111111-2222-4333-8444-555555555555";
+// The meta cache is module-wide, so every test file uses its own ids.
+const FILE_ID = "aaaaaaaa-2222-4333-8444-555555555555";
 const realFetch = globalThis.fetch;
 
 function stubMeta(fileName: string): void {
   globalThis.fetch = (async () =>
-    new Response(JSON.stringify({ id: FILE_ID, fileName, mimeType: "application/pdf", size: 1 }), {
-      status: 200,
-    })) as unknown as typeof fetch;
+    new Response(
+      JSON.stringify({
+        files: [{ id: FILE_ID, fileName, mimeType: "application/pdf", size: 1 }],
+      }),
+      { status: 200 },
+    )) as unknown as typeof fetch;
 }
 
 beforeEach(() => stubMeta("floorplan.pdf"));
@@ -38,6 +42,13 @@ describe("FileThumbnail fallback chain", () => {
     fireEvent.error(img() as HTMLImageElement);
     expect(img()).toBeNull();
     expect(container.querySelector("svg")).not.toBeNull();
+  });
+
+  test("the image loads lazily and decodes off the main thread", () => {
+    const { container } = render(<FileThumbnail fileId={FILE_ID} />);
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("loading")).toBe("lazy");
+    expect(img?.getAttribute("decoding")).toBe("async");
   });
 
   test("without a variant the original is the only source", () => {
@@ -61,10 +72,56 @@ describe("FileNameLink", () => {
   });
 
   test("keeps the fallback label when the meta request fails", async () => {
-    globalThis.fetch = (async () => new Response("{}", { status: 404 })) as unknown as typeof fetch;
-    const { getByText } = render(<FileNameLink fileId={FILE_ID} fallbackLabel="File attached" />);
-    await Promise.resolve();
+    let requested = false;
+    globalThis.fetch = (async () => {
+      requested = true;
+      return new Response("{}", { status: 500 });
+    }) as unknown as typeof fetch;
+    const { getByText } = render(
+      <FileNameLink fileId="22222222-2222-4333-8444-555555555555" fallbackLabel="File attached" />,
+    );
+    await waitFor(() => expect(requested).toBe(true));
     expect(getByText("File attached")).toBeDefined();
+  });
+
+  test("an id the batch answer leaves out keeps the fallback label", async () => {
+    let requested = false;
+    globalThis.fetch = (async () => {
+      requested = true;
+      return new Response(JSON.stringify({ files: [] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const { getByText } = render(
+      <FileNameLink fileId="33333333-2222-4333-8444-555555555555" fallbackLabel="File attached" />,
+    );
+    await waitFor(() => expect(requested).toBe(true));
+    expect(getByText("File attached")).toBeDefined();
+  });
+
+  test("file names rendered in the same pass share one batched request", async () => {
+    const ids = [
+      "44444444-2222-4333-8444-555555555551",
+      "44444444-2222-4333-8444-555555555552",
+      "44444444-2222-4333-8444-555555555553",
+    ];
+    const urls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return new Response(
+        JSON.stringify({
+          files: ids.map((id, index) => ({ id, fileName: `batch-${index}.pdf` })),
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+    const { findByText } = render(
+      <>
+        {ids.map((id) => (
+          <FileNameLink key={id} fileId={id} fallbackLabel="File attached" />
+        ))}
+      </>,
+    );
+    expect(await findByText("batch-2.pdf")).toBeDefined();
+    expect(urls).toEqual([`/api/files/meta?ids=${ids.join(",")}`]);
   });
 });
 

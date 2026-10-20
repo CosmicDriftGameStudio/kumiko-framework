@@ -46,9 +46,6 @@ import {
   User,
   X,
 } from "lucide-react";
-// The main entry pulls Node-only deps (yargs/pngjs) under bundlers that ignore
-// package.json#browser (Metro), hence the explicit browser subpath.
-import QRCode from "qrcode/lib/browser.js";
 import {
   type ChangeEvent,
   Children,
@@ -5063,7 +5060,13 @@ function QrSecretValue({ value }: { readonly value: string }): ReactNode {
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
-    QRCode.toString(value, { type: "svg", errorCorrectionLevel: "H" })
+    // Loaded on first QR render, not with the primitives. The main entry pulls
+    // Node-only deps (yargs/pngjs) under bundlers that ignore package.json#browser
+    // (Metro), hence the explicit browser subpath.
+    import("qrcode/lib/browser.js")
+      .then(({ default: QRCode }) =>
+        QRCode.toString(value, { type: "svg", errorCorrectionLevel: "H" }),
+      )
       .then((result) => {
         if (!cancelled) setSvg(result);
       })

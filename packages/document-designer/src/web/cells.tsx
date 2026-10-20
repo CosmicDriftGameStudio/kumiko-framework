@@ -1,9 +1,7 @@
-import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
   type ColumnRendererComponent,
   type ColumnRendererProps,
   formatWhen,
-  useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { EMPTY_VALUE_PLACEHOLDER, toInstant } from "@cosmicdrift/kumiko-renderer/headless";
@@ -148,39 +146,26 @@ export function ModifiedCell({ row }: ColumnRendererProps): ReactNode {
   );
 }
 
-type TenantOverrides = {
-  readonly activeOverrides: number;
-  readonly draftOverrides: number;
-  readonly totalTenants: number | null;
-};
-
 function OverriddenByCount({
-  slug,
-  kind,
+  overriddenBy,
 }: {
-  readonly slug: string;
-  readonly kind: string;
+  readonly overriddenBy: NonNullable<OverviewRowView["overriddenBy"]>;
 }): ReactNode {
   const t = useTranslation();
-  const { data } = useQuery<TenantOverrides>(TemplateResolverQueries.tenantOverrides, {
-    slug,
-    kind,
-  });
-  if (data === null) return EMPTY_VALUE_PLACEHOLDER;
   const label =
-    data.totalTenants === null
-      ? t("documentDesigner.overriddenBy.tenants", { active: data.activeOverrides })
+    overriddenBy.total === null
+      ? t("documentDesigner.overriddenBy.tenants", { active: overriddenBy.active })
       : t("documentDesigner.overriddenBy.ofTotal", {
-          active: data.activeOverrides,
-          total: data.totalTenants,
+          active: overriddenBy.active,
+          total: overriddenBy.total,
         });
   return <span>{label}</span>;
 }
 
 export function OverriddenByCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) =>
-    r.origin === "system" ? (
-      <OverriddenByCount slug={r.slug} kind={r.kind} />
+    r.origin === "system" && r.overriddenBy !== null ? (
+      <OverriddenByCount overriddenBy={r.overriddenBy} />
     ) : (
       EMPTY_VALUE_PLACEHOLDER
     ),

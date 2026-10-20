@@ -21,12 +21,11 @@ const METAS: Record<string, { fileName: string; mimeType: string }> = {
 beforeEach(() => {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = String(input);
-    const id = Object.keys(METAS).find((candidate) => url.includes(candidate));
-    const meta = id === undefined ? undefined : METAS[id];
-    if (url.endsWith("/meta") && meta !== undefined) {
-      return new Response(JSON.stringify({ id, ...meta, size: 1 }), { status: 200 });
-    }
-    return new Response("not found", { status: 404 });
+    if (!url.startsWith("/api/files/meta?ids=")) return new Response("not found", { status: 404 });
+    const files = Object.entries(METAS)
+      .filter(([id]) => url.includes(id))
+      .map(([id, meta]) => ({ id, ...meta, size: 1 }));
+    return new Response(JSON.stringify({ files }), { status: 200 });
   }) as unknown as typeof fetch;
 });
 afterEach(() => {

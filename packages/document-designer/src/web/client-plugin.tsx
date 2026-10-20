@@ -4,8 +4,8 @@ import {
   translationsByLocaleFromKeys,
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import type { ReactNode } from "react";
+import { type ClientFeatureDefinition, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
+import { lazy, type ReactNode, Suspense } from "react";
 import {
   createLocalesCell,
   KindCell,
@@ -26,9 +26,37 @@ import {
 } from "./constants.ts";
 import { documentDesignerTranslations } from "./default-translations.ts";
 import { DOCUMENT_DESIGNER_I18N } from "./i18n.ts";
-import { LayoutEditor } from "./layout-editor.tsx";
-import { createMailEditor } from "./mail-editor.tsx";
-import { PdfTemplateEditor } from "./pdf-template-editor.tsx";
+
+// The editors pull tiptap, MJML preview and the page canvas; load them on first mount.
+const LazyLayoutEditor = lazy(() =>
+  import("./layout-editor.tsx").then((module) => ({ default: module.LayoutEditor })),
+);
+const LazyPdfTemplateEditor = lazy(() =>
+  import("./pdf-template-editor.tsx").then((module) => ({ default: module.PdfTemplateEditor })),
+);
+
+function LayoutEditorScreen(): ReactNode {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <LazyLayoutEditor />
+    </Suspense>
+  );
+}
+
+function createLazyMailEditor(appLocales: readonly string[]): () => ReactNode {
+  const LazyMailEditor = lazy(() =>
+    import("./mail-editor.tsx").then((module) => ({
+      default: module.createMailEditor(appLocales),
+    })),
+  );
+  return function MailEditorScreen(): ReactNode {
+    return (
+      <Suspense fallback={<LoadingState />}>
+        <LazyMailEditor />
+      </Suspense>
+    );
+  };
+}
 
 /**
  * Custom screen body: the template comes from the URL (`?slug=...&locale=...`),
@@ -39,11 +67,13 @@ export function PdfTemplateEditorScreen(): ReactNode {
   const slug = searchParams["slug"];
   if (slug === undefined || slug === "") return null;
   return (
-    <PdfTemplateEditor
-      slug={slug}
-      {...(searchParams["locale"] !== undefined && { locale: searchParams["locale"] })}
-      onLocaleChange={(locale) => setSearchParams({ locale })}
-    />
+    <Suspense fallback={<LoadingState />}>
+      <LazyPdfTemplateEditor
+        slug={slug}
+        {...(searchParams["locale"] !== undefined && { locale: searchParams["locale"] })}
+        onLocaleChange={(locale) => setSearchParams({ locale })}
+      />
+    </Suspense>
   );
 }
 
@@ -70,9 +100,9 @@ export function documentDesignerClient(
       [DocumentDesignerCells.overriddenBy]: OverriddenByCell,
     },
     components: {
-      [LAYOUT_EDITOR_SCREEN_ID]: LayoutEditor,
+      [LAYOUT_EDITOR_SCREEN_ID]: LayoutEditorScreen,
       [PDF_TEMPLATE_EDITOR_SCREEN_ID]: PdfTemplateEditorScreen,
-      [MAIL_EDITOR_SCREEN_ID]: createMailEditor(options.appLocales ?? DEFAULT_TEMPLATE_LOCALES),
+      [MAIL_EDITOR_SCREEN_ID]: createLazyMailEditor(options.appLocales ?? DEFAULT_TEMPLATE_LOCALES),
     },
     translations: mergeTranslations(
       mergeTranslations(textBlocksClient().translations ?? {}, documentDesignerTranslations),
