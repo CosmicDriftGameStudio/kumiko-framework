@@ -178,6 +178,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.screen-access-denied.title": "You do not have access to this page.",
     "kumiko.screen-missing.home": "Go to start page",
     "kumiko.screen-error.title": "This screen failed to render.",
+    "kumiko.error.reference": "Error ID: {id}",
+    "kumiko.error.copyReference": "Copy",
+    "kumiko.error.referenceCopied": "Copied!",
     "kumiko.screen-error.detail": "Screen: {screen}. {message}",
     "kumiko.screen-error.screen": "Screen: {screen}",
 
@@ -323,6 +326,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.invalid_format.datetime": "Invalid date and time, e.g. 2026-10-20T14:30.",
     "errors.validation.invalid_format.uuid":
       "Invalid ID, e.g. 123e4567-e89b-12d3-a456-426614174000.",
+    "errors.validation.invalid_format.iban": "Invalid IBAN, e.g. DE89 3704 0044 0532 0130 00.",
     "errors.validation.not_multiple_of": "Must be a multiple of {divisor}.",
     "errors.validation.unrecognized_keys": "Unknown fields.",
     "errors.validation.invalid_union": "Invalid value.",

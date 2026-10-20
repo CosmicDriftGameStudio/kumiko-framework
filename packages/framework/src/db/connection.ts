@@ -13,6 +13,10 @@ export type DbConnectionOptions = {
   readonly closeTimeoutSeconds?: number;
   readonly ssl?: PostgresDriverOptions["ssl"];
   readonly onNotice?: (notice: postgres.Notice) => void;
+  // Postgres session parameters sent at connect time; 0 disables the limit.
+  readonly statementTimeoutMs?: number;
+  readonly idleInTransactionSessionTimeoutMs?: number;
+  readonly lockTimeoutMs?: number;
 };
 
 export type CreateDbConnectionOptions = DbConnectionOptions & { readonly url: string };
@@ -28,6 +32,14 @@ export type DbConnectionHandle = {
 // close() must always bound how long shutdown waits.
 export const DEFAULT_DB_CLOSE_TIMEOUT_SECONDS = 5;
 
+// Keyed by the pool so withoutStatementTimeout can open a sibling with identical connect options.
+const unboundedSiblingFactories = new WeakMap<object, () => PgClient>();
+
+export function openUnboundedSiblingPool(db: unknown): PgClient | undefined {
+  if (typeof db !== "function" && (typeof db !== "object" || db === null)) return undefined;
+  return unboundedSiblingFactories.get(db)?.();
+}
+
 export function createDbConnection({
   url,
   ...options
@@ -42,8 +54,26 @@ export function createDbConnection({
   }
   if (options.ssl !== undefined) pgOptions.ssl = options.ssl;
   if (options.onNotice !== undefined) pgOptions.onnotice = options.onNotice;
+  const serverParameters: Record<string, number> = {};
+  if (options.statementTimeoutMs !== undefined) {
+    serverParameters["statement_timeout"] = options.statementTimeoutMs;
+  }
+  if (options.idleInTransactionSessionTimeoutMs !== undefined) {
+    serverParameters["idle_in_transaction_session_timeout"] =
+      options.idleInTransactionSessionTimeoutMs;
+  }
+  if (options.lockTimeoutMs !== undefined) serverParameters["lock_timeout"] = options.lockTimeoutMs;
+  if (Object.keys(serverParameters).length > 0) pgOptions.connection = serverParameters;
 
   const client = postgres(url, pgOptions);
+  // Two connections are enough for lock-in-tx plus DDL; the cap keeps parallel rebuilds from exhausting max_connections.
+  unboundedSiblingFactories.set(client, () =>
+    postgres(url, {
+      ...pgOptions,
+      max: 4,
+      connection: { ...pgOptions.connection, statement_timeout: 0 },
+    }),
+  );
 
   return {
     db: client,
@@ -80,6 +110,27 @@ export function dbConnectionOptionsFromEnv(
   if (idle !== undefined) opts.idleTimeoutSeconds = idle;
   if (connect !== undefined) opts.connectTimeoutSeconds = connect;
   return opts;
+}
+
+export const DEFAULT_SERVER_STATEMENT_TIMEOUT_MS = 60_000;
+// Handlers that await external calls inside a tx must not be killed; five minutes still ends leaked transactions.
+export const DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS = 300_000;
+
+// Long-running servers (prod app, worker) bound runaway statements and tx held
+// open by a stuck handler; one-shot CLIs keep the unbounded driver default.
+export function serverTimeoutOptionsFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): DbConnectionOptions {
+  const lockTimeoutMs = readPositiveIntEnv(env, "DATABASE_LOCK_TIMEOUT_MS");
+  return {
+    statementTimeoutMs:
+      readPositiveIntEnv(env, "DATABASE_STATEMENT_TIMEOUT_MS") ??
+      DEFAULT_SERVER_STATEMENT_TIMEOUT_MS,
+    idleInTransactionSessionTimeoutMs:
+      readPositiveIntEnv(env, "DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS") ??
+      DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS,
+    ...(lockTimeoutMs !== undefined && { lockTimeoutMs }),
+  };
 }
 
 // Outside-tx access runs on its own pool: sharing the write pool deadlocks once

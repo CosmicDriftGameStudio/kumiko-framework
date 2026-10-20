@@ -297,6 +297,8 @@ export async function runMigrations(
   // which would leave the lock held on a session nobody unlocks.
   const conn = await reserveConnection(db);
   try {
+    // Server pools cap statement_timeout; a migration (backfill, index build) must not hit it.
+    await conn.unsafe("SET statement_timeout = 0");
     await conn.unsafe(MIGRATIONS_TABLE_DDL);
     await conn.unsafe(`SELECT pg_advisory_lock(${MIGRATION_ADVISORY_LOCK_KEY})`);
     try {
@@ -342,6 +344,8 @@ export async function runMigrations(
       await conn.unsafe(`SELECT pg_advisory_unlock(${MIGRATION_ADVISORY_LOCK_KEY})`);
     }
   } finally {
+    // A dead connection fails RESET; the pool drops it, so the migration's own outcome wins.
+    await conn.unsafe("RESET statement_timeout").catch(() => undefined);
     await conn.release();
   }
 }

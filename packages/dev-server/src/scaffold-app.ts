@@ -647,6 +647,10 @@ TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app
 REDIS_URL=redis://127.0.0.1:6379
 
+# KUMIKO_TRUSTED_PROXY_HOPS: trusted reverse-proxy hops in front of the app. Required in
+# production (runProdApp refuses to boot without it); 0 when the app is exposed directly.
+KUMIKO_TRUSTED_PROXY_HOPS=0
+
 # JWT_SECRET: min 32 chars. Generate with: openssl rand -base64 32
 JWT_SECRET=change-me-min-32-chars-change-me-min-32
 

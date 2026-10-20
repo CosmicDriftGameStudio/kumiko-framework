@@ -116,6 +116,7 @@ describe("reindexEntityJob", () => {
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
+      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       ...bridgeStub(),
     };
     await reindexEntityJob({ entity: "widget" }, ctx);
@@ -168,6 +169,7 @@ describe("reindexEntityJob", () => {
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
+      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       ...bridgeStub(),
     };
     await job.handler({ entity: "widget" }, ctx);
@@ -236,6 +238,7 @@ describe("reindexEntityJob", () => {
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
+      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       ...bridgeStub(),
     };
     await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(

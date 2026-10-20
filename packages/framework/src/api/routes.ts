@@ -11,7 +11,7 @@ import {
   toKumikoError,
   ValidationError,
 } from "../errors/index.ts";
-import { createFallbackLogger } from "../logging/index.ts";
+import { createFallbackLogger, scrubLogText, scrubLogValue } from "../logging/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { isPlainObject } from "../utils/is-plain-object.ts";
 import { stringifyJson } from "../utils/safe-json.ts";
@@ -453,6 +453,10 @@ function isClientAbort(err: KumikoError): boolean {
   return signal?.aborted === true && err.cause !== undefined && err.cause === signal.reason;
 }
 
+function scrubOptionalText(text: string | undefined): string | undefined {
+  return text === undefined ? undefined : scrubLogText(text);
+}
+
 // Unexpected server faults (5xx) carry their diagnostic stack only on the
 // in-process error — serializeError strips cause/details from the wire body.
 // Without this a wrapped throw (InternalError{cause}) returns a 500 with zero
@@ -470,9 +474,9 @@ function logServerFault(err: KumikoError, requestId: string | undefined, type?: 
     requestId,
     type: loggableType(type),
     code: err.code,
-    message: err.message,
-    cause: cause instanceof Error ? cause.message : cause,
-    stack: cause instanceof Error ? cause.stack : err.stack,
+    message: scrubLogText(err.message),
+    cause: cause instanceof Error ? scrubLogText(cause.message) : scrubLogValue(cause),
+    stack: scrubOptionalText(cause instanceof Error ? cause.stack : err.stack),
   });
 }
 

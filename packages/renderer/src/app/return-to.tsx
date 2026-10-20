@@ -1,6 +1,7 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import { requestLeave } from "../leave-guard.ts";
 import { useAppFeatures } from "./app-features-context.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import {
@@ -127,14 +128,17 @@ export function navigateWithReturnTo(
 ): void {
   // Snapshot before navigating — nav.searchParams still describes the host.
   const returnParams = returnParamsFor(nav, target, host);
-  nav.navigate(target);
   const merged: Record<string, string | null> = {
     ...(params ?? {}),
     ...returnParams,
   };
-  if (Object.keys(merged).length > 0) {
-    nav.setSearchParams(merged);
-  }
+  // One question for navigate + params: asked separately, a declined leave would still merge the params into the host URL.
+  requestLeave(() => {
+    nav.navigate(target);
+    if (Object.keys(merged).length > 0) {
+      nav.setSearchParams(merged);
+    }
+  });
 }
 
 /** Jumps back to an already-validated returnTo target and restores the host
@@ -146,10 +150,12 @@ export function navigateToReturn(nav: NavApi, target: ScreenTarget): void {
   // target elsewhere must not inherit it.
   const returnTo = raw === undefined ? undefined : splitReturnTo(raw);
   const state = returnTo?.path === formatReturnTo(target) ? returnTo.state : NO_RETURN_STATE;
-  nav.navigate(target);
-  // The explicit null drops this screen's own returnTo on nav impls whose
-  // navigate keeps the query.
-  nav.setSearchParams({ ...state, [RETURN_TO_PARAM]: state[RETURN_TO_PARAM] ?? null });
+  requestLeave(() => {
+    nav.navigate(target);
+    // The explicit null drops this screen's own returnTo on nav impls whose
+    // navigate keeps the query.
+    nav.setSearchParams({ ...state, [RETURN_TO_PARAM]: state[RETURN_TO_PARAM] ?? null });
+  });
 }
 
 export function navigateToReturnOr(

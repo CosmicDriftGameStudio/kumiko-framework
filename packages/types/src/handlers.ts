@@ -965,6 +965,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
 // against the job's own tenant, exactly as `queryAs` does. Building an
 // identity from job payload data is therefore a cross-tenant write path;
 // derive it from a trusted lookup instead.
+// Returned from a job handler via `return ctx.defer(ms)`; see JobContext.defer.
+export type JobDeferral = { readonly kind: "job-deferral"; readonly delayMs: number };
+
 export type JobContext = SharedContextFields & {
   // Tenant-filtered to the job's own tenant. Cross-tenant raw access needs
   // `escapeHatch` on the job (`ctx.db.unsafeRaw()`) or `r.systemScope()`
@@ -981,6 +984,10 @@ export type JobContext = SharedContextFields & {
   // 1-based run number; finalAttempt = no retry follows if this run throws. A sequential-lock re-enqueue restarts at 1.
   readonly attempt: number;
   readonly finalAttempt: boolean;
+  // `return ctx.defer(ms)`: park the job and re-run it after `ms` without consuming a retry
+  // attempt, failure callback or failed run record. Capped by `maxDefers` (default 100);
+  // beyond it the run fails. Throws when the job runs inline (boot gate, no queue).
+  readonly defer: (delayMs: number) => JobDeferral;
   // Only present for jobs whose owning feature declares r.systemScope().
   // assertTenantMatch()/acknowledgeCrossTenant() return a TenantDb; a raw,
   // tenant-unfiltered DbRunner instead comes from ctx.systemDb.unsafeRaw(reason)

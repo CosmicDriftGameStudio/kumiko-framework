@@ -11,6 +11,7 @@ import type {
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
+import { type ErrorNotice, ErrorReference } from "./error-reference.tsx";
 import { useNav } from "./nav.tsx";
 import { useReturnHost } from "./return-to.tsx";
 import { buildRecordActions } from "./row-actions.ts";
@@ -49,7 +50,7 @@ export function EntityListExpandedRow({
   const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
   const clientActions = useClientActionRuntime();
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ErrorNotice | null>(null);
 
   const onTitleActionWritten = useCallback(async () => {
     onSubListInvalidated();
@@ -97,7 +98,8 @@ export function EntityListExpandedRow({
     <>
       {actionError !== null && (
         <Banner variant="error" testId={`row-${row.id}-expansion-action-error`}>
-          {actionError}
+          {actionError.message}
+          <ErrorReference requestId={actionError.requestId} />
         </Banner>
       )}
       <RelatedListSection

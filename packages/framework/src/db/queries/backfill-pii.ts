@@ -92,6 +92,7 @@ import type { DbRunner } from "../connection.ts";
 import { resolveTableName } from "../entity-table-meta.ts";
 import { asRawClient } from "../query.ts";
 import { tableExists } from "../schema-inspection.ts";
+import { withoutStatementTimeout } from "../statement-timeout.ts";
 import { toSnakeCase } from "../table-builder.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
@@ -204,10 +205,20 @@ function requireLocalKeySubjectKms(caller: string): LocalKeyKmsAdapter {
   return kms;
 }
 
-export async function backfillEventPiiEncryption(
+export function backfillEventPiiEncryption(
   db: DbRunner,
   registry: Registry,
   options: PiiBackfillOptions = {},
+): Promise<PiiBackfillResult> {
+  return withoutStatementTimeout(db, (unboundedDb) =>
+    backfillAllEventBatches(unboundedDb, registry, options),
+  );
+}
+
+async function backfillAllEventBatches(
+  db: DbRunner,
+  registry: Registry,
+  options: PiiBackfillOptions,
 ): Promise<PiiBackfillResult> {
   requireLocalKeySubjectKms("backfillEventPiiEncryption");
   const total = {

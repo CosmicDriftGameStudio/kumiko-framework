@@ -47,36 +47,36 @@ const en = kumikoDefaultTranslations["en"];
 describe("kumikoDefaultTranslations covers every error i18nKey", () => {
   for (const e of errorInstances) {
     test(`${e.code} → ${e.i18nKey} has en default and de locale-package copy`, () => {
-      expect(de[e.i18nKey]).toBeTruthy();
-      expect(en?.[e.i18nKey]).toBeTruthy();
+      expect(de[e.i18nKey]).toMatch(/\S/);
+      expect(en?.[e.i18nKey]).toMatch(/\S/);
     });
   }
 
   // Client-emitted (renderer/web download helper) — not thrown by a class, but
   // rendered through the same last-resort bundle. Gap #5 named it explicitly.
   test("errors.download.urlMissing has de+en default", () => {
-    expect(de?.["errors.download.urlMissing"]).toBeTruthy();
-    expect(en?.["errors.download.urlMissing"]).toBeTruthy();
+    expect(de?.["errors.download.urlMissing"]).toMatch(/\S/);
+    expect(en?.["errors.download.urlMissing"]).toMatch(/\S/);
   });
 
   // Client-emitted (dispatcher-live error-mapping) — network/abort never
   // reach the server, so no error class mints these; still rendered through
   // this last-resort bundle whenever a feature reads res.error.i18nKey raw.
   test("dispatcher.errors.network has de+en default", () => {
-    expect(de?.["dispatcher.errors.network"]).toBeTruthy();
-    expect(en?.["dispatcher.errors.network"]).toBeTruthy();
+    expect(de?.["dispatcher.errors.network"]).toMatch(/\S/);
+    expect(en?.["dispatcher.errors.network"]).toMatch(/\S/);
   });
 
   test("dispatcher.errors.aborted has de+en default", () => {
-    expect(de?.["dispatcher.errors.aborted"]).toBeTruthy();
-    expect(en?.["dispatcher.errors.aborted"]).toBeTruthy();
+    expect(de?.["dispatcher.errors.aborted"]).toMatch(/\S/);
+    expect(en?.["dispatcher.errors.aborted"]).toMatch(/\S/);
   });
 
   // Client-emitted (form-schema.ts required-field presence check) — not
   // thrown by an error class, applied as a params.i18nKey override on a zod
   // issue instead; still rendered through this last-resort bundle.
   test("form-schema's required-field i18nKey has de+en default", () => {
-    expect(de[REQUIRED_FIELD_I18N_KEY]).toBeTruthy();
-    expect(en?.[REQUIRED_FIELD_I18N_KEY]).toBeTruthy();
+    expect(de[REQUIRED_FIELD_I18N_KEY]).toMatch(/\S/);
+    expect(en?.[REQUIRED_FIELD_I18N_KEY]).toMatch(/\S/);
   });
 });

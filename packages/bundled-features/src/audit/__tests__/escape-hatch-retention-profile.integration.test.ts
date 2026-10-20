@@ -176,4 +176,35 @@ describe("escape-hatch retention with compliance-profiles", () => {
     expect(remaining.has(kept)).toBe(true);
     expect(remaining.has(expired)).toBe(false);
   });
+
+  test("a scan spanning several pages prunes every expired row and keeps the longer-retained ones", async () => {
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, adminA);
+    const expired: string[] = [];
+    const kept: string[] = [];
+    for (let n = 0; n < 6; n++) {
+      expired.push(await seedEvent(SYSTEM_TENANT_ID, 800 + n));
+      kept.push(await seedEvent(SYSTEM_TENANT_ID, 100 + n, tenantA));
+    }
+    expired.push(await seedEvent(tenantB, 800));
+    await drainEventConsumers(stack, ["system:consumer:sse-broadcast"]);
+
+    const { deletedCount } = await runEscapeHatchRetention({
+      db: stack.db,
+      registry: stack.registry,
+      configResolver: undefined,
+      userId: "system",
+      scanPageSize: 2,
+    });
+
+    const remaining = new Set(
+      (
+        await selectMany<{ aggregateId: string }>(stack.db, eventsTable, {
+          aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
+        })
+      ).map((row) => row.aggregateId),
+    );
+    expect(deletedCount).toBe(expired.length);
+    for (const id of expired) expect(remaining.has(id)).toBe(false);
+    for (const id of kept) expect(remaining.has(id)).toBe(true);
+  });
 });

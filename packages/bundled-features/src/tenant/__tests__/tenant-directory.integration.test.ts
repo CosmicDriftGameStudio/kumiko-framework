@@ -5,10 +5,15 @@
 // entity-convention list gave them.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  type SubjectId,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { REFERENCE_LOOKUP_SOURCES } from "@cosmicdrift/kumiko-framework/ui-types";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -152,6 +157,47 @@ describe("tenant:query:tenant-directory (fw#3142)", () => {
     );
 
     expect(rows).toEqual([{ id: foreignTenantId, label: "Foreign Tenant" }]);
+  });
+
+  test("a search stops decrypting once enough names matched", async () => {
+    const { id: operatorId } = await seedUser(stack.db, {
+      email: "decrypt-bound-operator@example.com",
+      displayName: "Decrypt Bound Operator",
+      emailVerified: true,
+    });
+    // Each tenant name is its own PII subject, so one DEK fetch is one decrypted name.
+    class CountingKmsAdapter extends InMemoryKmsAdapter {
+      getKeyCalls = 0;
+
+      override async getKey(subject: SubjectId) {
+        this.getKeyCalls++;
+        return super.getKey(subject);
+      }
+    }
+    const kms = new CountingKmsAdapter();
+    configurePiiSubjectKms(kms);
+    try {
+      const bulkCount = 12;
+      for (let n = 1; n <= bulkCount; n++) {
+        await seedTenant(stack.db, {
+          id: testTenantId(100 + n),
+          key: `directory-bulk-${String(n).padStart(2, "0")}`,
+          name: `Bulk ${n}`,
+        });
+      }
+
+      kms.getKeyCalls = 0;
+      const rows = await queryDirectory(
+        { id: operatorId, tenantId: ownTenantId, roles: ["SystemAdmin"] },
+        { limit: 2, search: "bulk" },
+      );
+
+      expect(rows).toHaveLength(2);
+      expect(kms.getKeyCalls).toBeGreaterThanOrEqual(2);
+      expect(kms.getKeyCalls).toBeLessThan(bulkCount);
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
   });
 
   test("a TenantAdmin search only matches their own tenant, never a foreign one", async () => {

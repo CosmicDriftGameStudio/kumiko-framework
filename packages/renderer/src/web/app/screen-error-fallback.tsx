@@ -1,5 +1,6 @@
 import { SCREEN_ERROR_FALLBACK_TEST_ID } from "@cosmicdrift/kumiko-types/error-boundary";
 import type { ReactNode } from "react";
+import { ErrorReference } from "../../app/error-reference.tsx";
 import { usePrimitives, useTranslation } from "../../index.ts";
 
 // Opt-in: a bundle that leaves NODE_ENV unset must not leak error messages to end users.
@@ -12,10 +13,12 @@ function showsErrorDetails(): boolean {
 export function ScreenErrorFallback({
   screen,
   error,
+  errorId,
   onReset,
 }: {
   readonly screen: string;
   readonly error: Error;
+  readonly errorId: string;
   readonly onReset: () => void;
 }): ReactNode {
   const { Banner, Button } = usePrimitives();
@@ -39,6 +42,7 @@ export function ScreenErrorFallback({
       {showsErrorDetails()
         ? t("kumiko.screen-error.detail", { screen, message: error.message })
         : t("kumiko.screen-error.screen", { screen })}
+      <ErrorReference requestId={errorId} testId={`${SCREEN_ERROR_FALLBACK_TEST_ID}-reference`} />
     </Banner>
   );
 }

@@ -8,6 +8,7 @@ import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import { isSessionRequiredApiPath, TENANT_HEADER_NAME } from "./api-constants.ts";
 import type { JwtHelper } from "./jwt.ts";
 import { isForeignCookieOrigin } from "./origin-middleware.ts";
+import { setRequestIdentity } from "./request-context.ts";
 import {
   clearSessionCookies,
   getSessionCookies,
@@ -257,6 +258,19 @@ function extractToken(
   return { error: "missing" };
 }
 
+// Best-effort for public routes that only want to attribute the log line: a bad or absent token is ignored.
+export async function identifyOptionalSession(c: Context, jwt: JwtHelper): Promise<void> {
+  const extracted = extractToken(c);
+  // skip: without a token the report stays anonymous
+  if ("error" in extracted) return;
+  try {
+    const payload = await jwt.verify(extracted.token);
+    setRequestIdentity({ tenantId: payload.tenantId, userId: payload.sub });
+  } catch {
+    // skip: an unverifiable token only means the report stays anonymous
+  }
+}
+
 export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = {}) {
   const {
     sessionChecker,
@@ -431,6 +445,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     );
     if (lifecycleReject) return lifecycleReject;
     c.set(USER_KEY, user);
+    setRequestIdentity({ tenantId: user.tenantId, userId: user.id });
     c.set(AUTH_TRANSPORT_KEY, transport);
     if (payload.exp !== undefined) c.set(AUTH_TOKEN_EXPIRY_KEY, payload.exp);
     await next();
@@ -482,6 +497,7 @@ async function handleVerifiedBearerUser(
     });
   }
   c.set(USER_KEY, user);
+  setRequestIdentity({ tenantId: user.tenantId, userId: user.id });
   c.set(AUTH_TRANSPORT_KEY, "bearer");
   const lifecycleReject = await rejectIfTenantTeardown(
     c,

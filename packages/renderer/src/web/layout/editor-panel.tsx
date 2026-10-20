@@ -16,7 +16,7 @@ import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { X } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useCallback, useMemo } from "react";
-import { useNav, usePrimitives, useTranslation } from "../../index.ts";
+import { requestLeave, useNav, usePrimitives, useTranslation } from "../../index.ts";
 import { clearTargetSearchParams, parseTargetFromSearchParams } from "./target-url.ts";
 
 export type ResolverComponent = ComponentType<{
@@ -87,7 +87,7 @@ export function EditorPanel({ resolvers }: EditorPanelProps): ReactNode {
   const target = useMemo(() => parseTargetFromSearchParams(nav.searchParams), [nav.searchParams]);
 
   const handleClose = useCallback(() => {
-    nav.setSearchParams(clearTargetSearchParams(nav.searchParams));
+    requestLeave(() => nav.setSearchParams(clearTargetSearchParams(nav.searchParams)));
   }, [nav]);
 
   return (

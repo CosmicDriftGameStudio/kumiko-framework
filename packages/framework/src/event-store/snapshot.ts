@@ -23,6 +23,7 @@ import { selectMany } from "../db/query.ts";
 import { tableExists } from "../db/schema-inspection.ts";
 import { unsafePushTables } from "../db/table-push.ts";
 import type { TenantId } from "../engine/types/index.ts";
+import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import { isStreamArchived } from "./archive.ts";
 import { loadEventsAfterVersion } from "./event-store.ts";
 
@@ -239,8 +240,12 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
         state,
         snapshotVersion: generationFor(lastDelta.aggregateType),
       });
-    } catch {
+    } catch (err) {
       // Best-effort cache write — losing it only costs the next load a replay.
+      createFallbackLogger("snapshot").warn("snapshot save failed", {
+        aggregateType: lastDelta.aggregateType,
+        error: scrubLogText(err instanceof Error ? err.message : String(err)),
+      });
     }
   }
   return {

@@ -43,6 +43,7 @@ import {
   fulfillmentEntity,
   orderActivityTable,
   orderEntity,
+  setCarrierRetryAfter,
   setOrderFulfillWrite,
 } from "../feature";
 
@@ -173,6 +174,44 @@ describe("api-worker-split", () => {
         expect(fulfillments[0]?.carrier).toBe("DHL");
       });
     } finally {
+      await Promise.all([api.stop(), worker.stop()]);
+    }
+  });
+
+  test("a busy carrier defers the job without failing it, then the fulfillment lands", async () => {
+    const prefix = uniquePrefix();
+    const api = createApiEntrypoint({
+      registry: createRegistry([createApiWorkerSplitFeature()]),
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      jobs: { redisUrl: redisUrl(), queueNamePrefix: prefix },
+    });
+    const worker = createWorkerEntrypoint({
+      registry: createRegistry([createApiWorkerSplitFeature()]),
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl: redisUrl(),
+      queueNamePrefix: prefix,
+    });
+    setOrderFulfillWrite(makeDispatchSystemWrite(worker.dispatcher));
+    let busyChecks = 0;
+    setCarrierRetryAfter(() => {
+      busyChecks += 1;
+      return busyChecks === 1 ? 200 : 0;
+    });
+
+    await Promise.all([api.start(), worker.start()]);
+    try {
+      expect(await writeOrder(api, "Initech AG", 250)).toBe(true);
+      await waitFor(async () => {
+        const fulfillments = await selectMany<{ orderKey: string }>(testDb.db, fulfillmentTable, {
+          tenantId: adminUser.tenantId,
+        });
+        expect(fulfillments.some((row) => row.orderKey === "Initech AG")).toBe(true);
+      });
+      expect(busyChecks).toBe(2);
+    } finally {
+      setCarrierRetryAfter(() => 0);
       await Promise.all([api.stop(), worker.stop()]);
     }
   });

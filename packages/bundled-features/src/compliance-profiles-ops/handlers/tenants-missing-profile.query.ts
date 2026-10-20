@@ -34,20 +34,22 @@ export const tenantsMissingProfileQuery = defineQueryHandler({
       "platform operator scans every tenant for a missing compliance-profile selection",
     );
 
-    const tenants = await decryptTenantNames(
-      await db.selectMany<{ id: TenantId; name: string }>(tenantTable, { isEnabled: true }),
-      "compliance-profiles-ops:tenants-missing-profile",
-    );
+    const tenantRows = await db.selectMany<{ id: TenantId; name: string }>(tenantTable, {
+      isEnabled: true,
+    });
     const profileRows = await db.selectMany<{ tenantId: TenantId }>(
       tenantComplianceProfileTable,
       {},
     );
     const tenantIdsWithProfile = new Set(profileRows.map((row) => row.tenantId));
+    // Only tenants that stay in the answer need their name decrypted.
+    const tenants = await decryptTenantNames(
+      tenantRows.filter((tenant) => !tenantIdsWithProfile.has(tenant.id)),
+      "compliance-profiles-ops:tenants-missing-profile",
+    );
 
     return {
-      tenants: tenants
-        .filter((tenant) => !tenantIdsWithProfile.has(tenant.id))
-        .map((tenant) => ({ id: tenant.id, name: tenant.name })),
+      tenants: tenants.map((tenant) => ({ id: tenant.id, name: tenant.name })),
     };
   },
 });

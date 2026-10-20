@@ -1,6 +1,42 @@
 import pino, { type DestinationStream } from "pino";
 import { observabilityContext } from "../observability/index.ts";
+import { requestLogFields } from "./request-log-fields.ts";
 import type { Logger } from "./types.ts";
+
+const REDACTED_KEYS = [
+  "password",
+  "passwordHash",
+  "newPassword",
+  "token",
+  "accessToken",
+  "refreshToken",
+  "idToken",
+  "secret",
+  "clientSecret",
+  "apiKey",
+  "authorization",
+  "cookie",
+  "iban",
+  "email",
+  "set-cookie",
+  "x-api-key",
+  "sessionToken",
+  "privateKey",
+  "credentials",
+  "otp",
+] as const;
+
+// pino/fast-redact needs bracket notation for keys that are not plain identifiers.
+function redactPathSegment(key: string): string {
+  return /^[A-Za-z_$][\w$]*$/.test(key) ? key : `["${key}"]`;
+}
+
+// Depth 0-2: pino wildcards match exactly one level, so each depth needs its own path.
+export const REDACT_PATHS: readonly string[] = REDACTED_KEYS.flatMap((key) => {
+  const segment = redactPathSegment(key);
+  const dotted = segment.startsWith("[") ? segment : `.${segment}`;
+  return [segment, `*${dotted}`, `*.*${dotted}`];
+});
 
 export type LoggerOptions = {
   level?: "debug" | "info" | "warn" | "error";
@@ -16,6 +52,8 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 
   const pinoConfig = {
     level,
+    redact: { paths: [...REDACT_PATHS], censor: "[redacted]" },
+    mixin: requestLogFields,
     ...(pretty && !options.destination
       ? { transport: { target: "pino-pretty", options: { colorize: true } } }
       : {}),

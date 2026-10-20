@@ -6,6 +6,13 @@ type FallbackLogger = {
   debug(msg: string, data?: Record<string, unknown>): void;
 };
 
+let processLogger: Logger | null = null;
+
+// Fallback loggers created at module level before boot must pick this up, so it is read per call.
+export function setProcessLogger(logger: Logger | null): void {
+  processLogger = logger;
+}
+
 export function createFallbackLogger(
   namespace: string,
   logger?: (Pick<Logger, "error"> & Partial<Pick<Logger, "warn" | "debug">>) | undefined,
@@ -33,18 +40,43 @@ export function createFallbackLogger(
       },
     };
   }
+  let cachedParent: Logger | null = null;
+  let cachedChild: Logger | null = null;
+  const resolveProcessChild = (): Logger | null => {
+    if (!processLogger) return null;
+    if (cachedParent !== processLogger || !cachedChild) {
+      cachedParent = processLogger;
+      cachedChild = processLogger.child({ component: namespace });
+    }
+    return cachedChild;
+  };
   return {
     error(msg, data) {
-      // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-      console.error(`[${namespace}] ${msg}`, data);
+      const child = resolveProcessChild();
+      if (child) {
+        child.error(msg, data);
+      } else {
+        // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
+        console.error(`[${namespace}] ${msg}`, data);
+      }
     },
     warn(msg, data) {
-      // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-      console.warn(`[${namespace}] ${msg}`, data);
+      const child = resolveProcessChild();
+      if (child) {
+        child.warn(msg, data);
+      } else {
+        // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
+        console.warn(`[${namespace}] ${msg}`, data);
+      }
     },
     debug(msg, data) {
-      // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-      console.debug(`[${namespace}] ${msg}`, data);
+      const child = resolveProcessChild();
+      if (child) {
+        child.debug(msg, data);
+      } else {
+        // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
+        console.debug(`[${namespace}] ${msg}`, data);
+      }
     },
   };
 }

@@ -21,6 +21,7 @@ import {
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query.ts";
+import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import type { EventMetadata } from "../event-store/event-store.ts";
@@ -210,7 +211,16 @@ function warnOnColumnDrift(
   );
 }
 
-export async function rebuildProjection(
+export function rebuildProjection(
+  projectionName: string,
+  deps: RebuildDeps,
+): Promise<RebuildResult> {
+  return withoutStatementTimeout(deps.db, (db) =>
+    replayProjectionIntoShadow(projectionName, { ...deps, db }),
+  );
+}
+
+async function replayProjectionIntoShadow(
   projectionName: string,
   deps: RebuildDeps,
 ): Promise<RebuildResult> {

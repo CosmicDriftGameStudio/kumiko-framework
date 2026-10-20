@@ -246,7 +246,8 @@ describe("makeSessionAuthGate — session bootstrap failure", () => {
   }
 
   beforeEach(() => {
-    document.cookie = "kumiko_csrf=gate-test-token";
+    // path=/ matches the afterEach delete; without it the cookie takes the path of whatever URL an earlier test left behind and survives into other files.
+    document.cookie = "kumiko_csrf=gate-test-token; path=/";
   });
 
   afterEach(() => {

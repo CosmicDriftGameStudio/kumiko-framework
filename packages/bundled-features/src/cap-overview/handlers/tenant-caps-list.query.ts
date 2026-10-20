@@ -16,7 +16,7 @@ import type { CapSpec, CapUsage } from "../types.ts";
 import { capFieldName } from "../web/constants.ts";
 import { computeFraction } from "../web/usage-math.ts";
 
-type TenantRow = { readonly id: string; readonly name: string };
+type TenantRow = { readonly id: string; readonly name?: string };
 type TierAssignmentRow = {
   readonly tenantId: string;
   readonly tier: string;
@@ -54,6 +54,24 @@ const FILTER_OP = z.enum(["eq", "ne", "lt", "gt", "in"]);
 type FilterOp = z.infer<typeof FILTER_OP>;
 
 const SORTABLE_FIELDS = ["name", "tier", "billing"] as const;
+const DEFAULT_SORT_FIELD = "name";
+
+async function withDecryptedPageNames<TRow extends { readonly tenantId: string }>(
+  db: Parameters<typeof selectMany>[0],
+  pageRows: readonly TRow[],
+): Promise<(TRow & { readonly name: string })[]> {
+  const decrypted = await decryptTenantNames(
+    await selectMany<TenantRow>(
+      db,
+      tenantTable,
+      { id: { in: pageRows.map((row) => row.tenantId) } },
+      { fields: ["id", "name"] },
+    ),
+    "cap-overview:tenant-caps:list",
+  );
+  const nameById = new Map(decrypted.map((tenant) => [tenant.id, tenant.name ?? ""]));
+  return pageRows.map((row) => ({ ...row, name: nameById.get(row.tenantId) ?? "" }));
+}
 
 function tenantCapKey(tenantId: string, capId: string): string {
   return JSON.stringify([tenantId, capId]);
@@ -163,11 +181,18 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         "cap-overview:tenant-caps:list — SystemAdmin platform-wide tenant overview",
       );
 
-      const tenants = await decryptTenantNames(
-        // Destroyed tenants decrypt to the erased sentinel, which a picker or list would show verbatim.
-        await selectMany<TenantRow>(db, tenantTable, { destroyedAt: null }),
-        "cap-overview:tenant-caps:list",
-      );
+      // Names are ciphertext at rest: only a name sort or search has to decrypt every tenant;
+      // otherwise rows stay name-less and just the page is decrypted afterwards.
+      const needsAllNames =
+        (query.payload.sort ?? DEFAULT_SORT_FIELD) === "name" ||
+        (query.payload.search?.trim() ?? "") !== "";
+      const tenants = needsAllNames
+        ? await decryptTenantNames(
+            // Destroyed tenants decrypt to the erased sentinel, which a picker or list would show verbatim.
+            await selectMany<TenantRow>(db, tenantTable, { destroyedAt: null }),
+            "cap-overview:tenant-caps:list",
+          )
+        : await selectMany<TenantRow>(db, tenantTable, { destroyedAt: null }, { fields: ["id"] });
       const assignments = await selectMany<TierAssignmentRow>(db, tierAssignmentTable, {});
       const subscriptions = await selectMany<SubscriptionRow>(db, subscriptionsProjectionTable, {});
 
@@ -182,7 +207,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
           return {
             id: tenant.id,
             tenantId: tenant.id,
-            name: tenant.name,
+            name: tenant.name ?? "",
             tier: assignment?.tier ?? "",
             billing: billingLabel(subscriptionByTenant.get(tenant.id), assignment?.source ?? null),
           };
@@ -194,10 +219,13 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       // tenant/team-list.query.ts. Holds up to tier-engine's documented
       // "single-pass scan" scale (a few thousand tenants); past that the fix
       // is a real combined read-projection.
-      const { rows: page, total } = pageRows(merged, query.payload, {
+      const { rows: pageWithoutNames, total } = pageRows(merged, query.payload, {
         searchFields: ["name"],
-        defaultSort: "name",
+        defaultSort: DEFAULT_SORT_FIELD,
       });
+      const page = needsAllNames
+        ? pageWithoutNames
+        : await withDecryptedPageNames(db, pageWithoutNames);
 
       // Usage is computed only for this page's tenant ids, never for the
       // full tenant set; caps without usageBatch still cost one query per

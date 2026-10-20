@@ -57,4 +57,4 @@ A handler adds its own L3 limit with `rateLimit: { per, limit, windowSeconds }`.
 
 ## Client IP behind a proxy
 
-The limits are keyed on the client IP. Behind an ingress or load balancer set `trustedProxyHops` (or `KUMIKO_TRUSTED_PROXY_HOPS`) to the number of trusted hops. Without it every request carries the proxy's address, all clients share one bucket and the default limits throttle the whole site at once. Boot logs a warning in that case. Set it to the real hop count only: a higher value lets a client choose its own bucket through `X-Forwarded-For`.
+The limits are keyed on the client IP. Behind an ingress or load balancer set `trustedProxyHops` (or `KUMIKO_TRUSTED_PROXY_HOPS`) to the number of trusted hops. Without it every request carries the proxy's address, all clients share one bucket and the default limits throttle the whole site at once. In production `runProdApp` refuses to boot when neither is set; pass `0` when the app is exposed directly. Set it to the real hop count only: a higher value lets a client choose its own bucket through `X-Forwarded-For`.

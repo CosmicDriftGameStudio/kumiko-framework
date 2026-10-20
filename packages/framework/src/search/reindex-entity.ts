@@ -8,6 +8,7 @@
 import type { DbRunner } from "../db/connection.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
+import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import {
   buildSearchDocument,
@@ -58,13 +59,26 @@ function rowToState(
   return state;
 }
 
-export async function reindexEntity(
+export function reindexEntity(
   db: DbRunner,
   registry: Registry,
   searchAdapter: SearchAdapter,
   entityName: string,
   tenantId: TenantId,
   options: ReindexEntityOptions = {},
+): Promise<ReindexEntityResult> {
+  return withoutStatementTimeout(db, (unboundedDb) =>
+    scanAndIndexEntity(unboundedDb, registry, searchAdapter, entityName, tenantId, options),
+  );
+}
+
+async function scanAndIndexEntity(
+  db: DbRunner,
+  registry: Registry,
+  searchAdapter: SearchAdapter,
+  entityName: string,
+  tenantId: TenantId,
+  options: ReindexEntityOptions,
 ): Promise<ReindexEntityResult> {
   const entity = registry.getEntity(entityName);
   if (!entity) {
@@ -95,7 +109,7 @@ export async function reindexEntity(
     failures: [] as ReindexEntityFailure[],
   };
 
-  let offset = 0;
+  let lastId: unknown;
   // Whether a searchable field lacks a matching read-table column depends
   // only on the table's column set (rowToState/Object.hasOwn), not on any
   // particular row's data — every row from the same SELECT * has the same
@@ -106,18 +120,15 @@ export async function reindexEntity(
   let uncheckedSchema = true;
 
   for (;;) {
-    // ponytail: LIMIT/OFFSET, not a keyset cursor — id can be uuid or
-    // serial depending on the entity, and a uniform cursor comparison
-    // across both types needs a text cast that breaks integer ordering.
-    // This is a one-time backfill over existing rows, not a live hot path;
-    // switch to keyset if it ever needs to run against a churning table.
+    // Keyset, not OFFSET: rows deleted or changed while the loop runs must not shift the window.
+    const afterLastId = lastId === undefined ? "" : `AND ${quoteIdent("id")} > $3`;
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       db,
       `SELECT * FROM ${quoteIdent(tableName)}
-        WHERE ${quoteIdent("tenant_id")} = $1 ${deletedFilter}
+        WHERE ${quoteIdent("tenant_id")} = $1 ${deletedFilter} ${afterLastId}
         ORDER BY ${quoteIdent("id")} ASC
-        LIMIT $2 OFFSET $3`,
-      [tenantId, batchSize, offset],
+        LIMIT $2`,
+      lastId === undefined ? [tenantId, batchSize] : [tenantId, batchSize, lastId],
     );
     if (rows.length === 0) break;
 
@@ -181,7 +192,7 @@ export async function reindexEntity(
       result.wouldIndexRows += docs.length;
     }
 
-    offset += rows.length;
+    lastId = rows[rows.length - 1]?.["id"];
     if (rows.length < batchSize) break;
   }
 

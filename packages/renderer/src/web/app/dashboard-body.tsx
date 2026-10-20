@@ -90,6 +90,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { type ErrorNotice, ErrorReference } from "../../app/error-reference.tsx";
 import { currencyDecimals, EMPTY_VALUE_PLACEHOLDER, type Translate } from "../../headless/index.ts";
 import {
   type DashboardBodyProps,
@@ -1856,7 +1857,7 @@ export function WebDashboardBody({
     ]);
   }, [recordQueryName, refetchRecord, refetchRegistered]);
 
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ErrorNotice | null>(null);
   const idOnlyRow = useMemo(
     () => (recordPayloadKey !== undefined ? { id: recordId, [recordPayloadKey]: recordId } : null),
     [recordId, recordPayloadKey],
@@ -1951,7 +1952,8 @@ export function WebDashboardBody({
           </div>
           {actionError !== null && (
             <Banner variant="error" testId="render-edit-action-error">
-              {actionError}
+              {actionError.message}
+              <ErrorReference requestId={actionError.requestId} />
             </Banner>
           )}
           {recordQuery.error !== null && recordRow === null && (

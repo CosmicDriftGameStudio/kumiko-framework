@@ -8,6 +8,7 @@ import {
   usePrimitives,
   useQuery,
   useTranslation,
+  useUnsavedInputSource,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import {
@@ -148,6 +149,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   };
 
   const dirty = isDraftDirty(draft, baseline);
+  useUnsavedInputSource(() => dirty);
   const busy = persistence.busy;
   const canSave = !locked && !busy && validation?.canSave === true && (dirty || creating);
   const canPublish =

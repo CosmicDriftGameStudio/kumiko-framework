@@ -12,6 +12,8 @@ import {
   type NavApi,
   NavProvider,
   PrimitivesProvider,
+  requestLeave,
+  setLeaveConfirmer,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { type Dispatcher, formatMoney } from "@cosmicdrift/kumiko-renderer/headless";
@@ -522,6 +524,44 @@ describe("MailEditor", () => {
     if (english === undefined) throw new Error("en option not found");
     fireEvent.click(english);
     expect(await screen.findByText("Unsaved changes")).toBeTruthy();
+  });
+
+  test("discarding in the own locale dialog does not trigger the global leave confirmation", async () => {
+    const asked: string[] = [];
+    const stop = setLeaveConfirmer(() => asked.push("asked"));
+    try {
+      renderEditor(fakeDispatcher("draft", []));
+      await makeDirty();
+      const switcher = await screen.findByTestId("mail-locale-switch");
+      const english = Array.from(switcher.querySelectorAll("button,input,label")).find(
+        (node) => node.textContent === "en",
+      );
+      if (english === undefined) throw new Error("en option not found");
+      fireEvent.click(english);
+      fireEvent.click(await screen.findByTestId("mail-leave-discard"));
+      await waitFor(() => expect(screen.queryByTestId("mail-leave-dialog")).toBeNull());
+      expect(asked).toEqual([]);
+    } finally {
+      stop();
+    }
+  });
+
+  test("global navigation asks before leaving a dirty draft and not before the edit", async () => {
+    const asked: string[] = [];
+    const stop = setLeaveConfirmer(() => asked.push("asked"));
+    try {
+      renderEditor(fakeDispatcher("draft", []));
+      await screen.findByTestId("mail-locale-switch");
+      let left = 0;
+      requestLeave(() => (left += 1));
+      expect(left).toBe(1);
+      await makeDirty();
+      requestLeave(() => (left += 1));
+      expect(left).toBe(1);
+      expect(asked).toEqual(["asked"]);
+    } finally {
+      stop();
+    }
   });
 
   test("the preview renders the mail in a sandboxed iframe and never as innerHTML", async () => {

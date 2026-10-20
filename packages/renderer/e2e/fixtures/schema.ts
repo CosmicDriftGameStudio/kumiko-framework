@@ -47,6 +47,30 @@ export const thingEditScreen: EntityEditScreenDefinition = {
   },
 };
 
+export const FAILING_WRITE_HANDLER = "test:write:thing:fail";
+
+const explodeAction = {
+  id: "explode",
+  label: "Explode",
+  handler: FAILING_WRITE_HANDLER,
+  display: "button",
+} as const;
+
+export const failingListScreen: EntityListScreenDefinition = {
+  id: "thing-list-failing",
+  type: "entityList",
+  entity: "thing",
+  columns: ["label", "status"],
+  rowActions: [explodeAction],
+  rowActionMode: "inline",
+};
+
+export const failingEditScreen: EntityEditScreenDefinition = {
+  ...thingEditScreen,
+  id: "thing-edit-failing",
+  actions: [explodeAction],
+};
+
 export const ROLE_AVAILABILITY_QUERY = "test:query:role-availability";
 
 const ROLE_OPTIONS = ["User", "Member", "Editor", "Admin", "TenantAdmin"] as const;
@@ -100,6 +124,8 @@ export const e2eSchema: AppSchema = {
         rolesAvailabilityScreen,
         dashboardScreen,
         boomScreen,
+        failingListScreen,
+        failingEditScreen,
       ],
       navs: [
         { id: "thing-list", label: "Things", screen: "thing-list", order: 10 },

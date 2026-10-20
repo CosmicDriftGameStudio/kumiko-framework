@@ -542,6 +542,7 @@ export type {
   JobBackoff,
   JobBackoffStrategy,
   JobContext,
+  JobDeferral,
   JobDefinition,
   JobHandlerFn,
   JobTrigger,

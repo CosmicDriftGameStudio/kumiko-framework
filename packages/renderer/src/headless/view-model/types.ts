@@ -238,7 +238,7 @@ export type EditFieldViewModel = {
    *  `true` = default rows, `{ rows }` = explicit height. */
   readonly multiline?: boolean | { readonly rows?: number };
   /** From TextFieldDef.format — `password` makes the renderer mask the input. */
-  readonly format?: "email" | "url" | "phone" | "password" | "month";
+  readonly format?: "email" | "url" | "phone" | "password" | "month" | "iban";
   /** From TextFieldDef.autoComplete — HTML autocomplete token for the text input. */
   readonly autoComplete?: string;
   /** From TextFieldDef.writeOnly — value is `true` (set) / `null` (empty), never plaintext. */

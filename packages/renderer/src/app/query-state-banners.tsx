@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { DispatcherError, Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
+import { ErrorReference } from "./error-reference.tsx";
 import { dispatcherErrorText } from "./write-failed-error.ts";
 
 export function QueryLoadingBanner(): ReactNode {
@@ -37,6 +38,7 @@ export function QueryErrorBanner({
       }
     >
       {dispatcherErrorText(error, translate)}
+      <ErrorReference requestId={error.requestId} />
     </Banner>
   );
 }

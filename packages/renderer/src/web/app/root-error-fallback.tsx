@@ -1,11 +1,30 @@
 import { ROOT_ERROR_FALLBACK_TEST_ID } from "@cosmicdrift/kumiko-types/error-boundary";
-import type { ReactNode } from "react";
+import { Check, Copy } from "lucide-react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 
-// Renders outside every provider, so no i18n/theme/primitives: plain DOM + inline text.
+// Renders outside every provider and possibly without loaded CSS, so no i18n/theme/primitives: plain DOM, inline text and inline styles (lucide icons are self-contained SVG).
 const ROOT_ERROR_TEXTS = {
-  de: { title: "Etwas ist schiefgelaufen.", reload: "Seite neu laden" },
-  en: { title: "Something went wrong.", reload: "Reload page" },
-  es: { title: "Algo salió mal.", reload: "Recargar la página" },
+  de: {
+    title: "Etwas ist schiefgelaufen.",
+    reload: "Seite neu laden",
+    reference: "Fehler-ID",
+    copy: "Kopieren",
+    copied: "Kopiert!",
+  },
+  en: {
+    title: "Something went wrong.",
+    reload: "Reload page",
+    reference: "Error ID",
+    copy: "Copy",
+    copied: "Copied!",
+  },
+  es: {
+    title: "Algo salió mal.",
+    reload: "Recargar la página",
+    reference: "ID de error",
+    copy: "Copiar",
+    copied: "¡Copiado!",
+  },
 } as const;
 
 function rootErrorTexts(): (typeof ROOT_ERROR_TEXTS)[keyof typeof ROOT_ERROR_TEXTS] {
@@ -16,12 +35,87 @@ function rootErrorTexts(): (typeof ROOT_ERROR_TEXTS)[keyof typeof ROOT_ERROR_TEX
   return ROOT_ERROR_TEXTS.en;
 }
 
-export function RootErrorFallback(): ReactNode {
+const containerStyle: CSSProperties = {
+  boxSizing: "border-box",
+  minHeight: "100vh",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "16px",
+  padding: "24px",
+  textAlign: "center",
+  fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+  color: "#1a1a1a",
+  background: "#ffffff",
+};
+
+const titleStyle: CSSProperties = { margin: 0, fontSize: "20px", fontWeight: 600 };
+const referenceStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  justifyContent: "center",
+  gap: "8px",
+  fontSize: "13px",
+  color: "#555555",
+};
+const errorIdStyle: CSSProperties = { whiteSpace: "nowrap" };
+const buttonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  padding: "6px 12px",
+  fontFamily: "inherit",
+  fontSize: "14px",
+  fontWeight: 500,
+  lineHeight: "20px",
+  borderRadius: "6px",
+  border: "1px solid #e4e4e7",
+  background: "#ffffff",
+  color: "#1a1a1a",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+  cursor: "pointer",
+};
+
+export function RootErrorFallback({ errorId }: { readonly errorId?: string }): ReactNode {
   const texts = rootErrorTexts();
+  const [copied, setCopied] = useState(false);
+
+  async function copyErrorId(): Promise<void> {
+    if (errorId === undefined) return;
+    try {
+      await navigator.clipboard.writeText(errorId);
+      setCopied(true);
+    } catch {
+      // Clipboard denied or unavailable: the id stays visible and selectable.
+    }
+  }
+
   return (
-    <div role="alert" data-testid={ROOT_ERROR_FALLBACK_TEST_ID}>
-      <p>{texts.title}</p>
-      <button type="button" onClick={() => window.location.reload()}>
+    <div role="alert" data-testid={ROOT_ERROR_FALLBACK_TEST_ID} style={containerStyle}>
+      <p style={titleStyle}>{texts.title}</p>
+      {errorId !== undefined && (
+        <div style={referenceStyle} data-testid={`${ROOT_ERROR_FALLBACK_TEST_ID}-reference`}>
+          <span>
+            {texts.reference}: <span style={errorIdStyle}>{errorId}</span>
+          </span>
+          <button
+            type="button"
+            style={buttonStyle}
+            data-testid={`${ROOT_ERROR_FALLBACK_TEST_ID}-copy`}
+            onClick={() => void copyErrorId()}
+          >
+            {copied ? (
+              <Check size={14} aria-hidden="true" />
+            ) : (
+              <Copy size={14} aria-hidden="true" />
+            )}
+            {copied ? texts.copied : texts.copy}
+          </button>
+        </div>
+      )}
+      <button type="button" style={buttonStyle} onClick={() => window.location.reload()}>
         {texts.reload}
       </button>
     </div>

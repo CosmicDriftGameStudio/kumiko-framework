@@ -18,7 +18,7 @@
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { useCallback } from "react";
-import { useNav } from "../../index.ts";
+import { requestLeave, useNav } from "../../index.ts";
 import { serializeTarget } from "./target-url.ts";
 
 type DispatchListener = (target: TargetRef) => void;
@@ -65,8 +65,10 @@ export function useDispatchTarget(): (target: TargetRef) => void {
   const nav = useNav();
   return useCallback(
     (target: TargetRef) => {
-      nav.setSearchParams(serializeTarget(target, nav.searchParams));
-      dispatchTarget(target);
+      requestLeave(() => {
+        nav.setSearchParams(serializeTarget(target, nav.searchParams));
+        dispatchTarget(target);
+      });
     },
     [nav],
   );

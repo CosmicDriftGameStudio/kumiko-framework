@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import * as z from "zod";
+import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
 import { isPresent, REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.ts";
 import { dispatcherErrorText } from "../app/write-failed-error.ts";
 import type {
@@ -81,7 +82,7 @@ export function WriteFormSection({
   });
   useUnsavedInputSource(() => controller.getSnapshot().isDirty);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorNotice | null>(null);
 
   async function handleSubmit(): Promise<void> {
     if (isSubmitting) return;
@@ -106,7 +107,10 @@ export function WriteFormSection({
       const issuePaths = (result.error.details?.fields ?? []).map((i) => i.path);
       setError(
         hasIssueWithoutVisibleField(issuePaths, section.fields)
-          ? dispatcherErrorText(result.error, effectiveTranslate)
+          ? {
+              message: dispatcherErrorText(result.error, effectiveTranslate),
+              ...(result.error.requestId !== undefined && { requestId: result.error.requestId }),
+            }
           : null,
       );
     } finally {
@@ -171,7 +175,8 @@ export function WriteFormSection({
       </Grid>
       {error !== null && (
         <Banner variant="error" testId="write-form-section-error">
-          {error}
+          {error.message}
+          <ErrorReference requestId={error.requestId} />
         </Banner>
       )}
       {onFooterAction === undefined && (

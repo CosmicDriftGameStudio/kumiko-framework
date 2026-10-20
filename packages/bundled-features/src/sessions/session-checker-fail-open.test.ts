@@ -187,3 +187,131 @@ describe("sessionChecker role re-derivation", () => {
     }
   });
 });
+
+describe("sessionChecker lookup overlap", () => {
+  const sid = "00000000-0000-4000-8000-0000000sid10";
+  const userId = "00000000-0000-4000-8000-0000000usr10";
+  const tenantId = "00000000-0000-4000-8000-00000tenan10";
+
+  type Outcome = "ok" | "null" | "throw";
+
+  function sessionRow() {
+    return {
+      userId,
+      tenantId,
+      revokedAt: null,
+      expiresAt: { epochMilliseconds: Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds },
+      lastSeenAt: { epochMilliseconds: Temporal.Now.instant().epochMilliseconds },
+    };
+  }
+
+  function lookupFor(
+    table: unknown,
+    user: Outcome,
+    membership: Outcome,
+  ): Record<string, unknown> | undefined {
+    if (table === userSessionTable) return sessionRow();
+    if (table === userTable) {
+      if (user === "throw") throw new Error("user lookup failed");
+      return user === "null"
+        ? undefined
+        : { status: USER_STATUS.Active, isDeleted: false, roles: JSON.stringify(["Support"]) };
+    }
+    if (table === tenantMembershipsTable) {
+      if (membership === "throw") throw new Error("membership lookup failed");
+      return membership === "null" ? undefined : { roles: JSON.stringify(["User"]) };
+    }
+    throw new Error("unexpected table in sessionChecker spy");
+  }
+
+  test("user lookup starts before the session read resolves, membership before user resolves", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
+    const started: unknown[] = [];
+    const releases = new Map<unknown, () => void>();
+
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation(((_db, table) => {
+      started.push(table);
+      return new Promise<Record<string, unknown> | undefined>((resolve) => {
+        releases.set(table, () => resolve(lookupFor(table, "ok", "ok")));
+      });
+    }) as FetchOne);
+
+    try {
+      const pending = cbs.sessionChecker(sid, userId);
+      expect(started).toEqual([userTable, userSessionTable]);
+
+      releases.get(userSessionTable)?.();
+      await Bun.sleep(0);
+      expect(started).toEqual([userTable, userSessionTable, tenantMembershipsTable]);
+
+      releases.get(tenantMembershipsTable)?.();
+      releases.get(userTable)?.();
+      const result = await pending;
+      if (typeof result === "string") throw new Error(`expected object, got "${result}"`);
+      expect([...result.roles].sort()).toEqual(["Support", "User"]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  const outcomes: readonly Outcome[] = ["ok", "null", "throw"];
+  for (const user of outcomes) {
+    for (const membership of outcomes) {
+      const expectsLive = user !== "ok" || membership === "throw";
+      test(`user=${user} membership=${membership} → ${expectsLive ? "bare live" : "live with roles"}`, async () => {
+        const cbs = createSessionCallbacks({ db: {} as DbConnection });
+        const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) =>
+          lookupFor(table, user, membership)) as FetchOne);
+        try {
+          const result = await cbs.sessionChecker(sid, userId);
+          if (expectsLive) {
+            expect(result).toBe("live");
+          } else {
+            if (typeof result === "string") throw new Error(`expected object, got "${result}"`);
+            const expected = membership === "null" ? ["Support"] : ["Support", "User"];
+            expect([...result.roles].sort()).toEqual(expected);
+          }
+        } finally {
+          spy.mockRestore();
+        }
+      });
+    }
+  }
+
+  test("session miss rejects as missing even when parallel lookups throw, without unhandled rejection", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+      if (table === userSessionTable) return undefined;
+      throw new Error("parallel lookup failed");
+    }) as FetchOne);
+    try {
+      expect(await cbs.sessionChecker(sid, userId)).toBe("missing");
+      await Bun.sleep(5);
+      expect(unhandled).toEqual([]);
+    } finally {
+      spy.mockRestore();
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
+  test("session read throw propagates and leaves the user lookup handled", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async () => {
+      throw new Error("pool down");
+    }) as FetchOne);
+    try {
+      await expect(cbs.sessionChecker(sid, userId)).rejects.toThrow("pool down");
+      await Bun.sleep(5);
+      expect(unhandled).toEqual([]);
+    } finally {
+      spy.mockRestore();
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+});

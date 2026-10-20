@@ -19,7 +19,11 @@ import {
   createSystemUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
-import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
+import {
+  createFallbackLogger,
+  type Logger,
+  scrubLogText,
+} from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertNotifyTargetsOwnTenant,
   createEscapeHatchReporter,
@@ -652,8 +656,13 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           gates.set(key, gate);
           if (gate !== "open") continue;
           addresses.set(key, await channel.resolve(userId, channelCtx));
-        } catch {
-          // skip: re-resolved (and logged) by deliverToUser
+        } catch (err) {
+          // The per-recipient delivery path resolves again and decides the outcome; this only surfaces the early failure.
+          logError.warn("channel pre-resolve failed", {
+            channel: channel.name,
+            notificationType,
+            error: scrubLogText(err instanceof Error ? err.message : String(err)),
+          });
         }
       }
     }

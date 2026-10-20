@@ -203,6 +203,7 @@ async function runResumeDueRunsJob(): Promise<void> {
     triggeredBy: null,
     attempt: 1,
     finalAttempt: true,
+    defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
     ...bridgeStub({ user: systemUser }),
     write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser),
   };

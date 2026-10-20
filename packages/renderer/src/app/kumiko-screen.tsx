@@ -120,6 +120,7 @@ import { useCustomScreenComponent } from "./custom-screens.tsx";
 import { useDashboardBody } from "./dashboard-body.tsx";
 import { applyEditPrefill } from "./edit-prefill.ts";
 import { EntityListExpandedRow } from "./entity-list-expanded-row.tsx";
+import { type ErrorNotice, ErrorReference } from "./error-reference.tsx";
 import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { buildFormSchema } from "./form-schema.ts";
@@ -3367,7 +3368,8 @@ function runMetricNavigate(
   // activates that tab — no route change, so runProjectionRowNavigate
   // (which always navigates) doesn't apply here.
   if (navigate.screen === undefined && navigate.entity === undefined) {
-    if (navigate.tab !== undefined) nav.setSearchParams({ tab: navigate.tab });
+    const { tab } = navigate;
+    if (tab !== undefined) requestLeave(() => nav.setSearchParams({ tab }));
     return;
   }
   const base = { kind: "navigate" as const, id: "metric-navigate", label: "" };
@@ -3583,7 +3585,7 @@ function ProjectionDetailBody({
   // Header actions render directly via RenderEditActionButton (fw#2713,
   // headerActions moved out of RenderEdit's footer) — this component owns
   // the failure-surfacing state RenderEdit used to own for them.
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ErrorNotice | null>(null);
 
   // Default edit action (fw#2166): resolved cross-feature over ALL mounted
   // features, not just this feature's own schema — detailFor itself is
@@ -3989,7 +3991,8 @@ function ProjectionDetailBody({
     );
   const actionErrorBanner = actionError !== null && (
     <Banner variant="error" testId="render-edit-action-error">
-      {actionError}
+      {actionError.message}
+      <ErrorReference requestId={actionError.requestId} />
     </Banner>
   );
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode => (

@@ -217,6 +217,7 @@ export type {
   HandlerContext,
   HandlerRef,
   JobContext,
+  JobDeferral,
   JobRunnerRef,
   JobTriggerEvent,
   MemberReader,

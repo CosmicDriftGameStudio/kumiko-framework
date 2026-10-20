@@ -3,7 +3,7 @@ import type { ConcurrencyMode } from "./concurrency-mode.ts";
 import type { ConfigScope } from "./config-scope.ts";
 import type { DbConnection } from "./db-connection.ts";
 import type { FieldDefinition, OptionsQueryPayload } from "./fields.ts";
-import type { EscapeHatchDeclaration, JobContext } from "./handlers.ts";
+import type { EscapeHatchDeclaration, JobContext, JobDeferral } from "./handlers.ts";
 import type {
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -373,7 +373,10 @@ export type JobRunIn = Exclude<RunIn, "both">;
 
 // --- Jobs ---
 
-export type JobHandlerFn = (payload: Record<string, unknown>, context: JobContext) => Promise<void>;
+export type JobHandlerFn = (
+  payload: Record<string, unknown>,
+  context: JobContext,
+) => Promise<void | JobDeferral>;
 
 export type JobTrigger =
   // `on` akzeptiert ein einzelnes Handler-Ref ODER eine Liste. Multi-
@@ -436,6 +439,8 @@ export type JobDefinition = {
   // A plain number means `{ limit, onLimit: "skip" }`.
   readonly maxPerTenant?: number | MaxPerTenantOptions | undefined;
   readonly debounceMs?: number | undefined;
+  // Upper bound on `ctx.defer` re-runs per job (default 100); exceeding it fails the run.
+  readonly maxDefers?: number | undefined;
   readonly retries?: number | undefined;
   readonly backoff?: JobBackoff | undefined;
   readonly timeout?: number | undefined;

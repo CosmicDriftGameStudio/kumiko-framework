@@ -52,6 +52,9 @@ export type RequestContextData = {
   // event written under this scope.
   readonly feature?: string;
   readonly handler?: string;
+  // Resolved after authentication, so mutable: the store is created before the user is known.
+  tenantId?: string;
+  userId?: string;
   // performance.now() at request entry, so a failing request can report how
   // long it ran. Monotonic — a wall-clock step cannot make it negative.
   readonly startedAt?: number;
@@ -83,6 +86,14 @@ export const requestContext = {
     return generateId();
   },
 };
+
+export function setRequestIdentity(identity: { tenantId: string; userId?: string }): void {
+  const store = storage.getStore();
+  // skip: outside a request scope there is no log context to enrich
+  if (!store) return;
+  store.tenantId = identity.tenantId;
+  if (identity.userId !== undefined) store.userId = identity.userId;
+}
 
 // Public view: `run` would let a caller replace the request scope (entryHandler,
 // writeOrigin), so only the read side is exposed through the /api barrel.

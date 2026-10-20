@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  type SubjectId,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import {
   access,
   createSystemUser,
@@ -44,6 +48,17 @@ const TENANT_A = testTenantId(9301);
 const TENANT_B = testTenantId(9302);
 const TENANT_C = testTenantId(9303);
 const READ_FOR_QUERY = "cap-seats-probe:query:read-for";
+
+// Each tenant name is its own PII subject, so one DEK fetch is one decrypted name.
+class CountingKmsAdapter extends InMemoryKmsAdapter {
+  getKeyCalls = 0;
+
+  override async getKey(subject: SubjectId) {
+    this.getKeyCalls++;
+    return super.getKey(subject);
+  }
+}
+const kms = new CountingKmsAdapter();
 
 const seatsFeature = defineFeature("cap-seats-probe", (r) => {
   r.requires({ features: ["config"] });
@@ -115,7 +130,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  configurePiiSubjectKms(new InMemoryKmsAdapter());
+  configurePiiSubjectKms(kms);
 
   for (const id of [TENANT_A, TENANT_B, TENANT_C]) {
     await seedTenant(stack.db, { id, key: `cap-seats-${id}`, name: `Seats ${id}` });
@@ -190,6 +205,48 @@ describe("cross-tenant cap limits read the target tenant's config", () => {
     expect(limitOf(TENANT_A)).toBe(111);
     expect(limitOf(TENANT_B)).toBe(222);
     expect(limitOf(TENANT_C)).toBe(SEATS_DEFAULT);
+  });
+});
+
+describe("tenant-caps:list decrypts only what the request needs", () => {
+  async function listWithDecryptCount(payload: Record<string, unknown>) {
+    kms.getKeyCalls = 0;
+    const list = await stack.http.queryOk<TenantCapsListResult & { total?: number }>(
+      CapOverviewQueries.tenantCapsList,
+      { totalCount: true, ...payload },
+      adminA,
+    );
+    return { list, decryptCalls: kms.getKeyCalls };
+  }
+
+  test("a tier sort decrypts just the names of the returned page", async () => {
+    const { list, decryptCalls } = await listWithDecryptCount({
+      sort: "tier",
+      limit: 1,
+      offset: 1,
+    });
+    expect(list.total).toBeGreaterThanOrEqual(3);
+    expect(list.rows).toHaveLength(1);
+    expect(decryptCalls).toBe(1);
+    const row = list.rows[0];
+    expect(row?.["name"]).toBe(`Seats ${row?.tenantId}`);
+  });
+
+  test("a name sort has to decrypt every tenant and orders by the plaintext name", async () => {
+    const { list, decryptCalls } = await listWithDecryptCount({ sort: "name", limit: 50 });
+    expect(decryptCalls).toBe(list.total ?? -1);
+    const names = list.rows.map((row) => String(row["name"]));
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  });
+
+  test("a search decrypts every tenant and filters by plaintext name", async () => {
+    const { list, decryptCalls } = await listWithDecryptCount({
+      sort: "tier",
+      search: `Seats ${TENANT_B}`,
+      limit: 50,
+    });
+    expect(list.rows.map((row) => row.tenantId)).toEqual([TENANT_B]);
+    expect(decryptCalls).toBeGreaterThanOrEqual(3);
   });
 });
 

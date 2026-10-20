@@ -8,6 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ConsumerLagError } from "@cosmicdrift/kumiko-framework/pipeline";
 import type * as z from "zod";
+import { projectedAttemptAddress, rememberConnectionNameChannel } from "./attempt-log.ts";
 import { resolveAttemptLogRetentionDays, runAttemptLogRetention } from "./attempt-log-retention.ts";
 import {
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
@@ -120,6 +121,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // drain needed in tests. Chosen over a MultiStreamProjection because
     // delivery-log is a hot read-path for admin/audit UIs that expect
     // read-your-own-write semantics.
+    const connectionNameChannels = new Set<string>();
     r.projection({
       name: "delivery-log",
       source: "deliveryAttempt",
@@ -127,6 +129,11 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       apply: {
         [DELIVERY_ATTEMPT_EVENT]: async (event, tx) => {
           const p = event.payload as z.infer<typeof deliveryAttemptSchema>; // @cast-boundary engine-payload
+          const projectedAddress = projectedAttemptAddress(
+            connectionNameChannels,
+            p.channel,
+            p.recipientAddress,
+          );
           // PK = aggregateId. An async attempt accrues multiple events on one
           // stream (queued → sent/failed): the first INSERTs, later events
           // UPDATE the same row. Events arrive in version order, so the last
@@ -140,7 +147,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
               notificationType: p.notificationType,
               channel: p.channel,
               recipientId: p.recipientId,
-              recipientAddress: p.recipientAddress,
+              recipientAddress: projectedAddress,
               status: p.status,
               error: p.error,
               priority: p.priority,
@@ -149,7 +156,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
             {
               status: p.status,
               error: p.error,
-              recipientAddress: p.recipientAddress,
+              recipientAddress: projectedAddress,
               confirmed: p.confirmed ?? null,
             },
           );
@@ -165,14 +172,10 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       },
     });
 
-    // Extension point: delivery-channels (email/in-app/push). Renderer-
-    // Extension-Point lebt jetzt im `renderer-foundation`-Bundle als
-    // `renderer` (Multi-Kind-Plugin-Contract). delivery hostet keinen
-    // eigenen mehr — channel-email nimmt renderer als direkte
-    // Konstruktor-Option (siehe email-channel.ts), nicht via Extension-
-    // Usage. Migration 2026-05-19.
+    // Connection-name channels address a configured connection, not a person, so they stay unmasked.
     r.extendsRegistrar(DELIVERY_CHANNEL_EXTENSION, {
-      onRegister: () => {},
+      onRegister: (channelName, channelOptions) =>
+        rememberConnectionNameChannel(connectionNameChannels, channelName, channelOptions),
     });
 
     // Async delivery pipeline for queued-mode channels. render decouples the

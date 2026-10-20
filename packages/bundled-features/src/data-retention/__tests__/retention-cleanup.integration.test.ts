@@ -339,6 +339,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
+      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       ...bridgeStub(),
     };
     await job.handler({}, ctx);

@@ -12,6 +12,7 @@ import {
   runnerCanBeginTransaction,
   unsafeReadRetrying,
 } from "../query.ts";
+import { withoutStatementTimeout } from "../statement-timeout.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 // Gap-finality (event-dispatcher pending_gaps) needs every holder of an
@@ -74,7 +75,11 @@ async function indexValidity(
   return rows[0]?.indisvalid;
 }
 
-export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
+export function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
+  return withoutStatementTimeout(db, buildIdempotencyKeyIndex);
+}
+
+async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
   const client = asRawClient(db);
 
   try {
@@ -120,7 +125,11 @@ export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
 // tenant_id column — cross-tenant SystemAdmin adds land under the actor's
 // tenant), which no other index covers: without this it scans every event.
 // Same CONCURRENTLY + INVALID-rebuild handling as the idempotency index.
-export async function ensureMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
+export function ensureMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
+  return withoutStatementTimeout(db, buildMembershipPayloadTenantIndex);
+}
+
+async function buildMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
   const client = asRawClient(db);
   try {
     if ((await indexValidity(client, MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)) === false) {

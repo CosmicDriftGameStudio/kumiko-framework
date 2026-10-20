@@ -3,6 +3,7 @@ import { moneyPayloadToMinorUnits } from "../db/money.ts";
 import { isValidIanaTimeZone } from "../time/index.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { withDerivedCells } from "./embedded-derived.ts";
+import { isValidIban } from "./iban.ts";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types/index.ts";
 import { DEFAULT_CURRENCIES } from "./types/index.ts";
 
@@ -120,6 +121,14 @@ export function fieldToZod(
       }
       if (field.format === "email") schema = schema.email();
       if (field.format === "url") schema = schema.url();
+      if (field.format === "iban") {
+        // "" stays valid for an optional field; `required` rejects it via min(1) below.
+        schema = schema.superRefine((value, ctx) => {
+          if (value !== "" && !isValidIban(value)) {
+            ctx.addIssue({ code: "invalid_format", format: "iban", input: value });
+          }
+        });
+      }
       if (field.format === "month") {
         // "" stays valid for an optional field; `required` rejects it via min(1) below.
         schema = schema.refine((value) => value === "" || MONTH_PATTERN.test(value), {

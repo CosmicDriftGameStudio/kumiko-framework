@@ -88,6 +88,7 @@ import {
   authMiddleware,
   getAuthTokenExpiry,
   getUser,
+  identifyOptionalSession,
   type TenantLifecycleStatusResolver,
 } from "./auth-middleware.ts";
 import {
@@ -96,6 +97,7 @@ import {
   createAuthRoutes,
   type LoginRateLimiter,
 } from "./auth-routes.ts";
+import { createClientErrorRoute } from "./client-error-route.ts";
 import {
   assertValidTrustedProxyHops,
   type ClientIpResolver,
@@ -877,6 +879,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         ...options.rateLimit.global,
         resolver: rateLimitResolver,
         clientIpResolver,
+        meter: observability.meter,
       });
       app.use("/api/*", globalRateLimitGuard);
     }
@@ -1052,6 +1055,17 @@ export function buildServer(options: ServerOptions): KumikoServer {
   }
   app.route(
     "/api",
+    createClientErrorRoute({
+      resolver:
+        rateLimitResolver ??
+        (wrappedRedis ? createRateLimitResolver({ redis: wrappedRedis }) : undefined),
+      clientIpResolver,
+      meter: observability.meter,
+      identifySession: (c) => identifyOptionalSession(c, jwt),
+    }),
+  );
+  app.route(
+    "/api",
     createApiRoutes(dispatcher, {
       ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
     }),
@@ -1189,6 +1203,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
                 rateLimit: route.rateLimit,
                 routeKey: `${route.method} ${route.path}`,
                 clientIpResolver,
+                meter: observability.meter,
               }),
             ]
           : [];

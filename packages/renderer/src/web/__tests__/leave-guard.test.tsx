@@ -14,6 +14,7 @@ import {
   KumikoScreen,
   LeaveGuardDialog,
   NavProvider,
+  navigateWithReturnTo,
   RenderEdit,
   useNav,
 } from "../../index.ts";
@@ -424,5 +425,81 @@ describe("leave guard on projectionDetail tabs", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     await waitFor(() => expect(setSearchParams).toHaveBeenCalledWith({ tab: "overview" }));
+  });
+});
+
+describe("leave guard on setSearchParams-based navigation", () => {
+  function ReturnToButton(): ReactNode {
+    const nav = useNav();
+    return (
+      <button
+        type="button"
+        data-testid="go-with-return"
+        onClick={() =>
+          navigateWithReturnTo(
+            nav,
+            { screenId: "list" },
+            { screenId: "tasks:screen:task-edit" },
+            {
+              flag: "1",
+            },
+          )
+        }
+      >
+        go
+      </button>
+    );
+  }
+
+  function renderWithReturnButton(): void {
+    render(
+      <BrowserNav>
+        <ReturnToButton />
+        <DispatcherProvider dispatcher={dispatcherWriting("success")}>
+          <RenderEdit<TaskValues>
+            screen={taskScreen}
+            entity={taskEntity}
+            featureName="tasks"
+            initial={{ title: "" }}
+            writeCommand="task:create"
+          />
+        </DispatcherProvider>
+        <LeaveGuardDialog />
+      </BrowserNav>,
+    );
+  }
+
+  test("a dirty form asks once; keeping the input leaves the URL and the field untouched", async () => {
+    renderWithReturnButton();
+    typeTitle("draft");
+    fireEvent.click(screen.getByTestId("go-with-return"));
+
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    expect(window.location.pathname + window.location.search).toBe("/tasks");
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    await waitFor(() => expect(screen.queryByTestId("leave-guard-dialog")).toBeNull());
+    expect(window.location.pathname + window.location.search).toBe("/tasks");
+    const input = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    expect(input.value).toBe("draft");
+  });
+
+  test("confirming navigates and applies the params without a second question", async () => {
+    renderWithReturnButton();
+    typeTitle("draft");
+    fireEvent.click(screen.getByTestId("go-with-return"));
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/list"));
+    expect(new URLSearchParams(window.location.search).get("flag")).toBe("1");
+    expect(screen.queryByTestId("leave-guard-dialog")).toBeNull();
+  });
+
+  test("a clean form navigates with params right away", () => {
+    renderWithReturnButton();
+    fireEvent.click(screen.getByTestId("go-with-return"));
+    expect(window.location.pathname).toBe("/list");
+    expect(new URLSearchParams(window.location.search).get("flag")).toBe("1");
   });
 });

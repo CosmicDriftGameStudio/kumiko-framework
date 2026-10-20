@@ -304,8 +304,9 @@ export type TextFieldDef = {
    *  run that already read the compromised value. See irreversible-operation-gate. */
   readonly readAsInstruction?: boolean;
   /** "password" is a pure render hint (masked input) — no storage semantics.
-   *  "month" stores `YYYY-MM`: month picker in the form, format enforced on write. */
-  readonly format?: "email" | "url" | "phone" | "password" | "month";
+   *  "month" stores `YYYY-MM`: month picker in the form, format enforced on write.
+   *  "iban" is checked on write (shape plus mod-97); the value is stored as typed. */
+  readonly format?: "email" | "url" | "phone" | "password" | "month" | "iban";
   readonly default?: string;
   readonly access?: FieldAccess;
   /** Mehrzeiliger Text — DefaultInput rendert dann ein <textarea> statt

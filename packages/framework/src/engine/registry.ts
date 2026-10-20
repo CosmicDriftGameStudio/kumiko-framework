@@ -40,6 +40,7 @@ import {
   validateJobBackoff,
   validateLifecycleHookTargets,
   validateLiveEntities,
+  validateMaxDefers,
   validateMaxPerTenant,
   validateNotificationRecordMappings,
   validateNotificationRenamedFrom,
@@ -96,6 +97,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateBootGates(state);
   validateLiveEntities(state);
   validateJobBackoff(state);
+  validateMaxDefers(state);
   validateMaxPerTenant(state);
   validateExtensionUsageTargets(state);
   computeHasRateLimitedHandler(state);

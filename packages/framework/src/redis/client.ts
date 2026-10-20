@@ -12,6 +12,8 @@
 // without a same-directory cycle back through the barrel.
 
 import { Redis, type RedisOptions } from "ioredis";
+import { scrubLogText } from "../logging/scrub.ts";
+import type { Logger } from "../logging/types.ts";
 import { readPositiveIntEnv } from "../utils/env-parse.ts";
 
 // Connection-tuning options. The fields mirror the most consequential
@@ -53,6 +55,24 @@ export function createRedisClient(url: string, options: RedisClientOptions = {})
     connectTimeout,
     commandTimeout,
     maxRetriesPerRequest,
+  });
+}
+
+// ioredis reconnects on its own and re-emits "error" for every failed attempt; only the
+// transitions are worth a log line. A Redis outage degrades the app, it must not crash it.
+export function logRedisConnectionState(redis: Redis, logger: Pick<Logger, "warn" | "info">): void {
+  let connectionLost = false;
+  redis.on("error", (err: Error) => {
+    // skip: only the transition is logged, ioredis repeats the error on every retry
+    if (connectionLost) return;
+    connectionLost = true;
+    logger.warn("redis connection lost, reconnecting", { error: scrubLogText(err.message) });
+  });
+  redis.on("ready", () => {
+    // skip: the initial connect is not a recovery
+    if (!connectionLost) return;
+    connectionLost = false;
+    logger.info("redis recovered");
   });
 }
 

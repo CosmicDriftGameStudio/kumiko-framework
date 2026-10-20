@@ -15,6 +15,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
+import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
 import {
   buildFilterFacets,
   buildFilterPayload,
@@ -197,7 +198,7 @@ export function RelatedListSection({
   readonly refreshToken?: number;
 }): ReactNode {
   const { Banner, Section, Card, FillContainer, Text, Button, Dialog } = usePrimitives();
-  const [emptyStateActionError, setEmptyStateActionError] = useState<string | null>(null);
+  const [emptyStateActionError, setEmptyStateActionError] = useState<ErrorNotice | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useOptionalLocale();
@@ -544,7 +545,8 @@ export function RelatedListSection({
         )}
         {emptyStateActionError !== null && (
           <Banner variant="error" testId="related-list-empty-state-action-error">
-            {emptyStateActionError}
+            {emptyStateActionError.message}
+            <ErrorReference requestId={emptyStateActionError.requestId} />
           </Banner>
         )}
         <PageHeaderSlotAvailableProvider value={false}>

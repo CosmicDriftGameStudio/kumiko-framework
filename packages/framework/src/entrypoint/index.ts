@@ -88,6 +88,7 @@ type JobsBlock = {
   readonly onJobStart?: JobRunnerOptions["onJobStart"];
   readonly onJobComplete?: JobRunnerOptions["onJobComplete"];
   readonly onJobFailed?: JobRunnerOptions["onJobFailed"];
+  readonly onJobDeferred?: JobRunnerOptions["onJobDeferred"];
   readonly onJobQueued?: JobRunnerOptions["onJobQueued"];
   readonly onJobDropped?: JobRunnerOptions["onJobDropped"];
 };
@@ -336,6 +337,7 @@ function buildJobRunnerWithHook(
     onJobStart: jobs.onJobStart,
     onJobComplete: jobs.onJobComplete,
     onJobFailed: jobs.onJobFailed,
+    onJobDeferred: jobs.onJobDeferred,
     onJobQueued: jobs.onJobQueued,
     onJobDropped: jobs.onJobDropped,
   });

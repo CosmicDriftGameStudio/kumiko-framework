@@ -19,6 +19,7 @@ import {
   type DispatchWriteRef,
   type EscapeHatchReporter,
   type JobContext,
+  type JobDeferral,
   type JobDefinition,
   type JobRunIn,
   type JobTriggerEvent,
@@ -31,7 +32,7 @@ import {
 import { InternalError } from "../errors/index.ts";
 import { isKumikoError } from "../errors/kumiko-error.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
-import { createFallbackLogger } from "../logging/index.ts";
+import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import type { Logger } from "../logging/types.ts";
 import {
   createEscapeHatchProcessDedup,
@@ -453,6 +454,9 @@ export type JobRunnerOptions = {
     logs: JobLogEntry[],
     outcome?: JobOutcomeMeta,
   ) => void;
+  // The handler returned `ctx.defer(ms)`: the run started by onJobStart is void, not a
+  // success or failure; the job re-runs later under the same id.
+  onJobDeferred?: (jobName: string, jobId: string, meta: JobMeta) => void;
   // After a job with `tenantVisibleRun` was enqueued for a real tenant.
   onJobQueued?: (jobName: string, jobId: string, meta: JobQueuedMeta) => void;
   // A queued job that will never run under that id (concurrency "replace"
@@ -465,6 +469,9 @@ export type JobRunnerOptions = {
 // (_triggeredById, _tenantId, _payload).
 const TRACE_CONTEXT_KEY = "_traceContext";
 const DEFER_COUNT_KEY = "_deferCount";
+// Separate from the maxPerTenant counter so tenant-limit deferrals do not eat into maxDefers.
+const HANDLER_DEFER_COUNT_KEY = "_handlerDeferCount";
+const DEFAULT_MAX_DEFERS = 100;
 const DEFER_DELAY_CAP_MS = 30_000;
 const DEFER_BACKOFF_MAX_DOUBLINGS = 5;
 
@@ -483,6 +490,7 @@ function captureTraceContext(tracer: Tracer): SerializedTraceContext | undefined
 }
 
 const QUEUE_DEPTH_POLL_INTERVAL_MS = 15_000;
+const QUEUE_DEPTH_WARN_INTERVAL_MS = 5 * 60_000;
 
 // kumiko_job_queue_depth: only the lane's own consumer polls — the count is
 // a global Redis-backed value (BullMQ, not per-process), so one reporter per
@@ -493,12 +501,21 @@ async function startQueueDepthPolling(
   lane: JobRunIn,
   meter: Meter,
 ): Promise<ReturnType<typeof setInterval>> {
+  let lastWarnAt: number | undefined;
   const pollQueueDepth = async (): Promise<void> => {
     try {
       const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed", "paused");
       emitJobQueueDepth(meter, lane, counts);
-    } catch {
-      // skip: transient Redis hiccup — next poll retries
+    } catch (err) {
+      // Next poll retries; the warn is throttled so a Redis outage logs once per interval, not once per poll.
+      const nowMs = Date.now();
+      if (lastWarnAt === undefined || nowMs - lastWarnAt >= QUEUE_DEPTH_WARN_INTERVAL_MS) {
+        lastWarnAt = nowMs;
+        createFallbackLogger("job-runner").warn("queue depth poll failed", {
+          lane,
+          error: scrubLogText(err instanceof Error ? err.message : String(err)),
+        });
+      }
     }
   };
   await pollQueueDepth();
@@ -891,6 +908,20 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     updateData?(data: Record<string, unknown>): Promise<void>;
   };
 
+  function isJobDeferral(value: unknown): value is JobDeferral {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "kind" in value &&
+      value.kind === "job-deferral"
+    );
+  }
+
+  function priorDeferCountOf(data: Record<string, unknown>, key: string): number {
+    const prior = data[key];
+    return typeof prior === "number" ? prior : 0;
+  }
+
   // Only err.message, never payload or the logs array: job payloads can carry PII.
   function logFailedAttempt(entry: {
     readonly job: string;
@@ -905,7 +936,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       attempt: entry.attempt,
       // BullMQ never retries an UnrecoverableError, whatever attempts remain.
       final: entry.finalAttempt || entry.err instanceof UnrecoverableError,
-      error: entry.err instanceof Error ? entry.err.message : String(entry.err),
+      error: scrubLogText(entry.err instanceof Error ? entry.err.message : String(entry.err)),
+      ...(entry.err instanceof Error &&
+        entry.err.stack && { stack: scrubLogText(entry.err.stack) }),
     });
   }
 
@@ -1090,8 +1123,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         self: { id: bullJob.id, processedOn: bullJob.processedOn },
       }))
     ) {
-      const priorDeferCount = bullJob.data[DEFER_COUNT_KEY];
-      const deferCount = typeof priorDeferCount === "number" ? priorDeferCount : 0;
+      const deferCount = priorDeferCountOf(bullJob.data, DEFER_COUNT_KEY);
       await bullJob.updateData?.({ ...bullJob.data, [DEFER_COUNT_KEY]: deferCount + 1 });
       await bullJob.moveToDelayed(
         Date.now() + deferDelayMs(maxPerTenant.deferMs, deferCount),
@@ -1361,6 +1393,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       { reason: identitySwitchGrantReason, report: reportEscapeHatch },
     );
     const jobContextWithoutTz: Omit<JobContext, "tz"> = {
+      defer: (delayMs) => {
+        if (!Number.isInteger(delayMs) || delayMs <= 0) {
+          throw new RangeError(
+            `Job "${jobName}": ctx.defer needs a positive integer delay in ms (got ${delayMs})`,
+          );
+        }
+        if (token === undefined || !bullJob.moveToDelayed) {
+          throw new InternalError({
+            message: `Job "${jobName}": ctx.defer needs a queued run; it is not available inline (boot gate).`,
+          });
+        }
+        return { kind: "job-deferral", delayMs };
+      },
       ...context,
       db: jobDb ?? missingDbProxy(jobName),
       files,
@@ -1425,6 +1470,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const jobRequestId = requestContext.generateId();
     const jobCorrelationId = inheritedCorrelationId ?? jobRequestId;
 
+    const deferred: { deferral?: JobDeferral } = {};
     const runInSpan = async (): Promise<void> => {
       try {
         if (subjectConfigError) {
@@ -1438,7 +1484,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
               "a trustworthy anonymous-root gate.",
           });
         }
-        await requestContext.run(
+        const handlerResult = await requestContext.run(
           {
             requestId: jobRequestId,
             correlationId: jobCorrelationId,
@@ -1446,6 +1492,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             handler: jobName,
             feature: registry.getJobFeature(jobName) ?? qnScope(jobName),
             writeOrigin: jobOrigin,
+            tenantId,
+            ...(triggeredById !== null && { userId: triggeredById }),
           },
           async () =>
             jobDef.handler(payload, {
@@ -1453,6 +1501,18 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
               tz: await resolveJobTz(config, context),
             }),
         );
+        if (isJobDeferral(handlerResult)) {
+          const maxDefers = jobDef.maxDefers ?? DEFAULT_MAX_DEFERS;
+          if (priorDeferCountOf(bullJob.data, HANDLER_DEFER_COUNT_KEY) >= maxDefers) {
+            // The counter never resets, so a retry would hit the cap again.
+            throw new UnrecoverableError(
+              `Job "${jobName}" was deferred ${maxDefers} times (maxDefers); giving up.`,
+            );
+          }
+          deferred.deferral = handlerResult;
+          // skip: the deferral is applied after the span closes, below
+          return;
+        }
         // Stamped before the observer hook: a throwing onJobComplete must not
         // make a run that actually succeeded look dead to the liveness alert.
         if (context.meter) {
@@ -1515,6 +1575,24 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           runInSpan,
         ),
       );
+      if (deferred.deferral && token !== undefined && bullJob.moveToDelayed) {
+        // Run-log bookkeeping must not turn a defer into a failure.
+        try {
+          await options.onJobDeferred?.(jobName, jobId, meta);
+        } catch (err) {
+          errorLogger.warn("job deferred hook failed", {
+            job: jobName,
+            jobId,
+            error: scrubLogText(err instanceof Error ? err.message : String(err)),
+          });
+        }
+        await bullJob.updateData?.({
+          ...bullJob.data,
+          [HANDLER_DEFER_COUNT_KEY]: priorDeferCountOf(bullJob.data, HANDLER_DEFER_COUNT_KEY) + 1,
+        });
+        await bullJob.moveToDelayed(Date.now() + deferred.deferral.delayMs, token);
+        throw new DelayedError();
+      }
     } finally {
       // Release the sequential lock value-matched (Lua compare-and-delete
       // inside DistributedLock). A TTL-expired lock that's been claimed by

@@ -22,6 +22,7 @@ import {
 import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import type { StatusTone } from "../widgets/status-badge.tsx";
+import { CopyButton } from "./share-actions.tsx";
 
 export type ToastVariant = StatusTone;
 
@@ -35,6 +36,7 @@ export type ToastOptions = {
   // kumiko.toast.learn-more).
   readonly docsUrl?: string;
   readonly docsLinkLabel?: string;
+  readonly requestId?: string;
 };
 
 type ToastEntry = ToastOptions & {
@@ -120,6 +122,29 @@ const TONE_CLASS: Record<StatusTone, string> = {
   muted: "border bg-background text-foreground",
 };
 
+function ToastErrorReference({ requestId }: { readonly requestId: string }): ReactNode {
+  const t = useTranslation();
+  const reference = t("kumiko.error.reference", { id: requestId });
+  return (
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+      data-testid="toast-error-reference"
+    >
+      <span className="min-w-0 truncate whitespace-nowrap select-all opacity-90" title={reference}>
+        {reference}
+      </span>
+      <CopyButton
+        text={requestId}
+        label={t("kumiko.error.copyReference")}
+        copiedLabel={t("kumiko.error.referenceCopied")}
+        variant="secondary"
+        className="min-h-0 h-7 shrink-0"
+        testId="toast-error-reference-copy"
+      />
+    </div>
+  );
+}
+
 function ToastItem({
   entry,
   onClose,
@@ -137,13 +162,14 @@ function ToastItem({
         if (!open) onClose();
       }}
     >
-      <div className="grid gap-1">
+      <div className="grid min-w-0 gap-1">
         <Primitive.Title className="text-sm font-semibold">{entry.title}</Primitive.Title>
         {entry.description !== undefined && (
           <Primitive.Description className="text-sm opacity-90">
             {entry.description}
           </Primitive.Description>
         )}
+        {entry.requestId !== undefined && <ToastErrorReference requestId={entry.requestId} />}
         {entry.docsUrl !== undefined && (
           <Primitive.Action altText={learnMore} asChild>
             <a
