@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Tenant caps list decrypts only the visible page",
+    "detail": "Without a search and with a sort other than name, the list loads light tenant rows, pages them, and fetches and decrypts names for the current page only. The default name sort and any search still decrypt every tenant, because tenant names are stored encrypted and cannot be sorted or filtered in SQL. Order, total and rows are unchanged."
+  },
+  {
     "version": "0.374.0",
     "type": "breaking",
     "title": "tenant-caps:list pages by offset and rejects cursor",

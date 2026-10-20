@@ -1,5 +1,220 @@
 # @cosmicdrift/kumiko-types
 
+## 0.383.0
+
+### Minor Changes
+
+- 72ac4b1: Error classes that CI guards used to find after the fact are now rejected by types, the boot validator or runtime checks, and the redundant guards are gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Placeholder reasons are rejected at boot and at runtime
+  detail: An empty, whitespace-only or placeholder reason ("todo", "tbd", "fixme", "legacy", "temp", "wip", "n/a", "none", "xxx", a "todo:" / "fixme:" / "tbd:" prefix, or the migrate-cross-tenant codemod marker) now fails boot for `openToAll.reason` and `escapeHatch.reason`, and throws at call time for `ctx.systemDb.unsafeRaw(reason)`, `acknowledgeCrossTenant(reason)`, `unsafeAllTenants: { reason }` on read steps and `declareEscapeHatch({ reason })`, which is no longer a no-op. The Escape-Hatch-Declared and Open-To-All-Reason guards that checked this statically are removed.
+  migration: Replace every placeholder reason with the real justification (why this access is needed and on whose right). Reasons held in imported constants were never judged by the guards and surface now, at boot or on first use.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: loadAllEventsByType and LOAD_ALL_EVENTS_ROW_LIMIT are removed
+  detail: loadAllEventsByType buffered every event of an aggregate type in memory and had no production caller. It is removed together with LOAD_ALL_EVENTS_ROW_LIMIT and the Loadall-Events guard.
+  migration: Use `await Array.fromAsync(streamAllEventsByType(db, aggregateType))`, or iterate the stream with `for await` to stay memory-bounded. The stream is ordered by event id; loadAllEventsByType ordered by (createdAt, id).
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: metricField is removed from the screen type exports
+  detail: metricField is removed from the engine types and ui-types exports because MetricSpec is always an object now.
+  migration: Replace `metricField(metric)` with `metric.field`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: MetricSpec requires the object form with a label
+  detail: The plain string shorthand for projectionDetail `metrics` is removed and `label` (an i18n key) is required, so a metric can no longer render as a bare column name. `metricField()` is removed from the screen exports because it is trivial now; read `metric.field`. The `metrics` entry without label check in the Screen-Conventions guard is dropped, the type enforces it.
+  migration: Replace `metrics: ["balance"]` with `metrics: [{ field: "balance", label: "<i18n key>" }]`, reusing the key you had in `fieldLabels` for that column. Replace `metricField(metric)` with `metric.field`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: EditFieldsSection is either fields or groups
+  detail: EditFieldsSection is now a union of a section with `fields` and a section with `groups`; the groups branch has no `fields` key, so a raw `section.fields` read on a section does not compile and `fields: []` next to `groups` is no longer needed. The boot validator rejects a section that declares both, including `fields: []`. FieldsOrGroupsSection now has optional `fields` and `groups`. Read a section's fields through `sectionFieldSpecs`, which the Section-Fields-Raw guard used to enforce.
+  migration: Remove `fields: []` from every section that declares `groups`. Code that reads `section.fields` or `section.groups` of a fields section uses `sectionFieldSpecs(section)` or narrows with `"groups" in section`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail metrics render their own label
+  detail: The metrics band reads the label from each metric entry instead of falling back to `fieldLabels` or the column name.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Nine guards are removed because types and boot checks replace them
+  detail: Removed guards and their replacement. Text-Field Personal-Stance: the field factories require `personal`. API-Object-Form: the registrar only has the object form. Table-DDL (warning only), Pre-ES-Patterns and No-Broker-Subscribe (the broker is not exported). Open-To-All-Reason and Escape-Hatch-Declared: boot and runtime reason validation. Loadall-Events: the function is removed. Section-Fields-Raw: EditFieldsSection is a union. Screen-Conventions loses rule R1 (metrics without label), the type enforces it.
+  migration: Delete `.kumiko-text-field-stance-baseline.json` and `.kumiko-section-fields-raw-baseline.json`. In `.kumiko-security-baseline.json` the "Escape-Hatch-Declared Guard" and "Open-To-All-Reason Guard" entries in `hardFail` can be removed (they are ignored now). Remove leftover `kumiko-lint-ignore section-fields-raw` markers.
+  -->
+- 9ef4b39: Support-friendly error UI, client error reporting, a wider leave guard and an IBAN text format: errors show a copyable reference, browser errors reach the server, global navigation asks before dropping unsaved input and `format: "iban"` validates IBANs.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Error reference with copy button in toasts, banners and fallbacks
+  detail: A server error that carries a request id now shows "Error ID: <id>" with a copy button in toasts, action error banners, the write-form error section, query error banners and list empty states. The root and screen error fallbacks show a per-error id the same way; the root fallback is styled with inline styles so it stays readable without CSS. New exports ErrorReference, ErrorNotice and errorNoticeOf; New keys kumiko.error.reference, kumiko.error.copyReference and kumiko.error.referenceCopied in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: HeaderActionsBar onError receives an ErrorNotice instead of a string
+  detail: The onError prop of HeaderActionsBar is now (notice: ErrorNotice | null) => void, where ErrorNotice is { message, requestId? }, so the error reference can be shown next to the message.
+  migration: change the handler to read notice.message (and notice.requestId); a handler that stores the string only needs `notice?.message ?? null`
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: createKumikoApp reports browser errors to POST /api/client-errors
+  detail: New option reportClientErrors (default true) sends error-boundary errors (kind render) and window error and unhandledrejection events (kind unhandled) to /api/client-errors with the same errorId the fallback shows, at most 5 reports per page load, identical messages once, path without query and hash, CSRF header when a token is present. A custom onError runs in addition and receives { errorId, screen? } as third argument. Set reportClientErrors: false to opt out.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Global navigation with search params asks before dropping unsaved input
+  detail: navigateWithReturnTo, navigateToReturn, the metric tab navigation, closing the editor panel and the target resolver now go through the leave guard, and a requestLeave nested in a confirmed leave no longer asks twice. List filters and sorting stay unguarded because they do not unmount a form. The mail designer registers its draft as unsaved input, so link and browser navigation ask before discarding it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Text field format "iban"
+  detail: createTextField({ format: "iban" }) validates the value server-side (spaces ignored, case-insensitive, country and check digits shape plus mod-97) and reports invalid_format with format iban, which the form maps to errors.validation.invalid_format.iban (texts in en, de, es, fr, it). The value is stored as typed.
+  -->
+- 9ef4b39: Production logging and shutdown hardening: one process logger with redaction and request context, a client-error endpoint, a required trusted-proxy setting, fatal-error handlers, a graceful server stop, fail-open rate limits during a Redis outage and masked delivery-log addresses.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Process logger, request context fields and redaction
+  detail: runProdApp and runWorkerApp install a pino process logger (JSON in production) that every createFallbackLogger without an explicit logger resolves lazily, with a component field. Log lines carry requestId, correlationId, tenantId, userId, feature and handler from the request context; jobs carry tenantId and userId too. Keys such as password, token, secret, apiKey, authorization, cookie, set-cookie, x-api-key, sessionToken, privateKey, credentials, otp, iban and email are redacted to [redacted] up to depth 2. New scrubLogText masks e-mail addresses, JWTs, bearer tokens and Postgres key details in server-fault, job-failure and client-error logs.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Production logs are plain JSON without the [runProdApp] prefix
+  detail: Behavior change for log parsers and alert rules: runProdApp and runWorkerApp now write one JSON object per line from the process logger, without the former "[runProdApp]" text prefix. Match on the component field instead of the prefix.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: POST /api/client-errors collects browser error reports
+  detail: Anonymous endpoint with a strict body (errorId, kind, message, stack, screen, path, buildVersion), an 8 KB cap (413), 400 without echo, a per-IP limit of 10 per minute (429, in memory per process when Redis is absent) and 204 on success. The report is logged as a scrubbed warning; the query and hash of the path are cut. With a session the report carries tenantId and userId.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: runProdApp requires trustedProxyHops in production
+  detail: In production runProdApp refuses to boot when neither the trustedProxyHops option, the auth option nor KUMIKO_TRUSTED_PROXY_HOPS is set. An explicit 0 is allowed. create-kumiko-app templates write KUMIKO_TRUSTED_PROXY_HOPS=0 into .env.example.
+  migration: set KUMIKO_TRUSTED_PROXY_HOPS=<hops> (0 when the app is exposed directly) or pass trustedProxyHops
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Fatal-error handlers and graceful server stop
+  detail: New installFatalErrorHandlers logs uncaughtException and unhandledRejection, stops the app and exits 1 (hard exit after 10 s). runProdApp and runWorkerApp install it. The HTTP server stop is awaited against a 10 s grace period and then forced before the database closes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Global IP and http-route limits fail open when Redis is down
+  detail: Behavior change: previously a Redis error answered 503 on these two limits. The l1-global-ip and http-route limits let the request through on a Redis error instead of answering 503, count it in kumiko_rate_limit_fail_open_total{label} and log a warning at most every 30 s. The l2-auth-endpoints and login/MFA limits stay fail-closed. A Redis client that is not ready fails fast instead of waiting for the command timeout. Redis connection loss and recovery are logged once per state change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: globalIpRateLimit and httpRouteRateLimit option onFailClosed is now onFailOpen
+  detail: The option is renamed because both limits now let the request through on a Redis error; the callback receives the error and is throttled to one warning per 30 s. Both limits also accept a meter for kumiko_rate_limit_fail_open_total.
+  migration: rename onFailClosed to onFailOpen in globalIpRateLimit and httpRouteRateLimit options; the callback no longer implies a 503, the request continues
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Warning when the login limiter falls back to memory in production
+  detail: The in-memory login and MFA rate limiter logs one warning per process in production, because its limits are per replica.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: delivery-log projection masks the recipient address
+  detail: The inline projection now masks the address with the same helper as the write path, also on rebuild, so legacy events with a full address no longer reach the attempt log. Already masked addresses and connection-name channels stay unchanged. Swallowed errors in the snapshot save, queue-depth poll and channel pre-resolve now log a scrubbed warning.
+  -->
+- 9ef4b39: Database load and pagination hardening plus a job-defer API: server-side statement (60 s) and idle-in-transaction (300 s) timeouts, concurrent session lookups, page-only tenant decryption, keyset scans in reindex, purge and escape-hatch retention, and `ctx.defer(ms)` for jobs.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Prod and worker pools cap statements at 60 s and idle transactions at 300 s
+  detail: Behavior change, not an API break. runProdApp and runWorkerApp now open their Postgres pools with statement_timeout 60 s and idle_in_transaction_session_timeout 300 s (handlers that await external calls inside a transaction are not killed early, leaked transactions still end), so one runaway query or a transaction left open no longer holds a connection indefinitely. lock_timeout stays off. Opt out per limit by setting the variable to 0, or change it, with DATABASE_STATEMENT_TIMEOUT_MS, DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS and DATABASE_LOCK_TIMEOUT_MS (for example DATABASE_STATEMENT_TIMEOUT_MS=0); createDbConnection takes statementTimeoutMs, idleInTransactionSessionTimeoutMs and lockTimeoutMs. Migrations, projection and multi-stream rebuilds, search reindex, PII backfills and the CREATE INDEX CONCURRENTLY helpers run without the statement cap (withoutStatementTimeout). A custom long-running statement on the app pool now needs the same helper or a higher limit.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: sessionChecker looks up the user and the membership concurrently
+  detail: The session check starts the user lookup together with the session read and the membership lookup together with the last-seen refresh. Results and the fail-open behavior are unchanged; a failed lookup that is not needed no longer raises an unhandled rejection.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: improvement
+  title: Tenant caps list decrypts only the visible page
+  detail: Without a search and with a sort other than name, the list loads light tenant rows, pages them, and fetches and decrypts names for the current page only. The default name sort and any search still decrypt every tenant, because tenant names are stored encrypted and cannot be sorted or filtered in SQL. Order, total and rows are unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Tenant directory search stops decrypting once the limit is reached
+  detail: Tenant names are encrypted and not in the search index, so the directory search decrypts in small batches and stops after limit matches; the 1000-row scan cap stays. With more matches than the limit, the first matches in key order are returned (sorted by label), not the best alphabetical ones. The missing-profile list drops tenants that already have a profile before decrypting.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Reindex and subject purge scan by keyset instead of OFFSET
+  detail: reindexEntity and the subject purge page with WHERE id > last ORDER BY id LIMIT n, so rows deleted or changed while the scan runs no longer make it skip later rows.
+  -->
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: Escape-hatch retention loads only needed columns, in keyset pages
+  detail: The retention run groups tenants only over events older than the shortest cutoff, selects id, aggregateId, createdAt and payload, and prunes per 2000-row keyset page instead of loading every row with its full payload.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: breaking
+  title: Job handlers can return ctx.defer(ms)
+  detail: A handler that returns ctx.defer(ms) moves the queue job to delayed and runs again after ms, like the maxPerTenant defer. It consumes no retry attempt and records no failure, failure log or failed run; the run row of the deferred pass is removed and a tenantVisibleRun record goes back to queued. maxDefers on the job (default 100, shared counter with maxPerTenant defers) bounds the loop; exceeding it fails the run for good (no retry) with a clear message. Inline runs (boot gates) throw. New run-logger hook onJobDeferred, passed through the entrypoint jobs options. JobHandlerFn may now return a JobDeferral. JobContext has a required defer member.
+  migration: add defer to every hand-built JobContext object (tests, seeds), e.g. defer: (delayMs) => ({ kind: "job-deferral", delayMs })
+  -->
+
 ## 0.382.0
 
 No changes in this release.

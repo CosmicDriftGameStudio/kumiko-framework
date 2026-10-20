@@ -1,5 +1,69 @@
 [
   {
+    "version": "0.383.0",
+    "type": "breaking",
+    "title": "Placeholder reasons are rejected at boot and at runtime",
+    "detail": "An empty, whitespace-only or placeholder reason (\"todo\", \"tbd\", \"fixme\", \"legacy\", \"temp\", \"wip\", \"n/a\", \"none\", \"xxx\", a \"todo:\" / \"fixme:\" / \"tbd:\" prefix, or the migrate-cross-tenant codemod marker) now fails boot for `openToAll.reason` and `escapeHatch.reason`, and throws at call time for `ctx.systemDb.unsafeRaw(reason)`, `acknowledgeCrossTenant(reason)`, `unsafeAllTenants: { reason }` on read steps and `declareEscapeHatch({ reason })`, which is no longer a no-op. The Escape-Hatch-Declared and Open-To-All-Reason guards that checked this statically are removed.",
+    "migration": "Replace every placeholder reason with the real justification (why this access is needed and on whose right). Reasons held in imported constants were never judged by the guards and surface now, at boot or on first use."
+  },
+  {
+    "version": "0.383.0",
+    "type": "breaking",
+    "title": "loadAllEventsByType and LOAD_ALL_EVENTS_ROW_LIMIT are removed",
+    "detail": "loadAllEventsByType buffered every event of an aggregate type in memory and had no production caller. It is removed together with LOAD_ALL_EVENTS_ROW_LIMIT and the Loadall-Events guard.",
+    "migration": "Use `await Array.fromAsync(streamAllEventsByType(db, aggregateType))`, or iterate the stream with `for await` to stay memory-bounded. The stream is ordered by event id; loadAllEventsByType ordered by (createdAt, id)."
+  },
+  {
+    "version": "0.383.0",
+    "type": "breaking",
+    "title": "metricField is removed from the screen type exports",
+    "detail": "metricField is removed from the engine types and ui-types exports because MetricSpec is always an object now.",
+    "migration": "Replace `metricField(metric)` with `metric.field`."
+  },
+  {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Text field format \"iban\"",
+    "detail": "createTextField({ format: \"iban\" }) validates the value server-side (spaces ignored, case-insensitive, country and check digits shape plus mod-97) and reports invalid_format with format iban, which the form maps to errors.validation.invalid_format.iban (texts in en, de, es, fr, it). The value is stored as typed."
+  },
+  {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Process logger, request context fields and redaction",
+    "detail": "runProdApp and runWorkerApp install a pino process logger (JSON in production) that every createFallbackLogger without an explicit logger resolves lazily, with a component field. Log lines carry requestId, correlationId, tenantId, userId, feature and handler from the request context; jobs carry tenantId and userId too. Keys such as password, token, secret, apiKey, authorization, cookie, set-cookie, x-api-key, sessionToken, privateKey, credentials, otp, iban and email are redacted to [redacted] up to depth 2. New scrubLogText masks e-mail addresses, JWTs, bearer tokens and Postgres key details in server-fault, job-failure and client-error logs."
+  },
+  {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "POST /api/client-errors collects browser error reports",
+    "detail": "Anonymous endpoint with a strict body (errorId, kind, message, stack, screen, path, buildVersion), an 8 KB cap (413), 400 without echo, a per-IP limit of 10 per minute (429, in memory per process when Redis is absent) and 204 on success. The report is logged as a scrubbed warning; the query and hash of the path are cut. With a session the report carries tenantId and userId."
+  },
+  {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Global IP and http-route limits fail open when Redis is down",
+    "detail": "Behavior change: previously a Redis error answered 503 on these two limits. The l1-global-ip and http-route limits let the request through on a Redis error instead of answering 503, count it in kumiko_rate_limit_fail_open_total{label} and log a warning at most every 30 s. The l2-auth-endpoints and login/MFA limits stay fail-closed. A Redis client that is not ready fails fast instead of waiting for the command timeout. Redis connection loss and recovery are logged once per state change."
+  },
+  {
+    "version": "0.383.0",
+    "type": "breaking",
+    "title": "globalIpRateLimit and httpRouteRateLimit option onFailClosed is now onFailOpen",
+    "detail": "The option is renamed because both limits now let the request through on a Redis error; the callback receives the error and is throttled to one warning per 30 s. Both limits also accept a meter for kumiko_rate_limit_fail_open_total.",
+    "migration": "rename onFailClosed to onFailOpen in globalIpRateLimit and httpRouteRateLimit options; the callback no longer implies a 503, the request continues"
+  },
+  {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Prod and worker pools cap statements at 60 s and idle transactions at 300 s",
+    "detail": "Behavior change, not an API break. runProdApp and runWorkerApp now open their Postgres pools with statement_timeout 60 s and idle_in_transaction_session_timeout 300 s (handlers that await external calls inside a transaction are not killed early, leaked transactions still end), so one runaway query or a transaction left open no longer holds a connection indefinitely. lock_timeout stays off. Opt out per limit by setting the variable to 0, or change it, with DATABASE_STATEMENT_TIMEOUT_MS, DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS and DATABASE_LOCK_TIMEOUT_MS (for example DATABASE_STATEMENT_TIMEOUT_MS=0); createDbConnection takes statementTimeoutMs, idleInTransactionSessionTimeoutMs and lockTimeoutMs. Migrations, projection and multi-stream rebuilds, search reindex, PII backfills and the CREATE INDEX CONCURRENTLY helpers run without the statement cap (withoutStatementTimeout). A custom long-running statement on the app pool now needs the same helper or a higher limit."
+  },
+  {
+    "version": "0.383.0",
+    "type": "fix",
+    "title": "Reindex and subject purge scan by keyset instead of OFFSET",
+    "detail": "reindexEntity and the subject purge page with WHERE id > last ORDER BY id LIMIT n, so rows deleted or changed while the scan runs no longer make it skip later rows."
+  },
+  {
     "version": "0.380.0",
     "type": "breaking",
     "title": "Writes compile only for Writable tables or capable runners",

@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Production logs are plain JSON without the [runProdApp] prefix",
+    "detail": "Behavior change for log parsers and alert rules: runProdApp and runWorkerApp now write one JSON object per line from the process logger, without the former \"[runProdApp]\" text prefix. Match on the component field instead of the prefix."
+  },
+  {
+    "version": "0.383.0",
+    "type": "breaking",
+    "title": "runProdApp requires trustedProxyHops in production",
+    "detail": "In production runProdApp refuses to boot when neither the trustedProxyHops option, the auth option nor KUMIKO_TRUSTED_PROXY_HOPS is set. An explicit 0 is allowed. create-kumiko-app templates write KUMIKO_TRUSTED_PROXY_HOPS=0 into .env.example.",
+    "migration": "set KUMIKO_TRUSTED_PROXY_HOPS=<hops> (0 when the app is exposed directly) or pass trustedProxyHops"
+  },
+  {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Fatal-error handlers and graceful server stop",
+    "detail": "New installFatalErrorHandlers logs uncaughtException and unhandledRejection, stops the app and exits 1 (hard exit after 10 s). runProdApp and runWorkerApp install it. The HTTP server stop is awaited against a 10 s grace period and then forced before the database closes."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "resolveStoredUserEmail and resolveFeatureTogglesOption exported",

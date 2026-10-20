@@ -1,5 +1,139 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.383.0
+
+### Minor Changes
+
+- 9ef4b39: Production logging and shutdown hardening: one process logger with redaction and request context, a client-error endpoint, a required trusted-proxy setting, fatal-error handlers, a graceful server stop, fail-open rate limits during a Redis outage and masked delivery-log addresses.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Process logger, request context fields and redaction
+  detail: runProdApp and runWorkerApp install a pino process logger (JSON in production) that every createFallbackLogger without an explicit logger resolves lazily, with a component field. Log lines carry requestId, correlationId, tenantId, userId, feature and handler from the request context; jobs carry tenantId and userId too. Keys such as password, token, secret, apiKey, authorization, cookie, set-cookie, x-api-key, sessionToken, privateKey, credentials, otp, iban and email are redacted to [redacted] up to depth 2. New scrubLogText masks e-mail addresses, JWTs, bearer tokens and Postgres key details in server-fault, job-failure and client-error logs.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Production logs are plain JSON without the [runProdApp] prefix
+  detail: Behavior change for log parsers and alert rules: runProdApp and runWorkerApp now write one JSON object per line from the process logger, without the former "[runProdApp]" text prefix. Match on the component field instead of the prefix.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: POST /api/client-errors collects browser error reports
+  detail: Anonymous endpoint with a strict body (errorId, kind, message, stack, screen, path, buildVersion), an 8 KB cap (413), 400 without echo, a per-IP limit of 10 per minute (429, in memory per process when Redis is absent) and 204 on success. The report is logged as a scrubbed warning; the query and hash of the path are cut. With a session the report carries tenantId and userId.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: runProdApp requires trustedProxyHops in production
+  detail: In production runProdApp refuses to boot when neither the trustedProxyHops option, the auth option nor KUMIKO_TRUSTED_PROXY_HOPS is set. An explicit 0 is allowed. create-kumiko-app templates write KUMIKO_TRUSTED_PROXY_HOPS=0 into .env.example.
+  migration: set KUMIKO_TRUSTED_PROXY_HOPS=<hops> (0 when the app is exposed directly) or pass trustedProxyHops
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Fatal-error handlers and graceful server stop
+  detail: New installFatalErrorHandlers logs uncaughtException and unhandledRejection, stops the app and exits 1 (hard exit after 10 s). runProdApp and runWorkerApp install it. The HTTP server stop is awaited against a 10 s grace period and then forced before the database closes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Global IP and http-route limits fail open when Redis is down
+  detail: Behavior change: previously a Redis error answered 503 on these two limits. The l1-global-ip and http-route limits let the request through on a Redis error instead of answering 503, count it in kumiko_rate_limit_fail_open_total{label} and log a warning at most every 30 s. The l2-auth-endpoints and login/MFA limits stay fail-closed. A Redis client that is not ready fails fast instead of waiting for the command timeout. Redis connection loss and recovery are logged once per state change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: globalIpRateLimit and httpRouteRateLimit option onFailClosed is now onFailOpen
+  detail: The option is renamed because both limits now let the request through on a Redis error; the callback receives the error and is throttled to one warning per 30 s. Both limits also accept a meter for kumiko_rate_limit_fail_open_total.
+  migration: rename onFailClosed to onFailOpen in globalIpRateLimit and httpRouteRateLimit options; the callback no longer implies a 503, the request continues
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Warning when the login limiter falls back to memory in production
+  detail: The in-memory login and MFA rate limiter logs one warning per process in production, because its limits are per replica.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: delivery-log projection masks the recipient address
+  detail: The inline projection now masks the address with the same helper as the write path, also on rebuild, so legacy events with a full address no longer reach the attempt log. Already masked addresses and connection-name channels stay unchanged. Swallowed errors in the snapshot save, queue-depth poll and channel pre-resolve now log a scrubbed warning.
+  -->
+- 9ef4b39: Database load and pagination hardening plus a job-defer API: server-side statement (60 s) and idle-in-transaction (300 s) timeouts, concurrent session lookups, page-only tenant decryption, keyset scans in reindex, purge and escape-hatch retention, and `ctx.defer(ms)` for jobs.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Prod and worker pools cap statements at 60 s and idle transactions at 300 s
+  detail: Behavior change, not an API break. runProdApp and runWorkerApp now open their Postgres pools with statement_timeout 60 s and idle_in_transaction_session_timeout 300 s (handlers that await external calls inside a transaction are not killed early, leaked transactions still end), so one runaway query or a transaction left open no longer holds a connection indefinitely. lock_timeout stays off. Opt out per limit by setting the variable to 0, or change it, with DATABASE_STATEMENT_TIMEOUT_MS, DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS and DATABASE_LOCK_TIMEOUT_MS (for example DATABASE_STATEMENT_TIMEOUT_MS=0); createDbConnection takes statementTimeoutMs, idleInTransactionSessionTimeoutMs and lockTimeoutMs. Migrations, projection and multi-stream rebuilds, search reindex, PII backfills and the CREATE INDEX CONCURRENTLY helpers run without the statement cap (withoutStatementTimeout). A custom long-running statement on the app pool now needs the same helper or a higher limit.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: sessionChecker looks up the user and the membership concurrently
+  detail: The session check starts the user lookup together with the session read and the membership lookup together with the last-seen refresh. Results and the fail-open behavior are unchanged; a failed lookup that is not needed no longer raises an unhandled rejection.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: improvement
+  title: Tenant caps list decrypts only the visible page
+  detail: Without a search and with a sort other than name, the list loads light tenant rows, pages them, and fetches and decrypts names for the current page only. The default name sort and any search still decrypt every tenant, because tenant names are stored encrypted and cannot be sorted or filtered in SQL. Order, total and rows are unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Tenant directory search stops decrypting once the limit is reached
+  detail: Tenant names are encrypted and not in the search index, so the directory search decrypts in small batches and stops after limit matches; the 1000-row scan cap stays. With more matches than the limit, the first matches in key order are returned (sorted by label), not the best alphabetical ones. The missing-profile list drops tenants that already have a profile before decrypting.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Reindex and subject purge scan by keyset instead of OFFSET
+  detail: reindexEntity and the subject purge page with WHERE id > last ORDER BY id LIMIT n, so rows deleted or changed while the scan runs no longer make it skip later rows.
+  -->
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: Escape-hatch retention loads only needed columns, in keyset pages
+  detail: The retention run groups tenants only over events older than the shortest cutoff, selects id, aggregateId, createdAt and payload, and prunes per 2000-row keyset page instead of loading every row with its full payload.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: breaking
+  title: Job handlers can return ctx.defer(ms)
+  detail: A handler that returns ctx.defer(ms) moves the queue job to delayed and runs again after ms, like the maxPerTenant defer. It consumes no retry attempt and records no failure, failure log or failed run; the run row of the deferred pass is removed and a tenantVisibleRun record goes back to queued. maxDefers on the job (default 100, shared counter with maxPerTenant defers) bounds the loop; exceeding it fails the run for good (no retry) with a clear message. Inline runs (boot gates) throw. New run-logger hook onJobDeferred, passed through the entrypoint jobs options. JobHandlerFn may now return a JobDeferral. JobContext has a required defer member.
+  migration: add defer to every hand-built JobContext object (tests, seeds), e.g. defer: (delayMs) => ({ kind: "job-deferral", delayMs })
+  -->
+
+### Patch Changes
+
+- Updated dependencies [72ac4b1]
+- Updated dependencies [9ef4b39]
+- Updated dependencies [9ef4b39]
+- Updated dependencies [9ef4b39]
+  - @cosmicdrift/kumiko-framework@0.383.0
+  - @cosmicdrift/kumiko-types@0.383.0
+  - @cosmicdrift/kumiko-renderer@0.383.0
+  - @cosmicdrift/kumiko-bundled-features@0.383.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.383.0
+
 ## 0.382.0
 
 ### Patch Changes

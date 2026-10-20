@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Escape-hatch retention loads only needed columns, in keyset pages",
+    "detail": "The retention run groups tenants only over events older than the shortest cutoff, selects id, aggregateId, createdAt and payload, and prunes per 2000-row keyset page instead of loading every row with its full payload."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "SystemAdmin audit log across all tenants",
