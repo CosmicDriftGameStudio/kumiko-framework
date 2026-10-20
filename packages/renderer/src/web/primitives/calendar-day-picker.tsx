@@ -16,12 +16,10 @@ const dropdownSelectClass =
   "rounded-sm border border-input bg-transparent px-1.5 py-0.5 text-sm font-medium " +
   "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-// rdp v9s Default-Dropdown rendert NEBEN dem <select> ein aria-hidden
-// <span> mit demselben Label — sichtbar nur, wenn rdps eigene style.css
-// das <select> transparent darüberlegt. Da wir die rdp-Klassen mit eigenen
-// Tokens überschreiben, greift diese Positionierung nicht → Label doppelt
-// (#369-Folgebug). Ein nacktes <select> ohne Begleit-Span vermeidet das
-// CSS-unabhängig — eine Quelle für den sichtbaren Wert.
+// rdp v9's default dropdown renders an aria-hidden <span> with the same label
+// next to the <select>, hidden only by rdp's own style.css. Our token classes
+// replace that CSS, so the label showed twice; a bare <select> avoids it
+// regardless of CSS.
 function SelectDropdown({ options, className, ...selectProps }: DropdownProps): ReactElement {
   return (
     <select className={cn(dropdownSelectClass, className)} {...selectProps}>
@@ -34,9 +32,7 @@ function SelectDropdown({ options, className, ...selectProps }: DropdownProps): 
   );
 }
 
-// classNames-Map für react-day-picker v9 — überschreibt die default-
-// Klassen mit Tailwind/shadcn-Tokens. Die Monat-/Jahr-Selects rendert
-// SelectDropdown (components-Prop), daher hier nur der dropdowns-Container.
+// Month/year selects come from SelectDropdown (components prop), so only the dropdowns container is styled here.
 const dayPickerClasses = {
   root: "rdp-root",
   months: "flex flex-col gap-2",
@@ -74,8 +70,7 @@ export default function CalendarDayPicker({
       startMonth={startMonth}
       endMonth={endMonth}
       selected={selected}
-      // Ohne defaultMonth zeigt DayPicker today statt selected —
-      // unintuitiv wenn der User schon ein Datum gewählt hat.
+      // Without defaultMonth DayPicker opens on today, not on the chosen date.
       defaultMonth={selected}
       {...(disabledMatchers.length > 0 && { disabled: [...disabledMatchers] })}
       onSelect={(d) => onSelect(d)}

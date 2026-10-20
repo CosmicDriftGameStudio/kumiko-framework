@@ -6,7 +6,6 @@
  *  (e.g. `/en/reset-password`, `/de/reset-password`). */
 export type AuthPath = string | ((locale: string) => string);
 
-/** Pfad-Konstanten der 5 Auth-Seiten mit Mail-Link (relativ zur App-baseUrl). */
 export type AuthPaths = {
   readonly resetPassword: AuthPath;
   readonly verifyEmail: AuthPath;
@@ -15,8 +14,7 @@ export type AuthPaths = {
   readonly unlockAccount: AuthPath;
 };
 
-/** Konventions-Pfade — alle Kumiko-Apps nutzen dieselben. Apps überschreiben
- *  nur die Ausnahme via `makeAuthPaths({ ... })`. */
+/** Shared by every Kumiko app; apps override only the exceptions via `makeAuthPaths({ ... })`. */
 export const DEFAULT_AUTH_PATHS = {
   resetPassword: "/reset-password",
   verifyEmail: "/verify-email",

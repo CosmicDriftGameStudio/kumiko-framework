@@ -338,7 +338,7 @@ export type AuthMailOptions = {
   readonly emailVerificationMode?: "strict" | "off";
   /** Fallback-From-Adresse wenn `SMTP_FROM`-env fehlt (env gewinnt). */
   readonly from?: string;
-  /** Einzelne Auth-Pfade überschreiben (Default DEFAULT_AUTH_PATHS). */
+  /** Overrides single auth paths (default DEFAULT_AUTH_PATHS). */
   readonly paths?: Partial<AuthPaths>;
   /** Reset/verify token secret, decoupled from JWT_SECRET rotation.
    *  Falls back to resolveAuthMail's call-site secret when unset. */
@@ -353,26 +353,22 @@ export type RunProdAppAuthOptions = {
   readonly admin?: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
-  /** Auth-Mail-Convenience: verdrahtet alle 5 Mail-Flows (passwordReset,
-   *  emailVerification, signup, invite, accountUnlock) aus `auth.mail.baseUrl` + Standard-
-   *  Pfaden. Alle vier mailen via delivery (ctx.notify) — ersetzt das per-App
-   *  hand-gerollte `send*Email`-Callback-Wiring.
+  /** Wires all five mail flows (passwordReset, emailVerification, signup,
+   *  invite, accountUnlock) from `auth.mail.baseUrl` plus the default paths,
+   *  mailing via delivery (ctx.notify).
    *
-   *  Null-Transport-Guard: ohne `SMTP_HOST`-env wird KEIN Mail-Flow
-   *  verdrahtet (Routes blieben sonst 500). Eine App die einen einzelnen
-   *  Flow custom braucht, setzt `passwordReset`/`signup`/… explizit —
-   *  der explizite Block gewinnt über den mail-Default.
+   *  Without `SMTP_HOST` no flow is wired, since the routes would otherwise
+   *  answer 500. An explicit `passwordReset`/`signup`/… block wins over the
+   *  mail default for that flow.
    *
-   *  Bewusste Entscheidung: `mail` mountet ALLE 5 Flows inkl. signup +
-   *  invite (Self-Registration on). Wer nur reset+verify will, lässt `mail`
-   *  weg und setzt die gewünschten Flows explizit — kein impliziter
-   *  Self-Signup. */
+   *  Deliberately mounts signup and invite too (self-registration on); apps
+   *  that want only reset and verify leave `mail` unset and wire those flows
+   *  explicitly, so there is no implicit self-signup. */
   readonly mail?: AuthMailOptions;
   /** Password-reset flow. When set, /api/auth/request-password-reset +
-   *  /api/auth/reset-password are mounted as public routes UND der
-   *  request/confirm-Handler im auth-email-password-Feature wird
-   *  registriert (sonst dispatchen die Routes ins Leere → 500).
-   *  Überschreibt den `mail`-Default für genau diesen Flow. */
+   *  /api/auth/reset-password are mounted as public routes and the
+   *  request/confirm handlers are registered (otherwise the routes answer
+   *  500). Overrides the `mail` default for this flow. */
   readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric to passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;

@@ -1,12 +1,5 @@
-// Default-LoginScreen. Reine E-Mail-+-Passwort-Form, zentriert, Card-
-// Layout. Texte kommen aus `useTranslation()` — die Default-Bundles
-// (de+en) liefert das Feature selber mit (translations.ts); Apps die
-// was anderes wollen, setzen entweder einen eigenen LocaleResolver auf
-// App-Level oder reichen Key-Overrides an `emailPasswordClient()`.
-//
-// Die Reason-Codes aus dem Login-Handler werden 1:1 auf i18n-Keys
-// gemappt (reasonToI18nKey) — neue Reason-Codes brauchen nur eine
-// neue Zeile im Bundle + hier im Mapping.
+// Login handler reason codes map 1:1 to i18n keys (reasonToI18nKey): a new
+// reason code needs a bundle entry plus a line in that mapping.
 
 import {
   useOptionalDispatcher,
@@ -26,8 +19,7 @@ import { followNextOrLandingAfterLogin } from "./auth-redirect.ts";
 import { AuthQueries } from "./constants.ts";
 import { useSession } from "./session.tsx";
 
-// Resend-Status für den "Bestätigungs-Mail erneut senden"-Flow, der bei
-// reason=email_not_verified unter dem Fehler-Banner angeboten wird.
+// Resend state for the confirmation mail offered under the error banner on reason=email_not_verified.
 type ResendStatus =
   | { readonly kind: "idle" }
   | { readonly kind: "sending" }
@@ -41,17 +33,13 @@ export type AuthLegalLink = {
 };
 
 export type LoginScreenProps = {
-  /** Overridet den `auth.login.title`-i18n-Key. Nur setzen wenn der
-   *  Titel stark app-branded ist und keine Translation braucht. */
+  /** Overrides the `auth.login.title` key; only for a branded title that needs no translation. */
   readonly title?: string;
   readonly subtitle?: ReactNode;
   readonly submitLabel?: string;
-  /** Optional href zum ForgotPasswordScreen. Wenn gesetzt rendert die
-   *  LoginScreen unter dem Submit-Button einen "Passwort vergessen?"-
-   *  Link. Apps die den Reset-Flow NICHT anbieten (z.B. nur Magic-Link),
-   *  setzen das einfach nicht — Login bleibt minimalistisch. Ungesetzt:
-   *  Default-Pfad, sobald der Server den Reset-Flow anbietet (login-options);
-   *  `null` = bewusst kein Link. */
+  /** Href of the "Forgot password?" link under the submit button. Unset: the
+   *  default path once the server offers the reset flow (login-options);
+   *  `null` hides the link deliberately. */
   readonly forgotPasswordHref?: string | null;
   /** Optional href to RequestAccountUnlockScreen (#1266). When set, an
    *  account_locked login error renders an "Unlock account?" link inline —
@@ -61,15 +49,11 @@ export type LoginScreenProps = {
    *  accountUnlock configured just leave this unset. Unset: default path once
    *  the server offers the flow (login-options); `null` = deliberately no link. */
   readonly unlockAccountHref?: string | null;
-  /** Optional href zum SignupScreen. Wenn gesetzt rendert die LoginScreen
-   *  einen "Account erstellen"-Link. Apps die kein Self-Signup wollen
-   *  (closed-invite-only) setzen das einfach nicht. */
+  /** Href of the "Create account" link; invite-only apps leave it unset. */
   readonly signupHref?: string;
-  /** Impressum/Datenschutz unterhalb der Card — der Login-Screen ist
-   *  oft die einzige öffentliche Seite einer Admin-Domain und braucht
-   *  dann selbst erreichbare Legal-Links (DE: Impressumspflicht).
-   *  Labels kommen vom Caller (typisch schon übersetzt bzw. Eigennamen
-   *  wie "Impressum"). */
+  /** Imprint/privacy links under the card: the login screen is often the only
+   *  public page of an admin domain, which then must reach its legal pages
+   *  itself (German imprint duty). Labels come translated from the caller. */
   readonly legalLinks?: readonly AuthLegalLink[];
   /** Called when the server responds with an MFA challenge instead of a
    *  session. Apps typically swap this screen out for auth-mfa's
@@ -142,9 +126,8 @@ function LoginScreenBody({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<LoginFailure | null>(null);
   const [resendStatus, setResendStatus] = useState<ResendStatus>({ kind: "idle" });
-  // Tracked, damit der Resend-Button verschwindet sobald der User die
-  // Email-Eingabe ändert — sonst würde Resend silent an die geänderte
-  // (potentiell typoed) Adresse gehen ohne User-Feedback.
+  // Hides the resend button once the email input changes; otherwise resend
+  // would silently go to the edited, possibly mistyped address.
   const [failedLoginEmail, setFailedLoginEmail] = useState<string | null>(null);
   const effectiveForgotHref =
     forgotPasswordHref === undefined
@@ -196,10 +179,8 @@ function LoginScreenBody({
     void doSubmit();
   };
 
-  // Resend-Bestätigungsmail bei reason=email_not_verified. requestEmail-
-  // Verification ist silent-success (200 auch wenn kein User existiert),
-  // sodass kein anti-enumeration-Branching nötig ist; 429 → rate-limit-
-  // Hint inline, sonstige Fehler → generischer Inline-Hint.
+  // requestEmailVerification answers 200 even for unknown users, so no
+  // anti-enumeration branching is needed; only 429 gets its own hint.
   const onResend = async (): Promise<void> => {
     setResendStatus({ kind: "sending" });
     try {
