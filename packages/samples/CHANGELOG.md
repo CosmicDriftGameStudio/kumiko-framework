@@ -1,5 +1,9 @@
 # @cosmicdrift/kumiko-samples
 
+## 0.382.0
+
+No changes in this release.
+
 ## 0.381.0
 
 No changes in this release.

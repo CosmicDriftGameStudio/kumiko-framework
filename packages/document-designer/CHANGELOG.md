@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.382.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.382.0
+  - @cosmicdrift/kumiko-framework@0.382.0
+  - @cosmicdrift/kumiko-renderer@0.382.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.382.0
+  - @cosmicdrift/kumiko-types@0.382.0
+
 ## 0.381.0
 
 ### Patch Changes
