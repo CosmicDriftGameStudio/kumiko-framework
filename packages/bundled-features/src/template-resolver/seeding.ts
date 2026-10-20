@@ -85,6 +85,13 @@ export type SeedSystemTemplateOptions = {
   readonly ifExists?: SeedIfExists;
 };
 
+function seedTitleColumn(opts: SeedSystemTemplateOptions, label: string): string | null {
+  if (opts.title !== undefined && opts.titleI18nKey !== undefined) {
+    throw new Error(`${label} rejected: set either title or titleI18nKey, not both`);
+  }
+  return opts.titleI18nKey ?? opts.title ?? null;
+}
+
 export async function seedSystemTemplate(
   db: DbConnection,
   opts: SeedSystemTemplateOptions,
@@ -96,9 +103,7 @@ export async function seedSystemTemplate(
   const label = `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale}`;
   const slug = templateSlugSchema.safeParse(opts.slug);
   if (!slug.success) throw new Error(`${label} rejected: ${slug.error.issues[0]?.message}`);
-  if (opts.title !== undefined && opts.titleI18nKey !== undefined) {
-    throw new Error(`${label} rejected: set either title or titleI18nKey, not both`);
-  }
+  const title = seedTitleColumn(opts, label);
   const evaluated = evaluateTemplateWrite({
     kind: opts.kind,
     scope: "system",
@@ -143,7 +148,7 @@ export async function seedSystemTemplate(
     variableSchema,
     ...(linkedResources !== undefined && { linkedResources }),
     meta,
-    title: opts.titleI18nKey ?? opts.title ?? null,
+    title,
     folder: null,
     scope: "system" as const,
     parentTemplateId,
