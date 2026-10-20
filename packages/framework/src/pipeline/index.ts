@@ -36,6 +36,7 @@ export { createEventDedup } from "./event-dedup.ts";
 export type {
   ConsumerProgress,
   ConsumerRecoveryState,
+  ConsumerTransitionRejection,
   DispatcherPassResult,
   EventConsumer,
   EventConsumerBatchHandler,
@@ -44,6 +45,7 @@ export type {
   EventDispatcherOptions,
 } from "./event-dispatcher.ts";
 export {
+  ConsumerTransitionError,
   createEventDispatcher,
   disableConsumer,
   enableConsumer,

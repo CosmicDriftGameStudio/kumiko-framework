@@ -1,5 +1,5 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-import type { DbConnection, DbTx } from "../db/connection.ts";
+import type { DbRunner } from "../db/connection.ts";
 import {
   advanceConsumerPastEventReturning,
   removePendingGapReturning,
@@ -11,7 +11,14 @@ import {
   selectNextEventIdAfter,
   selectSmallestVisibleIdInRanges,
 } from "../db/queries/event-store.ts";
-import { coerceRow, extractTableInfo, selectMany } from "../db/query.ts";
+import {
+  coerceRow,
+  extractTableInfo,
+  runInNewTransaction,
+  runInSavepointIfSupported,
+  runnerCanBeginTransaction,
+  selectMany,
+} from "../db/query.ts";
 import { getEventsHighWaterMark } from "../event-store/index.ts";
 import {
   eventConsumerStateTable,
@@ -57,6 +64,19 @@ function normalizeConsumerState(row: ConsumerStateRowShape): ConsumerRecoverySta
   };
 }
 
+// Distinguishes operator-correctable rejections from unexpected failures so callers can show a fixed message.
+export type ConsumerTransitionRejection = "unknown-consumer" | "wrong-status";
+
+export class ConsumerTransitionError extends Error {
+  constructor(
+    readonly rejection: ConsumerTransitionRejection,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ConsumerTransitionError";
+  }
+}
+
 export type ConsumerRecoveryState = {
   readonly name: string;
   readonly instanceId: string;
@@ -75,7 +95,7 @@ export type ConsumerRecoveryState = {
 // mutating all shards simultaneously ("bounce every instance") are both
 // worse than a loud missing-arg error on the CLI.
 async function requireConsumerRow(
-  db: DbConnection,
+  db: DbRunner,
   name: string,
   instanceId: string,
 ): Promise<ConsumerStateRowShape> {
@@ -84,7 +104,8 @@ async function requireConsumerRow(
     instanceId,
   });
   if (!row) {
-    throw new Error(
+    throw new ConsumerTransitionError(
+      "unknown-consumer",
       `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
         `For per-instance consumers pass the instance_id explicitly; shared consumers use the default.`,
     );
@@ -93,13 +114,14 @@ async function requireConsumerRow(
 }
 
 async function requireConsumerRowForUpdate(
-  tx: DbTx,
+  tx: DbRunner,
   name: string,
   instanceId: string,
 ): Promise<ConsumerStateRowShape> {
   const raw = await selectConsumerForUpdate(tx, name, instanceId);
   if (!raw) {
-    throw new Error(
+    throw new ConsumerTransitionError(
+      "unknown-consumer",
       `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
         `For per-instance consumers pass the instance_id explicitly; shared consumers use the default.`,
     );
@@ -108,7 +130,7 @@ async function requireConsumerRowForUpdate(
 }
 
 async function applyConsumerStatusTransition(
-  db: DbConnection,
+  db: DbRunner,
   name: string,
   instanceId: string,
   targetStatus: "idle" | "disabled",
@@ -125,13 +147,14 @@ async function applyConsumerStatusTransition(
 }
 
 export async function restartConsumer(
-  db: DbConnection,
+  db: DbRunner,
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
   const before = await requireConsumerRow(db, name, instanceId);
   if (before.status !== "dead") {
-    throw new Error(
+    throw new ConsumerTransitionError(
+      "wrong-status",
       `Consumer "${name}" (instance_id="${instanceId}") is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
     );
   }
@@ -139,7 +162,7 @@ export async function restartConsumer(
 }
 
 export async function disableConsumer(
-  db: DbConnection,
+  db: DbRunner,
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
@@ -148,24 +171,36 @@ export async function disableConsumer(
 }
 
 export async function enableConsumer(
-  db: DbConnection,
+  db: DbRunner,
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
   const before = await requireConsumerRow(db, name, instanceId);
   if (before.status !== "disabled") {
-    throw new Error(
+    throw new ConsumerTransitionError(
+      "wrong-status",
       `Consumer "${name}" (instance_id="${instanceId}") is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
     );
   }
   return applyConsumerStatusTransition(db, name, instanceId, "idle");
 }
 
+// A pool connection opens its own transaction; inside a handler transaction the
+// locked read and writes join it, confined to a savepoint.
+function runInOwnTransactionOrSavepoint<T>(
+  db: DbRunner,
+  fn: (tx: DbRunner) => Promise<T>,
+): Promise<T> {
+  return runnerCanBeginTransaction(db)
+    ? runInNewTransaction(db, fn)
+    : runInSavepointIfSupported(db, fn);
+}
+
 // Delivery stops at the poison event, so ids between the cursor and it were
 // invisible during that pass (in-flight commits); keeping them as a pending gap
 // avoids losing them when the cursor jumps over.
 async function invisibleWindowGap(
-  tx: DbTx,
+  tx: DbRunner,
   cursor: bigint,
   poisonId: bigint,
 ): Promise<PendingGapEntry | null> {
@@ -186,14 +221,21 @@ async function invisibleWindowGap(
 // event after the cursor. Single TX so concurrent dispatcher passes can't
 // double-advance. Nothing to skip → idempotent no-op.
 export async function skipPoisonEvent(
-  db: DbConnection,
+  db: DbRunner,
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
+  options: { readonly requireStatus?: string } = {},
 ): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
-  return db.begin(async (tx: DbTx) => {
+  return runInOwnTransactionOrSavepoint(db, async (tx) => {
     // Locked read: a dispatcher turn committing new gaps between an unlocked
     // read and the pending_gaps overwrite below would have them dropped.
     const before = await requireConsumerRowForUpdate(tx, name, instanceId);
+    if (options.requireStatus !== undefined && before.status !== options.requireStatus) {
+      throw new ConsumerTransitionError(
+        "wrong-status",
+        `Consumer "${name}" (instance_id="${instanceId}") is "${before.status}", not "${options.requireStatus}"; nothing skipped.`,
+      );
+    }
     const pendingGaps = before.pendingGaps;
     const failedEventId = before.lastFailedEventId;
     const failedIsPending =
@@ -263,7 +305,7 @@ export async function skipPoisonEvent(
 
 // Read-only status for one consumer shard — CLI surface.
 export async function getConsumerState(
-  db: DbConnection,
+  db: DbRunner,
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<{
@@ -302,7 +344,7 @@ export async function getConsumerState(
 // source-of-truth for which consumer-names exist; the DB is the source-
 // of-truth for which instance-shards have been seen.
 export async function listConsumersWithState(
-  db: DbConnection,
+  db: DbRunner,
   registeredNames: readonly string[],
 ): Promise<
   ReadonlyArray<{
@@ -377,7 +419,7 @@ export type ConsumerProgress = {
 // `kumiko_consumer_lag{name}` Prometheus gauge.
 // guard:dup-ok — intentionale Parallele zu getAllProjectionProgress; Consumer ≠ Projection (verschiedene Subsysteme)
 export async function getAllConsumerProgress(
-  db: DbConnection,
+  db: DbRunner,
   registeredNames: readonly string[],
 ): Promise<readonly ConsumerProgress[]> {
   const [consumers, highWaterMark] = await Promise.all([
