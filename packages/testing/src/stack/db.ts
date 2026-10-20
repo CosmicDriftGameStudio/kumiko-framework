@@ -22,8 +22,11 @@ function requireEnv(name: string): string {
   return value;
 }
 
+export const DEFAULT_TEST_DB_POOL_MAX = 10;
+
 export type TestDb = {
   db: DbConnection;
+  poolMax: number;
   outsideTransactionDb: DbConnection;
   client: PgListenClient;
   dbName: string;
@@ -59,10 +62,8 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
   }
 
   const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
-  const conn = createDbConnection({
-    url: testUrl,
-    ...(opts.poolMax !== undefined ? { maxConnections: opts.poolMax } : {}),
-  });
+  const poolMax = opts.poolMax ?? DEFAULT_TEST_DB_POOL_MAX;
+  const conn = createDbConnection({ url: testUrl, maxConnections: poolMax });
   const outsideConn = createDbConnection({
     url: testUrl,
     maxConnections: opts.outsideTransactionPoolMax ?? DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
@@ -73,6 +74,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
 
   return {
     db: conn.db,
+    poolMax,
     outsideTransactionDb: outsideConn.db,
     client: conn.client,
     dbName,

@@ -13,10 +13,11 @@ export {
   resetEventPiiCatalogForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/internal/testing";
-
 export { rolesOf } from "./access-assertions.ts";
 export { expectError, expectSuccess } from "./assertions.ts";
+export { type Barrier, createBarrier } from "./barrier.ts";
 export { withBootValidatorFixture } from "./boot-validator-fixture.ts";
+export { type BurstResult, burst } from "./burst.ts";
 export {
   captureClosedConnectionError,
   terminateBackendsByApplicationName,

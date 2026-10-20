@@ -25,7 +25,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  type Barrier,
+  burst,
+  createBarrier,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -144,10 +149,7 @@ const ATOMIC_CAP_LIMIT = 3;
 const ATOMIC_CAP_NAME = "atomic-hard-slot-cap";
 let atomicHandlerRuns = 0;
 let atomicHandlerMode: "ok" | "failure" | "throw" | "rendezvous" = "ok";
-let atomicInFlight = 0;
-let atomicMaxInFlight = 0;
-let atomicRendezvous: Promise<void> | undefined;
-let releaseAtomicRendezvous: (() => void) | undefined;
+let atomicBarrier: Barrier = createBarrier({ expected: 2 });
 const atomicHandler: WriteHandlerDef = {
   name: "atomic-slot",
   schema: z.object({}),
@@ -168,12 +170,7 @@ const atomicHandler: WriteHandlerDef = {
       };
     }
     if (atomicHandlerMode === "rendezvous") {
-      atomicInFlight += 1;
-      atomicMaxInFlight = Math.max(atomicMaxInFlight, atomicInFlight);
-      if (atomicInFlight >= 2) releaseAtomicRendezvous?.();
-      // Resolves once a second call is inside the handler; the timeout only bounds the wait when calls are serialized.
-      await Promise.race([atomicRendezvous, new Promise((r) => setTimeout(r, 3000))]);
-      atomicInFlight -= 1;
+      await atomicBarrier.arrive();
     }
     return { isSuccess: true as const, data: {} };
   },
@@ -653,22 +650,10 @@ describe("bookCapUsage — parallel bookings for the same period", () => {
   });
 });
 
-// postgres.js keeps its pool size on the client's `options`; the DbConnection type does not expose it.
-function connectionPoolSize(connection: DbConnection): number {
-  const options: unknown = Reflect.get(connection, "options");
-  const max = typeof options === "object" && options !== null ? Reflect.get(options, "max") : null;
-  if (typeof max !== "number") throw new Error("connection pool size is not readable");
-  return max;
-}
-
 function resetAtomicState(mode: typeof atomicHandlerMode) {
   atomicHandlerRuns = 0;
   atomicHandlerMode = mode;
-  atomicInFlight = 0;
-  atomicMaxInFlight = 0;
-  atomicRendezvous = new Promise<void>((resolve) => {
-    releaseAtomicRendezvous = resolve;
-  });
+  atomicBarrier = createBarrier({ expected: 2 });
 }
 
 describe("withCapEnforcement - atomic reservation", () => {
@@ -676,14 +661,12 @@ describe("withCapEnforcement - atomic reservation", () => {
     resetAtomicState("ok");
     const user = tenantAdminOnlyFor(2701);
 
-    const responses = await Promise.all(
-      Array.from({ length: PARALLEL_BOOKINGS }, () => stack.http.write(ATOMIC_QN, {}, user)),
+    const { statuses } = await burst(stack, PARALLEL_BOOKINGS, () =>
+      stack.http.write(ATOMIC_QN, {}, user),
     );
 
-    expect(responses.filter((r) => r.status === 200)).toHaveLength(ATOMIC_CAP_LIMIT);
-    expect(responses.filter((r) => r.status === 429)).toHaveLength(
-      PARALLEL_BOOKINGS - ATOMIC_CAP_LIMIT,
-    );
+    expect(statuses[200]).toBe(ATOMIC_CAP_LIMIT);
+    expect(statuses[429]).toBe(PARALLEL_BOOKINGS - ATOMIC_CAP_LIMIT);
     expect(atomicHandlerRuns).toBe(ATOMIC_CAP_LIMIT);
     const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
     expect(row!["value"]).toBe(ATOMIC_CAP_LIMIT);
@@ -693,13 +676,10 @@ describe("withCapEnforcement - atomic reservation", () => {
     resetAtomicState("rendezvous");
     const user = tenantAdminOnlyFor(2703);
 
-    const responses = await Promise.all([
-      stack.http.write(ATOMIC_QN, {}, user),
-      stack.http.write(ATOMIC_QN, {}, user),
-    ]);
+    const { statuses } = await burst(stack, 2, () => stack.http.write(ATOMIC_QN, {}, user));
 
-    expect(responses.map((r) => r.status)).toEqual([200, 200]);
-    expect(atomicMaxInFlight).toBe(2);
+    expect(statuses[200]).toBe(2);
+    expect(atomicBarrier.arrived).toBe(2);
   });
 
   test("a capped handler reached through a nested ctx.write is rejected instead of running unreserved", async () => {
@@ -758,7 +738,7 @@ describe("withCapEnforcement - atomic reservation", () => {
   });
 
   test("capped requests beyond the pool size all complete (no connection held across the handler)", async () => {
-    const poolSize = connectionPoolSize(db);
+    const poolSize = stack.dbPoolMax;
     const user = tenantAdminOnlyFor(2707);
 
     const responses = await Promise.all(
