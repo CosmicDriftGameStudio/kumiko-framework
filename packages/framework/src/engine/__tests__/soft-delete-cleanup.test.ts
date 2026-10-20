@@ -16,7 +16,7 @@ function featureWith(softDelete: boolean | undefined) {
   return defineFeature("probe-sd", (r) => {
     r.entity({
       name: "thing",
-      fields: { label: { type: "text" } },
+      fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
       ...(softDelete !== undefined && { softDelete }),
     });
   });

@@ -100,12 +100,20 @@ function buildSchema(rowAction: EntityListScreenDefinition["rowActions"]): Featu
     fields: {
       customerId: {
         type: "text",
+        allowPlaintext: "test fixture value, not personal data",
         maxLength: 50,
         required: false,
         searchable: false,
         sortable: false,
       },
-      status: { type: "text", maxLength: 50, required: false, searchable: false, sortable: false },
+      status: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        maxLength: 50,
+        required: false,
+        searchable: false,
+        sortable: false,
+      },
     },
   };
   const listScreen: EntityListScreenDefinition = {

@@ -68,11 +68,25 @@ function stubDispatcher(): Dispatcher {
 function buildSchema(urlPrefillFields: readonly string[] | undefined): FeatureSchema {
   const entity: EntityDefinition = {
     fields: {
-      name: { type: "text", maxLength: 200, required: false, searchable: false, sortable: false },
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        maxLength: 200,
+        required: false,
+        searchable: false,
+        sortable: false,
+      },
       floorCount: { type: "number", required: false, sortable: false },
-      ownerEmail: { type: "text", maxLength: 200, required: false, searchable: false },
+      ownerEmail: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        maxLength: 200,
+        required: false,
+        searchable: false,
+      },
       accessCode: {
         type: "text",
+        allowPlaintext: "test fixture value, not personal data",
         maxLength: 200,
         required: false,
         searchable: false,

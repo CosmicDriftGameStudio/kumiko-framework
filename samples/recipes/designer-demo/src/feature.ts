@@ -15,7 +15,11 @@ defineFeature("designerDemo", (r) => {
   r.entity({
     name: "task",
     fields: {
-      title: { type: "text", required: true },
+      title: {
+        type: "text",
+        required: true,
+        allowPlaintext: "demo task title, not personal data",
+      },
       done: { type: "boolean", default: false },
       priority: { type: "select", options: ["low", "medium", "high"], default: "medium" },
     },

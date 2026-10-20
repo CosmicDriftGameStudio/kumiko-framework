@@ -9,6 +9,8 @@ import type {
   EmbeddedFieldDef,
   EntityDefinition,
   EntityIndexDef,
+  EntityLongTextFieldDef,
+  EntityTextFieldDef,
   FieldsMap,
   FileFieldDef,
   FilesFieldDef,
@@ -181,7 +183,7 @@ function assertTextFieldStance(
 export function createTextField<R extends true | false = false>(
   overrides: Partial<Omit<TextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
     PersonalAnnotations & { required?: R },
-): TextFieldDef & { required: R } {
+): EntityTextFieldDef & { required: R } {
   assertTextFieldStance("createTextField", overrides);
   return {
     type: "text",
@@ -190,7 +192,7 @@ export function createTextField<R extends true | false = false>(
     searchable: false,
     sortable: false,
     ...expandPersonalAnnotations(overrides),
-  } as TextFieldDef & { required: R }; // @cast-boundary engine-payload
+  } as EntityTextFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 /**
@@ -217,13 +219,13 @@ export function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef {
 export function createLongTextField<R extends true | false = false>(
   overrides: Partial<Omit<LongTextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
     PersonalAnnotationsLongText & { required?: R },
-): LongTextFieldDef & { required: R } {
+): EntityLongTextFieldDef & { required: R } {
   assertTextFieldStance("createLongTextField", overrides);
   return {
     type: "longText",
     required: false,
     ...expandPersonalAnnotations(overrides),
-  } as LongTextFieldDef & { required: R }; // @cast-boundary engine-payload
+  } as EntityLongTextFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createBooleanField<R extends true | false = false>(

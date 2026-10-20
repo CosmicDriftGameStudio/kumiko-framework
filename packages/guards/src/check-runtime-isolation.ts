@@ -46,7 +46,7 @@
 // own production surface — see kumiko-framework#2337 for the one currently
 // frozen here). Exceptions are tracked via a per-repo baseline file
 // (`.kumiko-runtime-isolation-baseline.json`, same `baselineRatchet`
-// mechanism as check-complexity/guard-pii-annotations/etc.), not a
+// mechanism as check-complexity/etc.), not a
 // hardcoded list in this source file: a consumer repo can freeze or clear
 // its own findings the same way, with `--write-baseline`.
 //

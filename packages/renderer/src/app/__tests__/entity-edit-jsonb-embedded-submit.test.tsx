@@ -98,7 +98,14 @@ function stubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
 function buildSchema(): FeatureSchema {
   const entity: EntityDefinition = {
     fields: {
-      name: { type: "text", maxLength: 200, required: false, searchable: false, sortable: false },
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        maxLength: 200,
+        required: false,
+        searchable: false,
+        sortable: false,
+      },
       extra: { type: "jsonb" },
       meta: {
         type: "embedded",

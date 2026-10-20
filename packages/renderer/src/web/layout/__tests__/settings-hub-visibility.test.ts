@@ -54,7 +54,10 @@ const ops = defineFeature("ops", (r) => {
 });
 // A real work-workspace, so the app is in workspace (filter) mode.
 const shell = defineFeature("shell", (r) => {
-  r.entity({ name: "thing", fields: { label: { type: "text" } } });
+  r.entity({
+    name: "thing",
+    fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+  });
   r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
   r.nav({ id: "home", label: "Home", screen: "home" });
   r.workspace({ id: "main", label: "Main", nav: ["shell:nav:home"] });

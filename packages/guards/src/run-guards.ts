@@ -41,7 +41,6 @@ import { guard as noDateApi } from "./guard-no-date-api";
 import { guard as noDirectFs } from "./guard-no-direct-fs";
 import { guard as noLogicInViews } from "./guard-no-logic-in-views";
 import { guard as noTemporalPolyfillImport } from "./guard-no-temporal-polyfill-import";
-import { guard as piiAnnotations } from "./guard-pii-annotations";
 import { guard as restrictedSymbols } from "./guard-restricted-symbols";
 import { guard as screenConventions } from "./guard-screen-conventions";
 import { guard as silentSkip } from "./guard-silent-skip";
@@ -71,7 +70,6 @@ export const GUARDS = [
   i18nKeys,
   i18nLocaleMount,
   i18nLocaleTerminology,
-  piiAnnotations,
   complexity,
   predicateExtraction,
   screenConventions,

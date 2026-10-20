@@ -5,7 +5,7 @@
 // guard catches that combination before it ships.
 
 import { describe, expect, test } from "bun:test";
-import { unannotatedText } from "../../__tests__/unannotated-fields.ts";
+import { plaintextText } from "../../__tests__/plaintext-fields.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../factories.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
@@ -27,7 +27,7 @@ function featureWith(
         fields: {
           body: withRecordOwnedField
             ? createTextField({ personal: { of: "id" }, find: "none" })
-            : { ...unannotatedText },
+            : plaintextText,
         },
       }),
     });

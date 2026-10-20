@@ -25,7 +25,15 @@ import { useBrowserNavApi } from "../app/nav.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const tokenEntity: EntityDefinition = {
-  fields: { name: { type: "text", required: false, searchable: false, sortable: false } },
+  fields: {
+    name: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
+  },
 };
 
 const dashboardScreen: DashboardScreenDefinition = {

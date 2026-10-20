@@ -22,7 +22,7 @@
  * compare WITH their modifier prefixes intact (`hover:mb-2` is its own
  * Tailwind candidate, distinct from `mb-2`).
  *
- * Baseline-regression guard like guard-pii-annotations.ts: pins the
+ * Baseline-regression guard: pins the
  * currently-known violation count per file. Reductions are allowed but
  * don't auto-update the baseline. Without a baseline file the guard stays
  * warning-only (bootstrap: run `--write-baseline` once).

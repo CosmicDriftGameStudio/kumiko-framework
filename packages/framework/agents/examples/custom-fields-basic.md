@@ -254,7 +254,12 @@ import { z } from "zod";
 export const propertyEntity = createEntity({
   table: "read_sample_cf_properties",
   fields: {
-    name: { type: "text", required: true, maxLength: 200 },
+    name: {
+        type: "text",
+        required: true,
+        maxLength: 200,
+        allowPlaintext: "property name is business data, not personal data",
+      },
     customFields: customFieldsField(),
   },
 });
@@ -274,7 +279,12 @@ export const propertyFeature = defineFeature("property-management", (r) => {
     name: "property",
     table: "read_sample_cf_properties",
     fields: {
-      name: { type: "text", required: true, maxLength: 200 },
+      name: {
+        type: "text",
+        required: true,
+        maxLength: 200,
+        allowPlaintext: "property name is business data, not personal data",
+      },
       customFields: { type: "jsonb" },
     },
   });

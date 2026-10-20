@@ -51,7 +51,6 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-no-logic-in-views` | web/ contains components and hooks — computation, parsing and aggregation belong in lib/ (with a test). | `kumiko-lint-ignore no-logic-in-views` |
 | `guard-no-raw-hooks` | Rerender protection: raw useEffect/useLayoutEffect + fetch() in app screens are the source of the endless-rerender class (unstable deps, setState-in-effect) and bypass the framework hook set (useQuery/ useMutation/useDisclosure — useQuery can go live via SSE). | `kumiko-lint-ignore no-raw-hooks` |
 | `guard-no-temporal-polyfill-import` | Guard: finds value imports from `temporal-polyfill` outside kumiko-types. | - |
-| `guard-pii-annotations` | Guard: PII-typical entity field names without annotation, with a baseline regression guard like check-complexity.ts. | - |
 | `guard-primitives-discipline` | Guard: enforces that app-/feature-web code uses UI building blocks from the framework primitives, not hand-rolled Tailwind on raw HTML tags. | `kumiko-lint-ignore primitives-discipline` |
 | `guard-public-exports-changelog` | - | - |
 | `guard-raw-classname` | Design comes from widgets/theme tokens, not raw Tailwind in app code. | `kumiko-lint-ignore raw-classname` |

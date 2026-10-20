@@ -138,7 +138,12 @@ describe("boot-validator", () => {
           ...createEntity({
             table: "Secrets",
             fields: {
-              apiKey: { type: "text", encrypted: true, searchable: true },
+              apiKey: {
+                type: "text",
+                allowPlaintext: "test fixture value, not personal data",
+                encrypted: true,
+                searchable: true,
+              },
             },
           }),
         });
@@ -163,6 +168,7 @@ describe("boot-validator", () => {
             fields: {
               secret: {
                 type: "text",
+                allowPlaintext: "test fixture value, not personal data",
                 personal: false,
                 reason: "test_fixture",
                 ...field,
@@ -238,7 +244,12 @@ describe("boot-validator", () => {
           ...createEntity({
             table: "Secrets",
             fields: {
-              token: { type: "text", encrypted: true, sortable: true },
+              token: {
+                type: "text",
+                allowPlaintext: "test fixture value, not personal data",
+                encrypted: true,
+                sortable: true,
+              },
             },
           }),
         });
@@ -259,7 +270,11 @@ describe("boot-validator", () => {
             ...createEntity({
               table: "Secrets",
               fields: {
-                apiKey: { type: "text", encrypted: true },
+                apiKey: {
+                  type: "text",
+                  allowPlaintext: "test fixture value, not personal data",
+                  encrypted: true,
+                },
               },
             }),
           });
@@ -281,7 +296,11 @@ describe("boot-validator", () => {
             ...createEntity({
               table: "Secrets",
               fields: {
-                apiKey: { type: "text", encrypted: true },
+                apiKey: {
+                  type: "text",
+                  allowPlaintext: "test fixture value, not personal data",
+                  encrypted: true,
+                },
               },
             }),
           });
@@ -302,7 +321,11 @@ describe("boot-validator", () => {
           ...createEntity({
             table: "Secrets",
             fields: {
-              apiKey: { type: "text", encrypted: true },
+              apiKey: {
+                type: "text",
+                allowPlaintext: "test fixture value, not personal data",
+                encrypted: true,
+              },
             },
           }),
         });
@@ -318,7 +341,13 @@ describe("boot-validator", () => {
           name: "secret",
           ...createEntity({
             table: "Secrets",
-            fields: { apiKey: { type: "text", encrypted: true } },
+            fields: {
+              apiKey: {
+                type: "text",
+                allowPlaintext: "test fixture value, not personal data",
+                encrypted: true,
+              },
+            },
           }),
         });
       }),
@@ -355,7 +384,11 @@ describe("boot-validator", () => {
           ...createEntity({
             table: "Docs",
             fields: {
-              body: { type: "longText", encrypted: true },
+              body: {
+                type: "longText",
+                allowPlaintext: "test fixture value, not personal data",
+                encrypted: true,
+              },
             },
           }),
         });
@@ -377,7 +410,12 @@ describe("boot-validator", () => {
             ...createEntity({
               table: "Docs",
               fields: {
-                secret: { type: "text", encrypted: true, filterable: true },
+                secret: {
+                  type: "text",
+                  allowPlaintext: "test fixture value, not personal data",
+                  encrypted: true,
+                  filterable: true,
+                },
               },
             }),
           });
@@ -401,7 +439,11 @@ describe("boot-validator", () => {
             ...createEntity({
               table: "Docs",
               fields: {
-                secret: { type: "text", encrypted: true },
+                secret: {
+                  type: "text",
+                  allowPlaintext: "test fixture value, not personal data",
+                  encrypted: true,
+                },
               },
               indexes: [{ columns: ["secret"], unique: true }],
             }),
@@ -429,8 +471,8 @@ describe("boot-validator", () => {
           ...createEntity({
             table: "Docs",
             fields: {
-              body: { type: "longText" },
-              title: { type: "text" },
+              body: { type: "longText", allowPlaintext: "test fixture value, not personal data" },
+              title: { type: "text", allowPlaintext: "test fixture value, not personal data" },
             },
             indexes: [{ columns: ["title", "body"] }],
           }),
@@ -565,7 +607,12 @@ describe("boot-validator", () => {
           }),
         });
         r.extendsRegistrar("custom", {
-          extendSchema: () => ({ name: { type: "text" as const } }),
+          extendSchema: () => ({
+            name: {
+              type: "text" as const,
+              allowPlaintext: "test fixture value, not personal data",
+            },
+          }),
         });
       }),
     ];
@@ -634,6 +681,7 @@ describe("boot-validator", () => {
           keys: {
             gateway: {
               type: "text",
+              allowPlaintext: "test fixture value, not personal data",
               scope: "tenant",
               access: { read: ["all"], write: ["Admin"] },
             },
@@ -659,7 +707,12 @@ describe("boot-validator", () => {
           }),
         });
         r.extendsRegistrar("custom", {
-          extendSchema: () => ({ extra: { type: "text" as const } }),
+          extendSchema: () => ({
+            extra: {
+              type: "text" as const,
+              allowPlaintext: "test fixture value, not personal data",
+            },
+          }),
         });
       }),
     ];
@@ -1133,6 +1186,7 @@ describe("boot-validator", () => {
             keys: {
               textKey: {
                 type: "text",
+                allowPlaintext: "test fixture value, not personal data",
                 scope: "tenant",
                 access: { read: ["all"], write: ["all"] },
                 bounds: { min: 1 },
@@ -1154,6 +1208,7 @@ describe("boot-validator", () => {
             keys: {
               mixed: {
                 type: "text",
+                allowPlaintext: "test fixture value, not personal data",
                 scope: "tenant",
                 access: { read: ["all"], write: ["all"] },
                 encrypted: true,
@@ -1209,6 +1264,7 @@ describe("boot-validator", () => {
             keys: {
               hacked: {
                 type: "text",
+                allowPlaintext: "test fixture value, not personal data",
                 scope: "tenant",
                 access: { read: ["all"], write: ["all"] },
                 allowPerRequest: true,
@@ -2578,9 +2634,18 @@ describe("boot-validator", () => {
         readonly value: unknown;
       },
       fields: Record<string, unknown> = {
-        name: { type: "text", sortable: true, filterable: true },
-        status: { type: "text", filterable: true },
-        secret: { type: "text" },
+        name: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          sortable: true,
+          filterable: true,
+        },
+        status: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          filterable: true,
+        },
+        secret: { type: "text", allowPlaintext: "test fixture value, not personal data" },
       },
     ) {
       return defineFeature("shop", (r) => {
@@ -2615,8 +2680,17 @@ describe("boot-validator", () => {
 
     test("filter auf personal Feld → Throw, der List-Handler lehnt ihn zur Laufzeit ab", () => {
       const fields = {
-        name: { type: "text", filterable: true },
-        note: { type: "text", filterable: true, tenantOwned: true },
+        name: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          filterable: true,
+        },
+        note: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          filterable: true,
+          tenantOwned: true,
+        },
       };
       expect(() =>
         validateBoot([makeFeature({ field: "note", op: "eq", value: "x" }, fields)]),
@@ -2625,8 +2699,18 @@ describe("boot-validator", () => {
 
     test("eq-Filter auf personal Feld mit Blind-Index → kein Throw, andere Ops → Throw", () => {
       const fields = {
-        name: { type: "text", filterable: true },
-        mail: { type: "text", filterable: true, tenantOwned: true, lookupable: true },
+        name: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          filterable: true,
+        },
+        mail: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          filterable: true,
+          tenantOwned: true,
+          lookupable: true,
+        },
       };
       expect(() =>
         validateBoot([makeFeature({ field: "mail", op: "eq", value: "a@example.com" }, fields)]),
@@ -2648,7 +2732,11 @@ describe("boot-validator", () => {
           makeFeature(
             { field: "rank", op: "gt", value: 5 },
             {
-              name: { type: "text", filterable: true },
+              name: {
+                type: "text",
+                allowPlaintext: "test fixture value, not personal data",
+                filterable: true,
+              },
               rank: { type: "number", filterable: true },
             },
           ),
@@ -2658,7 +2746,11 @@ describe("boot-validator", () => {
 
     test("filter.op=lte/gte auf number-Feld → kein Throw (vergleichbar)", () => {
       const fields = {
-        name: { type: "text", filterable: true },
+        name: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          filterable: true,
+        },
         rank: { type: "number", filterable: true },
       };
       expect(() =>
@@ -2689,7 +2781,11 @@ describe("boot-validator", () => {
 
     test("filter.op=ne auf boolean → kein Throw, lt auf boolean → Throw", () => {
       const fields = {
-        name: { type: "text", filterable: true },
+        name: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          filterable: true,
+        },
         flag: { type: "boolean", filterable: true },
       };
       expect(() =>

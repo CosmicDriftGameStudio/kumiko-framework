@@ -45,7 +45,12 @@ import { isEncryptedAtRest } from "./config-helpers.ts";
 import { isListQueryWithoutSearchableFields } from "./entity-list-searchability.ts";
 import { QnTypes, qualifyEntityName } from "./qualified-name.ts";
 import type { Registry } from "./types/feature.ts";
-import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields.ts";
+import type {
+  ClientDerivedFieldDef,
+  DerivedFieldDef,
+  EntityFieldDefinition,
+  FieldDefinition,
+} from "./types/fields.ts";
 
 export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only
@@ -475,7 +480,7 @@ function projectEntities(
 // Whitelist. Was nicht durchkommt: Server-only-runtime wie ZodValidate-
 // Functions, Computed-Functions, Default-Functions.
 function projectEntity(entityName: string, entity: EntityDefinition): EntityDefinition {
-  const fieldsOut: Record<string, FieldDefinition> = {};
+  const fieldsOut: Record<string, EntityFieldDefinition> = {};
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     assertValidMultilineRows(`Entity "${entityName}"`, fieldName, fieldDef);
     fieldsOut[fieldName] = projectField(fieldDef);
@@ -566,12 +571,12 @@ function assertValidScreenMultilineRows(
 // `derived`, `totals`, `totalsMatch`) — a top-level `Array.isArray`/plain-
 // object check alone would let a function survive one level deep.
 //
-// Cast at the exit `as FieldDefinition`: type-system-wise our out-map only
+// Cast at the exit `as EntityFieldDefinition`: type-system-wise our out-map only
 // satisfies the discriminated union with an unnarrowed `type` string — the
 // cast bridges the variant inference TS can't recompute from a generic
 // Record.
 // kumiko-lint-ignore complexity-budget flat per-property whitelist walk, one independent `if` per FieldDefinition property — same shape as schema-builder.ts's field→zod switch
-function projectField(fieldDef: FieldDefinition): FieldDefinition {
+function projectField(fieldDef: FieldDefinition): EntityFieldDefinition {
   const def = fieldDef as Record<string, unknown>; // @cast-boundary schema-walk
   const out: Record<string, unknown> = {};
   if (typeof def["type"] === "string") out["type"] = def["type"];
@@ -662,7 +667,7 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
       Object.entries(def["schema"]).map(([k, v]) => [k, projectField(v as FieldDefinition)]), // @cast-boundary schema-walk
     );
   }
-  return out as FieldDefinition; // @cast-boundary schema-walk
+  return out as EntityFieldDefinition; // @cast-boundary schema-walk
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

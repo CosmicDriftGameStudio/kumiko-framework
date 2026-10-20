@@ -64,7 +64,11 @@ const errorFeature = defineFeature("err", (r) => {
 const todoEntity = {
   table: "store_todos",
   fields: {
-    title: { type: "text" as const, required: true },
+    title: {
+      type: "text" as const,
+      required: true,
+      allowPlaintext: "test fixture value, not personal data",
+    },
   },
 };
 

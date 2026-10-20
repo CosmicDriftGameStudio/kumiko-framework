@@ -78,9 +78,9 @@ describe("runGuardsCli — --write-baseline", () => {
     }
   });
 
-  test("--write-baseline --guard=PII-Annotations Guard narrows to that guard only", () => {
+  test("--write-baseline --guard=Complexity Check narrows to that guard only", () => {
     const ratchetGuards = GUARDS.filter(isRatchetGuard);
-    const target = ratchetGuards.find((g) => g.name === "PII-Annotations Guard");
+    const target = ratchetGuards.find((g) => g.name === "Complexity Check");
     expect(target).toBeDefined();
     // A tiny fixture repo instead of the real checkout: scanning the whole
     // framework synchronously blew the 5s test budget under CI load.
@@ -92,7 +92,7 @@ describe("runGuardsCli — --write-baseline", () => {
     const roots = [fixtureRoot("write-baseline-fixture", fixtureDir, FIXTURE_MANIFEST)];
     const { restore, spies } = mockAllRatchetWriters();
     try {
-      const exitCode = runGuardsCli(["--write-baseline", "--guard=PII-Annotations Guard"], {
+      const exitCode = runGuardsCli(["--write-baseline", "--guard=Complexity Check"], {
         writeBaselineRoots: roots,
       });
       expect(exitCode).toBe(0);
@@ -115,7 +115,7 @@ describe("runGuardsCli — --write-baseline", () => {
   test("--write-baseline is a known flag; an unrelated unknown flag is still rejected", () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
     try {
-      runGuardsCli(["--write-baseline", "--guard=PII-Annotations Guard", "--bogus-flag"]);
+      runGuardsCli(["--write-baseline", "--guard=Complexity Check", "--bogus-flag"]);
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("--bogus-flag"));
     } finally {
       errorSpy.mockRestore();

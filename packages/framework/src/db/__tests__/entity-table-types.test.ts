@@ -181,7 +181,7 @@ describe("createEntity — inline field literals without `as const`", () => {
     fields: {
       owner: { type: "reference", entity: "user", required: true },
       status: { type: "select", options: ["open", "closed"], required: true },
-      title: { type: "text", required: true, personal: false, reason: "test_fixture" },
+      title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     },
   });
   const t = buildEntityTable("inline_ent", inlineEntity);

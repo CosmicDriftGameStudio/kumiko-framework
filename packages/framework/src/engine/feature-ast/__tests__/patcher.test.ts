@@ -36,7 +36,13 @@ describe("FeaturePatcher — typed add helpers for static patterns", () => {
     patcher.addEntity({
       name: "task",
       definition: {
-        fields: { title: { type: "text", required: true } },
+        fields: {
+          title: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data",
+            required: true,
+          },
+        },
       },
     });
     const result = parseSourceFile(sf);
@@ -458,7 +464,11 @@ defineFeature("tasks", (r) => {
       name: "task",
       definition: {
         fields: {
-          title: { type: "text", required: true },
+          title: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data",
+            required: true,
+          },
           done: { type: "boolean", default: false },
         },
       },

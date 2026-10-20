@@ -101,7 +101,10 @@ describe("extendsRegistrar", () => {
     const ext = defineFeature("customFields", (r) => {
       r.extendsRegistrar("customFields", {
         extendSchema: () => ({
-          customData: { type: "text" as const },
+          customData: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data" as const,
+          },
         }),
       });
     });

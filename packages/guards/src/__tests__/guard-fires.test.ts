@@ -281,8 +281,6 @@ const ENFORCING: Record<string, Violating> = {
 const WARNING_ONLY: Record<string, string> = {
   "Raw-Interactive-Elements Guard (App-Repos)":
     "baseline-ratchet pattern (infra#654) — findings become violations as soon as a baseline file exists; without one (a repo that has not bootstrapped it with --write-baseline) it stays warning-only",
-  "PII-Annotations Guard":
-    "same baseline-ratchet pattern as Raw-Interactive-Elements Guard (infra#412) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Complexity Check":
     "same baseline-ratchet pattern as Raw-Interactive-Elements Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
   "Predicate Extraction Check":

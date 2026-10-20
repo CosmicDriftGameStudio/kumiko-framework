@@ -1,4 +1,3 @@
-import { createFallbackLogger } from "../../logging/utils.ts";
 import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import {
@@ -6,8 +5,6 @@ import {
   PII_USER_OWNED_NAME_HINTS,
   PII_USER_REFERENCE_NAME_HINTS,
 } from "./entity-handler.ts";
-
-const log = createFallbackLogger("kumiko:boot");
 
 // Framework-managed Timestamp-Spalten — dürfen als retention.reference
 // genutzt werden auch wenn nicht in entity.fields deklariert.
@@ -199,6 +196,17 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         );
       }
 
+      if (
+        (field.type === "text" || field.type === "longText") &&
+        annotCount === 0 &&
+        !annot.allowPlaintext &&
+        !annot.subjectRef
+      ) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" (type "${field.type}") declares no personal stance. Build it with createTextField / createLongTextField and { personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false }; false additionally needs { reason: "..." } stating why the value is not personal data.`,
+        );
+      }
+
       // lookupable (#818): nur text + nur MIT Subject-Annotation. Ohne
       // Subject bleibt der Wert eh Klartext — der Blind-Index wäre eine
       // zweite (deterministische!) Kopie ohne Nutzen.
@@ -342,12 +350,6 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
-          );
-        } else if (!annot.subjectRef && (field.type === "text" || field.type === "longText")) {
-          // The factories refuse a missing stance, but a raw literal such as
-          // { type: "text" } still compiles and reaches the entity unchecked.
-          log.warn(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" (type "${field.type}") declares no personal stance. Declare { personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false } via createTextField / createLongTextField; "false" additionally needs { reason: "..." } stating why the value is not personal data.`,
           );
         }
       }

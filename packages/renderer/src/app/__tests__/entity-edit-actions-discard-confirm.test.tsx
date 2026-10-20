@@ -141,7 +141,14 @@ const drawerAction = {
 
 const entity: EntityDefinition = {
   fields: {
-    name: { type: "text", maxLength: 200, required: false, searchable: false, sortable: false },
+    name: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      maxLength: 200,
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
   },
 };
 

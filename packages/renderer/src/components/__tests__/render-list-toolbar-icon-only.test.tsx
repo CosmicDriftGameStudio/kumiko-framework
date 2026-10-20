@@ -75,7 +75,14 @@ const testPrimitives: CorePrimitives = {
 
 const entity: EntityDefinition = {
   fields: {
-    name: { type: "text", maxLength: 50, required: false, searchable: false, sortable: false },
+    name: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      maxLength: 50,
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
   },
 };
 

@@ -3,6 +3,7 @@
 "@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-guards": minor
 "@cosmicdrift/kumiko-testing": minor
+"@cosmicdrift/kumiko-types": minor
 ---
 
 The Unsafe-Append-Event guard is removed because the event store enforces the same rules at runtime.
@@ -37,4 +38,20 @@ type: breaking
 title: Boot fails when a feature leaves a locale out of some of its translation keys
 detail: Within one feature, every translation key must carry every locale that any key of the same feature carries. A missing locale or an empty string fails boot with one error listing all gaps. Features with a single locale across all keys are unaffected, as are locale packages. A plural object counts as present.
 migration: Add the missing locale to each listed key, or move that locale out of the feature into a locale package.
+-->
+
+<!-- kumiko-changes
+feature: guards
+type: improvement
+title: PII-Annotations guard removed
+detail: Entity text and longText fields now have to declare their personal stance by type and at boot, so the static guard that searched for unannotated fields is redundant.
+migration: Delete `.kumiko-pii-annotations-baseline.json`.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: Entity text fields must declare a personal stance
+detail: FieldsMap requires the personal stance of text and longText fields by type, and boot throws for such a field without one. The name heuristic for PII-typical names stays a warning and only applies to other field types.
+migration: Move raw `{ type: "text" }` and `{ type: "longText" }` entity fields to createTextField / createLongTextField with `personal` ("self", "tenant", "ref", `{ of }`, or false with a `reason`). tsc shows each place.
 -->

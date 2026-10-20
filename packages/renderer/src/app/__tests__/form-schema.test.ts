@@ -26,7 +26,13 @@ function entityWith(fields: EntityDefinition["fields"]): EntityDefinition {
 
 describe("buildFormSchema", () => {
   describe("required field missing → issue on that field", () => {
-    const entity = entityWith({ name: { type: "text", required: true } });
+    const entity = entityWith({
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+    });
     const screen = screenWith(["name"]);
 
     for (const [label, value] of [
@@ -46,7 +52,13 @@ describe("buildFormSchema", () => {
   });
 
   test("required field inside a groups-only section → presence issue", () => {
-    const entity = entityWith({ name: { type: "text", required: true } });
+    const entity = entityWith({
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+    });
     const screen: EntityEditScreenDefinition = {
       id: "s",
       type: "entityEdit",
@@ -61,7 +73,13 @@ describe("buildFormSchema", () => {
   });
 
   test("required field missing → issue carries the required-field i18nKey override", () => {
-    const entity = entityWith({ name: { type: "text", required: true } });
+    const entity = entityWith({
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+    });
     const screen = screenWith(["name"]);
 
     const result = buildFormSchema(entity, screen, "create").safeParse({ name: "" });
@@ -78,7 +96,13 @@ describe("buildFormSchema", () => {
   // test on buildFormSchema() alone can't catch a break in that hand-off
   // (e.g. zodErrorToFieldIssues not honoring the override).
   test("end-to-end via createFormController: required field left empty → snapshot error carries kumiko.validation.required", () => {
-    const entity = entityWith({ name: { type: "text", required: true } });
+    const entity = entityWith({
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+    });
     const screen = screenWith(["name"]);
 
     const form = createFormController({
@@ -108,15 +132,29 @@ describe("buildFormSchema", () => {
   });
 
   test("optional field left empty → no issue", () => {
-    const entity = entityWith({ name: { type: "text", required: false } });
+    const entity = entityWith({
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: false,
+      },
+    });
     const screen = screenWith(["name"]);
     expect(buildFormSchema(entity, screen, "create").safeParse({ name: "" }).success).toBe(true);
   });
 
   test("required field not rendered by the layout → no issue", () => {
     const entity = entityWith({
-      name: { type: "text", required: true },
-      hidden: { type: "text", required: true },
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+      hidden: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
     });
     const screen = screenWith(["name"]);
     const result = buildFormSchema(entity, screen, "create").safeParse({ name: "Ada", hidden: "" });
@@ -218,13 +256,25 @@ describe("buildFormSchema", () => {
 
   describe("screen-spec required/readOnly override the entity default", () => {
     test("spec required:false on an entity-required field, left empty → no issue", () => {
-      const entity = entityWith({ x: { type: "text", required: true } });
+      const entity = entityWith({
+        x: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+      });
       const screen = screenWith([{ field: "x", required: false }]);
       expect(buildFormSchema(entity, screen, "create").safeParse({ x: "" }).success).toBe(true);
     });
 
     test("spec required:true on an entity-optional field, left empty → issue on that field", () => {
-      const entity = entityWith({ x: { type: "text", required: false } });
+      const entity = entityWith({
+        x: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: false,
+        },
+      });
       const screen = screenWith([{ field: "x", required: true }]);
       const result = buildFormSchema(entity, screen, "create").safeParse({ x: "" });
       expect(result.success).toBe(false);
@@ -234,15 +284,29 @@ describe("buildFormSchema", () => {
     });
 
     test("readOnly field, entity-required and left empty → no issue (unresolvable by the user)", () => {
-      const entity = entityWith({ x: { type: "text", required: true } });
+      const entity = entityWith({
+        x: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+      });
       const screen = screenWith([{ field: "x", readOnly: true }]);
       expect(buildFormSchema(entity, screen, "create").safeParse({ x: "" }).success).toBe(true);
     });
 
     test("conditional required, entity-optional field", () => {
       const entity = entityWith({
-        kind: { type: "text", required: false },
-        x: { type: "text", required: false },
+        kind: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: false,
+        },
+        x: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: false,
+        },
       });
       const screen = screenWith([
         "kind",
@@ -268,8 +332,16 @@ describe("buildFormSchema", () => {
 
   describe("unchangedFrom (update, payloadMode changes)", () => {
     const entity = entityWith({
-      legacy: { type: "text", required: true },
-      other: { type: "text", required: false },
+      legacy: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+      other: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: false,
+      },
     });
     const screen = screenWith(["legacy", "other"]);
     const loaded = { legacy: "", other: "a" };
@@ -352,8 +424,16 @@ describe("buildFormSchema", () => {
 
   describe("writeExcludedFields skips the field for that verb only", () => {
     const entity = entityWith({
-      name: { type: "text", required: true },
-      slug: { type: "text", required: true },
+      name: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+      slug: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
     });
     const screen: EntityEditScreenDefinition = {
       ...screenWith(["name", "slug"]),

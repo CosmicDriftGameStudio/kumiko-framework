@@ -5,7 +5,7 @@ import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "../confi
 describe("synthesizeConfigEditEntity", () => {
   test("wraps the inline fields as an EntityDefinition", () => {
     const fields = { apiKey: { type: "text" } } as unknown as ConfigEditScreenDefinition["fields"];
-    expect(synthesizeConfigEditEntity(fields)).toEqual({ fields });
+    expect(Object.is(synthesizeConfigEditEntity(fields).fields, fields)).toBe(true);
   });
 });
 

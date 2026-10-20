@@ -36,14 +36,19 @@ import {
   createTimestampField,
   createTzField,
 } from "../factories.ts";
-import type { FieldDefinition, LongTextFieldDef, TextFieldDef } from "../types/index.ts";
-import { unannotatedLongText, unannotatedText } from "./unannotated-fields.ts";
+import type {
+  EntityFieldDefinition,
+  EntityLongTextFieldDef,
+  EntityTextFieldDef,
+  FieldDefinition,
+} from "../types/index.ts";
+import { plaintextText } from "./plaintext-fields.ts";
 
 // The new personal/find union can no longer express some flag combinations
 // on purpose (e.g. two subjects on one field) — these tests deliberately
 // construct the raw, rejected shape to prove the boot-validator still throws.
-const rawField = <T>(f: T) => f as unknown as TextFieldDef;
-const rawLongTextField = <T>(f: T) => f as unknown as LongTextFieldDef;
+const rawField = <T>(f: T) => f as unknown as EntityTextFieldDef;
+const rawLongTextField = <T>(f: T) => f as unknown as EntityLongTextFieldDef;
 
 // The heuristics under test only fire without a personal stance, which
 // the factories cannot produce.
@@ -144,7 +149,7 @@ describe("validateBoot — PII annotations", () => {
         ...createEntity({
           fields: {
             confused: rawField({
-              ...unannotatedText,
+              ...plaintextText,
               pii: true,
               tenantOwned: true,
             }),
@@ -161,7 +166,7 @@ describe("validateBoot — PII annotations", () => {
         name: "vault",
         ...createEntity({
           fields: {
-            apiToken: { ...unannotatedText, sensitive: true },
+            apiToken: { ...plaintextText, sensitive: true },
           },
         }),
       });
@@ -196,7 +201,7 @@ describe("validateBoot — PII annotations", () => {
           name: "vault",
           ...createEntity({
             fields: {
-              apiToken: { ...unannotatedText, sensitive: true, encrypted: true },
+              apiToken: { ...plaintextText, sensitive: true, encrypted: true },
             },
           }),
         });
@@ -236,7 +241,7 @@ describe("validateBoot — PII annotations", () => {
               personal: { of: "authorId", whenAbsent: "tenant" },
               find: "none",
             }),
-            authorId: { ...unannotatedText },
+            authorId: { ...plaintextText },
           },
         }),
       });
@@ -257,7 +262,7 @@ describe("validateBoot — PII annotations", () => {
                     find: "none",
                   })
                 : createLongTextField({ personal: { of: "authorId" }, find: "none" }),
-              authorId: { ...unannotatedText, ...(ownerRequired && { required: true }) },
+              authorId: { ...plaintextText, ...(ownerRequired && { required: true }) },
             },
           }),
         });
@@ -284,7 +289,7 @@ describe("validateBoot — PII annotations", () => {
                 personal: { of: "authorId", whenAbsent: "self" },
                 find: "none",
               }),
-              authorId: { ...unannotatedText },
+              authorId: { ...plaintextText },
             },
           }),
         });
@@ -306,7 +311,7 @@ describe("validateBoot — PII annotations", () => {
                 personal: { of: "authorId", whenAbsent: "self" },
                 find: "none",
               }),
-              authorId: { ...unannotatedText },
+              authorId: { ...plaintextText },
             },
           }),
         });
@@ -332,7 +337,7 @@ describe("validateBoot — PII annotations", () => {
               // @ts-expect-error the types reject whenAbsent "plaintext"; the boot check is the runtime backstop
               userOwned: { ownerField: "authorId", whenAbsent: "plaintext" },
             },
-            authorId: { ...unannotatedText },
+            authorId: { ...plaintextText },
           },
         });
       });
@@ -362,7 +367,7 @@ describe("validateBoot — PII annotations", () => {
 
   test("userOwned.ownerField referencing non-user entity warns", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "employee", ...createEntity({ fields: { name: { ...unannotatedText } } }) });
+      r.entity({ name: "employee", ...createEntity({ fields: { name: { ...plaintextText } } }) });
       stubListHandler(r, "employee");
       r.entity({
         name: "personalNote",
@@ -384,13 +389,13 @@ describe("validateBoot — PII annotations", () => {
     expect(matchingWarn).toBeDefined();
   });
 
-  test("PII-name heuristic warns when email field has no pii annotation", () => {
+  test("PII-name heuristic warns when a non-text email field has no pii annotation", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "thing",
         ...createEntity({
           fields: {
-            email: { ...unannotatedText },
+            email: createNumberField(),
           },
         }),
       });
@@ -408,7 +413,7 @@ describe("validateBoot — PII annotations", () => {
         name: "thing",
         ...createEntity({
           fields: {
-            body: { ...unannotatedLongText },
+            body: createNumberField(),
           },
         }),
       });
@@ -426,7 +431,7 @@ describe("validateBoot — PII annotations", () => {
         name: "thing",
         ...createEntity({
           fields: {
-            authorId: { ...unannotatedText },
+            authorId: createNumberField(),
           },
         }),
       });
@@ -529,27 +534,71 @@ describe("validateBoot — PII annotations", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-  describe("raw text literals without a personal stance", () => {
-    const stanceWarning = () =>
-      warnSpy.mock.calls.find((args: unknown[]) =>
-        String(args[0]).includes("declares no personal"),
-      );
-
-    const bootWithField = (field: FieldDefinition) =>
+  describe("text fields without a personal stance", () => {
+    const bootWithField = (field: unknown) =>
       validateBoot([
-        defineFeature("test", (r) => {
-          r.entity({ name: "item", ...createEntity({ fields: { title: field } }) });
+        defineFeature("billing", (r) => {
+          r.entity({ name: "invoice", ...createEntity({ fields: { title: rawField(field) } }) });
         }),
       ]);
 
-    test("a { type: text } literal warns that no stance is declared", () => {
-      bootWithField({ type: "text", required: true });
-      expect(stanceWarning()).toBeDefined();
+    test.each([
+      ["text", { type: "text", required: true }],
+      ["longText", { type: "longText", required: true }],
+    ] as const)(
+      "a raw { type: %s } literal throws naming feature, entity and field",
+      (type, field) => {
+        expect(() => bootWithField(field)).toThrow(
+          new RegExp(
+            `\\[Feature billing\\] Field "title" on entity "invoice" \\(type "${type}"\\) declares no personal stance`,
+          ),
+        );
+      },
+    );
+
+    test("a PII-typical name does not replace the stance: the text field still throws", () => {
+      expect(() =>
+        validateBoot([
+          defineFeature("billing", (r) => {
+            r.entity({
+              name: "invoice",
+              ...createEntity({ fields: { email: rawField({ type: "text" }) } }),
+            });
+          }),
+        ]),
+      ).toThrow(/declares no personal stance/);
     });
 
-    test("a stance from the factory keeps the boot quiet", () => {
-      bootWithField(createTextField({ personal: false, reason: "is_business_data" }));
-      expect(stanceWarning()).toBeUndefined();
+    test("an empty allowPlaintext is no stance", () => {
+      expect(() => bootWithField({ type: "text", allowPlaintext: "" })).toThrow(
+        /declares no personal stance/,
+      );
+    });
+
+    test.each([
+      ["self", createTextField({ personal: "self", find: "none" })],
+      ["tenant", createTextField({ personal: "tenant", find: "none" })],
+      ["ref", createTextField({ personal: "ref" })],
+      ["of", createTextField({ personal: { of: "ownerId" }, find: "none" })],
+      ["false with reason", createTextField({ personal: false, reason: "is_business_data" })],
+      ["longText self", createLongTextField({ personal: "self", find: "none" })],
+      ["longText false", createLongTextField({ personal: false, reason: "is_business_data" })],
+    ] as const)("the %s stance from the factory boots", (_name, field) => {
+      expect(() =>
+        validateBoot([
+          defineFeature("billing", (r) => {
+            r.entity({
+              name: "invoice",
+              ...createEntity({
+                fields: {
+                  title: field,
+                  ownerId: createTextField({ personal: "ref", required: true }),
+                },
+              }),
+            });
+          }),
+        ]),
+      ).not.toThrow();
     });
   });
 
@@ -561,7 +610,10 @@ describe("validateBoot — PII annotations", () => {
       validateBoot(
         [
           defineFeature("test", (r) => {
-            r.entity({ name: "statement", ...createEntity({ fields: { pdfFile: field } }) });
+            r.entity({
+              name: "statement",
+              ...createEntity({ fields: { pdfFile: field as EntityFieldDefinition } }),
+            });
           }),
         ],
         { env: { FILE_STORAGE_PROVIDER: "local" } },
@@ -776,7 +828,7 @@ describe("validateBoot — PII annotations", () => {
         name: "product",
         ...createEntity({
           fields: {
-            name: { ...unannotatedText },
+            name: createNumberField(),
           },
         }),
       });
@@ -794,7 +846,7 @@ describe("validateBoot — PII annotations", () => {
         name: "person",
         ...createEntity({
           fields: {
-            displayName: { ...unannotatedText },
+            displayName: createNumberField(),
           },
         }),
       });
@@ -839,7 +891,7 @@ describe("validateBoot — retention", () => {
         name: "auditEvent",
         ...createEntity({
           fields: {
-            note: { ...unannotatedText },
+            note: { ...plaintextText },
           },
           retention: { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
         }),
@@ -854,7 +906,7 @@ describe("validateBoot — retention", () => {
         name: "thing",
         ...createEntity({
           fields: {
-            note: { ...unannotatedText },
+            note: { ...plaintextText },
           },
           retention: { keepFor: "30d", strategy: "hardDelete", reference: "ghostField" },
         }),
@@ -1072,7 +1124,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         ...createEntity({
           fields: {
             slug: rawField({
-              ...unannotatedText,
+              ...plaintextText,
               lookupable: true,
             }),
           },
@@ -1095,7 +1147,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
               }),
               lookupable: true,
             }),
-            ownerId: { ...unannotatedText, required: true },
+            ownerId: { ...plaintextText, required: true },
           },
         }),
       });
@@ -1145,7 +1197,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         ...createEntity({
           fields: {
             passwordHash: rawField({
-              ...unannotatedText,
+              ...plaintextText,
               pii: true,
               sensitive: true,
               searchable: true,
@@ -1159,10 +1211,13 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
 });
 
 describe("validateBoot — writeOnly fields", () => {
-  const bootWith = (field: TextFieldDef | LongTextFieldDef | Record<string, unknown>) =>
+  const bootWith = (field: EntityTextFieldDef | EntityLongTextFieldDef | Record<string, unknown>) =>
     validateBoot([
       defineFeature("test", (r) => {
-        r.entity({ name: "conn", ...createEntity({ fields: { apiKey: field as TextFieldDef } }) });
+        r.entity({
+          name: "conn",
+          ...createEntity({ fields: { apiKey: field as EntityTextFieldDef } }),
+        });
       }),
     ]);
 
@@ -1179,9 +1234,14 @@ describe("validateBoot — writeOnly fields", () => {
   });
 
   test("writeOnly on a non-text field throws", () => {
-    expect(() => bootWith({ type: "longText", required: false, writeOnly: true })).toThrow(
-      /only applies to text fields/,
-    );
+    expect(() =>
+      bootWith({
+        type: "longText",
+        required: false,
+        writeOnly: true,
+        allowPlaintext: "test_fixture",
+      }),
+    ).toThrow(/only applies to text fields/);
   });
 
   test.each(["default", "searchable", "sortable", "filterable", "lookupable"] as const)(

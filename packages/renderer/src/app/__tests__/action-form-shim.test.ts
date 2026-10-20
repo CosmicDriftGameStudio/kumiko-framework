@@ -10,7 +10,7 @@ describe("synthesizeActionFormEntity", () => {
     const entity = synthesizeActionFormEntity({
       title: { type: "text" },
     });
-    expect(entity.fields["title"]).toEqual({ type: "text" });
+    expect(entity.fields["title"]).toEqual(expect.objectContaining({ type: "text" }));
   });
 });
 

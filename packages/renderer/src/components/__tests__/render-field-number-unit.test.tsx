@@ -60,7 +60,11 @@ function buildEntity(
         required: false,
         ...(mileageUnit !== undefined && { unit: mileageUnit }),
       },
-      mileageUnit: { type: "text", required: false },
+      mileageUnit: {
+        type: "text",
+        required: false,
+        allowPlaintext: "test fixture value, not personal data",
+      },
     },
   } as EntityDefinition;
 }

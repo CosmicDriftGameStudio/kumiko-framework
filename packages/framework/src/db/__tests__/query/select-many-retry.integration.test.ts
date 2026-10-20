@@ -64,7 +64,13 @@ function fakeClient(failures: unknown[], opts: FakeClientOptions = {}): FakeClie
 }
 
 const table = buildEntityTable("note", {
-  fields: { title: { type: "text", required: true } },
+  fields: {
+    title: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: true,
+    },
+  },
 });
 
 describe("selectMany — closed-connection retry", () => {

@@ -55,7 +55,12 @@ describe("buildAppSchema — Settings-Hub wiring", () => {
   test("app WITH workspaces: original workspaces kept + synthetic settings workspace appended", () => {
     const shell = defineFeature("shell", (r) => {
       r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
-      r.entity({ name: "thing", fields: { label: { type: "text" } } });
+      r.entity({
+        name: "thing",
+        fields: {
+          label: { type: "text", allowPlaintext: "test fixture value, not personal data" },
+        },
+      });
       r.nav({ id: "home", label: "Home", screen: "home" });
       r.workspace({ id: "main", label: "Main", nav: ["shell:nav:home"] });
     });
@@ -79,7 +84,12 @@ describe("buildAppSchema — Settings-Hub wiring", () => {
     // Stand-in for the config bundled-feature: a real feature named "config"
     // that already owns a screen/nav. The hub must fold INTO it.
     const configBundled = defineFeature(SETTINGS_HUB_FEATURE, (r) => {
-      r.entity({ name: "config-value", fields: { value: { type: "text" } } });
+      r.entity({
+        name: "config-value",
+        fields: {
+          value: { type: "text", allowPlaintext: "test fixture value, not personal data" },
+        },
+      });
       r.screen({ id: "existing", type: "entityList", entity: "config-value", columns: ["value"] });
       r.nav({ id: "existing", label: "Existing", screen: "existing" });
     });
@@ -115,7 +125,10 @@ describe("buildAppSchema — Settings-Hub wiring", () => {
 // JSON-safety walk covers the synthetic workspace + configEdit screens too.
 function shellWith(masked: ReturnType<typeof defineFeature>) {
   const shell = defineFeature("shell", (r) => {
-    r.entity({ name: "thing", fields: { label: { type: "text" } } });
+    r.entity({
+      name: "thing",
+      fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+    });
     r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
     r.nav({ id: "home", label: "Home", screen: "home" });
     r.workspace({ id: "main", label: "Main", nav: ["shell:nav:home"] });
@@ -128,7 +141,10 @@ function shellWith(masked: ReturnType<typeof defineFeature>) {
 // the renderer-side slice then expands with the audience's children).
 function placingShell(...audienceScopes: string[]) {
   return defineFeature("shell", (r) => {
-    r.entity({ name: "thing", fields: { label: { type: "text" } } });
+    r.entity({
+      name: "thing",
+      fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+    });
     r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
     r.nav({ id: "home", label: "Home", screen: "home" });
     r.workspace({
