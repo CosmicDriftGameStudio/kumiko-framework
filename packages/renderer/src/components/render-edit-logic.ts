@@ -52,14 +52,21 @@ export function issueRootField(path: string): string {
 }
 
 // No issues at all counts as unmatched, so the caller keeps the banner.
+// `derivedTargets` are head fields the form computes (actionForm `derive`): an
+// issue on one is a knock-on of another issue (an empty list leaves the total
+// without a value), nobody can fix it there. It is ignored while another issue
+// exists, so the banner does not bury the real one; alone it keeps the banner.
 export function hasIssueWithoutRenderedField(
   issuePaths: readonly string[],
   sections: readonly EditSectionViewModel[],
+  derivedTargets: ReadonlySet<string> = new Set(),
 ): boolean {
+  const fixablePaths = issuePaths.filter((path) => !derivedTargets.has(issueRootField(path)));
+  const paths = fixablePaths.length > 0 ? fixablePaths : issuePaths;
   const renderedFields = sections.flatMap((s) =>
     s.kind === "fields" && s.visible ? s.fields : [],
   );
-  return hasIssueWithoutVisibleField(issuePaths, renderedFields);
+  return hasIssueWithoutVisibleField(paths, renderedFields);
 }
 
 export function hasIssueWithoutVisibleField(

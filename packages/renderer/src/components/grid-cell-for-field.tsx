@@ -32,6 +32,9 @@ export type GridCellForFieldProps = {
   readonly accent?: boolean;
   /** Passed through to RenderField — see RenderFieldProps.fillDisabled. */
   readonly fillDisabled?: boolean;
+  /** Title the surrounding section shows. An embedded list whose label equals it
+   *  keeps its label for screen readers only, so it is not printed twice. */
+  readonly sectionTitle?: string;
 };
 
 const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
@@ -84,10 +87,16 @@ export function GridCellForField({
   layout,
   accent,
   fillDisabled,
+  sectionTitle,
 }: GridCellForFieldProps): ReactNode {
   // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
   if (!field.visible) return null;
 
+  const hideLabel =
+    sectionTitle !== undefined &&
+    field.type === "embedded" &&
+    field.embeddedListCells !== undefined &&
+    field.label === sectionTitle;
   const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
   return (
     <GridCell span={effectiveSpan} {...(flow === true && { width: fieldCellWidth(field) })}>
@@ -108,6 +117,7 @@ export function GridCellForField({
         {...(layout !== undefined && { layout })}
         {...(accent === true && { accent })}
         {...(fillDisabled === true && { fillDisabled })}
+        {...(hideLabel && { hideLabel })}
       />
     </GridCell>
   );

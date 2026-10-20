@@ -60,12 +60,9 @@ import { ReferenceCreateDialog } from "./reference-create-dialog.tsx";
 // Der field.type → Input-kind Mapping bleibt hier, weil es
 // Domain-Logik ist (EntityDefinition-Feldtyp) und nicht Darstellung.
 
-// No `hideLabel` prop here (fw#1870/#1871#3, deliberately out of scope):
-// RenderField is driven entirely by EditFieldViewModel/EntityEditScreenDefinition,
-// which have no per-field hideLabel slot — wiring it through would need a
-// schema change, not just a prop. Declarative grid/table screens stay on
-// visible labels until that schema work happens; imperative *Field widgets
-// (form-fields.tsx, AiTextField) already support it.
+// `hideLabel` is not part of EditFieldViewModel/EntityEditScreenDefinition (no
+// schema slot); the section renderer sets it for an embedded list whose label
+// repeats the section title.
 export type RenderFieldProps = {
   readonly field: EditFieldViewModel;
   readonly issues?: readonly FieldIssue[];
@@ -107,6 +104,8 @@ export type RenderFieldProps = {
   /** The surrounding form is locked as a whole: the fill button stays visible
    *  but inert, unlike a single readOnly field whose fill button keeps working. */
   readonly fillDisabled?: boolean;
+  /** Label stays for screen readers only (sr-only). */
+  readonly hideLabel?: boolean;
 };
 
 const AllFieldsRequiredContext = createContext(false);
@@ -130,6 +129,7 @@ export function RenderField({
   layout,
   accent,
   fillDisabled,
+  hideLabel,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text, JsonView } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
@@ -154,6 +154,12 @@ export function RenderField({
   // Reference-Field rendert eine eigene Component — sie nutzt
   // useQuery() für den Live-Lookup, also muss sie als React-
   // Komponente gemountet werden (nicht als pure render-Call).
+  // The list input prints its own list-level issues (empty state included), so
+  // the Field wrapper must not print them a second time.
+  const listPrintsOwnIssues =
+    field.type === "embedded" &&
+    field.embeddedListCells !== undefined &&
+    !(field.readOnly && field.renderer !== undefined);
   const control =
     field.readOnly && field.renderer !== undefined ? (
       <FieldRendererOutput
@@ -261,7 +267,7 @@ export function RenderField({
       id={id}
       label={field.label}
       required={field.required && field.type !== "boolean" && !allFieldsRequired}
-      {...(issues !== undefined && { issues })}
+      {...(issues !== undefined && !listPrintsOwnIssues && { issues })}
       {...(labelAppendix !== undefined && { labelAppendix })}
       {...(fieldAppendix !== undefined && { fieldAppendix })}
       {...(appendixPlacement !== undefined && { appendixPlacement })}
@@ -270,6 +276,7 @@ export function RenderField({
       {...(changed === true && { changed })}
       {...(layout !== undefined && { layout })}
       {...(accent === true && { accent })}
+      {...(hideLabel === true && { hideLabel })}
       testId={`field-${field.field}`}
     >
       {control}

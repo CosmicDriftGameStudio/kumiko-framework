@@ -1416,7 +1416,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         setExtraDeleteIssues([]);
         setFormErrorSource("submit");
         setFormError(
-          hasIssueWithoutRenderedField(issuePaths, filteredSections) ? result.error : null,
+          hasIssueWithoutRenderedField(
+            issuePaths,
+            filteredSections,
+            new Set(Object.keys(formDerivation?.derive ?? {})),
+          )
+            ? result.error
+            : null,
         );
       }
       // skip: on entity-success-but-extension-failure the extension-error
@@ -2232,6 +2238,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     valueDisplay={valueDisplay}
                     row={snapshot.values}
                     {...(disabled && { fillDisabled: true })}
+                    {...(hideSectionTitles !== true &&
+                      section.title !== undefined && { sectionTitle: section.title })}
                     {...((!isCreate || markChangedFields) &&
                       field.field in snapshot.changes && { changed: true })}
                   />
