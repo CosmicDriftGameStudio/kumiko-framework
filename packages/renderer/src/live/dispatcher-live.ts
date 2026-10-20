@@ -1,4 +1,3 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   type BatchResult,
   type Command,
@@ -6,6 +5,7 @@ import {
   type Dispatcher,
   type DispatcherError,
   type DispatcherStatus,
+  generateRequestId,
   type PendingFile,
   type PendingWrite,
   type QueryOpts,
@@ -284,20 +284,6 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
 
 const EMPTY_PENDING_WRITES: readonly PendingWrite[] = Object.freeze([]);
 const EMPTY_PENDING_FILES: readonly PendingFile[] = Object.freeze([]);
-
-// crypto.randomUUID where available (browser, Bun, Node); Math.random
-// fallback for React-Native runtimes without the WebCrypto polyfill.
-// Uniqueness only needs to hold per user within the server's dedup window —
-// this is an idempotency key, not a security token.
-function generateRequestId(): string {
-  const webCrypto = propertyOf(globalThis, "crypto");
-  const randomUUID = propertyOf(webCrypto, "randomUUID");
-  if (typeof randomUUID === "function") {
-    const id: unknown = Reflect.apply(randomUUID, webCrypto, []);
-    if (typeof id === "string") return id;
-  }
-  return `req-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
-}
 
 type CallOutcome =
   | { readonly ok: true; readonly body: unknown; readonly status: number }

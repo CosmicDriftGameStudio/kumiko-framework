@@ -1,3 +1,4 @@
+export { generateRequestId } from "./request-id.ts";
 export type {
   BatchResult,
   Command,

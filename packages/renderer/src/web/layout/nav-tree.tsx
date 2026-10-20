@@ -26,10 +26,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { NavNode, NavRegistrySlice } from "../../headless/index.ts";
 import { resolveNavigation } from "../../headless/index.ts";
+import { createLiveRefetchScheduler } from "../../hooks/live-refetch-scheduler.ts";
 import type { AppSchema, FeatureSchema } from "../../index.ts";
 import { lastSegment, toAppSchema, useLiveEvents, useNav, useTranslation } from "../../index.ts";
 import { KumikoLink } from "../app/nav.tsx";
@@ -370,12 +372,19 @@ function useNavProviderChildren(
   const [raw, setRaw] = useState<readonly TreeNode[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // A live refresh keeps the current nodes on screen instead of blanking them.
+  const keepNodesOnRefire = useRef(false);
 
   useEffect(() => {
     if (!enabled || entities.length === 0) return;
-    const unsubs = entities.map((e) => subscribeLive(e, () => setAttempt((n) => n + 1)));
+    const scheduler = createLiveRefetchScheduler(() => {
+      keepNodesOnRefire.current = true;
+      setAttempt((n) => n + 1);
+    });
+    const unsubs = entities.map((e) => subscribeLive(e, scheduler.trigger));
     return () => {
       for (const u of unsubs) u();
+      scheduler.dispose();
     };
   }, [enabled, entities, subscribeLive]);
 
@@ -393,7 +402,8 @@ function useNavProviderChildren(
       return;
     }
     setError(null);
-    setRaw(null);
+    if (!keepNodesOnRefire.current) setRaw(null);
+    keepNodesOnRefire.current = false;
     try {
       const subscribe = provider();
       try {

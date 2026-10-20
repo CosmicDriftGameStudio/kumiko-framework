@@ -145,7 +145,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
     const expectedBannerValue = kumikoDefaultTranslations["en"]?.["errors.access.denied"];
-    expect(bannerText).toBe(
+    expect(bannerText).toContain(
       expectedBannerValue === undefined ? "" : translationValueOtherText(expectedBannerValue),
     );
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
@@ -222,6 +222,10 @@ describe("KumikoScreen: singleton entityEdit", () => {
     // Exactly one create (the first submit) followed by an update, never a
     // second create — the singleton wrapper must have flipped branches.
     await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
-    expect(write).toHaveBeenLastCalledWith("tasks:write:task:update", expect.anything());
+    expect(write).toHaveBeenLastCalledWith(
+      "tasks:write:task:update",
+      expect.anything(),
+      expect.anything(),
+    );
   });
 });

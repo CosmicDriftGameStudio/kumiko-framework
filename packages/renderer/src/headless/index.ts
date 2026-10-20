@@ -38,7 +38,7 @@ export type {
   WriteOpts,
   WriteResult,
 } from "./dispatcher/index.ts";
-export { StreamFrame, type StreamFrameEvent } from "./dispatcher/index.ts";
+export { generateRequestId, StreamFrame, type StreamFrameEvent } from "./dispatcher/index.ts";
 export type {
   FieldConditionPredicate,
   FieldConditions,

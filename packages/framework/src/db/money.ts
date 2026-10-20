@@ -130,7 +130,7 @@ export type MoneyRead = {
   readonly currency: string;
   readonly amountScaled: number;
   /**
-   * @deprecated Use `amountScaled` — this name implies ISO-4217 minor units
+   * @deprecated Removed in 0.390.0. Use `amountScaled` — this name implies ISO-4217 minor units
    * (cents), which is wrong once a currency needing a different scale than
    * the current flat MINOR_UNIT_SCALE=100 lands (e.g. JPY, 0 decimals).
    * Alias of `amountScaled`, kept until #1976/4 and #1976/5 migrate their

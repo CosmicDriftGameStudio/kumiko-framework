@@ -1,4 +1,4 @@
-import type { FieldIssue } from "../dispatcher/index.ts";
+import { type FieldIssue, generateRequestId, type WriteResult } from "../dispatcher/index.ts";
 import { createStore } from "../store/index.ts";
 import type {
   FieldConditions,
@@ -128,6 +128,14 @@ function omitPayloadFields(payload: unknown, omitFields: readonly string[] | und
   return Object.fromEntries(Object.entries(payload).filter(([key]) => !omitFields.includes(key)));
 }
 
+function isTransportFailure(result: WriteResult): boolean {
+  return (
+    !result.isSuccess &&
+    result.error.httpStatus === 0 &&
+    (result.error.code === "network_error" || result.error.code === "aborted")
+  );
+}
+
 export function createFormController<TValues extends FormValues, TCtx = unknown>(
   options: FormControllerOptions<TValues, TCtx>,
 ): FormController<TValues> {
@@ -156,6 +164,11 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   // coherent (rebasing twice in quick succession would mis-align the
   // baseline with what the server actually saw).
   let submitInFlight: Promise<unknown> | null = null;
+
+  // Idempotency key of the last attempt that got no server answer. The server
+  // caches every answer (errors too) under the requestId, so the key may only
+  // be reused for an identical retry after a transport failure.
+  let unansweredAttempt: { readonly requestId: string; readonly fingerprint: string } | null = null;
 
   function buildSnapshot(): FormSnapshot<TValues> {
     const changes = valuesDiff(values, initial);
@@ -421,7 +434,13 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       }
 
       const runWrite = async (): Promise<SubmitResult<TData>> => {
-        const result = await dispatcher.write<TData>(submitCfg.type, payload);
+        const fingerprint = JSON.stringify([submitCfg.type, payload]);
+        const requestId =
+          unansweredAttempt?.fingerprint === fingerprint
+            ? unansweredAttempt.requestId
+            : generateRequestId();
+        const result = await dispatcher.write<TData>(submitCfg.type, payload, { requestId });
+        unansweredAttempt = isTransportFailure(result) ? { requestId, fingerprint } : null;
 
         if (result.isSuccess) {
           // Remember intentional empty clears so post-rebase submits keep them (#1858).

@@ -357,10 +357,14 @@ function mailsTo(address: string) {
   return emailTransport.sent.filter((mail) => mail.to === address);
 }
 
+const REVOKE_LINK_PARAGRAPH = /<p>[^<]*<a href="[^"]*zuruecknehmen[^"]*">[^<]*<\/a><\/p>/;
+
 // Strips what legitimately differs per request so receipts of different
-// branches can be compared byte for byte.
+// branches can be compared byte for byte. The revoke link is the one intended
+// difference: it only goes to the entered address, and only for a match.
 function normalizedReceipt(html: string, receipt: DeclarationReceipt, email: string): string {
   return html
+    .replace(REVOKE_LINK_PARAGRAPH, "")
     .replaceAll(receipt.requestId, "<REQUEST_ID>")
     .replaceAll(formatReceivedAt(receipt.receivedAtIso, "de"), "<RECEIVED_AT>")
     .replaceAll(email, "<EMAIL>");
@@ -557,6 +561,9 @@ describe("public declaration through /api/write", () => {
     const unknownMail = mailsTo(unknownEmail)[0];
     const ambiguousMail = mailsTo(ambiguousEmail)[0];
     expect(matchedMail && unknownMail && ambiguousMail).toBeTruthy();
+    expect(matchedMail?.html).toMatch(REVOKE_LINK_PARAGRAPH);
+    expect(unknownMail?.html).not.toContain("zuruecknehmen");
+    expect(ambiguousMail?.html).not.toContain("zuruecknehmen");
     const expected = normalizedReceipt(matchedMail?.html ?? "", matched, matchedEmail);
     expect(normalizedReceipt(unknownMail?.html ?? "", unknown, unknownEmail)).toBe(expected);
     expect(normalizedReceipt(ambiguousMail?.html ?? "", ambiguous, ambiguousEmail)).toBe(expected);
@@ -1007,6 +1014,7 @@ describe("public pages on a host-resolved tenant", () => {
         terminationKind: "ordinary",
         receivedAtIso: expect.any(String),
         locale: "de",
+        revocationTokenHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       },
     ]);
     const recorded = await eventsOf(

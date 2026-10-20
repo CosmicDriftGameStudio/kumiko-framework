@@ -11,6 +11,7 @@ import {
   beforeEach,
   describe,
   expect,
+  jest,
   type Mock,
   spyOn,
   test,
@@ -24,6 +25,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { act } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
 import type { FeatureSchema, LiveEventSubscriber, NavApi } from "../../index.ts";
 import { LiveEventsProvider, NavProvider } from "../../index.ts";
 import { NavProvidersProvider } from "../app/nav-providers-context.tsx";
@@ -696,6 +698,22 @@ function controllableLiveEvents(): {
   };
 }
 
+async function fireAndFlushCoalesced(
+  live: ReturnType<typeof controllableLiveEvents>,
+  entity: string,
+  times = 1,
+): Promise<void> {
+  jest.useFakeTimers();
+  try {
+    await act(async () => {
+      for (let i = 0; i < times; i++) live.fire(entity);
+      jest.advanceTimersByTime(LIVE_REFETCH_COALESCE_MS);
+    });
+  } finally {
+    jest.useRealTimers();
+  }
+}
+
 function pageLeaf(slug: string): TreeNode {
   return { label: slug, target: { featureId: "cms", action: "edit", args: { slug } } };
 }
@@ -969,9 +987,7 @@ describe("NavTree dynamic provider nodes", () => {
 
     // Neue Seite angelegt → text-block-Event feuert → Provider re-fired.
     pages = ["apex", "hero", "pricing"];
-    await act(async () => {
-      live.fire("text-block");
-    });
+    await fireAndFlushCoalesced(live, "text-block");
 
     expect(screen.getByText("pricing")).toBeTruthy();
   });
@@ -1007,9 +1023,7 @@ describe("NavTree dynamic provider nodes", () => {
     expect(active()).toBe(1); // genau eine aktive Subscription nach Mount
 
     const before = subscribes;
-    await act(async () => {
-      live.fire("text-block");
-    });
+    await fireAndFlushCoalesced(live, "text-block");
     expect(subscribes).toBeGreaterThan(before); // Re-Fire hat neu subscribed
     expect(active()).toBe(1); // …aber die alte vorher abgebaut → weiterhin eine
 
@@ -1017,6 +1031,32 @@ describe("NavTree dynamic provider nodes", () => {
       r?.unmount();
     });
     expect(active()).toBe(0); // Unmount baut alles ab → kein Leak
+  });
+});
+
+describe("NavTree live refresh coalescing", () => {
+  test("a burst of entity events re-subscribes the provider once and keeps the nodes on screen", async () => {
+    let subscribes = 0;
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      subscribes += 1;
+      emit([pageLeaf("apex")]);
+      return () => {};
+    };
+    const live = controllableLiveEvents();
+    await act(async () => {
+      renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+        entities: new Map([["cms:nav:content", ["text-block"]]]),
+        live: live.subscribe,
+      });
+    });
+    const before = subscribes;
+
+    await fireAndFlushCoalesced(live, "text-block", 5);
+
+    expect(subscribes).toBe(before + 1);
+    expect(screen.getByText("apex")).toBeTruthy();
   });
 });
 

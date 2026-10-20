@@ -55,6 +55,7 @@ import { formatWhen } from "../format-when.ts";
 import { useForm } from "../hooks/use-form.ts";
 import { useTranslation } from "../i18n.tsx";
 import { useInsideDrawer } from "../inside-drawer.ts";
+import { useUnsavedInputSource } from "../leave-guard.ts";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import {
   type ActionMenuItemSpec,
@@ -528,6 +529,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusFirstErrorKey, setFocusFirstErrorKey] = useState(0);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
   // Only a submit's validation/server error is cleared by editing; a delete
   // rejection and a version conflict (reload is the way out) stay put.
@@ -584,10 +586,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // never enters `fields`/`controller.getSnapshot().values` — there is no
   // draft-blob-covered state left for persistExtensions() to compete over.
   const [extensionDirty, setExtensionDirty] = useState(false);
+  // Mirror for the leave guard: it must see "saved" before React re-renders.
+  const extensionDirtyRef = useRef(false);
   const [hasExtensionRegistrations, setHasExtensionRegistrations] = useState(false);
   const [extensionErrorKey, setExtensionErrorKey] = useState<string | null>(null);
   const { registry: extensionFormRegistry, runAll: runExtensionSubmits } = useExtensionFormHost(
     ({ anyDirty, hasRegistrations }) => {
+      extensionDirtyRef.current = anyDirty;
       setExtensionDirty(anyDirty);
       setHasExtensionRegistrations(hasRegistrations);
     },
@@ -868,6 +873,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   useEffect(() => {
     onDirtyChangeRef.current?.(hasUnsavedInput);
   }, [hasUnsavedInput]);
+
+  // Draft wizards keep their input server-side, so leaving loses nothing.
+  const persistsDraft = isWizard && screen.layout.draft === true;
+  useUnsavedInputSource(
+    () => !persistsDraft && (controller.getSnapshot().isDirty || extensionDirtyRef.current),
+  );
 
   useEffect(() => {
     // skip: this screen does not persist a draft.
@@ -1328,6 +1339,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // Same discard as the main path: an extension-only save is still a
         // successful submit, so the draft must not survive it.
         if (await persistExtensions()) {
+          extensionDirtyRef.current = false;
           submittedRef.current = true;
           await discardDraft();
         }
@@ -1386,7 +1398,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           await discardDraft();
         }
         extensionsPersisted = await persistExtensions();
+        if (extensionsPersisted) extensionDirtyRef.current = false;
       } else if (result.validationBlocked) {
+        setFocusFirstErrorKey((key) => key + 1);
         // Root-level `.refine()`/cross-field issues from controller.validate()
         // — same "jump to the erroring step" treatment as a server field
         // error below, sourced from the freshly-validated snapshot.
@@ -1397,6 +1411,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       } else {
         const fieldIssues = result.error.details?.fields ?? [];
         const issuePaths = fieldIssues.map((i) => i.path);
+        if (fieldIssues.length > 0) setFocusFirstErrorKey((key) => key + 1);
         // controller.submit() writes server issues into the controller itself;
         // customSubmit bypasses it, so push them here to reach the fields.
         if (customSubmit !== undefined && fieldIssues.length > 0) {
@@ -1887,6 +1902,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
       <Form
         onSubmit={() => void handleSubmit()}
+        {...(focusFirstErrorKey > 0 && { focusFirstErrorKey })}
         {...(hideSectionTitles !== true &&
           !titleInShell &&
           !titleInSettingsHeader &&

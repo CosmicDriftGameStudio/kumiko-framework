@@ -59,12 +59,12 @@ jobs:
       skip_heavy: ${{ steps.classify.outputs.version_only }}
       version_pr_stale: ${{ steps.freshness.outputs.stale }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main'
         with:
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         if: github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main'
         with:
           bun-version: "1.4.0"
@@ -104,7 +104,7 @@ jobs:
       GITLEAKS_VERSION: "8.30.1"
       GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           # The commit range below needs the merge-base a shallow clone lacks.
@@ -145,24 +145,24 @@ jobs:
           echo "::error::Stale Version PR: not on current main HEAD or missing changesets from main. Do not merge; re-run once the changesets bot has rebuilt it."
           exit 1
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The changeset checks run a three-dot diff against origin/main,
           # which needs the merge-base a shallow clone does not have.
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
 
       # real-providers-node-import.test.ts spawns node to prove the
       # helpers/real-providers subpath loads without Bun.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24.17.0"
 
       - name: Cache Bun
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -170,7 +170,7 @@ jobs:
             bun-${{ runner.os }}-
 
       - name: Cache TS Build Info
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/*.tsbuildinfo
@@ -186,6 +186,9 @@ jobs:
 
       - name: Changeset fold dry-run
         run: bash scripts/changeset-fold-check.sh
+
+      - name: Dependency audit
+        run: bun packages/guards/src/cli.ts security
 
       - name: Changeset required
         if: github.event_name == 'pull_request'
@@ -211,7 +214,7 @@ jobs:
         # Merge mit dem integration-lcov + Badge-Commit passiert im
         # coverage-badge-Job unten, nachdem beide Jobs fertig sind.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-unit
           path: coverage/unit/lcov.info
@@ -221,7 +224,7 @@ jobs:
         # lcov aus dem dom-Step des "Run tests"-Laufs (bunfig.dom.toml) —
         # einzige Suite, die die tsx-abgedeckten UI-Dateien ausführt.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-dom
           path: coverage/dom/lcov.info
@@ -261,16 +264,16 @@ jobs:
         if: needs.version-pr-gate.outputs.skip_heavy == 'true'
         run: echo "version-only PR, TZ tests skipped"
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.version-pr-gate.outputs.skip_heavy != 'true'
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         if: needs.version-pr-gate.outputs.skip_heavy != 'true'
         with:
           bun-version: "1.4.0"
 
       - name: Cache Bun
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: needs.version-pr-gate.outputs.skip_heavy != 'true'
         with:
           path: ~/.bun/install/cache
@@ -303,12 +306,12 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
       - name: Cache Bun
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -429,14 +432,14 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
 
       - name: Cache Bun
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -479,7 +482,7 @@ jobs:
       - name: Upload integration coverage
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-integration
           path: coverage/integration/lcov.info
@@ -500,14 +503,14 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
 
       - name: Cache Bun
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -543,14 +546,14 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
 
       - name: Cache Bun
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -629,7 +632,7 @@ jobs:
         # The sample apps write their screenshot specs to $RUNNER_TEMP/screenshots (see above);
         # uploaded even when a suite failed so the shots can be looked at.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: e2e-screenshots
           path: ${{ runner.temp }}/screenshots
@@ -640,7 +643,7 @@ jobs:
       # what a failed spec rendered; the job log has just the locator.
       - name: Upload e2e failure context
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: e2e-failure-context
           path: |
@@ -676,18 +679,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: coverage-unit
           path: coverage/unit
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         # continue-on-error: die Integration-Coverage-Pass ist selbst schon
         # continue-on-error — Artifact kann fehlen, coverage-badge.ts fällt
         # dann auf Unit-only zurück statt zu crashen.
@@ -696,7 +699,7 @@ jobs:
           name: coverage-integration
           path: coverage/integration
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         # continue-on-error: fehlt das Artefakt (alter Run vor dem dom-Split),
         # merged coverage-badge.ts ohne dom-Anteil statt zu crashen.
         continue-on-error: true
@@ -735,24 +738,24 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           # A step's `env: GITHUB_TOKEN` doesn't change git's push credential —
           # only checkout's `token:` does; App tokens can't get `workflows` (#1788).
           token: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.0"
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24.17.0"
           registry-url: "https://registry.npmjs.org"
 
       - name: Cache Bun
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -784,7 +787,7 @@ jobs:
       # OIDC Trusted Publishing + Provenance via npm-CLI (bun pm publish kann
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable
       # workspaces, ruft `npm publish --provenance --access public`.
-      - uses: changesets/action@v1
+      - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         id: changesets
         with:
           # changesets/action runs `version:` as a split argv (no shell), so an

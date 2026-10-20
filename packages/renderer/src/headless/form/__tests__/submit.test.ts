@@ -82,7 +82,11 @@ describe("createFormController — submit()", () => {
 
     const result = await form.submit();
 
-    expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:create", { title: "world" });
+    expect(disp.writeSpy).toHaveBeenCalledWith(
+      "app:write:task:create",
+      { title: "world" },
+      expect.anything(),
+    );
     expect(result.isSuccess).toBe(true);
     if (result.isSuccess && !("validationBlocked" in result && result.validationBlocked)) {
       expect(result.data).toEqual({ id: "srv-1" });
@@ -276,7 +280,11 @@ describe("createFormController — submit()", () => {
     // Touch one field, submit — only that field goes out.
     form.setField("title", "world");
     await form.submit();
-    expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:update", { title: "world" });
+    expect(disp.writeSpy).toHaveBeenCalledWith(
+      "app:write:task:update",
+      { title: "world" },
+      expect.anything(),
+    );
   });
 
   test("payloadMode: 'values' — strips an untouched optional field seeded with \"\"", async () => {
@@ -309,7 +317,11 @@ describe("createFormController — submit()", () => {
 
     await form.submit();
 
-    expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:create", { note: "" });
+    expect(disp.writeSpy).toHaveBeenCalledWith(
+      "app:write:task:create",
+      { note: "" },
+      expect.anything(),
+    );
   });
 
   test("payloadMode: 'values' with stripEmptySeeds: false — keeps an untouched empty-string field", async () => {
@@ -323,10 +335,14 @@ describe("createFormController — submit()", () => {
 
     await form.submit();
 
-    expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:create", {
-      title: "hello",
-      dueDate: "",
-    });
+    expect(disp.writeSpy).toHaveBeenCalledWith(
+      "app:write:task:create",
+      {
+        title: "hello",
+        dueDate: "",
+      },
+      expect.anything(),
+    );
   });
 
   test("payloadMode: 'values' — strips a field that was touched and returned to \"\" (value-based, not touch-based)", async () => {
@@ -364,7 +380,10 @@ describe("createFormController — submit()", () => {
     await form.submit();
 
     expect(disp.writeSpy).toHaveBeenCalledTimes(2);
-    expect(disp.writeSpy.mock.calls[1]).toEqual(["app:write:task:update", { title: "hello" }]);
+    expect(disp.writeSpy.mock.calls[1]?.slice(0, 2)).toEqual([
+      "app:write:task:update",
+      { title: "hello" },
+    ]);
   });
 
   test("stale-submit race: edits during the in-flight write stay dirty after success", async () => {
@@ -465,13 +484,17 @@ describe("createFormController — submit()", () => {
 
     await formWithSubmit.submit();
 
-    expect(disp.writeSpy).toHaveBeenCalledWith("orders:write:order:create", {
-      title: "Order #1",
-      lines: [
-        { product: "Widget", qty: 2 },
-        { product: "Gadget", qty: 5 },
-      ],
-    });
+    expect(disp.writeSpy).toHaveBeenCalledWith(
+      "orders:write:order:create",
+      {
+        title: "Order #1",
+        lines: [
+          { product: "Widget", qty: 2 },
+          { product: "Gadget", qty: 5 },
+        ],
+      },
+      expect.anything(),
+    );
   });
 
   test("buildPayload is called once at submit-start, not re-called during in-flight", async () => {

@@ -559,9 +559,10 @@ async function main() {
 
   writeFileSync(join(ROOT, "packages/locale-de/src/strings.ts"), renderBundle("localeDeBundle", "de", de));
   writeFileSync(join(ROOT, "packages/locale-es/src/strings.ts"), renderBundle("localeEsBundle", "es", es));
-  const enCatalogSrc = renderBundle("frameworkEnCatalog", "en", enCatalog);
-  writeFileSync(join(ROOT, "packages/locale-de/src/__tests__/en-catalog.ts"), enCatalogSrc);
-  writeFileSync(join(ROOT, "packages/locale-es/src/__tests__/en-catalog.ts"), enCatalogSrc);
+  writeFileSync(
+    join(ROOT, "packages/locale-de/src/__tests__/en-catalog.ts"),
+    renderBundle("frameworkEnCatalog", "en", enCatalog),
+  );
 
   if (stringsOnly) return;
 

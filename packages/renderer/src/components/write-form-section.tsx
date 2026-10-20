@@ -10,6 +10,7 @@ import type {
 import { I18N_KEY_PARAM } from "../headless/index.ts";
 import { useForm } from "../hooks/use-form.ts";
 import { useTranslation } from "../i18n.tsx";
+import { useUnsavedInputSource } from "../leave-guard.ts";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";
 import { GridCellForField } from "./grid-cell-for-field.tsx";
 import { hasIssueWithoutVisibleField, issuesAfterEdit } from "./render-edit-logic.ts";
@@ -78,6 +79,7 @@ export function WriteFormSection({
     submit: { type: section.handler, payloadMode: "values" },
     schema,
   });
+  useUnsavedInputSource(() => controller.getSnapshot().isDirty);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

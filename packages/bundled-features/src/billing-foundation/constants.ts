@@ -60,6 +60,13 @@ export const SubscriptionFoundationHandlers = {
   /** Anonymous § 312k cancellation/withdrawal declaration (consumerProtection
    *  only). */
   requestContractTermination: "billing-foundation:write:request-contract-termination",
+  /** Anonymous "this was not me" revocation of a public declaration, by the
+   *  link of the receipt mail (consumerProtection only). */
+  revokeContractTermination: "billing-foundation:write:revoke-contract-termination",
+  /** System-only: checks the revocation token against the tenant's declaration
+   *  and takes the cancellation back (consumerProtection only). */
+  recordContractTerminationRevocation:
+    "billing-foundation:write:record-contract-termination-revocation",
   /** Tenant-Admin terminates or withdraws from the contract of their own
    *  tenant (consumerProtection only). */
   terminateContract: "billing-foundation:write:terminate-contract",

@@ -46,6 +46,10 @@ function isEntityEventData(data: Record<string, unknown>): data is { aggregateTy
 // session end by itself.
 const SESSION_ENDED_SSE_EVENT = "session-ended";
 
+// Writes a client has not consumed yet. Past this the client cannot keep up and is
+// dropped; it reconnects and resyncs instead of the server buffering without bound.
+export const SSE_MAX_PENDING_WRITES_PER_CLIENT = 256;
+
 export type SseRouteOptions = {
   readonly anonymousLiveEntities: ReadonlySet<string>;
   readonly entityReadAccess: ReadonlyMap<string, readonly AccessRule[]>;
@@ -173,13 +177,34 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
         void stream.close();
       };
 
+      let pendingWrites = 0;
       const clientId = broker.addClient(
         channel,
         (event) => {
-          const frame = decideWireFrame(event, user, options);
-          // skip: decideWireFrame withholds frames this user must not see
-          if (!frame) return;
-          stream.writeSSE({ event: frame.name, data: JSON.stringify(frame.data) });
+          // skip: the stream is already being torn down
+          if (stream.aborted || stream.closed) return;
+          // The broker loops over all clients synchronously: one bad client must not stop the others.
+          try {
+            const frame = decideWireFrame(event, user, options);
+            // skip: decideWireFrame withholds frames this user must not see
+            if (!frame) return;
+            if (pendingWrites >= SSE_MAX_PENDING_WRITES_PER_CLIENT) {
+              // abort (not close) cancels the pending writes; close would queue behind them
+              stream.abort();
+              return;
+            }
+            const data = JSON.stringify(frame.data);
+            pendingWrites += 1;
+            stream
+              .writeSSE({ event: frame.name, data })
+              .catch(closeStream)
+              .finally(() => {
+                pendingWrites -= 1;
+              });
+          } catch {
+            // skip: an unserializable frame ends this client's stream, not the broadcast
+            closeStream();
+          }
         },
         closeStream,
       );

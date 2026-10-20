@@ -230,8 +230,26 @@ describe("DefaultInput select → segmented control borders survive wrapping", (
     }
   });
 
-  test("segments grow to fill their row so wrapped rows span the container's full width", () => {
+  test("few options render as equal-width columns", () => {
     renderSelect(["Draft", "Review", "Published"]);
+    const radiogroup = screen.getByRole("radiogroup");
+    expect(radiogroup.className).toContain("auto-cols-fr");
+  });
+
+  test("many options keep the wrapping layout and grow to fill their row", () => {
+    render(
+      <Field id="kind" label="Kind" testId="field-kind">
+        <Input
+          kind="select"
+          id="kind"
+          name="kind"
+          value="a"
+          onChange={() => {}}
+          display="radio"
+          options={["a", "b", "c", "d", "e"]}
+        />
+      </Field>,
+    );
     const radiogroup = screen.getByRole("radiogroup");
     expect(radiogroup.className).toContain("w-fit");
     for (const radio of screen.getAllByRole("radio")) {

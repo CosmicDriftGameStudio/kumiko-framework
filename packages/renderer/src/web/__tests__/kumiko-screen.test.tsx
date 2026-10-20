@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, jest, mock, test } from "bun:test";
 import {
   type ActionFormScreenDefinition,
   type EntityDefinition,
@@ -11,13 +11,16 @@ import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { extractIdField } from "../../components/reference-create-dialog.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
-import type { FeatureSchema, NavApi, NavTarget } from "../../index.ts";
+import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
+import type { FeatureSchema, LiveEventSubscriber, NavApi, NavTarget } from "../../index.ts";
 import {
   AppFeaturesProvider,
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
   kumikoDefaultTranslations,
+  LIVE_RESYNC_EVENT_TYPE,
+  LiveEventsProvider,
   NavProvider,
   UserRolesProvider,
   useNavigateWithInitialValues,
@@ -691,8 +694,8 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-error")).toBeTruthy());
     const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
-    expect(bannerText).toBe(defaultEnText("errors.access.denied"));
-    expect(bannerText).not.toBe("errors.access.denied");
+    expect(bannerText).toContain(defaultEnText("errors.access.denied"));
+    expect(bannerText).not.toContain("errors.access.denied");
   });
 
   test("entityList: query-Error zeigt übersetzten Text statt rohem i18nKey (issue #1193)", async () => {
@@ -716,8 +719,68 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-error")).toBeTruthy());
     const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
-    expect(bannerText).toBe(defaultEnText("errors.access.denied"));
-    expect(bannerText).not.toBe("errors.access.denied");
+    expect(bannerText).toContain(defaultEnText("errors.access.denied"));
+    expect(bannerText).not.toContain("errors.access.denied");
+  });
+
+  test("entityList: a failed live refetch shows the error banner above the rows instead of replacing them", async () => {
+    let queryCalls = 0;
+    const dispatcher = makeDispatcher({
+      query: (async () => {
+        queryCalls += 1;
+        if (queryCalls === 1) {
+          return {
+            isSuccess: true,
+            data: {
+              rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+              nextCursor: null,
+            },
+          };
+        }
+        return {
+          isSuccess: false,
+          error: { code: "unknown", httpStatus: 500, i18nKey: "errors.unknown", message: "boom" },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    let emitLive: () => void = () => {};
+    const subscribe: LiveEventSubscriber = (entity, listener) => {
+      emitLive = () =>
+        listener({
+          type: entity,
+          data: {
+            aggregateType: entity,
+            eventType: LIVE_RESYNC_EVENT_TYPE,
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        });
+      return () => {};
+    };
+
+    jest.useFakeTimers();
+    try {
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <LiveEventsProvider value={subscribe}>
+            <KumikoScreen schema={schema} qn="tasks:screen:task-list" />
+          </LiveEventsProvider>
+        </DispatcherProvider>,
+      );
+      await act(async () => {});
+      expect(screen.getByText("Alpha")).toBeTruthy();
+      expect(screen.queryByTestId("kumiko-screen-error")).toBeNull();
+
+      emitLive();
+      await act(async () => {
+        jest.advanceTimersByTime(LIVE_REFETCH_COALESCE_MS);
+      });
+
+      expect(screen.getByTestId("kumiko-screen-error")).toBeTruthy();
+      expect(screen.getByTestId("kumiko-screen-retry")).toBeTruthy();
+      expect(screen.getByText("Alpha")).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   // RowActions-Mapping (Tier 2.7a Resolution-Layer): pinst dass

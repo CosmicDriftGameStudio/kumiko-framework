@@ -16,6 +16,8 @@ export type TerminationReceiptVariables = {
   readonly requestId: string;
   readonly details: readonly TextRow[];
   readonly operatorEmail: string;
+  /** Only a matched declaration carries the "this was not me" link. */
+  readonly revokeUrl?: string;
 };
 
 /** Variables of the operator notice template. */
@@ -92,9 +94,11 @@ export type TerminationReceiptArgs = {
   readonly receivedAtIso: string;
   readonly declaration: ReceiptDeclaration;
   readonly operatorEmail: string;
+  readonly revokeUrl?: string;
 };
 
-/** The content must not depend on whether (or how) the declaration matched a contract. */
+/** Apart from the revoke link, the content must not depend on whether the declaration
+ *  matched a contract; the link only goes to the address the declarant entered. */
 export function terminationReceiptVariables(
   args: TerminationReceiptArgs,
 ): TerminationReceiptVariables {
@@ -105,6 +109,7 @@ export function terminationReceiptVariables(
     requestId: args.requestId,
     details: declarationLines(args.declaration, args.locale),
     operatorEmail: args.operatorEmail,
+    ...(args.revokeUrl !== undefined && { revokeUrl: args.revokeUrl }),
   };
 }
 

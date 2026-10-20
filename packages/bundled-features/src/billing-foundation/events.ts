@@ -213,9 +213,25 @@ export const contractTerminationDeclaredPayloadSchema = z.object({
   terminationKind: z.enum(CONTRACT_TERMINATION_KINDS),
   receivedAtIso: z.string().min(1),
   locale: z.enum(CONSENT_LOCALES),
+  // sha256 hex of the "this was not me" link token; events written before the
+  // link existed carry none and cannot be revoked.
+  revocationTokenHash: z.string().length(64).optional(),
 });
 export type ContractTerminationDeclaredPayload = z.infer<
   typeof contractTerminationDeclaredPayloadSchema
+>;
+
+// The mailbox owner took a public declaration back ("this was not me").
+export const CONTRACT_TERMINATION_REVOKED_EVENT_SHORT = "contract-termination-revoked" as const;
+export const CONTRACT_TERMINATION_REVOKED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${CONTRACT_TERMINATION_REVOKED_EVENT_SHORT}` as const;
+
+export const contractTerminationRevokedPayloadSchema = z.object({
+  requestId: z.string().min(1).max(100),
+  revokedAtIso: z.string().min(1),
+});
+export type ContractTerminationRevokedPayload = z.infer<
+  typeof contractTerminationRevokedPayloadSchema
 >;
 
 export const CONTRACT_TERMINATION_UNMATCHED_AGGREGATE_TYPE =

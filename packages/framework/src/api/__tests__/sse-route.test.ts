@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import * as z from "zod";
+import { tenantChannel } from "../../engine/constants.ts";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { createRegistry } from "../../engine/registry.ts";
@@ -8,8 +9,17 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { authMiddleware } from "../auth-middleware.ts";
 import { collectEntityReadAccess } from "../entity-read-access.ts";
 import { createJwtHelper } from "../jwt.ts";
-import type { AccessInvalidationCredential, SseBroker, SseEvent } from "../sse-broker.ts";
-import { createSseRoute, type SseRouteOptions } from "../sse-route.ts";
+import {
+  type AccessInvalidationCredential,
+  createSseBroker,
+  type SseBroker,
+  type SseEvent,
+} from "../sse-broker.ts";
+import {
+  createSseRoute,
+  SSE_MAX_PENDING_WRITES_PER_CLIENT,
+  type SseRouteOptions,
+} from "../sse-route.ts";
 
 const NO_ANONYMOUS_ENTITIES: SseRouteOptions = {
   anonymousLiveEntities: new Set(),
@@ -542,5 +552,58 @@ describe("sse-route access invalidation", () => {
 
     expect(recording.removeClientCalls).toBe(1);
     expect(recording.unsubscribeCalls).toBe(1);
+  });
+});
+
+describe("sse-route backpressure", () => {
+  test("a client that never reads is dropped after the pending-write limit while others keep receiving", async () => {
+    const local = createSseBroker();
+    let resolveNextAdded!: () => void;
+    let nextAdded = Promise.resolve();
+    const armNextAdded = () => {
+      nextAdded = new Promise<void>((resolve) => {
+        resolveNextAdded = resolve;
+      });
+    };
+    const broker: SseBroker = {
+      ...local,
+      addClient(channel, send, close) {
+        const id = local.addClient(channel, send, close);
+        resolveNextAdded();
+        return id;
+      },
+    };
+    const { app, token } = await buildSseApp(broker);
+    const open = async () => {
+      armNextAdded();
+      const response = await app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await nextAdded;
+      return response.body!.getReader();
+    };
+
+    await open();
+    const fastReader = await open();
+    const channel = tenantChannel(TestUsers.user.tenantId);
+    expect(local.getClientCount(channel)).toBe(2);
+
+    const eventCount = SSE_MAX_PENDING_WRITES_PER_CLIENT * 2;
+    for (let n = 0; n < eventCount; n++) {
+      local.pushToChannel(channel, {
+        type: "user.updated",
+        data: {
+          id: `u${n}`,
+          aggregateType: "user",
+          version: n + 1,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      });
+      const frame = await readNextEntityFrame(fastReader);
+      expect(JSON.parse(frame.data).id).toBe(`u${n}`);
+    }
+
+    expect(local.getClientCount(channel)).toBe(1);
+    await fastReader.cancel();
   });
 });

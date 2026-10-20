@@ -547,6 +547,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "errors.validation.failed": "Échec de la validation.",
   "errors.validation.invalid_element": "Entrée invalide.",
   "errors.validation.invalid_format": "Format invalide.",
+  "errors.validation.invalid_format.email": "Adresse e-mail invalide, p. ex. nom@exemple.fr.",
+  "errors.validation.invalid_format.url": "Adresse web invalide, p. ex. https://exemple.fr.",
+  "errors.validation.invalid_format.date": "Date invalide, p. ex. 20/10/2026.",
+  "errors.validation.invalid_format.datetime": "Date et heure invalides, p. ex. 20/10/2026 14:30.",
+  "errors.validation.invalid_format.uuid":
+    "Identifiant invalide, p. ex. 123e4567-e89b-12d3-a456-426614174000.",
   "errors.validation.invalid_key": "Clé invalide.",
   "errors.validation.invalid_option": "Choix invalide.",
   "errors.validation.invalid_type": "Valeur invalide.",

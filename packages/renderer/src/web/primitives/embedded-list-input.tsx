@@ -30,6 +30,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { fieldIssueText } from "../../field-issue-text.ts";
 import { applyFormatSpec, type FieldIssue } from "../../headless/index.ts";
 import type {
   EmbeddedListCellType,
@@ -193,7 +194,7 @@ function IssueMessages({
       )}
     >
       {issues.map((issue) => (
-        <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
+        <div key={`${issue.path}:${issue.code}`}>{fieldIssueText(t, issue)}</div>
       ))}
     </div>
   );

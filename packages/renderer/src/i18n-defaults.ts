@@ -317,6 +317,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.validation.number.min": "Must be at least {minimum}.",
     "kumiko.validation.number.max": "Must be {maximum} or less.",
     "errors.validation.invalid_format": "Invalid format.",
+    "errors.validation.invalid_format.email": "Invalid email address, e.g. name@example.com.",
+    "errors.validation.invalid_format.url": "Invalid web address, e.g. https://example.com.",
+    "errors.validation.invalid_format.date": "Invalid date, e.g. 2026-10-20.",
+    "errors.validation.invalid_format.datetime": "Invalid date and time, e.g. 2026-10-20T14:30.",
+    "errors.validation.invalid_format.uuid":
+      "Invalid ID, e.g. 123e4567-e89b-12d3-a456-426614174000.",
     "errors.validation.not_multiple_of": "Must be a multiple of {divisor}.",
     "errors.validation.unrecognized_keys": "Unknown fields.",
     "errors.validation.invalid_union": "Invalid value.",

@@ -537,6 +537,12 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "errors.validation.failed": "Convalida non riuscita.",
   "errors.validation.invalid_element": "Voce non valida.",
   "errors.validation.invalid_format": "Formato non valido.",
+  "errors.validation.invalid_format.email": "Indirizzo e-mail non valido, ad es. nome@esempio.it.",
+  "errors.validation.invalid_format.url": "Indirizzo web non valido, ad es. https://esempio.it.",
+  "errors.validation.invalid_format.date": "Data non valida, ad es. 20/10/2026.",
+  "errors.validation.invalid_format.datetime": "Data e ora non valide, ad es. 20/10/2026 14:30.",
+  "errors.validation.invalid_format.uuid":
+    "ID non valido, ad es. 123e4567-e89b-12d3-a456-426614174000.",
   "errors.validation.invalid_key": "Chiave non valida.",
   "errors.validation.invalid_option": "Scelta non valida.",
   "errors.validation.invalid_type": "Valore non valido.",

@@ -231,6 +231,14 @@ export {
 export { kumikoDefaultTranslations } from "./i18n-defaults.ts";
 export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer.ts";
 export {
+  hasUnsavedInput,
+  registerUnsavedInputSource,
+  requestLeave,
+  setLeaveConfirmer,
+  useUnsavedInputSource,
+} from "./leave-guard.ts";
+export { LeaveGuardDialog } from "./leave-guard-dialog.tsx";
+export {
   PageHeaderCompactProvider,
   PageHeaderSlotAvailableProvider,
   usePageHeaderCompact,
@@ -336,7 +344,7 @@ export type {
   LiveEventSubscriber,
   LiveEventsProviderProps,
 } from "./sse/live-events.tsx";
-export { LiveEventsProvider, useLiveEvents } from "./sse/live-events.tsx";
+export { LIVE_RESYNC_EVENT_TYPE, LiveEventsProvider, useLiveEvents } from "./sse/live-events.tsx";
 export type {
   AppTokens,
   ColorTokens,

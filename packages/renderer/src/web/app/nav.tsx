@@ -21,10 +21,12 @@ import {
 import {
   type FeatureSchema,
   formatPath,
+  hasUnsavedInput,
   type NavApi,
   type NavigateOptions,
   type NavTarget,
   parsePath,
+  requestLeave,
   resolveTarget,
   type ScreenTarget,
   useNav,
@@ -69,6 +71,13 @@ function prependBasePath(path: string, basePath: string): string {
 // läuft über einen window-Listener, den wir einmalig verdrahten.
 const listeners = new Set<() => void>();
 let popstateWired = false;
+// URL the app currently shows; popstate has already moved the browser to the
+// target by the time we can ask, so a declined leave must restore this one.
+let committedUrl = "";
+
+function readUrl(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
 
 // Stable identity for the omitted-features case — `?? []` would create a
 // fresh array every render, busting the useMemo below on every render for
@@ -79,13 +88,32 @@ function ensurePopstateWired(): void {
   if (popstateWired) return;
   if (typeof window === "undefined") return;
   window.addEventListener("popstate", () => {
-    for (const l of listeners) l();
+    if (!hasUnsavedInput()) {
+      committedUrl = readUrl();
+      for (const l of listeners) l();
+      return;
+    }
+    const targetUrl = readUrl();
+    window.history.pushState(null, "", committedUrl);
+    requestLeave(() => {
+      // replaceState, not history.back(): the declined entry is already ours
+      // and a forward navigation would otherwise land on the wrong entry.
+      window.history.replaceState(null, "", targetUrl);
+      committedUrl = targetUrl;
+      for (const l of listeners) l();
+    });
+  });
+  window.addEventListener("beforeunload", (event) => {
+    if (!hasUnsavedInput()) return;
+    event.preventDefault();
+    event.returnValue = "";
   });
   popstateWired = true;
 }
 
 function subscribe(listener: () => void): () => void {
   ensurePopstateWired();
+  if (typeof window !== "undefined" && listeners.size === 0) committedUrl = readUrl();
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -132,6 +160,7 @@ function applySearchParamUpdates(updates: Readonly<Record<string, string | null>
   if (nextSearch === window.location.search) return;
   const url = `${window.location.pathname}${nextSearch}${window.location.hash}`;
   window.history.replaceState(null, "", url);
+  committedUrl = readUrl();
   for (const l of listeners) l();
 }
 
@@ -150,8 +179,11 @@ function pushPath(path: string, search: string | undefined): void {
     window.location.pathname === path &&
     (search === undefined || window.location.search === search);
   if (unchanged) return;
-  window.history.pushState(null, "", `${path}${search ?? ""}`);
-  for (const l of listeners) l();
+  requestLeave(() => {
+    window.history.pushState(null, "", `${path}${search ?? ""}`);
+    committedUrl = readUrl();
+    for (const l of listeners) l();
+  });
 }
 
 function replacePath(path: string, search: string | undefined): void {
@@ -160,8 +192,17 @@ function replacePath(path: string, search: string | undefined): void {
   // to avoid creating a history entry, even when the URL is identical.
   // (pushPath skips no-op pushes; replacePath honors the call so the
   // entry-stack semantics stay predictable.)
-  window.history.replaceState(null, "", `${path}${search ?? ""}`);
-  for (const l of listeners) l();
+  const nextUrl = `${path}${search ?? ""}`;
+  const leavesCurrentPage =
+    window.location.pathname !== path ||
+    (search !== undefined && window.location.search !== search);
+  const apply = (): void => {
+    window.history.replaceState(null, "", nextUrl);
+    committedUrl = readUrl();
+    for (const l of listeners) l();
+  };
+  if (leavesCurrentPage) requestLeave(apply);
+  else apply();
 }
 
 /** React-Hook der eine NavApi aus der Browser-History baut. Sollte

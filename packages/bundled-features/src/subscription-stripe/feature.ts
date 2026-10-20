@@ -53,6 +53,7 @@ import {
   createStripePlanSwitchSession,
   createStripePortalSession,
   createStripePriceCache,
+  createStripeResumeSubscription,
   createStripeRetrievePrices,
   createStripeRetrieveSubscription,
 } from "./plugin-methods.ts";
@@ -258,6 +259,7 @@ export function createSubscriptionStripeFeature(
       }),
       createPortalSession: createStripePortalSession(runtimes.ctx),
       cancelSubscription: createStripeCancelSubscription(runtimes.ctx),
+      resumeSubscription: createStripeResumeSubscription(runtimes.ctx),
       priceToTier: options.priceToTier ?? {},
       oneOffPriceIds: options.oneOffPriceIds ?? [],
       isBillingEnabled: runtimes.ctx.isBillingEnabled,
