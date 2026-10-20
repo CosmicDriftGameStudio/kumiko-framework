@@ -537,6 +537,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.validation.failed": "Validación fallida.",
   "errors.validation.invalid_element": "Entrada no válida.",
   "errors.validation.invalid_format": "Formato no válido.",
+  "errors.validation.invalid_format.email":
+    "Correo electrónico no válido, p. ej. nombre@ejemplo.es.",
+  "errors.validation.invalid_format.url": "Dirección web no válida, p. ej. https://ejemplo.es.",
+  "errors.validation.invalid_format.date": "Fecha no válida, p. ej. 20/10/2026.",
+  "errors.validation.invalid_format.datetime": "Fecha y hora no válidas, p. ej. 20/10/2026 14:30.",
+  "errors.validation.invalid_format.uuid":
+    "ID no válido, p. ej. 123e4567-e89b-12d3-a456-426614174000.",
   "errors.validation.invalid_key": "Clave no válida.",
   "errors.validation.invalid_option": "Selección no válida.",
   "errors.validation.invalid_type": "Valor no válido.",

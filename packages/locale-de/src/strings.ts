@@ -541,6 +541,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.validation.failed": "Validierung fehlgeschlagen.",
   "errors.validation.invalid_element": "Ungültiger Eintrag.",
   "errors.validation.invalid_format": "Ungültiges Format.",
+  "errors.validation.invalid_format.email": "Ungültige E-Mail-Adresse, z. B. name@beispiel.de.",
+  "errors.validation.invalid_format.url": "Ungültige Web-Adresse, z. B. https://beispiel.de.",
+  "errors.validation.invalid_format.date": "Ungültiges Datum, z. B. 20.10.2026.",
+  "errors.validation.invalid_format.datetime":
+    "Ungültiges Datum mit Uhrzeit, z. B. 20.10.2026 14:30.",
+  "errors.validation.invalid_format.uuid":
+    "Ungültige ID, z. B. 123e4567-e89b-12d3-a456-426614174000.",
   "errors.validation.invalid_key": "Ungültiger Schlüssel.",
   "errors.validation.invalid_option": "Ungültige Auswahl.",
   "errors.validation.invalid_type": "Ungültiger Wert.",

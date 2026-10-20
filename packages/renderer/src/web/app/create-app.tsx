@@ -41,6 +41,7 @@ import {
   hasDetailScreen,
   KumikoScreen,
   kumikoDefaultTranslations,
+  LeaveGuardDialog,
   type LiveEventSubscriber,
   LiveEventsProvider,
   LocaleProvider,
@@ -514,6 +515,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                                     <ToastProvider>
                                       <ToastActionNotifier>
                                         <UpdateChecker />
+                                        <LeaveGuardDialog />
                                         <SessionEndedSignalProvider
                                           signal={props.sessionEndedSignal}
                                         >

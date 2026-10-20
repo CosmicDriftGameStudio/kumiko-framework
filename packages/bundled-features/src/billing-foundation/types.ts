@@ -250,6 +250,16 @@ export type SubscriptionProviderPlugin = {
   ) => Promise<void>;
 
   /**
+   * Optional: takes back a `period-end` cancellation that has not taken effect
+   * yet. Without it, a revoked public termination is reported to the operator
+   * to undo by hand.
+   */
+  readonly resumeSubscription?: (
+    ctx: HandlerContext,
+    options: { readonly providerSubscriptionId: string },
+  ) => Promise<void>;
+
+  /**
    * The provider's own price/plan-id → app-tier-name mapping. This is the
    * one source `checkout-core`/`plan-catalog` derive both hardening
    * (unknown-priceId rejection) and the billing-plans catalog from — see

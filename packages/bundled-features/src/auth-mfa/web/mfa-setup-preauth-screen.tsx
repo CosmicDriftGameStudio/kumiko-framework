@@ -1,6 +1,4 @@
 // @runtime client
-// Consumers that type-check this source never include the ambient declaration on their own.
-/// <reference path="./qrcode-browser.d.ts" />
 // Pre-auth twin of the declarative auth-mfa-enable secretMint screen: a user
 // blocked at login by MFA enforcement and not yet enrolled lands here
 // straight out of the login flow — there is no session yet. Identity comes
@@ -17,9 +15,6 @@
 // stays "unauthenticated" until the next reload.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-// qrcode's package.json#browser remap avoids Node-only deps (yargs/pngjs)
-// for bundlers that honor it — Metro doesn't, hence the explicit subpath.
-import QRCode from "qrcode/lib/browser.js";
 import { type FormEvent, type ReactNode, useState } from "react";
 // kumiko-lint-ignore cross-feature-import client-only component, the feature's server barrel has no web/ re-export
 import { AuthCard } from "../../auth-email-password/web/index.ts";
@@ -29,7 +24,7 @@ type SetupState = {
   readonly setupToken: string;
   readonly secretParam: string;
   readonly recoveryCodes: readonly string[];
-  readonly qrSvg: string;
+  readonly otpauthUri: string;
 };
 
 // otpauth:// URIs put the secret in the query string — extract it for the
@@ -80,7 +75,7 @@ export function MfaSetupPreauthScreen({
   onCancel,
 }: MfaSetupPreauthScreenProps): ReactNode {
   const t = useTranslation();
-  const { Button, Banner, Field, Form, Input, Section } = usePrimitives();
+  const { Button, Banner, Field, Form, Input, Section, SecretReveal } = usePrimitives();
 
   const [setup, setSetup] = useState<SetupState | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -100,18 +95,11 @@ export function MfaSetupPreauthScreen({
         setRetryAfterSeconds(res.error.retryAfterSeconds ?? null);
         return;
       }
-      // errorCorrectionLevel "H" (~30% redundancy) — more resilient to
-      // camera/lighting issues than the default, no downside for a code
-      // this short-lived.
-      const qrSvg = await QRCode.toString(res.data.otpauthUri, {
-        type: "svg",
-        errorCorrectionLevel: "H",
-      });
       setSetup({
         setupToken: res.data.setupToken,
         secretParam: extractSecret(res.data.otpauthUri),
         recoveryCodes: res.data.recoveryCodes,
-        qrSvg,
+        otpauthUri: res.data.otpauthUri,
       });
       setAcknowledged(false);
       setCode("");
@@ -192,13 +180,24 @@ export function MfaSetupPreauthScreen({
         <Form onSubmit={onSubmit}>
           <Section testId="mfa-setup-preauth-setup">
             <div className="flex flex-col items-center gap-2 text-center">
-              <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
-              {/* qrcode's own SVG string output, not user input — safe to inline */}
-              <div
-                className="h-40 w-40"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: qrcode-generated SVG, no user input
-                dangerouslySetInnerHTML={{ __html: setup.qrSvg }}
-              />
+              {SecretReveal !== undefined ? (
+                <SecretReveal
+                  values={[
+                    {
+                      label: t("auth.mfa.enable.scanTitle"),
+                      value: setup.otpauthUri,
+                      qr: true,
+                      copyable: false,
+                      multiline: false,
+                    },
+                  ]}
+                  copyLabel={t("kumiko.secretMint.copy")}
+                  copiedLabel={t("kumiko.secretMint.copied")}
+                  testId="mfa-setup-preauth-qr"
+                />
+              ) : (
+                <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
+              )}
               <span className="text-xs text-muted-foreground">
                 {t("auth.mfa.enable.manualEntry")}
               </span>

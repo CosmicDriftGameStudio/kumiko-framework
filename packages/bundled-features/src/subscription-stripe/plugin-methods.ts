@@ -220,6 +220,25 @@ export function createStripePortalSession(runtime: StripeCtxRuntime) {
 }
 
 // =============================================================================
+// resumeSubscription
+// =============================================================================
+//
+// Takes back a period-end cancel; the following `customer.subscription.updated`
+// carries cancel_at null, which the projection stores as "renews".
+
+export function createStripeResumeSubscription(runtime: StripeCtxRuntime) {
+  return async (
+    ctx: HandlerContext,
+    options: { readonly providerSubscriptionId: string },
+  ): Promise<void> => {
+    const stripe = await runtime.clientForCtx(ctx);
+    await stripe.subscriptions.update(options.providerSubscriptionId, {
+      cancel_at_period_end: false,
+    });
+  };
+}
+
+// =============================================================================
 // cancelSubscription
 // =============================================================================
 //

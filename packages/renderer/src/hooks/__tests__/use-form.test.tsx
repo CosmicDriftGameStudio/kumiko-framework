@@ -60,6 +60,10 @@ describe("useForm — mounted without a DispatcherProvider", () => {
       await result.current.controller.submit();
     });
 
-    expect(dispatcher.writeSpy).toHaveBeenCalledWith("app:write:task:create", { title: "hello" });
+    expect(dispatcher.writeSpy).toHaveBeenCalledWith(
+      "app:write:task:create",
+      { title: "hello" },
+      expect.anything(),
+    );
   });
 });

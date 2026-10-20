@@ -68,6 +68,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { fieldIssueText } from "../../field-issue-text.ts";
 import type {
   CellLink,
   CellLinkItem,
@@ -412,12 +413,20 @@ function fieldDescriptionId(id: string): string {
   return `${id}-description`;
 }
 
+function fieldErrorId(id: string): string {
+  return `${id}-error`;
+}
+
 function DefaultField(props: FieldProps): ReactNode {
+  const describedBy = [
+    props.description !== undefined ? fieldDescriptionId(props.id) : undefined,
+    props.issues !== undefined && props.issues.length > 0 ? fieldErrorId(props.id) : undefined,
+  ]
+    .filter((id) => id !== undefined)
+    .join(" ");
   return (
     <FieldLabelledContext.Provider value={props.label !== ""}>
-      <FieldDescriptionContext.Provider
-        value={props.description !== undefined ? fieldDescriptionId(props.id) : undefined}
-      >
+      <FieldDescriptionContext.Provider value={describedBy === "" ? undefined : describedBy}>
         <DefaultFieldBody {...props} />
       </FieldDescriptionContext.Provider>
     </FieldLabelledContext.Provider>
@@ -470,12 +479,13 @@ function DefaultFieldBody({
   );
   const errorsEl = hasError ? (
     <div
+      id={fieldErrorId(id)}
       role="alert"
       data-testid={testId !== undefined ? `${testId}-errors` : undefined}
       className="text-xs text-destructive"
     >
       {issues.map((issue) => (
-        <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
+        <div key={`${issue.path}:${issue.code}`}>{fieldIssueText(t, issue)}</div>
       ))}
     </div>
   ) : null;
@@ -1982,7 +1992,7 @@ function DefaultDataTable({
                   getCellTestId?.(row, cardTitleColumn.field) ??
                   `cell-${row.id}-${cardTitleColumn.field}`
                 }
-                className="min-w-0 truncate text-base font-semibold text-foreground"
+                className="min-w-0 break-words text-base font-semibold text-foreground"
               >
                 {cardCell(row, cardTitleColumn)}
               </span>
@@ -3660,15 +3670,28 @@ function FormRoot({
   testId,
   className,
   children,
+  focusFirstErrorKey,
 }: {
   readonly onSubmit: FormProps["onSubmit"];
   readonly testId?: string;
   readonly className?: string;
   readonly children: ReactNode;
+  readonly focusFirstErrorKey?: number | undefined;
 }): ReactNode {
+  const rootRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (focusFirstErrorKey === undefined || focusFirstErrorKey === 0) return;
+    const firstInvalid = rootRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (firstInvalid === null || firstInvalid === undefined) return;
+    firstInvalid.focus();
+    firstInvalid.scrollIntoView({ block: "center" });
+  }, [focusFirstErrorKey]);
   if (useContext(InsideFormContext)) {
     return (
       <div
+        ref={(node) => {
+          rootRef.current = node;
+        }}
         data-kumiko-form-root=""
         onKeyDownCapture={(e) => {
           // Implicit submission: the section's inputs belong to the OUTER
@@ -3702,6 +3725,9 @@ function FormRoot({
   }
   return (
     <form
+      ref={(node) => {
+        rootRef.current = node;
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit(e);
@@ -4093,6 +4119,7 @@ function FormSectionNav({ items }: { readonly items: readonly FormSectionNavItem
 // footer remain. The scroll area is a sibling of the footer, never its parent.
 function DrawerFormLayout({
   onSubmit,
+  focusFirstErrorKey,
   subtitle,
   actions,
   secondaryActions,
@@ -4101,12 +4128,23 @@ function DrawerFormLayout({
   children,
 }: Pick<
   FormProps,
-  "onSubmit" | "subtitle" | "actions" | "secondaryActions" | "testId" | "summary"
+  | "onSubmit"
+  | "focusFirstErrorKey"
+  | "subtitle"
+  | "actions"
+  | "secondaryActions"
+  | "testId"
+  | "summary"
 > & {
   readonly children: ReactNode;
 }): ReactNode {
   return (
-    <FormRoot onSubmit={onSubmit} testId={testId} className="flex h-full min-h-0 w-full flex-col">
+    <FormRoot
+      onSubmit={onSubmit}
+      focusFirstErrorKey={focusFirstErrorKey}
+      testId={testId}
+      className="flex h-full min-h-0 w-full flex-col"
+    >
       <div
         data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
         className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
@@ -4155,6 +4193,7 @@ function DrawerFormLayout({
 
 function DefaultForm({
   onSubmit,
+  focusFirstErrorKey,
   children,
   title,
   subtitle,
@@ -4182,6 +4221,7 @@ function DefaultForm({
     return (
       <FormRoot
         onSubmit={onSubmit}
+        focusFirstErrorKey={focusFirstErrorKey}
         testId={testId}
         className={cn(
           "flex flex-col gap-4",
@@ -4206,6 +4246,7 @@ function DefaultForm({
     return (
       <DrawerFormLayout
         onSubmit={onSubmit}
+        focusFirstErrorKey={focusFirstErrorKey}
         subtitle={subtitle}
         actions={actions}
         secondaryActions={secondaryActions}
@@ -4219,7 +4260,12 @@ function DefaultForm({
 
   if (isEmbeddedForm) {
     return (
-      <FormRoot onSubmit={onSubmit} testId={testId} className="flex w-full flex-col gap-6">
+      <FormRoot
+        onSubmit={onSubmit}
+        focusFirstErrorKey={focusFirstErrorKey}
+        testId={testId}
+        className="flex w-full flex-col gap-6"
+      >
         <FormTitleBlock
           title={title}
           subtitle={subtitle}
@@ -4279,7 +4325,12 @@ function DefaultForm({
   if (isScreenForm) {
     const showsSectionNav = sectionNav !== undefined && sectionNav.length >= SECTION_NAV_MIN_ITEMS;
     return (
-      <FormRoot onSubmit={onSubmit} testId={testId} className="flex h-full min-h-0 w-full flex-col">
+      <FormRoot
+        onSubmit={onSubmit}
+        focusFirstErrorKey={focusFirstErrorKey}
+        testId={testId}
+        className="flex h-full min-h-0 w-full flex-col"
+      >
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {sideRail}
           <div
@@ -4336,6 +4387,7 @@ function DefaultForm({
     return (
       <FormRoot
         onSubmit={onSubmit}
+        focusFirstErrorKey={focusFirstErrorKey}
         testId={testId}
         className={cn("flex flex-col w-full", fillHeight === true && "h-full min-h-0")}
       >
@@ -4372,6 +4424,7 @@ function DefaultForm({
   return (
     <FormRoot
       onSubmit={onSubmit}
+      focusFirstErrorKey={focusFirstErrorKey}
       testId={testId}
       className={cn("flex flex-col w-full", fillHeight === true && "h-full min-h-0")}
     >
@@ -4636,8 +4689,10 @@ function DefaultGrid({
             ? "flex-col items-start"
             : // items-end aligns inputs when labels wrap to different heights; a
               // below-control appendix grows only the one cell and would push its
-              // neighbours down, so such rows align to the top instead.
-              "flex-wrap items-end has-[[data-appendix-below]]:items-start",
+              // neighbours down, so such rows align to the top instead. An error
+              // line does the same: bottom-aligned, it would lift that field's
+              // label above its neighbours'.
+              "flex-wrap items-end has-[[data-appendix-below]]:items-start has-[[role=alert]]:items-start",
         )}
       >
         {children}

@@ -3,6 +3,7 @@ import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-cont
 import type { QuerySlot } from "../context/query-pool.ts";
 import type { DispatcherError } from "../headless/index.ts";
 import { useLiveEvents } from "../sse/live-events.tsx";
+import { createLiveRefetchScheduler } from "./live-refetch-scheduler.ts";
 
 // React wrapper around dispatcher.query. Fires on mount, re-fires
 // whenever `type` or the serialized payload change, and exposes a
@@ -177,10 +178,13 @@ export function useQuery<TData = unknown>(
     const entity = entityFromQueryType(type);
     // skip: query type has no mapped entity, nothing to subscribe to
     if (entity === undefined) return;
-    return subscribeLive(entity, () => {
-      void run();
-    });
-  }, [live, enabled, type, run, subscribeLive]);
+    const scheduler = createLiveRefetchScheduler(() => runFetch(true));
+    const unsubscribe = subscribeLive(entity, scheduler.trigger);
+    return () => {
+      unsubscribe();
+      scheduler.dispose();
+    };
+  }, [live, enabled, type, runFetch, subscribeLive]);
 
   return { data, error, loading, refetch: run };
 }

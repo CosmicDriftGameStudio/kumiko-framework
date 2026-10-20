@@ -46,9 +46,17 @@ function isEntityEventData(data: Record<string, unknown>): data is { aggregateTy
 // session end by itself.
 const SESSION_ENDED_SSE_EVENT = "session-ended";
 
+// A broadcast batch legitimately queues many frames at once, so a client is dropped for
+// making no progress, not for queue depth.
+export const SSE_STALLED_CLIENT_TIMEOUT_MS = SSE_HEARTBEAT_INTERVAL_MS;
+
+// Memory backstop only: a client that still makes progress but queues this many frames is dropped.
+export const SSE_MAX_PENDING_WRITES_PER_CLIENT = 10_000;
+
 export type SseRouteOptions = {
   readonly anonymousLiveEntities: ReadonlySet<string>;
   readonly entityReadAccess: ReadonlyMap<string, readonly AccessRule[]>;
+  readonly now?: () => number;
 };
 
 type AnonymousEntitySignalWire = {
@@ -143,6 +151,7 @@ function decideWireFrame(
 }
 
 export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
+  const now = options.now ?? Date.now;
   const route = new Hono();
 
   route.get(Routes.sse, async (c) => {
@@ -173,13 +182,40 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
         void stream.close();
       };
 
+      let pendingWrites = 0;
+      let lastProgressAt = now();
+      const isStalled = () =>
+        pendingWrites > 0 && now() - lastProgressAt > SSE_STALLED_CLIENT_TIMEOUT_MS;
       const clientId = broker.addClient(
         channel,
         (event) => {
-          const frame = decideWireFrame(event, user, options);
-          // skip: decideWireFrame withholds frames this user must not see
-          if (!frame) return;
-          stream.writeSSE({ event: frame.name, data: JSON.stringify(frame.data) });
+          // skip: the stream is already being torn down
+          if (stream.aborted || stream.closed) return;
+          // The broker loops over all clients synchronously: one bad client must not stop the others.
+          try {
+            const frame = decideWireFrame(event, user, options);
+            // skip: decideWireFrame withholds frames this user must not see
+            if (!frame) return;
+            if (pendingWrites >= SSE_MAX_PENDING_WRITES_PER_CLIENT || isStalled()) {
+              // abort (not close) cancels the pending writes; close would queue behind them
+              stream.abort();
+              // skip: this client is gone, the frame has no audience
+              return;
+            }
+            const data = JSON.stringify(frame.data);
+            if (pendingWrites === 0) lastProgressAt = now();
+            pendingWrites += 1;
+            stream
+              .writeSSE({ event: frame.name, data })
+              .catch(closeStream)
+              .finally(() => {
+                pendingWrites -= 1;
+                lastProgressAt = now();
+              });
+          } catch {
+            // skip: an unserializable frame ends this client's stream, not the broadcast
+            closeStream();
+          }
         },
         closeStream,
       );
@@ -209,6 +245,10 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
       // header für die Layer-für-Layer-Begründung der 15s-Cadence.
       try {
         while (!stream.closed && !stream.aborted) {
+          if (isStalled()) {
+            stream.abort();
+            break;
+          }
           await stream.writeSSE({ event: "ping", data: "" });
           await Promise.race([stream.sleep(SSE_HEARTBEAT_INTERVAL_MS), ended]);
         }

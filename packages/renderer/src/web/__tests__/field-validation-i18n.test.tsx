@@ -26,6 +26,49 @@ describe("DefaultField / errors.validation.* i18n", () => {
     expect(view.container.textContent).toContain("Invalid format.");
   });
 
+  test("invalid_format with a known format shows that format's example", () => {
+    const view = renderFieldWithIssues([
+      {
+        path: "email",
+        code: "invalid_format",
+        i18nKey: "errors.validation.invalid_format",
+        params: { format: "email" },
+      },
+    ]);
+    expect(view.container.textContent).toContain("name@example.com");
+  });
+
+  test("invalid_format with an unknown format keeps the generic text", () => {
+    const view = renderFieldWithIssues([
+      {
+        path: "code",
+        code: "invalid_format",
+        i18nKey: "errors.validation.invalid_format",
+        params: { format: "regex" },
+      },
+    ]);
+    expect(view.container.textContent).toContain("Invalid format.");
+  });
+
+  test("the error text is linked to the control via aria-describedby", () => {
+    const { Field, Input } = defaultPrimitives;
+    const view = render(
+      <Field
+        id="mail"
+        label="Mail"
+        issues={[{ path: "mail", code: "custom", i18nKey: "errors.validation.custom" }]}
+      >
+        <Input id="mail" name="mail" kind="text" value="" onChange={() => {}} hasError />
+      </Field>,
+    );
+    const input = view.container.querySelector("input") as HTMLInputElement;
+    const errorId = input.getAttribute("aria-describedby");
+    expect(errorId).toBeTruthy();
+    expect(view.container.querySelector(`[id="${errorId}"]`)?.textContent).toContain(
+      "Invalid value.",
+    );
+  });
+
   test("too_small interpoliert {minimum} aus issue.params", () => {
     const view = renderFieldWithIssues([
       {

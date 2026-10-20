@@ -326,6 +326,21 @@ async function postDeclaration(
   );
 }
 
+async function postRevocationWrite(target: TestStack, headers: Record<string, string>) {
+  return target.app.request(
+    "/api/write",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({
+        type: SubscriptionFoundationHandlers.revokeContractTermination,
+        payload: { requestId: generateId(), token: "unknown", tenantId: generateId() },
+      }),
+    },
+    nextClientIp(),
+  );
+}
+
 type DeclarationReceipt = { readonly requestId: string; readonly receivedAtIso: string };
 
 async function declare(
@@ -357,10 +372,14 @@ function mailsTo(address: string) {
   return emailTransport.sent.filter((mail) => mail.to === address);
 }
 
+const REVOKE_LINK_PARAGRAPH = /<p>[^<]*<a href="[^"]*zuruecknehmen[^"]*">[^<]*<\/a><\/p>/;
+
 // Strips what legitimately differs per request so receipts of different
-// branches can be compared byte for byte.
+// branches can be compared byte for byte. The revoke link is the one intended
+// difference: it only goes to the entered address, and only for a match.
 function normalizedReceipt(html: string, receipt: DeclarationReceipt, email: string): string {
   return html
+    .replace(REVOKE_LINK_PARAGRAPH, "")
     .replaceAll(receipt.requestId, "<REQUEST_ID>")
     .replaceAll(formatReceivedAt(receipt.receivedAtIso, "de"), "<RECEIVED_AT>")
     .replaceAll(email, "<EMAIL>");
@@ -557,6 +576,9 @@ describe("public declaration through /api/write", () => {
     const unknownMail = mailsTo(unknownEmail)[0];
     const ambiguousMail = mailsTo(ambiguousEmail)[0];
     expect(matchedMail && unknownMail && ambiguousMail).toBeTruthy();
+    expect(matchedMail?.html).toMatch(REVOKE_LINK_PARAGRAPH);
+    expect(unknownMail?.html).not.toContain("zuruecknehmen");
+    expect(ambiguousMail?.html).not.toContain("zuruecknehmen");
     const expected = normalizedReceipt(matchedMail?.html ?? "", matched, matchedEmail);
     expect(normalizedReceipt(unknownMail?.html ?? "", unknown, unknownEmail)).toBe(expected);
     expect(normalizedReceipt(ambiguousMail?.html ?? "", ambiguous, ambiguousEmail)).toBe(expected);
@@ -1007,6 +1029,7 @@ describe("public pages on a host-resolved tenant", () => {
         terminationKind: "ordinary",
         receivedAtIso: expect.any(String),
         locale: "de",
+        revocationTokenHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       },
     ]);
     const recorded = await eventsOf(
@@ -1022,6 +1045,12 @@ describe("public pages on a host-resolved tenant", () => {
     });
     expect(cancelCalls).toEqual([{ providerSubscriptionId: "sub_host", when: "period-end" }]);
     expect(mailsTo(email)).toHaveLength(1);
+  });
+
+  test("the revoke handler also runs on a host that resolves no tenant, the receipt link may point there", async () => {
+    const res = await postRevocationWrite(hostStack, { host: APEX_HOST });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { data: { outcome: string } }).data.outcome).toBe("invalid");
   });
 
   test("a host that resolves no tenant still answers tenant_required, on the page and on /api/write", async () => {
@@ -1055,6 +1084,12 @@ describe("public pages in platform mode on a host that resolves no tenant", () =
 
   beforeEach(async () => {
     await resetStack(platformStack);
+  });
+
+  test("the revoke handler runs on the platform host and answers an unknown link with the generic invalid", async () => {
+    const res = await postRevocationWrite(platformStack, apex);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { data: { outcome: string } }).data.outcome).toBe("invalid");
   });
 
   test("both pages are served on the platform host", async () => {

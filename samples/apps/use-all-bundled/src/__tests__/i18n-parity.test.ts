@@ -5,11 +5,12 @@ import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
 import { localeFrBundle } from "@cosmicdrift/kumiko-locale-fr";
 import { localeItBundle } from "@cosmicdrift/kumiko-locale-it";
-import { frameworkEnCatalog as germanEnCatalog } from "../../../../../packages/locale-de/src/__tests__/en-catalog";
-import { frameworkEnCatalog as spanishEnCatalog } from "../../../../../packages/locale-es/src/__tests__/en-catalog";
-import { frameworkEnCatalog as frenchEnCatalog } from "../../../../../packages/locale-fr/src/__tests__/en-catalog";
-import { frameworkEnCatalog as italianEnCatalog } from "../../../../../packages/locale-it/src/__tests__/en-catalog";
+import { frameworkEnCatalog } from "../../../../../packages/locale-de/src/__tests__/en-catalog";
 import { type EnHarvest, harvestEnglish } from "./i18n-harvest";
+
+function placeholders(s: string): string[] {
+  return [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1] ?? "").sort();
+}
 
 type Bundle = Readonly<Record<string, string>>;
 
@@ -18,13 +19,6 @@ const SUPPORTED_LOCALES: readonly { readonly locale: string; readonly bundle: Bu
   { locale: "es", bundle: localeEsBundle },
   { locale: "fr", bundle: localeFrBundle },
   { locale: "it", bundle: localeItBundle },
-];
-
-const CATALOGS: readonly { readonly locale: string; readonly catalog: Bundle }[] = [
-  { locale: "de", catalog: germanEnCatalog },
-  { locale: "es", catalog: spanishEnCatalog },
-  { locale: "fr", catalog: frenchEnCatalog },
-  { locale: "it", catalog: italianEnCatalog },
 ];
 
 // Client plugins that ship no English copy of their own (their screens use server or renderer keys).
@@ -79,19 +73,49 @@ describe("i18n parity", () => {
     expect(missing).toEqual([]);
   });
 
-  test("each locale's en-catalog equals the registered English copy", () => {
-    const drift = CATALOGS.flatMap(({ locale, catalog }) => {
-      const unregistered = Object.keys(catalog)
-        .filter((key) => harvest.en[key] === undefined)
-        .map((key) => `${locale}: ${key} -> not registered by any feature`);
-      const uncatalogued = Object.keys(harvest.en)
-        .filter((key) => catalog[key] === undefined)
-        .map((key) => `${locale}: ${key} -> missing from en-catalog`);
-      const changed = Object.keys(catalog)
-        .filter((key) => harvest.en[key] !== undefined && harvest.en[key] !== catalog[key])
-        .map((key) => `${locale}: ${key} -> en-catalog text differs from the registered text`);
-      return [...unregistered, ...uncatalogued, ...changed];
-    });
+  test("the en-catalog equals the registered English copy", () => {
+    const unregistered = Object.keys(frameworkEnCatalog)
+      .filter((key) => harvest.en[key] === undefined)
+      .map((key) => `${key} -> not registered by any feature`);
+    const uncatalogued = Object.keys(harvest.en)
+      .filter((key) => frameworkEnCatalog[key] === undefined)
+      .map((key) => `${key} -> missing from en-catalog`);
+    const changed = Object.keys(frameworkEnCatalog)
+      .filter((key) => harvest.en[key] !== undefined && harvest.en[key] !== frameworkEnCatalog[key])
+      .map((key) => `${key} -> en-catalog text differs from the registered text`);
+    const drift = [...unregistered, ...uncatalogued, ...changed];
     expect(drift).toEqual([]);
+  });
+
+  test("no locale bundle carries keys outside the en-catalog", () => {
+    const extra = SUPPORTED_LOCALES.flatMap(({ locale, bundle }) =>
+      Object.keys(bundle)
+        .filter((key) => frameworkEnCatalog[key] === undefined)
+        .map((key) => `${key} -> ${locale}`),
+    );
+    expect(extra).toEqual([]);
+  });
+
+  test("interpolation placeholders match English in every locale", () => {
+    const mismatched = SUPPORTED_LOCALES.flatMap(({ locale, bundle }) =>
+      Object.keys(frameworkEnCatalog)
+        .filter(
+          (key) =>
+            placeholders(bundle[key] ?? "").join() !==
+            placeholders(frameworkEnCatalog[key] ?? "").join(),
+        )
+        .map((key) => `${key} -> ${locale}`),
+    );
+    expect(mismatched).toEqual([]);
+  });
+
+  test("locales use localized tenant wording, not raw English tenant labels", () => {
+    const roleAllowlist = new Set(["TenantAdmin", "SystemAdmin"]);
+    const offenders = SUPPORTED_LOCALES.flatMap(({ locale, bundle }) =>
+      Object.entries(bundle)
+        .filter(([, value]) => !roleAllowlist.has(value) && /\btenants?\b/i.test(value))
+        .map(([key]) => `${key} -> ${locale}`),
+    );
+    expect(offenders).toEqual([]);
   });
 });

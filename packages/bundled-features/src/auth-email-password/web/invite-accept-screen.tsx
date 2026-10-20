@@ -30,7 +30,7 @@ export type InviteAcceptScreenProps = {
    *  `(data) => "/${data.tenantId}/"`. Function-form receives the roles this
    *  flow grants in the target tenant; branch 1 reports the invitation's
    *  role, which for an existing member is not their full role set there.
-   *  @deprecated Configure auth.postAuthLanding on the server; its landingPath wins.
+   *  @deprecated Removed in 0.390.0. Configure auth.postAuthLanding on the server; its landingPath wins.
    *  Kept as fallback until 0.390.0. */
   readonly loggedInHref?:
     | string

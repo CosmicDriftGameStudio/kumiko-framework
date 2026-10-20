@@ -19,6 +19,8 @@ export type TerminationTexts = {
   readonly receiptIntro: string;
   readonly receiptNextSteps: string;
   readonly receiptRevoke: (operatorEmail: string) => string;
+  readonly receiptNotMe: string;
+  readonly receiptNotMeLink: string;
   readonly contact: string;
   readonly operatorSubject: Readonly<Record<ContractTerminationDeclarationType, string>>;
   readonly operatorIntro: string;
@@ -61,6 +63,21 @@ export type PageTexts = {
   readonly errorGeneric: string;
   readonly rateLimitedTitle: string;
   readonly rateLimitedBody: string;
+  readonly revoke: RevokePageTexts;
+};
+
+export type RevokePageTexts = {
+  readonly confirmTitle: string;
+  readonly confirmLead: string;
+  readonly confirmButton: string;
+  readonly revokedTitle: string;
+  readonly revokedBody: string;
+  readonly alreadyRevokedTitle: string;
+  readonly alreadyRevokedBody: string;
+  readonly tooLateTitle: string;
+  readonly tooLateBody: string;
+  readonly invalidTitle: string;
+  readonly invalidBody: string;
 };
 
 export const OPERATOR_NOTICE_REASONS = [
@@ -74,6 +91,9 @@ export const OPERATOR_NOTICE_REASONS = [
   "recording_failed",
   "withdrawal_period_expired",
   "receipt_rate_limited",
+  "revoked",
+  "revocation_resume_manual",
+  "revocation_resume_failed",
 ] as const;
 export type OperatorNoticeReason = (typeof OPERATOR_NOTICE_REASONS)[number];
 
@@ -103,6 +123,9 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       "Wir prüfen deine Erklärung und melden uns, sobald sie bearbeitet ist oder wir Rückfragen haben.",
     receiptRevoke: (operatorEmail) =>
       `Hast du diese Erklärung nicht abgegeben oder möchtest du sie zurücknehmen? Schreib uns bitte umgehend an ${operatorEmail}.`,
+    receiptNotMe:
+      "Wurde diese Erklärung nicht von dir abgegeben? Dann nimm die Kündigung bis zu ihrem Wirksamwerden hier zurück:",
+    receiptNotMeLink: "Diese Kündigung war ich nicht",
     contact: "Fragen richtest du bitte an",
     operatorSubject: {
       termination: "Kündigung: Bearbeitung nötig",
@@ -122,6 +145,12 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
         "Widerruf nach Ablauf der Widerrufsfrist: zum Periodenende gekündigt, Anspruch prüfen",
       receipt_rate_limited:
         "Keine Eingangsbestätigung versendet: Limit pro Empfängeradresse erreicht",
+      revoked:
+        "Die Erklärung wurde vom Postfachinhaber über „Diese Kündigung war ich nicht“ zurückgenommen",
+      revocation_resume_manual:
+        "Die Kündigung beim Zahlungsanbieter bitte manuell zurücknehmen (keine Schnittstelle dafür)",
+      revocation_resume_failed:
+        "Die Kündigung beim Zahlungsanbieter konnte nicht zurückgenommen werden, bitte manuell zurücknehmen",
     },
     noticeReasons: "Grund der Benachrichtigung",
     channel: "Kanal",
@@ -163,6 +192,22 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       rateLimitedTitle: "Zu viele Anfragen",
       rateLimitedBody:
         "Von deiner Adresse kamen zu viele Anfragen. Bitte versuch es später erneut.",
+      revoke: {
+        confirmTitle: "Kündigung zurücknehmen?",
+        confirmLead:
+          "Mit dem Klick auf den Button unten nimmst du die Kündigung zurück. Dein Vertrag läuft dann weiter.",
+        confirmButton: "Diese Kündigung war ich nicht",
+        revokedTitle: "Die Kündigung ist zurückgenommen",
+        revokedBody: "Dein Vertrag läuft weiter. Wir haben den Betreiber informiert.",
+        alreadyRevokedTitle: "Schon zurückgenommen",
+        alreadyRevokedBody: "Diese Kündigung wurde bereits zurückgenommen.",
+        tooLateTitle: "Zu spät für die Rücknahme",
+        tooLateBody:
+          "Die Kündigung ist bereits wirksam geworden. Bitte schreib dem Betreiber, die Adresse steht in der Eingangsbestätigung.",
+        invalidTitle: "Link ungültig",
+        invalidBody:
+          "Dieser Link ist ungültig oder abgelaufen. Bitte schreib dem Betreiber, die Adresse steht in der Eingangsbestätigung.",
+      },
     },
   },
   en: {
@@ -190,6 +235,9 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       "We will review your declaration and get back to you once it is processed or if we have questions.",
     receiptRevoke: (operatorEmail) =>
       `If you did not make this declaration or want to take it back, please write to ${operatorEmail} right away.`,
+    receiptNotMe:
+      "Did you not make this declaration? Then take the termination back here until it takes effect:",
+    receiptNotMeLink: "I did not request this cancellation",
     contact: "Questions go to",
     operatorSubject: {
       termination: "Termination: action needed",
@@ -208,6 +256,12 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       withdrawal_period_expired:
         "Withdrawal after the withdrawal period: cancelled at period end, review the claim",
       receipt_rate_limited: "No receipt mail sent: the per-recipient limit was reached",
+      revoked:
+        'The declaration was taken back by the mailbox owner ("I did not request this cancellation")',
+      revocation_resume_manual:
+        "Undo the cancellation at the payment provider manually (no API for it)",
+      revocation_resume_failed:
+        "Undoing the cancellation at the payment provider failed, undo it manually",
     },
     noticeReasons: "Reason for this notice",
     channel: "Channel",
@@ -248,6 +302,22 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       errorGeneric: "Your declaration could not be processed. Please try again.",
       rateLimitedTitle: "Too many requests",
       rateLimitedBody: "Too many requests came from your address. Please try again later.",
+      revoke: {
+        confirmTitle: "Take the cancellation back?",
+        confirmLead:
+          "Click the button below to take the cancellation back. Your contract then continues.",
+        confirmButton: "I did not request this cancellation",
+        revokedTitle: "The cancellation was taken back",
+        revokedBody: "Your contract continues. We informed the operator.",
+        alreadyRevokedTitle: "Already taken back",
+        alreadyRevokedBody: "This cancellation was already taken back.",
+        tooLateTitle: "Too late to take it back",
+        tooLateBody:
+          "The cancellation has already taken effect. Please write to the operator, the address is in the receipt.",
+        invalidTitle: "Invalid link",
+        invalidBody:
+          "This link is invalid or has expired. Please write to the operator, the address is in the receipt.",
+      },
     },
   },
 };

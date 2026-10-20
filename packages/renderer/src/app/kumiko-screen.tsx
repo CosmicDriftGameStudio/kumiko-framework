@@ -78,6 +78,7 @@ import { type UseQueryResult, useQuery } from "../hooks/use-query.ts";
 import { referenceLookupSource } from "../hooks/use-reference-lookup.ts";
 import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n.tsx";
 import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.ts";
+import { requestLeave } from "../leave-guard.ts";
 import {
   PageHeaderSlotAvailableProvider,
   usePageHeaderCompact,
@@ -1526,7 +1527,6 @@ function EntityEditUpdateBody({
   // instead of the update form continuing to display the deleted record.
   readonly onDeleted?: () => void;
 }): ReactNode {
-  const { Banner } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
@@ -1539,13 +1539,23 @@ function EntityEditUpdateBody({
   if (detailQuery.loading && detailQuery.data === null) {
     return <QueryLoadingBanner />;
   }
-  if (detailQuery.error) {
+  if (detailQuery.error && detailQuery.data === null) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-error">
-        {dispatcherErrorText(detailQuery.error, effectiveTranslate)}
-      </Banner>
+      <QueryErrorBanner
+        error={detailQuery.error}
+        translate={effectiveTranslate}
+        onRetry={detailQuery.refetch}
+      />
     );
   }
+  // A failed refetch keeps the last good data on screen.
+  const refetchErrorBanner = detailQuery.error ? (
+    <QueryErrorBanner
+      error={detailQuery.error}
+      translate={effectiveTranslate}
+      onRetry={detailQuery.refetch}
+    />
+  ) : null;
   const record = detailQuery.data;
   if (!record) {
     const onBack =
@@ -1567,19 +1577,22 @@ function EntityEditUpdateBody({
   // kaputt.
   const recordKey = versionOf(record);
   return (
-    <EntityEditUpdateForm
-      key={`${entityId}:${recordKey}`}
-      schema={schema}
-      screen={screen}
-      entity={entity}
-      entityId={entityId}
-      record={record}
-      onReload={detailQuery.refetch}
-      {...(translate !== undefined && { translate })}
-      {...(onCopyLink !== undefined && { onCopyLink })}
-      {...(autoReloadOnSave === true && { onSaved: () => void detailQuery.refetch() })}
-      {...(onDeleted !== undefined && { onDeleted })}
-    />
+    <>
+      {refetchErrorBanner}
+      <EntityEditUpdateForm
+        key={`${entityId}:${recordKey}`}
+        schema={schema}
+        screen={screen}
+        entity={entity}
+        entityId={entityId}
+        record={record}
+        onReload={detailQuery.refetch}
+        {...(translate !== undefined && { translate })}
+        {...(onCopyLink !== undefined && { onCopyLink })}
+        {...(autoReloadOnSave === true && { onSaved: () => void detailQuery.refetch() })}
+        {...(onDeleted !== undefined && { onDeleted })}
+      />
+    </>
   );
 }
 
@@ -1910,7 +1923,6 @@ function EntityEditSingletonBody({
   readonly translate?: Translate;
   readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
-  const { Banner } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const listQn = entityQueryCommand(schema.featureName, screen.entity, "list");
@@ -1919,37 +1931,53 @@ function EntityEditSingletonBody({
   if (listQuery.loading && listQuery.data === null) {
     return <QueryLoadingBanner />;
   }
-  if (listQuery.error) {
+  if (listQuery.error && listQuery.data === null) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-error">
-        {dispatcherErrorText(listQuery.error, effectiveTranslate)}
-      </Banner>
+      <QueryErrorBanner
+        error={listQuery.error}
+        translate={effectiveTranslate}
+        onRetry={listQuery.refetch}
+      />
     );
   }
+  // A failed refetch keeps the last good data on screen.
+  const refetchErrorBanner = listQuery.error ? (
+    <QueryErrorBanner
+      error={listQuery.error}
+      translate={effectiveTranslate}
+      onRetry={listQuery.refetch}
+    />
+  ) : null;
   const rawExistingId = listQuery.data?.rows[0]?.["id"];
   const existingId = typeof rawExistingId === "string" ? rawExistingId : undefined;
   if (existingId !== undefined) {
     return (
-      <EntityEditUpdateBody
-        schema={schema}
-        screen={screen}
-        entity={entity}
-        entityId={existingId}
-        {...(translate !== undefined && { translate })}
-        {...(onCopyLink !== undefined && { onCopyLink })}
-        autoReloadOnSave
-        onDeleted={() => void listQuery.refetch()}
-      />
+      <>
+        {refetchErrorBanner}
+        <EntityEditUpdateBody
+          schema={schema}
+          screen={screen}
+          entity={entity}
+          entityId={existingId}
+          {...(translate !== undefined && { translate })}
+          {...(onCopyLink !== undefined && { onCopyLink })}
+          autoReloadOnSave
+          onDeleted={() => void listQuery.refetch()}
+        />
+      </>
     );
   }
   return (
-    <EntityEditCreateOrDisabled
-      schema={schema}
-      screen={screen}
-      entity={entity}
-      {...(translate !== undefined && { translate })}
-      onSaved={() => void listQuery.refetch()}
-    />
+    <>
+      {refetchErrorBanner}
+      <EntityEditCreateOrDisabled
+        schema={schema}
+        screen={screen}
+        entity={entity}
+        {...(translate !== undefined && { translate })}
+        onSaved={() => void listQuery.refetch()}
+      />
+    </>
   );
 }
 
@@ -2334,7 +2362,6 @@ function EntityListBody({
     screen.createUnavailable,
   );
   const onCreate = screen.allowCreate === false ? undefined : resolvedCreate;
-  const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();
   const host = useReturnHost();
@@ -2804,13 +2831,23 @@ function EntityListBody({
   if (rowsQuery.loading && rowsQuery.data === null) {
     return <QueryLoadingBanner />;
   }
-  if (rowsQuery.error) {
+  if (rowsQuery.error && rowsQuery.data === null) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-error">
-        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
-      </Banner>
+      <QueryErrorBanner
+        error={rowsQuery.error}
+        translate={effectiveTranslate}
+        onRetry={rowsQuery.refetch}
+      />
     );
   }
+  // A failed refetch keeps the last good data on screen.
+  const refetchErrorBanner = rowsQuery.error ? (
+    <QueryErrorBanner
+      error={rowsQuery.error}
+      translate={effectiveTranslate}
+      onRetry={rowsQuery.refetch}
+    />
+  ) : null;
 
   // RenderList's onRowClick is a 1-arg callback; KumikoScreen's
   // 2-arg shape (row, entityName) is the public surface — thread the
@@ -2863,6 +2900,7 @@ function EntityListBody({
 
   return (
     <>
+      {refetchErrorBanner}
       <ReferenceFacetBridges specs={entityFacetSpecs} onOptions={handleEntityFacetOptions} />
       <FacetCountBridges
         queryType={queryType}
@@ -3185,13 +3223,23 @@ function ProjectionListBody({
   if (rowsQuery.loading && rowsQuery.data === null) {
     return <QueryLoadingBanner />;
   }
-  if (rowsQuery.error) {
+  if (rowsQuery.error && rowsQuery.data === null) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-error">
-        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
-      </Banner>
+      <QueryErrorBanner
+        error={rowsQuery.error}
+        translate={effectiveTranslate}
+        onRetry={rowsQuery.refetch}
+      />
     );
   }
+  // A failed refetch keeps the last good data on screen.
+  const refetchErrorBanner = rowsQuery.error ? (
+    <QueryErrorBanner
+      error={rowsQuery.error}
+      translate={effectiveTranslate}
+      onRetry={rowsQuery.refetch}
+    />
+  ) : null;
 
   // rowsQuery.data is typed as PagedRows but the query handler is free to
   // return anything at runtime (fw#2216: a bare array silently rendered an
@@ -3236,6 +3284,7 @@ function ProjectionListBody({
 
   return (
     <>
+      {refetchErrorBanner}
       <ReferenceFacetBridges specs={facetSpecs} onOptions={handleProjectionFacetOptions} />
       <RenderList
         screen={listScreen}
@@ -3734,13 +3783,23 @@ function ProjectionDetailBody({
   if (detailQuery.loading && detailQuery.data === null) {
     return <QueryLoadingBanner />;
   }
-  if (detailQuery.error) {
+  if (detailQuery.error && detailQuery.data === null) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-error">
-        {dispatcherErrorText(detailQuery.error, effectiveTranslate)}
-      </Banner>
+      <QueryErrorBanner
+        error={detailQuery.error}
+        translate={effectiveTranslate}
+        onRetry={detailQuery.refetch}
+      />
     );
   }
+  // A failed refetch keeps the last good record on screen.
+  const refetchErrorBanner = detailQuery.error ? (
+    <QueryErrorBanner
+      error={detailQuery.error}
+      translate={effectiveTranslate}
+      onRetry={detailQuery.refetch}
+    />
+  ) : null;
   const record = detailQuery.data;
   if (!record) {
     const backListScreen =
@@ -4004,13 +4063,14 @@ function ProjectionDetailBody({
             };
           })}
           activeId={activeSection.id ?? ""}
-          onSelect={(id) => nav.setSearchParams({ tab: id })}
+          onSelect={(id) => requestLeave(() => nav.setSearchParams({ tab: id }))}
         />
       )}
     </>
   );
   return (
     <>
+      {refetchErrorBanner}
       <RenderEdit
         key={entityId}
         refreshToken={reloadNonce}

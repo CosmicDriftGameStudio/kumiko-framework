@@ -1056,6 +1056,9 @@ export type FormSectionNavItem = {
  *  end of the card (normal document flow). */
 export type FormProps = {
   readonly onSubmit: (e?: FormEvent) => void;
+  /** Bumped by the host each time a submit fails on field errors; the form
+   *  then moves focus to its first invalid control. Native forms may ignore it. */
+  readonly focusFirstErrorKey?: number;
   readonly children: ReactNode;
   readonly title?: ReactNode;
   /** Optionaler muted Untertitel unter dem Titel (z.B. "Add a new item to

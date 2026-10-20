@@ -22,7 +22,12 @@ export { isWithinGracePeriod } from "./grace-period.ts";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.ts";
 export { isTenantDb } from "./is-tenant-db.ts";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter.ts";
-export { mailHeading, mailParagraph, mailRepeatedRows } from "./mail-template-body.ts";
+export {
+  mailHeading,
+  mailParagraph,
+  mailParagraphWithLink,
+  mailRepeatedRows,
+} from "./mail-template-body.ts";
 export { mapWithConcurrency } from "./map-with-concurrency.ts";
 export {
   denyUnlessJoinRowParentVisible,

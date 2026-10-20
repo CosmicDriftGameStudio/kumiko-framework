@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import * as z from "zod";
+import { tenantChannel } from "../../engine/constants.ts";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { createRegistry } from "../../engine/registry.ts";
@@ -8,8 +9,17 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { authMiddleware } from "../auth-middleware.ts";
 import { collectEntityReadAccess } from "../entity-read-access.ts";
 import { createJwtHelper } from "../jwt.ts";
-import type { AccessInvalidationCredential, SseBroker, SseEvent } from "../sse-broker.ts";
-import { createSseRoute, type SseRouteOptions } from "../sse-route.ts";
+import {
+  type AccessInvalidationCredential,
+  createSseBroker,
+  type SseBroker,
+  type SseEvent,
+} from "../sse-broker.ts";
+import {
+  createSseRoute,
+  SSE_STALLED_CLIENT_TIMEOUT_MS,
+  type SseRouteOptions,
+} from "../sse-route.ts";
 
 const NO_ANONYMOUS_ENTITIES: SseRouteOptions = {
   anonymousLiveEntities: new Set(),
@@ -542,5 +552,87 @@ describe("sse-route access invalidation", () => {
 
     expect(recording.removeClientCalls).toBe(1);
     expect(recording.unsubscribeCalls).toBe(1);
+  });
+});
+
+describe("sse-route backpressure", () => {
+  const userUpdated = (n: number): SseEvent => ({
+    type: "user.updated",
+    data: {
+      id: `u${n}`,
+      aggregateType: "user",
+      version: n + 1,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+  });
+
+  async function openClients(clock: { now: number }) {
+    const local = createSseBroker();
+    let resolveNextAdded!: () => void;
+    let nextAdded = Promise.resolve();
+    const broker: SseBroker = {
+      ...local,
+      addClient(channel, send, close) {
+        const id = local.addClient(channel, send, close);
+        resolveNextAdded();
+        return id;
+      },
+    };
+    const { app, token } = await buildSseApp(broker, {
+      ...NO_ANONYMOUS_ENTITIES,
+      now: () => clock.now,
+    });
+    const open = async () => {
+      nextAdded = new Promise<void>((resolve) => {
+        resolveNextAdded = resolve;
+      });
+      const response = await app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await nextAdded;
+      return response.body!.getReader();
+    };
+    return { local, open, channel: tenantChannel(TestUsers.user.tenantId) };
+  }
+
+  test("a reading client receives a synchronous burst far above the old queue limit and stays connected", async () => {
+    const clock = { now: 0 };
+    const { local, open, channel } = await openClients(clock);
+    const reader = await open();
+
+    const burst = 1000;
+    for (let n = 0; n < burst; n++) local.pushToChannel(channel, userUpdated(n));
+
+    for (let n = 0; n < burst; n++) {
+      const frame = await readNextEntityFrame(reader);
+      expect(JSON.parse(frame.data).id).toBe(`u${n}`);
+    }
+    expect(local.getClientCount(channel)).toBe(1);
+    await reader.cancel();
+  });
+
+  test("a client without progress past the stall timeout is dropped and released while others keep receiving", async () => {
+    const clock = { now: 0 };
+    const { local, open, channel } = await openClients(clock);
+    await open();
+    const fastReader = await open();
+    expect(local.getClientCount(channel)).toBe(2);
+
+    for (let n = 0; n < 3; n++) {
+      local.pushToChannel(channel, userUpdated(n));
+      expect(JSON.parse((await readNextEntityFrame(fastReader)).data).id).toBe(`u${n}`);
+    }
+    expect(local.getClientCount(channel)).toBe(2);
+
+    // let the fast client's last write settle before the clock jumps
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    clock.now += SSE_STALLED_CLIENT_TIMEOUT_MS + 1;
+    local.pushToChannel(channel, userUpdated(3));
+    expect(JSON.parse((await readNextEntityFrame(fastReader)).data).id).toBe("u3");
+
+    expect(local.getClientCount(channel)).toBe(1);
+    local.pushToChannel(channel, userUpdated(4));
+    expect(JSON.parse((await readNextEntityFrame(fastReader)).data).id).toBe("u4");
+    await fastReader.cancel();
   });
 });

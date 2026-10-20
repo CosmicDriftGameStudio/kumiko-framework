@@ -4,7 +4,12 @@ import {
   type TemplateVariables,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { mailHeading, mailParagraph, mailRepeatedRows } from "../../shared/index.ts";
+import {
+  mailHeading,
+  mailParagraph,
+  mailParagraphWithLink,
+  mailRepeatedRows,
+} from "../../shared/index.ts";
 import { CONFIRMATION_LABELS } from "./confirmation-mail.ts";
 import { CONSENT_LOCALES, CONSENT_TEXTS, type ConsentLocale } from "./consent-text.ts";
 import { TERMINATION_TEXTS } from "./termination-texts.ts";
@@ -21,6 +26,7 @@ export const TERMINATION_RECEIPT_VARIABLES: TemplateVariables = {
   requestId: templateVariable.text({ required: true }),
   details: textRows(),
   operatorEmail: templateVariable.text({ required: true }),
+  revokeUrl: templateVariable.link(),
 };
 
 export const OPERATOR_NOTICE_VARIABLES: TemplateVariables = {
@@ -63,6 +69,10 @@ export function terminationReceiptTemplate(): NotificationLocalizedTemplate {
         mailRepeatedRows("details", "text"),
         mailParagraph(texts.receiptNextSteps),
         mailParagraph(texts.receiptRevoke(OPERATOR_EMAIL_SLOT)),
+        mailParagraphWithLink(texts.receiptNotMe, texts.receiptNotMeLink, "revokeUrl").replace(
+          "<p>",
+          '<p data-if="revokeUrl">',
+        ),
         mailParagraph(`${texts.contact} {operatorEmail}`),
       ].join(""),
     };

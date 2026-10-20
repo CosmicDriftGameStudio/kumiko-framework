@@ -36,6 +36,7 @@ import { type TerminationDeclaration, terminationReceiptVariables } from "./term
 import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.ts";
 import { mayMailReceipt } from "./termination-receipt-limit.ts";
 import type { RecordContractTerminationResult } from "./termination-record.ts";
+import { createRevocationToken, revocationUrl } from "./termination-revoke.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";
 
 const EXTRAORDINARY_REASON_MESSAGE = "reason is required for an extraordinary termination";
@@ -103,7 +104,10 @@ function needsOperatorNotice(declaration: {
   ];
 }
 
-type TerminationMailPlan = OperatorNoticePlan & { readonly declaration: TerminationDeclaration };
+type TerminationMailPlan = OperatorNoticePlan & {
+  readonly declaration: TerminationDeclaration;
+  readonly revokeUrl?: string;
+};
 
 async function sendTerminationMails(
   ctx: HandlerContext,
@@ -123,6 +127,7 @@ async function sendTerminationMails(
           terminationKind: plan.declaration.terminationKind,
         },
         operatorEmail: consumerProtection.operatorEmail,
+        ...(plan.revokeUrl !== undefined && { revokeUrl: plan.revokeUrl }),
       }),
       locale: plan.locale,
       priority: "critical",
@@ -133,7 +138,8 @@ async function sendTerminationMails(
     : [...plan.reasons, "receipt_rate_limited" as const];
   // skip: no operator notice needed for this declaration
   if (reasons.length === 0) return;
-  await notifyOperator(ctx, consumerProtection, { ...plan, reasons });
+  const { revokeUrl: _revokeUrl, ...noticePlan } = plan;
+  await notifyOperator(ctx, consumerProtection, { ...noticePlan, reasons });
 }
 
 // Tenants the entered email can terminate a contract for: tenants where the
@@ -206,6 +212,7 @@ export function createRequestContractTerminationHandler(
       const reasons: OperatorNoticeReason[] = [];
       const locale = resolveConsentLocale(payload.locale);
       let matchedTenantId: string | undefined;
+      let revokeUrl: string | undefined;
 
       const candidates = await findTerminableTenantIds(
         ctx,
@@ -216,12 +223,30 @@ export function createRequestContractTerminationHandler(
       const [onlyCandidate] = candidates;
       if (candidates.length === 1 && onlyCandidate !== undefined) {
         matchedTenantId = onlyCandidate;
+        const revocation = createRevocationToken();
         const declared = await ctx.writeAs(
           createSystemUser(onlyCandidate),
           SubscriptionFoundationHandlers.declareContractTermination,
-          { requestId, declarationType, terminationKind, receivedAtIso, locale },
+          {
+            requestId,
+            declarationType,
+            terminationKind,
+            receivedAtIso,
+            locale,
+            revocationTokenHash: revocation.tokenHash,
+          },
         );
-        if (!declared.isSuccess) reasons.push("recording_failed");
+        if (!declared.isSuccess) {
+          reasons.push("recording_failed");
+        } else if (options.baseUrl !== undefined) {
+          revokeUrl = revocationUrl({
+            baseUrl: options.baseUrl,
+            locale,
+            requestId,
+            token: revocation.token,
+            tenantId: onlyCandidate,
+          });
+        }
       } else {
         reasons.push(candidates.length === 0 ? "unmatched" : "ambiguous");
         const recorded = await ctx.writeAs(
@@ -256,6 +281,7 @@ export function createRequestContractTerminationHandler(
         },
         reasons,
         ...(matchedTenantId !== undefined && { tenantId: matchedTenantId }),
+        ...(revokeUrl !== undefined && { revokeUrl }),
       });
 
       return {

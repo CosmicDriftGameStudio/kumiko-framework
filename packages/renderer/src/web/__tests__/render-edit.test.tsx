@@ -494,7 +494,7 @@ describe("RenderEdit", () => {
     });
 
     expect(write).toHaveBeenCalledTimes(1);
-    expect(write).toHaveBeenCalledWith("order:create", expect.anything());
+    expect(write).toHaveBeenCalledWith("order:create", expect.anything(), expect.anything());
     expect(seenResults).toHaveLength(1);
     expect(seenResults[0]?.isSuccess).toBe(true);
   });

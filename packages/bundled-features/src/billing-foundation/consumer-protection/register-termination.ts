@@ -4,9 +4,11 @@ import {
   CONTRACT_TERMINATION_DECLARED_EVENT_QN,
   CONTRACT_TERMINATION_DECLARED_EVENT_SHORT,
   CONTRACT_TERMINATION_REQUESTED_EVENT_SHORT,
+  CONTRACT_TERMINATION_REVOKED_EVENT_SHORT,
   CONTRACT_TERMINATION_UNMATCHED_EVENT_SHORT,
   contractTerminationDeclaredPayloadSchema,
   contractTerminationRequestedPayloadSchema,
+  contractTerminationRevokedPayloadSchema,
   contractTerminationUnmatchedPayloadSchema,
 } from "../events.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
@@ -20,6 +22,10 @@ import {
   createRequestContractTerminationHandler,
   createTerminateContractHandler,
 } from "./termination-request.ts";
+import {
+  createRecordContractTerminationRevocationHandler,
+  createRevokeContractTerminationHandler,
+} from "./termination-revoke.ts";
 
 export function registerContractTermination(
   r: FeatureRegistrar,
@@ -36,6 +42,9 @@ export function registerContractTermination(
     contractTerminationDeclaredPayloadSchema,
     { piiFields: "none" },
   );
+  r.defineEvent(CONTRACT_TERMINATION_REVOKED_EVENT_SHORT, contractTerminationRevokedPayloadSchema, {
+    piiFields: "none",
+  });
   r.defineEvent(
     CONTRACT_TERMINATION_UNMATCHED_EVENT_SHORT,
     contractTerminationUnmatchedPayloadSchema,
@@ -47,6 +56,8 @@ export function registerContractTermination(
   r.writeHandler(createRecordUnmatchedContractTerminationHandler());
   r.writeHandler(createRequestContractTerminationHandler(options, consumerProtection));
   r.writeHandler(createTerminateContractHandler(options, consumerProtection));
+  r.writeHandler(createRevokeContractTerminationHandler());
+  r.writeHandler(createRecordContractTerminationRevocationHandler(options, consumerProtection));
 
   // The provider cancel of a public declaration runs here, not in the
   // request: matched and unmatched requests then do the same work and the

@@ -27,6 +27,10 @@ export type LiveEvent = {
   };
 };
 
+/** Synthetic eventType delivered to every subscribed entity after the stream
+ *  reconnected: frames during the gap are lost, so consumers must refetch. */
+export const LIVE_RESYNC_EVENT_TYPE = "live.resync";
+
 /** Abonniert Live-Events für eine Entity (aggregateType). Returnt die
  *  Unsubscribe-Funktion. Mehrere Subscriptions parallel auf dieselbe
  *  Entity sind erlaubt — jede bekommt ihr eigenes Event. */

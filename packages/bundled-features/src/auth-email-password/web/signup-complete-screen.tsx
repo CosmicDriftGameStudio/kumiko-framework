@@ -31,7 +31,7 @@ export type SignupCompleteScreenProps = {
   /** Where to send the user after activation. Function-form receives the tenantKey, the
    *  roles granted by this flow in that tenant, and the claimed `handover` entity when
    *  signup claimed a try-first grant. Default "/".
-   *  @deprecated Configure auth.postAuthLanding on the server; its landingPath wins.
+   *  @deprecated Removed in 0.390.0. Configure auth.postAuthLanding on the server; its landingPath wins.
    *  Kept as fallback until 0.390.0. */
   readonly loggedInHref?:
     | string

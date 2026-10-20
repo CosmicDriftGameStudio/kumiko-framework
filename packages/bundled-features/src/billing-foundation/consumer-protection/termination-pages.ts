@@ -6,6 +6,7 @@ import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headles
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
+import * as z from "zod";
 import {
   type PublicPageWrapLayout,
   redirectToCanonicalPath,
@@ -18,6 +19,11 @@ import { CONTRACT_TERMINATION_DECLARATION_TYPES, CONTRACT_TERMINATION_KINDS } fr
 import type { ConsentLocale } from "./consent-text.ts";
 import { formatReceivedAt } from "./termination-mail.ts";
 import { requestContractTerminationSchema } from "./termination-request.ts";
+import {
+  REVOCATION_PATHS,
+  type RevocationOutcome,
+  revokeContractTerminationSchema,
+} from "./termination-revoke.ts";
 import { type PageTexts, TERMINATION_TEXTS } from "./termination-texts.ts";
 
 export type ContractTerminationRoutesOptions = {
@@ -77,6 +83,8 @@ function pageHeaders(): Record<string, string> {
     ...headers,
     "content-security-policy": `${headers["content-security-policy"] ?? ""}; frame-ancestors 'none'; form-action 'self'`,
     "x-frame-options": "DENY",
+    // The revoke link carries its token in the query string.
+    "referrer-policy": "no-referrer",
   };
 }
 
@@ -302,17 +310,19 @@ function reentryHeaders(c: Context): Headers {
   return headers;
 }
 
-async function submitDeclaration(
+type PageApp = { fetch: (request: Request, env?: unknown) => Response | Promise<Response> };
+
+async function dispatchAnonymousWrite(
   c: Context,
-  app: { fetch: (request: Request, env?: unknown) => Response | Promise<Response> },
+  app: PageApp,
   clientIp: string,
-  values: FormValues,
-  locale: ConsentLocale,
-): Promise<
-  | { readonly kind: "received"; readonly requestId: string; readonly receivedAtIso: string }
-  | { readonly kind: "rate-limited" }
-  | { readonly kind: "failed" }
-> {
+  type: string,
+  payload: Record<string, string>,
+): Promise<{
+  readonly rateLimited: boolean;
+  readonly ok: boolean;
+  readonly data: WriteResponseBody["data"];
+}> {
   // deps.write only resolves a session user under /api/*; this page lives
   // outside it, so it re-enters the dispatcher through the app like the
   // user-export by-token route. The resolved clientIp as env keeps the
@@ -323,28 +333,156 @@ async function submitDeclaration(
     new Request(`${new URL(c.req.url).origin}/api/write`, {
       method: "POST",
       headers: reentryHeaders(c),
-      body: JSON.stringify({
-        type: SubscriptionFoundationHandlers.requestContractTermination,
-        payload: payloadOf(values, locale),
-      }),
+      body: JSON.stringify({ type, payload }),
     }),
     clientIp,
   );
   const parsed: WriteResponseBody | null = await response.json().catch(() => null);
-  if (response.status === 429 || parsed?.error?.code === RATE_LIMITED_CODE) {
-    return { kind: "rate-limited" };
-  }
-  const requestId = parsed?.data?.requestId;
-  const receivedAtIso = parsed?.data?.receivedAtIso;
-  if (
-    response.ok &&
-    parsed?.isSuccess === true &&
-    typeof requestId === "string" &&
-    typeof receivedAtIso === "string"
-  ) {
+  return {
+    rateLimited: response.status === 429 || parsed?.error?.code === RATE_LIMITED_CODE,
+    ok: response.ok && parsed?.isSuccess === true,
+    data: parsed?.data,
+  };
+}
+
+async function submitDeclaration(
+  c: Context,
+  app: PageApp,
+  clientIp: string,
+  values: FormValues,
+  locale: ConsentLocale,
+): Promise<
+  | { readonly kind: "received"; readonly requestId: string; readonly receivedAtIso: string }
+  | { readonly kind: "rate-limited" }
+  | { readonly kind: "failed" }
+> {
+  const response = await dispatchAnonymousWrite(
+    c,
+    app,
+    clientIp,
+    SubscriptionFoundationHandlers.requestContractTermination,
+    payloadOf(values, locale),
+  );
+  if (response.rateLimited) return { kind: "rate-limited" };
+  const requestId = response.data?.requestId;
+  const receivedAtIso = response.data?.receivedAtIso;
+  if (response.ok && typeof requestId === "string" && typeof receivedAtIso === "string") {
     return { kind: "received", requestId, receivedAtIso };
   }
   return { kind: "failed" };
+}
+
+const revocationOutcomeSchema = z.object({
+  outcome: z.enum(["revoked", "already-revoked", "too-late", "invalid"]),
+});
+
+type RevocationLinkValues = z.infer<typeof revokeContractTerminationSchema>;
+
+// Missing or malformed link parameters answer like a wrong token.
+function revocationValuesOf(source: Record<string, unknown>): RevocationLinkValues | null {
+  const text = (key: string): string => {
+    const value = source[key];
+    return typeof value === "string" ? value : "";
+  };
+  const parsed = revokeContractTerminationSchema.safeParse({
+    requestId: text("r"),
+    token: text("t"),
+    tenantId: text("tenant"),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+async function submitRevocation(
+  c: Context,
+  app: PageApp,
+  clientIp: string,
+  values: RevocationLinkValues,
+): Promise<RevocationOutcome | "rate-limited"> {
+  const response = await dispatchAnonymousWrite(
+    c,
+    app,
+    clientIp,
+    SubscriptionFoundationHandlers.revokeContractTermination,
+    values,
+  );
+  if (response.rateLimited) return "rate-limited";
+  const outcome = revocationOutcomeSchema.safeParse(response.data);
+  return response.ok && outcome.success ? outcome.data.outcome : "invalid";
+}
+
+function revokeConfirmPage(
+  ctx: PageContext,
+  revokePath: string,
+  values: RevocationLinkValues,
+): Response {
+  const { revoke } = TERMINATION_TEXTS[ctx.locale].page;
+  const hidden = (
+    [
+      ["r", values.requestId],
+      ["t", values.token],
+      ["tenant", values.tenantId],
+    ] as const
+  )
+    .map(
+      ([name, value]) =>
+        `<input type="hidden" name="${escapeHtmlAttr(name)}" value="${escapeHtmlAttr(value ?? "")}">`,
+    )
+    .join("\n");
+  const body = `<h1>${escapeHtml(revoke.confirmTitle)}</h1>
+<p>${escapeHtml(revoke.confirmLead)}</p>
+<form method="post" action="${escapeHtmlAttr(revokePath)}" data-kumiko-form="contract-termination-revoke">
+${hidden}
+<button type="submit" data-kumiko-button="revoke">${escapeHtml(revoke.confirmButton)}</button>
+</form>`;
+  return htmlResponse(ctx, revoke.confirmTitle, body, 200);
+}
+
+function revokeResultPage(ctx: PageContext, outcome: RevocationOutcome | "rate-limited"): Response {
+  const { page } = TERMINATION_TEXTS[ctx.locale];
+  const { revoke } = page;
+  const simple = (title: string, text: string, status: 200 | 400 | 429): Response =>
+    htmlResponse(ctx, title, `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p>`, status);
+  switch (outcome) {
+    case "revoked":
+      return simple(revoke.revokedTitle, revoke.revokedBody, 200);
+    case "already-revoked":
+      return simple(revoke.alreadyRevokedTitle, revoke.alreadyRevokedBody, 200);
+    case "too-late":
+      return simple(revoke.tooLateTitle, revoke.tooLateBody, 200);
+    case "rate-limited":
+      return simple(page.rateLimitedTitle, page.rateLimitedBody, 429);
+    case "invalid":
+      return simple(revoke.invalidTitle, revoke.invalidBody, 400);
+  }
+}
+
+// GET only renders the confirmation form: mail scanners prefetch links, so the
+// state change waits for the POST.
+function revokeRoutesFor(ctx: PageContext): AnonymousExtraRoute[] {
+  const revokePath = REVOCATION_PATHS[ctx.locale];
+  return [
+    {
+      method: "GET",
+      path: revokePath,
+      entry: "anonymous",
+      handler: (c) => {
+        const values = revocationValuesOf(c.req.query());
+        return values === null
+          ? revokeResultPage(ctx, "invalid")
+          : revokeConfirmPage(ctx, revokePath, values);
+      },
+    },
+    {
+      method: "POST",
+      path: revokePath,
+      entry: "anonymous",
+      handler: async (c, deps) => {
+        const values = revocationValuesOf(await c.req.parseBody());
+        if (values === null) return revokeResultPage(ctx, "invalid");
+        return revokeResultPage(ctx, await submitRevocation(c, deps.app, deps.clientIp, values));
+      },
+    },
+  ];
 }
 
 function routesFor(ctx: PageContext): AnonymousExtraRoute[] {
@@ -409,7 +547,8 @@ export function createContractTerminationRoutes(
     en: options.paths?.en ?? DEFAULT_PATHS.en,
   };
   const wrapLayout = options.wrapLayout ?? wrapInLayout;
-  return (["de", "en"] as const).flatMap((locale) =>
-    routesFor({ locale, path: alternates[locale], wrapLayout, alternates }),
-  );
+  return (["de", "en"] as const).flatMap((locale) => {
+    const pageContext = { locale, path: alternates[locale], wrapLayout, alternates };
+    return [...routesFor(pageContext), ...revokeRoutesFor(pageContext)];
+  });
 }
