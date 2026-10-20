@@ -51,12 +51,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "audit.log.detail.field.id": "Event ID",
   "audit.log.detail.metadata": "Metadata",
   "audit.log.detail.payload": "Event payload",
-  "audit.log.description":
-    "Table of the tenant's audit events with actor names and event-type and date filters; open a row to see a single event.",
-  "audit.log.allTenants.description":
-    "Table of audit events across all tenants with tenant and actor names and tenant and date filters; open a row to see a single event.",
-  "audit.log.detail.subtitle":
-    "Read-only detail view of one audit event showing actor, timestamp, aggregate and the raw event payload and metadata; reached from a row of the audit log.",
+  "audit.log.description": "All events of this tenant. A row opens the details.",
+  "audit.log.allTenants.description": "All events of all tenants. A row opens the details.",
+  "audit.log.detail.subtitle": "One event with its actor, time and stored data.",
   "audit.log.details": "Details",
   "audit:nav.auditLog": "Audit",
   "audit:nav.auditLogAllTenants": "Audit log (all tenants)",
@@ -535,6 +532,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.validation.number.min": "Must be at least {minimum}.",
   "kumiko.validation.number.max": "Must be {maximum} or less.",
   "errors.validation.too_small": "Too small or too short (minimum: {minimum}).",
+  "errors.validation.list_min_rows.one": "At least 1 row required.",
+  "errors.validation.list_min_rows.other": "At least {minimum} rows required.",
   "errors.validation.unexpected_field": "Unknown field.",
   "errors.validation.unrecognized_keys": "Unknown fields.",
   "errors.versionConflict": "The record was modified in the meantime. Reload and try again.",
@@ -835,6 +834,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.planCard.priceUnavailable": "Price not available",
   "kumiko.reference.system-tenant": "System",
   "kumiko.reference.system-user": "System",
+  "kumiko.reference.unknown-user": "Unknown",
   "kumiko.rowAction.failed": "Action failed",
   "kumiko.clientAction.success": "Done.",
   "kumiko.clientAction.unregistered": "This action is not available in this app.",

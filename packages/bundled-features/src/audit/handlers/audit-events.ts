@@ -3,7 +3,7 @@
 // that differs per handler and is passed in.
 //
 // Event payloads hold PII as subject-KMS ciphertext; it is replaced by
-// REDACTED_PII_PLACEHOLDER before returning, since the API leak guard refuses ciphertext.
+// REDACTED_PII_PLACEHOLDER before returning (payload and metadata), since the API leak guard refuses ciphertext.
 
 import { selectMany, type TenantDb, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -13,9 +13,12 @@ import { redactPiiCiphertext } from "../../shared/index.ts";
 
 const MAX_LIMIT = 100;
 
+// At most 18 digits keeps the id inside bigint, so an oversized cursor or id is a 422, not a 500.
+const CURSOR_PATTERN = /^\d{1,18}$/;
+
 export const auditListPayloadShape = {
-  cursor: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
-  before: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
+  cursor: z.string().regex(CURSOR_PATTERN, "cursor must be a positive integer").optional(),
+  before: z.string().regex(CURSOR_PATTERN, "cursor must be a positive integer").optional(),
   search: z.string().trim().optional(),
   limit: z.number().int().min(1).max(MAX_LIMIT).default(50),
   aggregateType: z.string().optional(),
@@ -28,7 +31,9 @@ export const auditListPayloadShape = {
   to: z.iso.datetime().optional(),
 } as const;
 
-export const auditEventIdSchema = z.string().regex(/^[1-9]\d*$/, "id must be a positive integer");
+export const auditEventIdSchema = z
+  .string()
+  .regex(/^[1-9]\d{0,17}$/, "id must be a positive integer");
 
 export const AUDIT_DATE_RANGE_CHECK = {
   isValid: (v: { from?: string | undefined; to?: string | undefined }): boolean =>
@@ -109,7 +114,7 @@ export function serializeAuditEvent(r: AuditEventRow) {
     version: r.version,
     type: r.type,
     payload: redactPiiCiphertext(r.payload),
-    metadata: r.metadata,
+    metadata: redactPiiCiphertext(r.metadata),
     createdAt: r.createdAt,
     createdBy: r.createdBy,
   };

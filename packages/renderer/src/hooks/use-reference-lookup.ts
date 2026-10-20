@@ -67,7 +67,11 @@ export function useReferenceLookup(
   featureName: string,
   refEntity: string,
   labelField: string,
-): { readonly map: ReferenceLookupMap; readonly loading: boolean } {
+): {
+  readonly map: ReferenceLookupMap;
+  readonly loading: boolean;
+  readonly failed: boolean;
+} {
   const { queryQn, labelKey } = referenceLookupSource(featureName, refEntity, labelField);
   const result = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
     limit: REFERENCE_LIST_LOOKUP_LIMIT,
@@ -88,8 +92,12 @@ export function useReferenceLookup(
     }
     // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row, so
     // the bulk lookup above never covers them — inject the label directly.
-    if (systemLabel !== undefined) out.set(systemLabel.id, translate(systemLabel.labelKey));
+    if (systemLabel !== undefined) {
+      for (const id of [systemLabel.id, ...(systemLabel.aliases ?? [])]) {
+        out.set(id, translate(systemLabel.labelKey));
+      }
+    }
     return out;
   }, [result.data, labelKey, systemLabel, translate]);
-  return { map, loading: result.loading };
+  return { map, loading: result.loading, failed: result.error !== null };
 }

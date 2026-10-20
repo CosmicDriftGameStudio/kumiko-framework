@@ -1,7 +1,8 @@
-import type {
-  EntityDefinition,
-  EntityListScreenDefinition,
-  IconKey,
+import {
+  type EntityDefinition,
+  type EntityListScreenDefinition,
+  type IconKey,
+  UNRESOLVED_REFERENCE_LABEL_KEYS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
@@ -318,6 +319,16 @@ export function RenderList(props: RenderListProps): ReactNode {
       // nur wenn keiner gesetzt ist.
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
+      const unknownKey =
+        UNRESOLVED_REFERENCE_LABEL_KEYS[`${col.refFeature ?? featureName}:${col.refEntity ?? ""}`];
+      // No raw id for entities that opt in: a placeholder while the lookup
+      // loads, the "unknown" label once it found nothing.
+      const unresolvedLabel = (id: string): string =>
+        unknownKey === undefined
+          ? id
+          : map === undefined
+            ? EMPTY_VALUE_PLACEHOLDER
+            : translate(unknownKey);
       const labelField = col.refLabelField ?? "id";
       const refEntity = col.refEntity ?? "";
       // Only a row the user can see is linkable: resolved by the server
@@ -345,7 +356,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         return value.map((v): CellLinkItem => {
           const id = String(v);
           const target = eagerById.get(id);
-          const label = String(target?.[labelField] ?? map?.get(id) ?? id);
+          const label = String(target?.[labelField] ?? map?.get(id) ?? unresolvedLabel(id));
           // Only a row the user can see is linkable: server eagerload or lookup query.
           const link =
             target !== undefined || map?.has(id) === true
@@ -373,15 +384,22 @@ export function RenderList(props: RenderListProps): ReactNode {
         // Renderer-Side-Fallback (kein Server-Eagerload aktiv).
         if (Array.isArray(value)) {
           if (value.length === 0) return EMPTY_VALUE_PLACEHOLDER;
-          return value.map((v) => map?.get(String(v)) ?? String(v)).join(", ");
+          return value.map((v) => map?.get(String(v)) ?? unresolvedLabel(String(v))).join(", ");
         }
         if (value === null || value === undefined || value === "") return EMPTY_VALUE_PLACEHOLDER;
         const idStr = String(value);
-        return map?.get(idStr) ?? idStr;
+        return map?.get(idStr) ?? unresolvedLabel(idStr);
       };
       return { ...col, renderer, linkFor, linkItemsFor };
     });
-  }, [vm.columns, referenceColumns, referenceLookups, resolveReferenceLink]);
+  }, [
+    vm.columns,
+    referenceColumns,
+    referenceLookups,
+    resolveReferenceLink,
+    featureName,
+    translate,
+  ]);
   const enrichedVm = useMemo(
     (): Omit<ListViewModel, "columns"> & { columns: readonly ListColumnViewModel[] } => ({
       ...vm,
@@ -642,9 +660,12 @@ function ReferenceLookupBridge({
   // useEffect statt direktem call damit setState außerhalb des Render-
   // Pfads passiert (sonst React-Warning "Cannot update a component
   // while rendering a different component").
+  // Unpublished while loading or after a failed lookup: the renderer treats a missing map as
+  // "not resolved", an empty published map as "nothing found". Only the latter may say "Unknown".
+  const resolved = !lookup.loading && !lookup.failed;
   useEffect(() => {
-    onMap(field, lookup.map);
-  }, [field, lookup.map, onMap]);
+    if (resolved) onMap(field, lookup.map);
+  }, [field, lookup.map, resolved, onMap]);
   return null;
 }
 

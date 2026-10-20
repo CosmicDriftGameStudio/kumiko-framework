@@ -12,7 +12,7 @@ import {
   SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, RuntimeRenderer } from "../../headless/index.ts";
@@ -38,6 +38,8 @@ const DELETED_USER_ID = "33333333-3333-4333-8333-333333333333";
 const ERASED_TENANT_ID = "44444444-4444-4444-8444-444444444444";
 
 let capturedProps: DataTableProps | undefined;
+let memberDirectoryFails = false;
+let failedDirectoryCalls = 0;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
   capturedProps = props;
   return null;
@@ -102,6 +104,13 @@ function stubDispatcher(): Dispatcher {
       // user:user resolves through the tenant-scoped member directory, not the
       // SystemAdmin-only user:query:user:list a TenantAdmin can't call (fw#3107).
       if (type === "tenant:query:member-directory") {
+        if (memberDirectoryFails) {
+          failedDirectoryCalls += 1;
+          return {
+            isSuccess: false,
+            error: { code: "access_denied", message: "denied" },
+          };
+        }
         return {
           isSuccess: true,
           data: { rows: [{ id: REAL_USER_ID, label: "Ada Lovelace" }], nextCursor: null },
@@ -231,13 +240,38 @@ describe("actor column resolves display names (fw#3103)", () => {
     });
   });
 
-  test("an unresolvable actor (deleted user) falls back to the raw id without throwing", async () => {
+  test("a failed directory lookup never claims the actor is unknown", async () => {
+    capturedProps = undefined;
+    memberDirectoryFails = true;
+    failedDirectoryCalls = 0;
+    try {
+      renderLogScreen(ACTOR_COLUMN);
+      await waitFor(() => expect(failedDirectoryCalls).toBeGreaterThan(0));
+      // Let the failed result reach the hook's state before reading the cell.
+      await act(async () => {});
+      // The cell keeps its placeholder instead of claiming "Unknown".
+      expect(actorCell(REAL_USER_ID)).toBe("—");
+    } finally {
+      memberDirectoryFails = false;
+    }
+  });
+
+  test("the literal system actor resolves to the system label", async () => {
+    capturedProps = undefined;
+    renderLogScreen(ACTOR_COLUMN);
+
+    await waitFor(() => {
+      expect(actorCell("system")).toBe("System");
+    });
+  });
+
+  test("an unresolvable actor (deleted user, seed actor) reads Unknown, never the raw id", async () => {
     capturedProps = undefined;
     renderLogScreen(ACTOR_COLUMN);
 
     await waitFor(() => {
       expect(actorCell(REAL_USER_ID)).toBe("Ada Lovelace");
     });
-    expect(actorCell(DELETED_USER_ID)).toBe(DELETED_USER_ID);
+    expect(actorCell(DELETED_USER_ID)).toBe("Unknown");
   });
 });

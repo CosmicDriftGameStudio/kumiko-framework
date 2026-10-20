@@ -241,10 +241,23 @@ export function fieldToZod(
       // whether the key may be omitted at all is decided by buildInsertSchema
       // off the same flag. `minItems` overrides that default when set.
       let list = z.array(row);
-      const min = field.minItems ?? (field.required === true ? 1 : undefined);
-      if (min !== undefined) list = list.min(min);
       if (field.maxItems !== undefined) list = list.max(field.maxItems);
-      return list;
+      const min = field.minItems ?? (field.required === true ? 1 : undefined);
+      if (min === undefined) return list;
+      // A custom issue rather than min(): other arrays (multiSelect) share zod's
+      // too_small and must not read "rows"; the bridge honours params.i18nKey.
+      return list.superRefine((rows, ctx) => {
+        // skip: the minimum is met, nothing to report
+        if (rows.length >= min) return;
+        ctx.addIssue({
+          code: "custom",
+          input: rows,
+          params: {
+            i18nKey: `errors.validation.list_min_rows.${min === 1 ? "one" : "other"}`,
+            minimum: min,
+          },
+        });
+      });
     }
     case "jsonb": {
       // Free-form jsonb — keys sind tenant-/runtime-defined. Validation

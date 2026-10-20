@@ -53,12 +53,10 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "audit.log.detail.field.id": "ID evento",
   "audit.log.detail.metadata": "Metadati",
   "audit.log.detail.payload": "Payload dell'evento",
-  "audit.log.description":
-    "Tabella degli eventi di audit dell'organizzazione con nomi degli attori e filtri per tipo di evento e data; apri una riga per vedere un singolo evento.",
+  "audit.log.description": "Tutti gli eventi di questa organizzazione. Una riga apre i dettagli.",
   "audit.log.allTenants.description":
-    "Tabella degli eventi di audit di tutte le organizzazioni con nomi di organizzazioni e attori e filtri per organizzazione e data; apri una riga per vedere un singolo evento.",
-  "audit.log.detail.subtitle":
-    "Vista di dettaglio in sola lettura di un evento di audit con attore, timestamp, aggregato, payload e metadati grezzi dell'evento; si apre da una riga del registro di audit.",
+    "Tutti gli eventi di tutte le organizzazioni. Una riga apre i dettagli.",
+  "audit.log.detail.subtitle": "Un singolo evento con il suo attore, data e dati registrati.",
   "audit.log.details": "Dettagli",
   "audit:nav.auditLog": "Registro di audit",
   "audit:nav.auditLogAllTenants": "Registro di audit (tutte le organizzazioni)",
@@ -555,6 +553,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.validation.number.min": "Deve essere almeno {minimum}.",
   "kumiko.validation.number.max": "Deve essere {maximum} o meno.",
   "errors.validation.too_small": "Troppo piccolo o troppo corto (minimo: {minimum}).",
+  "errors.validation.list_min_rows.one": "È richiesta almeno 1 riga.",
+  "errors.validation.list_min_rows.other": "Sono richieste almeno {minimum} righe.",
   "errors.validation.unexpected_field": "Campo sconosciuto.",
   "errors.validation.unrecognized_keys": "Campi sconosciuti.",
   "errors.versionConflict": "Il record è stato modificato nel frattempo. Ricarica e riprova.",
@@ -859,6 +859,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.planCard.priceUnavailable": "Prezzo non disponibile",
   "kumiko.reference.system-tenant": "Sistema",
   "kumiko.reference.system-user": "Sistema",
+  "kumiko.reference.unknown-user": "Sconosciuto",
   "kumiko.rowAction.failed": "Azione non riuscita",
   "kumiko.clientAction.success": "Fatto.",
   "kumiko.clientAction.unregistered": "Questa azione non è disponibile in questa app.",

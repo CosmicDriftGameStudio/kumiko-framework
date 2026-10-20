@@ -53,12 +53,11 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "audit.log.detail.field.id": "ID de l'événement",
   "audit.log.detail.metadata": "Métadonnées",
   "audit.log.detail.payload": "Payload de l'événement",
-  "audit.log.description":
-    "Tableau des événements d'audit du locataire avec les noms des acteurs et des filtres par type d'événement et par date ; ouvrez une ligne pour voir un événement.",
+  "audit.log.description": "Tous les événements de ce locataire. Une ligne ouvre les détails.",
   "audit.log.allTenants.description":
-    "Tableau des événements d'audit de tous les locataires avec les noms des locataires et des acteurs et des filtres par locataire et par date ; ouvrez une ligne pour voir un événement.",
+    "Tous les événements de tous les locataires. Une ligne ouvre les détails.",
   "audit.log.detail.subtitle":
-    "Vue détaillée en lecture seule d'un événement d'audit avec l'acteur, l'horodatage, l'agrégat ainsi que le payload et les métadonnées bruts de l'événement ; accessible depuis une ligne du journal d'audit.",
+    "Un événement avec son acteur, son horodatage et ses données enregistrées.",
   "audit.log.details": "Détails",
   "audit:nav.auditLog": "Journal d'audit",
   "audit:nav.auditLogAllTenants": "Journal d'audit (tous les locataires)",
@@ -564,6 +563,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.validation.number.min": "Doit être au moins {minimum}.",
   "kumiko.validation.number.max": "Doit être {maximum} ou moins.",
   "errors.validation.too_small": "Trop petit ou trop court (minimum : {minimum}).",
+  "errors.validation.list_min_rows.one": "Au moins 1 ligne est requise.",
+  "errors.validation.list_min_rows.other": "Au moins {minimum} lignes sont requises.",
   "errors.validation.unexpected_field": "Champ inconnu.",
   "errors.validation.unrecognized_keys": "Champs inconnus.",
   "errors.versionConflict": "L'enregistrement a été modifié entre-temps. Rechargez et réessayez.",
@@ -870,6 +871,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.planCard.priceUnavailable": "Prix non disponible",
   "kumiko.reference.system-tenant": "Système",
   "kumiko.reference.system-user": "Système",
+  "kumiko.reference.unknown-user": "Inconnu",
   "kumiko.rowAction.failed": "Échec de l'action",
   "kumiko.clientAction.success": "Terminé.",
   "kumiko.clientAction.unregistered": "Cette action n'est pas disponible dans cette application.",

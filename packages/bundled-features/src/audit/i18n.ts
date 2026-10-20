@@ -7,13 +7,13 @@ export const AUDIT_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:audit-log.title": { en: "Audit log" },
   "screen:audit-log-detail.title": { en: "Event" },
   "audit.log.description": {
-    en: "Table of the tenant's audit events with actor names and event-type and date filters; open a row to see a single event.",
+    en: "All events of this tenant. A row opens the details.",
   },
   "audit.log.allTenants.description": {
-    en: "Table of audit events across all tenants with tenant and actor names and tenant and date filters; open a row to see a single event.",
+    en: "All events of all tenants. A row opens the details.",
   },
   "audit.log.detail.subtitle": {
-    en: "Read-only detail view of one audit event showing actor, timestamp, aggregate and the raw event payload and metadata; reached from a row of the audit log.",
+    en: "One event with its actor, time and stored data.",
   },
   "audit.errors.systemScopeRequiresSystemAdmin": {
     en: "Only SystemAdmin may read system events.",

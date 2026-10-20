@@ -52,12 +52,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "audit.log.detail.field.id": "Ereignis-ID",
   "audit.log.detail.metadata": "Metadaten",
   "audit.log.detail.payload": "Ereignis-Payload",
-  "audit.log.description":
-    "Tabelle der Ereignisse dieses Mandanten mit Akteursnamen sowie Ereignistyp- und Datumsfiltern; eine Zeile öffnet das einzelne Ereignis.",
+  "audit.log.description": "Alle Ereignisse dieses Mandanten. Eine Zeile öffnet die Details.",
   "audit.log.allTenants.description":
-    "Tabelle der Ereignisse aller Mandanten mit Mandanten- und Akteursnamen sowie Mandanten- und Datumsfiltern; eine Zeile öffnet das einzelne Ereignis.",
+    "Alle Ereignisse aller Mandanten. Eine Zeile öffnet die Details.",
   "audit.log.detail.subtitle":
-    "Schreibgeschützte Detailansicht eines Ereignisses mit Akteur, Zeitstempel, Aggregat sowie rohem Event-Payload und Metadaten; erreichbar über eine Zeile im Ereignisprotokoll.",
+    "Ein einzelnes Ereignis mit Akteur, Zeitpunkt und gespeicherten Daten.",
   "audit.log.details": "Details",
   "audit:nav.auditLog": "Ereignisprotokoll",
   "audit:nav.auditLogAllTenants": "Ereignisprotokoll (alle Mandanten)",
@@ -558,6 +557,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.validation.number.min": "Muss mindestens {minimum} sein.",
   "kumiko.validation.number.max": "Darf höchstens {maximum} sein.",
   "errors.validation.too_small": "Zu klein oder zu kurz. Mindestens erforderlich: {minimum}.",
+  "errors.validation.list_min_rows.one": "Mindestens 1 Zeile erforderlich.",
+  "errors.validation.list_min_rows.other": "Mindestens {minimum} Zeilen erforderlich.",
   "errors.validation.unexpected_field": "Unbekanntes Feld.",
   "errors.validation.unrecognized_keys": "Unbekannte Felder.",
   "errors.versionConflict":
@@ -864,6 +865,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.planCard.priceUnavailable": "Preis nicht verfügbar",
   "kumiko.reference.system-tenant": "System",
   "kumiko.reference.system-user": "System",
+  "kumiko.reference.unknown-user": "Unbekannt",
   "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
   "kumiko.clientAction.success": "Erledigt.",
   "kumiko.clientAction.unregistered": "Diese Aktion ist in dieser App nicht verfügbar.",

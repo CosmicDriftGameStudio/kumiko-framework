@@ -21,11 +21,11 @@ object and an embedded list rendered by a declarative `entityEdit` screen.
 
 - **Derived head totals** (`src/screens/invoice-receive.screen.ts`): an
   `actionForm` declares `derive` so net, VAT, and gross follow the lines
-  (`listSum`), or follow a typed net and VAT rate while the list is empty
-  (`whenEmpty`, `percent`). The renderer shows them read-only and live; the
-  handler wraps its schema with `withFormDerivations(schema, screen)`
-  (`src/handlers/invoice-receive.write.ts`), so totals sent by the client are
-  replaced on the server.
+  (`listSum`); the list requires at least one line (`minItems: 1`), so there
+  is no lineless input to cover. The head totals are not laid out; the lines footer shows Net, VAT, and Gross through labelled `totals`
+  entries (`{ label, from }`). The handler wraps its schema with
+  `withFormDerivations(schema, screen)` (`src/handlers/invoice-receive.write.ts`),
+  so totals sent by the client are replaced on the server.
 
 ## When to reach for it
 

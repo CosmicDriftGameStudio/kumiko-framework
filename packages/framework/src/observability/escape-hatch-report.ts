@@ -18,7 +18,7 @@ const DEFAULT_WINDOW_MS = 60_000;
 const DEFAULT_MAX_ENTRIES = 1_000;
 
 export type EscapeHatchReportWindow = {
-  shouldReport(key: string, nowMs: number): boolean;
+  shouldReport(key: string, nowMs: number, windowMs?: number): boolean;
 };
 
 // Dedups identical (handler,kind,reason,tenant,actor,target) reports within the window so hot systemScope queries don't write one row per request.
@@ -32,11 +32,11 @@ export function createEscapeHatchReportWindow(opts?: {
   const entries = new Map<string, number>();
 
   return {
-    shouldReport(key, nowMs) {
+    shouldReport(key, nowMs, keyWindowMs = windowMs) {
       const expiresAt = entries.get(key);
       if (expiresAt !== undefined && expiresAt > nowMs) return false;
       entries.delete(key);
-      entries.set(key, nowMs + windowMs);
+      entries.set(key, nowMs + keyWindowMs);
       while (entries.size > maxEntries) {
         const oldestKey = entries.keys().next().value;
         if (oldestKey === undefined) break;
@@ -46,6 +46,17 @@ export function createEscapeHatchReportWindow(opts?: {
     },
   };
 }
+
+// Cross-tenant reads without a target (every reference lookup of a SystemAdmin list is one)
+// repeat on each page load. One event per actor and hour keeps the trace that a SystemAdmin read
+// other tenants without flooding the audit view; the in-memory window means one event per
+// instance with several instances, which is acceptable. Writes, identity switches and anything
+// aimed at a target keep the short window.
+const READ_WINDOW_MS = 60 * 60 * 1000;
+const READ_WINDOW_KINDS: ReadonlySet<EscapeHatchKind> = new Set([
+  "acknowledge-cross-tenant",
+  "cross-tenant-read",
+]);
 
 // A long-lived worker must leave an audit event inside every retention window
 // (90 days), or its crons vanish from the log once the first event is pruned.
@@ -227,8 +238,9 @@ export function createEscapeHatchReporter(opts: {
       target?.id ?? null,
       target?.tenantId ?? null,
     ]);
+    const isTargetlessRead = READ_WINDOW_KINDS.has(kind) && target === undefined;
     // skip: same (handler, kind, reason, target) already reported within the window — dedup
-    if (!window.shouldReport(key, now())) return;
+    if (!window.shouldReport(key, now(), isTargetlessRead ? READ_WINDOW_MS : undefined)) return;
     reportEscapeHatchUse(eventFor(kind, reason, target), deps);
   };
 }

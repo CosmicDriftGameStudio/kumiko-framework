@@ -12,7 +12,6 @@ export const receiveInvoicePayloadSchema = withFormDerivations(
     invoiceNumber: z.string().min(1),
     lines: fieldToZod(receiveInvoiceLines, ["EUR"]),
     netTotal: moneyPayload,
-    vatRate: z.number().optional(),
     vatTotal: moneyPayload,
     grossTotal: moneyPayload,
   }),

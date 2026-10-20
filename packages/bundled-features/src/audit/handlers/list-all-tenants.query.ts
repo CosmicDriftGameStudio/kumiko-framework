@@ -12,13 +12,15 @@ import {
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { allTenantsCondition, assertMayReadAllTenants } from "./resolve-audit-tenant.ts";
 
+const MAX_TENANT_FILTER_IDS = 100;
+
 // The reference facet on the tenant column sends exactly this shape.
 const tenantIdFiltersSchema = z
   .array(
     z.strictObject({
       field: z.literal("tenantId"),
       op: z.literal("in"),
-      value: z.array(z.uuid()),
+      value: z.array(z.uuid()).max(MAX_TENANT_FILTER_IDS),
     }),
   )
   .max(1);

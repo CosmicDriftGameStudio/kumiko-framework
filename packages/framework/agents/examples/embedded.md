@@ -29,11 +29,11 @@ object and an embedded list rendered by a declarative `entityEdit` screen.
 
 - **Derived head totals** (`src/screens/invoice-receive.screen.ts`): an
   `actionForm` declares `derive` so net, VAT, and gross follow the lines
-  (`listSum`), or follow a typed net and VAT rate while the list is empty
-  (`whenEmpty`, `percent`). The renderer shows them read-only and live; the
-  handler wraps its schema with `withFormDerivations(schema, screen)`
-  (`src/handlers/invoice-receive.write.ts`), so totals sent by the client are
-  replaced on the server.
+  (`listSum`); the list requires at least one line (`minItems: 1`), so there
+  is no lineless input to cover. The head totals are not laid out; the lines footer shows Net, VAT, and Gross through labelled `totals`
+  entries (`{ label, from }`). The handler wraps its schema with
+  `withFormDerivations(schema, screen)` (`src/handlers/invoice-receive.write.ts`),
+  so totals sent by the client are replaced on the server.
 
 ## When to reach for it
 
@@ -439,35 +439,25 @@ describe("invoice receive form derives its totals on the server", () => {
     });
   });
 
-  test("without lines, the typed net stays and VAT and gross are computed from the rate", async () => {
-    const totals = await stack.http.writeOk<ReceiveTotals>(
+  test("an invoice without lines is rejected, the totals have nothing to derive from", async () => {
+    const error = await stack.http.writeErr(
       "contacts:write:invoice:receive",
-      { ...head, lines: [], netTotal: eur(100), vatRate: 19, vatTotal: eur(0), grossTotal: eur(0) },
+      { ...head, lines: [], netTotal: eur(100), vatTotal: eur(0), grossTotal: eur(0) },
       admin,
     );
-    expect(totals).toEqual({ netTotal: eur(100), vatTotal: eur(19), grossTotal: eur(119) });
-  });
-
-  test("a stale gross total is overwritten", async () => {
-    const totals = await stack.http.writeOk<ReceiveTotals>(
-      "contacts:write:invoice:receive",
-      {
-        ...head,
-        lines: [],
-        netTotal: eur(50),
-        vatRate: 20,
-        vatTotal: eur(0),
-        grossTotal: eur(999),
-      },
-      admin,
-    );
-    expect(totals.grossTotal).toEqual(eur(60));
+    expect(error.code).toBe("validation_error");
   });
 
   test("a caller without the Admin role is rejected", async () => {
     const error = await stack.http.writeErr(
       "contacts:write:invoice:receive",
-      { ...head, lines: [], netTotal: eur(50), vatRate: 20, vatTotal: eur(0), grossTotal: eur(0) },
+      {
+        ...head,
+        lines: [{ description: "Paper", amount: 1005, vatRate: 19 }],
+        netTotal: eur(0),
+        vatTotal: eur(0),
+        grossTotal: eur(0),
+      },
       viewer,
     );
     expect(error.code).toBe("access_denied");
@@ -752,7 +742,6 @@ const receiveInput = withFormDerivations(
     invoiceNumber: z.string().min(1),
     lines: fieldToZod(invoiceReceiveLines, ["EUR"]),
     netTotal: moneyPayload,
-    vatRate: z.number().optional(),
     vatTotal: moneyPayload,
     grossTotal: moneyPayload,
   }),
@@ -779,7 +768,6 @@ export const invoiceReceive = defineWriteHandler({
 ```ts
 import {
   type ActionFormScreenDefinition,
-  createDecimalField,
   createEmbeddedListField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -794,13 +782,18 @@ export const invoiceReceiveLines = createEmbeddedListField(
     vatAmount: { type: "money" },
   },
   {
+    minItems: 1,
     derived: { vatAmount: { op: "percent", from: ["amount", "vatRate"] } },
-    totals: ["amount", "vatAmount"],
+    totals: [
+      { label: "invoice.total.net", from: ["amount"] },
+      { label: "invoice.total.vat", from: ["vatAmount"] },
+      { label: "invoice.total.gross", from: ["amount", "vatAmount"] },
+    ],
   },
 );
 
-// Net/VAT/gross are derived: with line items they are the sum of the lines,
-// without lines the net amount and the VAT rate are typed and VAT/gross follow.
+// Net/VAT/gross are derived on the server from the lines (at least one is required)
+// and shown only in the list footer, so the head totals are declared but not laid out.
 export const invoiceReceiveScreen: ActionFormScreenDefinition = {
   id: "invoice-receive",
   type: "actionForm",
@@ -814,25 +807,18 @@ export const invoiceReceiveScreen: ActionFormScreenDefinition = {
     }),
     lines: invoiceReceiveLines,
     netTotal: { type: "money", currency: euro },
-    vatRate: createDecimalField({ precision: 5, scale: 2 }),
     vatTotal: { type: "money", currency: euro },
     grossTotal: { type: "money", currency: euro },
   },
   derive: {
     netTotal: { op: "listSum", list: "lines", cell: "amount" },
-    vatTotal: {
-      op: "listSum",
-      list: "lines",
-      cell: "vatAmount",
-      whenEmpty: { op: "percent", from: ["netTotal", "vatRate"] },
-    },
+    vatTotal: { op: "listSum", list: "lines", cell: "vatAmount" },
     grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] },
   },
   layout: {
     sections: [
       { columns: 2, fields: ["supplier", "invoiceNumber"] },
       { columns: 1, fields: ["lines"] },
-      { columns: 2, fields: ["netTotal", "vatRate", "vatTotal", "grossTotal"] },
     ],
   },
 };
