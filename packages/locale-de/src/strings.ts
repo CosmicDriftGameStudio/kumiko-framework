@@ -460,6 +460,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Wähle einen Anbieter. Seine Einstellungen erscheinen darunter und werden mit ihm gespeichert.",
   "config.settings.provider": "Anbieter",
+  "config.settings.provider.platformDefault": "Plattform (Standard)",
   "config.settings.system": "Plattform",
   "config.settings.tenant": "Mandant",
   "config.settings.title": "Einstellungen",
@@ -1208,6 +1209,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieser Link ist ungültig oder abgelaufen. Bitte den Abmeldelink aus einer neueren E-Mail verwenden.",
   "templateResolver.errors.systemOnlyTemplate":
     "Diese Vorlage pflegt nur die Plattform; sie lässt sich nicht pro Mandant überschreiben.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Diese Vorlage darf nur die Plattform bearbeiten.",
   "templateResolver.errors.template.targetExists":
     "Für die Sprache „{detail}“ gibt es schon eine Vorlage; überschreibe sie ausdrücklich, um sie zu ersetzen.",
   "templateResolver.warnings.resourceNotUploaded": "Bild nicht hochgeladen: {detail}",
@@ -1826,13 +1829,14 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Zu viele Test-Mails, bitte später erneut versuchen.",
   "screen:mail-foundation-tenant.title": "E-Mail-Versand",
   "mail-foundation.settings": "E-Mail-Versand",
-  "mail-foundation.provider": "Eigener Mailserver",
+  "mail-foundation.provider": "Versand über",
   "mail-foundation.provider.description":
-    "Ohne eigenen Server verschickt die Plattform die Mails. Setz die Auswahl zurück, um dorthin zurückzukehren.",
+    "Lege fest, über wen deine E-Mails verschickt werden. Der Plattform-Versand braucht keine eigenen Einstellungen.",
+  "mail-foundation.provider.platformDefault": "Plattform-Versand (Standard)",
   "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",
-  "mail-transport-smtp.settings": "SMTP-Server",
-  "screen:mail-foundation-tenant-selection.title": "Anbieter",
-  "config:entity:__config-edit__:field:provider:option:smtp": "SMTP-Server",
+  "mail-transport-smtp.settings": "Eigener SMTP-Server",
+  "config:entity:__config-edit__:field:provider:option:": "Plattform-Versand (Standard)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Eigener SMTP-Server",
   "mail-transport-smtp.settings.secrets": "SMTP-Anmeldung",
   "mail-transport-smtp.settings.description":
     "Die Zugangsdaten bekommst du von deinem Mail-Anbieter, zum Beispiel Brevo, Postmark, Amazon SES oder deinem eigenen Server.",

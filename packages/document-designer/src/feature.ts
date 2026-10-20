@@ -3,6 +3,7 @@ import {
   defineFeature,
   type FeatureDefinition,
   i18nKey,
+  type RoleAccessRule,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   DOCUMENT_DESIGNER_FEATURE,
@@ -18,12 +19,19 @@ import { DOCUMENT_DESIGNER_I18N } from "./i18n.ts";
 import { TEMPLATE_FACETS, templateColumns, templateRowActions } from "./list-definition.ts";
 
 const OVERVIEW_QUERY = "template-resolver:query:overview";
-const TENANT_ROLES = ["TenantAdmin", "SystemAdmin"] as const;
 
-export function createDocumentDesignerFeature(): FeatureDefinition {
+export type DocumentDesignerOptions = {
+  /** Roles besides SystemAdmin that see the tenant overview and the editors. Pass `templateEditAccess(tenantEditable)` of the template-resolver mount so the screens match the templates a tenant may edit. */
+  readonly access?: RoleAccessRule;
+};
+
+export function createDocumentDesignerFeature(
+  options: DocumentDesignerOptions = {},
+): FeatureDefinition {
+  const editorRoles = [...new Set(["SystemAdmin", ...(options.access?.roles ?? [])])];
   return defineFeature(DOCUMENT_DESIGNER_FEATURE, (r) => {
     r.describe(
-      "Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, managed-pages. Client: `documentDesignerClient()`; admin-shell lists the navs with `includeDocumentDesigner`.",
+      "Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, managed-pages. Client: `documentDesignerClient()`; admin-shell lists the navs with `includeDocumentDesigner`. The tenant overview and the editors are for SystemAdmin only; the `access` option adds roles (normally `templateEditAccess(tenantEditable)` of the template-resolver mount), and the server still enforces per template which of them may save.",
     );
     r.uiHints({
       displayLabel: "Documents · Template Designer",
@@ -45,14 +53,14 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
       searchPlaceholder: i18nKey("documentDesigner.search"),
       pagination: "pages",
       defaultSort: { field: "modifiedAt", dir: "desc" },
-      access: { roles: access.roles(...TENANT_ROLES) },
+      access: { roles: access.roles(...editorRoles) },
     });
     r.nav({
       id: TEMPLATES_NAV_ID,
       label: "document-designer:nav.templates",
       icon: "file",
       screen: `${DOCUMENT_DESIGNER_FEATURE}:screen:${TEMPLATES_SCREEN_ID}`,
-      access: { roles: access.roles(...TENANT_ROLES) },
+      access: { roles: access.roles(...editorRoles) },
       order: 15,
     });
 
@@ -84,7 +92,7 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
       renderer: { react: { __component: LAYOUT_EDITOR_SCREEN_ID } },
       description: "documentDesigner.screen.layoutEditor.description",
       dormant: true,
-      access: { roles: access.roles(...TENANT_ROLES) },
+      access: { roles: access.roles(...editorRoles) },
     });
 
     r.screen({
@@ -94,7 +102,7 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
       description:
         "Editor for one PDF template: edit the body, print a preview through the print service, review tenant customisations and export the template as a bundle.",
       dormant: true,
-      access: { roles: access.roles(...TENANT_ROLES) },
+      access: { roles: access.roles(...editorRoles) },
     });
 
     // kumiko-lint-ignore app-feature-structure Board-2/3 mail editor (placeholder rail, chip editors, live preview, test mail) has no declarative screen type
@@ -104,7 +112,7 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
       renderer: { react: { __component: MAIL_EDITOR_SCREEN_ID } },
       description: "documentDesigner.screen.mailEditor.description",
       dormant: true,
-      access: { roles: access.roles(...TENANT_ROLES) },
+      access: { roles: access.roles(...editorRoles) },
     });
   });
 }

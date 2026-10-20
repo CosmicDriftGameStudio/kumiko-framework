@@ -239,7 +239,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "auth.mfa.setup.intro":
     "Scannen Sie den QR-Code mit einer Authenticator-App wie Google Authenticator oder 1Password.",
   "mail-foundation.provider.description":
-    "Ohne eigenen Server verschickt die Plattform die Mails. Setzen Sie die Auswahl zurück, um dorthin zurückzukehren.",
+    "Legen Sie fest, über wen Ihre E-Mails verschickt werden. Der Plattform-Versand braucht keine eigenen Einstellungen.",
   "mail-transport-smtp.settings.description":
     "Die Zugangsdaten bekommen Sie von Ihrem Mail-Anbieter, zum Beispiel Brevo, Postmark, Amazon SES oder Ihrem eigenen Server.",
   "mail-transport-smtp.port.description":

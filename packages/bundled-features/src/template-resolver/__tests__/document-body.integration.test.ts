@@ -27,6 +27,9 @@ const agent = createTestUser({ id: 3, roles: ["Agent"], tenantId: testTenantId(3
 const SNIPPETS_SET = collectionHandlerName("reply-snippets");
 
 const feature = createTemplateResolverFeature({
+  tenantEditable: [
+    { kind: "document-pdf", slug: "tenant-evil", access: { roles: ["TenantAdmin"] } },
+  ],
   collections: [
     {
       id: "reply-snippets",

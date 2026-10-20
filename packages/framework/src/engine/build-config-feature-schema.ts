@@ -90,6 +90,10 @@ const PROVIDER_PANEL_TITLE_ENTRY: TranslationEntry = {
   es: "Proveedor",
 };
 const PROVIDER_SECTION_TITLE_KEY = "config.settings.provider";
+// The empty option of a provider select means "no own provider, the platform handles it". A selector
+// names it through `<field label key>.platformDefault`, else this generic text applies.
+const PLATFORM_DEFAULT_LABEL_SUFFIX = ".platformDefault";
+const PLATFORM_DEFAULT_FALLBACK_KEY = "config.settings.provider.platformDefault";
 const SECRETS_SECTION_DESCRIPTION_KEY = "config.secrets.description";
 
 const audienceNavShortId = (scope: ConfigScope): string => `audience-${scope}`;
@@ -346,8 +350,8 @@ function buildFeatureNav(
   };
 }
 
-// One configEdit screen + child-nav per feature; a tenant-scope selector owner
-// becomes a dashboard instead and its gated plugins get no entries of their own.
+// One configEdit screen + child-nav per feature; a tenant-scope selector owner folds its
+// gated plugins into its own screen (a dashboard when it carries extra panels).
 function buildFeatureScreensAndNavs(
   scope: ConfigScope,
   visible: readonly ScopedKey[],
@@ -369,7 +373,7 @@ function buildFeatureScreensAndNavs(
       out.navs.push(buildFeatureNav(scope, feature, ordered, access, hub.declaredTranslationKeys));
       continue;
     }
-    const ownerHub = buildSelectorOwnerDashboard(
+    const ownerHub = buildSelectorOwnerScreens(
       feature,
       ordered,
       access,
@@ -407,7 +411,9 @@ function assertUniquePanelIds(
 // One form for the provider and the settings of every provider: a single save writes
 // all of it, so switching sections can't drop typed input. Each plugin's fields are
 // shown only while its provider is picked in the form; hidden fields are not saved.
-function buildSelectorOwnerDashboard(
+// Without extra panels the form is the owner's screen itself; with panels it sits
+// chromeless in a dashboard.
+function buildSelectorOwnerScreens(
   ownerGroup: string,
   ownerKeys: readonly MaskedKey[],
   ownerAccess: AccessRule,
@@ -420,18 +426,19 @@ function buildSelectorOwnerDashboard(
   access: AccessRule;
   translations: Record<string, TranslationEntry>;
 } {
-  const selectionScreenId = `${ownerGroup}-tenant-selection`;
+  const hasPanels = ownerPanels.length > 0;
+  const selectionScreenId = hasPanels ? `${ownerGroup}-tenant-selection` : `${ownerGroup}-tenant`;
   const form = new ProviderFormBuilder(
     selectionScreenId,
     buildScreen(selectionScreenId, "tenant", ownerGroup, ownerKeys, ownerAccess, hub, {
       description: EXTENSION_SELECTOR_HINT_KEY,
-      sectionTitle: PROVIDER_SECTION_TITLE_KEY,
+      ...(hasPanels && { sectionTitle: PROVIDER_SECTION_TITLE_KEY }),
     }),
   );
   const accessRules: (AccessRule | undefined)[] = [ownerAccess];
   const translations: Record<string, TranslationEntry> = {};
 
-  translations[`screen:${selectionScreenId}.title`] = PROVIDER_PANEL_TITLE_ENTRY;
+  if (hasPanels) translations[`screen:${selectionScreenId}.title`] = PROVIDER_PANEL_TITLE_ENTRY;
   Object.assign(translations, providerOptionTranslations(form.base, hub));
 
   for (const plugin of plugins) {
@@ -466,7 +473,9 @@ function buildSelectorOwnerDashboard(
   }
 
   const access = unionAccessRules(accessRules);
-  const selectionScreen: ConfigEditScreenDefinition = { ...form.build(access), dormant: true };
+  const providerForm = form.build(access);
+  if (!hasPanels) return { screens: [providerForm], access, translations };
+  const selectionScreen: ConfigEditScreenDefinition = { ...providerForm, dormant: true };
   const dashboard: DashboardScreenDefinition = {
     id: `${ownerGroup}-tenant`,
     type: "dashboard",
@@ -1030,6 +1039,15 @@ function providerOptionTranslations(
   for (const [fieldId, qn] of Object.entries(selectionScreen.configKeys)) {
     const featureByPluginId = hub.selectorOptionFeatures.get(qn);
     if (featureByPluginId === undefined) continue;
+    const fieldLabelTranslationKey = selectionScreen.fieldLabels?.[fieldId];
+    const platformDefaultLabel =
+      (fieldLabelTranslationKey !== undefined
+        ? hub.translationsByKey.get(`${fieldLabelTranslationKey}${PLATFORM_DEFAULT_LABEL_SUFFIX}`)
+        : undefined) ?? hub.translationsByKey.get(PLATFORM_DEFAULT_FALLBACK_KEY);
+    if (platformDefaultLabel !== undefined) {
+      out[`${fieldLabelKey(SETTINGS_HUB_FEATURE, CONFIG_EDIT_ENTITY, fieldId)}:option:`] =
+        platformDefaultLabel;
+    }
     for (const [pluginId, feature] of featureByPluginId) {
       const label = hub.translationsByKey.get(`${feature}.settings`);
       if (label === undefined) continue;
@@ -1047,7 +1065,12 @@ function deriveField(
   fieldIdOf: (k: MaskedKey) => string,
 ): FieldDefinition {
   const def = key.def;
-  if (selectorPluginIds !== undefined) return createSelectField({ options: selectorPluginIds });
+  if (selectorPluginIds !== undefined) {
+    return createSelectField({
+      options: selectorPluginIds.length > 0 ? ["", ...selectorPluginIds] : selectorPluginIds,
+      display: "radio",
+    });
+  }
   switch (def.type) {
     case "number":
       return createNumberField({

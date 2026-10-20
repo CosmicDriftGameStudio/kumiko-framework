@@ -466,6 +466,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Choisissez un fournisseur. Ses paramètres apparaissent ci-dessous et sont enregistrés avec lui.",
   "config.settings.provider": "Fournisseur",
+  "config.settings.provider.platformDefault": "Plateforme (par défaut)",
   "config.settings.system": "Plateforme",
   "config.settings.tenant": "Organisation",
   "config.settings.title": "Paramètres",
@@ -1214,6 +1215,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Ce lien est invalide ou a expiré. Utilisez le lien de désabonnement d'un e-mail plus récent.",
   "templateResolver.errors.systemOnlyTemplate":
     "Seule la plateforme gère ce modèle ; il ne peut pas être remplacé par organisation.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Seule la plateforme peut modifier ce modèle.",
   "templateResolver.errors.template.targetExists":
     "Un modèle existe déjà pour la langue « {detail} » ; écrasez-le explicitement pour le remplacer.",
   "templateResolver.warnings.resourceNotUploaded": "Image non téléversée : {detail}",
@@ -1845,13 +1848,14 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Trop d'e-mails de test, veuillez réessayer plus tard.",
   "screen:mail-foundation-tenant.title": "Envoi d'e-mails",
   "mail-foundation.settings": "Envoi d'e-mails",
-  "mail-foundation.provider": "Serveur de messagerie propre",
+  "mail-foundation.provider": "Envoyer via",
   "mail-foundation.provider.description":
-    "Sans serveur propre, la plateforme envoie les e-mails. Réinitialisez le choix pour revenir à ce fonctionnement.",
+    "Choisissez qui envoie vos e-mails. L'envoi par la plateforme ne demande aucun réglage propre.",
+  "mail-foundation.provider.platformDefault": "Envoi par la plateforme (par défaut)",
   "mail-transport-inmemory.settings": "Boîte de test (en mémoire)",
-  "mail-transport-smtp.settings": "Serveur SMTP",
-  "screen:mail-foundation-tenant-selection.title": "Fournisseur",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Serveur SMTP",
+  "mail-transport-smtp.settings": "Serveur SMTP propre",
+  "config:entity:__config-edit__:field:provider:option:": "Envoi par la plateforme (par défaut)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Serveur SMTP propre",
   "mail-transport-smtp.settings.secrets": "Connexion SMTP",
   "mail-transport-smtp.settings.description":
     "Les informations de connexion proviennent de votre fournisseur de messagerie, par exemple Brevo, Postmark, Amazon SES ou votre propre serveur.",

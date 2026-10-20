@@ -39,6 +39,23 @@ describe("composeStacks", () => {
     ]);
   });
 
+  test("composeRendererStack({ templateResolver }) reaches the template-resolver write access", () => {
+    const upsertTenantRoles = (features: readonly FeatureDefinition[]): readonly string[] =>
+      rolesOf(
+        features.find((f) => f.name === "template-resolver")?.writeHandlers["upsert-tenant"]
+          ?.access,
+      );
+    const unlocked = composeRendererStack({
+      templateResolver: {
+        tenantEditable: [
+          { kind: "mail", slug: "status-update", access: { roles: ["TenantAdmin"] } },
+        ],
+      },
+    });
+    expect(upsertTenantRoles(unlocked)).toContain("TenantAdmin");
+    expect(upsertTenantRoles(composeRendererStack())).toEqual(["SystemAdmin"]);
+  });
+
   test("composePagesStack → legal-pages (template-resolver comes from the renderer stack)", () => {
     expect(stackFeatureNames(composePagesStack())).toEqual(["legal-pages"]);
   });

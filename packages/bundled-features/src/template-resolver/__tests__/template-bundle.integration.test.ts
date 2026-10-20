@@ -15,6 +15,20 @@ import {
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "document-pdf"],
+  [
+    "bundle-doc",
+    "too-many-locales",
+    "html",
+    "bundle-system-doc",
+    "bundle-system-export",
+    "bundle-publish-gate",
+    "bundle-denied",
+  ],
+);
 
 const tenantA = createTestUser({ id: 2, roles: ["TenantAdmin"], tenantId: testTenantId(10) });
 const tenantB = createTestUser({ id: 3, roles: ["TenantAdmin"], tenantId: testTenantId(11) });
@@ -47,7 +61,10 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createFilesFeature(), createTemplateResolverFeature()],
+    features: [
+      createFilesFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
+    ],
     files: { storageProvider: createInMemoryFileProvider() },
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);

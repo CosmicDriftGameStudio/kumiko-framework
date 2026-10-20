@@ -1,6 +1,6 @@
 export const MAIL_TRANSPORT_SMTP_I18N = {
   // Also the option label of mail-foundation's provider select.
-  "mail-transport-smtp.settings": { en: "SMTP server" },
+  "mail-transport-smtp.settings": { en: "Own SMTP server" },
   "mail-transport-smtp.settings.secrets": { en: "SMTP sign-in" },
   "mail-transport-smtp.settings.description": {
     en: "The connection details come from your mail provider, for example Brevo, Postmark, Amazon SES or your own server.",

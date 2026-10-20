@@ -11,6 +11,7 @@ import { createTemplateResolverFeature } from "../feature.ts";
 import type { LayoutSourceResponse, OverviewResponse } from "../index.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const MAIL_SLUG = "billing-ov:notify:invoice-issued";
 const REMINDER_SLUG = "billing-ov:notify:payment-reminder";
@@ -40,6 +41,11 @@ const billing = defineFeature("billing-ov", (r) => {
 });
 
 const systemAdmin = TestUsers.systemAdmin;
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "document-pdf", "mail-layout", "pdf-layout"],
+  [MAIL_SLUG, PDF_SLUG, REMINDER_SLUG, "default"],
+);
+
 const adminA = createTestUser({ id: 2, roles: ["TenantAdmin"], tenantId: testTenantId(10) });
 const adminB = createTestUser({ id: 3, roles: ["TenantAdmin"], tenantId: testTenantId(20) });
 
@@ -82,7 +88,9 @@ async function layoutSource(user: typeof adminA, payload: Record<string, unknown
 }
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature(), billing] });
+  stack = await setupTestStack({
+    features: [createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }), billing],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   const write = (handler: string, payload: Record<string, unknown>, user: typeof adminA) =>
     stack.http.writeOk(handler, payload, user);

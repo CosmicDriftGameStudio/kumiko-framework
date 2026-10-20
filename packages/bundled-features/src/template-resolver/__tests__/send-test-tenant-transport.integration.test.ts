@@ -38,6 +38,7 @@ import { templateResourceEntity } from "../table.ts";
 
 const LOCALE = "en";
 const TENANT_ROUTED_SLUG = "status-mailer:notify:incident";
+const STANDALONE_DRAFT_SLUG = "status-mailer:mail:standalone-draft";
 const APP_ROUTED_SLUG = "status-mailer:notify:account-notice";
 const appTransport = createInMemoryTransport();
 const addressOf = (userId: string): string => `${userId}@send-test.test`;
@@ -65,7 +66,11 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({
+        tenantEditable: [TENANT_ROUTED_SLUG, APP_ROUTED_SLUG, STANDALONE_DRAFT_SLUG].map(
+          (slug) => ({ kind: "mail", slug, access: { roles: ["TenantAdmin"] } }),
+        ),
+      }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
@@ -139,7 +144,7 @@ describe("template-resolver :: send-test through the notification's transport", 
     await stack.http.writeOk(
       TemplateResolverHandlers.sendTest,
       {
-        slug: "status-mailer:mail:standalone-draft",
+        slug: STANDALONE_DRAFT_SLUG,
         locale: LOCALE,
         content: "<p>Draft body.</p>",
         meta: { subject: "Draft" },

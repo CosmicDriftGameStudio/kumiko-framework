@@ -10,6 +10,9 @@ import * as z from "zod";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(["mail"], ["gate-mailer:notify:hello"]);
 
 const mailer = defineFeature("gate-mailer", (r) => {
   r.writeHandler({
@@ -36,7 +39,9 @@ const tenantAdmin = createTestUser({ id: 2, roles: ["TenantAdmin"], tenantId: te
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature(), mailer] });
+  stack = await setupTestStack({
+    features: [createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }), mailer],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
 });
 

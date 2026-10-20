@@ -22,6 +22,7 @@ import {
   SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
   TemplateResolverQueries,
+  type TenantEditableTemplate,
   templateResourceEntity,
   templateResourcesTable,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -44,6 +45,11 @@ import { seedSystemMailLayout } from "../seeding";
 localeDe();
 
 const SLUG = "mail-demo:notify:welcome";
+const TENANT_EDITABLE: TenantEditableTemplate[] = [
+  { kind: "mail", slug: SLUG, access: { roles: ["TenantAdmin"] } },
+  { kind: "mail-layout", slug: "default", access: { roles: ["TenantAdmin"] } },
+];
+
 const LOCALE = "de";
 
 const mailDemo = defineFeature("mail-demo", (r) => {
@@ -99,7 +105,7 @@ let plugin: RendererPlugin;
 beforeAll(async () => {
   stack = await setupAppTestStack(
     [
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       mailDemo,

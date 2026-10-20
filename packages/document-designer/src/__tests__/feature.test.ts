@@ -17,11 +17,30 @@ describe("document-designer feature", () => {
     expect(() => validateBoot([createDocumentDesignerFeature()])).toThrow();
   });
 
-  test("the overview is a tenant-admin screen and the platform overview is system-admin only", () => {
-    const registry = createRegistry(features);
-    expect(registry.getScreen("document-designer:screen:templates")?.access).toEqual({
-      roles: ["TenantAdmin", "SystemAdmin"],
+  test("the tenant screens and navs are SystemAdmin only by default and follow the access option", () => {
+    const tenantRules = (registry: ReturnType<typeof createRegistry>) =>
+      [
+        registry.getScreen("document-designer:screen:templates")?.access,
+        registry.getNav("document-designer:nav:templates")?.access,
+        registry.getScreen("document-designer:screen:layout-editor")?.access,
+        registry.getScreen("document-designer:screen:mail-editor")?.access,
+        registry.getScreen(`document-designer:screen:${PDF_TEMPLATE_EDITOR_SCREEN_ID}`)?.access,
+      ].map((rule) => rule?.roles);
+    expect(
+      tenantRules(createRegistry(features)).every((r) => r?.length === 1 && r[0] === "SystemAdmin"),
+    ).toBe(true);
+    const opened = createRegistry([
+      createTemplateResolverFeature(),
+      createDocumentDesignerFeature({ access: { roles: ["TenantAdmin"] } }),
+    ]);
+    for (const roles of tenantRules(opened)) expect(roles).toEqual(["SystemAdmin", "TenantAdmin"]);
+    expect(opened.getScreen("document-designer:screen:platform-templates")?.access).toEqual({
+      roles: ["SystemAdmin"],
     });
+  });
+
+  test("the platform overview is system-admin only", () => {
+    const registry = createRegistry(features);
     expect(registry.getScreen("document-designer:screen:platform-templates")?.access).toEqual({
       roles: ["SystemAdmin"],
     });

@@ -37,6 +37,33 @@ import * as z from "zod";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail", "document-pdf"],
+  [
+    "upload-no-tx",
+    "bundle-no-tx",
+    "copy-no-tx",
+    "copy-tenant-scope",
+    "copy-target-exists",
+    "svg-nothing",
+    "override-nothing",
+    "system-no-upload",
+    "bundle-bad-locale",
+    "bundle-bad-meta",
+    "bundle-attachment-on-document",
+    "release-upload",
+    "release-bundle",
+    "copy-release",
+    "orchestrated-upload",
+    "orchestrated-bundle",
+    "switched-upload",
+    "switched-bundle",
+    "nested-upload",
+    "nested-bundle",
+  ],
+);
 
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -202,7 +229,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createFilesFeature(),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       fixtureFeature,
       switchFeature,
     ],
@@ -513,7 +540,7 @@ describe("a failure before the transaction stores nothing", () => {
       tenantAAdmin,
     );
 
-    expect(err.httpStatus).toBe(404);
+    expect(err.httpStatus).toBe(403);
     await expectUnchanged(before);
   });
 

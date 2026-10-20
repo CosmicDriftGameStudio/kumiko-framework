@@ -246,7 +246,11 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createManagedPagesFeature({ resolveApexTenant: () => null }),
-      createTemplateResolverFeature(),
+      createTemplateResolverFeature({
+        tenantEditable: [
+          { kind: "document-pdf", slug: "invoice", access: { roles: ["TenantAdmin"] } },
+        ],
+      }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createRendererPuppeteerClientFeature(),

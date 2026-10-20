@@ -457,6 +457,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "config.settings.extensionSelectorHint":
     "Scegli un provider. Le sue impostazioni compaiono qui sotto e vengono salvate insieme ad esso.",
   "config.settings.provider": "Provider",
+  "config.settings.provider.platformDefault": "Piattaforma (predefinito)",
   "config.settings.system": "Piattaforma",
   "config.settings.tenant": "Organizzazione",
   "config.settings.title": "Impostazioni",
@@ -1202,6 +1203,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Questo link non è valido o è scaduto. Usa il link per annullare l'iscrizione di un'e-mail più recente.",
   "templateResolver.errors.systemOnlyTemplate":
     "Solo la piattaforma gestisce questo modello; non può essere sostituito per singola organizzazione.",
+  "templateResolver.errors.templateNotTenantEditable":
+    "Solo la piattaforma può modificare questo modello.",
   "templateResolver.errors.template.targetExists":
     "Esiste già un modello per la lingua «{detail}»; sovrascrivilo esplicitamente per sostituirlo.",
   "templateResolver.warnings.resourceNotUploaded": "Immagine non caricata: {detail}",
@@ -1825,13 +1828,14 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.rateLimited": "Troppe e-mail di prova, riprova più tardi.",
   "screen:mail-foundation-tenant.title": "Invio delle e-mail",
   "mail-foundation.settings": "Invio delle e-mail",
-  "mail-foundation.provider": "Server di posta proprio",
+  "mail-foundation.provider": "Invia tramite",
   "mail-foundation.provider.description":
-    "Senza un server proprio, le e-mail vengono inviate dalla piattaforma. Reimposta la scelta per tornare a questa modalità.",
+    "Scegli chi invia le tue e-mail. L'invio dalla piattaforma non richiede impostazioni proprie.",
+  "mail-foundation.provider.platformDefault": "Invio dalla piattaforma (predefinito)",
   "mail-transport-inmemory.settings": "Casella di prova (in memoria)",
-  "mail-transport-smtp.settings": "Server SMTP",
-  "screen:mail-foundation-tenant-selection.title": "Provider",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Server SMTP",
+  "mail-transport-smtp.settings": "Server SMTP proprio",
+  "config:entity:__config-edit__:field:provider:option:": "Invio dalla piattaforma (predefinito)",
+  "config:entity:__config-edit__:field:provider:option:smtp": "Server SMTP proprio",
   "mail-transport-smtp.settings.secrets": "Accesso SMTP",
   "mail-transport-smtp.settings.description":
     "I dati di connessione provengono dal tuo provider di posta, ad esempio Brevo, Postmark, Amazon SES o il tuo server.",

@@ -126,6 +126,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.noDraft": "There is no draft to discard.",
     "templateResolver.errors.systemOnlyTemplate":
       "Only the platform maintains this template; it cannot be overridden per tenant.",
+    "templateResolver.errors.templateNotTenantEditable":
+      "Only the platform may edit this template.",
     "templateResolver.errors.template.invalidMeta": "The template settings are invalid.",
     "templateResolver.errors.template.meta.subject.required": "The subject is missing.",
     "templateResolver.errors.template.meta.subject.invalid":

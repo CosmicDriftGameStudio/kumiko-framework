@@ -33,6 +33,30 @@ import sharp from "sharp";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(
+  ["mail"],
+  [
+    "res-basic",
+    "res-wide",
+    "res-half",
+    "res-big",
+    "res-svg",
+    "res-pdf",
+    "res-foreign-user",
+    "res-bound",
+    "res-foreign-tenant",
+    "res-system-guard",
+    "res-other-tenant",
+    "res-override-denied",
+    "res-system-ok",
+    "res-remove",
+    "res-remove-guard",
+    "res-upsert-create",
+    "res-upsert-keeps",
+  ],
+);
 
 const noteEntity = createEntity({
   table: "resource_test_notes",
@@ -67,7 +91,11 @@ let stack: TestStack;
 beforeAll(async () => {
   patchFileInstanceofForBunTest();
   stack = await setupTestStack({
-    features: [createFilesFeature(), createTemplateResolverFeature(), noteFeature],
+    features: [
+      createFilesFeature(),
+      createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
+      noteFeature,
+    ],
     files: { storageProvider: provider },
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
@@ -330,7 +358,7 @@ describe("template-resolver :: resource-upload", () => {
       { sourceFileRefId, templateId: systemTemplateId, key: "logo" },
       tenantA_Admin,
     );
-    expect(err.httpStatus).toBe(404);
+    expect(err.httpStatus).toBe(403);
     expect(await linkedResourcesOf(systemTemplateId, systemAdmin)).toEqual({});
   });
 
@@ -342,7 +370,7 @@ describe("template-resolver :: resource-upload", () => {
       { sourceFileRefId, templateId: foreignTemplateId, key: "logo" },
       tenantA_Admin,
     );
-    expect(err.httpStatus).toBe(404);
+    expect(err.httpStatus).toBe(403);
     expect(await linkedResourcesOf(foreignTemplateId, tenantB_Admin)).toEqual({});
   });
 
@@ -436,7 +464,7 @@ describe("template-resolver :: resource-remove and upserts", () => {
       { templateId: systemTemplateId, key: "logo" },
       tenantA_Admin,
     );
-    expect(err.httpStatus).toBe(404);
+    expect(err.httpStatus).toBe(403);
   });
 
   test("upsertTenant ignores a linkedResources payload on create", async () => {

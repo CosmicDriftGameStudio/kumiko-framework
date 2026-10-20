@@ -11,6 +11,9 @@ import { createTemplateResolverFeature } from "../feature.ts";
 import { TemplateResolverHandlers } from "../qualified-names.ts";
 import { seedSystemTemplate } from "../seeding.ts";
 import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const TENANT_EDITABLE = tenantEditableTemplates(["mail", "ai-prompt"], ["seed-context-welcome"]);
 
 // Runs findTemplateResources against the table template-resolver really
 // builds, so a query that assumes a column the entity does not have fails here.
@@ -19,7 +22,9 @@ let stack: TestStack;
 const tenantAdmin = createTestUser({ id: 2, roles: ["TenantAdmin"], tenantId: testTenantId(31) });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature()] });
+  stack = await setupTestStack({
+    features: [createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE })],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   for (const locale of ["en", "de"]) {
     await seedSystemTemplate(stack.db, {
