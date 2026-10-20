@@ -36,6 +36,8 @@ function defineConsumerWrite(name: string, description: string, transition: Cons
     description,
     schema: consumerTargetSchema,
     access: { roles: ["SystemAdmin"] },
+    // Operator recovery for people only; skip drops an event for good.
+    agent: { expose: false },
     handler: async (event, ctx) => {
       if (!ctx.systemDb) {
         throw new InternalError({
